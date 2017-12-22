@@ -381,7 +381,7 @@ public class CppCompileAction extends AbstractAction
     // discarded as orphans.
     // This is strictly better than marking all transitive modules as inputs, which would also
     // effectively disable orphan detection for .pcm files.
-    if (CppFileTypes.CPP_MODULE.matches(outputFile.getFilename())) {
+    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       return ImmutableSet.of(outputFile);
     }
     return super.getMandatoryOutputs();
@@ -447,7 +447,7 @@ public class CppCompileAction extends AbstractAction
 
     if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
-      if (CppFileTypes.CPP_MODULE.matches(sourceFile.getFilename())) {
+      if (sourceFile.isFileType(CppFileTypes.CPP_MODULE)) {
         usedModules = ImmutableSet.of(sourceFile);
         initialResultSet.add(sourceFile);
       } else {
@@ -485,7 +485,7 @@ public class CppCompileAction extends AbstractAction
           value, "Owner %s of %s not in graph %s", artifact.getArtifactOwner(), artifact, skyKey);
       // We can get the generating action here because #canRemoveAfterExecution is overridden.
       Preconditions.checkState(
-          CppFileTypes.CPP_MODULE.matches(artifact.getFilename()),
+          artifact.isFileType(CppFileTypes.CPP_MODULE),
           "Non-module? %s (%s %s)",
           artifact,
           this,
@@ -493,7 +493,7 @@ public class CppCompileAction extends AbstractAction
       CppCompileAction action =
           (CppCompileAction) value.getGeneratingActionDangerousReadJavadoc(artifact);
       for (Artifact input : action.getInputs()) {
-        if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+        if (input.isFileType(CppFileTypes.CPP_MODULE)) {
           additionalModules.add(input);
         }
       }
@@ -631,7 +631,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Artifact getMainIncludeScannerSource() {
-    return CppFileTypes.CPP_MODULE_MAP.matches(getSourceFile().getPath())
+    return getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)
         ? Iterables.getFirst(context.getHeaderModuleSrcs(), null)
         : getSourceFile();
   }
@@ -639,7 +639,7 @@ public class CppCompileAction extends AbstractAction
   @Override
   public Collection<Artifact> getIncludeScannerSources() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (CppFileTypes.CPP_MODULE_MAP.matches(getSourceFile().getPath())) {
+    if (getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)) {
       // If this is an action that compiles the header module itself, the source we build is the
       // module map, and we need to include-scan all headers that are referenced in the module map.
       // We need to do include scanning as long as we want to support building code bases that are
@@ -702,7 +702,7 @@ public class CppCompileAction extends AbstractAction
   public boolean canRemoveAfterExecution() {
     // Module-generating actions are needed because the action may be retrieved in
     // #discoverInputsStage2.
-    return !CppFileTypes.CPP_MODULE.matches(getPrimaryOutput().getFilename());
+    return !getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE);
   }
 
   @Override
@@ -962,7 +962,7 @@ public class CppCompileAction extends AbstractAction
       Iterable<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
     for (Artifact input : potentialModules) {
-      if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+      if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         usedModulePaths.add(input.getExecPathString());
       }
     }
@@ -1242,7 +1242,7 @@ public class CppCompileAction extends AbstractAction
    */
   private void ensureCoverageNotesFilesExist() throws ActionExecutionException {
     for (Artifact output : getOutputs()) {
-      if (CppFileTypes.COVERAGE_NOTES.matches(output.getFilename()) // ".gcno"
+      if (output.isFileType(CppFileTypes.COVERAGE_NOTES) // ".gcno"
           && !output.getPath().exists()) {
         try {
           FileSystemUtils.createEmptyFile(output.getPath());
@@ -1281,8 +1281,8 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    if (CppFileTypes.OBJC_SOURCE.matches(sourceFile.getExecPath())
-        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFile.getExecPath())) {
+    if (sourceFile.isFileType(CppFileTypes.OBJC_SOURCE)
+        || sourceFile.isFileType(CppFileTypes.OBJCPP_SOURCE)) {
       return "ObjcCompile";
     } else {
       return "CppCompile";

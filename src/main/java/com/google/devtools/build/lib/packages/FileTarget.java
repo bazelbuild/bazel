@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.util.FileType.HasFilename;
+import com.google.devtools.build.lib.util.FileType;
 import java.util.Set;
 
 /**
- * Common superclass for InputFile and OutputFile which provides implementation
- * for the file operations in common.
+ * Common superclass for InputFile and OutputFile which provides implementation for the file
+ * operations in common.
  */
-public abstract class FileTarget implements Target, HasFilename {
+public abstract class FileTarget implements Target, FileType.HasFileType {
   protected final Package pkg;
   protected final Label label;
 
@@ -37,7 +37,6 @@ public abstract class FileTarget implements Target, HasFilename {
     this.label = label;
   }
 
-  @Override
   public String getFilename() {
     return label.getName();
   }
@@ -55,6 +54,11 @@ public abstract class FileTarget implements Target, HasFilename {
   @Override
   public Package getPackage() {
     return pkg;
+  }
+
+  @Override
+  public String filePathForFileTypeMatcher() {
+    return getFilename();
   }
 
   @Override

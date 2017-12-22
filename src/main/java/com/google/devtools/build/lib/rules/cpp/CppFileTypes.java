@@ -42,44 +42,52 @@ public final class CppFileTypes {
   public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
 
   public static final FileType PIC_PREPROCESSED_C = FileType.of(".pic.i");
-  public static final FileType PREPROCESSED_C = new FileType() {
-      final String ext = ".i";
-      @Override
-      public boolean apply(String filename) {
-        return filename.endsWith(ext) && !PIC_PREPROCESSED_C.matches(filename);
-      }
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext);
-      }
-    };
+  public static final FileType PREPROCESSED_C =
+      new FileType() {
+        final String ext = ".i";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext) && !PIC_PREPROCESSED_C.matches(path);
+        }
+
+        @Override
+        public List<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
   public static final FileType PIC_PREPROCESSED_CPP = FileType.of(".pic.ii");
-  public static final FileType PREPROCESSED_CPP = new FileType() {
-      final String ext = ".ii";
-      @Override
-      public boolean apply(String filename) {
-        return filename.endsWith(ext) && !PIC_PREPROCESSED_CPP.matches(filename);
-      }
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext);
-      }
-    };
+  public static final FileType PREPROCESSED_CPP =
+      new FileType() {
+        final String ext = ".ii";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext) && !PIC_PREPROCESSED_CPP.matches(path);
+        }
+
+        @Override
+        public List<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
 
   public static final FileType ASSEMBLER_WITH_C_PREPROCESSOR = FileType.of(".S");
   public static final FileType PIC_ASSEMBLER = FileType.of(".pic.s");
-  public static final FileType ASSEMBLER = new FileType() {
-      final String ext = ".s";
-      @Override
-      public boolean apply(String filename) {
-        return (filename.endsWith(ext) && !PIC_ASSEMBLER.matches(filename))
-               || filename.endsWith(".asm");
-      }
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext, ".asm");
-      }
-    };
+  public static final FileType ASSEMBLER =
+      new FileType() {
+        final String ext = ".s";
+
+        @Override
+        public boolean apply(String path) {
+          return (path.endsWith(ext) && !PIC_ASSEMBLER.matches(path)) || path.endsWith(".asm");
+        }
+
+        @Override
+        public List<String> getExtensions() {
+          return ImmutableList.of(ext, ".asm");
+        }
+      };
 
   public static final FileType PIC_ARCHIVE = FileType.of(".pic.a");
   public static final FileType ARCHIVE =
@@ -87,9 +95,9 @@ public final class CppFileTypes {
         final List<String> extensions = ImmutableList.of(".a", ".lib");
 
         @Override
-        public boolean apply(String filename) {
+        public boolean apply(String path) {
           for (String ext : extensions) {
-            if (filename.endsWith(ext) && !PIC_ARCHIVE.matches(filename)) {
+            if (path.endsWith(ext) && !PIC_ARCHIVE.matches(path)) {
               return true;
             }
           }
@@ -103,30 +111,36 @@ public final class CppFileTypes {
       };
 
   public static final FileType ALWAYS_LINK_PIC_LIBRARY = FileType.of(".pic.lo");
-  public static final FileType ALWAYS_LINK_LIBRARY = new FileType() {
-      final String ext = ".lo";
-      @Override
-      public boolean apply(String filename) {
-        return filename.endsWith(ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(filename);
-      }
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext);
-      }
-    };
+  public static final FileType ALWAYS_LINK_LIBRARY =
+      new FileType() {
+        final String ext = ".lo";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(path);
+        }
+
+        @Override
+        public List<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
 
   public static final FileType PIC_OBJECT_FILE = FileType.of(".pic.o");
-  public static final FileType OBJECT_FILE = new FileType() {
-      final String ext = ".o";
-      @Override
-      public boolean apply(String filename) {
-        return filename.endsWith(ext) && !PIC_OBJECT_FILE.matches(filename);
-      }
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext);
-      }
-    };
+  public static final FileType OBJECT_FILE =
+      new FileType() {
+        final String ext = ".o";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext) && !PIC_OBJECT_FILE.matches(path);
+        }
+
+        @Override
+        public List<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
 
   // Minimized bitcode file emitted by the ThinLTO compile step and used just for LTO indexing.
   public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
@@ -144,19 +158,20 @@ public final class CppFileTypes {
   // libmylib.so.2 or libmylib.so.2.10.
   private static final Pattern VERSIONED_SHARED_LIBRARY_PATTERN =
      Pattern.compile("^.+\\.so(\\.\\d+)+$");
-  public static final FileType VERSIONED_SHARED_LIBRARY = new FileType() {
-      @Override
-      public boolean apply(String filename) {
-        // Because regex matching can be slow, we first do a quick digit check on the final
-        // character before risking the full-on regex match. This should eliminate the performance
-        // hit on practically every non-qualifying file type.
-        if (Character.isDigit(filename.charAt(filename.length() - 1))) {
-          return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(filename).matches();
-        } else {
-          return false;
+  public static final FileType VERSIONED_SHARED_LIBRARY =
+      new FileType() {
+        @Override
+        public boolean apply(String path) {
+          // Because regex matching can be slow, we first do a quick digit check on the final
+          // character before risking the full-on regex match. This should eliminate the performance
+          // hit on practically every non-qualifying file type.
+          if (Character.isDigit(path.charAt(path.length() - 1))) {
+            return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(path).matches();
+          } else {
+            return false;
+          }
         }
-      }
-    };
+      };
 
   public static final FileType COVERAGE_NOTES = FileType.of(".gcno");
   public static final FileType COVERAGE_DATA = FileType.of(".gcda");

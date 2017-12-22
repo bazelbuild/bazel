@@ -97,11 +97,10 @@ java_library(
 java_library(
     name = "base-util",
     srcs = [
-        "util/StringCanonicalizer.java",
         "util/VarInt.java",
     ],
+    exports = [":string_util"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
     ],
 )
@@ -161,19 +160,24 @@ java_library(
             "util/BlazeClock.java",
             "util/Clock.java",
             "util/ExitCode.java",
+            "util/FileType.java",
+            "util/FileTypeSet.java",
             "util/JavaClock.java",
             "util/OS.java",
             "util/ProcessUtils.java",
             "util/SingleLineFormatter.java",
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",
+            "util/StringUtil.java",
             "util/VarInt.java",
         ],
     ),
     exports = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
+        "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:string_util",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect",
     ],
@@ -192,6 +196,31 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "filetype",
+    srcs = [
+        "util/FileType.java",
+        "util/FileTypeSet.java",
+    ],
+    deps = [
+        ":string_util",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "string_util",
+    srcs = [
+        "util/StringCanonicalizer.java",
+        "util/StringUtil.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
     ],
 )
 

@@ -35,11 +35,11 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
- * A ConfiguredTarget for a source FileTarget.  (Generated files use a
- * subclass, OutputFileConfiguredTarget.)
+ * A ConfiguredTarget for a source FileTarget. (Generated files use a subclass,
+ * OutputFileConfiguredTarget.)
  */
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
-    implements FileType.HasFilename, LicensesProvider {
+    implements FileType.HasFileType, LicensesProvider {
 
   private final Artifact artifact;
   private final TransitiveInfoProviderMap providers;
@@ -78,9 +78,13 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   /**
    *  Returns the file name of this file target.
    */
-  @Override
   public String getFilename() {
     return getTarget().getFilename();
+  }
+
+  @Override
+  public String filePathForFileTypeMatcher() {
+    return getFilename();
   }
 
   @Override

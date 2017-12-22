@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.protobuf.CodedInputStream;
@@ -55,7 +56,7 @@ import java.util.Set;
 @javax.annotation.concurrent.Immutable
 @ThreadSafe
 public abstract class PathFragment
-    implements Comparable<PathFragment>, Serializable, SkylarkPrintable {
+    implements Comparable<PathFragment>, Serializable, SkylarkPrintable, FileType.HasFileType {
   private static final Helper HELPER =
       OS.getCurrent() == OS.WINDOWS ? WindowsPathFragment.HELPER : UnixPathFragment.HELPER;
 
@@ -749,6 +750,11 @@ public abstract class PathFragment
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(getPathString());
+  }
+
+  @Override
+  public String filePathForFileTypeMatcher() {
+    return getBaseName();
   }
 
   private static class PathFragmentCodec implements ObjectCodec<PathFragment> {

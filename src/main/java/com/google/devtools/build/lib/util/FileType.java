@@ -19,8 +19,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,19 +30,22 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public abstract class FileType implements Predicate<String> {
   // A special file type
-  public static final FileType NO_EXTENSION = new FileType() {
-      @Override
-      public boolean apply(String filename) {
-        return filename.lastIndexOf('.') == -1;
-      }
-  };
+  public static final FileType NO_EXTENSION =
+      new FileType() {
+        @Override
+        public boolean apply(String path) {
+          int lastSlashIndex = path.lastIndexOf('/');
+          return path.indexOf('.', lastSlashIndex + 1) == -1;
+        }
+      };
 
   public static FileType of(final String ext) {
     return new FileType() {
       @Override
-      public boolean apply(String filename) {
-        return filename.endsWith(ext);
+      public boolean apply(String path) {
+        return path.endsWith(ext);
       }
+
       @Override
       public List<String> getExtensions() {
         return ImmutableList.of(ext);
@@ -55,14 +56,15 @@ public abstract class FileType implements Predicate<String> {
   public static FileType of(final Iterable<String> extensions) {
     return new FileType() {
       @Override
-      public boolean apply(String filename) {
+      public boolean apply(String path) {
         for (String ext : extensions) {
-          if (filename.endsWith(ext)) {
+          if (path.endsWith(ext)) {
             return true;
           }
         }
         return false;
       }
+
       @Override
       public List<String> getExtensions() {
         return ImmutableList.copyOf(extensions);
@@ -79,12 +81,9 @@ public abstract class FileType implements Predicate<String> {
     return getExtensions().toString();
   }
 
-  /**
-   * Returns true if the the filename matches. The filename should be a basename (the filename
-   * component without a path) for performance reasons.
-   */
+  /** Returns true if the file matches. Subclasses are expected to handle a full path. */
   @Override
-  public abstract boolean apply(String filename);
+  public abstract boolean apply(String path);
 
   /**
    * Get a list of filename extensions this matcher handles. The first entry in the list (if
@@ -97,35 +96,29 @@ public abstract class FileType implements Predicate<String> {
     return ImmutableList.of();
   }
 
-  /** Return true if a file name is matched by the FileType */
-  public boolean matches(String filename) {
-    int slashIndex = filename.lastIndexOf('/');
-    if (slashIndex != -1) {
-      filename = filename.substring(slashIndex + 1);
-    }
-    return apply(filename);
+  /** Return true if a file path is matched by this FileType */
+  @Deprecated
+  public boolean matches(String path) {
+    return apply(path);
   }
 
-  /** Return true if a file referred by path is matched by the FileType */
-  public boolean matches(Path path) {
-    return apply(path.getBaseName());
-  }
-
-  /** Return true if a file referred by fragment is matched by the FileType */
-  public boolean matches(PathFragment fragment) {
-    return apply(fragment.getBaseName());
+  /** Return true if the item is matched by this FileType */
+  public boolean matches(HasFileType item) {
+    return apply(item.filePathForFileTypeMatcher());
   }
 
   // Check FileTypes
 
-  /**
-   * An interface for entities that have a filename.
-   */
-  public interface HasFilename {
+  /** An interface for entities that have a file type. */
+  public interface HasFileType {
     /**
-     * Returns the filename of this entity.
+     * Return a file path that ends with the file name.
+     *
+     * <p>The path will be used by {@link FileType} for matching. An example valid implementation
+     * could return the full path of the file, or just the file name, depending on what can
+     * efficiently be provided.
      */
-    String getFilename();
+    String filePathForFileTypeMatcher();
   }
 
   /**
@@ -133,12 +126,12 @@ public abstract class FileType implements Predicate<String> {
    *
    * <p>At least one FileType must be specified.
    */
-  public static <T extends HasFilename> boolean contains(final Iterable<T> items,
-      FileType... fileTypes) {
+  public static <T extends HasFileType> boolean contains(
+      final Iterable<T> items, FileType... fileTypes) {
     Preconditions.checkState(fileTypes.length > 0, "Must specify at least one file type");
     final FileTypeSet fileTypeSet = FileTypeSet.of(fileTypes);
     for (T item : items)  {
-      if (fileTypeSet.matches(item.getFilename())) {
+      if (fileTypeSet.matches(item.filePathForFileTypeMatcher())) {
         return true;
       }
     }
@@ -150,32 +143,31 @@ public abstract class FileType implements Predicate<String> {
    *
    * <p>At least one FileType must be specified.
    */
-  public static <T extends HasFilename> boolean contains(T item, FileType... fileTypes) {
-    return FileTypeSet.of(fileTypes).matches(item.getFilename());
+  public static <T extends HasFileType> boolean contains(T item, FileType... fileTypes) {
+    return FileTypeSet.of(fileTypes).matches(item.filePathForFileTypeMatcher());
   }
 
-
-  private static <T extends HasFilename> Predicate<T> typeMatchingPredicateFor(
+  private static <T extends HasFileType> Predicate<T> typeMatchingPredicateFor(
       final FileType matchingType) {
-    return item -> matchingType.matches(item.getFilename());
+    return item -> matchingType.matches(item.filePathForFileTypeMatcher());
   }
 
-  private static <T extends HasFilename> Predicate<T> typeMatchingPredicateFor(
+  private static <T extends HasFileType> Predicate<T> typeMatchingPredicateFor(
       final FileTypeSet matchingTypes) {
-    return item -> matchingTypes.matches(item.getFilename());
+    return item -> matchingTypes.matches(item.filePathForFileTypeMatcher());
   }
 
-  private static <T extends HasFilename> Predicate<T> typeMatchingPredicateFrom(
+  private static <T extends HasFileType> Predicate<T> typeMatchingPredicateFrom(
       final Predicate<String> fileTypePredicate) {
-    return item -> fileTypePredicate.apply(item.getFilename());
+    return item -> fileTypePredicate.apply(item.filePathForFileTypeMatcher());
   }
 
   /**
    * A filter for Iterable<? extends HasFileType> that returns only those whose FileType matches the
    * specified Predicate.
    */
-  public static <T extends HasFilename> Iterable<T> filter(final Iterable<T> items,
-      final Predicate<String> predicate) {
+  public static <T extends HasFileType> Iterable<T> filter(
+      final Iterable<T> items, final Predicate<String> predicate) {
     return Iterables.filter(items, typeMatchingPredicateFrom(predicate));
   }
 
@@ -183,8 +175,8 @@ public abstract class FileType implements Predicate<String> {
    * A filter for Iterable<? extends HasFileType> that returns only those of the specified file
    * types.
    */
-  public static <T extends HasFilename> Iterable<T> filter(final Iterable<T> items,
-      FileType... fileTypes) {
+  public static <T extends HasFileType> Iterable<T> filter(
+      final Iterable<T> items, FileType... fileTypes) {
     return filter(items, FileTypeSet.of(fileTypes));
   }
 
@@ -192,8 +184,8 @@ public abstract class FileType implements Predicate<String> {
    * A filter for Iterable<? extends HasFileType> that returns only those of the specified file
    * types.
    */
-  public static <T extends HasFilename> Iterable<T> filter(final Iterable<T> items,
-      FileTypeSet fileTypes) {
+  public static <T extends HasFileType> Iterable<T> filter(
+      final Iterable<T> items, FileTypeSet fileTypes) {
     return Iterables.filter(items, typeMatchingPredicateFor(fileTypes));
   }
 
@@ -201,8 +193,8 @@ public abstract class FileType implements Predicate<String> {
    * A filter for Iterable<? extends HasFileType> that returns only those of the specified file
    * type.
    */
-  public static <T extends HasFilename> Iterable<T> filter(final Iterable<T> items,
-      FileType fileType) {
+  public static <T extends HasFileType> Iterable<T> filter(
+      final Iterable<T> items, FileType fileType) {
     return Iterables.filter(items, typeMatchingPredicateFor(fileType));
   }
 
@@ -210,18 +202,17 @@ public abstract class FileType implements Predicate<String> {
    * A filter for Iterable<? extends HasFileType> that returns everything except the specified file
    * type.
    */
-  public static <T extends HasFilename> Iterable<T> except(final Iterable<T> items,
-      FileType fileType) {
+  public static <T extends HasFileType> Iterable<T> except(
+      final Iterable<T> items, FileType fileType) {
     return Iterables.filter(items, Predicates.not(typeMatchingPredicateFor(fileType)));
   }
-
 
   /**
    * A filter for List<? extends HasFileType> that returns only those of the specified file types.
    * The result is a mutable list, computed eagerly; see {@link #filter} for a lazy variant.
    */
-  public static <T extends HasFilename> List<T> filterList(final Iterable<T> items,
-      FileType... fileTypes) {
+  public static <T extends HasFileType> List<T> filterList(
+      final Iterable<T> items, FileType... fileTypes) {
     if (fileTypes.length > 0) {
       return filterList(items, FileTypeSet.of(fileTypes));
     } else {
@@ -233,11 +224,11 @@ public abstract class FileType implements Predicate<String> {
    * A filter for List<? extends HasFileType> that returns only those of the specified file type.
    * The result is a mutable list, computed eagerly.
    */
-  public static <T extends HasFilename> List<T> filterList(final Iterable<T> items,
-      final FileType fileType) {
+  public static <T extends HasFileType> List<T> filterList(
+      final Iterable<T> items, final FileType fileType) {
     List<T> result = new ArrayList<>();
     for (T item : items)  {
-      if (fileType.matches(item.getFilename())) {
+      if (fileType.matches(item.filePathForFileTypeMatcher())) {
         result.add(item);
       }
     }
@@ -248,11 +239,11 @@ public abstract class FileType implements Predicate<String> {
    * A filter for List<? extends HasFileType> that returns only those of the specified file types.
    * The result is a mutable list, computed eagerly.
    */
-  public static <T extends HasFilename> List<T> filterList(final Iterable<T> items,
-      final FileTypeSet fileTypeSet) {
+  public static <T extends HasFileType> List<T> filterList(
+      final Iterable<T> items, final FileTypeSet fileTypeSet) {
     List<T> result = new ArrayList<>();
     for (T item : items)  {
-      if (fileTypeSet.matches(item.getFilename())) {
+      if (fileTypeSet.matches(item.filePathForFileTypeMatcher())) {
         result.add(item);
       }
     }

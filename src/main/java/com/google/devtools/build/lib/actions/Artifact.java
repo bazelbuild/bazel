@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -48,67 +49,73 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * An Artifact represents a file used by the build system, whether it's a source
- * file or a derived (output) file. Not all Artifacts have a corresponding
- * FileTarget object in the <code>build.lib.packages</code> API: for example,
- * low-level intermediaries internal to a given rule, such as a Java class files
- * or C++ object files. However all FileTargets have a corresponding Artifact.
+ * An Artifact represents a file used by the build system, whether it's a source file or a derived
+ * (output) file. Not all Artifacts have a corresponding FileTarget object in the <code>
+ * build.lib.packages</code> API: for example, low-level intermediaries internal to a given rule,
+ * such as a Java class files or C++ object files. However all FileTargets have a corresponding
+ * Artifact.
  *
- * <p>In any given call to SkyframeExecutor#buildArtifacts(), no two Artifacts in the
- * action graph may refer to the same path.
+ * <p>In any given call to SkyframeExecutor#buildArtifacts(), no two Artifacts in the action graph
+ * may refer to the same path.
  *
- * <p>Artifacts generally fall into two classifications, source and derived, but
- * there exist a few other cases that are fuzzy and difficult to classify. The
- * following cases exist:
+ * <p>Artifacts generally fall into two classifications, source and derived, but there exist a few
+ * other cases that are fuzzy and difficult to classify. The following cases exist:
+ *
  * <ul>
- * <li>Well-formed source Artifacts will have null generating Actions and a root
- * that is orthogonal to execRoot. (With the root coming from the package path.)
- * <li>Well-formed derived Artifacts will have non-null generating Actions, and
- * a root that is below execRoot.
- * <li>Symlinked include source Artifacts under the output/include tree will
- * appear to be derived artifacts with null generating Actions.
- * <li>Some derived Artifacts, mostly in the genfiles tree and mostly discovered
- * during include validation, will also have null generating Actions.
+ *   <li>Well-formed source Artifacts will have null generating Actions and a root that is
+ *       orthogonal to execRoot. (With the root coming from the package path.)
+ *   <li>Well-formed derived Artifacts will have non-null generating Actions, and a root that is
+ *       below execRoot.
+ *   <li>Symlinked include source Artifacts under the output/include tree will appear to be derived
+ *       artifacts with null generating Actions.
+ *   <li>Some derived Artifacts, mostly in the genfiles tree and mostly discovered during include
+ *       validation, will also have null generating Actions.
  * </ul>
  *
- * In the usual case, an Artifact represents a single file. However, an Artifact may
- * also represent the following:
+ * In the usual case, an Artifact represents a single file. However, an Artifact may also represent
+ * the following:
+ *
  * <ul>
- * <li>A TreeArtifact, which is a directory containing a tree of unknown {@link Artifact}s.
- * In the future, Actions will be able to examine these files as inputs and declare them as outputs
- * at execution time, but this is not yet implemented. This is used for Actions where
- * the inputs and/or outputs might not be discoverable except during Action execution.
- * <li>A directory of unknown contents, but not a TreeArtifact.
- * This is a legacy facility and should not be used by any new rule implementations.
- * In particular, the file system cache integrity checks fail for directories.
- * <li>An 'aggregating middleman' special Artifact, which may be expanded using a
- * {@link ArtifactExpander} at Action execution time. This is used by a handful of rules to save
- * memory.
- * <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
- * ignored by the build system. They are useful for files which change frequently but do not affect
- * the result of a build, such as timestamp files.
- * <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used
- * by new rule implementations.
+ *   <li>A TreeArtifact, which is a directory containing a tree of unknown {@link Artifact}s. In the
+ *       future, Actions will be able to examine these files as inputs and declare them as outputs
+ *       at execution time, but this is not yet implemented. This is used for Actions where the
+ *       inputs and/or outputs might not be discoverable except during Action execution.
+ *   <li>A directory of unknown contents, but not a TreeArtifact. This is a legacy facility and
+ *       should not be used by any new rule implementations. In particular, the file system cache
+ *       integrity checks fail for directories.
+ *   <li>An 'aggregating middleman' special Artifact, which may be expanded using a {@link
+ *       ArtifactExpander} at Action execution time. This is used by a handful of rules to save
+ *       memory.
+ *   <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
+ *       ignored by the build system. They are useful for files which change frequently but do not
+ *       affect the result of a build, such as timestamp files.
+ *   <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used by
+ *       new rule implementations.
  * </ul>
- * <p>This class is "theoretically" final; it should not be subclassed except by
- * {@link SpecialArtifact}.
+ *
+ * <p>This class is "theoretically" final; it should not be subclassed except by {@link
+ * SpecialArtifact}.
  */
 @Immutable
-@SkylarkModule(name = "File",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "<p>This type represents a file or directory used by the build system. It can be "
-        + "either a source file or a derived file produced by a rule.</p>"
-        + "<p>The File constructor is private, so you cannot call it directly to create new "
-        + "Files. If you have a Skylark rule that needs to create a new File, you have two options:"
-        + "<ul>"
-        + "<li>use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> "
-        + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a> to "
-        + "declare a new file in the rule implementation.</li>"
-        + "<li>add the label to the attrs (if it's an input) or the outputs (if it's an output)."
-        + " Then you can access the File through the rule's "
-        + "<a href='ctx.html#outputs'>ctx.outputs</a>.")
+@SkylarkModule(
+  name = "File",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "<p>This type represents a file or directory used by the build system. It can be "
+          + "either a source file or a derived file produced by a rule.</p>"
+          + "<p>The File constructor is private, so you cannot call it directly to create new "
+          + "Files. If you have a Skylark rule that needs to create a new File, "
+          + "you have two options:"
+          + "<ul>"
+          + "<li>use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> "
+          + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a> to "
+          + "declare a new file in the rule implementation.</li>"
+          + "<li>add the label to the attrs (if it's an input) or the outputs (if it's an output)."
+          + " Then you can access the File through the rule's "
+          + "<a href='ctx.html#outputs'>ctx.outputs</a>."
+)
 public class Artifact
-    implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
+    implements FileType.HasFileType, ActionInput, SkylarkValue, Comparable<Object> {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
@@ -281,7 +288,6 @@ public class Artifact
   /**
    * Returns the base file name of this artifact, similar to basename(1).
    */
-  @Override
   @SkylarkCallable(name = "basename", structField = true,
       doc = "The base name of this file. This is the name of the file inside the directory.")
   public final String getFilename() {
@@ -291,6 +297,27 @@ public class Artifact
   @SkylarkCallable(name = "extension", structField = true, doc = "The file extension of this file.")
   public final String getExtension() {
     return getExecPath().getFileExtension();
+  }
+
+  /**
+   * Checks whether this artifact is of the supplied file type.
+   *
+   * <p>Prefer this method to pulling out strings from the Artifact and passing to {@link
+   * FileType#matches(String)} manually. This method has been optimized to generate a minimum of
+   * garbage.
+   */
+  public boolean isFileType(FileType fileType) {
+    return fileType.matches(this);
+  }
+
+  /** Checks whether this artifact is any of the supplied file types. */
+  public boolean isAnyFileType(FileTypeSet fileTypeSet) {
+    return fileTypeSet.matches(filePathForFileTypeMatcher());
+  }
+
+  @Override
+  public String filePathForFileTypeMatcher() {
+    return getExecPath().filePathForFileTypeMatcher();
   }
 
   /**

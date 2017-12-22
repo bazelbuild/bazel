@@ -18,6 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
@@ -52,7 +53,8 @@ import java.util.Objects;
  * <p>{@link FileSystem} implementations maintain pointers into this graph.
  */
 @ThreadSafe
-public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
+public class Path
+    implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
 
   /** Filesystem-specific factory for {@link Path} objects. */
   public static interface PathFactory {
@@ -426,6 +428,11 @@ public class Path implements Comparable<Path>, Serializable, SkylarkPrintable {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(getPathString());
+  }
+
+  @Override
+  public String filePathForFileTypeMatcher() {
+    return name;
   }
 
   /**
