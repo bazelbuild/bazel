@@ -17,12 +17,9 @@ package com.google.devtools.build.lib.util;
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -37,8 +34,11 @@ import javax.annotation.Nullable;
  * <p>String is considered to be included into the filter if it does not match any of the excluded
  * regex expressions and if it matches at least one included regex expression.
  */
+@AutoCodec
 @Immutable
 public final class RegexFilter {
+  public static final ObjectCodec<RegexFilter> CODEC = new RegexFilter_AutoCodec();
+
   // Null inclusion or exclusion pattern means those patterns are not used.
   @Nullable private final Pattern inclusionPattern;
   @Nullable private final Pattern exclusionPattern;
@@ -185,43 +185,5 @@ public final class RegexFilter {
   @Override
   public int hashCode() {
     return hashCode;
-  }
-
-  public static final ObjectCodec<RegexFilter> CODEC = new Codec();
-
-  // TODO(shahan): replace with @AutoCodec once it's ready.
-  private static class Codec implements ObjectCodec<RegexFilter> {
-
-    @Override
-    public Class<RegexFilter> getEncodedClass() {
-      return RegexFilter.class;
-    }
-
-    @Override
-    public void serialize(RegexFilter filter, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      serializeFilterString(filter.getInclusionRegex(), codedOut);
-      serializeFilterString(filter.getExclusionRegex(), codedOut);
-    }
-
-    private void serializeFilterString(@Nullable String regex, CodedOutputStream codedOut)
-        throws IOException {
-      if (regex == null) {
-        codedOut.writeBoolNoTag(false);
-      } else {
-        codedOut.writeBoolNoTag(true);
-        codedOut.writeStringNoTag(regex);
-      }
-    }
-
-    @Override
-    public RegexFilter deserialize(CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      return new RegexFilter(deserializeFilterString(codedIn), deserializeFilterString(codedIn));
-    }
-
-    private String deserializeFilterString(CodedInputStream codedIn) throws IOException {
-      return codedIn.readBool() ? codedIn.readString() : null;
-    }
   }
 }
