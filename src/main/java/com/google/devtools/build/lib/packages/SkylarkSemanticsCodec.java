@@ -55,7 +55,6 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
     codedOut.writeBoolNoTag(semantics.incompatibleShowAllPrintMessages());
     codedOut.writeBoolNoTag(semantics.incompatibleStringIsNotIterable());
-    codedOut.writeBoolNoTag(semantics.internalDoNotExportBuiltins());
     codedOut.writeBoolNoTag(semantics.internalSkylarkFlagTestCanary());
   }
 
@@ -80,7 +79,6 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleNewActionsApi(codedIn.readBool());
     builder.incompatibleShowAllPrintMessages(codedIn.readBool());
     builder.incompatibleStringIsNotIterable(codedIn.readBool());
-    builder.internalDoNotExportBuiltins(codedIn.readBool());
     builder.internalSkylarkFlagTestCanary(codedIn.readBool());
 
     return builder.build();
