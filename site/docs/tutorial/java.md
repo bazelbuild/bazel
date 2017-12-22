@@ -216,7 +216,7 @@ java_library(
 ```
 
 With this configuration, Bazel first builds the `greeter` library, then the
-`ProjectRunner` library. The `deps` attribute in `java_binary` tells Bazel that
+`ProjectRunner` binary. The `deps` attribute in `java_binary` tells Bazel that
 the `greeter` library is required to build the `ProjectRunner` binary.
 
 Let's build this new version of our project. Run the following command:
