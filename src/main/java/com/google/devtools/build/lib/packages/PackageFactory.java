@@ -606,6 +606,7 @@ public final class PackageFactory {
    * PythonPreprocessor. We annotate the package with additional dependencies. (A 'real' subinclude
    * will never be seen by the parser, because the presence of "subinclude" triggers preprocessing.)
    */
+  // TODO(b/35913039): Remove this and all references to 'mocksubinclude'.
   @SkylarkSignature(
     name = "mocksubinclude",
     returnType = Runtime.NoneType.class,
@@ -1307,13 +1308,13 @@ public final class PackageFactory {
     // show up below.
     BuildFileAST buildFileAST =
         parseBuildFile(packageId, input, preludeStatements, localReporterForParsing);
-    AstAfterPreprocessing astAfterPreprocessing =
-        new AstAfterPreprocessing(buildFileAST, localReporterForParsing);
-    return createPackageFromPreprocessingAst(
+    AstParseResult astParseResult =
+        new AstParseResult(buildFileAST, localReporterForParsing);
+    return createPackageFromAst(
         workspaceName,
         packageId,
         buildFile,
-        astAfterPreprocessing,
+        astParseResult,
         imports,
         skylarkFileDependencies,
         defaultVisibility,
@@ -1333,11 +1334,11 @@ public final class PackageFactory {
     return buildFileAST;
   }
 
-  public Package.Builder createPackageFromPreprocessingAst(
+  public Package.Builder createPackageFromAst(
       String workspaceName,
       PackageIdentifier packageId,
       Path buildFile,
-      AstAfterPreprocessing astAfterPreprocessing,
+      AstParseResult astParseResult,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
@@ -1354,11 +1355,11 @@ public final class PackageFactory {
       return evaluateBuildFile(
           workspaceName,
           packageId,
-          astAfterPreprocessing.ast,
+          astParseResult.ast,
           buildFile,
           globber,
-          astAfterPreprocessing.allEvents,
-          astAfterPreprocessing.allPosts,
+          astParseResult.allEvents,
+          astParseResult.allPosts,
           defaultVisibility,
           skylarkSemantics,
           false /* containsError */,
@@ -1611,7 +1612,7 @@ public final class PackageFactory {
   }
 
   /**
-   * Called by a caller of {@link #createPackageFromPreprocessingAst} after this caller has fully
+   * Called by a caller of {@link #createPackageFromAst} after this caller has fully
    * loaded the package.
    */
   public void afterDoneLoadingPackage(Package pkg, SkylarkSemantics skylarkSemantics) {

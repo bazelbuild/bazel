@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.AstAfterPreprocessing;
+import com.google.devtools.build.lib.packages.AstParseResult;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.skyframe.FileSymlinkInfiniteExpansionUnique
 import com.google.devtools.build.lib.skyframe.GlobFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
-import com.google.devtools.build.lib.skyframe.PackageFunction.CacheEntryWithGlobDeps;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -341,10 +340,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   protected final ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
     AtomicReference<TimestampGranularityMonitor> tsgm =
         new AtomicReference<>(new TimestampGranularityMonitor(BlazeClock.instance()));
-    Cache<PackageIdentifier, CacheEntryWithGlobDeps<Package.Builder>> packageFunctionCache =
+    Cache<PackageIdentifier, PackageFunction.BuilderAndGlobDeps> packageFunctionCache =
         CacheBuilder.newBuilder().build();
-    Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache =
-        CacheBuilder.newBuilder().build();
+    Cache<PackageIdentifier, AstParseResult> astCache = CacheBuilder.newBuilder().build();
     AtomicReference<PerBuildSyscallCache> syscallCacheRef = new AtomicReference<>(
         PerBuildSyscallCache.newBuilder().setConcurrencyLevel(legacyGlobbingThreads).build());
     PackageFactory pkgFactory =
