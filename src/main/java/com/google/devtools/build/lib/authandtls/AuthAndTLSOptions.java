@@ -39,22 +39,10 @@ public class AuthAndTLSOptions extends OptionsBase {
   )
   public boolean useGoogleDefaultCredentials;
 
-  /**
-   * Comma-separated list of auth scopes.
-   *
-   * <ul>
-   *   <li><b>https://www.googleapis.com/auth/cloud-source-tools</b> is the auth scope for Build
-   *       Event Service (BES) and Remote Build Execution (RBE).
-   *   <li><b>https://www.googleapis.com/auth/devstorage.read_write</b> is the auth scope for Google
-   *       Cloud Storage (GCS).
-   * </ul>
-   */
   @Option(
     name = "google_auth_scopes",
     oldName = "auth_scope",
-    defaultValue =
-        "https://www.googleapis.com/auth/cloud-source-tools,"
-            + "https://www.googleapis.com/auth/devstorage.read_write",
+    defaultValue = "https://www.googleapis.com/auth/cloud-platform",
     converter = CommaSeparatedOptionListConverter.class,
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
