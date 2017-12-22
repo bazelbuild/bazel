@@ -117,6 +117,7 @@ import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
+import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -492,7 +493,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         numPackagesLoaded,
         null,
         packageProgress,
-        actionOnIOExceptionReadingBuildFile);
+        actionOnIOExceptionReadingBuildFile,
+        IncrementalityIntent.INCREMENTAL);
   }
 
   protected SkyFunction newSkylarkImportLookupFunction(
