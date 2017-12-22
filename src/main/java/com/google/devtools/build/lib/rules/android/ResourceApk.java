@@ -35,7 +35,6 @@ public final class ResourceApk {
   @Nullable private final Artifact manifest; // The non-binary XML version of AndroidManifest.xml
   @Nullable private final Artifact resourceProguardConfig;
   @Nullable private final Artifact mainDexProguardConfig;
-  private final boolean legacy;
 
   public ResourceApk(
       @Nullable Artifact resourceApk,
@@ -45,8 +44,7 @@ public final class ResourceApk {
       @Nullable ResourceContainer primaryResource,
       @Nullable Artifact manifest,
       @Nullable Artifact resourceProguardConfig,
-      @Nullable Artifact mainDexProguardConfig,
-      boolean legacy) {
+      @Nullable Artifact mainDexProguardConfig) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -55,7 +53,6 @@ public final class ResourceApk {
     this.manifest = manifest;
     this.resourceProguardConfig = resourceProguardConfig;
     this.mainDexProguardConfig = mainDexProguardConfig;
-    this.legacy = legacy;
   }
 
   public Artifact getArtifact() {
@@ -78,12 +75,8 @@ public final class ResourceApk {
     return resourceJavaClassJar;
   }
 
-  public boolean isLegacy() {
-    return legacy;
-  }
-
   public static ResourceApk fromTransitiveResources(ResourceDependencies resourceDeps) {
-    return new ResourceApk(null, null, null, resourceDeps, null, null, null, null, false);
+    return new ResourceApk(null, null, null, resourceDeps, null, null, null, null);
   }
 
   public Artifact getResourceProguardConfig() {

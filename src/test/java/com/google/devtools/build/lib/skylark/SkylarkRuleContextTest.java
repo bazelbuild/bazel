@@ -688,8 +688,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testGetExecutablePrerequisite() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.executable._jarjar_bin");
-    assertThat(((Artifact) result).getFilename()).matches("^jarjar_bin(\\.exe){0,1}$");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.executable._idlclass");
+    assertThat(((Artifact) result).getFilename()).matches("^IdlClass(\\.exe){0,1}$");
   }
 
   @Test
@@ -701,12 +701,12 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             + "  inputs = ruleContext.files.srcs,\n"
             + "  outputs = ruleContext.files.srcs,\n"
             + "  arguments = ['--a','--b'],\n"
-            + "  executable = ruleContext.executable._jarjar_bin)\n");
+            + "  executable = ruleContext.executable._idlclass)\n");
     SpawnAction action =
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getCommandFilename()).matches("^.*/jarjar_bin(\\.exe){0,1}$");
+    assertThat(action.getCommandFilename()).matches("^.*/IdlClass(\\.exe){0,1}$");
   }
 
   @Test

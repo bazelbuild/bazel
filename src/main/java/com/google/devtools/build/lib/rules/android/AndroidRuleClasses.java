@@ -621,11 +621,6 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("javacopts", STRING_LIST))
           .add(
-              attr("$jarjar_bin", LABEL)
-                  .cfg(HostTransition.INSTANCE)
-                  .exec()
-                  .value(env.getToolsLabel("//tools/android:jarjar_bin")))
-          .add(
               attr("$idlclass", LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .exec()

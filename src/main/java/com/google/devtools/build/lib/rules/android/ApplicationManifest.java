@@ -369,8 +369,7 @@ public final class ApplicationManifest {
         processed,
         processed.getManifest(),
         proguardCfg,
-        null,
-        false);
+        null);
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
@@ -458,8 +457,7 @@ public final class ApplicationManifest {
         processed,
         processed.getManifest(),
         null,
-        null,
-        false);
+        null);
   }
 
   /* Creates an incremental apk from assets and data. */
@@ -524,8 +522,7 @@ public final class ApplicationManifest {
         processed,
         processed.getManifest(),
         proguardCfg,
-        null,
-        false);
+        null);
   }
 
   /** Packages up the manifest with resource and assets from the rule and dependent resources. */
@@ -615,8 +612,7 @@ public final class ApplicationManifest {
         processed,
         processed.getManifest(),
         proguardCfg,
-        mainDexProguardCfg,
-        false);
+        mainDexProguardCfg);
   }
 
   public ResourceApk packLibraryWithDataAndResources(
@@ -736,8 +732,7 @@ public final class ApplicationManifest {
         processed,
         processed.getManifest(),
         null,
-        null,
-        false);
+        null);
   }
 
   public Artifact getManifest() {

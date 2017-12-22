@@ -693,8 +693,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       NestedSetBuilder<Artifact> filesBuilder)
       throws InterruptedException, RuleErrorException {
 
-    if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())
-        && !proguardSpecs.isEmpty()) {
+    if (!proguardSpecs.isEmpty()) {
 
       Artifact apk =
           new ResourceShrinkerActionBuilder(ruleContext)
@@ -728,8 +727,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceApk.getPrimaryResource(),
           resourceApk.getManifest(),
           resourceApk.getResourceProguardConfig(),
-          resourceApk.getMainDexProguardConfig(),
-          resourceApk.isLegacy());
+          resourceApk.getMainDexProguardConfig());
     }
     return resourceApk;
   }
