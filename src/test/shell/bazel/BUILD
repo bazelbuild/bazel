@@ -528,6 +528,8 @@ sh_test(
     size = "large",
     srcs = ["toolchain_test.sh"],
     data = [":test-deps"],
+    # TODO(b/70984583): remove when no longer flaky
+    flaky = 1,
     shard_count = 5,
 )
 
