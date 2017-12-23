@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
@@ -233,53 +234,65 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     Duration timeout = policy.getTimeout();
-    List<String> arguments = computeCommandLine(spawn, timeout, sandboxConfigPath);
 
-    // TODO(b/62588075): Add execution statistics support for the DarwinSandboxedSpawnRunner.
-    Optional<String> statisticsPath = Optional.empty();
+    ProcessWrapperUtil.CommandLineBuilder processWrapperCommandLineBuilder =
+        ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
+            .setTimeout(timeout);
+
+    if (timeoutKillDelay.isPresent()) {
+      processWrapperCommandLineBuilder.setKillDelay(timeoutKillDelay.get());
+    }
+
+    final Optional<String> statisticsPath;
+    if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
+      statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
+      processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath.get());
+    } else {
+      statisticsPath = Optional.empty();
+    }
+
+    ImmutableList<String> commandLine =
+        ImmutableList.<String>builder()
+            .add(SANDBOX_EXEC)
+            .add("-f")
+            .add(sandboxConfigPath.getPathString())
+            .addAll(processWrapperCommandLineBuilder.build())
+            .build();
 
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
     boolean allowNetworkForThisSpawn = allowNetwork || Spawns.requiresNetwork(spawn);
-    SandboxedSpawn sandbox = new SymlinkedSandboxedSpawn(
-        sandboxPath,
-        sandboxExecRoot,
-        arguments,
-        environment,
-        SandboxHelpers.getInputFiles(spawn, policy, execRoot),
-        outputs,
-        writableDirs) {
-      @Override
-      public void createFileSystem() throws IOException {
-        super.createFileSystem();
-        writeConfig(
-            sandboxConfigPath, writableDirs, getInaccessiblePaths(), allowNetworkForThisSpawn);
-      }
-    };
+    SandboxedSpawn sandbox =
+        new SymlinkedSandboxedSpawn(
+            sandboxPath,
+            sandboxExecRoot,
+            commandLine,
+            environment,
+            SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+            outputs,
+            writableDirs) {
+          @Override
+          public void createFileSystem() throws IOException {
+            super.createFileSystem();
+            writeConfig(
+                sandboxConfigPath,
+                writableDirs,
+                getInaccessiblePaths(),
+                allowNetworkForThisSpawn,
+                statisticsPath);
+          }
+        };
     return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
-  }
-
-  private List<String> computeCommandLine(Spawn spawn, Duration timeout, Path sandboxConfigPath) {
-    List<String> commandLineArgs = new ArrayList<>();
-    commandLineArgs.add(SANDBOX_EXEC);
-    commandLineArgs.add("-f");
-    commandLineArgs.add(sandboxConfigPath.getPathString());
-    ProcessWrapperUtil.CommandLineBuilder processWrapperCommandLineBuilder =
-        ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
-            .setTimeout(timeout);
-    if (timeoutKillDelay.isPresent()) {
-      processWrapperCommandLineBuilder.setKillDelay(timeoutKillDelay.get());
-    }
-    commandLineArgs.addAll(processWrapperCommandLineBuilder.build());
-    return commandLineArgs;
   }
 
   private void writeConfig(
       Path sandboxConfigPath,
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
-      boolean allowNetwork) throws IOException {
+      boolean allowNetwork,
+      Optional<String> statisticsPath)
+      throws IOException {
     try (PrintWriter out =
         new PrintWriter(
             new BufferedWriter(
@@ -302,6 +315,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       out.println("(allow file-write*");
       for (Path path : writableDirs) {
         out.println("    (subpath \"" + path.getPathString() + "\")");
+      }
+      if (statisticsPath.isPresent()) {
+        out.println("    (subpath \"" + statisticsPath + "\")");
       }
       out.println(")");
 
