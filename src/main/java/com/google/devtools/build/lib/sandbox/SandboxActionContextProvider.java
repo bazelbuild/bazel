@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
+import java.time.Duration;
+import java.util.Optional;
 
 /**
  * Provides the sandboxed spawn strategy.
@@ -48,8 +50,12 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     ImmutableList.Builder<ActionContext> contexts = ImmutableList.builder();
 
     OptionsProvider options = cmdEnv.getOptions();
-    int timeoutGraceSeconds =
+    int timeoutKillDelaySeconds =
         options.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds;
+    Optional<Duration> timeoutKillDelay = Optional.empty();
+    if (timeoutKillDelaySeconds >= 0) {
+      timeoutKillDelay = Optional.of(Duration.ofSeconds(timeoutKillDelaySeconds));
+    }
     String productName = cmdEnv.getRuntime().getProductName();
 
     // This works on most platforms, but isn't the best choice, so we put it first and let later
@@ -59,7 +65,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
           withFallback(
               cmdEnv,
               new ProcessWrapperSandboxedSpawnRunner(
-                  cmdEnv, sandboxBase, productName, timeoutGraceSeconds));
+                  cmdEnv, sandboxBase, productName, timeoutKillDelay));
       contexts.add(new ProcessWrapperSandboxedStrategy(spawnRunner));
     }
 
@@ -68,7 +74,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, productName, timeoutGraceSeconds));
+              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, productName, timeoutKillDelay));
       contexts.add(new LinuxSandboxedStrategy(spawnRunner));
     }
 
@@ -77,8 +83,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              new DarwinSandboxedSpawnRunner(
-                  cmdEnv, sandboxBase, productName, timeoutGraceSeconds));
+              new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, productName, timeoutKillDelay));
       contexts.add(new DarwinSandboxedStrategy(spawnRunner));
     }
 

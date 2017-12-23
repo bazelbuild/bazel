@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
@@ -88,14 +90,16 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       SpawnExecutionPolicy policy,
       Path execRoot,
       Path tmpDir,
-      Duration timeout)
+      Duration timeout,
+      Optional<String> statisticsPath)
       throws IOException, InterruptedException {
     try {
       sandbox.createFileSystem();
       OutErr outErr = policy.getFileOutErr();
       policy.prefetchInputs();
 
-      SpawnResult result = run(originalSpawn, sandbox, outErr, timeout, execRoot, tmpDir);
+      SpawnResult result =
+          run(originalSpawn, sandbox, outErr, timeout, execRoot, tmpDir, statisticsPath);
 
       policy.lockOutputFiles();
       try {
@@ -118,7 +122,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       OutErr outErr,
       Duration timeout,
       Path execRoot,
-      Path tmpDir)
+      Path tmpDir,
+      Optional<String> statisticsPath)
       throws IOException, InterruptedException {
     Command cmd = new Command(
         sandbox.getArguments().toArray(new String[0]),
@@ -177,14 +182,30 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         wasTimeout
             ? Status.TIMEOUT
             : (exitCode == 0) ? Status.SUCCESS : Status.NON_ZERO_EXIT;
-    return new SpawnResult.Builder()
-        .setStatus(status)
-        .setExitCode(exitCode)
-        .setWallTime(wallTime)
-        .setUserTime(commandResult.getUserExecutionTime())
-        .setSystemTime(commandResult.getSystemExecutionTime())
-        .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "")
-        .build();
+
+    SpawnResult.Builder spawnResultBuilder =
+        new SpawnResult.Builder()
+            .setStatus(status)
+            .setExitCode(exitCode)
+            .setWallTime(wallTime)
+            .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "");
+
+    if (statisticsPath.isPresent()) {
+      Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
+          ExecutionStatistics.getResourceUsage(statisticsPath.get());
+      if (resourceUsage.isPresent()) {
+        spawnResultBuilder.setUserTime(resourceUsage.get().getUserExecutionTime());
+        spawnResultBuilder.setSystemTime(resourceUsage.get().getSystemExecutionTime());
+        spawnResultBuilder.setNumBlockOutputOperations(
+            resourceUsage.get().getBlockOutputOperations());
+        spawnResultBuilder.setNumBlockInputOperations(
+            resourceUsage.get().getBlockInputOperations());
+        spawnResultBuilder.setNumInvoluntaryContextSwitches(
+            resourceUsage.get().getInvoluntaryContextSwitches());
+      }
+    }
+
+    return spawnResultBuilder.build();
   }
 
   private boolean wasTimeout(Duration timeout, Duration wallTime) {
