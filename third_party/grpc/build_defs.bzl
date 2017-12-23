@@ -16,7 +16,7 @@ def _gensource_impl(ctx):
              + "same package as consuming rule").format(ctx.label, s.label))
   srcdotjar = ctx.new_file(ctx.label.name + ".jar")
   srcs = [f for dep in ctx.attr.srcs for f in dep.proto.direct_sources]
-  includes = [f for dep in ctx.attr.srcs for f in dep.proto.transitive_imports]
+  includes = [f for dep in ctx.attr.srcs for f in dep.proto.transitive_imports.to_list()]
 
   ctx.action(
       command = " ".join([
