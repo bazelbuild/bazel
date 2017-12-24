@@ -304,12 +304,14 @@ java_library(
         "analysis/config/FragmentOptions.java",
     ],
     deps = [
+        ":util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
