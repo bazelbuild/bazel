@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.protobuf.CodedInputStream;
@@ -30,10 +28,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -43,7 +38,6 @@ import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -68,6 +62,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
   private static final String PRINT_GENERATED_OPTION = "autocodec_print_generated";
 
   private ProcessingEnvironment env; // Captured from `init` method.
+  private Marshallers marshallers;
 
   @Override
   public Set<String> getSupportedOptions() {
@@ -88,6 +83,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
     this.env = processingEnv;
+    this.marshallers = new Marshallers(processingEnv);
   }
 
   @Override
@@ -196,58 +192,15 @@ public class AutoCodecProcessor extends AbstractProcessor {
           serializeBuilder.addStatement("codedOut.writeInt32NoTag($L)", paramAccessor);
           break;
         case DECLARED:
-          buildSerializeBody(serializeBuilder, (DeclaredType) parameter.asType(), paramAccessor);
+          marshallers.writeSerializationCode(
+              new Marshaller.Context(
+                  serializeBuilder, (DeclaredType) parameter.asType(), paramAccessor));
           break;
         default:
           throw new IllegalArgumentException("Unimplemented or invalid kind: " + typeKind);
       }
     }
     return serializeBuilder.build();
-  }
-
-  /**
-   * Appends code statements to {@code builder} to serialize a pre-declared variable named {@code
-   * accessor}.
-   *
-   * @param type the type of {@code accessor}
-   * @param depth recursion depth of buildSerializeBody
-   */
-  private void buildSerializeBody(
-      MethodSpec.Builder builder, DeclaredType type, String accessor, int depth) {
-    builder.beginControlFlow("if ($L != null)", accessor); // Begin if not null block.
-    builder.addStatement("codedOut.writeBoolNoTag(true)");
-    // TODO(shahan): Add support for more types.
-    if (isEnum(type)) {
-      builder.addStatement("codedOut.writeInt32NoTag($L.ordinal())", accessor);
-    } else if (matchesType(type, String.class)) {
-      builder.addStatement(
-          "$T.asciiOptimized().serialize($L, codedOut)", StringCodecs.class, accessor);
-    } else if (matchesErased(type, Map.Entry.class)) {
-      DeclaredType keyType = (DeclaredType) type.getTypeArguments().get(0);
-      buildSerializeBody(builder, keyType, accessor + ".getKey()", depth + 1);
-      DeclaredType valueType = (DeclaredType) type.getTypeArguments().get(1);
-      buildSerializeBody(builder, valueType, accessor + ".getValue()", depth + 1);
-    } else if (matchesErased(type, List.class) || matchesErased(type, ImmutableSortedSet.class)) {
-      // Writes the target count to the stream so deserialization knows when to stop.
-      builder.addStatement("codedOut.writeInt32NoTag($L.size())", accessor);
-      DeclaredType repeatedType = (DeclaredType) type.getTypeArguments().get(0);
-      String repeatedName = "repeated" + depth;
-      builder.beginControlFlow(
-          "for ($T $L : $L)", TypeName.get(repeatedType), repeatedName, accessor);
-      buildSerializeBody(builder, repeatedType, repeatedName, depth + 1);
-      builder.endControlFlow();
-    } else {
-      // Otherwise use the type's codec.
-      builder.addStatement("$T.CODEC.serialize($L, codedOut)", TypeName.get(type), accessor);
-    }
-    builder.nextControlFlow("else");
-    builder.addStatement("codedOut.writeBoolNoTag(false)");
-    builder.endControlFlow(); // End if not null.
-  }
-
-  /** Convenience overload for depth = 0. */
-  private void buildSerializeBody(MethodSpec.Builder builder, DeclaredType type, String accessor) {
-    buildSerializeBody(builder, type, accessor, /*depth=*/ 0);
   }
 
   /**
@@ -270,80 +223,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
           builder.addStatement("int $L = codedIn.readInt32()", paramName);
           break;
         case DECLARED:
-          buildDeserializeBody(builder, (DeclaredType) parameter.asType(), paramName);
+          marshallers.writeDeserializationCode(
+              new Marshaller.Context(builder, (DeclaredType) parameter.asType(), paramName));
           break;
         default:
           throw new IllegalArgumentException("Unimplemented or invalid kind: " + typeKind);
       }
     }
-  }
-
-  /**
-   * Appends code statements to {@code builder}, declaring a variable called {@code name} and
-   * initializing it with deserialization.
-   *
-   * @param type the type of {@code name}.
-   * @param depth recursion depth of buildDeserializeBody.
-   */
-  private void buildDeserializeBody(
-      MethodSpec.Builder builder, DeclaredType type, String name, int depth) {
-    builder.addStatement("$T $L = null", TypeName.get(type), name);
-    builder.beginControlFlow("if (codedIn.readBool())"); // Begin null-handling block.
-    // TODO(shahan): Add support for more types.
-    if (isEnum(type)) {
-      // TODO(shahan): memoize this expensive call to values().
-      builder.addStatement("$L = $T.values()[codedIn.readInt32()]", name, TypeName.get(type));
-    } else if (matchesType(type, String.class)) {
-      builder.addStatement(
-          "$L = $T.asciiOptimized().deserialize(codedIn)", name, StringCodecs.class);
-    } else if (matchesErased(type, Map.Entry.class)) {
-      DeclaredType keyType = (DeclaredType) type.getTypeArguments().get(0);
-      String keyName = "key" + depth;
-      buildDeserializeBody(builder, keyType, keyName, depth + 1);
-      DeclaredType valueType = (DeclaredType) type.getTypeArguments().get(1);
-      String valueName = "value" + depth;
-      buildDeserializeBody(builder, valueType, valueName, depth + 1);
-      builder.addStatement("$L = $T.immutableEntry($L, $L)", name, Maps.class, keyName, valueName);
-    } else if (matchesErased(type, List.class)) {
-      builder.addStatement("$L = new $T<>()", name, ArrayList.class);
-      String lengthName = "length" + depth;
-      builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-      String indexName = "i" + depth;
-      builder.beginControlFlow(
-          "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-      DeclaredType repeatedType = (DeclaredType) type.getTypeArguments().get(0);
-      String repeatedName = "repeated" + depth;
-      buildDeserializeBody(builder, repeatedType, repeatedName, depth + 1);
-      builder.addStatement("$L.add($L)", name, repeatedName);
-      builder.endControlFlow();
-    } else if (matchesErased(type, ImmutableSortedSet.class)) {
-      DeclaredType repeatedType = (DeclaredType) type.getTypeArguments().get(0);
-      builder.addStatement(
-          "$T<$T> builder = new $T<>($T.naturalOrder())",
-          ImmutableSortedSet.Builder.class,
-          TypeName.get(repeatedType),
-          ImmutableSortedSet.Builder.class,
-          Comparator.class);
-      String lengthName = "length" + depth;
-      builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-      String indexName = "i" + depth;
-      builder.beginControlFlow(
-          "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-      String repeatedName = "repeated" + depth;
-      buildDeserializeBody(builder, repeatedType, repeatedName, depth + 1);
-      builder.addStatement("builder.add($L)", repeatedName);
-      builder.endControlFlow();
-      builder.addStatement("$L = builder.build()", name);
-    } else {
-      // Otherwise, use the type's codec.
-      builder.addStatement("$L = $T.CODEC.deserialize(codedIn)", name, TypeName.get(type));
-    }
-    builder.endControlFlow(); // End null-handling block.
-  }
-
-  /** Overload of above, for common case of 0 depth. */
-  private void buildDeserializeBody(MethodSpec.Builder builder, DeclaredType type, String name) {
-    buildDeserializeBody(builder, type, name, /*depth=*/ 0);
   }
 
   /**
@@ -451,20 +337,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return env.getTypeUtils()
         .isSameType(
             type, env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType());
-  }
-
-  /** True when erasure of {@code type} matches erasure of {@code clazz}. */
-  private boolean matchesErased(TypeMirror type, Class<?> clazz) {
-    return env.getTypeUtils()
-        .isSameType(
-            env.getTypeUtils().erasure(type),
-            env.getTypeUtils()
-                .erasure(
-                    env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType()));
-  }
-
-  private boolean isEnum(TypeMirror type) {
-    return env.getTypeUtils().asElement(type).getKind() == ElementKind.ENUM;
   }
 
   /** Emits a note to BUILD log during annotation processing for debugging. */

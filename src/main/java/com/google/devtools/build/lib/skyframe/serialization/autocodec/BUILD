@@ -37,7 +37,11 @@ java_plugin(
 # @AutoCodec annotation processor implementation.
 java_library(
     name = "autocodec-processor",
-    srcs = ["AutoCodecProcessor.java"],
+    srcs = [
+        "AutoCodecProcessor.java",
+        "Marshaller.java",
+        "Marshallers.java",
+    ],
     deps = [
         ":autocodec-annotation",
         ":autocodec-util",
