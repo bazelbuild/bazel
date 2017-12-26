@@ -15,7 +15,8 @@
 
 def _clone_or_update(ctx):
   if (ctx.attr.verbose):
-    print('git.bzl: Cloning or updating repository %s' % ctx.name)
+    print('git.bzl: Cloning or updating repository %s using strip_prefix of [%s]' %
+    (ctx.name, ctx.attr.strip_prefix if ctx.attr.strip_prefix else 'None'))
   if ((not ctx.attr.tag and not ctx.attr.commit) or
       (ctx.attr.tag and ctx.attr.commit)):
     fail('Exactly one of commit and tag must be provided')
@@ -23,20 +24,23 @@ def _clone_or_update(ctx):
     ref = ctx.attr.commit
   else:
     ref = 'tags/' + ctx.attr.tag
-
+  dir=str(ctx.path('.')) + "-tmp"
   st = ctx.execute(['bash', '-c', """
 set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir}' && git rev-parse --git-dir ) >/dev/null 2>&1; then
-      rm -rf '{dir}'
+      rm -rf '{dir}' '{dir_real}'
       git clone '{remote}' '{dir}'
     fi
+    ln -sf {dir}/{strip_prefix} {dir_real}
     cd '{dir}'
     git reset --hard {ref} || (git fetch origin {ref}:{ref} && git reset --hard {ref})
     git clean -xdf )
   """.format(
+      strip_prefix=ctx.attr.strip_prefix,
       working_dir=ctx.path('.').dirname,
-      dir=ctx.path('.'),
+      dir_real=ctx.path('.'),
+      dir=dir,
       remote=ctx.attr.remote,
       ref=ref,
   )])
@@ -75,6 +79,7 @@ _common_attrs = {
     'tag': attr.string(default=''),
     'init_submodules': attr.bool(default=False),
     'verbose': attr.bool(default=False),
+    'strip_prefix': attr.string(default='')
 }
 
 
@@ -107,6 +112,8 @@ Args:
   init_submodules: Whether to clone submodules in the repository.
 
   remote: The URI of the remote Git repository.
+
+  strip_prefix: A directory prefix to strip from the extracted files.
 """
 
 git_repository = repository_rule(
@@ -124,4 +131,6 @@ Args:
   init_submodules: Whether to clone submodules in the repository.
 
   remote: The URI of the remote Git repository.
+
+  strip_prefix: A directory prefix to strip from the extracted files.
 """
