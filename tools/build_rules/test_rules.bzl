@@ -32,13 +32,13 @@ def success_target(ctx, msg):
   """
   exe = ctx.outputs.executable
   dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
-  ctx.file_action(
+  ctx.actions.write(
       output=dat,
       content=msg)
-  ctx.file_action(
+  ctx.actions.write(
       output=exe,
       content="cat " + dat.path + " ; echo",
-      executable=True)
+      is_executable=True)
   return struct(runfiles=ctx.runfiles([exe, dat]))
 
 def _successful_test_impl(ctx):
@@ -206,7 +206,7 @@ def _rule_test_impl(ctx):
     # the same file.
     generates = sorted(ctx.attr.generates)
     generated = sorted([strip_prefix(prefix, f.short_path)
-                        for f in rule_.files])
+                        for f in rule_.files.to_list()])
     if generates != generated:
       fail("rule %s generates %s not %s"
            % (rule_name, repr(generated), repr(generates)))
