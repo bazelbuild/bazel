@@ -50,6 +50,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -430,18 +432,21 @@ public class BuildConfiguration implements BuildEvent {
   /**
    * Options that affect the value of a BuildConfiguration instance.
    *
-   * <p>(Note: any client that creates a view will also need to declare
-   * BuildView.Options, which affect the <i>mechanism</i> of view construction,
-   * even if they don't affect the value of the BuildConfiguration instances.)
+   * <p>(Note: any client that creates a view will also need to declare BuildView.Options, which
+   * affect the <i>mechanism</i> of view construction, even if they don't affect the value of the
+   * BuildConfiguration instances.)
    *
-   * <p>IMPORTANT: when adding new options, be sure to consider whether those
-   * values should be propagated to the host configuration or not.
+   * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
+   * propagated to the host configuration or not.
    *
-   * <p>ALSO IMPORTANT: all option types MUST define a toString method that
-   * gives identical results for semantically identical option values. The
-   * simplest way to ensure that is to return the input string.
+   * <p>ALSO IMPORTANT: all option types MUST define a toString method that gives identical results
+   * for semantically identical option values. The simplest way to ensure that is to return the
+   * input string.
    */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions implements Cloneable {
+    public static final ObjectCodec<Options> CODEC = new BuildConfiguration_Options_AutoCodec();
+
     @Option(
       name = "experimental_separate_genfiles_directory",
       defaultValue = "true",

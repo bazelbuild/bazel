@@ -22,16 +22,24 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for platform-related configuration. */
+@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class PlatformOptions extends FragmentOptions {
+  public static final ObjectCodec<PlatformOptions> CODEC = new PlatformOptions_AutoCodec();
 
   @Option(
     name = "host_platform",
@@ -121,6 +129,9 @@ public class PlatformOptions extends FragmentOptions {
   /** Data about which toolchain instance should be used for a given toolchain type. */
   @AutoValue
   public abstract static class ToolchainResolutionOverride {
+    public static final ObjectCodec<ToolchainResolutionOverride> CODEC =
+        new ToolchainResolutionOverrideCodec();
+
     public abstract Label toolchainType();
 
     public abstract Label toolchainLabel();
@@ -128,6 +139,28 @@ public class PlatformOptions extends FragmentOptions {
     private static ToolchainResolutionOverride create(Label toolchainType, Label toolchainLabel) {
       return new AutoValue_PlatformOptions_ToolchainResolutionOverride(
           toolchainType, toolchainLabel);
+    }
+
+    private static class ToolchainResolutionOverrideCodec
+        implements ObjectCodec<ToolchainResolutionOverride> {
+      @Override
+      public Class<ToolchainResolutionOverride> getEncodedClass() {
+        return ToolchainResolutionOverride.class;
+      }
+
+      @Override
+      public void serialize(ToolchainResolutionOverride obj, CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        Label.CODEC.serialize(obj.toolchainType(), codedOut);
+        Label.CODEC.serialize(obj.toolchainLabel(), codedOut);
+      }
+
+      @Override
+      public ToolchainResolutionOverride deserialize(CodedInputStream codedIn)
+          throws SerializationException, IOException {
+        return ToolchainResolutionOverride.create(
+            Label.CODEC.deserialize(codedIn), Label.CODEC.deserialize(codedIn));
+      }
     }
   }
 

@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -55,9 +57,13 @@ import javax.annotation.Nullable;
  * and {@link #hashCode()} methods. Failure to do so isn't just bad practice; it could seriously
  * interfere with Bazel's caching performance.
  */
+@AutoCodec
 public class ResourceFilterFactory {
   public static final String RESOURCE_CONFIGURATION_FILTERS_NAME = "resource_configuration_filters";
   public static final String DENSITIES_NAME = "densities";
+
+  public static final ObjectCodec<ResourceFilterFactory> CODEC =
+      new ResourceFilterFactory_AutoCodec();
 
   /**
    * Locales used for pseudolocation.
@@ -125,7 +131,6 @@ public class ResourceFilterFactory {
    * @param densities the density filters, as a list of strings.
    * @param filterBehavior the behavior of this filter.
    */
-  @VisibleForTesting
   ResourceFilterFactory(
       ImmutableList<String> configFilters,
       ImmutableList<String> densities,
@@ -657,6 +662,10 @@ public class ResourceFilterFactory {
     return Joiner.on(',').join(configFilters);
   }
 
+  ImmutableList<String> getConfigFilters() {
+    return configFilters;
+  }
+
   /**
    * Returns if this object contains a non-empty density filter.
    *
@@ -671,7 +680,7 @@ public class ResourceFilterFactory {
     return Joiner.on(',').join(densities);
   }
 
-  List<String> getDensities() {
+  ImmutableList<String> getDensities() {
     return densities;
   }
 
@@ -681,6 +690,10 @@ public class ResourceFilterFactory {
 
   boolean hasFilters() {
     return hasConfigurationFilters() || hasDensities();
+  }
+
+  FilterBehavior getFilterBehavior() {
+    return filterBehavior;
   }
 
   public String getOutputDirectorySuffix() {

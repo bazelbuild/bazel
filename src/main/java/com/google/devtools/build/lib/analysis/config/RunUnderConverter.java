@@ -17,9 +17,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -52,7 +53,11 @@ public class RunUnderConverter implements Converter<RunUnder> {
     }
   }
 
-  private static final class RunUnderLabel implements RunUnder {
+  @AutoCodec
+  static final class RunUnderLabel implements RunUnder {
+    public static final ObjectCodec<RunUnderLabel> CODEC =
+        new RunUnderConverter_RunUnderLabel_AutoCodec();
+
     private final String input;
     private final Label runUnderLabel;
     private final List<String> runUnderList;
@@ -68,6 +73,18 @@ public class RunUnderConverter implements Converter<RunUnder> {
     @Override public String getCommand() { return null; }
     @Override public List<String> getOptions() { return runUnderList; }
     @Override public String toString() { return input; }
+
+    String getInput() {
+      return input;
+    }
+
+    Label getRunUnderLabel() {
+      return runUnderLabel;
+    }
+
+    List<String> getRunUnderList() {
+      return runUnderList;
+    }
 
     @Override
     public boolean equals(Object other) {
@@ -85,11 +102,15 @@ public class RunUnderConverter implements Converter<RunUnder> {
 
     @Override
     public int hashCode() {
-      return Objects.hash(input, runUnderLabel, runUnderList); 
+      return Objects.hash(input, runUnderLabel, runUnderList);
     }
   }
 
-  private static final class RunUnderCommand implements RunUnder {
+  @AutoCodec
+  static final class RunUnderCommand implements RunUnder {
+    public static final ObjectCodec<RunUnderCommand> CODEC =
+        new RunUnderConverter_RunUnderCommand_AutoCodec();
+
     private final String input;
     private final String runUnderCommand;
     private final List<String> runUnderList;
@@ -105,7 +126,18 @@ public class RunUnderConverter implements Converter<RunUnder> {
     @Override public String getCommand() { return runUnderCommand; }
     @Override public List<String> getOptions() { return runUnderList; }
     @Override public String toString() { return input; }
-    
+
+    String getInput() {
+      return input;
+    }
+
+    String getRunUnderCommand() {
+      return runUnderCommand;
+    }
+
+    List<String> getRunUnderList() {
+      return runUnderList;
+    }
 
     @Override
     public boolean equals(Object other) {
@@ -123,7 +155,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
 
     @Override
     public int hashCode() {
-      return Objects.hash(input, runUnderCommand, runUnderList); 
+      return Objects.hash(input, runUnderCommand, runUnderList);
     }
   }
   @Override

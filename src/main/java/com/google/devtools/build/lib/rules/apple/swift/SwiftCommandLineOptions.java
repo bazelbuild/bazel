@@ -15,13 +15,18 @@
 package com.google.devtools.build.lib.rules.apple.swift;
 
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import java.util.List;
 
 /** Command-line options for building with Swift tools. */
+@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class SwiftCommandLineOptions extends FragmentOptions {
+  public static final ObjectCodec<SwiftCommandLineOptions> CODEC =
+      new SwiftCommandLineOptions_AutoCodec();
 
   @Option(
     name = "swiftcopt",

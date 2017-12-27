@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -56,7 +58,11 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
   }
 
   /** The options fragment which defines {@link ConfigFeatureFlagConfiguration}. */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static final class Options extends FragmentOptions {
+    public static final ObjectCodec<Options> CODEC =
+        new ConfigFeatureFlagConfiguration_Options_AutoCodec();
+
     /** The mapping from config_feature_flag rules to their values. */
     @Option(
       name = "config_feature_flag values (private)",

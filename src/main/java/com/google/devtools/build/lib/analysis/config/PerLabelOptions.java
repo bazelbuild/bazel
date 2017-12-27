@@ -17,21 +17,24 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Models options that can be added to a command line when a label matches a
- * given {@link RegexFilter}.
+ * Models options that can be added to a command line when a label matches a given {@link
+ * RegexFilter}.
  */
+@AutoCodec
 public class PerLabelOptions implements Serializable {
+  public static final ObjectCodec<PerLabelOptions> CODEC = new PerLabelOptions_AutoCodec();
 
   /** The filter used to match labels */
   private final RegexFilter regexFilter;
@@ -76,9 +79,9 @@ public class PerLabelOptions implements Serializable {
     }
   }
 
-  public PerLabelOptions(RegexFilter regexFilter, List<String> optionsList) {
+  public PerLabelOptions(RegexFilter regexFilter, List<String> options) {
     this.regexFilter = regexFilter;
-    this.optionsList = optionsList;
+    this.optionsList = options;
   }
 
   /**

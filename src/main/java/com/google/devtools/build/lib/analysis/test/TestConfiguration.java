@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -38,7 +40,11 @@ import java.util.List;
 public class TestConfiguration extends Fragment {
 
   /** Command-line options. */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class TestOptions extends FragmentOptions {
+    public static final ObjectCodec<TestOptions> CODEC =
+        new TestConfiguration_TestOptions_AutoCodec();
+
     @Option(
       name = "test_filter",
       allowMultiple = false,
