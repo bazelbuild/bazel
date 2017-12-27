@@ -95,8 +95,9 @@ public abstract class Provider extends BaseFunction {
   /**
    * Returns an error message format for instances.
    *
-   * <p>Must contain one '%s' placeholder for field name.
+   * <p>Must contain one {@code '%s'} placeholder for field name.
    */
+  // TODO(bazel-team): Rename to getErrorMessageFormatForUnknownField().
   public abstract String getErrorMessageFormatForInstances();
 
   public SkylarkProviderIdentifier id() {

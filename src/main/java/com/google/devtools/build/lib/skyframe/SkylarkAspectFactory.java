@@ -155,8 +155,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                   + "a sequence of declared providers, instead got a %s at index %d",
               o.getClass(),
               i);
-      Location creationLoc = declaredProvider.getCreationLocOrNull();
-      builder.addSkylarkDeclaredProvider(declaredProvider, creationLoc != null ? creationLoc : loc);
+      builder.addSkylarkDeclaredProvider(declaredProvider);
       i++;
     }
   }

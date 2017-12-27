@@ -320,9 +320,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         parseDefaultProviderKeys(declaredProvider, context, builder);
         defaultProviderProvidedExplicitly = true;
       } else {
-        Location creationLoc = declaredProvider.getCreationLocOrNull();
-        builder.addSkylarkDeclaredProvider(
-            declaredProvider, creationLoc == null ? loc : creationLoc);
+        builder.addSkylarkDeclaredProvider(declaredProvider);
       }
     }
 
@@ -495,7 +493,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       Info actions =
           ActionsProvider.create(ruleContext.getAnalysisEnvironment().getRegisteredActions());
-      builder.addSkylarkDeclaredProvider(actions, loc);
+      builder.addSkylarkDeclaredProvider(actions);
     }
   }
 

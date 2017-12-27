@@ -291,7 +291,7 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider, Location loc)
+  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider)
       throws EvalException {
     Provider constructor = provider.getProvider();
     if (!constructor.isExported()) {
@@ -313,7 +313,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info, Location)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
     for (Info provider : providers) {
@@ -326,7 +326,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info, Location)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();

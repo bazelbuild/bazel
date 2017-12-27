@@ -205,7 +205,7 @@ public final class ConfiguredAspect {
       return this;
     }
 
-    public Builder addSkylarkDeclaredProvider(Info declaredProvider, Location loc)
+    public Builder addSkylarkDeclaredProvider(Info declaredProvider)
         throws EvalException {
       Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
