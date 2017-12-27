@@ -22,12 +22,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
@@ -44,6 +49,8 @@ import javax.annotation.Nullable;
  * Stores the command-line options from a set of configuration fragments.
  */
 public final class BuildOptions implements Cloneable, Serializable {
+  public static final ObjectCodec<BuildOptions> CODEC = new BuildOptionsCodec();
+
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
 
@@ -320,6 +327,34 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     private Builder() {
       builderMap = new HashMap<>();
+    }
+  }
+
+  private static class BuildOptionsCodec implements ObjectCodec<BuildOptions> {
+    @Override
+    public Class<BuildOptions> getEncodedClass() {
+      return BuildOptions.class;
+    }
+
+    @Override
+    public void serialize(BuildOptions buildOptions, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      Collection<FragmentOptions> fragmentOptions = buildOptions.getOptions();
+      codedOut.writeInt32NoTag(fragmentOptions.size());
+      for (FragmentOptions options : buildOptions.getOptions()) {
+        FragmentOptions.CODEC.serialize(options, codedOut);
+      }
+    }
+
+    @Override
+    public BuildOptions deserialize(CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      BuildOptions.Builder builder = BuildOptions.builder();
+      int length = codedIn.readInt32();
+      for (int i = 0; i < length; ++i) {
+        builder.add(FragmentOptions.CODEC.deserialize(codedIn));
+      }
+      return builder.build();
     }
   }
 }
