@@ -218,43 +218,29 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public boolean createDirectory(Path path) throws IOException {
+    File file = getIoFile(path);
+    if (file.mkdir()) {
+      return true;
+    }
 
-    // We always synchronize on the current path before doing it on the parent path and file system
-    // path structure ensures that this locking order will never be reversed.
-    // When refactoring, check that subclasses still work as expected and there can be no
-    // deadlocks.
-    synchronized (path) {
-      File file = getIoFile(path);
-      if (file.mkdir()) {
-        return true;
-      }
-
-      // We will be checking the state of the parent path as well. Synchronize on it before
-      // attempting anything.
-      Path parentDirectory = path.getParentDirectory();
-      synchronized (parentDirectory) {
-        if (fileIsSymbolicLink(file)) {
-          throw new IOException(path + ERR_FILE_EXISTS);
-        }
-        if (file.isDirectory()) {
-          return false; // directory already existed
-        } else if (file.exists()) {
-          throw new IOException(path + ERR_FILE_EXISTS);
-        } else if (!file.getParentFile().exists()) {
-          throw new FileNotFoundException(path.getParentDirectory() + ERR_NO_SUCH_FILE_OR_DIR);
-        }
-        // Parent directory apparently exists - try to create our directory again - protecting
-        // against the case where parent directory would be created right before us obtaining
-        // synchronization lock.
-        if (file.mkdir()) {
-          return true; // Everything is fine finally.
-        } else if (!file.getParentFile().canWrite()) {
-          throw new FileAccessException(path + ERR_PERMISSION_DENIED);
-        } else {
-          // Parent exists, is writable, yet we can't create our directory.
-          throw new FileNotFoundException(path.getParentDirectory() + ERR_NOT_A_DIRECTORY);
-        }
-      }
+    if (fileIsSymbolicLink(file)) {
+      throw new IOException(path + ERR_FILE_EXISTS);
+    }
+    if (file.isDirectory()) {
+      return false; // directory already existed
+    } else if (file.exists()) {
+      throw new IOException(path + ERR_FILE_EXISTS);
+    } else if (!file.getParentFile().exists()) {
+      throw new FileNotFoundException(path.getParentDirectory() + ERR_NO_SUCH_FILE_OR_DIR);
+    }
+    // Parent directory apparently exists - try to create our directory again.
+    if (file.mkdir()) {
+      return true; // Everything is fine finally.
+    } else if (!file.getParentFile().canWrite()) {
+      throw new FileAccessException(path + ERR_PERMISSION_DENIED);
+    } else {
+      // Parent exists, is writable, yet we can't create our directory.
+      throw new FileNotFoundException(path.getParentDirectory() + ERR_NOT_A_DIRECTORY);
     }
   }
 
@@ -323,26 +309,24 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void renameTo(Path sourcePath, Path targetPath) throws IOException {
-    synchronized (sourcePath) {
-      File sourceFile = getIoFile(sourcePath);
-      File targetFile = getIoFile(targetPath);
-      if (!sourceFile.renameTo(targetFile)) {
-        if (!sourceFile.exists()) {
-          throw new FileNotFoundException(sourcePath + ERR_NO_SUCH_FILE_OR_DIR);
-        }
-        if (targetFile.exists()) {
-          if (targetFile.isDirectory() && targetFile.list().length > 0) {
-            throw new IOException(targetPath + ERR_DIRECTORY_NOT_EMPTY);
-          } else if (sourceFile.isDirectory() && targetFile.isFile()) {
-            throw new IOException(sourcePath + " -> " + targetPath + ERR_NOT_A_DIRECTORY);
-          } else if (sourceFile.isFile() && targetFile.isDirectory()) {
-            throw new IOException(sourcePath + " -> " + targetPath + ERR_IS_DIRECTORY);
-          } else {
-            throw new IOException(sourcePath + " -> " + targetPath  + ERR_PERMISSION_DENIED);
-          }
+    File sourceFile = getIoFile(sourcePath);
+    File targetFile = getIoFile(targetPath);
+    if (!sourceFile.renameTo(targetFile)) {
+      if (!sourceFile.exists()) {
+        throw new FileNotFoundException(sourcePath + ERR_NO_SUCH_FILE_OR_DIR);
+      }
+      if (targetFile.exists()) {
+        if (targetFile.isDirectory() && targetFile.list().length > 0) {
+          throw new IOException(targetPath + ERR_DIRECTORY_NOT_EMPTY);
+        } else if (sourceFile.isDirectory() && targetFile.isFile()) {
+          throw new IOException(sourcePath + " -> " + targetPath + ERR_NOT_A_DIRECTORY);
+        } else if (sourceFile.isFile() && targetFile.isDirectory()) {
+          throw new IOException(sourcePath + " -> " + targetPath + ERR_IS_DIRECTORY);
         } else {
-          throw new FileAccessException(sourcePath + " -> " + targetPath + ERR_PERMISSION_DENIED);
+          throw new IOException(sourcePath + " -> " + targetPath  + ERR_PERMISSION_DENIED);
         }
+      } else {
+        throw new FileAccessException(sourcePath + " -> " + targetPath + ERR_PERMISSION_DENIED);
       }
     }
   }
@@ -361,22 +345,20 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   public boolean delete(Path path) throws IOException {
     File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
-    synchronized (path) {
-      try {
-        if (file.delete()) {
-          return true;
-        }
-        if (file.exists()) {
-          if (file.isDirectory() && file.list().length > 0) {
-            throw new IOException(path + ERR_DIRECTORY_NOT_EMPTY);
-          } else {
-            throw new IOException(path + ERR_PERMISSION_DENIED);
-          }
-        }
-        return false;
-      } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, file.getPath());
+    try {
+      if (file.delete()) {
+        return true;
       }
+      if (file.exists()) {
+        if (file.isDirectory() && file.list().length > 0) {
+          throw new IOException(path + ERR_DIRECTORY_NOT_EMPTY);
+        } else {
+          throw new IOException(path + ERR_PERMISSION_DENIED);
+        }
+      }
+      return false;
+    } finally {
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, file.getPath());
     }
   }
 
