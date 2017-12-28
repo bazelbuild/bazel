@@ -713,7 +713,7 @@ public class LocalSpawnRunnerTest {
    * Copies the {@code process-wrapper} tool into the path under the temporary execRoot where the
    * {@link LocalSpawnRunner} expects to find it.
    */
-  private Path copyProcessWrapperIntoExecRoot(FileSystem fs, Path execRoot) throws IOException {
+  private Path copyProcessWrapperIntoExecRoot(Path execRoot) throws IOException {
     File realProcessWrapperFile =
         new File(
             PathFragment.create(BlazeTestUtils.runfilesDir())
@@ -722,16 +722,16 @@ public class LocalSpawnRunnerTest {
     assertThat(realProcessWrapperFile.exists()).isTrue();
 
     Path binDirectoryPath = execRoot.getRelative("_bin");
-    binDirectoryPath.createDirectory(fs);
+    binDirectoryPath.createDirectory();
 
     Path execRootProcessWrapperPath = binDirectoryPath.getRelative("process-wrapper");
     File execRootCpuTimeSpenderFile = execRootProcessWrapperPath.getPathFile();
 
-    assertThat(execRootProcessWrapperPath.exists(fs)).isFalse();
+    assertThat(execRootProcessWrapperPath.exists()).isFalse();
     Files.copy(realProcessWrapperFile, execRootCpuTimeSpenderFile);
-    assertThat(execRootProcessWrapperPath.exists(fs)).isTrue();
+    assertThat(execRootProcessWrapperPath.exists()).isTrue();
 
-    execRootProcessWrapperPath.setExecutable(fs, true);
+    execRootProcessWrapperPath.setExecutable(true);
 
     return execRootProcessWrapperPath;
   }
@@ -740,7 +740,7 @@ public class LocalSpawnRunnerTest {
    * Copies the {@code spend_cpu_time} test util into the temporary execRoot so that the {@link
    * LocalSpawnRunner} can execute it.
    */
-  private Path copyCpuTimeSpenderIntoExecRoot(FileSystem fs, Path execRoot) throws IOException {
+  private Path copyCpuTimeSpenderIntoExecRoot(Path execRoot) throws IOException {
     File realCpuTimeSpenderFile =
         new File(
             PathFragment.create(BlazeTestUtils.runfilesDir())
@@ -751,11 +751,11 @@ public class LocalSpawnRunnerTest {
     Path execRootCpuTimeSpenderPath = execRoot.getRelative("spend-cpu-time");
     File execRootCpuTimeSpenderFile = execRootCpuTimeSpenderPath.getPathFile();
 
-    assertThat(execRootCpuTimeSpenderPath.exists(fs)).isFalse();
+    assertThat(execRootCpuTimeSpenderPath.exists()).isFalse();
     Files.copy(realCpuTimeSpenderFile, execRootCpuTimeSpenderFile);
-    assertThat(execRootCpuTimeSpenderPath.exists(fs)).isTrue();
+    assertThat(execRootCpuTimeSpenderPath.exists()).isTrue();
 
-    execRootCpuTimeSpenderPath.setExecutable(fs, true);
+    execRootCpuTimeSpenderPath.setExecutable(true);
 
     return execRootCpuTimeSpenderPath;
   }
@@ -770,11 +770,11 @@ public class LocalSpawnRunnerTest {
     tempDirFile.deleteOnExit();
 
     Path tempDirPath = fs.getPath(tempDirFile.getPath());
-    assertThat(tempDirPath.exists(fs)).isTrue();
+    assertThat(tempDirPath.exists()).isTrue();
 
     Path execRoot = tempDirPath.getRelative("execroot");
-    assertThat(execRoot.createDirectory(fs)).isTrue();
-    assertThat(execRoot.exists(fs)).isTrue();
+    assertThat(execRoot.createDirectory()).isTrue();
+    assertThat(execRoot.exists()).isTrue();
 
     return execRoot;
   }
@@ -800,8 +800,8 @@ public class LocalSpawnRunnerTest {
     Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(2));
 
     Path execRoot = getTemporaryExecRoot(fs);
-    copyProcessWrapperIntoExecRoot(fs, execRoot);
-    Path cpuTimeSpenderPath = copyCpuTimeSpenderIntoExecRoot(fs, execRoot);
+    copyProcessWrapperIntoExecRoot(execRoot);
+    Path cpuTimeSpenderPath = copyCpuTimeSpenderIntoExecRoot(execRoot);
 
     LocalSpawnRunner runner =
         new LocalSpawnRunner(
@@ -862,8 +862,8 @@ public class LocalSpawnRunnerTest {
     Duration minimumSystemTimeToSpend = Duration.ZERO;
 
     Path execRoot = getTemporaryExecRoot(fs);
-    copyProcessWrapperIntoExecRoot(fs, execRoot);
-    Path cpuTimeSpenderPath = copyCpuTimeSpenderIntoExecRoot(fs, execRoot);
+    copyProcessWrapperIntoExecRoot(execRoot);
+    Path cpuTimeSpenderPath = copyCpuTimeSpenderIntoExecRoot(execRoot);
 
     LocalSpawnRunner runner =
         new LocalSpawnRunner(
