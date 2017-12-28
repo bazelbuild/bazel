@@ -104,8 +104,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         throws InterruptedException {
       TargetCompletionKey tcKey = (TargetCompletionKey) skyKey.argument();
       ConfiguredTargetKey lac = tcKey.configuredTargetKey();
-      return (ConfiguredTargetValue)
-          env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
+      return (ConfiguredTargetValue) env.getValue(lac.getSkyKey());
     }
 
     @Override

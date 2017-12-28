@@ -38,8 +38,7 @@ public final class TestCompletionFunction implements SkyFunction {
       return null;
     }
 
-    ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
-        env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
+    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(lac.getSkyKey());
     if (ctValue == null) {
       return null;
     }

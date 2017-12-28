@@ -104,10 +104,7 @@ public class ConfiguredTargetQueryEnvironment
   private static final Function<ConfiguredTarget, SkyKey> CT_TO_SKYKEY =
       target -> ConfiguredTargetValue.key(target.getLabel(), target.getConfiguration());
   private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
-      skyKey -> {
-        ConfiguredTargetKey key = (ConfiguredTargetKey) skyKey.argument();
-        return ConfiguredTargetKey.of(key.getLabel(), key.getConfiguration());
-      };
+      skyKey -> (ConfiguredTargetKey) skyKey.argument();
   private static final ImmutableList<TargetPatternKey> ALL_PATTERNS;
   private static final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey>
       CONFIGURED_TARGET_KEY_EXTRACTOR = ConfiguredTargetKey::of;
