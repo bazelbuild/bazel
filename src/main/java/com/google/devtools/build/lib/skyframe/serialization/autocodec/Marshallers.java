@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
@@ -282,9 +285,10 @@ class Marshallers {
       new Marshaller() {
         @Override
         public boolean matches(DeclaredType type) {
-          // TODO(shahan): since Map is a bit more general than ImmutableSortedMap, consider
-          // splitting these.
-          return matchesErased(type, Map.class) || matchesErased(type, ImmutableSortedMap.class);
+          // TODO(shahan): refine as needed by splitting these into separate marshallers.
+          return matchesErased(type, Map.class)
+              || matchesErased(type, ImmutableMap.class)
+              || matchesErased(type, ImmutableSortedMap.class);
         }
 
         @Override
@@ -339,6 +343,65 @@ class Marshallers {
         }
       };
 
+  private final Marshaller multimapMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesErased(type, ImmutableMultimap.class)
+              || matchesErased(type, ImmutableListMultimap.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.writeInt32NoTag($L.size())", context.name);
+          String entryName = context.makeName("entry");
+          Context key =
+              context.with(
+                  (DeclaredType) context.type.getTypeArguments().get(0), entryName + ".getKey()");
+          Context value =
+              context.with(
+                  (DeclaredType) context.type.getTypeArguments().get(1), entryName + ".getValue()");
+          context.builder.beginControlFlow(
+              "for ($T<$T, $T> $L : $L.entries())",
+              Map.Entry.class,
+              key.getTypeName(),
+              value.getTypeName(),
+              entryName,
+              context.name);
+          writeSerializationCode(key);
+          writeSerializationCode(value);
+          context.builder.endControlFlow();
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          Context key =
+              context.with(
+                  (DeclaredType) context.type.getTypeArguments().get(0), context.makeName("key"));
+          Context value =
+              context.with(
+                  (DeclaredType) context.type.getTypeArguments().get(1), context.makeName("value"));
+          String builderName = context.makeName("builder");
+          context.builder.addStatement(
+              "$T<$T, $T> $L = new $T<>()",
+              ImmutableListMultimap.Builder.class,
+              key.getTypeName(),
+              value.getTypeName(),
+              builderName,
+              ImmutableListMultimap.Builder.class);
+          String lengthName = context.makeName("length");
+          context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
+          String indexName = context.makeName("i");
+          context.builder.beginControlFlow(
+              "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
+          writeDeserializationCode(key);
+          writeDeserializationCode(value);
+          context.builder.addStatement("$L.put($L, $L)", builderName, key.name, value.name);
+          context.builder.endControlFlow();
+          context.builder.addStatement("$L = $L.build()", context.name, builderName);
+        }
+      };
+
   private final Marshaller protoMarshaller =
       new Marshaller() {
         @Override
@@ -367,6 +430,7 @@ class Marshallers {
           listMarshaller,
           immutableSortedSetMarshaller,
           mapMarshaller,
+          multimapMarshaller,
           protoMarshaller,
           CODEC_MARSHALLER);
 
