@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -108,6 +110,16 @@ import javax.annotation.Nullable;
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
 public class BuildConfiguration implements BuildEvent {
+  /**
+   * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
+   * output from buildMnemonic.
+   */
+  public static final Comparator<Class<? extends Fragment>> lexicalFragmentSorter =
+      Comparator.comparing(Class::getName);
+
+  private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
+      fragmentsInterner = BlazeInterners.newWeakInterner();
+
   /**
    * An interface for language-specific configurations.
    *
@@ -1084,7 +1096,8 @@ public class BuildConfiguration implements BuildEvent {
 
   private final String checksum;
 
-  private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
+  private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
+
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
@@ -1259,7 +1272,7 @@ public class BuildConfiguration implements BuildEvent {
     BuildConfiguration otherConfig = (BuildConfiguration) other;
     return actionsEnabled == otherConfig.actionsEnabled
         && fragments.values().equals(otherConfig.fragments.values())
-        && buildOptions.getOptions().equals(otherConfig.buildOptions.getOptions());
+        && buildOptions.equals(otherConfig.buildOptions);
   }
 
   private int computeHashCode() {
@@ -1347,17 +1360,10 @@ public class BuildConfiguration implements BuildEvent {
     return ActionEnvironment.split(testEnv);
   }
 
-  /**
-   * Sorts fragments by class name. This produces a stable order which, e.g., facilitates
-   * consistent output from buildMneumonic.
-   */
-  private static final Comparator lexicalFragmentSorter =
-      new Comparator<Class<? extends Fragment>>() {
-        @Override
-        public int compare(Class<? extends Fragment> o1, Class<? extends Fragment> o2) {
-          return o1.getName().compareTo(o2.getName());
-        }
-      };
+  private static ImmutableSortedMap<Class<? extends Fragment>, Fragment> makeFragmentsMap(
+      Map<Class<? extends Fragment>, Fragment> fragmentsMap) {
+    return fragmentsInterner.intern(ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter));
+  }
 
   /**
    * Constructs a new BuildConfiguration instance.
@@ -1367,7 +1373,7 @@ public class BuildConfiguration implements BuildEvent {
       BuildOptions buildOptions,
       String repositoryName) {
     this.directories = directories;
-    this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
+    this.fragments = makeFragmentsMap(fragmentsMap);
 
     this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
 
@@ -1836,10 +1842,8 @@ public class BuildConfiguration implements BuildEvent {
     return true;
   }
 
-  /**
-   * Which fragments does this configuration contain?
-   */
-  public Set<Class<? extends Fragment>> fragmentClasses() {
+  /** Which fragments does this configuration contain? */
+  public ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses() {
     return fragments.keySet();
   }
 
