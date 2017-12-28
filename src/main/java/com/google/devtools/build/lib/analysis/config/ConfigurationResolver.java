@@ -26,6 +26,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -184,7 +185,7 @@ public final class ConfigurationResolver {
       Transition transition = dep.getTransition();
 
       if (sameFragments) {
-        if (transition == Attribute.ConfigurationTransition.NONE) {
+        if (transition == ConfigurationTransitionProxy.NONE) {
           // The dep uses the same exact configuration.
           putOnlyEntry(
               resolvedDeps,
@@ -413,7 +414,7 @@ public final class ConfigurationResolver {
       Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
       RuleClassProvider ruleClassProvider, boolean trimResults) {
     List<BuildOptions> result;
-    if (transition == Attribute.ConfigurationTransition.NONE) {
+    if (transition == ConfigurationTransitionProxy.NONE) {
       result = ImmutableList.<BuildOptions>of(fromOptions);
     } else if (transition instanceof PatchTransition) {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.

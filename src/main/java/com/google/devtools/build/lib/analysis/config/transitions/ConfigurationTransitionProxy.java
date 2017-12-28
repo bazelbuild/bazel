@@ -18,10 +18,11 @@ package com.google.devtools.build.lib.analysis.config.transitions;
  * Declaration how the configuration should change when following a label or label list attribute.
  *
  * <p>Do not add to this. This is a legacy interface from when Blaze had limited support for
- * transitions. Use {@link PatchTransition} or {@link SplitTransition} instead.
+ * transitions. Use {@link com.google.devtools.build.lib.analysis.config.PatchTransition} or
+ * {@link SplitTransition} instead.
  */
 @Deprecated
-public enum ConfigurationTransition implements Transition {
+public enum ConfigurationTransitionProxy implements Transition {
   /** No transition, i.e., the same configuration as the current. */
   NONE,
 

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.analysis.util.ExpectedTrimmedConfigurationE
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -393,7 +393,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Dependency innerDependency =
         Dependency.withTransitionAndAspects(
             Label.parseAbsolute("//package:inner"),
-            Attribute.ConfigurationTransition.NONE,
+            ConfigurationTransitionProxy.NONE,
             AspectCollection.EMPTY);
     Dependency fileDependency =
         Dependency.withNullConfiguration(

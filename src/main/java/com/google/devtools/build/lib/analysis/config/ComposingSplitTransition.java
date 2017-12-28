@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import java.util.List;
 
 /**
@@ -72,7 +72,7 @@ public class ComposingSplitTransition implements SplitTransition {
    */
   // TODO(gregce): move this somewhere more general. This isn't intrinsic to composed splits.
   static List<BuildOptions> apply(BuildOptions fromOptions, Transition transition) {
-    if (transition == ConfigurationTransition.NONE) {
+    if (transition == ConfigurationTransitionProxy.NONE) {
       return ImmutableList.<BuildOptions>of(fromOptions);
     } else if (transition instanceof PatchTransition) {
       return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));

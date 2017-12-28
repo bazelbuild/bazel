@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.Collection;
 import java.util.Set;
@@ -82,7 +82,7 @@ public final class ConfigurationFragmentPolicy {
      * <p>The value is inherited by subclasses.
      */
     public Builder requiresConfigurationFragments(Collection<Class<?>> configurationFragments) {
-      requiresConfigurationFragments(ConfigurationTransition.NONE, configurationFragments);
+      requiresConfigurationFragments(ConfigurationTransitionProxy.NONE, configurationFragments);
       return this;
     }
 
@@ -98,7 +98,7 @@ public final class ConfigurationFragmentPolicy {
       // We can relax this assumption if needed. But it's already sketchy to let a rule see more
       // than its own configuration. So we don't want to casually proliferate this pattern.
       Preconditions.checkArgument(
-          transition == Attribute.ConfigurationTransition.NONE || transition.isHostTransition());
+          transition == ConfigurationTransitionProxy.NONE || transition.isHostTransition());
       requiredConfigurationFragments.putAll(transition, configurationFragments);
       return this;
     }
@@ -117,7 +117,7 @@ public final class ConfigurationFragmentPolicy {
         Collection<String> configurationFragmentNames) {
 
       requiresConfigurationFragmentsBySkylarkModuleName(
-          Attribute.ConfigurationTransition.NONE, configurationFragmentNames);
+          ConfigurationTransitionProxy.NONE, configurationFragmentNames);
       return this;
     }
 
@@ -136,7 +136,7 @@ public final class ConfigurationFragmentPolicy {
       // We can relax this assumption if needed. But it's already sketchy to let a rule see more
       // than its own configuration. So we don't want to casually proliferate this pattern.
       Preconditions.checkArgument(
-          transition == ConfigurationTransition.NONE || transition.isHostTransition());
+          transition == ConfigurationTransitionProxy.NONE || transition.isHostTransition());
       requiredConfigurationFragmentNames.putAll(transition, configurationFragmentNames);
       return this;
     }

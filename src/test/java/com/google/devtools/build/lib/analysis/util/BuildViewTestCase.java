@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -99,7 +100,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -1484,7 +1484,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected BuildConfiguration getDataConfiguration() throws InterruptedException {
-    return getConfiguration(getTargetConfiguration(), ConfigurationTransition.DATA);
+    return getConfiguration(getTargetConfiguration(), ConfigurationTransitionProxy.DATA);
   }
 
   protected BuildConfiguration getHostConfiguration() {
@@ -1496,9 +1496,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
       Transition transition) throws InterruptedException {
-    if (transition == ConfigurationTransition.NONE) {
+    if (transition == ConfigurationTransitionProxy.NONE) {
       return fromConfig;
-    } else if (transition == ConfigurationTransition.NULL) {
+    } else if (transition == ConfigurationTransitionProxy.NULL) {
       return null;
     } else {
       PatchTransition patchTransition =
