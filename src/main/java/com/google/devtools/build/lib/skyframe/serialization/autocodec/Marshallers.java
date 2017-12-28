@@ -14,13 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.Marshaller.Context;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.protobuf.GeneratedMessage;
 import com.google.protobuf.ProtocolMessageEnum;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -136,6 +139,29 @@ class Marshallers {
         }
       };
 
+  private final Marshaller optionalMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesErased(type, Optional.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          DeclaredType optionalType = (DeclaredType) context.type.getTypeArguments().get(0);
+          writeSerializationCode(context.with(optionalType, context.name + ".orNull()"));
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          DeclaredType optionalType = (DeclaredType) context.type.getTypeArguments().get(0);
+          String optionalName = context.makeName("optional");
+          writeDeserializationCode(context.with(optionalType, optionalName));
+          context.builder.addStatement(
+              "$L = $T.fromNullable($L)", context.name, Optional.class, optionalName);
+        }
+      };
+
   private final Marshaller mapEntryMarshaller =
       new Marshaller() {
         @Override
@@ -168,9 +194,11 @@ class Marshallers {
       new Marshaller() {
         @Override
         public boolean matches(DeclaredType type) {
-          // TODO(shahan): List is more general than ImmutableList. Consider whether these
-          // two should have distinct marshallers.
-          return matchesErased(type, List.class) || matchesErased(type, ImmutableList.class);
+          // TODO(shahan): refine this as needed by splitting this into separate marshallers.
+          return matchesErased(type, Iterable.class)
+              || matchesErased(type, Collection.class)
+              || matchesErased(type, List.class)
+              || matchesErased(type, ImmutableList.class);
         }
 
         @Override
@@ -311,30 +339,55 @@ class Marshallers {
         }
       };
 
+  private final Marshaller protoMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return isSubtype(type, GeneratedMessage.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("$L.writeTo(codedOut)", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.parseFrom(codedIn)", context.name, context.getTypeName());
+        }
+      };
+
   private final ImmutableList<Marshaller> marshallers =
       ImmutableList.of(
           enumMarshaller,
           stringMarshaller,
+          optionalMarshaller,
           mapEntryMarshaller,
           listMarshaller,
           immutableSortedSetMarshaller,
           mapMarshaller,
+          protoMarshaller,
           CODEC_MARSHALLER);
 
   /** True when {@code type} has the same type as {@code clazz}. */
   private boolean matchesType(TypeMirror type, Class<?> clazz) {
-    return env.getTypeUtils()
-        .isSameType(
-            type, env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType());
+    return env.getTypeUtils().isSameType(type, getType(clazz));
+  }
+
+  /** True when {@code type} is a subtype of {@code clazz}. */
+  private boolean isSubtype(TypeMirror type, Class<?> clazz) {
+    return env.getTypeUtils().isSubtype(type, getType(clazz));
   }
 
   /** True when erasure of {@code type} matches erasure of {@code clazz}. */
   private boolean matchesErased(TypeMirror type, Class<?> clazz) {
     return env.getTypeUtils()
-        .isSameType(
-            env.getTypeUtils().erasure(type),
-            env.getTypeUtils()
-                .erasure(
-                    env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType()));
+        .isSameType(env.getTypeUtils().erasure(type), env.getTypeUtils().erasure(getType(clazz)));
+  }
+
+  /** Returns the TypeMirror corresponding to {@code clazz}. */
+  private TypeMirror getType(Class<?> clazz) {
+    return env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType();
   }
 }

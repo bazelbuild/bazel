@@ -126,6 +126,37 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return true;
   }
 
+  /**
+   * Heuristic for synthesizing a method getter.
+   *
+   * <p>Tries prepending {@code get} first, for example, a parameter called {@code target} results
+   * in {@code getTarget()}.
+   *
+   * <p>Falls back to {@code target()} if {@code getTarget()} doesn't exist.
+   */
+  private class GetGetter implements UnaryOperator<String> {
+    private final TypeElement encodedType;
+
+    GetGetter(TypeElement encodedType) {
+      this.encodedType = encodedType;
+    }
+
+    @Override
+    public String apply(String name) {
+      String getMethodName = "get" + name.substring(0, 1).toUpperCase() + name.substring(1);
+      List<ExecutableElement> methods =
+          ElementFilter.methodsIn(env.getElementUtils().getAllMembers(encodedType));
+      if (methods.stream().anyMatch(p -> p.getSimpleName().contentEquals(getMethodName))) {
+        return getMethodName + "()";
+      }
+      if (methods.stream().anyMatch(p -> p.getSimpleName().contentEquals(name))) {
+        return name + "()";
+      }
+      throw new IllegalArgumentException(
+          encodedType.getQualifiedName() + " has no getter for " + name);
+    }
+  }
+
   private void buildClassWithConstructorStrategy(
       TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
     // In Java, every class has a constructor, so this always succeeds.
@@ -133,8 +164,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
         ElementFilter.constructorsIn(encodedType.getEnclosedElements()).get(0);
     List<? extends VariableElement> constructorParameters = constructor.getParameters();
     codecClassBuilder.addMethod(
-        buildSerializeMethod(
-            encodedType, constructorParameters, AutoCodecProcessor::paramNameAsGetter));
+        buildSerializeMethod(encodedType, constructorParameters, new GetGetter(encodedType)));
     MethodSpec.Builder deserializeBuilder =
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType);
     buildDeserializeBody(deserializeBuilder, constructorParameters);
@@ -156,15 +186,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
     buildDeserializeBody(deserializeBuilder, publicFields);
     addInstantiatePopulateFieldsAndReturn(deserializeBuilder, encodedType, publicFields);
     codecClassBuilder.addMethod(deserializeBuilder.build());
-  }
-
-  /**
-   * Heuristic that converts a constructor parameter to a getter.
-   *
-   * <p>For example, a parameter called {@code target} results in {@code getTarget()}.
-   */
-  private static String paramNameAsGetter(String name) {
-    return "get" + name.substring(0, 1).toUpperCase() + name.substring(1) + "()";
   }
 
   private boolean isPublicField(VariableElement element) {
