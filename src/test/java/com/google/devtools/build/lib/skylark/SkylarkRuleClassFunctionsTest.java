@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -99,33 +99,23 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testCannotOverrideBuiltInAttribute() throws Exception {
     ev.setFailFast(false);
-    try {
-      evalAndExport(
-          "def impl(ctx): return", "r = rule(impl, attrs = {'tags': attr.string_list()})");
-      fail("Expected error '"
-          + "There is already a built-in attribute 'tags' which cannot be overridden"
-          + "' but got no error");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("There is already a built-in attribute 'tags' which cannot be overridden");
-    }
+    evalAndExport(
+        "def impl(ctx):",
+        "  return",
+        "r = rule(impl, attrs = {'tags': attr.string_list()})");
+    ev.assertContainsError(
+        "There is already a built-in attribute 'tags' which cannot be overridden");
   }
 
   @Test
   public void testCannotOverrideBuiltInAttributeName() throws Exception {
     ev.setFailFast(false);
-    try {
-      evalAndExport(
-          "def impl(ctx): return", "r = rule(impl, attrs = {'name': attr.string()})");
-      fail("Expected error '"
-          + "There is already a built-in attribute 'name' which cannot be overridden"
-          + "' but got no error");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("There is already a built-in attribute 'name' which cannot be overridden");
-    }
+    evalAndExport(
+        "def impl(ctx):",
+        "  return",
+        "r = rule(impl, attrs = {'name': attr.string()})");
+    ev.assertContainsError(
+        "There is already a built-in attribute 'name' which cannot be overridden");
   }
 
   @Test
@@ -1608,14 +1598,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
       "my_rule(name = 'main', exe = ':tool.sh')"
     );
 
-    try {
-      createRuleContext("//third_party/foo:main");
-      fail();
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("cfg parameter is mandatory when executable=True is " + "provided.");
-    }
+    AssertionError expected = expectThrows(
+        AssertionError.class,
+        () -> createRuleContext("//third_party/foo:main"));
+    assertThat(expected).hasMessageThat()
+        .contains("cfg parameter is mandatory when executable=True is provided.");
   }
 
   @Test
