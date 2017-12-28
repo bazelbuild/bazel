@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy.SPLIT;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -273,7 +272,6 @@ public class AttributeTest {
   public void testSplitTransition() throws Exception {
     TestSplitTransition splitTransition = new TestSplitTransition();
     Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition()).isEqualTo(SPLIT);
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
     assertThat(attr.getSplitTransition(null)).isEqualTo(splitTransition);
   }
@@ -283,7 +281,6 @@ public class AttributeTest {
     TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
     Attribute attr =
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition()).isEqualTo(SPLIT);
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
     assertThat(attr.getSplitTransition(null) instanceof TestSplitTransition).isTrue();
   }

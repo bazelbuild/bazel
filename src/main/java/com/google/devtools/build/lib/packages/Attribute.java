@@ -483,7 +483,6 @@ public final class Attribute implements Comparable<Attribute> {
           "the configuration transition is already set");
 
       this.splitTransitionProvider = Preconditions.checkNotNull(splitTransitionProvider);
-      this.configTransition = ConfigurationTransitionProxy.SPLIT;
       return this;
     }
 
@@ -502,8 +501,6 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> cfg(Transition configTransition) {
       Preconditions.checkState(this.configTransition == ConfigurationTransitionProxy.NONE,
           "the configuration transition is already set");
-      Preconditions.checkArgument(configTransition != ConfigurationTransitionProxy.SPLIT,
-          "split transitions must be defined using the SplitTransition object");
       if (configTransition instanceof SplitTransition) {
         return cfg((SplitTransition) configTransition);
       } else {
