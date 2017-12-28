@@ -122,12 +122,12 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
-  public ImmutableCollection<String> getKeys() {
-    return actual.getKeys();
+  public ImmutableCollection<String> getFieldNames() {
+    return actual.getFieldNames();
   }
 
   @Override
-  public String errorMessage(String name) {
+  public String getErrorMessageForUnknownField(String name) {
     // Use the default error message.
     return null;
   }

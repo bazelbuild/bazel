@@ -85,12 +85,12 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
-    public boolean hasKey(String name) {
+    public boolean hasField(String name) {
       return values.containsKey(name);
     }
 
     @Override
-    public ImmutableCollection<String> getKeys() {
+    public ImmutableCollection<String> getFieldNames() {
       return values.keySet();
     }
 
@@ -133,14 +133,14 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
-    public boolean hasKey(String name) {
+    public boolean hasField(String name) {
       Integer index = layout.get(name);
       return index != null && values[index] != null;
     }
 
     @Override
-    public ImmutableCollection<String> getKeys() {
-      ImmutableSet.Builder<String> result = new ImmutableSet.Builder();
+    public ImmutableCollection<String> getFieldNames() {
+      ImmutableSet.Builder<String> result = ImmutableSet.builder();
       for (Map.Entry<String, Integer> entry : layout.entrySet()) {
         if (values[entry.getValue()] != null) {
           result.add(entry.getKey());
@@ -175,7 +175,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
       }
       SetView<String> commonFields =
           Sets.intersection(
-              ImmutableSet.copyOf(lval.getKeys()), ImmutableSet.copyOf(rval.getKeys()));
+              ImmutableSet.copyOf(lval.getFieldNames()), ImmutableSet.copyOf(rval.getFieldNames()));
       if (!commonFields.isEmpty()) {
         throw new EvalException(
             loc,
@@ -198,11 +198,11 @@ public abstract class SkylarkInfo extends Info implements Concatable {
             compactLeft.getProvider(), compactLeft.layout, newValues, loc);
       }
       ImmutableMap.Builder<String, Object> newValues = ImmutableMap.builder();
-      for (String key : lval.getKeys()) {
-        newValues.put(key, lval.getValue(key));
+      for (String field : lval.getFieldNames()) {
+        newValues.put(field, lval.getValue(field));
       }
-      for (String key : rval.getKeys()) {
-        newValues.put(key, rval.getValue(key));
+      for (String field : rval.getFieldNames()) {
+        newValues.put(field, rval.getValue(field));
       }
       return new MapBackedSkylarkInfo(provider, newValues.build(), loc);
     }

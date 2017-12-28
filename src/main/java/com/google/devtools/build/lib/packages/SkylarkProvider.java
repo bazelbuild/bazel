@@ -48,6 +48,7 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
   private static final FunctionSignature.WithValues<Object, SkylarkType> SCHEMALESS_SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
 
+  /** Default value for {@link #errorMessageFormatForUnknownField}. */
   private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
 
   /**
@@ -65,7 +66,7 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
   private SkylarkKey key;
 
   /** Error message format. Reassigned upon exporting. */
-  private String errorMessageFormatForInstances;
+  private String errorMessageFormatForUnknownField;
 
   /**
    * Creates an unexported {@link SkylarkProvider} with no schema.
@@ -132,9 +133,9 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
     super(/*name=*/ null, buildSignature(fields), location);
     this.layout = buildLayout(fields);
     this.key = key;  // possibly null
-    this.errorMessageFormatForInstances =
+    this.errorMessageFormatForUnknownField =
         key == null ? DEFAULT_ERROR_MESSAGE_FORMAT
-            : makeErrorMessageFormatForInstances(key.getExportedName());
+            : makeErrorMessageFormatForUnknownField(key.getExportedName());
   }
 
 
@@ -209,18 +210,18 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
   }
 
   @Override
-  public String getErrorMessageFormatForInstances() {
-    return errorMessageFormatForInstances;
+  public String getErrorMessageFormatForUnknownField() {
+    return errorMessageFormatForUnknownField;
   }
 
   @Override
   public void export(Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
     this.key = new SkylarkKey(extensionLabel, exportedName);
-    this.errorMessageFormatForInstances = makeErrorMessageFormatForInstances(exportedName);
+    this.errorMessageFormatForUnknownField = makeErrorMessageFormatForUnknownField(exportedName);
   }
 
-  private static String makeErrorMessageFormatForInstances(String exportedName) {
+  private static String makeErrorMessageFormatForUnknownField(String exportedName) {
     return String.format("'%s' object has no attribute '%%s'", exportedName);
   }
 

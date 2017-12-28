@@ -252,7 +252,7 @@ public final class OutputGroupInfo extends NativeInfo
   }
 
   @Override
-  public ImmutableCollection<String> getKeys() {
+  public ImmutableCollection<String> getFieldNames() {
     return outputGroups.keySet();
   }
 
@@ -281,8 +281,8 @@ public final class OutputGroupInfo extends NativeInfo
     }
 
     @Override
-    public String getErrorMessageFormatForInstances() {
-      return "Output group %s not present";
+    public String getErrorMessageFormatForUnknownField() {
+      return "Output group '%s' not present";
     }
   }
 }

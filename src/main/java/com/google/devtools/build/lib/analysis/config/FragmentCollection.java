@@ -53,21 +53,21 @@ public class FragmentCollection implements ClassObject {
   }
 
   @Override
-  public ImmutableCollection<String> getKeys() {
+  public ImmutableCollection<String> getFieldNames() {
     return ruleContext.getSkylarkFragmentNames(transition);
   }
 
   @Override
   @Nullable
-  public String errorMessage(String name) {
+  public String getErrorMessageForUnknownField(String name) {
     return String.format(
         "There is no configuration fragment named '%s' in %s configuration. "
         + "Available fragments: %s",
-        name, getConfigurationName(transition), printKeys());
+        name, getConfigurationName(transition), fieldsToString());
   }
 
-  private String printKeys() {
-    return String.format("'%s'", Joiner.on("', '").join(getKeys()));
+  private String fieldsToString() {
+    return String.format("'%s'", Joiner.on("', '").join(getFieldNames()));
   }
 
   public static String getConfigurationName(Transition config) {
@@ -76,6 +76,6 @@ public class FragmentCollection implements ClassObject {
 
   @Override
   public String toString() {
-    return getConfigurationName(transition) + ": [ " + printKeys() + "]";
+    return getConfigurationName(transition) + ": [ " + fieldsToString() + "]";
   }
 }

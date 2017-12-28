@@ -94,8 +94,8 @@ public final class XcTestAppProvider extends NativeInfo {
     }
 
     @Override
-    public String getErrorMessageFormatForInstances() {
-      return "XcTestAppProvider field %s could not be instantiated";
+    public String getErrorMessageFormatForUnknownField() {
+      return "XcTestAppProvider field '%s' could not be instantiated";
     }
   }
 }

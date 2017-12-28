@@ -1051,7 +1051,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
     Info z = (Info) lookup("z");
-    assertThat(z.getKeys()).isEqualTo(ImmutableSet.of("a", "b", "c", "d"));
+    assertThat(z.getFieldNames()).isEqualTo(ImmutableSet.of("a", "b", "c", "d"));
   }
 
   @Test

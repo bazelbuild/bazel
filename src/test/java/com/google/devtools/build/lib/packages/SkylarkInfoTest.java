@@ -101,7 +101,7 @@ public class SkylarkInfoTest {
         new CompactSkylarkInfo(provider, layout, new Object[] {null, 5}, Location.BUILTIN);
     Concatable result = p1.getConcatter().concat(p1, p2, Location.BUILTIN);
     assertThat(result).isInstanceOf(MapBackedSkylarkInfo.class);
-    assertThat(((SkylarkInfo) result).getKeys()).containsExactly("f1", "f2");
+    assertThat(((SkylarkInfo) result).getFieldNames()).containsExactly("f1", "f2");
     assertThat(((SkylarkInfo) result).getValue("f1")).isEqualTo(4);
     assertThat(((SkylarkInfo) result).getValue("f2")).isEqualTo(5);
   }
@@ -117,7 +117,7 @@ public class SkylarkInfoTest {
         new CompactSkylarkInfo(provider, layout, new Object[] {null, 5}, Location.BUILTIN);
     Concatable result = p1.getConcatter().concat(p1, p2, Location.BUILTIN);
     assertThat(result).isInstanceOf(CompactSkylarkInfo.class);
-    assertThat(((CompactSkylarkInfo) result).getKeys()).containsExactly("f1", "f2");
+    assertThat(((CompactSkylarkInfo) result).getFieldNames()).containsExactly("f1", "f2");
     assertThat(((CompactSkylarkInfo) result).getValue("f1")).isEqualTo(4);
     assertThat(((CompactSkylarkInfo) result).getValue("f2")).isEqualTo(5);
   }

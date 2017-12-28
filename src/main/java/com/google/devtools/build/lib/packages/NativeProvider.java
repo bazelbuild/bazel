@@ -40,16 +40,16 @@ import javax.annotation.Nullable;
  * #createInstanceFromSkylark(Object[], Location)} (see {@link #STRUCT} for an example.
  */
 @Immutable
-public abstract class NativeProvider<VALUE extends Info> extends Provider {
+public abstract class NativeProvider<V extends Info> extends Provider {
   private final NativeKey key;
-  private final String errorMessageForInstances;
+  private final String errorMessageFormatForUnknownField;
 
   /** "struct" function. */
   public static final StructConstructor STRUCT = new StructConstructor();
 
-  private final Class<VALUE> valueClass;
+  private final Class<V> valueClass;
 
-  public Class<VALUE> getValueClass() {
+  public Class<V> getValueClass() {
     return valueClass;
   }
 
@@ -94,18 +94,18 @@ public abstract class NativeProvider<VALUE extends Info> extends Provider {
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
 
-  protected NativeProvider(Class<VALUE> clazz, String name) {
+  protected NativeProvider(Class<V> clazz, String name) {
     this(clazz, name, SIGNATURE);
   }
 
   protected NativeProvider(
-      Class<VALUE> valueClass,
+      Class<V> valueClass,
       String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature) {
     super(name, signature, Location.BUILTIN);
     key = new NativeKey(name, getClass());
     this.valueClass = valueClass;
-    errorMessageForInstances = String.format("'%s' object has no attribute '%%s'", name);
+    errorMessageFormatForUnknownField = String.format("'%s' object has no attribute '%%s'", name);
   }
 
   /**
@@ -136,8 +136,8 @@ public abstract class NativeProvider<VALUE extends Info> extends Provider {
   }
 
   @Override
-  public String getErrorMessageFormatForInstances() {
-    return errorMessageForInstances;
+  public String getErrorMessageFormatForUnknownField() {
+    return errorMessageFormatForUnknownField;
   }
 
   @Override

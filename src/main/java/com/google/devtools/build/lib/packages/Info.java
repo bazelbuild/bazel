@@ -70,14 +70,14 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   public Info(Provider provider, @Nullable Location location) {
     this.provider = provider;
     this.creationLoc = location == null ? Location.BUILTIN : location;
-    this.errorMessageFormatForUnknownField = provider.getErrorMessageFormatForInstances();
+    this.errorMessageFormatForUnknownField = provider.getErrorMessageFormatForUnknownField();
   }
 
   /** Creates a built-in struct (i.e. without a Skylark creation location). */
   public Info(Provider provider) {
     this.provider = provider;
     this.creationLoc = Location.BUILTIN;
-    this.errorMessageFormatForUnknownField = provider.getErrorMessageFormatForInstances();
+    this.errorMessageFormatForUnknownField = provider.getErrorMessageFormatForUnknownField();
   }
 
   /**
@@ -113,10 +113,9 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   /**
    * Returns whether the given field name exists.
    *
-   * <p>The "key" nomenclature is historic and for consistency with {@link ClassObject}.
+   * <p>This conceptually extends the API for {@link ClassObject}.
    */
-  // TODO(bazel-team): Rename to hasField(), and likewise in ClassObject.
-  public abstract boolean hasKey(String name);
+  public abstract boolean hasField(String name);
 
   /** Returns a value and try to cast it into specified type */
   public <T> T getValue(String key, Class<T> type) throws EvalException {
@@ -144,11 +143,11 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   /**
    * Returns the fields of this struct.
    *
-   * Overrides {@link ClassObject#getKeys()}, but does not allow {@link EvalException} to
+   * Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
    * be thrown.
    */
   @Override
-  public abstract ImmutableCollection<String> getKeys();
+  public abstract ImmutableCollection<String> getFieldNames();
 
   /**
    * Returns the value associated with the name field in this struct,
@@ -161,11 +160,10 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   @Override
   public abstract Object getValue(String name);
 
-  // TODO(bazel-team): Rename to getErrorMessageForUnknownField.
   @Override
-  public String errorMessage(String name) {
-    String suffix =
-        "Available attributes: " + Joiner.on(", ").join(Ordering.natural().sortedCopy(getKeys()));
+  public String getErrorMessageForUnknownField(String name) {
+    String suffix = "Available attributes: "
+        + Joiner.on(", ").join(Ordering.natural().sortedCopy(getFieldNames()));
     return String.format(errorMessageFormatForUnknownField, name) + "\n" + suffix;
   }
 
@@ -181,12 +179,12 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     if (!this.provider.equals(other.provider)) {
       return false;
     }
-    // Compare objects' keys and values
-    if (!this.getKeys().equals(other.getKeys())) {
+    // Compare objects' fields and their values
+    if (!this.getFieldNames().equals(other.getFieldNames())) {
       return false;
     }
-    for (String key : getKeys()) {
-      if (!this.getValue(key).equals(other.getValue(key))) {
+    for (String field : getFieldNames()) {
+      if (!this.getValue(field).equals(other.getValue(field))) {
         return false;
       }
     }
@@ -195,13 +193,13 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
 
   @Override
   public int hashCode() {
-    List<String> keys = new ArrayList<>(getKeys());
-    Collections.sort(keys);
+    List<String> fields = new ArrayList<>(getFieldNames());
+    Collections.sort(fields);
     List<Object> objectsToHash = new ArrayList<>();
     objectsToHash.add(provider);
-    for (String key : keys) {
-      objectsToHash.add(key);
-      objectsToHash.add(getValue(key));
+    for (String field : fields) {
+      objectsToHash.add(field);
+      objectsToHash.add(getValue(field));
     }
     return Objects.hashCode(objectsToHash.toArray());
   }
@@ -215,14 +213,14 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.
-    for (String key : Ordering.natural().sortedCopy(getKeys())) {
+    for (String fieldName : Ordering.natural().sortedCopy(getFieldNames())) {
       if (!first) {
         printer.append(", ");
       }
       first = false;
-      printer.append(key);
+      printer.append(fieldName);
       printer.append(" = ");
-      printer.repr(getValue(key));
+      printer.repr(getValue(fieldName));
     }
     printer.append(")");
   }

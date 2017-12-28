@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -93,12 +94,12 @@ public abstract class Provider extends BaseFunction {
   public abstract String getPrintableName();
 
   /**
-   * Returns an error message format for instances.
+   * Returns an error message format string for instances to use for their {@link
+   * ClassObject#getErrorMessageForUnknownField(String)}.
    *
-   * <p>Must contain one {@code '%s'} placeholder for field name.
+   * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */
-  // TODO(bazel-team): Rename to getErrorMessageFormatForUnknownField().
-  public abstract String getErrorMessageFormatForInstances();
+  public abstract String getErrorMessageFormatForUnknownField();
 
   public SkylarkProviderIdentifier id() {
     return SkylarkProviderIdentifier.forKey(getKey());

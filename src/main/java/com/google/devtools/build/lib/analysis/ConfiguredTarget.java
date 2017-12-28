@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 
 /**
@@ -63,11 +64,11 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
   /**
    * Returns keys for a legacy Skylark provider.
    *
-   * Overrides {@link ClassObject#getKeys()}, but does not allow {@link EvalException} to
+   * Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
    * be thrown.
    */
   @Override
-  ImmutableCollection<String> getKeys();
+  ImmutableCollection<String> getFieldNames();
 
   /**
    * Returns a legacy Skylark provider.

@@ -1010,8 +1010,8 @@ public final class ObjcProvider extends NativeInfo {
     }
 
     @Override
-    public String getErrorMessageFormatForInstances() {
-      return "ObjcProvider field %s could not be instantiated";
+    public String getErrorMessageFormatForUnknownField() {
+      return "ObjcProvider field '%s' could not be instantiated";
     }
   }
 }

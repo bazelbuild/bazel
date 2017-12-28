@@ -1062,11 +1062,11 @@ public class SkylarkRuleClassFunctions {
 
         private void printProtoTextMessage(
             ClassObject object, StringBuilder sb, int indent, Location loc) throws EvalException {
-          // For determinism sort the keys alphabetically
-          List<String> keys = new ArrayList<>(object.getKeys());
-          Collections.sort(keys);
-          for (String key : keys) {
-            printProtoTextMessage(key, object.getValue(key), sb, indent, loc);
+          // For determinism sort the fields alphabetically.
+          List<String> fields = new ArrayList<>(object.getFieldNames());
+          Collections.sort(fields);
+          for (String field : fields) {
+            printProtoTextMessage(field, object.getValue(field), sb, indent, loc);
           }
         }
 
@@ -1175,13 +1175,13 @@ public class SkylarkRuleClassFunctions {
             sb.append("{");
 
             String join = "";
-            for (String subKey : ((ClassObject) value).getKeys()) {
+            for (String field : ((ClassObject) value).getFieldNames()) {
               sb.append(join);
               join = ",";
               sb.append("\"");
-              sb.append(subKey);
+              sb.append(field);
               sb.append("\":");
-              printJson(((ClassObject) value).getValue(subKey), sb, loc, "struct field", subKey);
+              printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
             }
             sb.append("}");
           } else if (value instanceof List) {

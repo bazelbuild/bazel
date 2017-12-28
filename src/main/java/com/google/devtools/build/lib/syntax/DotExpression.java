@@ -65,11 +65,11 @@ public final class DotExpression extends Expression {
     }
     String suffix = "";
     if (objValue instanceof ClassObject) {
-      String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
+      String customErrorMessage = ((ClassObject) objValue).getErrorMessageForUnknownField(name);
       if (customErrorMessage != null) {
         throw new EvalException(loc, customErrorMessage);
       }
-      suffix = SpellChecker.didYouMean(name, ((ClassObject) objValue).getKeys());
+      suffix = SpellChecker.didYouMean(name, ((ClassObject) objValue).getFieldNames());
     }
     throw new EvalException(
         loc,

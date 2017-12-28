@@ -124,7 +124,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
     ToolchainInfo toolchain =
         providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
-    assertThat(toolchain.getKeys()).isEmpty();
+    assertThat(toolchain.getFieldNames()).isEmpty();
   }
 
   @Test

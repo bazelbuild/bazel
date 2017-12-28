@@ -142,7 +142,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public String errorMessage(String name) {
+  public String getErrorMessageForUnknownField(String name) {
     return Printer.format("%r (rule '%s') doesn't have provider '%s'",
         this, getTarget().getRuleClass(), name);
   }

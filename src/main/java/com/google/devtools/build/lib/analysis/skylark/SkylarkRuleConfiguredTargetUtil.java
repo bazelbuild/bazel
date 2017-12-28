@@ -66,7 +66,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
   private SkylarkRuleConfiguredTargetUtil() {}
 
-  private static final ImmutableSet<String> DEFAULT_PROVIDER_KEYS =
+  private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
       ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
 
   /**
@@ -190,7 +190,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       throws EvalException {
     Location insLoc = insStruct.getCreationLoc();
     FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
-    if (insStruct.getKeys().contains("extensions")) {
+    if (insStruct.getFieldNames().contains("extensions")) {
       @SuppressWarnings("unchecked")
       List<String> exts = cast("extensions", insStruct, SkylarkList.class, String.class, insLoc);
       if (exts.isEmpty()) {
@@ -204,12 +204,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
       }
     }
     List<String> dependencyAttributes = Collections.emptyList();
-    if (insStruct.getKeys().contains("dependency_attributes")) {
+    if (insStruct.getFieldNames().contains("dependency_attributes")) {
       dependencyAttributes =
           cast("dependency_attributes", insStruct, SkylarkList.class, String.class, insLoc);
     }
     List<String> sourceAttributes = Collections.emptyList();
-    if (insStruct.getKeys().contains("source_attributes")) {
+    if (insStruct.getFieldNames().contains("source_attributes")) {
       sourceAttributes =
           cast("source_attributes", insStruct, SkylarkList.class, String.class, insLoc);
     }
@@ -280,7 +280,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         // Old-style struct, but it may contain declared providers
         oldStyleProviders = struct;
 
-        if (struct.hasKey("providers")) {
+        if (struct.hasField("providers")) {
           Iterable iterable = cast("providers", struct, Iterable.class, loc);
           for (Object o : iterable) {
             Info declaredProvider =
@@ -317,7 +317,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
           .getProvider()
           .getKey()
           .equals(DefaultInfo.PROVIDER.getKey())) {
-        parseDefaultProviderKeys(declaredProvider, context, builder);
+        parseDefaultProviderFields(declaredProvider, context, builder);
         defaultProviderProvidedExplicitly = true;
       } else {
         builder.addSkylarkDeclaredProvider(declaredProvider);
@@ -325,31 +325,31 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
 
     if (!defaultProviderProvidedExplicitly) {
-      parseDefaultProviderKeys(oldStyleProviders, context, builder);
+      parseDefaultProviderFields(oldStyleProviders, context, builder);
     }
 
-    for (String key : oldStyleProviders.getKeys()) {
-      if (DEFAULT_PROVIDER_KEYS.contains(key)) {
-        // These keys have already been parsed above.
+    for (String field : oldStyleProviders.getFieldNames()) {
+      if (DEFAULT_PROVIDER_FIELDS.contains(field)) {
+        // These fields have already been parsed above.
         // If a default provider has been provided explicitly then it's an error that they also
         // occur here.
         if (defaultProviderProvidedExplicitly) {
           throw new EvalException(
               loc,
               "Provider '"
-                  + key
+                  + field
                   + "' should be specified in DefaultInfo if it's provided explicitly.");
         }
-      } else if (key.equals("output_groups")) {
-        addOutputGroups(oldStyleProviders.getValue(key), loc, builder);
-      } else if (key.equals("instrumented_files")) {
+      } else if (field.equals("output_groups")) {
+        addOutputGroups(oldStyleProviders.getValue(field), loc, builder);
+      } else if (field.equals("instrumented_files")) {
         Info insStruct = cast("instrumented_files", oldStyleProviders, Info.class, loc);
         addInstrumentedFiles(insStruct, context.getRuleContext(), builder);
-      } else if (isNativeDeclaredProviderWithLegacySkylarkName(oldStyleProviders.getValue(key))) {
-        builder.addNativeDeclaredProvider((Info) oldStyleProviders.getValue(key));
-      } else if (!key.equals("providers")) {
+      } else if (isNativeDeclaredProviderWithLegacySkylarkName(oldStyleProviders.getValue(field))) {
+        builder.addNativeDeclaredProvider((Info) oldStyleProviders.getValue(field));
+      } else if (!field.equals("providers")) {
         // We handled providers already.
-        builder.addSkylarkTransitiveInfo(key, oldStyleProviders.getValue(key), loc);
+        builder.addSkylarkTransitiveInfo(field, oldStyleProviders.getValue(field), loc);
       }
     }
   }
@@ -362,10 +362,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
   }
 
   /**
-   * Parses keys of (not necessarily a default) provider. If it is an actual default provider,
-   * throws an {@link EvalException} if there are unknown keys.
+   * Parses fields of (not necessarily a default) provider. If it is an actual default provider,
+   * throws an {@link EvalException} if there are unknown fields.
    */
-  private static void parseDefaultProviderKeys(
+  private static void parseDefaultProviderFields(
       Info provider, SkylarkRuleContext context, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     SkylarkNestedSet files = null;
@@ -376,23 +376,23 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
     Location loc = provider.getCreationLoc();
 
-    for (String key : provider.getKeys()) {
-      if (key.equals("files")) {
+    for (String field : provider.getFieldNames()) {
+      if (field.equals("files")) {
         files = cast("files", provider, SkylarkNestedSet.class, Artifact.class, loc);
-      } else if (key.equals("runfiles")) {
+      } else if (field.equals("runfiles")) {
         statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
-      } else if (key.equals("data_runfiles")) {
+      } else if (field.equals("data_runfiles")) {
         dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
-      } else if (key.equals("default_runfiles")) {
+      } else if (field.equals("default_runfiles")) {
         defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
-      } else if (key.equals("executable")) {
+      } else if (field.equals("executable")) {
         executable = cast("executable", provider, Artifact.class, loc);
       } else if (provider
           .getProvider()
           .getKey()
           .equals(DefaultInfo.PROVIDER.getKey())) {
-        // Custom keys are not allowed for default providers
-        throw new EvalException(loc, "Invalid key for default provider: " + key);
+        // Custom fields are not allowed for default providers
+        throw new EvalException(loc, "Invalid field for default provider: " + field);
       }
     }
 

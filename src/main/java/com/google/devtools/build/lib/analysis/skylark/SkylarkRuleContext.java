@@ -366,7 +366,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
 
     @Override
-    public ImmutableCollection<String> getKeys() throws EvalException {
+    public ImmutableCollection<String> getFieldNames() throws EvalException {
       checkMutable();
       ImmutableList.Builder<String> result = ImmutableList.builder();
       if (context.isExecutable() && executableCreated) {
@@ -391,7 +391,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
 
     @Nullable
     @Override
-    public String errorMessage(String name) {
+    public String getErrorMessageForUnknownField(String name) {
       return String.format(
           "No attribute '%s' in outputs. Make sure you declared a rule output with this name.",
           name);
@@ -407,16 +407,16 @@ public final class SkylarkRuleContext implements SkylarkValue {
       }
       boolean first = true;
       printer.append("ctx.outputs(");
-      // Sort by key to ensure deterministic output.
+      // Sort by field name to ensure deterministic output.
       try {
-        for (String key : Ordering.natural().sortedCopy(getKeys())) {
+        for (String field : Ordering.natural().sortedCopy(getFieldNames())) {
           if (!first) {
             printer.append(", ");
           }
           first = false;
-          printer.append(key);
+          printer.append(field);
           printer.append(" = ");
-          printer.repr(getValue(key));
+          printer.repr(getValue(field));
         }
         printer.append(")");
       } catch (EvalException e) {

@@ -235,12 +235,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @Override
-    public ImmutableCollection<String> getKeys() {
+    public ImmutableCollection<String> getFieldNames() {
       return ImmutableList.of("field", "nset");
     }
 
     @Override
-    public String errorMessage(String name) {
+    public String getErrorMessageForUnknownField(String name) {
       return null;
     }
   }

@@ -152,12 +152,12 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public String errorMessage(String name) {
+  public String getErrorMessageForUnknownField(String name) {
     return null;
   }
 
   @Override
-  public final ImmutableCollection<String> getKeys() {
+  public final ImmutableCollection<String> getFieldNames() {
     ImmutableList.Builder<String> result = ImmutableList.builder();
     result.addAll(ImmutableList.of(
         DATA_RUNFILES_FIELD,
