@@ -134,6 +134,7 @@ public class JarDecompressor implements Decompressor {
 
   protected String createBuildFileWithSrcjar(String baseName, String srcjarBaseName) {
     return Joiner.on("\n")
+        .skipNulls()
         .join(
             "java_import(",
             "    name = 'jar',",
@@ -146,7 +147,7 @@ public class JarDecompressor implements Decompressor {
             "    name = 'file',",
             "    srcs = [",
             "        '" + baseName + "',",
-            "        '" + srcjarBaseName + "',",
+            baseName.equals(srcjarBaseName) ? null : "        '" + srcjarBaseName + "',",
             "    ],",
             "    visibility = ['//visibility:public']",
             ")");
