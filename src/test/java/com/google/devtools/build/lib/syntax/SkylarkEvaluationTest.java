@@ -1115,7 +1115,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPlusEqualsOnDict() throws Exception {
-    new SkylarkTest().setUp("def func():",
+    new SkylarkTest("--incompatible_disallow_dict_plus=false").setUp("def func():",
         "  d = {'a' : 1}",
         "  d += {'b' : 2}",
         "  return d",
