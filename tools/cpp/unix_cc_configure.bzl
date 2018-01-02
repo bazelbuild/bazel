@@ -23,6 +23,25 @@ load(
     "tpl",
 )
 
+def _prepare_include_path(repo_ctx, path):
+  """Resolve and sanitize include path before outputting it into the crosstool.
+
+  Args:
+    repo_ctx: repository_ctx object.
+    path: an include path to be sanitized.
+
+  Returns:
+    Sanitized include path that can be written to the crosstoot. Resulting path
+    is absolute if it is outside the repository and relative otherwise.
+  """
+
+  repo_root = str(repo_ctx.path("."))
+  # We're on UNIX, so the path delimiter is '/'.
+  repo_root += "/"
+  path = str(repo_ctx.path(path))
+  if path.startswith(repo_root):
+    return escape_string(path[len(repo_root):])
+  return escape_string(path)
 
 def _get_value(it):
   """Convert `it` in serialized protobuf format."""
@@ -145,7 +164,7 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc):
   else:
     inc_dirs = result.stderr[index1 + 1:index2].strip()
 
-  return [escape_string(repository_ctx.path(_cxx_inc_convert(p)))
+  return [_prepare_include_path(repository_ctx, _cxx_inc_convert(p))
           for p in inc_dirs.split("\n")]
 
 
@@ -182,6 +201,13 @@ def _is_gold_supported(repository_ctx, cc):
 def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   supports_gold_linker = _is_gold_supported(repository_ctx, cc)
+  cc_path = repository_ctx.path(cc)
+  if not str(cc_path).startswith(str(repository_ctx.path(".")) + '/'):
+    # cc is outside the repository, set -B
+    bin_search_flag = ["-B" + escape_string(str(cc_path.dirname))]
+  else:
+    # cc is inside the repository, don't set -B.
+    bin_search_flag = []
   return {
       "abi_version": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
       "abi_libc_version": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
@@ -214,8 +240,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-undefined",
           "dynamic_lookup",
           "-headerpad_max_install_names",
-          ] if darwin else [
-              "-B" + str(repository_ctx.path(cc).dirname),
+          ] if darwin else bin_search_flag + [
               # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
               "-B/usr/bin",
               # Gold linker only? Can we enable this by default?
@@ -247,8 +272,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           # All warnings are enabled. Maybe enable -Werror as well?
           "-Wall",
           # Enable a few more warnings that aren't part of -Wall.
-      ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
-          "-B" + escape_string(str(repository_ctx.path(cc).dirname)),
+      ] + (["-Wthread-safety", "-Wself-assign"] if darwin else bin_search_flag + [
           # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
           "-B/usr/bin",
       ]) + (
