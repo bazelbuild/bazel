@@ -197,6 +197,20 @@ def _is_gold_supported(repository_ctx, cc):
   ])
   return result.return_code == 0
 
+def _get_no_canonical_prefixes_opt(repository_ctx, cc):
+  # If the compiler sometimes rewrites paths in the .d files without symlinks
+  # (ie when they're shorter), it confuses Bazel's logic for verifying all
+  # #included header files are listed as inputs to the action.
+
+  # The '-fno-canonical-system-headers' should be enough, but clang does not
+  # support it, so we also try '-no-canonical-prefixes' if first option does
+  # not work.
+  opt = _add_option_if_supported(repository_ctx, cc,
+                                 "-fno-canonical-system-headers")
+  if len(opt) == 0:
+    return _add_option_if_supported(repository_ctx, cc,
+                                    "-no-canonical-prefixes")
+  return opt
 
 def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
@@ -253,10 +267,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "cxx_builtin_include_directory": get_escaped_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
-          # If the compiler sometimes rewrites paths in the .d files without symlinks
-          # (ie when they're shorter), it confuses Bazel's logic for verifying all
-          # #included header files are listed as inputs to the action.
-          _add_option_if_supported(repository_ctx, cc, "-fno-canonical-system-headers") + [
+          _get_no_canonical_prefixes_opt(repository_ctx, cc) + [
               # Make C++ compilation deterministic. Use linkstamping instead of these
               # compiler symbols.
               "-Wno-builtin-macro-redefined",
