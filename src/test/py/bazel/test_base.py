@@ -188,7 +188,7 @@ class TestBase(unittest.TestCase):
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
     return self.RunProgram([
-        self.Rlocation('io_bazel/src/bazel'),
+        self.Rlocation('io_bazel/src/bazel_with_jdk'),
         '--bazelrc=/dev/null',
         '--nomaster_bazelrc',
     ] + args, env_remove, env_add)
@@ -249,14 +249,17 @@ class TestBase(unittest.TestCase):
         os.path.walk('c:\\program files\\java\\', _Visit, result)
 
       env = {
-          'SYSTEMROOT': TestBase.GetEnv('SYSTEMROOT'),
-          # TODO(laszlocsomor): Let Bazel pass BAZEL_SH and JAVA_HOME to tests
-          # and use those here instead of hardcoding paths.
-          'JAVA_HOME': 'c:\\program files\\java\\' + sorted(result)[-1],
-          'BAZEL_SH': 'c:\\tools\\msys64\\usr\\bin\\bash.exe',
+          'SYSTEMROOT':
+              TestBase.GetEnv('SYSTEMROOT'),
+          # TODO(laszlocsomor): Let Bazel pass BAZEL_SH to tests and use that
+          # here instead of hardcoding paths.
+          'BAZEL_SH':
+              TestBase.GetEnv('BAZEL_SH',
+                              'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
           # TODO(pcloudy): Remove this after no longer need to debug
           # https://github.com/bazelbuild/bazel/issues/3273
-          'CC_CONFIGURE_DEBUG': '1'
+          'CC_CONFIGURE_DEBUG':
+              '1'
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
