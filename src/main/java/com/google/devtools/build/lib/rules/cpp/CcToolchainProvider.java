@@ -77,7 +77,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
           ImmutableList.<Artifact>of(),
           NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
           null,
-          null,
           ImmutableMap.<String, String>of(),
           ImmutableList.<PathFragment>of(),
           null);
@@ -107,7 +106,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
   @Nullable private final Artifact linkDynamicLibraryTool;
-  @Nullable private final Artifact defParser;
   private final ImmutableMap<String, String> environment;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
@@ -139,7 +137,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
-      Artifact defParser,
       ImmutableMap<String, String> environment,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot) {
@@ -169,7 +166,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.coverageEnvironment = coverageEnvironment;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
-    this.defParser = defParser;
     this.environment = environment;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
@@ -495,14 +491,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   public Artifact getLinkDynamicLibraryTool() {
     return linkDynamicLibraryTool;
-  }
-
-  /**
-   * Returns the tool which should be used to parser object files for generating DEF file on
-   * Windows. The label of this tool is //third_party/def_parser:def_parser.
-   */
-  public Artifact getDefParserTool() {
-    return defParser;
   }
 
   /**

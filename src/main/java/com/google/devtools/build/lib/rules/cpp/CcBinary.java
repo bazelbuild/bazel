@@ -323,7 +323,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         generatedDefFile =
             CppHelper.createDefFileActions(
                 ruleContext,
-                ccToolchain.getDefParserTool(),
+                ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
                 objectFiles.build(),
                 binary.getFilename());
 

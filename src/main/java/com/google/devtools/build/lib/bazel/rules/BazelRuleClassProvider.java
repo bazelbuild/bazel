@@ -348,8 +348,7 @@ public class BazelRuleClassProvider {
           builder.addBuildInfoFactory(new CppBuildInfo());
           builder.addDynamicTransitionMaps(CppRuleClasses.DYNAMIC_TRANSITIONS_MAP);
 
-          builder.addRuleDefinition(
-              new CcToolchainRule("@bazel_tools//tools/def_parser:def_parser"));
+          builder.addRuleDefinition(new CcToolchainRule());
           builder.addRuleDefinition(new CcToolchainSuiteRule());
           builder.addRuleDefinition(new CcToolchainAlias.CcToolchainAliasRule());
           builder.addRuleDefinition(new CcIncLibraryRule());
@@ -358,7 +357,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
+          builder.addRuleDefinition(
+              new BazelCppRuleClasses.CcRule(TOOLS_REPOSITORY + "//tools/def_parser:def_parser"));
           builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
           builder.addRuleDefinition(new BazelCcBinaryRule());
           builder.addRuleDefinition(new BazelCcTestRule());

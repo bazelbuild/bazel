@@ -525,9 +525,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             toolchainInfo.supportsInterfaceSharedObjects()
                 ? ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST)
                 : null,
-            ruleContext.attributes().has("$def_parser")
-                ? ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST)
-                : null,
             getEnvironment(ruleContext),
             builtInIncludeDirectories,
             sysroot);

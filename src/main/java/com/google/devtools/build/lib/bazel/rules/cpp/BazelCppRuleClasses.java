@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
@@ -242,8 +243,51 @@ public class BazelCppRuleClasses {
    * Helper rule class.
    */
   public static final class CcRule implements RuleDefinition {
+
+    /**
+     * The label points to the Windows object file parser. In bazel, it should be
+     * //tools/def_parser:def_parser, otherwise it should be null.
+     *
+     * <p>TODO(pcloudy): Remove this after Bazel rule definitions are not used internally anymore.
+     * Related bug b/63658220
+     */
+    private final String defParserLabel;
+
+    public CcRule(String defParserLabel) {
+      this.defParserLabel = defParserLabel;
+    }
+
+    public CcRule() {
+      this.defParserLabel = null;
+    }
+
     @Override
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+      if (defParserLabel != null) {
+        builder.add(
+            attr("$def_parser", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(
+                    new Attribute.ComputedDefault() {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        // Every cc_rule depends implicitly on def_parser tool.
+                        // The only exceptions are the rules for building def_parser itself.
+                        // To avoid cycles in the dependency graph, return null for rules under
+                        // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
+                        String label = rule.getLabel().toString();
+                        String toolsRepository = env.getToolsRepository();
+                        return label.startsWith(toolsRepository + "//third_party/def_parser")
+                                // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
+                                // are implicit dependency of all cc rules,
+                                // thus a dependency of def_parser.
+                                || label.startsWith(toolsRepository + "//tools/cpp")
+                            ? null
+                            : env.getLabel(defParserLabel);
+                      }
+                    }));
+      }
       return builder
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(srcs) -->
           The list of C and C++ files that are processed to create the target.

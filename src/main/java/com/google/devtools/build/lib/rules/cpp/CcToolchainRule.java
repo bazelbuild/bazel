@@ -38,24 +38,6 @@ import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorT
  * Rule definition for compiler definition.
  */
 public final class CcToolchainRule implements RuleDefinition {
-
-  /**
-   * The label points to the Windows object file parser. In bazel, it should be
-   * //tools/def_parser:def_parser, otherwise it should be null.
-   *
-   * <p>TODO(pcloudy): Remove this after Bazel rule definitions are not used internally anymore.
-   * Related bug b/63658220
-   */
-  private final String defParserLabel;
-
-  public CcToolchainRule(String defParser) {
-    this.defParserLabel = defParser;
-  }
-
-  public CcToolchainRule() {
-    this.defParserLabel = null;
-  }
-
   /**
    * Determines if the given target is a cc_toolchain or one of its subclasses. New subclasses
    * should be added to this method.
@@ -74,13 +56,6 @@ public final class CcToolchainRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     final Label zipper = env.getToolsLabel("//tools/zip:zipper");
-    if (defParserLabel != null) {
-      builder.add(
-          attr("$def_parser", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .singleArtifact()
-              .value(env.getLabel(defParserLabel)));
-    }
     return builder
         .setUndocumented()
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)

@@ -1427,7 +1427,7 @@ public final class CppModel {
         Artifact generatedDefFile =
             CppHelper.createDefFileActions(
                 ruleContext,
-                ccToolchain.getDefParserTool(),
+                ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
                 ccOutputs.getObjectFiles(false),
                 SolibSymlinkAction.getDynamicLibrarySoname(soImpl.getRootRelativePath(), true));
         dynamicLinkActionBuilder.setDefFile(generatedDefFile);

@@ -62,7 +62,6 @@ public class CcToolchainProviderTest {
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
             null,
-            null,
             ImmutableMap.<String, String>of(),
             ImmutableList.<PathFragment>of(),
             null);
@@ -94,7 +93,6 @@ public class CcToolchainProviderTest {
             Variables.EMPTY,
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-            null,
             null,
             ImmutableMap.<String, String>of(),
             ImmutableList.<PathFragment>of(),
