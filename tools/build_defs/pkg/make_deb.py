@@ -103,7 +103,7 @@ def AddArFileEntry(fileobj, filename,
     '\x60\x0a',                    # end of file entry
   ]
   for i in inputs:
-    fileobj.write(i.encode())
+    fileobj.write(i.encode('ascii'))
   fileobj.write(content)
   if len(content) % 2 != 0:
     fileobj.write(b'\n') # 2-byte alignment padding
@@ -139,13 +139,13 @@ def CreateDebControl(extrafiles=None, **kwargs):
     with tarfile.open('control.tar.gz', mode='w', fileobj=gz) as f:
       tarinfo = tarfile.TarInfo('control')
       tarinfo.size = len(controlfile)
-      f.addfile(tarinfo, fileobj=BytesIO(controlfile.encode()))
+      f.addfile(tarinfo, fileobj=BytesIO(controlfile.encode('utf-8')))
       if extrafiles:
         for name, (data, mode) in extrafiles.items():
           tarinfo = tarfile.TarInfo(name)
           tarinfo.size = len(data)
           tarinfo.mode = mode
-          f.addfile(tarinfo, fileobj=BytesIO(data.encode()))
+          f.addfile(tarinfo, fileobj=BytesIO(data.encode('utf-8')))
   control = tar.getvalue()
   tar.close()
   return control
