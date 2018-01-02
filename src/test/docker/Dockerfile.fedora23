@@ -2,7 +2,7 @@ FROM fedora:23
 
 RUN dnf -y update && dnf clean all
 RUN dnf -y install \
-    findutils binutils gcc tar git \
+    findutils binutils gcc tar git libstdc++-static \
     gzip zip unzip zlib-devel \
     clang java java-devel python \
     && dnf clean all
