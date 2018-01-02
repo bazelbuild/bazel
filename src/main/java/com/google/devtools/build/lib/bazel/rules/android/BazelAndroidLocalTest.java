@@ -60,6 +60,7 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
         .add("-Drobolectric.offline=true")
         .add(
             "-Drobolectric-deps.properties=" + androidAllJarsPropertiesFile.getRunfilesPathString())
+        .add("-Duse_framework_manifest_parser=true")
         .build();
   }
 
