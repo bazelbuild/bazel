@@ -19,9 +19,9 @@ cc_toolchain_suite(
     toolchains = {
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
         "freebsd|compiler": ":cc-compiler-freebsd",
-        "x64_windows|cl": ":cc-compiler-x64_windows",
-        "x64_windows_msvc|cl": ":cc-compiler-x64_windows",
-        "x64_windows_msys|windows_msys64": ":cc-compiler-x64_windows_msys",
+        "x64_windows|msvc-cl": ":cc-compiler-x64_windows",
+        "x64_windows|msys-gcc": ":cc-compiler-x64_windows_msys",
+        "x64_windows|mingw-gcc": ":cc-compiler-x64_windows_mingw",
         "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
 )
@@ -59,6 +59,20 @@ cc_toolchain(
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+cc_toolchain(
+    name = "cc-compiler-x64_windows_mingw",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "x64_windows",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",

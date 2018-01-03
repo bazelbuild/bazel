@@ -149,6 +149,23 @@ toolchain {
 }
 
 toolchain {
+  toolchain_identifier: "msys_x64_mingw"
+  abi_version: "local"
+  abi_libc_version: "local"
+  builtin_sysroot: ""
+  compiler: "mingw-gcc"
+  host_system_name: "local"
+  needsPic: false
+  target_libc: "mingw"
+  target_cpu: "x64_windows"
+  target_system_name: "local"
+
+%{msys_x64_mingw_content}
+
+  linking_mode_flags { mode: DYNAMIC }
+}
+
+toolchain {
   toolchain_identifier: "msvc_x64"
   host_system_name: "local"
   target_system_name: "local"
@@ -156,8 +173,8 @@ toolchain {
   abi_version: "local"
   abi_libc_version: "local"
   target_cpu: "x64_windows"
-  compiler: "cl"
-  target_libc: "msvcrt140"
+  compiler: "msvc-cl"
+  target_libc: "msvcrt"
   default_python_version: "python2.7"
 
 %{cxx_builtin_include_directory}

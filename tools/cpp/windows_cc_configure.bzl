@@ -28,11 +28,11 @@ load(
 )
 
 
-# TODO(pcloudy): Remove this after MSVC CROSSTOOL becomes default on Windows
-def _get_escaped_windows_msys_crosstool_content(repository_ctx):
+def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
   """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
   bazel_sh = get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
   tokens = bazel_sh.rsplit("/", 1)
+  prefix = "mingw64" if use_mingw else "usr"
   msys_root = None
   if tokens[0].endswith("/usr/bin"):
     msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
@@ -42,32 +42,34 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx):
     auto_configure_fail(
         "Could not determine MSYS/Cygwin root from BAZEL_SH (%s)" % bazel_sh)
   escaped_msys_root = escape_string(msys_root)
-  return (
+  return (((
       '   abi_version: "local"\n' +
       '   abi_libc_version: "local"\n' +
       '   builtin_sysroot: ""\n' +
-      '   compiler: "windows_msys64"\n' +
+      '   compiler: "msys-gcc"\n' +
       '   host_system_name: "local"\n' +
-      "   needsPic: false\n" +
-      '   target_libc: "local"\n' +
-      '   target_cpu: "x64_windows_msys"\n' +
-      '   target_system_name: "local"\n' +
-      '   tool_path { name: "ar" path: "%susr/bin/ar" }\n' % escaped_msys_root +
-      '   tool_path { name: "compat-ld" path: "%susr/bin/ld" }\n' % escaped_msys_root +
-      '   tool_path { name: "cpp" path: "%susr/bin/cpp" }\n' % escaped_msys_root +
-      '   tool_path { name: "dwp" path: "%susr/bin/dwp" }\n' % escaped_msys_root +
-      '   tool_path { name: "gcc" path: "%susr/bin/gcc" }\n' % escaped_msys_root +
+      '   needsPic: false\n' +
+      '   target_libc: "msys"\n' +
+      '   target_cpu: "x64_windows"\n' +
+      '   target_system_name: "local"\n') if not use_mingw else '') +
+      '   tool_path { name: "ar" path: "%s%s/bin/ar" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "compat-ld" path: "%s%s/bin/ld" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "cpp" path: "%s%s/bin/cpp" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "dwp" path: "%s%s/bin/dwp" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "gcc" path: "%s%s/bin/gcc" }\n' % (escaped_msys_root, prefix) +
       '   cxx_flag: "-std=gnu++0x"\n' +
       '   linker_flag: "-lstdc++"\n' +
-      '   cxx_builtin_include_directory: "%susr/"\n' % escaped_msys_root +
-      '   tool_path { name: "gcov" path: "%susr/bin/gcov" }\n' % escaped_msys_root +
-      '   tool_path { name: "ld" path: "%susr/bin/ld" }\n' % escaped_msys_root +
-      '   tool_path { name: "nm" path: "%susr/bin/nm" }\n' % escaped_msys_root +
-      '   tool_path { name: "objcopy" path: "%susr/bin/objcopy" }\n' % escaped_msys_root +
+      '   cxx_builtin_include_directory: "%s%s/"\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "gcov" path: "%s%s/bin/gcov" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "ld" path: "%s%s/bin/ld" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "nm" path: "%s%s/bin/nm" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "objcopy" path: "%s%s/bin/objcopy" }\n' % (escaped_msys_root, prefix) +
       '   objcopy_embed_flag: "-I"\n' +
       '   objcopy_embed_flag: "binary"\n' +
-      '   tool_path { name: "objdump" path: "%susr/bin/objdump" }\n' % escaped_msys_root +
-      '   tool_path { name: "strip" path: "%susr/bin/strip" }'% escaped_msys_root )
+      '   tool_path { name: "objdump" path: "%s%s/bin/objdump" }\n' % (escaped_msys_root, prefix) +
+      '   tool_path { name: "strip" path: "%s%s/bin/strip" }'% (escaped_msys_root, prefix) +
+      '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }' +
+      '   feature { name: "copy_dynamic_libraries_to_binary" }' )
 
 
 def _get_system_root(repository_ctx):
@@ -310,6 +312,7 @@ def configure_windows_toolchain(repository_ctx):
         "%{msvc_lib_path}": vc_path_error_script,
         "%{compilation_mode_content}": "",
         "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+        "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
         "%{opt_content}": "",
         "%{dbg_content}": "",
         "%{link_content}": "",
@@ -387,6 +390,7 @@ def configure_windows_toolchain(repository_ctx):
       "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
       "%{compilation_mode_content}": compilation_mode_content,
       "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+      "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
       "%{opt_content}": "",
       "%{dbg_content}": "",
       "%{link_content}": "",
