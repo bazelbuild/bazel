@@ -321,6 +321,7 @@ public class BuildView {
     private final ImmutableList<AspectValue> aspects;
     private final PackageRoots packageRoots;
     private final String workspaceName;
+    List<TargetAndConfiguration> topLevelTargetsWithConfigs;
 
     private AnalysisResult(
         Collection<ConfiguredTarget> targetsToBuild,
@@ -334,7 +335,8 @@ public class BuildView {
         Collection<ConfiguredTarget> exclusiveTests,
         TopLevelArtifactContext topLevelContext,
         PackageRoots packageRoots,
-        String workspaceName) {
+        String workspaceName,
+        List<TargetAndConfiguration> topLevelTargetsWithConfigs) {
       this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
       this.aspects = ImmutableList.copyOf(aspects);
       this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
@@ -347,6 +349,7 @@ public class BuildView {
       this.topLevelContext = topLevelContext;
       this.packageRoots = packageRoots;
       this.workspaceName = workspaceName;
+      this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
     }
 
     /**
@@ -427,8 +430,11 @@ public class BuildView {
     public String getWorkspaceName() {
       return workspaceName;
     }
-  }
 
+    public List<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
+      return topLevelTargetsWithConfigs;
+    }
+  }
 
   /**
    * Returns the collection of configured targets corresponding to any of the provided targets.
@@ -595,7 +601,8 @@ public class BuildView {
             topLevelOptions,
             viewOptions,
             skyframeAnalysisResult,
-            targetsToSkip);
+            targetsToSkip,
+            topLevelTargetsWithConfigs);
     logger.info("Finished analysis");
     return result;
   }
@@ -606,7 +613,8 @@ public class BuildView {
       TopLevelArtifactContext topLevelOptions,
       BuildView.Options viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
-      Set<ConfiguredTarget> targetsToSkip)
+      Set<ConfiguredTarget> targetsToSkip,
+      List<TargetAndConfiguration> topLevelTargetsWithConfigs)
       throws InterruptedException {
     Collection<Target> testsToRun = loadingResult.getTestsToRun();
     Set<ConfiguredTarget> configuredTargets =
@@ -690,7 +698,8 @@ public class BuildView {
         exclusiveTests,
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
-        loadingResult.getWorkspaceName());
+        loadingResult.getWorkspaceName(),
+        topLevelTargetsWithConfigs);
   }
 
   @Nullable

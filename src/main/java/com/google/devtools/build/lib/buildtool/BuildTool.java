@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
@@ -244,7 +243,8 @@ public final class BuildTool {
                 "Configured query is not allowed if incrementality state is not being kept");
           }
           try {
-            doConfiguredTargetQuery(request, configurations, loadingResult);
+            doConfiguredTargetQuery(
+                request, configurations, analysisResult.getTopLevelTargetsWithConfigs());
           } catch (QueryException | IOException e) {
             if (!request.getKeepGoing()) {
               throw new ViewCreationFailedException("Error doing configured target query", e);
@@ -412,17 +412,8 @@ public final class BuildTool {
   private void doConfiguredTargetQuery(
       BuildRequest request,
       BuildConfigurationCollection configurations,
-      LoadingResult loadingResult)
+      List<TargetAndConfiguration> topLevelTargetsWithConfigs)
       throws InterruptedException, QueryException, IOException {
-
-    // Determine the configurations.
-    List<TargetAndConfiguration> topLevelTargetsWithConfigs =
-        AnalysisUtils.getTargetsWithConfigs(
-            configurations,
-            loadingResult.getTargets(),
-            env.getReporter(),
-            runtime.getRuleClassProvider(),
-            env.getSkyframeExecutor());
 
     String queryExpr = request.getBuildOptions().queryExpression;
 
