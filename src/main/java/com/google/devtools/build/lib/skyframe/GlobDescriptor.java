@@ -14,31 +14,43 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.PackageIdentifierCodec;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.Serializable;
-import java.util.Objects;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 
 /**
- * A descriptor for a glob request.
+ * A descriptor for a glob request, used as the {@link SkyKey} for {@link GlobFunction}.
  *
  * <p>{@code subdir} must be empty or point to an existing directory.</p>
  *
  * <p>{@code pattern} must be valid, as indicated by {@code UnixGlob#checkPatternForError}.
  */
 @ThreadSafe
-public final class GlobDescriptor implements Serializable {
-  final PackageIdentifier packageId;
-  final Path packageRoot;
-  final PathFragment subdir;
-  final String pattern;
-  final boolean excludeDirs;
+public final class GlobDescriptor implements SkyKey {
+
+  private static final Interner<GlobDescriptor> interner = BlazeInterners.newWeakInterner();
+
+  /** Creates and returns a new {@link ObjectCodec} for {@link GlobDescriptor}s. */
+  public static ObjectCodec<GlobDescriptor> getCodec(PathCodec pathCodec) {
+    return new GlobDescriptorCodec(pathCodec);
+  }
 
   /**
-   * Constructs a GlobDescriptor.
+   * Returns interned instance based on the parameters.
    *
    * @param packageId the name of the owner package (must be an existing package)
    * @param packageRoot the package root of {@code packageId}
@@ -48,7 +60,24 @@ public final class GlobDescriptor implements Serializable {
    * @param pattern a valid glob pattern
    * @param excludeDirs true if directories should be excluded from results
    */
-  public GlobDescriptor(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
+  public static GlobDescriptor create(
+      PackageIdentifier packageId,
+      Path packageRoot,
+      PathFragment subdir,
+      String pattern,
+      boolean excludeDirs) {
+    return interner.intern(
+        new GlobDescriptor(packageId, packageRoot, subdir, pattern, excludeDirs));
+
+  }
+
+  private final PackageIdentifier packageId;
+  private final Path packageRoot;
+  private final PathFragment subdir;
+  private final String pattern;
+  private final boolean excludeDirs;
+
+  private GlobDescriptor(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
       String pattern, boolean excludeDirs) {
     this.packageId = Preconditions.checkNotNull(packageId);
     this.packageRoot = Preconditions.checkNotNull(packageRoot);
@@ -105,11 +134,6 @@ public final class GlobDescriptor implements Serializable {
   }
 
   @Override
-  public int hashCode() {
-    return Objects.hash(packageId, subdir, pattern, excludeDirs);
-  }
-
-  @Override
   public boolean equals(Object obj) {
     if (this == obj) {
       return true;
@@ -122,4 +146,60 @@ public final class GlobDescriptor implements Serializable {
         && subdir.equals(other.subdir) && pattern.equals(other.pattern)
         && excludeDirs == other.excludeDirs;
   }
+
+  @Override
+  public int hashCode() {
+    // Generated instead of Objects.hashCode to avoid intermediate array required for latter.
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + (excludeDirs ? 1231 : 1237);
+    result = prime * result + packageId.hashCode();
+    result = prime * result + packageRoot.hashCode();
+    result = prime * result + pattern.hashCode();
+    result = prime * result + subdir.hashCode();
+    return result;
+  }
+
+  @Override
+  public SkyFunctionName functionName() {
+    return SkyFunctions.GLOB;
+  }
+
+  private static class GlobDescriptorCodec implements ObjectCodec<GlobDescriptor> {
+
+    private final PackageIdentifierCodec packageIdCodec = new PackageIdentifierCodec();
+    private final PathCodec pathCodec;
+    private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
+
+    private GlobDescriptorCodec(PathCodec pathCodec) {
+      this.pathCodec = pathCodec;
+    }
+
+    @Override
+    public Class<GlobDescriptor> getEncodedClass() {
+      return GlobDescriptor.class;
+    }
+
+    @Override
+    public void serialize(GlobDescriptor globDesc, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      packageIdCodec.serialize(globDesc.getPackageId(), codedOut);
+      pathCodec.serialize(globDesc.getPackageRoot(), codedOut);
+      PathFragment.CODEC.serialize(globDesc.getSubdir(), codedOut);
+      stringCodec.serialize(globDesc.getPattern(), codedOut);
+      codedOut.writeBoolNoTag(globDesc.excludeDirs());
+    }
+
+    @Override
+    public GlobDescriptor deserialize(CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      PackageIdentifier packageId = packageIdCodec.deserialize(codedIn);
+      Path packageRoot = pathCodec.deserialize(codedIn);
+      PathFragment pathFragment = PathFragment.CODEC.deserialize(codedIn);
+      String pattern = stringCodec.deserialize(codedIn);
+      boolean excludeDirs = codedIn.readBool();
+      return GlobDescriptor.create(packageId, packageRoot, pathFragment, pattern, excludeDirs);
+    }
+  }
+
 }

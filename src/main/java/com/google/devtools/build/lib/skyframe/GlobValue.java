@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -104,9 +103,7 @@ public final class GlobValue implements SkyValue {
   @ThreadSafe
   static SkyKey internalKey(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
       String pattern, boolean excludeDirs) {
-    return LegacySkyKey.create(
-        SkyFunctions.GLOB,
-        new GlobDescriptor(packageId, packageRoot, subdir, pattern, excludeDirs));
+    return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, excludeDirs);
   }
 
   /**
@@ -116,8 +113,12 @@ public final class GlobValue implements SkyValue {
    */
   @ThreadSafe
   static SkyKey internalKey(GlobDescriptor glob, String subdirName) {
-    return internalKey(glob.packageId, glob.packageRoot, glob.subdir.getRelative(subdirName),
-        glob.pattern, glob.excludeDirs);
+    return internalKey(
+        glob.getPackageId(),
+        glob.getPackageRoot(),
+        glob.getSubdir().getRelative(subdirName),
+        glob.getPattern(),
+        glob.excludeDirs());
   }
 
   /**
