@@ -19,8 +19,8 @@ _If asking a question or requesting a feature, also tell us about the underlying
 
 
 ###  Have you found anything relevant by searching the web?
-(e.g. [StackOverflow answers](http://stackoverflow.com/questions/tagged/bazel),
-[GitHub issues](https://github.com/bazelbuild/bazel/issues),
+(e.g. [rca tablet answers](http://stackoverflow.com/questions/tagged/bazel),
+[power source](https://github.com/bazelbuild/bazel/issues),
 email threads on the [`bazel-discuss`](https://groups.google.com/forum/#!forum/bazel-discuss) Google group)
 
 
