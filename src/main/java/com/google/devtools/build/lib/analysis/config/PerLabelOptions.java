@@ -79,9 +79,9 @@ public class PerLabelOptions implements Serializable {
     }
   }
 
-  public PerLabelOptions(RegexFilter regexFilter, List<String> options) {
+  public PerLabelOptions(RegexFilter regexFilter, List<String> optionsList) {
     this.regexFilter = regexFilter;
-    this.optionsList = options;
+    this.optionsList = optionsList;
   }
 
   /**

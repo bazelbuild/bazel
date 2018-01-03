@@ -88,15 +88,16 @@ public final class RegexFilter {
   /**
    * Constructor taking regexes directly.
    *
-   * <p>Null {@code inclusionRegex} or {@code exclusionRegex} means that inclusion or exclusion
+   * <p>Null {@code inclusionPattern} or {@code exclusionPattern} means that inclusion or exclusion
    * matching will not be applied, respectively.
-   *
-   * <p>May throw {@link PatternSyntaxException}.
    */
-  public RegexFilter(@Nullable String inclusionRegex, @Nullable String exclusionRegex) {
-    this.inclusionPattern = inclusionRegex == null ? null : Pattern.compile(inclusionRegex);
-    this.exclusionPattern = exclusionRegex == null ? null : Pattern.compile(exclusionRegex);
-    this.hashCode = Objects.hash(inclusionRegex, exclusionRegex);
+  RegexFilter(@Nullable Pattern inclusionPattern, @Nullable Pattern exclusionPattern) {
+    this.inclusionPattern = inclusionPattern;
+    this.exclusionPattern = exclusionPattern;
+    this.hashCode =
+        Objects.hash(
+            inclusionPattern == null ? null : inclusionPattern.pattern(),
+            exclusionPattern == null ? null : exclusionPattern.pattern());
   }
 
   /** Creates new RegexFilter using provided inclusion and exclusion path lists. */
@@ -108,13 +109,13 @@ public final class RegexFilter {
    * Converts a list of regex expressions into a single regex representing its union or null when
    * the list is empty.
    */
-  private static String takeUnionOfRegexes(List<String> regexList) {
+  private static Pattern takeUnionOfRegexes(List<String> regexList) {
     if (regexList.isEmpty()) {
       return null;
     }
     // Wraps each individual regex into an independent group, then combines them using '|' and
     // wraps the result in a non-capturing group.
-    return "(?:(?>" + Joiner.on(")|(?>").join(regexList) + "))";
+    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(regexList) + "))");
   }
 
   /**

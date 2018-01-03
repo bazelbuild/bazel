@@ -14,6 +14,7 @@ java_library(
     exports = [
         ":autocodec-annotation",
         # Generated classes have the following dependencies.
+        ":unsafe-provider",
         "//third_party/protobuf:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
     ],
@@ -34,6 +35,11 @@ java_plugin(
     ],
 )
 
+java_library(
+    name = "unsafe-provider",
+    srcs = ["UnsafeProvider.java"],
+)
+
 # @AutoCodec annotation processor implementation.
 java_library(
     name = "autocodec-processor",
@@ -45,6 +51,7 @@ java_library(
     deps = [
         ":autocodec-annotation",
         ":autocodec-util",
+        ":unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:auto_service",
         "//third_party:guava",

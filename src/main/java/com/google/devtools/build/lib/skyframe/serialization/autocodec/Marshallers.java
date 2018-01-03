@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.DeclaredType;
@@ -402,6 +403,33 @@ class Marshallers {
         }
       };
 
+  /** Since we cannot add a codec to {@link Pattern}, it needs to be supported natively. */
+  private final Marshaller patternMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesType(type, Pattern.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement(
+              "$T.asciiOptimized().serialize($L.pattern(), codedOut)",
+              StringCodecs.class,
+              context.name);
+          context.builder.addStatement("codedOut.writeInt32NoTag($L.flags())", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.compile($T.asciiOptimized().deserialize(codedIn), codedIn.readInt32())",
+              context.name,
+              Pattern.class,
+              StringCodecs.class);
+        }
+      };
+
   private final Marshaller protoMarshaller =
       new Marshaller() {
         @Override
@@ -431,6 +459,7 @@ class Marshallers {
           immutableSortedSetMarshaller,
           mapMarshaller,
           multimapMarshaller,
+          patternMarshaller,
           protoMarshaller,
           CODEC_MARSHALLER);
 

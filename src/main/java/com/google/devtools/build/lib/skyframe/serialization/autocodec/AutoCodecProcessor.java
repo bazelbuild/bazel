@@ -30,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -126,50 +125,61 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return true;
   }
 
-  /**
-   * Heuristic for synthesizing a method getter.
-   *
-   * <p>Tries prepending {@code get} first, for example, a parameter called {@code target} results
-   * in {@code getTarget()}.
-   *
-   * <p>Falls back to {@code target()} if {@code getTarget()} doesn't exist.
-   */
-  private class GetGetter implements UnaryOperator<String> {
-    private final TypeElement encodedType;
-
-    GetGetter(TypeElement encodedType) {
-      this.encodedType = encodedType;
-    }
-
-    @Override
-    public String apply(String name) {
-      String getMethodName = "get" + name.substring(0, 1).toUpperCase() + name.substring(1);
-      List<ExecutableElement> methods =
-          ElementFilter.methodsIn(env.getElementUtils().getAllMembers(encodedType));
-      if (methods.stream().anyMatch(p -> p.getSimpleName().contentEquals(getMethodName))) {
-        return getMethodName + "()";
-      }
-      if (methods.stream().anyMatch(p -> p.getSimpleName().contentEquals(name))) {
-        return name + "()";
-      }
-      throw new IllegalArgumentException(
-          encodedType.getQualifiedName() + " has no getter for " + name);
-    }
-  }
-
   private void buildClassWithConstructorStrategy(
       TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
     // In Java, every class has a constructor, so this always succeeds.
     ExecutableElement constructor =
         ElementFilter.constructorsIn(encodedType.getEnclosedElements()).get(0);
     List<? extends VariableElement> constructorParameters = constructor.getParameters();
+    initializeUnsafeOffsets(codecClassBuilder, encodedType, constructorParameters);
     codecClassBuilder.addMethod(
-        buildSerializeMethod(encodedType, constructorParameters, new GetGetter(encodedType)));
+        buildSerializeMethodWithConstructor(encodedType, constructorParameters));
     MethodSpec.Builder deserializeBuilder =
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType);
     buildDeserializeBody(deserializeBuilder, constructorParameters);
     addReturnNew(deserializeBuilder, encodedType, constructorParameters);
     codecClassBuilder.addMethod(deserializeBuilder.build());
+  }
+
+  private MethodSpec buildSerializeMethodWithConstructor(
+      TypeElement encodedType, List<? extends VariableElement> parameters) {
+    MethodSpec.Builder serializeBuilder =
+        AutoCodecUtil.initializeSerializeMethodBuilder(encodedType);
+    for (VariableElement parameter : parameters) {
+      VariableElement field = getFieldByName(encodedType, parameter.getSimpleName().toString());
+      TypeKind typeKind = field.asType().getKind();
+      switch (typeKind) {
+        case BOOLEAN:
+          serializeBuilder.addStatement(
+              "codedOut.writeBoolNoTag($T.getInstance().getBoolean(input, $L_offset))",
+              UnsafeProvider.class,
+              parameter.getSimpleName());
+          break;
+        case INT:
+          serializeBuilder.addStatement(
+              "codedOut.writeInt32NoTag($T.getInstance().getInt(input, $L_offset))",
+              UnsafeProvider.class,
+              parameter.getSimpleName());
+          break;
+        case DECLARED:
+          serializeBuilder.addStatement(
+              "$T unsafe_$L = ($T)$T.getInstance().getObject(input, $L_offset)",
+              field.asType(),
+              parameter.getSimpleName(),
+              field.asType(),
+              UnsafeProvider.class,
+              parameter.getSimpleName());
+          marshallers.writeSerializationCode(
+              new Marshaller.Context(
+                  serializeBuilder,
+                  (DeclaredType) parameter.asType(),
+                  "unsafe_" + parameter.getSimpleName()));
+          break;
+        default:
+          throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
+      }
+    }
+    return serializeBuilder.build();
   }
 
   private void buildClassWithPublicFieldsStrategy(
@@ -179,8 +189,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
             .stream()
             .filter(this::isPublicField)
             .collect(Collectors.toList());
-    codecClassBuilder.addMethod(
-        buildSerializeMethod(encodedType, publicFields, UnaryOperator.identity()));
+    codecClassBuilder.addMethod(buildSerializeMethodWithPublicFields(encodedType, publicFields));
     MethodSpec.Builder deserializeBuilder =
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType);
     buildDeserializeBody(deserializeBuilder, publicFields);
@@ -196,14 +205,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return modifiers.contains(Modifier.PUBLIC) && !modifiers.contains(Modifier.STATIC);
   }
 
-  private MethodSpec buildSerializeMethod(
-      TypeElement encodedType,
-      List<? extends VariableElement> parameters,
-      UnaryOperator<String> nameToAccessor) {
+  private MethodSpec buildSerializeMethodWithPublicFields(
+      TypeElement encodedType, List<? extends VariableElement> parameters) {
     MethodSpec.Builder serializeBuilder =
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType);
     for (VariableElement parameter : parameters) {
-      String paramAccessor = "input." + nameToAccessor.apply(parameter.getSimpleName().toString());
+      String paramAccessor = "input." + parameter.getSimpleName();
       TypeKind typeKind = parameter.asType().getKind();
       switch (typeKind) {
         case BOOLEAN:
@@ -218,7 +225,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
                   serializeBuilder, (DeclaredType) parameter.asType(), paramAccessor));
           break;
         default:
-          throw new IllegalArgumentException("Unimplemented or invalid kind: " + typeKind);
+          throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
       }
     }
     return serializeBuilder.build();
@@ -282,6 +289,60 @@ public class AutoCodecProcessor extends AbstractProcessor {
       builder.addStatement("deserializationResult.$L = $L", fieldName, fieldName + "_");
     }
     builder.addStatement("return deserializationResult");
+  }
+
+  /**
+   * Adds fields to the codec class to hold offsets and adds a constructor to initialize them.
+   *
+   * <p>For a parameter with name {@code target}, the field will have name {@code target_offset}.
+   *
+   * @param parameters constructor parameters
+   */
+  private void initializeUnsafeOffsets(
+      TypeSpec.Builder builder,
+      TypeElement encodedType,
+      List<? extends VariableElement> parameters) {
+    MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
+    for (VariableElement param : parameters) {
+      VariableElement field = getFieldByName(encodedType, param.getSimpleName().toString());
+      if (!env.getTypeUtils().isSameType(field.asType(), param.asType())) {
+        throw new IllegalArgumentException(
+            encodedType.getQualifiedName()
+                + " field "
+                + field.getSimpleName()
+                + " has mismatching type.");
+      }
+      builder.addField(
+          TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
+      constructor.beginControlFlow("try");
+      // TODO(shahan): also support fields defined in superclasses if needed.
+      constructor.addStatement(
+          "this.$L_offset = $T.getInstance().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
+          param.getSimpleName(),
+          UnsafeProvider.class,
+          encodedType.asType(),
+          param.getSimpleName());
+      constructor.nextControlFlow("catch ($T e)", NoSuchFieldException.class);
+      constructor.addStatement("throw new $T(e)", IllegalStateException.class);
+      constructor.endControlFlow();
+    }
+    builder.addMethod(constructor.build());
+  }
+
+  /**
+   * Returns the VariableElement for the field named {@code name}.
+   *
+   * <p>Throws IllegalArgumentException if no such field is found.
+   */
+  private VariableElement getFieldByName(TypeElement type, String name) {
+    return ElementFilter.fieldsIn(type.getEnclosedElements())
+        .stream()
+        .filter(f -> f.getSimpleName().contentEquals(name))
+        .findAny()
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    type.getQualifiedName() + ": no field with name matching " + name));
   }
 
   private static void buildClassWithPolymorphicStrategy(
