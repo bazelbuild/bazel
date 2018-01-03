@@ -292,12 +292,12 @@ def _maven_aar_impl(ctx):
   _maven_artifact_impl(ctx, "aar", _maven_aar_build_file_template)
 
 maven_jar = repository_rule(
-    implementation=_maven_jar_impl,
-    attrs=_common_maven_rule_attrs + {
+    implementation = _maven_jar_impl,
+    attrs = dict(_common_maven_rule_attrs.items() + {
         # Needed for compatability reasons with the native maven_jar rule.
         "repository": attr.string(default = ""),
         "server": attr.label(default = None),
-    },
+    }.items()),
     local=False,
 )
 

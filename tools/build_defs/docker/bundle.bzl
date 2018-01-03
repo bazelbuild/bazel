@@ -68,12 +68,12 @@ def _docker_bundle_impl(ctx):
 
 docker_bundle_ = rule(
     implementation = _docker_bundle_impl,
-    attrs = {
+    attrs = dict({
         "images": attr.string_dict(),
         # Implicit dependencies.
         "image_targets": attr.label_list(allow_files=True),
         "image_target_strings": attr.string_list(),
-    } + _layer_tools,
+    }.items() + _layer_tools.items()),
     outputs = {
         "out": "%{name}.tar",
     },

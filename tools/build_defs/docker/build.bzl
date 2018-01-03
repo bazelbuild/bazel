@@ -315,7 +315,7 @@ def _docker_build_impl(ctx):
 
 docker_build_ = rule(
     implementation = _docker_build_impl,
-    attrs = {
+    attrs = dict({
         "base": attr.label(allow_files=docker_filetype),
         "data_path": attr.string(),
         "directory": attr.string(default="/"),
@@ -358,7 +358,7 @@ docker_build_ = rule(
             cfg="host",
             executable=True,
             allow_files=True)
-    } + _hash_tools + _layer_tools,
+    }.items() + _hash_tools.items() + _layer_tools.items()),
     outputs = {
         "out": "%{name}.tar",
         "layer": "%{name}-layer.tar",

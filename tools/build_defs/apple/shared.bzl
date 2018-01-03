@@ -58,8 +58,8 @@ def apple_action(ctx, **kw):
   Call it similar to how you would call ctx.action:
     apple_action(ctx, outputs=[...], inputs=[...],...)
   """
-  execution_requirements = kw.get("execution_requirements", {})
-  execution_requirements += DARWIN_EXECUTION_REQUIREMENTS
+  execution_requirements = dict(kw.get("execution_requirements", {}))
+  execution_requirements.update(DARWIN_EXECUTION_REQUIREMENTS)
 
   no_sandbox = kw.pop("no_sandbox", False)
   if no_sandbox:
@@ -76,11 +76,13 @@ def xcrun_env(ctx):
 
   if hasattr(apple_common, "apple_host_system_env"):
     xcode_config =  ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    return (apple_common.target_apple_env(xcode_config, platform) +
-            apple_common.apple_host_system_env(xcode_config))
+    env = apple_common.target_apple_env(xcode_config, platform)
+    env.update(apple_common.apple_host_system_env(xcode_config))
   else:
-    return (ctx.fragments.apple.target_apple_env(platform) +
-            ctx.fragments.apple.apple_host_system_env())
+    env = ctx.fragments.apple.target_apple_env(platform)
+    env.update(ctx.fragments.apple.apple_host_system_env())
+
+  return env
 
 
 def xcrun_action(ctx, **kw):
@@ -92,7 +94,7 @@ def xcrun_action(ctx, **kw):
   This method takes the same keyword arguments as ctx.action, however you don't
   need to specify the executable.
   """
-  env = kw.get("env", {})
-  kw["env"] = env + xcrun_env(ctx)
+  kw["env"] = dict(kw.get("env", {}))
+  kw["env"].update(xcrun_env(ctx))
 
   apple_action(ctx, executable=ctx.executable._xcrunwrapper, **kw)

@@ -79,11 +79,11 @@ _common_attrs = {
 
 
 new_git_repository = repository_rule(
-    implementation=_new_git_repository_implementation,
-    attrs=_common_attrs + {
+    implementation = _new_git_repository_implementation,
+    attrs = dict(_common_attrs.items() + {
         'build_file': attr.label(allow_single_file=True),
         'build_file_content': attr.string(),
-    }
+    }.items())
 )
 """Clone an external git repository.
 

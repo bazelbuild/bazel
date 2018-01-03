@@ -103,7 +103,7 @@ def _find_tool(repository_ctx, tool, overriden_tools):
 
 def _get_tool_paths(repository_ctx, darwin, cc, overriden_tools):
   """Compute the path to the various tools. Doesn't %-escape the result!"""
-  return {k: _find_tool(repository_ctx, k, overriden_tools)
+  return dict({k: _find_tool(repository_ctx, k, overriden_tools)
           for k in [
               "ld",
               "cpp",
@@ -113,11 +113,11 @@ def _get_tool_paths(repository_ctx, darwin, cc, overriden_tools):
               "objcopy",
               "objdump",
               "strip",
-          ]} + {
+          ]}.items() + {
               "gcc": cc,
               "ar": "/usr/bin/libtool"
                     if darwin else which(repository_ctx, "ar", "/usr/bin/ar")
-          }
+          }.items())
 
 
 def _escaped_cplus_include_paths(repository_ctx):
