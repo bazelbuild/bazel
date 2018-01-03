@@ -29,7 +29,6 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -46,10 +45,13 @@ public class PlatformOptions extends FragmentOptions {
     oldName = "experimental_host_platform",
     converter = BuildConfiguration.EmptyToNullLabelConverter.class,
     defaultValue = "@bazel_tools//platforms:host_platform",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "Declare the platform the build is started from"
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {
+      OptionEffectTag.AFFECTS_OUTPUTS,
+      OptionEffectTag.CHANGES_INPUTS,
+      OptionEffectTag.LOADING_AND_ANALYSIS
+    },
+    help = "The label of a platform rule that describes the host system."
   )
   public Label hostPlatform;
 
@@ -60,10 +62,14 @@ public class PlatformOptions extends FragmentOptions {
     oldName = "experimental_platforms",
     converter = BuildConfiguration.LabelListConverter.class,
     defaultValue = "@bazel_tools//platforms:target_platform",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "Declare the platforms targeted by the current build"
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {
+      OptionEffectTag.AFFECTS_OUTPUTS,
+      OptionEffectTag.CHANGES_INPUTS,
+      OptionEffectTag.LOADING_AND_ANALYSIS
+    },
+    help =
+        "The labels of the platform rules describing the target platforms for the current command."
   )
   public List<Label> platforms;
 
@@ -71,10 +77,16 @@ public class PlatformOptions extends FragmentOptions {
     name = "extra_toolchains",
     converter = LabelListConverter.class,
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "Extra toolchains to be considered during toolchain resolution."
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {
+      OptionEffectTag.AFFECTS_OUTPUTS,
+      OptionEffectTag.CHANGES_INPUTS,
+      OptionEffectTag.LOADING_AND_ANALYSIS
+    },
+    help =
+        "The labels of toolchain rules to be considered during toolchain resolution. "
+            + "These toolchains will be considered before those declared in the WORKSPACE file by "
+            + "register_toolchains()."
   )
   public List<Label> extraToolchains;
 
@@ -83,9 +95,12 @@ public class PlatformOptions extends FragmentOptions {
     converter = ToolchainResolutionOverrideConverter.class,
     allowMultiple = true,
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.HIDDEN},
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {
+      OptionEffectTag.AFFECTS_OUTPUTS,
+      OptionEffectTag.CHANGES_INPUTS,
+      OptionEffectTag.LOADING_AND_ANALYSIS
+    },
     help =
         "Override toolchain resolution for a toolchain type with a specific toolchain. "
             + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
@@ -109,7 +124,7 @@ public class PlatformOptions extends FragmentOptions {
     defaultValue = "",
     converter = LabelListConverter.class,
     category = "semantics",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
     help = "Signals that the given rule categories use platform-based toolchain resolution"
   )

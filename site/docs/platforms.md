@@ -124,9 +124,9 @@ In these definitions, the CPU architecture constraint values are pulled from the
 To select a specific host and target platform for a build, use the following
 command-line flags:
 
-*  `--experimental_host_platform` - defaults to `@bazel_tools//platforms:host_platform`
+*  `--host_platform` - defaults to `@bazel_tools//platforms:host_platform`
 
-*  `--experimental_platforms` - defaults to `@bazel_tools//platforms:target_platform`
+*  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
 
 Platforms can also be used with the `config_setting` rule to define configurable
 attributes. See [config_setting](be/general.html#config_setting) for more
