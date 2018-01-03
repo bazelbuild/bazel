@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -342,6 +343,11 @@ public abstract class TestStrategy implements TestActionContext {
       boolean enableRunfiles)
       throws ExecException, InterruptedException {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+
+    if (execSettings.getInputManifest() == null) {
+      throw new TestExecException("cannot run local tests with --nobuild_runfile_manifests");
+    }
+
     Path runfilesDir = execSettings.getRunfilesDir();
 
     // If the symlink farm is already created then return the existing directory. If not we

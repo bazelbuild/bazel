@@ -225,6 +225,12 @@ public class RunCommand implements BlazeCommand  {
       configuration = result.getBuildConfigurationCollection().getTargetConfigurations().get(0);
     }
     Path workingDir;
+    if (!configuration.buildRunfilesManifests()) {
+      env.getReporter()
+          .handle(
+              Event.error("--nobuild_runfile_manifests is incompatible with the \"run\" command"));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
     try {
       workingDir = ensureRunfilesBuilt(env, targetToRun);
     } catch (CommandException e) {
@@ -365,7 +371,7 @@ public class RunCommand implements BlazeCommand  {
       return env.getWorkingDirectory();
     }
 
-    Artifact manifest = runfilesSupport.getRunfilesManifest();
+    Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
     // On Windows, runfiles tree is disabled.
