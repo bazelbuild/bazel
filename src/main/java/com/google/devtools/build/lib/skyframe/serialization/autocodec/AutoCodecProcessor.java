@@ -20,6 +20,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -160,7 +161,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     MethodSpec.Builder deserializeBuilder =
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType);
     buildDeserializeBody(deserializeBuilder, constructorParameters);
-    addReturnNew(deserializeBuilder, encodedType, constructorParameters);
+    addReturnNew(deserializeBuilder, encodedType, constructor, constructorParameters);
     codecClassBuilder.addMethod(deserializeBuilder.build());
   }
 
@@ -289,11 +290,28 @@ public class AutoCodecProcessor extends AbstractProcessor {
    * <p>Used by the {@link AutoCodec.Strategy.CONSTRUCTOR} strategy.
    */
   private static void addReturnNew(
-      MethodSpec.Builder builder, TypeElement type, List<? extends VariableElement> parameters) {
+      MethodSpec.Builder builder,
+      TypeElement type,
+      ExecutableElement constructor,
+      List<? extends VariableElement> parameters) {
+    List<? extends TypeMirror> allThrown = constructor.getThrownTypes();
+    if (!allThrown.isEmpty()) {
+      builder.beginControlFlow("try");
+    }
     builder.addStatement(
         "return new $T($L)",
         TypeName.get(type.asType()),
         parameters.stream().map(p -> p.getSimpleName() + "_").collect(Collectors.joining(", ")));
+    if (!allThrown.isEmpty()) {
+      for (TypeMirror thrown : allThrown) {
+        builder.nextControlFlow("catch ($T e)", TypeName.get(thrown));
+        builder.addStatement(
+            "throw new $T(\"$L constructor threw an exception\", e)",
+            SerializationException.class,
+            type.getQualifiedName());
+      }
+      builder.endControlFlow();
+    }
   }
 
   /**
@@ -399,7 +417,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
         NoSuchMethodException.class,
         IllegalAccessException.class,
         InvocationTargetException.class);
-    builder.addStatement("throw new SerializationException(input.getClass().getName(), e)");
+    builder.addStatement(
+        "throw new $T(input.getClass().getName(), e)", SerializationException.class);
     builder.endControlFlow();
     builder.nextControlFlow("else");
     builder.addStatement("codedOut.writeBoolNoTag(false)");
@@ -430,7 +449,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
         NoSuchMethodException.class,
         IllegalAccessException.class,
         InvocationTargetException.class);
-    builder.addStatement("throw new SerializationException(className, e)");
+    builder.addStatement("throw new $T(className, e)", SerializationException.class);
     builder.endControlFlow();
     builder.endControlFlow();
     builder.addStatement("return deserialized");
