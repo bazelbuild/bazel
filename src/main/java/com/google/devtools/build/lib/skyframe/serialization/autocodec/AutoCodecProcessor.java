@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
@@ -127,9 +130,29 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   private void buildClassWithConstructorStrategy(
       TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
-    // In Java, every class has a constructor, so this always succeeds.
-    ExecutableElement constructor =
-        ElementFilter.constructorsIn(encodedType.getEnclosedElements()).get(0);
+    List<ExecutableElement> constructors =
+        ElementFilter.constructorsIn(encodedType.getEnclosedElements());
+    ImmutableList<ExecutableElement> markedConstructors =
+        constructors
+            .stream()
+            .filter(c -> c.getAnnotation(AutoCodec.Constructor.class) != null)
+            .collect(toImmutableList());
+    ExecutableElement constructor = null;
+    if (markedConstructors.isEmpty()) {
+      // If nothing is marked, see if there is a unique constructor.
+      if (constructors.size() > 1) {
+        throw new IllegalArgumentException(
+            encodedType.getQualifiedName()
+                + " has multiple constructors but no Constructor annotation.");
+      }
+      // In Java, every class has at least one constructor, so this never fails.
+      constructor = constructors.get(0);
+    } else if (markedConstructors.size() == 1) {
+      constructor = markedConstructors.get(0);
+    } else {
+      throw new IllegalArgumentException(
+          encodedType.getQualifiedName() + " has multiple Constructor annotations.");
+    }
     List<? extends VariableElement> constructorParameters = constructor.getParameters();
     initializeUnsafeOffsets(codecClassBuilder, encodedType, constructorParameters);
     codecClassBuilder.addMethod(

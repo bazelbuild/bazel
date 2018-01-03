@@ -91,6 +91,7 @@ public final class RegexFilter {
    * <p>Null {@code inclusionPattern} or {@code exclusionPattern} means that inclusion or exclusion
    * matching will not be applied, respectively.
    */
+  @AutoCodec.Constructor
   RegexFilter(@Nullable Pattern inclusionPattern, @Nullable Pattern exclusionPattern) {
     this.inclusionPattern = inclusionPattern;
     this.exclusionPattern = exclusionPattern;

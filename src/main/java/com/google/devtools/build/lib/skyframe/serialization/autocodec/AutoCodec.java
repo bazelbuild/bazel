@@ -40,19 +40,17 @@ public @interface AutoCodec {
    */
   public static enum Strategy {
     /**
-     * Uses the first constructor of the class to synthesize a codec.
+     * Uses a constructor of the class to synthesize a codec.
      *
      * <p>This strategy depends on
      *
      * <ul>
-     *   <li>the first class constructor taking all serialized fields as parameters
-     *   <li>and each serialized field having a corresponding getter.
+     *   <li>a designated constructor to inspect to generate the codec
+     *   <li>the parameters must match member fields on name and type.
      * </ul>
      *
-     * For example, a constructor having parameter, {@code target}, should having a matching getter,
-     * {@code getTarget()}.
-     *
-     * <p>The first constructor is the first ocurring in the source code.
+     * <p>If there is a unique constructor, that is the designated constructor, otherwise one must
+     * be selected using the {@link AutoCodec.Constructor} annotation.
      */
     CONSTRUCTOR,
     /**
@@ -70,6 +68,15 @@ public @interface AutoCodec {
      */
     POLYMORPHIC,
   }
+
+  /**
+   * Marks a specific constructor when using the CONSTRUCTOR strategy.
+   *
+   * <p>Indicates a constructor for codec generation. A compile-time error will result if multiple
+   * constructors are thus tagged.
+   */
+  @Target(ElementType.CONSTRUCTOR)
+  public static @interface Constructor {}
 
   Strategy strategy() default Strategy.CONSTRUCTOR;
 }

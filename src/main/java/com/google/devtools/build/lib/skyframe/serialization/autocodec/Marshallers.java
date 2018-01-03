@@ -68,6 +68,7 @@ class Marshallers {
       new Marshaller() {
         @Override
         public boolean matches(DeclaredType type) {
+          // TODO(shahan): check for getCodec or CODEC.
           // CODEC is the final fallback for all Marshallers so this returns true.
           return true;
         }
