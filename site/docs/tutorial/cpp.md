@@ -10,7 +10,7 @@ In this tutorial, you'll learn the basics of building C++ applications with
 Bazel. You will set up your workspace and build a simple C++ project that
 illustrates key Bazel concepts, such as targets and `BUILD` files. After
 completing this tutorial, take a look at
-[Common C++ Build Use Cases](cpp-use-cases.md) for information on more advanced
+[Common C++ Build Use Cases](../cpp-use-cases.md) for information on more advanced
 concepts such as writing and running C++ tests.
 
 Estimated completion time: 30 minutes.
