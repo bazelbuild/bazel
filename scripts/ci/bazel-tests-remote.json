@@ -6,7 +6,7 @@
             ],
             "tests": [
                 "//src/test/shell/integration/...",
-                "//src/test/java/... - //src/test/java/com/google/devtools/build/android/..."
+                "//src/test/java/... - //src/test/java/com/google/devtools/build/android/... - //src/test/java/com/google/devtools/build/lib/shell:CommandUsingLinuxSandboxTest"
             ],
             "test_tag_filters": ["-slow"],
             "targets": []
