@@ -21,27 +21,37 @@ from src.test.py.bazel import test_base
 class ActionTempTest(test_base.TestBase):
   """Test that Bazel sets a TMP/TEMP/TMPDIR envvar for actions."""
 
-  def testStandaloneBuildAction(self):
-    self.AssertTempEnvvarWithSpawnStrategy('standalone')
+  def testActionTemp(self):
+    self._CreateWorkspace()
+    strategies = self._SpawnStrategies()
 
-  if not test_base.TestBase.IsWindows():
+    self.assertIn('standalone', strategies)
+    if test_base.TestBase.IsWindows():
+      strategies = ['standalone']
+    else:
+      self.assertIn('sandboxed', strategies)
+      self.assertIn('processwrapper-sandbox', strategies)
+      strategies = ['standalone', 'sandboxed', 'processwrapper-sandbox']
 
-    def testLinuxOrDarwinSandboxedBuildAction(self):
-      self.AssertTempEnvvarWithSpawnStrategy('sandboxed')
+    bazel_bin = self._BazelOutputDirectory('bazel-bin')
+    bazel_genfiles = self._BazelOutputDirectory('bazel-genfiles')
 
-    def testProcessWrappedSandboxedBuildAction(self):
-      self.AssertTempEnvvarWithSpawnStrategy('processwrapper-sandbox')
+    for strategy in strategies:
+      self.ScratchFile('foo/input.txt', [strategy])  # invalidate the actions
+      outputs = self._BuildRules(strategy, bazel_bin, bazel_genfiles)
+      self.assertEqual(len(outputs), 2)
+      self._AssertOutputFileContents(outputs['genrule'], strategy)
+      self._AssertOutputFileContents(outputs['skylark'], strategy)
 
   # Helper methods start here -------------------------------------------------
 
-  def AssertTempEnvvarWithSpawnStrategy(self, strategy):
-    self._CreateWorkspace()
-    strategies = self._SpawnStrategies()
-    self.assertIn(strategy, strategies)
-    outputs = self._BuildRules(strategy)
-    self.assertEqual(len(outputs), 2)
-    self._AssertOutputFileContents(outputs['genrule'])
-    self._AssertOutputFileContents(outputs['skylark'])
+  def _BazelOutputDirectory(self, info_key):
+    exit_code, stdout, stderr = self.RunBazel(['info', info_key])
+    self.AssertExitCode(exit_code, 0, stderr)
+    return stdout[0]
+
+  def _InvalidateActions(self, content):
+    self.ScratchFile('foo/input.txt', [content])
 
   def _CreateWorkspace(self, build_flags=None):
     if test_base.TestBase.IsWindows():
@@ -49,20 +59,19 @@ class ActionTempTest(test_base.TestBase):
       toolsrc = [
           '@SETLOCAL ENABLEEXTENSIONS',
           '@echo ON',
-          'if [%TMP%] == [] goto fail',
-          'if [%TEMP%] == [] goto fail',
+          'if [%TMP%] == [] exit /B 1',
+          'if [%TEMP%] == [] exit /B 1',
+          'if not exist %2 exit /B 2',
+          'set input_file=%2',
           '',
           'echo foo1 > %TMP%\\foo1.txt',
           'echo foo2 > %TEMP%\\foo2.txt',
+          'type "%input_file:/=\\%" > %1',
           'type %TMP%\\foo1.txt >> %1',
           'type %TEMP%\\foo2.txt >> %1',
           'echo bar >> %1',
           'set >> %1',
           'exit /B 0',
-          '',
-          ':fail',
-          'echo inner build failed because TMP or TEMP is null > %1',
-          'exit /B 1',
       ]
     else:
       toolname = 'foo.sh'
@@ -71,12 +80,13 @@ class ActionTempTest(test_base.TestBase):
           'set -eu',
           'if [ -n "${TMPDIR:-}" ]; then',
           '  sleep 1',
+          '  cat "$2" > "$1"',
           '  echo foo > "$TMPDIR/foo.txt"',
-          '  cat "$TMPDIR/foo.txt" > "$1"',
+          '  cat "$TMPDIR/foo.txt" >> "$1"',
           '  echo bar >> "$1"',
           '  env | sort >> "$1"',
           'else',
-          '  echo "inner build failed because TMPDIR is null" > "$1"',
+          '  exit 1',
           'fi',
       ]
 
@@ -86,30 +96,34 @@ class ActionTempTest(test_base.TestBase):
         'def _impl(ctx):',
         '  ctx.actions.run(',
         '      executable=ctx.executable.tool,',
-        '      arguments=[ctx.outputs.out.path],',
+        '      arguments=[ctx.outputs.out.path, ctx.file.src.path],',
+        '      inputs=[ctx.file.src],',
         '      outputs=[ctx.outputs.out])',
         '  return [DefaultInfo(files=depset([ctx.outputs.out]))]',
         '',
-        'foo = rule(',
+        'foorule = rule(',
         '    implementation=_impl,',
         '    attrs={"tool": attr.label(executable=True, cfg="host",',
-        '                              allow_files=True, single_file=True)},',
+        '                              allow_files=True, single_file=True),',
+        '           "src": attr.label(allow_files=True, single_file=True)},',
         '    outputs={"out": "%{name}.txt"},',
         ')',
     ])
 
     self.ScratchFile('foo/BUILD', [
-        'load("//foo:foo.bzl", "foo")',
+        'load("//foo:foo.bzl", "foorule")',
         '',
         'genrule(',
         '    name = "genrule",',
         '    tools = ["%s"],' % toolname,
+        '    srcs = ["input.txt"],',
         '    outs = ["genrule.txt"],',
-        '    cmd = "$(location %s) $@",' % toolname,
+        '    cmd = "$(location %s) $@ $(location input.txt)",' % toolname,
         ')',
         '',
-        'foo(',
+        'foorule(',
         '    name = "skylark",',
+        '    src = "input.txt",',
         '    tool = "%s",' % toolname,
         ')',
     ])
@@ -130,19 +144,11 @@ class ActionTempTest(test_base.TestBase):
         return set(e.strip() for e in m.groups()[0].split(','))
     return []
 
-  def _BuildRules(self, strategy):
+  def _BuildRules(self, strategy, bazel_bin, bazel_genfiles):
 
     def _ReadFile(path):
       with open(path, 'rt') as f:
         return [l.strip() for l in f]
-
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-genfiles'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    bazel_genfiles = stdout[0]
-
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    bazel_bin = stdout[0]
 
     # TODO(b/37617303): make test UI-independent
     exit_code, _, stderr = self.RunBazel([
@@ -159,18 +165,20 @@ class ActionTempTest(test_base.TestBase):
         'skylark': _ReadFile(os.path.join(bazel_bin, 'foo/skylark.txt'))
     }
 
-  def _AssertOutputFileContents(self, lines):
+  def _AssertOutputFileContents(self, lines, input_file_line):
     if test_base.TestBase.IsWindows():
-      self.assertGreater(len(lines), 5)
-      self.assertEqual(lines[0], 'foo1')
-      self.assertEqual(lines[1], 'foo2')
-      self.assertEqual(lines[2], 'bar')
+      self.assertGreater(len(lines), 6)
+      self.assertEqual(lines[0], input_file_line)
+      self.assertEqual(lines[1], 'foo1')
+      self.assertEqual(lines[2], 'foo2')
+      self.assertEqual(lines[3], 'bar')
       self.assertEqual(len([l for l in lines if l.startswith('TMP')]), 1)
       self.assertEqual(len([l for l in lines if l.startswith('TEMP')]), 1)
     else:
-      self.assertGreater(len(lines), 3)
-      self.assertEqual(lines[0], 'foo')
-      self.assertEqual(lines[1], 'bar')
+      self.assertGreater(len(lines), 4)
+      self.assertEqual(lines[0], input_file_line)
+      self.assertEqual(lines[1], 'foo')
+      self.assertEqual(lines[2], 'bar')
       self.assertEqual(len([l for l in lines if l.startswith('TMPDIR')]), 1)
 
 
