@@ -30,32 +30,6 @@
             "targets": []
         }
     }, {
-        "configurations": [
-            {"node": "freebsd-11"} //,
-            // TODO(aehlig): Fix bazelbuild/continuous-integration#149 and reactivate.
-            // {"node": "freebsd-12"}
-        ],
-        "parameters": {
-            // As configure step, we redo the USES=shebangfix of the devel/bazel
-            // port. In other words, we replace every #!-line calling bash by a
-            // line containing the correct path to bash on our test machines.
-            "configure": [
-                "find -E . -type f -iregex '.*(sh|txt|_stub|stub_.*|bazel|get_workspace_status|protobuf_support|_so)' \\",
-                "-exec sed -i '' \\",
-                "-e '1s|^\\#![[:space:]]*/bin/bash\\([[:space:]]\\)|\\#!/usr/local/bin/bash\\1|' \\",
-                "-e '1s|^\\#![[:space:]]*/bin/bash$|\\#!/usr/local/bin/bash|' \\",
-                "-e '1s|^\\#![[:space:]]*/usr/bin/env bash\\([[:space:]]\\)|\\#!/usr/local/bin/bash\\1|' \\",
-                "-e '1s|^\\#![[:space:]]*/usr/bin/env bash$|\\#!/usr/local/bin/bash|' \\",
-                "{} +"
-            ],
-            "tests": [
-                "//src/test/shell/integration/...",
-                "let bazel=\"//src/test/shell/bazel/...\" in $bazel - filter(\"all_tests\", $bazel) - filter(\"jdk\", $bazel) - filter(\"maven\", $bazel) - filter(\"android\", $bazel) - filter(\"java\", $bazel) - filter(\"workspace\", $bazel) - filter(\"external\", $bazel) - filter(\"example\", $bazel) - filter(\"skylark_repository\", $bazel) - filter(\"repository_cache\", $bazel)"
-            ],
-            "test_tag_filters": ["-slow"],
-            "targets": []
-        }
-    }, {
         "node": "darwin-x86_64",
         "parameters": {
             "configure": [
