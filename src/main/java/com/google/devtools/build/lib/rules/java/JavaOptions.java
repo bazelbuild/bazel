@@ -59,7 +59,7 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
-  /** Converter for the --java_optimization_mode option. */
+  /** Converter for the --experimental_one_version_enforcement option */
   public static class OneVersionEnforcementLevelConverter
       extends EnumConverter<OneVersionEnforcementLevel> {
     public OneVersionEnforcementLevelConverter() {
