@@ -754,7 +754,7 @@ public class SkylarkRuleClassFunctions {
                 && ((String) attribute.getDefaultValue(null)).isEmpty()) {
               hasDefault = false; // isValueSet() is always true for attr.string.
             }
-            if (!Attribute.isImplicit(nativeName)) {
+            if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
               if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
                 throw new EvalException(
                     ast.getLocation(),
@@ -776,7 +776,7 @@ public class SkylarkRuleClassFunctions {
                           nativeName, allowed.getErrorReason(defaultVal)));
                 }
               }
-            } else if (!hasDefault) { // Implicit attribute
+            } else if (!hasDefault) { // Implicit or late bound attribute
               String skylarkName = "_" + nativeName.substring(1);
               throw new EvalException(
                   ast.getLocation(),
