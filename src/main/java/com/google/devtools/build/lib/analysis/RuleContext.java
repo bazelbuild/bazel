@@ -381,7 +381,8 @@ public final class RuleContext extends TargetContext
   @Override
   public ActionOwner getActionOwner() {
     if (actionOwner == null) {
-      actionOwner = createActionOwner(rule, aspectDescriptors, getConfiguration());
+      actionOwner =
+          createActionOwner(rule, aspectDescriptors, getConfiguration(), getExecutionPlatform());
     }
     return actionOwner;
   }
@@ -461,7 +462,8 @@ public final class RuleContext extends TargetContext
   public static ActionOwner createActionOwner(
       Rule rule,
       ImmutableList<AspectDescriptor> aspectDescriptors,
-      BuildConfiguration configuration) {
+      BuildConfiguration configuration,
+      @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
         rule.getLabel(),
         aspectDescriptors,
@@ -470,7 +472,8 @@ public final class RuleContext extends TargetContext
         rule.getTargetKind(),
         configuration.checksum(),
         configuration,
-        configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null);
+        configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null,
+        executionPlatform);
   }
 
   @Override

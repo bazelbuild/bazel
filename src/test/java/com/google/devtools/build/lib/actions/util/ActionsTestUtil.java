@@ -256,6 +256,7 @@ public final class ActionsTestUtil {
           null,
           "dummy-configuration",
           null,
+          null,
           null);
 
   public static final ArtifactOwner NULL_ARTIFACT_OWNER =

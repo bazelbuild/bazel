@@ -211,8 +211,7 @@ public final class JavaCompileAction extends SpawnAction {
         runfiles,
         "Javac",
         false /*executeUnconditionally*/,
-        null /*extraActionInfoSupplier*/,
-        null /*executionPlatform*/);
+        null /*extraActionInfoSupplier*/);
     this.javaCompileCommandLine = javaCompileCommandLine;
     this.commandLine = commandLine;
 

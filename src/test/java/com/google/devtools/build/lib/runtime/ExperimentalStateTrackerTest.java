@@ -436,7 +436,15 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         Label.parseAbsolute("//some/very/very/long/path/for/some/library/directory:libfoo");
     ActionOwner owner =
         ActionOwner.create(
-            label, ImmutableList.<AspectDescriptor>of(), null, null, null, "fedcba", null, null);
+            label,
+            ImmutableList.<AspectDescriptor>of(),
+            null,
+            null,
+            null,
+            "fedcba",
+            null,
+            null,
+            null);
     when(action.getOwner()).thenReturn(owner);
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(3));
@@ -775,6 +783,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
             null,
             "abcdef",
             null,
+            null,
             null);
 
     Label labelBarTest = Label.parseAbsolute("//baz:bartest");
@@ -791,6 +800,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
             null,
             null,
             "fedcba",
+            null,
             null,
             null);
 

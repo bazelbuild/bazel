@@ -55,7 +55,8 @@ public final class FakeOwner implements ActionExecutionMetadata {
         /*targetKind=*/ null,
         "configurationChecksum",
         /* configuration=*/ null,
-        "additionalProgressInfo");
+        "additionalProgressInfo",
+        null);
   }
 
   @Override
@@ -157,6 +158,6 @@ public final class FakeOwner implements ActionExecutionMetadata {
   @Nullable
   @Override
   public PlatformInfo getExecutionPlatform() {
-    throw new IllegalStateException();
+    return null;
   }
 }
