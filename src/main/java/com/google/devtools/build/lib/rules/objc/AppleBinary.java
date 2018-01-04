@@ -180,7 +180,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         break;
       case LOADABLE_BUNDLE:
         targetBuilder.addNativeDeclaredProvider(
-            new AppleLoadableBundleBinaryProvider(outputArtifact));
+            new AppleLoadableBundleBinaryProvider(outputArtifact, objcProvider));
         break;
     }
 
