@@ -49,7 +49,6 @@ import java.io.InputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -412,12 +411,12 @@ public class AndroidResourceProcessingAction {
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      final List<String> densitiesToFilter =
-          options.prefilteredResources.isEmpty()
-              ? options.densities
-              : Collections.<String>emptyList();
       final List<String> densitiesForManifest =
-          densitiesToFilter.isEmpty() ? options.densitiesForManifest : densitiesToFilter;
+          options.densities.isEmpty() ? options.densitiesForManifest : options.densities;
+
+      // TODO(b/71576526): Stop applying density filtering in execution when resources are filtered
+      // in analysis once density filtering in analysis actually covers all cases.
+      final List<String> densitiesToFilter = densitiesForManifest;
 
       final DensityFilteredAndroidData filteredData =
           mergedData.filter(
