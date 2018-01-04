@@ -12,17 +12,17 @@ filegroup(
     srcs = [
         "BUILD",
         "LICENSE",
-        "javac-9-dev-r4023-3.jar",
-        "javac-9-dev-r4023-3.srcjar",
+        "javac-9+181-r4173-1.jar",
+        "javac-9+181-r4173-1.srcjar",
     ],
 )
 
 java_import(
     name = "javac",
-    jars = ["javac-9-dev-r4023-3.jar"],
+    jars = ["javac-9+181-r4173-1.jar"],
 )
 
 filegroup(
     name = "javac_jar",
-    srcs = ["javac-9-dev-r4023-3.jar"],
+    srcs = ["javac-9+181-r4173-1.jar"],
 )
