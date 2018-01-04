@@ -24,6 +24,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "CommandUsingLinuxSandboxTest.java",
             "InterruptibleTest.java",
         ],
     ),
@@ -54,7 +55,6 @@ java_test(
     size = "medium",
     data = [
         ":killmyself",
-        "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell/integration:spend_cpu_time",
     ],
@@ -84,6 +84,42 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party:truth8",
+    ],
+)
+
+java_test(
+    name = "CommandUsingLinuxSandboxTest",
+    size = "small",
+    srcs = [
+        "CommandUsingLinuxSandboxTest.java",
+        "ExecutionStatisticsTestUtil.java",
+    ],
+    data = [
+        "//src/main/tools:linux-sandbox",
+        "//src/test/shell/integration:spend_cpu_time",
+    ],
+    tags = [
+        "no_windows",
+        "shell",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:bazel-main",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/protobuf:execution_statistics_java_proto",
+        "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
         "//third_party:truth8",
     ],
