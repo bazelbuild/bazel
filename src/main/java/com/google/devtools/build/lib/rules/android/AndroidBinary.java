@@ -1449,12 +1449,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> classpath,
       Map<Artifact, Artifact> dexArchives)
       throws RuleErrorException {
+    // This is a simple Iterables.transform but with useful error message in case of missed Jars.
     ImmutableList.Builder<Artifact> dexedClasspath = ImmutableList.builder();
-    boolean reportMissing =
-        AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingErrorOnMissedJars();
     for (Artifact jar : classpath) {
       Artifact dexArchive = dexArchives.get(jar);
-      if (reportMissing && dexArchive == null) {
+      if (dexArchive == null) {
         // Users can create this situation by directly depending on a .jar artifact (checked in
         // or coming from a genrule or similar, b/11285003).  This will also catch new  implicit
         // dependencies that incremental dexing would need to be extended to (b/34949364).
@@ -1468,7 +1467,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 + ". If this is an implicit dependency then the rule that "
                 + "introduces it will need to be fixed to account for it correctly.");
       }
-      dexedClasspath.add(dexArchive != null ? dexArchive : jar);
+      dexedClasspath.add(dexArchive);
     }
     return dexedClasspath.build();
   }

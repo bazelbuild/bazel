@@ -430,39 +430,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public int incrementalDexingShardsAfterProguard;
 
-    /** Whether to look for incrementally dex protos built with java_lite_proto_library. */
-    // TODO(b/31711689): remove this flag from config files and here
-    @Option(
-      name = "experimental_incremental_dexing_for_lite_protos",
-      defaultValue = "true",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.ACTION_COMMAND_LINES,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help = "Do not use."
-    )
-    public boolean incrementalDexingForLiteProtos;
-
-    /**
-     * Whether to error out when we find Jar files when building binaries that weren't converted to
-     * a dex archive. This option will soon be removed from Bazel.
-     */
-    @Option(
-      name = "experimental_incremental_dexing_error_on_missed_jars",
-      defaultValue = "true",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.ACTION_COMMAND_LINES,
-        OptionEffectTag.EAGERNESS_TO_EXIT,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help = "Do not use."
-    )
-    public boolean incrementalDexingErrorOnMissedJars;
-
     /** Whether to use a separate tool to shard classes before merging them into final dex files. */
     @Option(
       name = "experimental_use_dex_splitter_for_incremental_dexing",
@@ -825,8 +792,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.checkDesugarDeps = checkDesugarDeps;
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
-      host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
-      host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
       host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
@@ -870,8 +835,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
-  private final boolean incrementalDexingForLiteProtos;
-  private final boolean incrementalDexingErrorOnMissedJars;
   private final boolean incrementalDexingUseDexSharder;
   private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
@@ -906,8 +869,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
-    this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
-    this.incrementalDexingErrorOnMissedJars = options.incrementalDexingErrorOnMissedJars;
     this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
@@ -976,19 +937,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   /** Returns whether to process proguarded Android binaries with incremental dexing tools. */
   public int incrementalDexingShardsAfterProguard() {
     return incrementalDexingShardsAfterProguard;
-  }
-
-  /** Returns whether to look for Jars produced by {@code JavaLiteProtoAspect}. */
-  public boolean incrementalDexingForLiteProtos() {
-    return incrementalDexingForLiteProtos;
-  }
-
-  /**
-   * Returns whether to report an error when Jars that weren't converted to dex archives are part of
-   * an android binary.
-   */
-  public boolean incrementalDexingErrorOnMissedJars() {
-    return incrementalDexingErrorOnMissedJars;
   }
 
   /** Whether to use a separate tool to shard classes before merging them into final dex files. */
