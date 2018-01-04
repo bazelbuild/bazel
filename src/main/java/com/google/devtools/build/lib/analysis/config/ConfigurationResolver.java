@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -418,7 +419,7 @@ public final class ConfigurationResolver {
       result = ImmutableList.<BuildOptions>of(fromOptions);
     } else if (transition instanceof PatchTransition) {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.
-      result = ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
+      result = ImmutableList.of(((PatchTransition) transition).apply(fromOptions));
     } else if (transition instanceof SplitTransition) {
       List<BuildOptions> toOptions = ((SplitTransition) transition).split(fromOptions);
       if (toOptions.isEmpty()) {

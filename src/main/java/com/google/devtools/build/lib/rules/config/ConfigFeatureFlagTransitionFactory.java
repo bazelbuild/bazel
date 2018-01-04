@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRIN
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;

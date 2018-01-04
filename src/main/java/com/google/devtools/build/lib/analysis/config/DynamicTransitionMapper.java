@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute;

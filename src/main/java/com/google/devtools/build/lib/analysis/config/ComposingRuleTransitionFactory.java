@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingPatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;

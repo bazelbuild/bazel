@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.config;
+package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 
 /**
  * A {@link ComposingSplitTransition} that only supports {@link PatchTransition}s

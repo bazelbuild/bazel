@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+
 /**
  * Dynamic transition to the host configuration.
  */
