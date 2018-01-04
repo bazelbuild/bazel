@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 
@@ -58,8 +60,8 @@ final class WorkerActionContextProvider extends ActionContextProvider {
         OS.getCurrent() == OS.DARWIN
             ? new XCodeLocalEnvProvider()
             : (OS.getCurrent() == OS.WINDOWS
-                ? LocalEnvProvider.ADD_TEMP_WINDOWS
-                : LocalEnvProvider.ADD_TEMP_POSIX);
+                ? WindowsLocalEnvProvider.INSTANCE
+                : PosixLocalEnvProvider.INSTANCE);
     return new LocalSpawnRunner(
         env.getExecRoot(),
         localExecutionOptions,

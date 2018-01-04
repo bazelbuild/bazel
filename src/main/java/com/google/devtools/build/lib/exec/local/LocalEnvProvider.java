@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Map;
@@ -32,34 +30,6 @@ public interface LocalEnvProvider {
             Map<String, String> env, Path execRoot, Path tmpDir, String productName)
             throws IOException {
           return env;
-        }
-      };
-
-  public static final LocalEnvProvider ADD_TEMP_POSIX =
-      new LocalEnvProvider() {
-        @Override
-        public Map<String, String> rewriteLocalEnv(
-            Map<String, String> env, Path execRoot, Path tmpDir, String productName)
-            throws IOException {
-          ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-          result.putAll(Maps.filterKeys(env, k -> !k.equals("TMPDIR")));
-          result.put("TMPDIR", tmpDir.getPathString());
-          return result.build();
-        }
-      };
-
-  public static final LocalEnvProvider ADD_TEMP_WINDOWS =
-      new LocalEnvProvider() {
-        @Override
-        public Map<String, String> rewriteLocalEnv(
-            Map<String, String> env, Path execRoot, Path tmpDir, String productName)
-            throws IOException {
-          ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-          result.putAll(Maps.filterKeys(env, k -> !k.equals("TMP") && !k.equals("TEMP")));
-          String tmpPath = tmpDir.getPathString().replace('/', '\\');
-          result.put("TMP", tmpPath);
-          result.put("TEMP", tmpPath);
-          return result.build();
         }
       };
 

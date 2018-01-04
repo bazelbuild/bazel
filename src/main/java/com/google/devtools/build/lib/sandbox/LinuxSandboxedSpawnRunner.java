@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
 import com.google.devtools.build.lib.shell.Command;
@@ -166,7 +167,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutKillDelay = timeoutKillDelay;
-    this.localEnvProvider = LocalEnvProvider.ADD_TEMP_POSIX;
+    this.localEnvProvider = PosixLocalEnvProvider.INSTANCE;
   }
 
   @Override
