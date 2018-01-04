@@ -729,48 +729,6 @@ java_test(
     ],
 )
 
-cc_binary(
-    name = "shell/killmyself",
-    srcs = ["shell/killmyself.cc"],
-)
-
-java_test(
-    name = "shell_test",
-    srcs = glob([
-        "shell/*.java",
-    ]),
-    data = [
-        ":shell/killmyself",
-        "//src/main/tools:process-wrapper",
-        "//src/test/shell/integration:spend_cpu_time",
-    ],
-    flaky = True,
-    tags = [
-        "no_windows",
-        "shell",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":foundations_testutil",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:bazel-main",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/protobuf:execution_statistics_java_proto",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "//third_party:truth8",
-    ],
-)
-
 java_test(
     name = "server_test",
     srcs = glob([
