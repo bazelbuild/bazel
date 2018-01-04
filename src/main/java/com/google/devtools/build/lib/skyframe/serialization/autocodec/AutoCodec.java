@@ -78,5 +78,25 @@ public @interface AutoCodec {
   @Target(ElementType.CONSTRUCTOR)
   public static @interface Constructor {}
 
+  /**
+   * Marks a specific constructor parameter as a dependency when using the {@code CONSTRUCTOR}
+   * strategy.
+   *
+   * <p>When a constructor selected for the {@code CONSTRUCTOR} strategy has one of its parameters
+   * tagged {@code @Dependency}, {@code @AutoCodec} generates an {@link
+   * com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec} instead of the usual
+   * {@link com.google.devtools.build.lib.skyframe.serialization.ObjectCodec} with the dependency
+   * type parameter matching the tagged parameter type.
+   *
+   * <p>At deserialization, the {@code @Dependency} tagged parameter will be forwarded from the
+   * {@code dependency} parameter of {@link
+   * com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec#deserialize}.
+   *
+   * <p>A compiler error will result if more than one constructor parameter has the
+   * {@code @Dependency} annotation.
+   */
+  @Target(ElementType.PARAMETER)
+  public static @interface Dependency {}
+
   Strategy strategy() default Strategy.CONSTRUCTOR;
 }

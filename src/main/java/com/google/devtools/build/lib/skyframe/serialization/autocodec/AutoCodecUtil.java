@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
@@ -26,9 +27,11 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 
 /** Static utilities for AutoCodec processors. */
 class AutoCodecUtil {
@@ -36,11 +39,37 @@ class AutoCodecUtil {
   public static final String GENERATED_CLASS_NAME_SUFFIX = "AutoCodec";
   static final Class<AutoCodec> ANNOTATION = AutoCodec.class;
 
+  /**
+   * Initializes a builder for a class implementing {@link ObjectCodec}.
+   *
+   * @param encodedType type being serialized
+   */
   static TypeSpec.Builder initializeCodecClassBuilder(TypeElement encodedType) {
-    return TypeSpec.classBuilder(getCodecName(encodedType))
-        .addSuperinterface(
-            ParameterizedTypeName.get(
-                ClassName.get(ObjectCodec.class), TypeName.get(encodedType.asType())));
+    return initializeCodecClassBuilder(encodedType, null);
+  }
+
+  /**
+   * Initializes a builder for a class of the appropriate type.
+   *
+   * <p>If the dependency is non-null, then the type is {@link InjectingObjectCodec} otherwise
+   * {@link ObjectCodec}.
+   *
+   * @param encodedType type being serialized
+   * @param dependency type being injected or null
+   */
+  static TypeSpec.Builder initializeCodecClassBuilder(
+      TypeElement encodedType, @Nullable VariableElement dependency) {
+    TypeSpec.Builder builder = TypeSpec.classBuilder(getCodecName(encodedType));
+    if (dependency == null) {
+      return builder.addSuperinterface(
+          ParameterizedTypeName.get(
+              ClassName.get(ObjectCodec.class), TypeName.get(encodedType.asType())));
+    }
+    return builder.addSuperinterface(
+        ParameterizedTypeName.get(
+            ClassName.get(InjectingObjectCodec.class),
+            TypeName.get(encodedType.asType()),
+            TypeName.get(dependency.asType())));
   }
 
   static MethodSpec.Builder initializeGetEncodedClassMethod(TypeElement encodedType) {
@@ -63,14 +92,33 @@ class AutoCodecUtil {
         .addException(IOException.class);
   }
 
+  /** Initializes {@link ObjectCodec#deserialize}. */
   static MethodSpec.Builder initializeDeserializeMethodBuilder(TypeElement encodedType) {
-    return MethodSpec.methodBuilder("deserialize")
-        .addModifiers(Modifier.PUBLIC)
-        .returns(TypeName.get(encodedType.asType()))
-        .addParameter(CodedInputStream.class, "codedIn")
-        .addAnnotation(Override.class)
-        .addException(SerializationException.class)
-        .addException(IOException.class);
+    return initializeDeserializeMethodBuilder(encodedType, null);
+  }
+
+  /**
+   * Initializes the appropriate deserialize method based on presence of dependency.
+   *
+   * <p>{@link InjectingObjectCodec#deserialize} if dependency is non-null and {@link
+   * ObjectCodec#deserialize} otherwise.
+   *
+   * @param encodedType type being serialized
+   * @param dependency type being injected
+   */
+  static MethodSpec.Builder initializeDeserializeMethodBuilder(
+      TypeElement encodedType, @Nullable VariableElement dependency) {
+    MethodSpec.Builder builder =
+        MethodSpec.methodBuilder("deserialize")
+            .addModifiers(Modifier.PUBLIC)
+            .returns(TypeName.get(encodedType.asType()))
+            .addAnnotation(Override.class)
+            .addException(SerializationException.class)
+            .addException(IOException.class);
+    if (dependency != null) {
+      builder.addParameter(TypeName.get(dependency.asType()), "dependency");
+    }
+    return builder.addParameter(CodedInputStream.class, "codedIn");
   }
 
   /**

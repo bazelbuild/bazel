@@ -33,8 +33,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -94,24 +96,24 @@ public class AutoCodecProcessor extends AbstractProcessor {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
       TypeElement encodedType = (TypeElement) element;
-      TypeSpec.Builder codecClassBuilder = AutoCodecUtil.initializeCodecClassBuilder(encodedType);
-      codecClassBuilder.addMethod(
-          AutoCodecUtil.initializeGetEncodedClassMethod(encodedType)
-              .addStatement("return $T.class", TypeName.get(encodedType.asType()))
-              .build());
+      TypeSpec.Builder codecClassBuilder = null;
       switch (annotation.strategy()) {
         case CONSTRUCTOR:
-          buildClassWithConstructorStrategy(codecClassBuilder, encodedType);
+          codecClassBuilder = buildClassWithConstructorStrategy(encodedType);
           break;
         case PUBLIC_FIELDS:
-          buildClassWithPublicFieldsStrategy(codecClassBuilder, encodedType);
+          codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType);
           break;
         case POLYMORPHIC:
-          buildClassWithPolymorphicStrategy(codecClassBuilder, encodedType);
+          codecClassBuilder = buildClassWithPolymorphicStrategy(encodedType);
           break;
         default:
           throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
       }
+      codecClassBuilder.addMethod(
+          AutoCodecUtil.initializeGetEncodedClassMethod(encodedType)
+              .addStatement("return $T.class", TypeName.get(encodedType.asType()))
+              .build());
       String packageName =
           env.getElementUtils().getPackageOf(encodedType).getQualifiedName().toString();
       try {
@@ -129,8 +131,63 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return true;
   }
 
-  private void buildClassWithConstructorStrategy(
-      TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
+  private TypeSpec.Builder buildClassWithConstructorStrategy(TypeElement encodedType) {
+    ExecutableElement constructor = selectConstructorForConstructorStrategy(encodedType);
+    PartitionedParameters parameters = isolateDependency(constructor);
+
+    TypeSpec.Builder codecClassBuilder =
+        AutoCodecUtil.initializeCodecClassBuilder(encodedType, parameters.dependency);
+
+    initializeUnsafeOffsets(codecClassBuilder, encodedType, parameters.fields);
+
+    codecClassBuilder.addMethod(
+        buildSerializeMethodWithConstructor(encodedType, parameters.fields));
+
+    MethodSpec.Builder deserializeBuilder =
+        AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, parameters.dependency);
+    buildDeserializeBody(deserializeBuilder, parameters.fields);
+    addReturnNew(deserializeBuilder, encodedType, constructor);
+    codecClassBuilder.addMethod(deserializeBuilder.build());
+
+    return codecClassBuilder;
+  }
+
+  private static class PartitionedParameters {
+    /** Non-dependency parameters. */
+    List<VariableElement> fields;
+    /**
+     * Parameter having the {@link AutoCodec.Dependency} annotation.
+     *
+     * <p>Null if no such parameter exists.
+     */
+    @Nullable VariableElement dependency;
+  }
+
+  /** Separates any dependency from the constructor parameters. */
+  private static PartitionedParameters isolateDependency(ExecutableElement constructor) {
+    Map<Boolean, List<VariableElement>> splitParameters =
+        constructor
+            .getParameters()
+            .stream()
+            .collect(
+                Collectors.partitioningBy(
+                    p -> p.getAnnotation(AutoCodec.Dependency.class) != null));
+    PartitionedParameters result = new PartitionedParameters();
+    result.fields = splitParameters.get(Boolean.FALSE);
+    List<VariableElement> dependencies = splitParameters.get(Boolean.TRUE);
+    if (dependencies.size() > 1) {
+      throw new IllegalArgumentException(
+          ((TypeElement) constructor.getEnclosingElement()).getQualifiedName()
+              + " constructor has multiple Dependency annotations.");
+    }
+    if (!dependencies.isEmpty()) {
+      result.dependency = dependencies.get(0);
+    }
+    return result;
+  }
+
+  private static ExecutableElement selectConstructorForConstructorStrategy(
+      TypeElement encodedType) {
     List<ExecutableElement> constructors =
         ElementFilter.constructorsIn(encodedType.getEnclosedElements());
     ImmutableList<ExecutableElement> markedConstructors =
@@ -138,7 +195,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
             .stream()
             .filter(c -> c.getAnnotation(AutoCodec.Constructor.class) != null)
             .collect(toImmutableList());
-    ExecutableElement constructor = null;
     if (markedConstructors.isEmpty()) {
       // If nothing is marked, see if there is a unique constructor.
       if (constructors.size() > 1) {
@@ -147,22 +203,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
                 + " has multiple constructors but no Constructor annotation.");
       }
       // In Java, every class has at least one constructor, so this never fails.
-      constructor = constructors.get(0);
-    } else if (markedConstructors.size() == 1) {
-      constructor = markedConstructors.get(0);
-    } else {
-      throw new IllegalArgumentException(
-          encodedType.getQualifiedName() + " has multiple Constructor annotations.");
+      return constructors.get(0);
     }
-    List<? extends VariableElement> constructorParameters = constructor.getParameters();
-    initializeUnsafeOffsets(codecClassBuilder, encodedType, constructorParameters);
-    codecClassBuilder.addMethod(
-        buildSerializeMethodWithConstructor(encodedType, constructorParameters));
-    MethodSpec.Builder deserializeBuilder =
-        AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType);
-    buildDeserializeBody(deserializeBuilder, constructorParameters);
-    addReturnNew(deserializeBuilder, encodedType, constructor, constructorParameters);
-    codecClassBuilder.addMethod(deserializeBuilder.build());
+    if (markedConstructors.size() == 1) {
+      return markedConstructors.get(0);
+    }
+    throw new IllegalArgumentException(
+        encodedType.getQualifiedName() + " has multiple Constructor annotations.");
   }
 
   private MethodSpec buildSerializeMethodWithConstructor(
@@ -206,19 +253,20 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return serializeBuilder.build();
   }
 
-  private void buildClassWithPublicFieldsStrategy(
-      TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
-    List<? extends VariableElement> publicFields =
+  private TypeSpec.Builder buildClassWithPublicFieldsStrategy(TypeElement encodedType) {
+    TypeSpec.Builder codecClassBuilder = AutoCodecUtil.initializeCodecClassBuilder(encodedType);
+    ImmutableList<? extends VariableElement> publicFields =
         ElementFilter.fieldsIn(env.getElementUtils().getAllMembers(encodedType))
             .stream()
             .filter(this::isPublicField)
-            .collect(Collectors.toList());
+            .collect(toImmutableList());
     codecClassBuilder.addMethod(buildSerializeMethodWithPublicFields(encodedType, publicFields));
     MethodSpec.Builder deserializeBuilder =
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType);
     buildDeserializeBody(deserializeBuilder, publicFields);
     addInstantiatePopulateFieldsAndReturn(deserializeBuilder, encodedType, publicFields);
     codecClassBuilder.addMethod(deserializeBuilder.build());
+    return codecClassBuilder;
   }
 
   private boolean isPublicField(VariableElement element) {
@@ -290,18 +338,18 @@ public class AutoCodecProcessor extends AbstractProcessor {
    * <p>Used by the {@link AutoCodec.Strategy.CONSTRUCTOR} strategy.
    */
   private static void addReturnNew(
-      MethodSpec.Builder builder,
-      TypeElement type,
-      ExecutableElement constructor,
-      List<? extends VariableElement> parameters) {
+      MethodSpec.Builder builder, TypeElement type, ExecutableElement constructor) {
     List<? extends TypeMirror> allThrown = constructor.getThrownTypes();
     if (!allThrown.isEmpty()) {
       builder.beginControlFlow("try");
     }
-    builder.addStatement(
-        "return new $T($L)",
-        TypeName.get(type.asType()),
-        parameters.stream().map(p -> p.getSimpleName() + "_").collect(Collectors.joining(", ")));
+    String parameters =
+        constructor
+            .getParameters()
+            .stream()
+            .map(AutoCodecProcessor::handleFromParameter)
+            .collect(Collectors.joining(", "));
+    builder.addStatement("return new $T($L)", TypeName.get(type.asType()), parameters);
     if (!allThrown.isEmpty()) {
       for (TypeMirror thrown : allThrown) {
         builder.nextControlFlow("catch ($T e)", TypeName.get(thrown));
@@ -312,6 +360,18 @@ public class AutoCodecProcessor extends AbstractProcessor {
       }
       builder.endControlFlow();
     }
+  }
+
+  /**
+   * Coverts a constructor parameter to a String representing its handle within deserialize.
+   *
+   * <p>Uses the handle {@code dependency} for any parameter with the {@link AutoCodec.Dependency}
+   * annotation.
+   */
+  private static String handleFromParameter(VariableElement parameter) {
+    return parameter.getAnnotation(AutoCodec.Dependency.class) != null
+        ? "dependency"
+        : (parameter.getSimpleName() + "_");
   }
 
   /**
@@ -375,7 +435,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
    *
    * <p>Throws IllegalArgumentException if no such field is found.
    */
-  private VariableElement getFieldByName(TypeElement type, String name) {
+  private static VariableElement getFieldByName(TypeElement type, String name) {
     return ElementFilter.fieldsIn(type.getEnclosedElements())
         .stream()
         .filter(f -> f.getSimpleName().contentEquals(name))
@@ -386,14 +446,15 @@ public class AutoCodecProcessor extends AbstractProcessor {
                     type.getQualifiedName() + ": no field with name matching " + name));
   }
 
-  private static void buildClassWithPolymorphicStrategy(
-      TypeSpec.Builder codecClassBuilder, TypeElement encodedType) {
+  private static TypeSpec.Builder buildClassWithPolymorphicStrategy(TypeElement encodedType) {
     if (!encodedType.getModifiers().contains(Modifier.ABSTRACT)) {
       throw new IllegalArgumentException(
           encodedType + " is not abstract, but POLYMORPHIC was selected as the strategy.");
     }
+    TypeSpec.Builder codecClassBuilder = AutoCodecUtil.initializeCodecClassBuilder(encodedType);
     codecClassBuilder.addMethod(buildPolymorphicSerializeMethod(encodedType));
     codecClassBuilder.addMethod(buildPolymorphicDeserializeMethod(encodedType));
+    return codecClassBuilder;
   }
 
   private static MethodSpec buildPolymorphicSerializeMethod(TypeElement encodedType) {
