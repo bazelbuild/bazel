@@ -42,10 +42,6 @@ public class PathFragmentWindowsTest {
     assertThat(PathFragment.create("d:/foo/bar").isAbsolute()).isTrue();
 
     assertThat(PathFragment.create("*:/").isAbsolute()).isFalse();
-
-    // C: is not an absolute path, it points to the current active directory on drive C:.
-    assertThat(PathFragment.create("C:").isAbsolute()).isFalse();
-    assertThat(PathFragment.create("C:foo").isAbsolute()).isFalse();
   }
 
   @Test
@@ -65,11 +61,6 @@ public class PathFragmentWindowsTest {
     assertThat(p3.getDriveLetter()).isEqualTo('C');
     assertThat(p3.getSegments()).isEmpty();
 
-    PathFragment p4 = PathFragment.create("C:");
-    assertThat(p4.isAbsolute()).isFalse();
-    assertThat(p4.getDriveLetter()).isEqualTo('C');
-    assertThat(p4.getSegments()).isEmpty();
-
     PathFragment p5 = PathFragment.create("/c:");
     assertThat(p5.isAbsolute()).isTrue();
     assertThat(p5.getDriveLetter()).isEqualTo('\0');
@@ -77,11 +68,8 @@ public class PathFragmentWindowsTest {
 
     assertThat(p1).isEqualTo(p2);
     assertThat(p1).isNotEqualTo(p3);
-    assertThat(p1).isNotEqualTo(p4);
     assertThat(p1).isNotEqualTo(p5);
-    assertThat(p3).isNotEqualTo(p4);
     assertThat(p3).isNotEqualTo(p5);
-    assertThat(p4).isNotEqualTo(p5);
   }
 
   @Test
@@ -155,22 +143,14 @@ public class PathFragmentWindowsTest {
   public void testGetRelativeMixed() throws Exception {
     assertGetRelative("a", "b", makePath('\0', false, "a", "b"));
     assertGetRelative("a", "/b", makePath('\0', true, "b"));
-    assertGetRelative("a", "E:b", makePath('\0', false, "a", "b"));
     assertGetRelative("a", "E:/b", makePath('E', true, "b"));
 
     assertGetRelative("/a", "b", makePath('\0', true, "a", "b"));
     assertGetRelative("/a", "/b", makePath('\0', true, "b"));
-    assertGetRelative("/a", "E:b", makePath('\0', true, "a", "b"));
     assertGetRelative("/a", "E:/b", makePath('E', true, "b"));
-
-    assertGetRelative("D:a", "b", makePath('D', false, "a", "b"));
-    assertGetRelative("D:a", "/b", makePath('D', true, "b"));
-    assertGetRelative("D:a", "E:b", makePath('D', false, "a", "b"));
-    assertGetRelative("D:a", "E:/b", makePath('E', true, "b"));
 
     assertGetRelative("D:/a", "b", makePath('D', true, "a", "b"));
     assertGetRelative("D:/a", "/b", makePath('D', true, "b"));
-    assertGetRelative("D:/a", "E:b", makePath('D', true, "a", "b"));
     assertGetRelative("D:/a", "E:/b", makePath('E', true, "b"));
   }
 
@@ -184,8 +164,6 @@ public class PathFragmentWindowsTest {
     assertCantComputeRelativeTo("a", "b");
     assertRelativeTo("a/b", "a", "b");
 
-    assertRelativeTo("C:", "");
-    assertRelativeTo("C:", "C:");
     assertCantComputeRelativeTo("C:/", "");
     assertRelativeTo("C:/", "C:/");
   }
@@ -232,8 +210,6 @@ public class PathFragmentWindowsTest {
     // information to the path itself.
     assertAllEqual(
         PathFragment.EMPTY_FRAGMENT,
-        PathFragment.create("C:"),
-        PathFragment.create("D:"),
         PathFragment.createAlreadyInterned('\0', false, new String[0]),
         PathFragment.createAlreadyInterned('C', false, new String[0]),
         PathFragment.createAlreadyInterned('D', false, new String[0]));
@@ -244,31 +220,6 @@ public class PathFragmentWindowsTest {
     assertThat(PathFragment.create("C:/")).isNotEqualTo(PathFragment.create("C:"));
     assertThat(PathFragment.create("C:/").getPathString())
         .isNotEqualTo(PathFragment.create("C:").getPathString());
-  }
-
-  @Test
-  public void testConfusingSemanticsOfDriveLettersInRelativePaths() {
-    // This test serves to document the current confusing semantics of non-empty relative windows
-    // paths that have drive letters. Also note the above testEmptyRelativePathToEmptyPathWindows
-    // which documents the confusing semantics of empty relative windows paths that have drive
-    // letters.
-    //
-    // TODO(laszlocsomor): Reevaluate the current semantics. Depending on the results of that,
-    // consider not storing the drive letter in relative windows paths.
-    PathFragment cColonFoo = PathFragment.create("C:foo");
-    PathFragment dColonFoo = PathFragment.create("D:foo");
-    PathFragment foo = PathFragment.create("foo");
-    assertThat(cColonFoo).isNotEqualTo(dColonFoo);
-    assertThat(cColonFoo).isNotEqualTo(foo);
-    assertThat(dColonFoo).isNotEqualTo(foo);
-    assertThat(cColonFoo.segmentCount()).isEqualTo(dColonFoo.segmentCount());
-    assertThat(cColonFoo.segmentCount()).isEqualTo(foo.segmentCount());
-    assertThat(cColonFoo.startsWith(dColonFoo)).isTrue();
-    assertThat(cColonFoo.startsWith(foo)).isTrue();
-    assertThat(foo.startsWith(cColonFoo)).isTrue();
-    assertThat(cColonFoo.getPathString()).isEqualTo("foo");
-    assertThat(cColonFoo.getPathString()).isEqualTo(dColonFoo.getPathString());
-    assertThat(cColonFoo.getPathString()).isEqualTo(foo.getPathString());
   }
 
   @Test
@@ -345,9 +296,7 @@ public class PathFragmentWindowsTest {
     assertThat(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:/foo")))
         .isTrue();
     assertThat(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:/"))).isTrue();
-    assertThat(PathFragment.create("C:foo/bar").startsWith(PathFragment.create("C:"))).isTrue();
     assertThat(PathFragment.create("C:/").startsWith(PathFragment.create("C:/"))).isTrue();
-    assertThat(PathFragment.create("C:").startsWith(PathFragment.create("C:"))).isTrue();
 
     // The first path is absolute, the second is not.
     assertThat(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:"))).isFalse();
@@ -378,5 +327,16 @@ public class PathFragmentWindowsTest {
     assertThat(PathFragment.create("C:/a/../b").normalize()).isEqualTo(PathFragment.create("C:/b"));
     assertThat(PathFragment.create("C:/../b").normalize())
         .isEqualTo(PathFragment.create("C:/../b"));
+  }
+
+  @Test
+  public void testWindowsDriveRelativePaths() throws Exception {
+    // On Windows, paths that look like "C:foo" mean "foo relative to the current directory
+    // of drive C:\".
+    // Bazel doesn't resolve such paths, and just takes them literally like normal path segments.
+    // If the user attempts to open files under such paths, the file system API will give an error.
+    assertThat(PathFragment.create("C:").isAbsolute()).isFalse();
+    assertThat(PathFragment.create("C:").getDriveLetter()).isEqualTo('\0');
+    assertThat(PathFragment.create("C:").getSegments()).containsExactly("C:");
   }
 }

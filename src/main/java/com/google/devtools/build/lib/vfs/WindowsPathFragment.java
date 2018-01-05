@@ -23,6 +23,8 @@ import java.io.ObjectInputStream;
 abstract class WindowsPathFragment extends PathFragment {
   static final Helper HELPER = new Helper();
 
+  // The drive letter of an absolute path, eg. 'C' for 'C:/foo'.
+  // We deliberately ignore "C:foo" style paths and treat them like a literal "C:foo" path segment.
   protected final char driveLetter;
 
   protected WindowsPathFragment(char driveLetter, String[] segments) {
@@ -63,13 +65,14 @@ abstract class WindowsPathFragment extends PathFragment {
     @Override
     PathFragment create(String path) {
       char driveLetter =
-          path.length() >= 2 && path.charAt(1) == ':' && isDriveLetter(path.charAt(0))
+          path.length() >= 3
+                  && path.charAt(1) == ':'
+                  && isSeparator(path.charAt(2))
+                  && isDriveLetter(path.charAt(0))
               ? Character.toUpperCase(path.charAt(0))
               : '\0';
       if (driveLetter != '\0') {
         path = path.substring(2);
-        // TODO(bazel-team): Decide what to do about non-absolute paths with a volume name, e.g.
-        // C:x.
       }
       boolean isAbsolute = path.length() > 0 && isSeparator(path.charAt(0));
       return isAbsolute
