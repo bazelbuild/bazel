@@ -76,7 +76,7 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.BUILTIN,
   doc =
       "Module providing functions to create actions. "
-          + "Access this module using <a href=\"ctx.html#actions\">ctx.actions</a>."
+          + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>."
 )
 public class SkylarkActionFactory implements SkylarkValue {
   private final SkylarkRuleContext context;
@@ -110,7 +110,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "You must create an action that generates the file. <br>"
             + "Files cannot be created outside of the current package. "
             + "Files that are specified in rule's outputs do not need to be declared and are "
-            + "available through <a href=\"ctx.html#outputs\">ctx.outputs</a>. "
+            + "available through <a href=\"ctx.html#outputs\"><code>ctx.outputs</code></a>. "
             + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
             + "computed_dependencies/hash.bzl\">See example of use</a>",
     parameters = {
@@ -195,7 +195,7 @@ public class SkylarkActionFactory implements SkylarkValue {
               type = String.class,
               named = true,
               positional = false,
-              doc = "a one-word description of the action, e.g. CppCompile or GoLink."
+              doc = "A one-word description of the action, for example, CppCompile or GoLink."
           ),
           @Param(
               name = "inputs",
@@ -207,7 +207,7 @@ public class SkylarkActionFactory implements SkylarkValue {
               named = true,
               positional = false,
               defaultValue = "[]",
-              doc = "list of the input files of the action."
+              doc = "List of the input files of the action."
           ),
       }
   )
@@ -238,26 +238,26 @@ public class SkylarkActionFactory implements SkylarkValue {
         "Creates a file write action. When the action is executed, it will write the given content "
             + "to a file. This is used to generate files using information available in the "
             + "analysis phase. If the file is large and with a lot of static content, consider "
-            + "using <a href=\"#expand_template\">expand_template</a>. "
+            + "using <a href=\"#expand_template\"><code>expand_template</code></a>. "
             + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl\">"
             + "See example of use</a>",
     parameters = {
-      @Param(name = "output", type = Artifact.class, doc = "the output file.", named = true),
+      @Param(name = "output", type = Artifact.class, doc = "The output file.", named = true),
       @Param(
         name = "content",
         type = Object.class,
         allowedTypes = {@ParamType(type = String.class), @ParamType(type = Args.class)},
         doc =
             "the contents of the file. "
-                + "May be a either a string or actions.args() object. "
-                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>.",
+                + "May be a either a string or an "
+                + "<a href=\"actions.html#args\"><code>actions.args()</code></a> object.",
         named = true
       ),
       @Param(
         name = "is_executable",
         type = Boolean.class,
         defaultValue = "False",
-        doc = "whether the output file should be executable.",
+        doc = "Whether the output file should be executable.",
         named = true
       )
     }
@@ -295,7 +295,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         generic1 = Artifact.class,
         named = true,
         positional = false,
-        doc = "list of the output files of the action."
+        doc = "List of the output files of the action."
       ),
       @Param(
         name = "inputs",
@@ -307,7 +307,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "list of the input files of the action."
+        doc = "List of the input files of the action."
       ),
       @Param(
         name = "executable",
@@ -318,7 +318,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         },
         named = true,
         positional = false,
-        doc = "the executable file to be called by the action."
+        doc = "The executable file to be called by the action."
       ),
       @Param(
         name = "arguments",
@@ -330,9 +330,9 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "command line arguments of the action. "
-                + "Must be a list of strings or actions.args() objects. "
-                + "See <a href=\"actions.html#args\">ctx.actions.args()</a>."
+            "Command line arguments of the action. "
+                + "Must be a list of strings or "
+                + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects."
       ),
       @Param(
         name = "mnemonic",
@@ -341,7 +341,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "a one-word description of the action, e.g. CppCompile or GoLink."
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."
       ),
       @Param(
         name = "progress_message",
@@ -351,8 +351,8 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "progress message to show to the user during the build, "
-                + "e.g. \"Compiling foo.cc to create foo.o\"."
+            "Progress message to show to the user during the build, "
+                + "for example, \"Compiling foo.cc to create foo.o\"."
       ),
       @Param(
         name = "use_default_shell_env",
@@ -360,7 +360,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "False",
         named = true,
         positional = false,
-        doc = "whether the action should use the built in shell environment or not."
+        doc = "Whether the action should use the built in shell environment or not."
       ),
       @Param(
         name = "env",
@@ -369,7 +369,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "sets the dictionary of environment variables."
+        doc = "Sets the dictionary of environment variables."
       ),
       @Param(
         name = "execution_requirements",
@@ -379,7 +379,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "information for scheduling the action. See "
+            "Information for scheduling the action. See "
                 + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                 + "for useful keys."
       ),
@@ -470,7 +470,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         generic1 = Artifact.class,
         named = true,
         positional = false,
-        doc = "list of the output files of the action."
+        doc = "List of the output files of the action."
       ),
       @Param(
         name = "inputs",
@@ -482,7 +482,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "list of the input files of the action."
+        doc = "List of the input files of the action."
       ),
       @Param(
         name = "arguments",
@@ -493,11 +493,11 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "command line arguments of the action. "
-                + "Must be a list of strings or actions.args() objects.<br>"
+            "Command line arguments of the action. "
+                + "Must be a list of strings or "
+                + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects.<br>"
                 + "Blaze passes the elements in this attribute as arguments to the command."
-                + "The command can access these arguments as <code>$1</code>, <code>$2</code>, "
-                + "etc. See <a href=\"actions.html#args\">ctx.actions.args()</a>."
+                + "The command can access these arguments as <code>$1</code>, <code>$2</code>, etc."
       ),
       @Param(
         name = "mnemonic",
@@ -506,7 +506,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "a one-word description of the action, e.g. CppCompile or GoLink."
+        doc = "A one-word description of the action, for example, CppCompile or GoLink."
       ),
       @Param(
         name = "command",
@@ -520,7 +520,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "shell command to execute.<br><br>"
+            "Shell command to execute.<br><br>"
                 + "<b>Passing a sequence of strings to this attribute is deprecated and Blaze may "
                 + "stop accepting such values in the future.</b><br><br>"
                 + "The command can access the elements of the <code>arguments</code> object via "
@@ -537,8 +537,8 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "progress message to show to the user during the build, "
-                + "e.g. \"Compiling foo.cc to create foo.o\"."
+            "Progress message to show to the user during the build, "
+                + "for example, \"Compiling foo.cc to create foo.o\"."
       ),
       @Param(
         name = "use_default_shell_env",
@@ -546,7 +546,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "False",
         named = true,
         positional = false,
-        doc = "whether the action should use the built in shell environment or not."
+        doc = "Whether the action should use the built in shell environment or not."
       ),
       @Param(
         name = "env",
@@ -555,7 +555,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "sets the dictionary of environment variables."
+        doc = "Sets the dictionary of environment variables."
       ),
       @Param(
         name = "execution_requirements",
@@ -565,7 +565,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         named = true,
         positional = false,
         doc =
-            "information for scheduling the action. See "
+            "Information for scheduling the action. See "
                 + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                 + "for useful keys."
       ),
@@ -778,8 +778,8 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "generate a file based on a template. Parts of the template will be replaced "
             + "using the <code>substitutions</code> dictionary. Whenever a key of the "
             + "dictionary appears in the template, it is replaced with the associated value. "
-            + "There is no special syntax for the keys. You may for example use curly braces "
-            + "to avoid conflicts (e.g. <code>{KEY}</code>). "
+            + "There is no special syntax for the keys. You may, for example, use curly braces "
+            + "to avoid conflicts (for example, <code>{KEY}</code>). "
             + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">"
             + "See example of use</a>",
     parameters = {
@@ -788,21 +788,21 @@ public class SkylarkActionFactory implements SkylarkValue {
         type = Artifact.class,
         named = true,
         positional = false,
-        doc = "the template file, which is a UTF-8 encoded text file."
+        doc = "The template file, which is a UTF-8 encoded text file."
       ),
       @Param(
         name = "output",
         type = Artifact.class,
         named = true,
         positional = false,
-        doc = "the output file, which is a UTF-8 encoded text file."
+        doc = "The output file, which is a UTF-8 encoded text file."
       ),
       @Param(
         name = "substitutions",
         type = SkylarkDict.class,
         named = true,
         positional = false,
-        doc = "substitutions to make when expanding the template."
+        doc = "Substitutions to make when expanding the template."
       ),
       @Param(
         name = "is_executable",
@@ -810,7 +810,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         defaultValue = "False",
         named = true,
         positional = false,
-        doc = "whether the output file should be executable."
+        doc = "Whether the output file should be executable."
       )
     }
   )
@@ -861,8 +861,8 @@ public class SkylarkActionFactory implements SkylarkValue {
         "Module providing methods to build memory-efficient command lines.<br><br>"
             + "The command lines are memory-efficient because Blaze doesn't fully construct them"
             + " until just before executing the action. "
-            + "See <a href=\"actions.html#run\">ctx.actions.run()</a> or "
-            + "<a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>.<br>"
+            + "See <a href=\"actions.html#run\"><code>ctx.actions.run()</code></a> or "
+            + "<a href=\"actions.html#run_shell\"><code>ctx.actions.run_shell()</code></a>.<br>"
             + "Example:"
             + "<pre class=language-python>\n"
             + "# foo_deps and bar_deps are each a large depset of artifacts\n"
@@ -901,7 +901,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           name = "value",
           type = Object.class,
           doc =
-              "the object to add to the argument list. "
+              "The object to add to the argument list. "
                   + "If the object is scalar, the object's string representation is added. "
                   + "If it's a <a href=\"list.html\">list</a> or "
                   + "<a href=\"depset.html\">depset</a>, "
@@ -915,7 +915,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "a format string used to format the object(s). "
+              "A format string used to format the object(s). "
                   + "The format string is as per pattern % tuple. "
                   + "Limitations: only %d %s %r %% are supported."
         ),
@@ -927,7 +927,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "each object in the list is prepended by this string. "
+              "Each object in the list is prepended by this string. "
                   + "Only supported for vector arguments."
         ),
         @Param(
@@ -938,7 +938,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "each object in the list is joined with this string. "
+              "Each object in the list is joined with this string. "
                   + "Only supported for vector arguments."
         ),
         @Param(
@@ -1047,7 +1047,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           type = String.class,
           named = true,
           doc =
-              "a format string with a single \"%s\". "
+              "A format string with a single \"%s\". "
                   + "If the args are spilled to a params file then they are replaced "
                   + "with an argument consisting of this string formatted with "
                   + "the path of the params file."
@@ -1059,7 +1059,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "False",
           doc =
-              "whether to always spill the args to a params file. If false, "
+              "Whether to always spill the args to a params file. If false, "
                   + "bazel will decide whether the arguments need to be spilled "
                   + "based on your system and arg length."
         )
@@ -1080,14 +1080,14 @@ public class SkylarkActionFactory implements SkylarkValue {
 
     @SkylarkCallable(
       name = "set_param_file_format",
-      doc = "sets the format of the param file when written to disk",
+      doc = "Sets the format of the param file when written to disk",
       parameters = {
         @Param(
           name = "format",
           type = String.class,
           named = true,
           doc =
-              "the format of the param file. Must be one of:<br>"
+              "The format of the param file. Must be one of:<br>"
                   + "\"shell\": All arguments are shell quoted and separated by whitespace<br>"
                   + "\"multiline\": All arguments are unquoted and separated by newline characters"
                   + "The format defaults to \"shell\" if not called."
@@ -1143,7 +1143,7 @@ public class SkylarkActionFactory implements SkylarkValue {
 
   @SkylarkSignature(
     name = "args",
-    doc = "returns an Args object that can be used to build memory-efficient command lines.",
+    doc = "Returns an Args object that can be used to build memory-efficient command lines.",
     objectType = SkylarkActionFactory.class,
     returnType = Args.class,
     parameters = {

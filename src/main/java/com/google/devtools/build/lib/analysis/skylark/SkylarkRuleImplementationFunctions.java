@@ -88,7 +88,7 @@ public class SkylarkRuleImplementationFunctions {
         generic1 = Artifact.class,
         named = true,
         positional = false,
-        doc = "list of the output files of the action."
+        doc = "List of the output files of the action."
       ),
       @Param(
         name = "inputs",
@@ -100,7 +100,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "list of the input files of the action."
+        doc = "List of the input files of the action."
       ),
       @Param(
         name = "executable",
@@ -113,7 +113,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "the executable file to be called by the action."
+        doc = "The executable file to be called by the action."
       ),
       @Param(
         name = "arguments",
@@ -124,7 +124,7 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "command line arguments of the action."
+            "Command line arguments of the action."
                 + "Must be a list of strings or actions.args() objects."
       ),
       @Param(
@@ -134,7 +134,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "a one-word description of the action, e.g. CppCompile or GoLink."
+        doc = "A one-word description of the action, e.g. CppCompile or GoLink."
       ),
       @Param(
         name = "command",
@@ -148,7 +148,7 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "shell command to execute. It is usually preferable to "
+            "Shell command to execute. It is usually preferable to "
                 + "use <code>executable</code> instead. "
                 + "Arguments are available with <code>$1</code>, <code>$2</code>, etc."
       ),
@@ -160,7 +160,7 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "progress message to show to the user during the build, "
+            "Progress message to show to the user during the build, "
                 + "e.g. \"Compiling foo.cc to create foo.o\"."
       ),
       @Param(
@@ -169,7 +169,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "False",
         named = true,
         positional = false,
-        doc = "whether the action should use the built in shell environment or not."
+        doc = "Whether the action should use the built in shell environment or not."
       ),
       @Param(
         name = "env",
@@ -178,7 +178,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "sets the dictionary of environment variables."
+        doc = "Sets the dictionary of environment variables."
       ),
       @Param(
         name = "execution_requirements",
@@ -188,7 +188,7 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "information for scheduling the action. See "
+            "Information for scheduling the action. See "
                 + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                 + "for useful keys."
       ),
@@ -293,14 +293,14 @@ public class SkylarkRuleImplementationFunctions {
     objectType = SkylarkRuleContext.class,
     returnType = String.class,
     parameters = {
-      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
-      @Param(name = "input", type = String.class, doc = "string to be expanded."),
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "This context."),
+      @Param(name = "input", type = String.class, doc = "String to be expanded."),
       @Param(
         name = "targets",
         type = SkylarkList.class,
         generic1 = AbstractConfiguredTarget.class,
         defaultValue = "[]",
-        doc = "list of targets for additional lookup information."
+        doc = "List of targets for additional lookup information."
       ),
     },
     useLocation = true,
@@ -354,14 +354,14 @@ public class SkylarkRuleImplementationFunctions {
     objectType = SkylarkRuleContext.class,
     returnType = Runtime.NoneType.class,
     parameters = {
-      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
-      @Param(name = "output", type = Artifact.class, doc = "the output file."),
-      @Param(name = "content", type = String.class, doc = "the contents of the file."),
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "This context."),
+      @Param(name = "output", type = Artifact.class, doc = "The output file."),
+      @Param(name = "content", type = String.class, doc = "The contents of the file."),
       @Param(
         name = "executable",
         type = Boolean.class,
         defaultValue = "False",
-        doc = "whether the output file should be executable (default is False)."
+        doc = "Whether the output file should be executable (default is False)."
       )
     },
     useLocation = true,
@@ -390,13 +390,13 @@ public class SkylarkRuleImplementationFunctions {
     objectType = SkylarkRuleContext.class,
     returnType = Runtime.NoneType.class,
     parameters = {
-      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "This context."),
       @Param(
         name = "mnemonic",
         type = String.class,
         named = true,
         positional = false,
-        doc = "a one-word description of the action, e.g. CppCompile or GoLink."
+        doc = "A one-word description of the action, e.g. CppCompile or GoLink."
       ),
       @Param(
         name = "inputs",
@@ -408,7 +408,7 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         defaultValue = "[]",
-        doc = "list of the input files of the action."
+        doc = "List of the input files of the action."
       ),
     },
     useLocation = true,
@@ -435,27 +435,27 @@ public class SkylarkRuleImplementationFunctions {
     objectType = SkylarkRuleContext.class,
     returnType = Runtime.NoneType.class,
     parameters = {
-      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "This context."),
       @Param(
         name = "template",
         type = Artifact.class,
         named = true,
         positional = false,
-        doc = "the template file, which is a UTF-8 encoded text file."
+        doc = "The template file, which is a UTF-8 encoded text file."
       ),
       @Param(
         name = "output",
         type = Artifact.class,
         named = true,
         positional = false,
-        doc = "the output file, which is a UTF-8 encoded text file."
+        doc = "The output file, which is a UTF-8 encoded text file."
       ),
       @Param(
         name = "substitutions",
         type = SkylarkDict.class,
         named = true,
         positional = false,
-        doc = "substitutions to make when expanding the template."
+        doc = "Substitutions to make when expanding the template."
       ),
       @Param(
         name = "executable",
@@ -463,7 +463,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "False",
         named = true,
         positional = false,
-        doc = "whether the output file should be executable (default is False)."
+        doc = "Whether the output file should be executable (default is False)."
       )
     },
     useLocation = true,
@@ -612,14 +612,14 @@ public class SkylarkRuleImplementationFunctions {
     objectType = SkylarkRuleContext.class,
     returnType = Tuple.class,
     parameters = {
-      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this RuleContext."),
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "This RuleContext."),
       @Param(
         name = "command",
         type = String.class, // string
         defaultValue = "''",
         named = true,
         positional = false,
-        doc = "command to resolve."
+        doc = "Command to resolve."
       ),
       @Param(
         name = "attribute",
@@ -628,7 +628,7 @@ public class SkylarkRuleImplementationFunctions {
         noneable = true,
         named = true,
         positional = false,
-        doc = "name of the associated attribute for which to issue an error, or None."
+        doc = "Name of the associated attribute for which to issue an error, or None."
       ),
       @Param(
         name = "expand_locations",
@@ -637,7 +637,7 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "shall we expand $(location) variables? "
+            "Shall we expand $(location) variables? "
                 + "See <a href=\"#expand_location\">ctx.expand_location()</a> for more details."
       ),
       @Param(
@@ -647,7 +647,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "make variables to expand, or None."
+        doc = "Make variables to expand, or None."
       ),
       @Param(
         name = "tools",
@@ -656,7 +656,7 @@ public class SkylarkRuleImplementationFunctions {
         generic1 = TransitiveInfoCollection.class,
         named = true,
         positional = false,
-        doc = "list of tools (list of targets)."
+        doc = "List of tools (list of targets)."
       ),
       @Param(
         name = "label_dict",
@@ -665,8 +665,8 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "dictionary of resolved labels and the corresponding list of Files "
-                + "(a dict of Label : list of Files)"
+            "Dictionary of resolved labels and the corresponding list of Files "
+                + "(a dict of Label : list of Files)."
       ),
       @Param(
         name = "execution_requirements",
@@ -675,7 +675,7 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "information for scheduling the action to resolve this command. See "
+            "Information for scheduling the action to resolve this command. See "
                 + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                 + "for useful keys."
       ),

@@ -65,9 +65,9 @@ import javax.annotation.Nullable;
 /**
  * A helper class to provide Attr module in Skylark.
  *
- * <p>It exposes functions (e.g. 'attr.string', 'attr.label_list', etc.) to Skylark users. The
- * functions are executed through reflection. As everywhere in Skylark, arguments are type-checked
- * with the signature and cannot be null.
+ * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Skylark users.
+ * The functions are executed through reflection. As everywhere in Skylark, arguments are
+ * type-checked with the signature and cannot be null.
  */
 @SkylarkModule(
   name = "attr",
@@ -87,7 +87,7 @@ public final class SkylarkAttr implements SkylarkValue {
   private static final String ALLOW_FILES_ARG = "allow_files";
   private static final String ALLOW_FILES_DOC =
       "Whether File targets are allowed. Can be True, False (default), or a list of file "
-      + "extensions that are allowed (e.g. <code>[\".cc\", \".cpp\"]</code>).";
+      + "extensions that are allowed (for example, <code>[\".cc\", \".cpp\"]</code>).";
 
   private static final String ALLOW_RULES_ARG = "allow_rules";
   private static final String ALLOW_RULES_DOC =
@@ -97,7 +97,7 @@ public final class SkylarkAttr implements SkylarkValue {
   private static final String ASPECTS_ARG = "aspects";
   private static final String ASPECTS_ARG_DOC =
       "Aspects that should be applied to the dependency or dependencies specified by this "
-          + "attribute";
+          + "attribute.";
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
@@ -114,12 +114,12 @@ public final class SkylarkAttr implements SkylarkValue {
 
   private static final String EXECUTABLE_ARG = "executable";
   private static final String EXECUTABLE_DOC =
-      "True if the labels have to be executable. This means the label must refer to an "
-          + "executable file, or to a rule that outputs an executable file. Access the labels "
+      "True if the label has to be executable. This means the label must refer to an "
+          + "executable file, or to a rule that outputs an executable file. Access the label "
           + "with <code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
   private static final String FLAGS_ARG = "flags";
-  private static final String FLAGS_DOC = "deprecated, will be removed";
+  private static final String FLAGS_DOC = "Deprecated, will be removed.";
 
   private static final String MANDATORY_ARG = "mandatory";
   private static final String MANDATORY_DOC = "True if the value must be explicitly specified.";
@@ -654,8 +654,8 @@ public final class SkylarkAttr implements SkylarkValue {
         doc =
             DEFAULT_DOC
                 + "Use a string or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                + "function to specify a default value ex: "
-                + "<code>attr.label(default = \"//a:b\")</code>"
+                + "function to specify a default value, for example, "
+                + "<code>attr.label(default = \"//a:b\")</code>."
       ),
       @Param(
         name = DOC_ARG,
@@ -971,8 +971,8 @@ public final class SkylarkAttr implements SkylarkValue {
         doc =
             DEFAULT_DOC
                 + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                + "function to specify default values ex: "
-                + "<code>attr.label_list(default = [\"//a:b\", \"//a:c\"])</code>"
+                + "function to specify default values, for example, "
+                + "<code>attr.label_list(default = [\"//a:b\", \"//a:c\"])</code>."
       ),
       @Param(
         name = DOC_ARG,
@@ -1131,9 +1131,9 @@ public final class SkylarkAttr implements SkylarkValue {
         doc =
             DEFAULT_DOC
                 + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                + "function to specify default values ex: "
+                + "function to specify default values, for example, "
                 + "<code>attr.label_keyed_string_dict(default = "
-                + "{\"//a:b\": \"value\", \"//a:c\": \"string\"})</code>"
+                + "{\"//a:b\": \"value\", \"//a:c\": \"string\"})</code>."
       ),
       @Param(
         name = DOC_ARG,
@@ -1676,9 +1676,9 @@ public final class SkylarkAttr implements SkylarkValue {
     name = "Attribute",
     category = SkylarkModuleCategory.NONE,
     doc =
-        "Representation of a definition of an attribute. Use the <a href=\"attr\"> module to "
-            + "create an Attribute. They are only for use with "
-            + "<a href=\"globals.html#rule\">rule</a> or "
+        "Representation of a definition of an attribute. Use the <a href=\"attr.html\">attr</a> "
+            + "module to create an Attribute. They are only for use with a "
+            + "<a href=\"globals.html#rule\">rule</a> or an "
             + "<a href=\"globals.html#aspect\">aspect</a>."
   )
   public static final class Descriptor implements SkylarkValue {
