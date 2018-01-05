@@ -21,29 +21,65 @@ from src.test.py.bazel import test_base
 class ActionTempTest(test_base.TestBase):
   """Test that Bazel sets a TMP/TEMP/TMPDIR envvar for actions."""
 
+  _invalidations = 0
+
   def testActionTemp(self):
     self._CreateWorkspace()
     strategies = self._SpawnStrategies()
 
     self.assertIn('standalone', strategies)
-    if test_base.TestBase.IsWindows():
-      strategies = ['standalone']
-    else:
+    if not test_base.TestBase.IsWindows():
       self.assertIn('sandboxed', strategies)
       self.assertIn('processwrapper-sandbox', strategies)
-      strategies = ['standalone', 'sandboxed', 'processwrapper-sandbox']
 
     bazel_bin = self._BazelOutputDirectory('bazel-bin')
     bazel_genfiles = self._BazelOutputDirectory('bazel-genfiles')
 
-    for strategy in strategies:
-      self.ScratchFile('foo/input.txt', [strategy])  # invalidate the actions
-      outputs = self._BuildRules(strategy, bazel_bin, bazel_genfiles)
-      self.assertEqual(len(outputs), 2)
-      self._AssertOutputFileContents(outputs['genrule'], strategy)
-      self._AssertOutputFileContents(outputs['skylark'], strategy)
+    self._AssertWritableTempDir(
+        'standalone',
+        expected_tmpdir_regex=(r'execroot[\\/].+[\\/]local-spawn-runner.[0-9]+'
+                               r'[\\/]work$'),
+        bazel_bin=bazel_bin,
+        bazel_genfiles=bazel_genfiles)
+    if not test_base.TestBase.IsWindows():
+      expected_tmpdir_regex = r'bazel-sandbox/[0-9]+/execroot/.*/tmp$'
+      self._AssertWritableTempDir('sandboxed', expected_tmpdir_regex, bazel_bin,
+                                  bazel_genfiles)
+      self._AssertWritableTempDir('processwrapper-sandbox',
+                                  expected_tmpdir_regex, bazel_bin,
+                                  bazel_genfiles)
 
   # Helper methods start here -------------------------------------------------
+
+  def _AssertWritableTempDir(self,
+                             strategy,
+                             expected_tmpdir_regex,
+                             bazel_bin,
+                             bazel_genfiles,
+                             env_add=None):
+    self._invalidations += 1
+    input_file_contents = str(self._invalidations)
+    self._UpdateInputFile(input_file_contents)
+    outputs = self._BuildRules(
+        strategy,
+        bazel_bin,
+        bazel_genfiles,
+        env_remove=self._TempEnvvars(),
+        env_add=env_add)
+    self.assertEqual(len(outputs), 2)
+    self._AssertOutputFileContents(outputs['genrule'], input_file_contents,
+                                   expected_tmpdir_regex)
+    self._AssertOutputFileContents(outputs['skylark'], input_file_contents,
+                                   expected_tmpdir_regex)
+
+  def _UpdateInputFile(self, content):
+    self.ScratchFile('foo/input.txt', [content])
+
+  def _TempEnvvars(self):
+    if test_base.TestBase.IsWindows():
+      return ['TMP', 'TEMP']
+    else:
+      return ['TMPDIR']
 
   def _BazelOutputDirectory(self, info_key):
     exit_code, stdout, stderr = self.RunBazel(['info', info_key])
@@ -70,7 +106,8 @@ class ActionTempTest(test_base.TestBase):
           'type %TMP%\\foo1.txt >> %1',
           'type %TEMP%\\foo2.txt >> %1',
           'echo bar >> %1',
-          'set >> %1',
+          'set TMP >> %1',
+          'set TEMP >> %1',
           'exit /B 0',
       ]
     else:
@@ -84,7 +121,7 @@ class ActionTempTest(test_base.TestBase):
           '  echo foo > "$TMPDIR/foo.txt"',
           '  cat "$TMPDIR/foo.txt" >> "$1"',
           '  echo bar >> "$1"',
-          '  env | sort >> "$1"',
+          '  echo "TMPDIR=${TMPDIR}" >> "$1"',
           'else',
           '  exit 1',
           'fi',
@@ -144,7 +181,12 @@ class ActionTempTest(test_base.TestBase):
         return set(e.strip() for e in m.groups()[0].split(','))
     return []
 
-  def _BuildRules(self, strategy, bazel_bin, bazel_genfiles):
+  def _BuildRules(self,
+                  strategy,
+                  bazel_bin,
+                  bazel_genfiles,
+                  env_remove=None,
+                  env_add=None):
 
     def _ReadFile(path):
       with open(path, 'rt') as f:
@@ -152,9 +194,13 @@ class ActionTempTest(test_base.TestBase):
 
     # TODO(b/37617303): make test UI-independent
     exit_code, _, stderr = self.RunBazel([
-        'build', '--verbose_failures', '--noexperimental_ui',
-        '--spawn_strategy=%s' % strategy, '//foo:genrule', '//foo:skylark'
-    ])
+        'build',
+        '--verbose_failures',
+        '--noexperimental_ui',
+        '--spawn_strategy=%s' % strategy,
+        '//foo:genrule',
+        '//foo:skylark',
+    ], env_remove, env_add)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertTrue(
         os.path.exists(os.path.join(bazel_genfiles, 'foo/genrule.txt')))
@@ -165,21 +211,26 @@ class ActionTempTest(test_base.TestBase):
         'skylark': _ReadFile(os.path.join(bazel_bin, 'foo/skylark.txt'))
     }
 
-  def _AssertOutputFileContents(self, lines, input_file_line):
+  def _AssertOutputFileContents(self, lines, input_file_line,
+                                expected_tmpdir_regex):
     if test_base.TestBase.IsWindows():
-      self.assertGreater(len(lines), 6)
-      self.assertEqual(lines[0], input_file_line)
-      self.assertEqual(lines[1], 'foo1')
-      self.assertEqual(lines[2], 'foo2')
-      self.assertEqual(lines[3], 'bar')
-      self.assertEqual(len([l for l in lines if l.startswith('TMP')]), 1)
-      self.assertEqual(len([l for l in lines if l.startswith('TEMP')]), 1)
+      # 6 lines = input_file_line, foo1, foo2, 'bar', TMP, TEMP
+      self.assertEqual(len(lines), 6)
+      self.assertEqual(lines[0:4], [input_file_line, 'foo1', 'foo2', 'bar'])
+      tmp = [l for l in lines if l.startswith('TMP')]
+      temp = [l for l in lines if l.startswith('TEMP')]
+      self.assertEqual(len(tmp), 1)
+      self.assertEqual(len(temp), 1)
+      tmp = tmp[0].split('=', 1)[1]
+      temp = temp[0].split('=', 1)[1]
+      self.assertRegexpMatches(tmp, expected_tmpdir_regex)
+      self.assertEqual(tmp, temp)
     else:
-      self.assertGreater(len(lines), 4)
-      self.assertEqual(lines[0], input_file_line)
-      self.assertEqual(lines[1], 'foo')
-      self.assertEqual(lines[2], 'bar')
-      self.assertEqual(len([l for l in lines if l.startswith('TMPDIR')]), 1)
+      # 4 lines = input_file_line, foo, bar, TMPDIR
+      self.assertGreaterEqual(len(lines), 4)
+      self.assertEqual(lines[0:3], [input_file_line, 'foo', 'bar'])
+      tmpdir = lines[3].split('=', 1)[1]
+      self.assertRegexpMatches(tmpdir, expected_tmpdir_regex)
 
 
 if __name__ == '__main__':
