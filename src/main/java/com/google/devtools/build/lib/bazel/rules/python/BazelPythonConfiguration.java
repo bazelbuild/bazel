@@ -35,11 +35,12 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 
-/**
- * Bazel-specific Python configuration.
- */
+/** Bazel-specific Python configuration. */
+@AutoCodec
 @Immutable
 public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<BazelPythonConfiguration> CODEC =
+      new BazelPythonConfiguration_AutoCodec();
 
   /**
   * A path converter for python3 path
@@ -163,7 +164,8 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
 
   private final Options options;
 
-  private BazelPythonConfiguration(Options options) {
+  @AutoCodec.Constructor
+  BazelPythonConfiguration(Options options) {
     this.options = options;
   }
 

@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  * A configuration containing flags required for Swift tools. This is used primarily by swift_*
  * family of rules written in Skylark.
  */
+@AutoCodec
 @SkylarkModule(
   name = "swift",
   doc = "A configuration fragment for Swift tools.",
@@ -38,13 +41,19 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 @Immutable
 public class SwiftConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<SwiftConfiguration> CODEC = new SwiftConfiguration_AutoCodec();
 
   private final boolean enableWholeModuleOptimization;
   private final ImmutableList<String> copts;
 
   public SwiftConfiguration(SwiftCommandLineOptions options) {
-    enableWholeModuleOptimization = options.enableWholeModuleOptimization;
-    copts = ImmutableList.copyOf(options.copts);
+    this(options.enableWholeModuleOptimization, ImmutableList.copyOf(options.copts));
+  }
+
+  @AutoCodec.Constructor
+  SwiftConfiguration(boolean enableWholeModuleOptimization, ImmutableList<String> copts) {
+    this.enableWholeModuleOptimization = enableWholeModuleOptimization;
+    this.copts = copts;
   }
 
   /** Returns whether to enable Whole Module Optimization. */

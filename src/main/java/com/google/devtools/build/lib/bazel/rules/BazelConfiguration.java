@@ -35,11 +35,12 @@ import com.google.devtools.common.options.OptionEffectTag;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Bazel-specific configuration fragment.
- */
+/** Bazel-specific configuration fragment. */
+@AutoCodec
 @Immutable
 public class BazelConfiguration extends Fragment {
+  public static final ObjectCodec<BazelConfiguration> CODEC = new BazelConfiguration_AutoCodec();
+
   /** Command-line options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
@@ -119,9 +120,14 @@ public class BazelConfiguration extends Fragment {
   private final PathFragment shellExecutable;
 
   public BazelConfiguration(OS os, Options options) {
+    this(os, options.useStrictActionEnv, determineShellExecutable(os, options.shellExecutable));
+  }
+
+  @AutoCodec.Constructor
+  BazelConfiguration(OS os, boolean useStrictActionEnv, PathFragment shellExecutable) {
     this.os = os;
-    this.useStrictActionEnv = options.useStrictActionEnv;
-    this.shellExecutable = determineShellExecutable(os, options.shellExecutable);
+    this.useStrictActionEnv = useStrictActionEnv;
+    this.shellExecutable = shellExecutable;
   }
 
   @Override

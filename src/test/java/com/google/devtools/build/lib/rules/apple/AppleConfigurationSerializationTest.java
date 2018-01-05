@@ -17,13 +17,8 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -32,26 +27,7 @@ import org.junit.runners.JUnit4;
 public class AppleConfigurationSerializationTest
     extends AbstractObjectCodecTest<AppleConfiguration> {
   public AppleConfigurationSerializationTest() {
-    super(
-        new ObjectCodec<AppleConfiguration>() {
-          @Override
-          public void serialize(AppleConfiguration obj, CodedOutputStream codedOut)
-              throws SerializationException, IOException {
-            obj.serialize(codedOut);
-          }
-
-          @Override
-          public AppleConfiguration deserialize(CodedInputStream codedIn)
-              throws SerializationException, IOException {
-            return AppleConfiguration.deserialize(codedIn);
-          }
-
-          @Override
-          public Class<AppleConfiguration> getEncodedClass() {
-            return AppleConfiguration.class;
-          }
-        },
-        subject());
+    super(AppleConfiguration.CODEC, subject());
   }
 
   private static AppleConfiguration[] subject() {

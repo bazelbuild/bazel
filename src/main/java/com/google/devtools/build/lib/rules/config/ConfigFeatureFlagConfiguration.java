@@ -41,7 +41,10 @@ import javax.annotation.Nullable;
  * Configuration fragment for Android's config_feature_flag, flags which can be defined in BUILD
  * files.
  */
+@AutoCodec
 public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<ConfigFeatureFlagConfiguration> CODEC =
+      new ConfigFeatureFlagConfiguration_AutoCodec();
 
   /** A converter used by the flag options which always returns an empty map, ignoring input. */
   public static final class EmptyImmutableSortedMapConverter
@@ -118,7 +121,12 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
 
   /** Creates a new configuration fragment from the given {@link Options} fragment. */
   public ConfigFeatureFlagConfiguration(Options options) {
-    this.flagValues = options.getFlagValues();
+    this(options.getFlagValues());
+  }
+
+  @AutoCodec.Constructor
+  ConfigFeatureFlagConfiguration(ImmutableSortedMap<Label, String> flagValues) {
+    this.flagValues = flagValues;
     this.flagHash = this.flagValues.isEmpty() ? null : hashFlags(this.flagValues);
   }
 

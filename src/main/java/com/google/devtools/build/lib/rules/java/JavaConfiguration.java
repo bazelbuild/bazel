@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -37,6 +39,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A java compiler configuration containing the flags required for compilation. */
+@AutoCodec
 @Immutable
 @SkylarkModule(
   name = "java",
@@ -44,6 +47,8 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 public final class JavaConfiguration extends Fragment {
+  public static final ObjectCodec<JavaConfiguration> CODEC = new JavaConfiguration_AutoCodec();
+
   /** Values for the --java_classpath option */
   public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
@@ -160,21 +165,21 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<Label> translationTargets;
   private final JavaOptimizationMode javaOptimizationMode;
   private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
-  private final Label javaToolchain;
+  private final Label toolchainLabel;
   private final boolean explicitJavaTestDeps;
   private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
   private final ImmutableList<Label> pluginList;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
-  private final boolean legacyBazelJavaTest;
+  private final boolean useLegacyBazelJavaTest;
 
   JavaConfiguration(
       boolean generateJavaDeps,
       List<String> defaultJvmFlags,
       JavaOptions javaOptions,
-      Label javaToolchain)
-          throws InvalidConfigurationException {
+      Label toolchainLabel)
+      throws InvalidConfigurationException {
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;
@@ -189,9 +194,9 @@ public final class JavaConfiguration extends Fragment {
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
-    this.javaToolchain = javaToolchain;
+    this.toolchainLabel = toolchainLabel;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
-    this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
+    this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
@@ -222,6 +227,62 @@ public final class JavaConfiguration extends Fragment {
     }
     this.bytecodeOptimizers = optimizersBuilder.build();
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
+  }
+
+  @AutoCodec.Constructor
+  JavaConfiguration(
+      ImmutableList<String> commandLineJavacFlags,
+      Label javaLauncherLabel,
+      boolean useIjars,
+      boolean useHeaderCompilation,
+      boolean headerCompilationDisableJavacFallback,
+      boolean generateJavaDeps,
+      boolean strictDepsJavaProtos,
+      OneVersionEnforcementLevel enforceOneVersion,
+      boolean enforceOneVersionOnJavaTests,
+      boolean allowRuntimeDepsOnNeverLink,
+      JavaClasspathMode javaClasspath,
+      ImmutableList<String> defaultJvmFlags,
+      ImmutableList<String> checkedConstraints,
+      StrictDepsMode strictJavaDeps,
+      Label proguardBinary,
+      ImmutableList<Label> extraProguardSpecs,
+      TriState bundleTranslations,
+      ImmutableList<Label> translationTargets,
+      JavaOptimizationMode javaOptimizationMode,
+      ImmutableMap<String, Optional<Label>> bytecodeOptimizers,
+      Label toolchainLabel,
+      boolean explicitJavaTestDeps,
+      boolean experimentalTestRunner,
+      boolean jplPropagateCcLinkParamsStore,
+      ImmutableList<Label> pluginList,
+      boolean useLegacyBazelJavaTest) {
+    this.commandLineJavacFlags = commandLineJavacFlags;
+    this.javaLauncherLabel = javaLauncherLabel;
+    this.useIjars = useIjars;
+    this.useHeaderCompilation = useHeaderCompilation;
+    this.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
+    this.generateJavaDeps = generateJavaDeps;
+    this.strictDepsJavaProtos = strictDepsJavaProtos;
+    this.enforceOneVersion = enforceOneVersion;
+    this.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
+    this.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
+    this.javaClasspath = javaClasspath;
+    this.defaultJvmFlags = defaultJvmFlags;
+    this.checkedConstraints = checkedConstraints;
+    this.strictJavaDeps = strictJavaDeps;
+    this.proguardBinary = proguardBinary;
+    this.extraProguardSpecs = extraProguardSpecs;
+    this.bundleTranslations = bundleTranslations;
+    this.translationTargets = translationTargets;
+    this.javaOptimizationMode = javaOptimizationMode;
+    this.bytecodeOptimizers = bytecodeOptimizers;
+    this.toolchainLabel = toolchainLabel;
+    this.explicitJavaTestDeps = explicitJavaTestDeps;
+    this.experimentalTestRunner = experimentalTestRunner;
+    this.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+    this.pluginList = pluginList;
+    this.useLegacyBazelJavaTest = useLegacyBazelJavaTest;
   }
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
@@ -363,7 +424,7 @@ public final class JavaConfiguration extends Fragment {
    * Returns the label of the default java_toolchain rule
    */
   public Label getToolchainLabel() {
-    return javaToolchain;
+    return toolchainLabel;
   }
 
   /**
@@ -387,7 +448,7 @@ public final class JavaConfiguration extends Fragment {
    * open-sourced our test runner.
    */
   public boolean useLegacyBazelJavaTest() {
-    return legacyBazelJavaTest;
+    return useLegacyBazelJavaTest;
   }
 
   /**

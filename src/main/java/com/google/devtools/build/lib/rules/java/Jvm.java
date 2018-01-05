@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * the client, it can optionally also contain a label pointing to a target that contains all the
  * necessary files.
  */
+@AutoCodec
 @SkylarkModule(
   name = "jvm",
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
@@ -36,6 +39,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 )
 @Immutable
 public final class Jvm extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<Jvm> CODEC = new Jvm_AutoCodec();
+
   private final PathFragment javaHome;
   private final Label jvmLabel;
   private final PathFragment java;
@@ -43,10 +48,10 @@ public final class Jvm extends BuildConfiguration.Fragment {
   public static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
 
   /**
-   * Creates a Jvm instance. Either the {@code javaHome} parameter is absolute,
-   * and/or the {@code jvmLabel} parameter must be non-null. Only the
-   * {@code jvmLabel} is optional.
+   * Creates a Jvm instance. Either the {@code javaHome} parameter is absolute, and/or the {@code
+   * jvmLabel} parameter must be non-null. Only the {@code jvmLabel} is optional.
    */
+  @AutoCodec.Constructor
   public Jvm(PathFragment javaHome, Label jvmLabel) {
     Preconditions.checkArgument(javaHome.isAbsolute() || jvmLabel != null);
     this.javaHome = javaHome;

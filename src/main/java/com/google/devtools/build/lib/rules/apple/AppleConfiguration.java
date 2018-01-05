@@ -32,19 +32,17 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
+@AutoCodec
 @SkylarkModule(
   name = "apple",
   doc = "A configuration fragment for Apple platforms.",
@@ -52,6 +50,8 @@ import javax.annotation.Nullable;
 )
 @Immutable
 public class AppleConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<AppleConfiguration> CODEC = new AppleConfiguration_AutoCodec();
+
   /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
@@ -91,7 +91,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
-  @VisibleForTesting
+  @AutoCodec.Constructor
   AppleConfiguration(AppleCommandLineOptions options, String iosCpu) {
     this.options = options;
     this.iosCpu = iosCpu;
@@ -501,18 +501,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Override
   public int hashCode() {
     return options.hashCode();
-  }
-
-  void serialize(CodedOutputStream out) throws IOException, SerializationException {
-    options.serialize(out);
-    out.writeStringNoTag(iosCpu);
-  }
-
-  static AppleConfiguration deserialize(CodedInputStream in)
-      throws IOException, SerializationException {
-    AppleCommandLineOptions options = AppleCommandLineOptions.deserialize(in);
-    String iosCpu = StringCodecs.asciiOptimized().deserialize(in);
-    return new AppleConfiguration(options, iosCpu);
   }
 
   @VisibleForTesting

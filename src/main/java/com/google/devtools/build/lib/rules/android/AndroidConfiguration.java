@@ -52,6 +52,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
+@AutoCodec
 @SkylarkModule(
   name = "android",
   doc = "A configuration fragment for Android.",
@@ -59,6 +60,8 @@ import javax.annotation.Nullable;
 )
 @Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<AndroidConfiguration> CODEC =
+      new AndroidConfiguration_AutoCodec();
 
   /**
    * Converter for {@link
@@ -831,7 +834,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   private final Label sdk;
   private final String cpu;
-  private final boolean incrementalNativeLibs;
+  private final boolean useIncrementalNativeLibs;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
@@ -864,7 +867,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
-    this.incrementalNativeLibs = options.incrementalNativeLibs;
+    this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
@@ -911,6 +914,74 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  @AutoCodec.Constructor
+  AndroidConfiguration(
+      Label sdk,
+      String cpu,
+      boolean useIncrementalNativeLibs,
+      ConfigurationDistinguisher configurationDistinguisher,
+      boolean incrementalDexing,
+      int incrementalDexingShardsAfterProguard,
+      boolean incrementalDexingUseDexSharder,
+      boolean assumeMinSdkVersion,
+      ImmutableList<String> dexoptsSupportedInIncrementalDexing,
+      ImmutableList<String> targetDexoptsThatPreventIncrementalDexing,
+      ImmutableList<String> dexoptsSupportedInDexMerger,
+      boolean useWorkersWithDexbuilder,
+      boolean desugarJava8,
+      boolean checkDesugarDeps,
+      boolean useRexToCompressDexFiles,
+      boolean allowAndroidLibraryDepsWithoutSrcs,
+      boolean useAndroidResourceShrinking,
+      boolean useAndroidResourceCycleShrinking,
+      AndroidManifestMerger manifestMerger,
+      ApkSigningMethod apkSigningMethod,
+      boolean useSingleJarApkBuilder,
+      ResourceFilterFactory resourceFilterFactory,
+      boolean compressJavaResources,
+      boolean exportsManifestDefault,
+      AndroidAaptVersion androidAaptVersion,
+      boolean useAapt2ForRobolectric,
+      boolean throwOnResourceConflict,
+      boolean useParallelDex2Oat,
+      boolean allowAndroidResources,
+      boolean allowResourcesAttr,
+      boolean skipParsingAction,
+      boolean fixedResourceNeverlinking) {
+    this.sdk = sdk;
+    this.cpu = cpu;
+    this.useIncrementalNativeLibs = useIncrementalNativeLibs;
+    this.configurationDistinguisher = configurationDistinguisher;
+    this.incrementalDexing = incrementalDexing;
+    this.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
+    this.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+    this.assumeMinSdkVersion = assumeMinSdkVersion;
+    this.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+    this.targetDexoptsThatPreventIncrementalDexing = targetDexoptsThatPreventIncrementalDexing;
+    this.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
+    this.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
+    this.desugarJava8 = desugarJava8;
+    this.checkDesugarDeps = checkDesugarDeps;
+    this.useRexToCompressDexFiles = useRexToCompressDexFiles;
+    this.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
+    this.useAndroidResourceShrinking = useAndroidResourceShrinking;
+    this.useAndroidResourceCycleShrinking = useAndroidResourceCycleShrinking;
+    this.manifestMerger = manifestMerger;
+    this.apkSigningMethod = apkSigningMethod;
+    this.useSingleJarApkBuilder = useSingleJarApkBuilder;
+    this.resourceFilterFactory = resourceFilterFactory;
+    this.compressJavaResources = compressJavaResources;
+    this.exportsManifestDefault = exportsManifestDefault;
+    this.androidAaptVersion = androidAaptVersion;
+    this.useAapt2ForRobolectric = useAapt2ForRobolectric;
+    this.throwOnResourceConflict = throwOnResourceConflict;
+    this.useParallelDex2Oat = useParallelDex2Oat;
+    this.allowAndroidResources = allowAndroidResources;
+    this.allowResourcesAttr = allowResourcesAttr;
+    this.skipParsingAction = skipParsingAction;
+    this.fixedResourceNeverlinking = fixedResourceNeverlinking;
+  }
+
   public String getCpu() {
     return cpu;
   }
@@ -926,7 +997,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   public boolean useIncrementalNativeLibs() {
-    return incrementalNativeLibs;
+    return useIncrementalNativeLibs;
   }
 
   /** Returns whether to use incremental dexing. */

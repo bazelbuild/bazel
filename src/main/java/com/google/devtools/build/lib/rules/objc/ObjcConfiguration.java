@@ -24,12 +24,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
+@AutoCodec
 @SkylarkModule(
   name = "objc",
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
@@ -37,6 +40,8 @@ import javax.annotation.Nullable;
 )
 @Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<ObjcConfiguration> CODEC = new ObjcConfiguration_AutoCodec();
+
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
       ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
@@ -110,6 +115,58 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.objcHeaderThinningPartitionSize = objcOptions.objcHeaderThinningPartitionSize;
     this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
     this.appleSdk = objcOptions.appleSdk;
+  }
+
+  @AutoCodec.Constructor
+  ObjcConfiguration(
+      DottedVersion iosSimulatorVersion,
+      String iosSimulatorDevice,
+      DottedVersion watchosSimulatorVersion,
+      String watchosSimulatorDevice,
+      DottedVersion tvosSimulatorVersion,
+      String tvosSimulatorDevice,
+      boolean generateDsym,
+      boolean generateLinkmap,
+      boolean runMemleaks,
+      ImmutableList<String> copts,
+      CompilationMode compilationMode,
+      ImmutableList<String> fastbuildOptions,
+      boolean enableBinaryStripping,
+      boolean moduleMapsEnabled,
+      String signingCertName,
+      boolean debugWithGlibcxx,
+      Label extraEntitlements,
+      boolean deviceDebugEntitlements,
+      boolean enableAppleBinaryNativeProtos,
+      HeaderDiscovery.DotdPruningMode dotdPruningPlan,
+      boolean experimentalHeaderThinning,
+      int objcHeaderThinningPartitionSize,
+      Label objcHeaderScannerTool,
+      Label appleSdk) {
+    this.iosSimulatorVersion = iosSimulatorVersion;
+    this.iosSimulatorDevice = iosSimulatorDevice;
+    this.watchosSimulatorVersion = watchosSimulatorVersion;
+    this.watchosSimulatorDevice = watchosSimulatorDevice;
+    this.tvosSimulatorVersion = tvosSimulatorVersion;
+    this.tvosSimulatorDevice = tvosSimulatorDevice;
+    this.generateDsym = generateDsym;
+    this.generateLinkmap = generateLinkmap;
+    this.runMemleaks = runMemleaks;
+    this.copts = copts;
+    this.compilationMode = compilationMode;
+    this.fastbuildOptions = fastbuildOptions;
+    this.enableBinaryStripping = enableBinaryStripping;
+    this.moduleMapsEnabled = moduleMapsEnabled;
+    this.signingCertName = signingCertName;
+    this.debugWithGlibcxx = debugWithGlibcxx;
+    this.extraEntitlements = extraEntitlements;
+    this.deviceDebugEntitlements = deviceDebugEntitlements;
+    this.enableAppleBinaryNativeProtos = enableAppleBinaryNativeProtos;
+    this.dotdPruningPlan = dotdPruningPlan;
+    this.experimentalHeaderThinning = experimentalHeaderThinning;
+    this.objcHeaderThinningPartitionSize = objcHeaderThinningPartitionSize;
+    this.objcHeaderScannerTool = objcHeaderScannerTool;
+    this.appleSdk = appleSdk;
   }
 
   /**

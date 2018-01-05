@@ -27,16 +27,21 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * A J2ObjC transpiler configuration fragment containing J2ObjC translation flags.
- * This configuration fragment is used by Java rules that can be transpiled
- * (specifically, J2ObjCAspects thereof).
+ * A J2ObjC transpiler configuration fragment containing J2ObjC translation flags. This
+ * configuration fragment is used by Java rules that can be transpiled (specifically, J2ObjCAspects
+ * thereof).
  */
+@AutoCodec
 @Immutable
 public class J2ObjcConfiguration extends Fragment {
+  public static final ObjectCodec<J2ObjcConfiguration> CODEC = new J2ObjcConfiguration_AutoCodec();
+
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
    * transpiler, and cannot be overridden by user-specified flags in {@link
@@ -92,14 +97,27 @@ public class J2ObjcConfiguration extends Fragment {
   private final Optional<Label> deadCodeReport;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
-    this.removeDeadCode = j2ObjcOptions.removeDeadCode;
-    this.experimentalJ2ObjcHeaderMap = j2ObjcOptions.experimentalJ2ObjcHeaderMap;
-    this.deadCodeReport = Optional.fromNullable(j2ObjcOptions.deadCodeReport);
-    this.translationFlags = ImmutableList.<String>builder()
-        .addAll(J2OBJC_DEFAULT_TRANSLATION_FLAGS)
-        .addAll(j2ObjcOptions.translationFlags)
-        .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
-        .build();
+    this(
+        ImmutableList.<String>builder()
+            .addAll(J2OBJC_DEFAULT_TRANSLATION_FLAGS)
+            .addAll(j2ObjcOptions.translationFlags)
+            .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
+            .build(),
+        j2ObjcOptions.removeDeadCode,
+        j2ObjcOptions.experimentalJ2ObjcHeaderMap,
+        Optional.fromNullable(j2ObjcOptions.deadCodeReport));
+  }
+
+  @AutoCodec.Constructor
+  J2ObjcConfiguration(
+      List<String> translationFlags,
+      boolean removeDeadCode,
+      boolean experimentalJ2ObjcHeaderMap,
+      Optional<Label> deadCodeReport) {
+    this.translationFlags = translationFlags;
+    this.removeDeadCode = removeDeadCode;
+    this.experimentalJ2ObjcHeaderMap = experimentalJ2ObjcHeaderMap;
+    this.deadCodeReport = deadCodeReport;
   }
 
   /**
