@@ -311,18 +311,20 @@ public class TryWithResourcesRewriter extends ClassVisitor {
 
         InferredType resourceType = typeInference.getTypeOfOperandFromTop(0);
         Optional<String> resourceClassInternalName = resourceType.getInternalName();
-        checkState(
-            resourceClassInternalName.isPresent(),
-            "The resource class %s is not a reference type in %s.%s",
-            resourceType,
-            internalName,
-            methodSignature);
-        checkState(
-            isAssignableFrom(
-                "java.lang.AutoCloseable", resourceClassInternalName.get().replace('/', '.')),
-            "The resource type should be a subclass of java.lang.AutoCloseable: %s",
-            resourceClassInternalName);
-
+        {
+          // Check the resource type.
+          checkState(
+              resourceClassInternalName.isPresent(),
+              "The resource class %s is not a reference type in %s.%s",
+              resourceType,
+              internalName,
+              methodSignature);
+          String resourceClassName = resourceClassInternalName.get().replace('/', '.');
+          checkState(
+              hasCloseMethod(resourceClassName),
+              "The resource class %s should have a close() method.",
+              resourceClassName);
+        }
         resourceTypeInternalNames.add(resourceClassInternalName.get());
         super.visitMethodInsn(
             opcode,
@@ -354,6 +356,26 @@ public class TryWithResourcesRewriter extends ClassVisitor {
         return true; // The owner is an exception that has been visited before.
       }
       return isAssignableFrom("java.lang.Throwable", owner.replace('/', '.'));
+    }
+
+    private boolean hasCloseMethod(String resourceClassName) {
+      try {
+        Class<?> klass = classLoader.loadClass(resourceClassName);
+        klass.getMethod("close");
+        return true;
+      } catch (ClassNotFoundException e) {
+        throw new AssertionError(
+            "Failed to load class "
+                + resourceClassName
+                + " when desugaring method "
+                + internalName
+                + "."
+                + methodSignature,
+            e);
+      } catch (NoSuchMethodException e) {
+        // There is no close() method in the class, so return false.
+        return false;
+      }
     }
 
     private boolean isAssignableFrom(String baseClassName, String subClassName) {

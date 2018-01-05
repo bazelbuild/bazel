@@ -11,6 +11,7 @@ com/google/devtools/build/android/desugar/testdata/CaptureLambda.class
 com/google/devtools/build/android/desugar/testdata/ClassCallingLongCompare$LongCmpFunc.class
 com/google/devtools/build/android/desugar/testdata/ClassCallingLongCompare.class
 com/google/devtools/build/android/desugar/testdata/ClassCallingRequireNonNull.class
+com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$InheritanceResource.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources$SimpleResource.class
 com/google/devtools/build/android/desugar/testdata/ClassUsingTryWithResources.class
 com/google/devtools/build/android/desugar/testdata/ConcreteFunction$Parser.class
