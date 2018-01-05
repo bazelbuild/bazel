@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -229,8 +230,8 @@ public class DexFileSplitterTest {
     options.inclusionFilterJar = inclusionFilterJar;
     DexFileSplitter.splitIntoShards(options);
     assertThat(options.outputDirectory.toFile().exists()).isTrue();
-    ImmutableSet<Path> files =
-        ImmutableSet.copyOf(Files.newDirectoryStream(options.outputDirectory, "*.zip"));
+    ImmutableSet<Path> files = readFiles(options.outputDirectory, "*.zip");
+
     ImmutableList.Builder<Path> result = ImmutableList.builder();
     for (int i = 1; i <= files.size(); ++i) {
       Path path = options.outputDirectory.resolve(i + ".shard.zip");
@@ -238,6 +239,12 @@ public class DexFileSplitterTest {
       result.add(path);
     }
     return result.build(); // return expected files in sorted order
+  }
+
+  private static ImmutableSet<Path> readFiles(Path directory, String glob) throws IOException {
+    try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, glob)) {
+      return ImmutableSet.copyOf(stream);
+    }
   }
 
   private Path buildDexArchive() throws Exception {
