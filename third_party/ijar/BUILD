@@ -15,9 +15,6 @@ cc_library(
         "//src:windows": [
             "mapped_file_windows.cc",
         ],
-        "//src:windows_msvc": [
-            "mapped_file_windows.cc",
-        ],
         "//conditions:default": [
             "mapped_file_unix.cc",
         ],
@@ -32,10 +29,6 @@ cc_library(
         ":zlib_client",
     ] + select({
         "//src:windows": [
-            "//src/main/cpp/util:errors",
-            "//src/main/cpp/util:file",
-        ],
-        "//src:windows_msvc": [
             "//src/main/cpp/util:errors",
             "//src/main/cpp/util:file",
         ],
