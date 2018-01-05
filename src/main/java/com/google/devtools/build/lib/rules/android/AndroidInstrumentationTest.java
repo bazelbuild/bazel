@@ -85,6 +85,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
             .addTargets(runfilesDeps, RunfilesProvider.DEFAULT_RUNFILES)
             .addTransitiveArtifacts(AndroidCommon.getSupportApks(ruleContext))
             .addTransitiveArtifacts(getAdb(ruleContext).getFilesToRun())
+            .addTransitiveArtifacts(getAapt(ruleContext).getFilesToRun())
             .addArtifacts(getDataDeps(ruleContext))
             .build();
 
@@ -249,6 +250,11 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   /** ADB binary from the Android SDK. */
   private static FilesToRunProvider getAdb(RuleContext ruleContext) {
     return AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
+  }
+
+  /** AAPT binary from the Android SDK. */
+  private static FilesToRunProvider getAapt(RuleContext ruleContext) {
+    return AndroidSdkProvider.fromRuleContext(ruleContext).getAapt();
   }
 
   /** Map of {@code test_args} for the test runner to make available to test test code. */

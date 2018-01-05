@@ -44,6 +44,7 @@ test_entry_point="%test_entry_point%"
 log_levels="%log_levels%"
 WORKSPACE_DIR="${TEST_SRCDIR}/%workspace%"
 adb="${WORKSPACE_DIR}/%adb%"
+aapt="${WORKSPACE_DIR}/../../external/androidsdk/aapt_binary"
 device_script="${WORKSPACE_DIR}/%device_script%"
 
 data_deps="%data_deps%"
@@ -71,6 +72,7 @@ fixture_args="%fixture_args%"
 test_suite_property_name='%test_suite_property_name%'
 
 argv=$(cat <<END
+--aapt="${aapt}" \
 --adb="${adb}" \
 --device_broker_type="${device_broker_type}" \
 --device_script="${device_script}" \
