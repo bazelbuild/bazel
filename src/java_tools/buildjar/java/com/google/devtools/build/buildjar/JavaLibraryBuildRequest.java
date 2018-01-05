@@ -60,6 +60,7 @@ public final class JavaLibraryBuildRequest {
   private final List<String> processorNames;
 
   private final Path outputJar;
+  private final Path nativeHeaderOutput;
 
   private final Path classDir;
   private final Path tempDir;
@@ -170,6 +171,7 @@ public final class JavaLibraryBuildRequest {
     this.classDir = asPath(firstNonNull(optionsParser.getClassDir(), "classes"));
     this.tempDir = asPath(firstNonNull(optionsParser.getTempDir(), "_tmp"));
     this.outputJar = asPath(optionsParser.getOutputJar());
+    this.nativeHeaderOutput = asPath(optionsParser.getNativeHeaderOutput());
     for (Entry<String, List<String>> entry : optionsParser.getPostProcessors().entrySet()) {
       switch (entry.getKey()) {
         case "jacoco":
@@ -253,12 +255,20 @@ public final class JavaLibraryBuildRequest {
     return outputJar;
   }
 
+  public Path getNativeHeaderOutput() {
+    return nativeHeaderOutput;
+  }
+
   public Path getClassDir() {
     return classDir;
   }
 
   public Path getTempDir() {
     return tempDir;
+  }
+
+  public Path getNativeHeaderDir() {
+    return getTempDir().resolve("native_headers");
   }
 
   public JacocoInstrumentationProcessor getJacocoInstrumentationProcessor() {
@@ -282,22 +292,26 @@ public final class JavaLibraryBuildRequest {
   }
 
   public BlazeJavacArguments toBlazeJavacArguments(ImmutableList<Path> classPath) {
-    return BlazeJavacArguments.builder()
-        .classPath(classPath)
-        .classOutput(getClassDir())
-        .bootClassPath(
-            ImmutableList.<Path>builder()
-                .addAll(getBootClassPath())
-                .addAll(getExtClassPath())
-                .build())
-        .javacOptions(makeJavacArguments())
-        .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
-        .processors(null)
-        .sourcePath(getSourcePath())
-        .sourceOutput(getSourceGenDir())
-        .processorPath(getProcessorPath())
-        .plugins(getPlugins())
-        .build();
+    BlazeJavacArguments.Builder builder =
+        BlazeJavacArguments.builder()
+            .classPath(classPath)
+            .classOutput(getClassDir())
+            .bootClassPath(
+                ImmutableList.<Path>builder()
+                    .addAll(getBootClassPath())
+                    .addAll(getExtClassPath())
+                    .build())
+            .javacOptions(makeJavacArguments())
+            .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
+            .processors(null)
+            .sourcePath(getSourcePath())
+            .sourceOutput(getSourceGenDir())
+            .processorPath(getProcessorPath())
+            .plugins(getPlugins());
+    if (getNativeHeaderOutput() != null) {
+      builder.nativeHeaderOutput(getNativeHeaderDir());
+    }
+    return builder.build();
   }
 
   /** Constructs a command line that can be used for a javac invocation. */

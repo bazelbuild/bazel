@@ -61,6 +61,10 @@ public abstract class BlazeJavacArguments {
   /** The class output directory (-d). */
   public abstract Path classOutput();
 
+  /** The native header output directory (-h). */
+  @Nullable
+  public abstract Path nativeHeaderOutput();
+
   /** The generated source output directory (-s). */
   @Nullable
   public abstract Path sourceOutput();
@@ -84,6 +88,8 @@ public abstract class BlazeJavacArguments {
     Builder classPath(ImmutableList<Path> classPath);
 
     Builder classOutput(Path classOutput);
+
+    Builder nativeHeaderOutput(Path nativeHeaderOutput);
 
     Builder bootClassPath(ImmutableList<Path> bootClassPath);
 
