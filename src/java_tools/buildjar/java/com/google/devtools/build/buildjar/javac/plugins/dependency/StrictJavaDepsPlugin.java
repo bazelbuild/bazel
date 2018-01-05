@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.buildjar.JarOwner;
@@ -42,8 +43,10 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -74,11 +77,25 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private final Set<JCTree> trees;
   /** Computed missing dependencies */
   private final Set<JarOwner> missingTargets;
+  /** Strict deps diagnostics. */
+  private final List<SjdDiagnostic> diagnostics;
 
   private static Properties targetMap;
 
-
   private PrintWriter errWriter;
+
+  @AutoValue
+  abstract static class SjdDiagnostic {
+    abstract int pos();
+
+    abstract String message();
+
+    abstract JavaFileObject source();
+
+    static SjdDiagnostic create(int pos, String message, JavaFileObject source) {
+      return new AutoValue_StrictJavaDepsPlugin_SjdDiagnostic(pos, message, source);
+    }
+  }
 
   /**
    * On top of javac, we keep Blaze-specific information in the form of two maps. Both map jars
@@ -96,6 +113,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     trees = new HashSet<>();
     targetMap = new Properties();
     missingTargets = new HashSet<>();
+    diagnostics = new ArrayList<>();
   }
 
   @Override
@@ -111,7 +129,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     if (checkingTreeScanner == null) {
       Set<Path> platformJars = dependencyModule.getPlatformJars();
       checkingTreeScanner =
-          new CheckingTreeScanner(dependencyModule, log, missingTargets, platformJars);
+          new CheckingTreeScanner(dependencyModule, diagnostics, missingTargets, platformJars);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
     }
     initTargetMap();
@@ -123,7 +141,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         targetMap.load(is);
       }
     } catch (IOException ex) {
-      log.warning("Error loading Strict Java Deps mapping file: " + targetMapping, ex);
+      throw new AssertionError("Error loading Strict Java Deps mapping file: " + targetMapping, ex);
     }
   }
 
@@ -133,11 +151,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
    */
   @Override
   public void postAttribute(Env<AttrContext> env) {
-    JavaFileObject previousSource =
-        log.useSource(
-            env.enclClass.sym.sourcefile != null
-                ? env.enclClass.sym.sourcefile
-                : env.toplevel.sourcefile);
+    JavaFileObject previousSource = checkingTreeScanner.source;
     boolean previousExemption = checkingTreeScanner.isStrictDepsExempt;
     try {
       ProcessorDependencyMode mode = isAnnotationProcessorExempt(env.toplevel);
@@ -145,6 +159,10 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         return;
       }
       checkingTreeScanner.isStrictDepsExempt |= mode == ProcessorDependencyMode.EXEMPT_RECORD;
+      checkingTreeScanner.source =
+          env.enclClass.sym.sourcefile != null
+              ? env.enclClass.sym.sourcefile
+              : env.toplevel.sourcefile;
       if (trees.add(env.tree)) {
         checkingTreeScanner.scan(env.tree);
       }
@@ -155,13 +173,26 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
     } finally {
       checkingTreeScanner.isStrictDepsExempt = previousExemption;
-      log.useSource(previousSource);
+      checkingTreeScanner.source = previousSource;
     }
   }
 
   @Override
   public void finish() {
     implicitDependencyExtractor.accumulate(context, checkingTreeScanner.getSeenClasses());
+
+    for (SjdDiagnostic diagnostic : diagnostics) {
+      JavaFileObject prev = log.useSource(diagnostic.source());
+      try {
+        if (dependencyModule.getStrictJavaDeps() == ERROR) {
+          log.error(diagnostic.pos(), "proc.messager", diagnostic.message());
+        } else {
+          log.warning(diagnostic.pos(), "proc.messager", diagnostic.message());
+        }
+      } finally {
+        log.useSource(prev);
+      }
+    }
 
     if (!missingTargets.isEmpty()) {
       String canonicalizedLabel =
@@ -198,8 +229,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     /** Lookup for jars coming from transitive dependencies */
     private final Map<Path, JarOwner> indirectJarsToTargets;
 
-    /** All error reporting is done through javac's log, */
-    private final Log log;
+    /** Strict deps diagnostics. */
+    private final List<SjdDiagnostic> diagnostics;
 
     /** The strict_java_deps mode */
     private final StrictJavaDeps strictJavaDepsMode;
@@ -221,14 +252,17 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     /** Was the node being visited generated by an exempt annotation processor? */
     private boolean isStrictDepsExempt = false;
 
+    /** The current source, for diagnostics. */
+    private JavaFileObject source = null;
+
     public CheckingTreeScanner(
         DependencyModule dependencyModule,
-        Log log,
+        List<SjdDiagnostic> diagnostics,
         Set<JarOwner> missingTargets,
         Set<Path> platformJars) {
       this.indirectJarsToTargets = dependencyModule.getIndirectMapping();
       this.strictJavaDepsMode = dependencyModule.getStrictJavaDeps();
-      this.log = log;
+      this.diagnostics = diagnostics;
       this.missingTargets = missingTargets;
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
       this.platformJars = platformJars;
@@ -275,11 +309,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
                   ? "package " + sym.getEnclosingElement()
                   : "type " + sym;
           String message = MessageFormat.format(TRANSITIVE_DEP_MESSAGE, used, toolInfo);
-          if (strictJavaDepsMode == ERROR) {
-            log.error(node.pos, "proc.messager", message);
-          } else {
-            log.warning(node.pos, "proc.messager", message);
-          }
+          diagnostics.add(SjdDiagnostic.create(node.pos, message, source));
         }
       }
 
