@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 
 /** Static utilities for AutoCodec processors. */
 class AutoCodecUtil {
@@ -58,7 +57,7 @@ class AutoCodecUtil {
    * @param dependency type being injected or null
    */
   static TypeSpec.Builder initializeCodecClassBuilder(
-      TypeElement encodedType, @Nullable VariableElement dependency) {
+      TypeElement encodedType, @Nullable TypeElement dependency) {
     TypeSpec.Builder builder = TypeSpec.classBuilder(getCodecName(encodedType));
     if (dependency == null) {
       return builder.addSuperinterface(
@@ -107,7 +106,7 @@ class AutoCodecUtil {
    * @param dependency type being injected
    */
   static MethodSpec.Builder initializeDeserializeMethodBuilder(
-      TypeElement encodedType, @Nullable VariableElement dependency) {
+      TypeElement encodedType, @Nullable TypeElement dependency) {
     MethodSpec.Builder builder =
         MethodSpec.methodBuilder("deserialize")
             .addModifiers(Modifier.PUBLIC)

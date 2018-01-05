@@ -79,8 +79,7 @@ public @interface AutoCodec {
   public static @interface Constructor {}
 
   /**
-   * Marks a specific constructor parameter as a dependency when using the {@code CONSTRUCTOR}
-   * strategy.
+   * Marks a specific constructor parameter as a dependency.
    *
    * <p>When a constructor selected for the {@code CONSTRUCTOR} strategy has one of its parameters
    * tagged {@code @Dependency}, {@code @AutoCodec} generates an {@link
@@ -99,4 +98,16 @@ public @interface AutoCodec {
   public static @interface Dependency {}
 
   Strategy strategy() default Strategy.CONSTRUCTOR;
+  /**
+   * Specifies a deserialization dependency.
+   *
+   * <p>When non-{@link Void}, generates an {@link
+   * com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec} instead of the usual
+   * {@link com.google.devtools.build.lib.skyframe.serialization.ObjectCodec} with the dependency
+   * type parameter matching the returned type.
+   *
+   * <p>This is for use with {@code PUBLIC_FIELDS}, and {@code POLYMORPHIC} strategies. It is an
+   * error to use this with the {@code CONSTRUCTOR} strategy.
+   */
+  Class<?> dependency() default Void.class;
 }
