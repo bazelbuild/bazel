@@ -36,7 +36,8 @@ public class LocalRepositoryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(local_repository).ATTRIBUTE(path) -->
         The path to the local repository's directory.
 
-        <p>This must be an absolute path to the directory containing the repository's
+        <p>This must be a path to the directory containing the repository's
+        <i>WORKSPACE</i> file. The path can be either absolute or relative to the main repository's
         <i>WORKSPACE</i> file.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("path", STRING).mandatory())
