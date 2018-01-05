@@ -23,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -46,7 +45,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -185,13 +183,6 @@ class DexFileSplitter implements Closeable {
               .stream()
               .sorted(Comparator.comparing(e -> e.getKey(), ZipEntryComparator::compareClassNames))
               .collect(ImmutableList.toImmutableList());
-      if (expected != null) {
-        ImmutableSet<String> actual =
-            files.stream().map(e -> e.getKey()).collect(ImmutableSet.toImmutableSet());
-        Set<String> difference = Sets.difference(expected, actual);
-        checkState(difference.isEmpty(),
-            "--inclusion_filter_jar given but didn't find: %s", difference);
-      }
 
       // 2. Process each class in desired order, rolling from shard to shard as needed.
       if (classesInMainDex == null || classesInMainDex.isEmpty()) {
