@@ -93,11 +93,10 @@ message Type {
   repeated Entry entry = 3;
 }
 
-// The status of a symbol/entry. This contains information like visibility (public/private),
-// comments, and whether the entry can be overridden.
-message SymbolStatus {
+// The Visibility of a symbol/entry (public, private, undefined).
+message Visibility {
   // The visibility of the resource outside of its package.
-  enum Visibility {
+  enum Level {
     // No visibility was explicitly specified. This is typically treated as private.
     // The distinction is important when two separate R.java files are generated: a public and
     // private one. An unknown visibility, in this case, would cause the resource to be omitted
@@ -115,17 +114,32 @@ message SymbolStatus {
     PUBLIC = 2;
   }
 
-  Visibility visibility = 1;
+  Level level = 1;
 
   // The path at which this entry's visibility was defined (eg. public.xml).
   Source source = 2;
 
   // The comment associated with the <public> tag.
   string comment = 3;
+}
 
-  // Whether the symbol can be merged into another resource table without there being an existing
-  // definition to override. Used for overlays and set to true when <add-resource> is specified.
-  bool allow_new = 4;
+// Whether a resource comes from a compile-time overlay and is explicitly allowed to not overlay an
+// existing resource.
+message AllowNew {
+  // Where this was defined in source.
+  Source source = 1;
+
+  // Any comment associated with the declaration.
+  string comment = 2;
+}
+
+// Whether a resource is overlayable by runtime resource overlays (RRO).
+message Overlayable {
+  // Where this declaration was defined in source.
+  Source source = 1;
+
+  // Any comment associated with the declaration.
+  string comment = 2;
 }
 
 // An entry ID in the range [0x0000, 0xffff].
@@ -147,12 +161,19 @@ message Entry {
   // form package:type/entry.
   string name = 2;
 
-  // The symbol status of this entry, which includes visibility information.
-  SymbolStatus symbol_status = 3;
+  // The visibility of this entry (public, private, undefined).
+  Visibility visibility = 3;
+
+  // Whether this resource, when originating from a compile-time overlay, is allowed to NOT overlay
+  // any existing resources.
+  AllowNew allow_new = 4;
+
+  // Whether this resource can be overlaid by a runtime resource overlay (RRO).
+  Overlayable overlayable = 5;
 
   // The set of values defined for this entry, each corresponding to a different
   // configuration/variant.
-  repeated ConfigValue config_value = 4;
+  repeated ConfigValue config_value = 6;
 }
 
 // A Configuration/Value pair.
