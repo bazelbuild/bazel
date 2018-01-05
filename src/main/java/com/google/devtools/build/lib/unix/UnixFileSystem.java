@@ -257,9 +257,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
    */
   private void modifyPermissionBits(Path path, int permissionBits, boolean add)
     throws IOException {
-    int oldMode = statInternal(path, true).getPermissions();
-    int newMode = add ? (oldMode | permissionBits) : (oldMode & ~permissionBits);
-    NativePosixFiles.chmod(path.toString(), newMode);
+    synchronized (path) {
+      int oldMode = statInternal(path, true).getPermissions();
+      int newMode = add ? (oldMode | permissionBits) : (oldMode & ~permissionBits);
+      NativePosixFiles.chmod(path.toString(), newMode);
+    }
   }
 
   @Override
@@ -279,7 +281,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected void chmod(Path path, int mode) throws IOException {
-    NativePosixFiles.chmod(path.toString(), mode);
+    synchronized (path) {
+      NativePosixFiles.chmod(path.toString(), mode);
+    }
   }
 
   @Override
@@ -304,17 +308,19 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public boolean createDirectory(Path path) throws IOException {
-    // Note: UNIX mkdir(2), FilesystemUtils.mkdir() and createDirectory all
-    // have different ways of representing failure!
-    if (NativePosixFiles.mkdir(path.toString(), 0777)) {
-      return true; // successfully created
-    }
+    synchronized (path) {
+      // Note: UNIX mkdir(2), FilesystemUtils.mkdir() and createDirectory all
+      // have different ways of representing failure!
+      if (NativePosixFiles.mkdir(path.toString(), 0777)) {
+        return true; // successfully created
+      }
 
-    // false => EEXIST: something is already in the way (file/dir/symlink)
-    if (isDirectory(path, false)) {
-      return false; // directory already existed
-    } else {
-      throw new IOException(path + " (File exists)");
+      // false => EEXIST: something is already in the way (file/dir/symlink)
+      if (isDirectory(path, false)) {
+        return false; // directory already existed
+      } else {
+        throw new IOException(path + " (File exists)");
+      }
     }
   }
 
@@ -326,7 +332,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment)
       throws IOException {
-    NativePosixFiles.symlink(targetFragment.toString(), linkPath.toString());
+    synchronized (linkPath) {
+      NativePosixFiles.symlink(targetFragment.toString(), linkPath.toString());
+    }
   }
 
   @Override
@@ -347,7 +355,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void renameTo(Path sourcePath, Path targetPath) throws IOException {
-    NativePosixFiles.rename(sourcePath.toString(), targetPath.toString());
+    synchronized (sourcePath) {
+      NativePosixFiles.rename(sourcePath.toString(), targetPath.toString());
+    }
   }
 
   @Override
@@ -359,10 +369,12 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   public boolean delete(Path path) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
-    try {
-      return NativePosixFiles.remove(name);
-    } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, name);
+    synchronized (path) {
+      try {
+        return NativePosixFiles.remove(name);
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, name);
+      }
     }
   }
 
@@ -373,12 +385,14 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void setLastModifiedTime(Path path, long newTime) throws IOException {
-    if (newTime == -1L) { // "now"
-      NativePosixFiles.utime(path.toString(), true, 0);
-    } else {
-      // newTime > MAX_INT => -ve unixTime
-      int unixTime = (int) (newTime / 1000);
-      NativePosixFiles.utime(path.toString(), false, unixTime);
+    synchronized (path) {
+      if (newTime == -1L) { // "now"
+        NativePosixFiles.utime(path.toString(), true, 0);
+      } else {
+        // newTime > MAX_INT => -ve unixTime
+        int unixTime = (int) (newTime / 1000);
+        NativePosixFiles.utime(path.toString(), false, unixTime);
+      }
     }
   }
 

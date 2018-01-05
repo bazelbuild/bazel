@@ -96,16 +96,18 @@ abstract class AbstractFileSystem extends FileSystem {
 
   @Override
   protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
-    try {
-      return createFileOutputStream(path, append);
-    } catch (FileNotFoundException e) {
-      // Why does it throw a *FileNotFoundException* if it can't write?
-      // That does not make any sense! And its in a completely different
-      // format than in other situations, no less!
-      if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
-        throw new FileAccessException(e.getMessage());
+    synchronized (path) {
+      try {
+        return createFileOutputStream(path, append);
+      } catch (FileNotFoundException e) {
+        // Why does it throw a *FileNotFoundException* if it can't write?
+        // That does not make any sense! And its in a completely different
+        // format than in other situations, no less!
+        if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
+          throw new FileAccessException(e.getMessage());
+        }
+        throw e;
       }
-      throw e;
     }
   }
 
