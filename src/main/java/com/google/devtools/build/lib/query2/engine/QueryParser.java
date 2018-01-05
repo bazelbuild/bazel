@@ -45,7 +45,7 @@ import java.util.Map;
  *        | SET '(' WORD * ')'
  * </pre>
  */
-public final class QueryParser {
+final class QueryParser {
 
   private Lexer.Token token; // current lookahead token
   private final List<Lexer.Token> tokens;
@@ -56,26 +56,23 @@ public final class QueryParser {
    * Scan and parse the specified query expression.
    */
   static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
-    HashMap<String, QueryFunction> functions = new HashMap<>();
-    for (QueryFunction queryFunction : env.getFunctions()) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
-    return parse(query, functions);
-  }
-
-  public static QueryExpression parse(String query, HashMap<String, QueryFunction> functions)
-      throws QueryException {
-    QueryParser parser = new QueryParser(Lexer.scan(query), functions);
+    QueryParser parser = new QueryParser(Lexer.scan(query), env);
     QueryExpression expr = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
       throw new QueryException("unexpected token '" + parser.token
-          + "' after query expression '" + expr +  "'");
+                               + "' after query expression '" + expr +  "'");
     }
     return expr;
   }
 
-  public QueryParser(List<Lexer.Token> tokens, HashMap<String, QueryFunction> functions) {
-    this.functions = functions;
+  private QueryParser(List<Lexer.Token> tokens, QueryEnvironment<?> env) {
+    // TODO(bazel-team): We only need QueryEnvironment#getFunctions, consider refactoring users of
+    // QueryParser#parse to instead just pass in the set of functions to make testing, among other
+    // things, simpler.
+    this.functions = new HashMap<>();
+    for (QueryFunction queryFunction : env.getFunctions()) {
+      this.functions.put(queryFunction.getName(), queryFunction);
+    }
     this.tokens = tokens;
     this.tokenIterator = tokens.iterator();
     nextToken();

@@ -478,7 +478,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    *
    * Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
    */
-  protected void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
+  protected final void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
     setRulesAndAspectsAvailableInTests(
         ImmutableList.<NativeAspectClass>of(),
         ImmutableList.copyOf(rules));
