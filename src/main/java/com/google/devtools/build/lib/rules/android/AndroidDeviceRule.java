@@ -102,6 +102,15 @@ public final class AndroidDeviceRule implements RuleDefinition {
         A list of apks to be installed on the device at boot time.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("platform_apks", LABEL_LIST).legacyAllowAnyFileType())
+        // This should be set to false when we globally enable the flag for cloud dex2oat.
+        // Setting it to True for now is a no-op today, but setting it to false will disable
+        // all Dex2Oat functionality. This will be changed back to false based on this release
+        // process
+        // 1. Set pregenerate_oat_files_for_tests with default to true.
+        // 2. Wait for a Blaze release. This should be a no-op.
+        // 3. Update all android_device rules and set value of cloud_dex2oat appropriately.
+        // 4. Change the default flag value to false.
+        .add(attr("pregenerate_oat_files_for_tests", BOOLEAN).value(true))
         .add(
             attr("$adb_static", LABEL)
                 .cfg(HostTransition.INSTANCE)
