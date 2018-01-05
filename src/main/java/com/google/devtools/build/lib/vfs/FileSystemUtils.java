@@ -616,15 +616,46 @@ public class FileSystemUtils {
   }
 
   /**
-   * Attempts to create a directory with the name of the given path, creating ancestors as
-   * necessary.
+   * Attempts to create a directory with the name of the given path, creating
+   * ancestors as necessary.
    *
-   * <p>Deprecated. Prefer to call {@link Path#createDirectoryAndParents()} directly.
+   * <p>Postcondition: completes normally iff {@code dir} denotes an existing
+   * directory (not necessarily canonical); completes abruptly otherwise.
+   *
+   * @return true if the directory was successfully created anew, false if it
+   *   already existed (including the case where {@code dir} denotes a symlink
+   *   to an existing directory)
+   * @throws IOException if the directory could not be created
    */
-  @Deprecated
   @ThreadSafe
-  public static void createDirectoryAndParents(Path dir) throws IOException {
-    dir.createDirectoryAndParents();
+  public static boolean createDirectoryAndParents(Path dir) throws IOException {
+    // Optimised for minimal number of I/O calls.
+
+    // Don't attempt to create the root directory.
+    if (dir.getParentDirectory() == null) {
+      return false;
+    }
+
+    FileSystem filesystem = dir.getFileSystem();
+    if (filesystem instanceof UnionFileSystem) {
+      // If using UnionFS, make sure that we do not traverse filesystem boundaries when creating
+      // parent directories by rehoming the path on the most specific filesystem.
+      FileSystem delegate = ((UnionFileSystem) filesystem).getDelegate(dir);
+      dir = delegate.getPath(dir.asFragment());
+    }
+
+    try {
+      return dir.createDirectory();
+    } catch (IOException e) {
+      if (e.getMessage().endsWith(" (No such file or directory)")) { // ENOENT
+        createDirectoryAndParents(dir.getParentDirectory());
+        return dir.createDirectory();
+      } else if (e.getMessage().endsWith(" (File exists)") && dir.isDirectory()) { // EEXIST
+        return false;
+      } else {
+        throw e; // some other error (e.g. ENOTDIR, EACCES, etc.)
+      }
+    }
   }
 
   /**

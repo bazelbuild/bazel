@@ -261,15 +261,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   public void createDirectoryAndParents(Path path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    try {
-      Files.createDirectories(nioPath);
-    } catch (java.nio.file.FileAlreadyExistsException e) {
-      // Files.createDirectories will handle this case normally, but if the existing
-      // file is a symlink to a directory then it still throws. Swallow this.
-      if (!path.isDirectory()) {
-        throw e;
-      }
-    }
+    Files.createDirectories(nioPath);
   }
 
   private boolean linkExists(File file) {

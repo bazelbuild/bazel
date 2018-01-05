@@ -476,21 +476,35 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateDirectoryAndParents() throws Exception {
+  public void testCreateDirectories() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     newPath.createDirectoryAndParents();
     assertThat(newPath.isDirectory()).isTrue();
   }
 
   @Test
-  public void testCreateDirectoryAndParentsCreatesEmptyDirectory() throws Exception {
+  public void testCreateDirectoriesIsNotFile() throws Exception {
+    Path newPath = absolutize("new-dir/sub/directory");
+    newPath.createDirectoryAndParents();
+    assertThat(newPath.isFile()).isFalse();
+  }
+
+  @Test
+  public void testCreateDirectoriesIsNotSymbolicLink() throws Exception {
+    Path newPath = absolutize("new-dir/sub/directory");
+    newPath.createDirectoryAndParents();
+    assertThat(newPath.isSymbolicLink()).isFalse();
+  }
+
+  @Test
+  public void testCreateDirectoriesIsEmpty() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     newPath.createDirectoryAndParents();
     assertThat(newPath.getDirectoryEntries()).isEmpty();
   }
 
   @Test
-  public void testCreateDirectoryAndParentsIsOnlyChildInParent() throws Exception {
+  public void testCreateDirectoriesIsOnlyChildInParent() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     newPath.createDirectoryAndParents();
     assertThat(newPath.getParentDirectory().getDirectoryEntries()).hasSize(1);
@@ -498,45 +512,11 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCreateDirectoryAndParentsWhenAlreadyExistsSucceeds() throws Exception {
+  public void testCreateAlreadyExistingDirectorySucceeds() throws Exception {
     Path newPath = absolutize("new-dir");
     newPath.createDirectory();
     newPath.createDirectoryAndParents();
     assertThat(newPath.isDirectory()).isTrue();
-  }
-
-  @Test
-  public void testCreateDirectoryAndParentsWhenAncestorIsFile() throws IOException {
-    Path path = absolutize("somewhere/deep/in");
-    path.getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.createEmptyFile(path);
-    Path theHierarchy = path.getChild("the-hierarchy");
-    MoreAsserts.assertThrows(IOException.class, theHierarchy::createDirectoryAndParents);
-  }
-
-  @Test
-  public void testCreateDirectoryAndParentsWhenSymlinkToDir() throws IOException {
-    Path somewhereDeepIn = absolutize("somewhere/deep/in");
-    somewhereDeepIn.createDirectoryAndParents();
-    Path realDir = absolutize("real/dir");
-    realDir.createDirectoryAndParents();
-    assertThat(realDir.isDirectory()).isTrue();
-    Path theHierarchy = somewhereDeepIn.getChild("the-hierarchy");
-    theHierarchy.createSymbolicLink(realDir);
-    assertThat(theHierarchy.isDirectory()).isTrue();
-    theHierarchy.createDirectoryAndParents();
-  }
-
-  @Test
-  public void testCreateDirectoryAndParentsWhenSymlinkEmbedded() throws IOException {
-    Path somewhereDeepIn = absolutize("somewhere/deep/in");
-    somewhereDeepIn.createDirectoryAndParents();
-    Path realDir = absolutize("real/dir");
-    realDir.createDirectoryAndParents();
-    Path the = somewhereDeepIn.getChild("the");
-    the.createSymbolicLink(realDir);
-    Path theHierarchy = somewhereDeepIn.getChild("hierarchy");
-    theHierarchy.createDirectoryAndParents();
   }
 
   @Test

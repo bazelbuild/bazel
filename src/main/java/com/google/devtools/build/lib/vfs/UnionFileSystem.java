@@ -209,7 +209,7 @@ public class UnionFileSystem extends FileSystem {
   public void createDirectoryAndParents(Path path) throws IOException {
     checkModifiable(path);
     FileSystem delegate = getDelegate(path);
-    delegate.createDirectoryAndParents(adjustPath(path, delegate));
+    delegate.createDirectoryAndParents(path);
   }
 
   @Override
