@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.Marshaller.Context;
@@ -421,6 +422,26 @@ class Marshallers {
         }
       };
 
+  /** Since we cannot add a codec to {@link HashCode}, it needs to be supported natively. */
+  private final Marshaller hashCodeMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesType(type, HashCode.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.writeByteArrayNoTag($L.asBytes())", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.fromBytes(codedIn.readByteArray())", context.name, HashCode.class);
+        }
+      };
+
   private final Marshaller protoMarshaller =
       new Marshaller() {
         @Override
@@ -484,6 +505,7 @@ class Marshallers {
           mapMarshaller,
           multimapMarshaller,
           patternMarshaller,
+          hashCodeMarshaller,
           protoMarshaller,
           codecMarshaller);
 

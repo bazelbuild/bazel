@@ -97,13 +97,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
       TypeSpec.Builder codecClassBuilder = null;
       switch (annotation.strategy()) {
         case CONSTRUCTOR:
-          if (dependencyType != null) {
-            throw new IllegalArgumentException(
-                encodedType.getQualifiedName()
-                    + " uses the CONSTRUCTOR strategy and has a non-Void dependency "
-                    + dependencyType.getQualifiedName());
-          }
-          codecClassBuilder = buildClassWithConstructorStrategy(encodedType);
+          codecClassBuilder = buildClassWithConstructorStrategy(encodedType, dependencyType);
           break;
         case PUBLIC_FIELDS:
           codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType, dependencyType);
@@ -150,9 +144,20 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
   }
 
-  private TypeSpec.Builder buildClassWithConstructorStrategy(TypeElement encodedType) {
+  private TypeSpec.Builder buildClassWithConstructorStrategy(
+      TypeElement encodedType, @Nullable TypeElement dependency) {
     ExecutableElement constructor = selectConstructorForConstructorStrategy(encodedType);
     PartitionedParameters parameters = isolateDependency(constructor);
+    if (dependency != null) {
+      if (parameters.dependency != null) {
+        throw new IllegalArgumentException(
+            encodedType.getQualifiedName()
+                + " has both a @Dependency annotated constructor parameter "
+                + "and a non-Void dependency element "
+                + dependency.getQualifiedName());
+      }
+      parameters.dependency = dependency;
+    }
 
     TypeSpec.Builder codecClassBuilder =
         AutoCodecUtil.initializeCodecClassBuilder(encodedType, parameters.dependency);
@@ -174,11 +179,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
   private static class PartitionedParameters {
     /** Non-dependency parameters. */
     List<VariableElement> fields;
-    /**
-     * Parameter having the {@link AutoCodec.Dependency} annotation.
-     *
-     * <p>Null if no such parameter exists.
-     */
+    /** Dependency for this codec or null if no such dependency exists. */
     @Nullable TypeElement dependency;
   }
 

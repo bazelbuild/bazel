@@ -92,7 +92,7 @@ public @interface AutoCodec {
    * com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec#deserialize}.
    *
    * <p>A compiler error will result if more than one constructor parameter has the
-   * {@code @Dependency} annotation.
+   * {@code @Dependency} annotation or if the annotation itself has a dependency element.
    */
   @Target(ElementType.PARAMETER)
   public static @interface Dependency {}
@@ -106,8 +106,7 @@ public @interface AutoCodec {
    * {@link com.google.devtools.build.lib.skyframe.serialization.ObjectCodec} with the dependency
    * type parameter matching the returned type.
    *
-   * <p>This is for use with {@code PUBLIC_FIELDS}, and {@code POLYMORPHIC} strategies. It is an
-   * error to use this with the {@code CONSTRUCTOR} strategy.
+   * <p>It is an error to use this in conjunction with {@code @AutoCodec.Dependency}.
    */
   Class<?> dependency() default Void.class;
 }
