@@ -19,6 +19,7 @@ import static com.google.devtools.build.buildjar.javac.plugins.dependency.Depend
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -38,6 +39,7 @@ import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Log.WriterKind;
+import com.sun.tools.javac.util.Name;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -50,7 +52,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import javax.annotation.Generated;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.tools.JavaFileObject;
 
 /**
@@ -395,11 +398,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     if (sym == null) {
       return ProcessorDependencyMode.DEFAULT;
     }
-    Generated generated = sym.getAnnotation(Generated.class);
-    if (generated == null) {
-      return ProcessorDependencyMode.DEFAULT;
-    }
-    for (String value : generated.value()) {
+    for (String value : getGeneratedBy(sym)) {
       // Relax strict deps for dagger-generated code (b/17979436).
       if (value.startsWith(DAGGER_PROCESSOR_PREFIX)) {
         return ProcessorDependencyMode.EXEMPT_NORECORD;
@@ -409,6 +408,44 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
     }
     return ProcessorDependencyMode.DEFAULT;
+  }
+
+  private static ImmutableSet<String> getGeneratedBy(Symbol symbol) {
+    ImmutableSet.Builder<String> suppressions = ImmutableSet.builder();
+    symbol
+        .getRawAttributes()
+        .stream()
+        .filter(
+            a -> {
+              Name name = a.type.tsym.getQualifiedName();
+              return name.contentEquals("javax.annotation.Generated")
+                  || name.contentEquals("javax.annotation.processing.Generated");
+            })
+        .flatMap(
+            a ->
+                a.getElementValues()
+                    .entrySet()
+                    .stream()
+                    .filter(e -> e.getKey().getSimpleName().contentEquals("value"))
+                    .map(e -> e.getValue()))
+        .forEachOrdered(
+            a ->
+                a.accept(
+                    new SimpleAnnotationValueVisitor8<Void, Void>() {
+                      @Override
+                      public Void visitString(String s, Void aVoid) {
+                        suppressions.add(s);
+                        return super.visitString(s, aVoid);
+                      }
+
+                      @Override
+                      public Void visitArray(List<? extends AnnotationValue> vals, Void aVoid) {
+                        vals.stream().forEachOrdered(v -> v.accept(this, null));
+                        return super.visitArray(vals, aVoid);
+                      }
+                    },
+                    null));
+    return suppressions.build();
   }
 
   /** Replace the given target with a configured replacement. Package private for testing. */
