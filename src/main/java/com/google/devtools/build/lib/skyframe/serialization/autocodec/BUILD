@@ -45,12 +45,12 @@ java_library(
     name = "autocodec-processor",
     srcs = [
         "AutoCodecProcessor.java",
+        "AutoCodecUtil.java",
         "Marshaller.java",
         "Marshallers.java",
     ],
     deps = [
         ":autocodec-annotation",
-        ":autocodec-util",
         ":unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:auto_service",
@@ -58,32 +58,6 @@ java_library(
         "//third_party:jsr305",
         "//third_party/java/javapoet",
         "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-# Code shared between autocodec-processor and fake-autocodec-processor.
-java_library(
-    name = "autocodec-util",
-    srcs = ["AutoCodecUtil.java"],
-    deps = [
-        ":autocodec-annotation",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/java/javapoet",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-# This is a fake implementation for bootstrapping. It must *not* be used in production.
-java_library(
-    name = "fake-autocodec-processor",
-    srcs = ["FakeAutoCodecProcessor.java"],
-    deps = [
-        ":autocodec-util",
-        "//third_party:auto_service",
-        "//third_party:guava",
-        "//third_party/java/javapoet",
     ],
 )
 
@@ -97,8 +71,8 @@ pkg_tar(
     # from the LIBRARY_JARS rule of bazel/scripts/bootstrap/compile.sh.
     files = {
         ":libautocodec-annotation.jar": "third_party/bazel_bootstrap/libautocodec-annotation.jar",
-        ":libautocodec-util.jar": "third_party/bazel_bootstrap/libautocodec-util.jar",
-        ":libfake-autocodec-processor.jar": "third_party/bazel_bootstrap/libfake-autocodec-processor.jar",
+        ":libautocodec-processor.jar": "third_party/bazel_bootstrap/libautocodec-processor.jar",
+        ":libunsafe-provider.jar": "third_party/bazel_bootstrap/libunsafe-provider.jar",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar": "third_party/bazel_bootstrap/libserialization.jar",
     },
     visibility = ["//visibility:public"],
