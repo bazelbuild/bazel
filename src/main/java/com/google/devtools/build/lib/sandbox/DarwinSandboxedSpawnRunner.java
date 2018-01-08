@@ -222,12 +222,11 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // name unique (like we have to with standalone execution strategy).
     Path tmpDir = sandboxExecRoot.getRelative("tmp");
 
-    Map<String, String> spawnEnvironment =
+    Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
     final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
-    ImmutableSet<Path> extraWritableDirs =
-        getWritableDirs(sandboxExecRoot, spawnEnvironment, tmpDir);
+    ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment, tmpDir);
     writableDirs.addAll(extraWritableDirs);
 
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
@@ -258,9 +257,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .add(sandboxConfigPath.getPathString())
             .addAll(processWrapperCommandLineBuilder.build())
             .build();
-
-    Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
     boolean allowNetworkForThisSpawn = allowNetwork || Spawns.requiresNetwork(spawn);
     SandboxedSpawn sandbox =

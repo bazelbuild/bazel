@@ -181,7 +181,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // name unique (like we have to with standalone execution strategy).
     Path tmpDir = sandboxExecRoot.getRelative("tmp");
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), tmpDir);
+    Map<String, String> environment =
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
+
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment, tmpDir);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     Duration timeout = policy.getTimeout();
 
@@ -211,9 +214,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
       commandLineBuilder.setStatisticsPath(statisticsPath.get());
     }
-
-    Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
 
     SandboxedSpawn sandbox =
         new SymlinkedSandboxedSpawn(

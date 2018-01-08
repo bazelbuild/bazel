@@ -103,6 +103,9 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     // name unique (like we have to with standalone execution strategy).
     Path tmpDir = sandboxExecRoot.getRelative("tmp");
 
+    Map<String, String> environment =
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
+
     Duration timeout = policy.getTimeout();
     ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
         ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
@@ -118,9 +121,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       commandLineBuilder.setStatisticsPath(statisticsPath.get());
     }
 
-    Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
-
     SandboxedSpawn sandbox =
         new SymlinkedSandboxedSpawn(
             sandboxPath,
@@ -129,7 +129,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             environment,
             SandboxHelpers.getInputFiles(spawn, policy, execRoot),
             SandboxHelpers.getOutputFiles(spawn),
-            getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), tmpDir));
+            getWritableDirs(sandboxExecRoot, environment, tmpDir));
 
     return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
   }
