@@ -27,11 +27,15 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.Header;
+import com.google.devtools.build.android.xml.ResourcesAttribute.AttributeType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -177,6 +181,38 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
+  private void readAttributesFile(
+      InputStream resourceFileStream,
+      FileSystem fileSystem,
+      KeyValueConsumers consumers) throws IOException {
+
+    Header header = Header.parseDelimitedFrom(resourceFileStream);
+    List<DataKey> fullyQualifiedNames = new ArrayList<>();
+    for (int i = 0; i < header.getEntryCount(); i++) {
+      SerializeFormat.DataKey protoKey =
+          SerializeFormat.DataKey.parseDelimitedFrom(resourceFileStream);
+      fullyQualifiedNames.add(FullyQualifiedName.fromProto(protoKey));
+    }
+
+    DataSourceTable sourceTable = DataSourceTable.read(resourceFileStream, fileSystem, header);
+
+    for (DataKey fullyQualifiedName : fullyQualifiedNames) {
+      SerializeFormat.DataValue protoValue =
+          SerializeFormat.DataValue.parseDelimitedFrom(resourceFileStream);
+      DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
+      DataResourceXml dataResourceXml =
+          (DataResourceXml) DataResourceXml.from(protoValue, source);
+      AttributeType attributeType =
+          AttributeType.valueOf(protoValue.getXmlValue().getValueType());
+
+      if (attributeType.isCombining()) {
+        consumers.combiningConsumer.accept(fullyQualifiedName, dataResourceXml);
+      } else {
+        consumers.overwritingConsumer.accept(fullyQualifiedName, dataResourceXml);
+      }
+    }
+  }
+
   @Override
   public void read(Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
@@ -185,8 +221,6 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
       while (resourceFiles.hasMoreElements()) {
         ZipEntry resourceFile = resourceFiles.nextElement();
-        InputStream resourceFileStream = zipFile.getInputStream(resourceFile);
-
         String fileZipPath = resourceFile.getName();
         int resourceSubdirectoryIndex = fileZipPath.indexOf('_', fileZipPath.lastIndexOf('/'));
         Path filePath =
@@ -206,24 +240,31 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           continue;
         }
 
-        final String[] dirNameAndQualifiers =
-            filePath.getParent().getFileName().toString().split(SdkConstants.RES_QUALIFIER_SEP);
-        Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
+        try (InputStream resourceFileStream = zipFile.getInputStream(resourceFile)) {
+          final String[] dirNameAndQualifiers =
+              filePath.getParent().getFileName().toString().split(SdkConstants.RES_QUALIFIER_SEP);
+          Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
 
-      LittleEndianDataInputStream dataInputStream =
-            new LittleEndianDataInputStream(resourceFileStream);
+          if (fileZipPath.endsWith(".attributes")) {
+            readAttributesFile(resourceFileStream, inPath.getFileSystem(), consumers);
+          } else {
+            LittleEndianDataInputStream dataInputStream =
+                new LittleEndianDataInputStream(resourceFileStream);
 
-        // Magic number (4 bytes), Format version (4 bytes), Number of entries (4 bytes).
-        Preconditions.checkArgument(dataInputStream.skipBytes(12) == 12);
+            // Magic number (4 bytes), Format version (4 bytes), Number of entries (4 bytes).
+            Preconditions.checkArgument(dataInputStream.skipBytes(12) == 12);
 
-        int resourceType = dataInputStream.readInt();
-        if (resourceType == 0) { // 0 is a resource table
-          readResourceTable(dataInputStream, consumers, fqnFactory);
-        } else if (resourceType == 1) { // 1 is a resource file
-          readCompiledFile(dataInputStream, consumers, fqnFactory);
-        } else {
-          throw new RuntimeException(
-              String.format("Invalid resource type enum: %s from %s", resourceType, fileZipPath));
+            int resourceType = dataInputStream.readInt();
+            if (resourceType == 0) { // 0 is a resource table
+              readResourceTable(dataInputStream, consumers, fqnFactory);
+            } else if (resourceType == 1) { // 1 is a resource file
+              readCompiledFile(dataInputStream, consumers, fqnFactory);
+            } else {
+              throw new RuntimeException(
+                  String.format(
+                      "Invalid resource type enum: %s from %s", resourceType, fileZipPath));
+            }
+          }
         }
       }
     } catch (IOException e) {
