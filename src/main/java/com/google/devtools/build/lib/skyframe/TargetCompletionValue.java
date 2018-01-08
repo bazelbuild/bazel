@@ -18,7 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
@@ -42,9 +42,7 @@ public class TargetCompletionValue implements SkyValue {
       ConfiguredTargetKey configuredTargetKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean willTest) {
-    return LegacySkyKey.create(
-        SkyFunctions.TARGET_COMPLETION,
-        TargetCompletionKey.create(configuredTargetKey, topLevelArtifactContext, willTest));
+    return TargetCompletionKey.create(configuredTargetKey, topLevelArtifactContext, willTest);
   }
 
   public static Iterable<SkyKey> keys(
@@ -56,22 +54,25 @@ public class TargetCompletionValue implements SkyValue {
         new Function<ConfiguredTarget, SkyKey>() {
           @Override
           public SkyKey apply(ConfiguredTarget ct) {
-            return LegacySkyKey.create(
-                SkyFunctions.TARGET_COMPLETION,
-                TargetCompletionKey.create(
-                    ConfiguredTargetKey.of(ct), ctx, targetsToTest.contains(ct)));
+            return TargetCompletionKey.create(
+                ConfiguredTargetKey.of(ct), ctx, targetsToTest.contains(ct));
           }
         });
   }
 
   @AutoValue
-  abstract static class TargetCompletionKey {
+  abstract static class TargetCompletionKey implements SkyKey {
     public static TargetCompletionKey create(
         ConfiguredTargetKey configuredTargetKey,
         TopLevelArtifactContext topLevelArtifactContext,
         boolean willTest) {
       return new AutoValue_TargetCompletionValue_TargetCompletionKey(
           configuredTargetKey, topLevelArtifactContext, willTest);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TARGET_COMPLETION;
     }
 
     abstract ConfiguredTargetKey configuredTargetKey();
