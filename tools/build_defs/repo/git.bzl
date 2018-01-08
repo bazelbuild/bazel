@@ -29,10 +29,10 @@ set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
       rm -rf '{dir}'
-      git clone '{remote}' '{dir}'
+      git clone --depth=1 '{remote}' '{dir}'
     fi
     cd '{dir}'
-    git reset --hard {ref} || (git fetch origin {ref}:{ref} && git reset --hard {ref})
+    git reset --hard {ref} || (git fetch --depth=1 origin {ref}:{ref} && git reset --hard {ref})
     git clean -xdf )
   """.format(
       working_dir=ctx.path('.').dirname,
