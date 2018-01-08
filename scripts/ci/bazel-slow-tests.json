@@ -25,6 +25,8 @@
             {"node": "linux-x86_64"},
             {"node": "ubuntu_16.04-x86_64"},
             {"node": "darwin-x86_64"}
+            // TODO(aehlig): {"node": "freebsd-11"},
+            // TODO(aehlig): {"node": "freebsd-12"},
             // TODO(pcloudy): {"node": "windows-x86_64"},
         ],
         "parameters": {
