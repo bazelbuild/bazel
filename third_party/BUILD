@@ -333,10 +333,10 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_check_api-2.1.3.jar",
-        "error_prone/error_prone_core-2.1.3.jar",
-        "error_prone/error_prone_annotations-2.1.3.jar",
-        "error_prone/error_prone_annotation-2.1.3.jar",
+        "error_prone/error_prone_check_api-2.2.0.jar",
+        "error_prone/error_prone_core-2.2.0.jar",
+        "error_prone/error_prone_annotations-2.2.0.jar",
+        "error_prone/error_prone_annotation-2.2.0.jar",
     ],
     deps = [
         ":auto_common",
@@ -376,10 +376,10 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "auto/auto-common-0.3.jar",
-        "error_prone/error_prone_annotation-2.1.3.jar",
-        "error_prone/error_prone_annotations-2.1.3.jar",
-        "error_prone/error_prone_check_api-2.1.3.jar",
-        "error_prone/error_prone_core-2.1.3.jar",
+        "error_prone/error_prone_annotation-2.2.0.jar",
+        "error_prone/error_prone_annotations-2.2.0.jar",
+        "error_prone/error_prone_check_api-2.2.0.jar",
+        "error_prone/error_prone_core-2.2.0.jar",
         "guava/guava-23.1-jre.jar",
         "hungarian_algorithm/software-and-algorithms-1.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
@@ -393,7 +393,7 @@ filegroup(
 java_import(
     name = "guava",
     jars = [
-        "error_prone/error_prone_annotations-2.1.3.jar",
+        "error_prone/error_prone_annotations-2.2.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "guava/guava-23.1-jre.jar",
