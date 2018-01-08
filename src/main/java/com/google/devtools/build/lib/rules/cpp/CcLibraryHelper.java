@@ -224,6 +224,27 @@ public final class CcLibraryHelper {
       public CcLinkingOutputs getCcLinkingOutputsExcludingPrecompiledLibraries() {
         return linkingOutputsExcludingPrecompiledLibraries;
       }
+
+      /**
+       * Adds the static, pic-static libraries to the given builder. If addDynamicLibraries
+       * parameter is true, it also adds dynamic(both compile-time and execution-time) libraries.
+       */
+      public void addLinkingOutputsTo(
+          NestedSetBuilder<Artifact> filesBuilder, boolean addDynamicLibraries) {
+        filesBuilder
+            .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getStaticLibraries()))
+            .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()));
+        if (addDynamicLibraries) {
+          filesBuilder
+              .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
+              .addAll(
+                  LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
+        }
+      }
+
+      public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
+        addLinkingOutputsTo(filesBuilder, true);
+      }
     }
 
     public Info(CompilationInfo compilationInfo, LinkingInfo linkingInfo) {
@@ -273,35 +294,13 @@ public final class CcLibraryHelper {
     }
 
     /**
-     * Adds the static, pic-static libraries to the given builder.
-     * If addDynamicLibraries parameter is true, it also adds dynamic(both compile-time and
-     * execution-time) libraries.
-     */
-    public void addLinkingOutputsTo(
-        NestedSetBuilder<Artifact> filesBuilder, boolean addDynamicLibraries) {
-      filesBuilder
-          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getStaticLibraries()))
-          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()));
-      if (addDynamicLibraries) {
-        filesBuilder
-            .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
-            .addAll(
-                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
-      }
-    }
-
-    public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
-      addLinkingOutputsTo(filesBuilder, true);
-    }
-
-    /**
      * Merges a list of output groups into one. The sets for each entry with a given key are merged.
      */
     public static Map<String, NestedSet<Artifact>> mergeOutputGroups(
-        List<Map<String, NestedSet<Artifact>>> outputGroupsList) {
+        Map<String, NestedSet<Artifact>>... outputGroups) {
       Map<String, NestedSetBuilder<Artifact>> mergedOutputGroupsBuilder = new TreeMap<>();
 
-      for (Map<String, NestedSet<Artifact>> outputGroup : outputGroupsList) {
+      for (Map<String, NestedSet<Artifact>> outputGroup : outputGroups) {
         for (Map.Entry<String, NestedSet<Artifact>> entryOutputGroup : outputGroup.entrySet()) {
           String key = entryOutputGroup.getKey();
           mergedOutputGroupsBuilder.computeIfAbsent(
