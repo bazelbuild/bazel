@@ -302,7 +302,11 @@ final class ExecutionServer extends ExecutionImplBase {
   // output files), so most use cases would work without setting uid.
   private long getUid() {
     Command cmd =
-        new Command(new String[] {"id", "-u"}, /*env=*/null, /*workingDir=*/null, uidTimeout);
+        new Command(
+            new String[] {"id", "-u"},
+            /*environmentVariables=*/null,
+            /*workingDirectory=*/null,
+            uidTimeout);
     try {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
