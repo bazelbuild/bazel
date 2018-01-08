@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Directory;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -62,6 +62,15 @@ public class TreeNodeRepositoryTest {
     return new TreeNodeRepository(rootPath, inputFileCache, digestUtil);
   }
 
+  private TreeNode buildFromActionInputs(TreeNodeRepository repo, ActionInput... inputs)
+      throws IOException {
+    TreeMap<PathFragment, ActionInput> sortedMap = new TreeMap<>();
+    for (ActionInput input : inputs) {
+      sortedMap.put(PathFragment.create(input.getExecPathString()), input);
+    }
+    return repo.buildFromActionInputs(sortedMap);
+  }
+
   @Test
   @SuppressWarnings("ReferenceEquality")
   public void testSubtreeReusage() throws Exception {
@@ -70,8 +79,8 @@ public class TreeNodeRepositoryTest {
     Artifact bar = new Artifact(scratch.file("/exec/root/b/bar.txt"), rootDir);
     Artifact baz = new Artifact(scratch.file("/exec/root/c/baz.txt"), rootDir);
     TreeNodeRepository repo = createTestTreeNodeRepository();
-    TreeNode root1 = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(fooCc, fooH, bar));
-    TreeNode root2 = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(fooCc, fooH, baz));
+    TreeNode root1 = buildFromActionInputs(repo, fooCc, fooH, bar);
+    TreeNode root2 = buildFromActionInputs(repo, fooCc, fooH, baz);
     // Reusing same node for the "a" subtree.
     assertThat(
             root1.getChildEntries().get(0).getChild() == root2.getChildEntries().get(0).getChild())
@@ -83,7 +92,7 @@ public class TreeNodeRepositoryTest {
     Artifact foo = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
     Artifact bar = new Artifact(scratch.file("/exec/root/a/bar", "11"), rootDir);
     TreeNodeRepository repo = createTestTreeNodeRepository();
-    TreeNode root = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(foo, bar));
+    TreeNode root = buildFromActionInputs(repo, foo, bar);
     TreeNode aNode = root.getChildEntries().get(0).getChild();
     TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
     TreeNode barNode = aNode.getChildEntries().get(0).getChild();
@@ -117,31 +126,10 @@ public class TreeNodeRepositoryTest {
     Artifact foo2 = new Artifact(scratch.file("/exec/root/b/foo", "1"), rootDir);
     Artifact foo3 = new Artifact(scratch.file("/exec/root/c/foo", "1"), rootDir);
     TreeNodeRepository repo = createTestTreeNodeRepository();
-    TreeNode root = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(foo1, foo2, foo3));
+    TreeNode root = buildFromActionInputs(repo, foo1, foo2, foo3);
     repo.computeMerkleDigests(root);
     // Reusing same node for the "foo" subtree: only need the root, root child, and foo contents:
     assertThat(repo.getAllDigests(root)).hasSize(3);
-  }
-
-  @Test
-  public void testNullArtifacts() throws Exception {
-    Artifact foo = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
-    SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
-    inputs.put(foo.getExecPath(), foo);
-    inputs.put(PathFragment.create("a/bar"), null);
-    TreeNodeRepository repo = createTestTreeNodeRepository();
-    TreeNode root = repo.buildFromActionInputs(inputs);
-    repo.computeMerkleDigests(root);
-
-    TreeNode aNode = root.getChildEntries().get(0).getChild();
-    TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
-    TreeNode barNode = aNode.getChildEntries().get(0).getChild();
-    ImmutableCollection<Digest> digests = repo.getAllDigests(root);
-    Digest rootDigest = repo.getMerkleDigest(root);
-    Digest aDigest = repo.getMerkleDigest(aNode);
-    Digest fooDigest = repo.getMerkleDigest(fooNode);
-    Digest barDigest = repo.getMerkleDigest(barNode);
-    assertThat(digests).containsExactly(rootDigest, aDigest, barDigest, fooDigest);
   }
 
   @Test
@@ -164,7 +152,7 @@ public class TreeNodeRepositoryTest {
     Artifact bar = new Artifact(scratch.file("/exec/root/a/bar.txt"), rootDir);
     TreeNodeRepository repo = createTestTreeNodeRepository();
 
-    TreeNode root = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(foo, bar));
+    TreeNode root = buildFromActionInputs(repo, foo, bar);
     TreeNode aNode = root.getChildEntries().get(0).getChild();
     TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
     TreeNode barNode = aNode.getChildEntries().get(0).getChild();

@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -34,4 +36,45 @@ public interface VirtualActionInput extends ActionInput {
    * file is internally represented as a {@link ByteString}.
    */
   ByteString getBytes() throws IOException;
+
+  /**
+   * In some cases, we want empty files in the runfiles tree that have no corresponding artifact. We
+   * use instances of this class to represent those files.
+   */
+  public final class EmptyActionInput implements VirtualActionInput {
+    private final PathFragment execPath;
+
+    public EmptyActionInput(PathFragment execPath) {
+      this.execPath = Preconditions.checkNotNull(execPath);
+    }
+
+    public EmptyActionInput(String execPath) {
+      this(PathFragment.create(execPath));
+    }
+
+    @Override
+    public String getExecPathString() {
+      return execPath.getPathString();
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return execPath;
+    }
+
+    @Override
+    public void writeTo(OutputStream out) throws IOException {
+      // Write no content - it's an empty file.
+    }
+
+    @Override
+    public ByteString getBytes() throws IOException {
+      return ByteString.EMPTY;
+    }
+
+    @Override
+    public String toString() {
+      return "EmptyActionInput: " + execPath;
+    }
+  }
 }

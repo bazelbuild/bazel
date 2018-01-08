@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -167,8 +165,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
         // TODO(philwo): Benchmark whether using an ExecutionService to do multiple operations in
         // parallel speeds up prefetching of inputs.
         // TODO(philwo): Do we have to expand middleman artifacts here?
-        actionExecutionContext.getActionInputPrefetcher().prefetchFiles(
-            Iterables.filter(getInputMapping().values(), Predicates.notNull()));
+        actionExecutionContext.getActionInputPrefetcher().prefetchFiles(getInputMapping().values());
       }
     }
 

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnExecException;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
@@ -310,7 +309,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     HashMap<Path, Long>  ctimes = new HashMap<>();
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       ActionInput input = e.getValue();
-      if (input == SpawnInputExpander.EMPTY_FILE || input instanceof VirtualActionInput) {
+      if (input instanceof VirtualActionInput) {
         continue;
       }
       Path path = execRoot.getRelative(input.getExecPathString());

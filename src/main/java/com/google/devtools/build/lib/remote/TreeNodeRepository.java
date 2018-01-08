@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedMap;
-import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -255,14 +253,6 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
         });
   }
 
-  public TreeNode buildFromActionInputs(Iterable<? extends ActionInput> inputs) throws IOException {
-    TreeMap<PathFragment, ActionInput> sortedMap = new TreeMap<>();
-    for (ActionInput input : inputs) {
-      sortedMap.put(PathFragment.create(input.getExecPathString()), input);
-    }
-    return buildFromActionInputs(sortedMap);
-  }
-
   /**
    * This function is a temporary and highly inefficient hack! It builds the tree from a ready list
    * of input files. TODO(olaola): switch to creating and maintaining the TreeNodeRepository based
@@ -276,11 +266,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     }
     List<ActionInput> inputs = new ArrayList<>();
     for (Map.Entry<PathFragment, ActionInput> e : sortedMap.entrySet()) {
-      if (e.getValue() == SpawnInputExpander.EMPTY_FILE) {
-        inputs.add(new EmptyActionInput(e.getKey()));
-      } else {
-        inputs.add(e.getValue());
-      }
+      inputs.add(e.getValue());
     }
     return buildParentNode(inputs, segments.build(), 0, inputs.size(), 0);
   }
