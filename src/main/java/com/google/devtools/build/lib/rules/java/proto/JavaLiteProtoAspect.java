@@ -268,7 +268,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       JavaCompilationArtifacts artifacts = helper.build(
           javaSemantics,
           JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-          JavaHelper.getHostJavabaseTarget(ruleContext),
+          JavaHelper.getHostJavaRuntime(ruleContext),
           JavaCompilationHelper.getInstrumentationJars(ruleContext),
           JavaRuleOutputJarsProvider.builder(),
           /*createOutputSourceJar*/false,

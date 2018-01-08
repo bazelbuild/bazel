@@ -195,7 +195,7 @@ java_custom_library = rule(
     "exports": attr.label_list(),
     "resources": attr.label_list(allow_files=True),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
-    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
+    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
@@ -319,7 +319,7 @@ java_custom_library = rule(
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
-    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
+    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
@@ -396,7 +396,7 @@ java_custom_library = rule(
     "srcs": attr.label_list(allow_files=True),
     "sourcepath": attr.label_list(),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
-    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
+    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
   },
   fragments = ["java"]
 )
@@ -1483,4 +1483,3 @@ EOF
 }
 
 run_suite "Java integration tests"
-

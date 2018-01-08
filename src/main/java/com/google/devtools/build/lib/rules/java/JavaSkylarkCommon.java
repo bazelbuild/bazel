@@ -408,6 +408,9 @@ public class JavaSkylarkCommon {
           null, "source_jars, sources and exports cannot be simultaneous empty");
     }
 
+    if (hostJavabase.get(JavaRuntimeInfo.PROVIDER) == null) {
+      throw new EvalException(null, "'host_javabase' must point to a Java runtime");
+    }
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
             .setOutput(outputJar)
@@ -440,7 +443,7 @@ public class JavaSkylarkCommon {
         helper.build(
             javaSemantics,
             getJavaToolchainProvider(javaToolchain),
-            hostJavabase,
+            hostJavabase.get(JavaRuntimeInfo.PROVIDER),
             SkylarkList.createImmutable(ImmutableList.of()),
             outputJarsBuilder,
             /*createOutputSourceJar*/ generateMergedSourceJar,

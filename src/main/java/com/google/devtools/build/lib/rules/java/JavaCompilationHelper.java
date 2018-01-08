@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.syntax.Type;
@@ -58,7 +59,7 @@ public final class JavaCompilationHelper {
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider javaToolchain;
-  private final NestedSet<Artifact> hostJavabase;
+  private final JavaRuntimeInfo hostJavabase;
   private final Iterable<Artifact> jacocoInstrumentation;
   private JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
@@ -76,13 +77,13 @@ public final class JavaCompilationHelper {
   private JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      NestedSet<Artifact> hostJavabase,
+      JavaRuntimeInfo hostJavabase,
       Iterable<Artifact> jacocoInstrumentation,
       ImmutableList<Artifact> additionalJavaBaseInputs,
       boolean disableStrictDeps) {
     this.ruleContext = ruleContext;
-    this.javaToolchain = javaToolchainProvider;
-    this.hostJavabase = hostJavabase;
+    this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
+    this.hostJavabase = Preconditions.checkNotNull(hostJavabase);
     this.jacocoInstrumentation = jacocoInstrumentation;
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
@@ -97,7 +98,7 @@ public final class JavaCompilationHelper {
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      NestedSet<Artifact> hostJavabase,
+      JavaRuntimeInfo hostJavabase,
       Iterable<Artifact> jacocoInstrumentation) {
     this(ruleContext, semantics, javacOpts, attributes, javaToolchainProvider, hostJavabase,
         jacocoInstrumentation, ImmutableList.<Artifact>of(), false);
@@ -111,7 +112,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         getJavaToolchainProvider(ruleContext),
-        getHostJavabaseInputs(ruleContext),
+        JavaHelper.getHostJavaRuntime(ruleContext),
         getInstrumentationJars(ruleContext));
   }
 
@@ -124,7 +125,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         getJavaToolchainProvider(ruleContext),
-        getHostJavabaseInputs(ruleContext),
+        JavaHelper.getHostJavaRuntime(ruleContext),
         getInstrumentationJars(ruleContext),
         additionalJavaBaseInputs,
         disableStrictDeps);
@@ -408,14 +409,10 @@ public final class JavaCompilationHelper {
     builder.setDirectJars(attributes.getDirectJars());
     builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(attributes.getTargetLabel());
-    builder.setJavaBaseInputs(
-        NestedSetBuilder
-            .fromNestedSet(hostJavabase)
-            .addAll(additionalJavaBaseInputs)
-            .build());
+    builder.setAdditionalInputs(NestedSetBuilder.wrap(Order.LINK_ORDER, additionalJavaBaseInputs));
     builder.setJavacJar(javaToolchain.getJavac());
     builder.setToolsJars(javaToolchain.getTools());
-    builder.build(javaToolchain);
+    builder.build(javaToolchain, hostJavabase);
 
     artifactBuilder.setCompileTimeDependencies(headerDeps);
     return headerJar;
@@ -547,8 +544,8 @@ public final class JavaCompilationHelper {
     checkNotNull(resourceJar, "resource jar output must not be null");
     JavaTargetAttributes attributes = getAttributes();
     new ResourceJarActionBuilder()
-        .setJavabase(
-            NestedSetBuilder.fromNestedSet(hostJavabase).addAll(additionalJavaBaseInputs).build())
+        .setHostJavaRuntime(hostJavabase)
+        .setAdditionalInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalJavaBaseInputs))
         .setJavaToolchain(javaToolchain)
         .setOutputJar(resourceJar)
         .setResources(attributes.getResources())
@@ -562,12 +559,10 @@ public final class JavaCompilationHelper {
   private JavaCompileAction.Builder createJavaCompileActionBuilder(
       JavaSemantics semantics) {
     JavaCompileAction.Builder builder = new JavaCompileAction.Builder(ruleContext, semantics);
-    builder.setJavaExecutable(JavaCommon.getHostJavaExecutable(ruleContext));
-    builder.setJavaBaseInputs(
-        NestedSetBuilder
-            .fromNestedSet(hostJavabase)
-            .addAll(additionalJavaBaseInputs)
-            .build());
+    builder.setJavaExecutable(hostJavabase.javaBinaryExecPath());
+    builder.setJavaBaseInputs(NestedSetBuilder.fromNestedSet(hostJavabase.javaBaseInputsMiddleman())
+        .addAll(additionalJavaBaseInputs)
+        .build());
     builder.setTargetLabel(ruleContext.getLabel());
     return builder;
   }
@@ -609,15 +604,13 @@ public final class JavaCompilationHelper {
    * @param gensrcJar the generated sources jar Artifact that should be included with the
    *        sources in the output Artifact.  May be null.
    * @param javaToolchainProvider is used by SingleJarActionBuilder to retrieve jvm options
-   * @param hostJavabaseInputs Artifacts required to invoke java executable in the SingleJar action
-   * @param hostJavaExecutable the jar executable of the SingleJar action
+   * @param hostJavabase the Java runtime used to run the binaries in the action
    */
   public void createSourceJarAction(
       Artifact outputJar,
       @Nullable Artifact gensrcJar,
       JavaToolchainProvider javaToolchainProvider,
-      NestedSet<Artifact> hostJavabaseInputs,
-      PathFragment hostJavaExecutable) {
+      JavaRuntimeInfo hostJavabase) {
     JavaTargetAttributes attributes = getAttributes();
     NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
     resourceJars.addAll(attributes.getSourceJars());
@@ -626,8 +619,7 @@ public final class JavaCompilationHelper {
     }
     SingleJarActionBuilder.createSourceJarAction(
         ruleContext, semantics, attributes.getSourceFiles(),
-        resourceJars.build(), outputJar, javaToolchainProvider,
-        hostJavabaseInputs, hostJavaExecutable);
+        resourceJars.build(), outputJar, javaToolchainProvider, hostJavabase);
   }
 
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {

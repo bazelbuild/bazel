@@ -115,7 +115,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
     if (javaHome == null) {
       return null;
     }
-    return new Jvm(javaHome, javaRuntimeSuite.getLabel());
+    return new Jvm(javaRuntimeSuite.getLabel());
   }
 
   private static Jvm createFromRuntime(ConfigurationEnvironment lookup, Label javaRuntimeLabel)
@@ -125,7 +125,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
     if (javaHome == null) {
       return null;
     }
-    return new Jvm(javaHome, javaRuntimeLabel);
+    return new Jvm(javaRuntimeLabel);
   }
 
   private static PathFragment getJavaHome(ConfigurationEnvironment lookup, Label javaRuntimeLabel)

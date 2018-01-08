@@ -307,7 +307,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           helper.build(
               javaSemantics,
               JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-              JavaHelper.getHostJavabaseTarget(ruleContext),
+              JavaHelper.getHostJavaRuntime(ruleContext),
               JavaCompilationHelper.getInstrumentationJars(ruleContext),
               JavaRuleOutputJarsProvider.builder(),
               /*createOutputSourceJar*/false,

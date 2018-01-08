@@ -43,10 +43,16 @@ public class ResourceJarActionBuilder {
   private ImmutableList<Artifact> classpathResources = ImmutableList.of();
   private List<Artifact> messages = ImmutableList.of();
   private JavaToolchainProvider javaToolchain;
-  private NestedSet<Artifact> javabase;
+  private JavaRuntimeInfo javabase;
+  private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   public ResourceJarActionBuilder setOutputJar(Artifact outputJar) {
     this.outputJar = outputJar;
+    return this;
+  }
+
+  public ResourceJarActionBuilder setAdditionalInputs(NestedSet<Artifact> additionalInputs) {
+    this.additionalInputs = additionalInputs;
     return this;
   }
 
@@ -76,8 +82,8 @@ public class ResourceJarActionBuilder {
     return this;
   }
 
-  public ResourceJarActionBuilder setJavabase(NestedSet<Artifact> javabase) {
-    this.javabase = javabase;
+  public ResourceJarActionBuilder setHostJavaRuntime(JavaRuntimeInfo javaRuntimeInfo) {
+    this.javabase = javaRuntimeInfo;
     return this;
   }
 
@@ -91,10 +97,10 @@ public class ResourceJarActionBuilder {
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
+              javabase.javaBinaryExecPath(),
               singleJar,
               javaToolchain.getJvmOptions())
-          .addTransitiveInputs(javabase);
+          .addTransitiveInputs(javabase.javaBaseInputsMiddleman());
     } else {
       builder.setExecutable(singleJar);
     }
@@ -138,6 +144,7 @@ public class ResourceJarActionBuilder {
             .addInputs(messages)
             .addInputs(resources.values())
             .addTransitiveInputs(resourceJars)
+            .addTransitiveInputs(additionalInputs)
             .addInputs(classpathResources)
             .addCommandLine(command.build(), paramFileInfo)
             .setProgressMessage("Building Java resource jar")

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,6 +43,8 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class JavaSkylarkApiTest extends BuildViewTestCase {
+  private static final String HOST_JAVA_RUNTIME_LABEL = TestConstants.TOOLS_REPOSITORY
+      + "//tools/jdk:current_host_java_runtime";
 
   @Test
   public void testJavaRuntimeProvider() throws Exception {
@@ -66,6 +69,43 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     @SuppressWarnings("unchecked") PathFragment javaExecutable =
         (PathFragment) ct.get("java_executable");
     assertThat(javaExecutable.getPathString()).startsWith("/foo/bar/bin/java");
+  }
+
+  @Test
+  public void testInvalidHostJavabase() throws Exception {
+    writeBuildFileForJavaToolchain();
+
+    scratch.file("a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "filegroup(name='fg')",
+        "jrule(name='r', srcs=['S.java'])");
+
+    scratch.file("a/rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct()",
+        "jrule = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(default = Label('//a:fg'))",
+        "  },",
+        "  fragments = ['java'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("must point to a Java runtime");
   }
 
   @Test
@@ -187,7 +227,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    'sourcepath': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "    '_host_javabase': attr.label(default = Label('//tools/defaults:jdk'))",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
         "  },",
         "  fragments = ['java']",
         ")");
@@ -250,7 +291,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "    '_host_javabase': attr.label(default = Label('//tools/defaults:jdk'))",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
         "  },",
         "  fragments = ['java']",
         ")");
@@ -320,7 +362,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "    '_host_javabase': attr.label(default = Label('//tools/defaults:jdk'))",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
         "  },",
         "  fragments = ['java']",
         ")");
@@ -370,7 +413,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "    '_host_javabase': attr.label(default = Label('//tools/defaults:jdk'))",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
         "  },",
         "  fragments = ['java']",
         ")");
@@ -420,7 +464,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "  },",
         "  attrs = {",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "    '_host_javabase': attr.label(default = Label('//tools/defaults:jdk'))",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
         "  },",
         "  fragments = ['java']",
         ")");

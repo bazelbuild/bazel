@@ -480,35 +480,11 @@ public class JavaCommon {
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeInfo javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
-    return javaRuntime != null
-        ? javaRuntime.javaBinaryExecPath()
-        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
-  }
-
-  /**
-   * Returns the host java executable.
-   *
-   * <p>The method looks for the executable in the following
-   * locations (in the specified order) and returns it immediately after it's found:
-   * <ol>
-   * <li> The JavaRuntimeInfo in the given hostJavabase target
-   * <li> The JVM fragment of the host configuration, retrieved from the given rule context
-   * </ol>
-   */
-  public static PathFragment getHostJavaExecutable(
-      RuleContext ruleContext, TransitiveInfoCollection hostJavabase) {
-    JavaRuntimeInfo javaRuntime = hostJavabase.get(JavaRuntimeInfo.PROVIDER);
-    return javaRuntime != null
-        ? javaRuntime.javaBinaryExecPath()
-        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
+    return JavaHelper.getHostJavaRuntime(ruleContext).javaBinaryExecPath();
   }
 
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
-    return javaRuntime != null
-        ? javaRuntime.javaBinaryExecPath()
-        : ruleContext.getFragment(Jvm.class).getJavaExecutable();
+    return JavaHelper.getJavaRuntime(ruleContext).javaBinaryExecPath();
   }
 
   /**
@@ -524,10 +500,8 @@ public class JavaCommon {
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
-    } else if (javaRuntime != null) {
-      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
     } else {
-      javaExecutable = ruleContext.getFragment(Jvm.class).getJavaExecutable();
+      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
     }
 
     if (!javaExecutable.isAbsolute()) {
