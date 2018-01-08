@@ -470,8 +470,21 @@ class Marshallers {
 
         @Override
         public void addSerializationCode(Context context) {
-          context.builder.addStatement(
-              "$T.CODEC.serialize($L, codedOut)", context.getTypeName(), context.name);
+          TypeMirror codecType = getCodec(context.type).get().asType();
+          if (isSubtypeErased(codecType, ObjectCodec.class)) {
+            context.builder.addStatement(
+                "$T.CODEC.serialize($L, codedOut)", context.getTypeName(), context.name);
+          } else if (isSubtypeErased(codecType, InjectingObjectCodec.class)) {
+            context.builder.addStatement(
+                "$T.CODEC.serialize(dependency, $L, codedOut)",
+                context.getTypeName(),
+                context.name);
+          } else {
+            throw new IllegalArgumentException(
+                "CODEC field of "
+                    + ((TypeElement) context.type.asElement()).getQualifiedName()
+                    + " is neither ObjectCodec nor InjectingCodec");
+          }
         }
 
         @Override

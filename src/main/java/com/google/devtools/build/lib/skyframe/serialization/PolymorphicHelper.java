@@ -27,8 +27,16 @@ public class PolymorphicHelper {
 
   private PolymorphicHelper() {}
 
+  /**
+   * Serializes a polymorphic type.
+   *
+   * @param dependency if null, it means that the parent, polymorphic type, provides no dependency.
+   *     It is valid for dependency to be non-null, with an enclosed null value. This means that
+   *     dependency itself is null (as opposed to non-existent).
+   */
   @SuppressWarnings("unchecked")
-  public static void serialize(Object input, CodedOutputStream codedOut)
+  public static void serialize(
+      Object input, CodedOutputStream codedOut, @Nullable Optional<?> dependency)
       throws IOException, SerializationException {
     if (input != null) {
       Class<?> clazz = input.getClass();
@@ -39,7 +47,11 @@ public class PolymorphicHelper {
         if (codec instanceof ObjectCodec) {
           ((ObjectCodec) codec).serialize(input, codedOut);
         } else if (codec instanceof InjectingObjectCodec) {
-          ((InjectingObjectCodec) codec).serialize(input, codedOut);
+          if (dependency == null) {
+            throw new SerializationException(
+                clazz.getCanonicalName() + " serialize parent class lacks required dependency.");
+          }
+          ((InjectingObjectCodec) codec).serialize(dependency.orElse(null), input, codedOut);
         } else {
           throw new SerializationException(
               clazz.getCanonicalName()
@@ -58,7 +70,8 @@ public class PolymorphicHelper {
    * Deserializes a polymorphic type.
    *
    * @param dependency if null, it means that the parent, polymorphic type, provides no dependency.
-   *     It is valid for dependency to be non-null, with an enclosed null value.
+   *     It is valid for dependency to be non-null, with an enclosed null value. This means the
+   *     dependency itself is null (as opposed to non-existent).
    */
   @SuppressWarnings("unchecked")
   public static Object deserialize(CodedInputStream codedIn, @Nullable Optional<?> dependency)

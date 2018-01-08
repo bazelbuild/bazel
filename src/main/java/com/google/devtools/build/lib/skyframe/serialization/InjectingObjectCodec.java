@@ -18,27 +18,26 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
-/**
- * Like ObjectCodec, but handles cases where deserialization requires injection of non-serializable
- * dependencies.
- */
+/** Like ObjectCodec, but allows user-specified injected dependencies. */
 public interface InjectingObjectCodec<T, D> extends BaseCodec<T> {
 
   /**
    * Serializes {@code obj}, inverse of {@link #deserialize(CodedInputStream)}.
    *
+   * @param dependency the injected dependency
    * @param obj the object to serialize
    * @param codedOut the {@link CodedOutputStream} to write this object into. Implementations need
    *     not call {@link CodedOutputStream#flush()}, this should be handled by the caller.
    * @throws SerializationException on failure to serialize
    * @throws IOException on {@link IOException} during serialization
    */
-  void serialize(T obj, CodedOutputStream codedOut) throws SerializationException, IOException;
+  void serialize(D dependency, T obj, CodedOutputStream codedOut)
+      throws SerializationException, IOException;
 
   /**
    * Deserializes from {@code codedIn}, inverse of {@link #serialize(Object, CodedOutputStream)}.
    *
-   * @param dependency the non-serializable, injected dependency
+   * @param dependency the injected dependency
    * @param codedIn the {@link CodedInputStream} to read the serialized object from
    * @return the object deserialized from {@code codedIn}
    * @throws SerializationException on failure to deserialize

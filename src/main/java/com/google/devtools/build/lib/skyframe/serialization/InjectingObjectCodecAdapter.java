@@ -43,7 +43,7 @@ public class InjectingObjectCodecAdapter<T, D> implements ObjectCodec<T> {
   @Override
   public void serialize(T obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    codec.serialize(obj, codedOut);
+    codec.serialize(dependency, obj, codedOut);
   }
 
   @Override
