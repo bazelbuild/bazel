@@ -27,7 +27,7 @@ def _clone_or_update(ctx):
   st = ctx.execute(['bash', '-c', """
 set -ex
 ( cd {working_dir} &&
-    if ! ( cd '{dir}' && git rev-parse --git-dir ) >/dev/null 2>&1; then
+    if ! ( cd '{dir}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
       rm -rf '{dir}'
       git clone '{remote}' '{dir}'
     fi
