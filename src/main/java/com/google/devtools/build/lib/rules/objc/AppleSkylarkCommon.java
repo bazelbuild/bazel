@@ -18,12 +18,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -32,12 +36,14 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -54,7 +60,7 @@ import javax.annotation.Nullable;
   doc = "Functions for skylark to access internals of the apple rule implementations."
 )
 public class AppleSkylarkCommon {
- 
+
   @VisibleForTesting
   public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
       + " or 'direct_dep_providers'.";
@@ -518,6 +524,27 @@ public class AppleSkylarkCommon {
               dylibBinary, depsObjcProvider, frameworkDirs, frameworkFiles);
         }
       };
+
+  @SkylarkCallable(
+      name = "link_multi_arch_binary",
+      doc = "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
+          + "method comprises a bulk of the logic of the <code>apple_binary</code> rule, and is "
+          + "exposed as an API to iterate on migration of <code>apple_binary</code> to skylark.\n"
+          + "<p>This API is <b>highly experimental</b> and subject to change at any time. Do not "
+          + "depend on the stability of this function at this time.",
+      mandatoryPositionals = 1 // The SkylarkRuleContext.
+  )
+  // TODO(b/70937317): Iterate on, improve, and solidify this API.
+  public NativeInfo linkMultiArchBinary(SkylarkRuleContext skylarkRuleContext)
+      throws EvalException, InterruptedException {
+    try {
+      RuleContext ruleContext = skylarkRuleContext.getRuleContext();
+      AppleBinaryOutput appleBinaryOutput = AppleBinary.linkMultiArchBinary(ruleContext);
+      return appleBinaryOutput.getBinaryInfoProvider();
+    } catch (RuleErrorException exception) {
+      throw new EvalException(null, exception);
+    }
+  }
 
   @SkylarkSignature(
     name = "dotted_version",

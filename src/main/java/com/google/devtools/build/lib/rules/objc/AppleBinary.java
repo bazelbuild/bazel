@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsProvider.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
-
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -114,6 +114,23 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    AppleBinaryOutput appleBinaryOutput = linkMultiArchBinary(ruleContext);
+
+    return ruleConfiguredTargetFromProvider(ruleContext, appleBinaryOutput);
+  }
+
+  /**
+   * Links a (potentially multi-architecture) binary targeting Apple platforms.
+   *
+   * <p>This method comprises a bulk of the logic of the {@code apple_binary} rule, and is
+   * statically available so that it may be referenced by Skylark APIs that replicate its
+   * functionality.
+   *
+   * @param ruleContext the current rule context
+   * @return a tuple containing all necessary information about the linked binary
+   */
+  public static AppleBinaryOutput linkMultiArchBinary(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
 
@@ -141,19 +158,20 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             getDylibProviderTargets(ruleContext));
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    multiArchBinarySupport.registerActions(
-        platform,
-        getExtraLinkArgs(ruleContext),
-        dependencySpecificConfigurations,
-        getExtraLinkInputs(ruleContext),
-        configToDepsCollectionMap,
-        outputArtifact,
-        outputGroupCollector);
+    NestedSet<Artifact> binariesToLipo =
+        multiArchBinarySupport.registerActions(
+            platform,
+            getExtraLinkArgs(ruleContext),
+            dependencySpecificConfigurations,
+            getExtraLinkInputs(ruleContext),
+            configToDepsCollectionMap,
+            outputGroupCollector);
 
-    NestedSetBuilder<Artifact> filesToBuild =
-        NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
-    RuleConfiguredTargetBuilder targetBuilder =
-        ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
+    new LipoSupport(ruleContext)
+        .registerCombineArchitecturesAction(
+            binariesToLipo,
+            outputArtifact,
+            platform);
 
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
@@ -164,24 +182,24 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
-
-    if (appleConfiguration.shouldLinkingRulesPropagateObjc()) {
-      targetBuilder.addNativeDeclaredProvider(objcProvider);
-    }
+    NativeInfo binaryInfoProvider;
 
     switch (getBinaryType(ruleContext)) {
       case EXECUTABLE:
-        targetBuilder.addNativeDeclaredProvider(
-            new AppleExecutableBinaryProvider(outputArtifact, objcProvider));
+        binaryInfoProvider =
+            new AppleExecutableBinaryProvider(outputArtifact, objcProvider);
         break;
       case DYLIB:
-        targetBuilder.addNativeDeclaredProvider(
-            new AppleDylibBinaryProvider(outputArtifact, objcProvider));
+        binaryInfoProvider =
+            new AppleDylibBinaryProvider(outputArtifact, objcProvider);
         break;
       case LOADABLE_BUNDLE:
-        targetBuilder.addNativeDeclaredProvider(
-            new AppleLoadableBundleBinaryProvider(outputArtifact, objcProvider));
+        binaryInfoProvider =
+            new AppleLoadableBundleBinaryProvider(outputArtifact, objcProvider);
         break;
+      default:
+        ruleContext.ruleError("Unhandled binary type " + getBinaryType(ruleContext));
+        throw new RuleErrorException();
     }
 
     AppleDebugOutputsProvider.Builder builder = AppleDebugOutputsProvider.Builder.create();
@@ -214,13 +232,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    targetBuilder.addNativeDeclaredProvider(builder.build()).addOutputGroups(outputGroupCollector);
-
-    InstrumentedFilesProvider instrumentedFilesProvider =
-        InstrumentedFilesCollector.forward(ruleContext, "deps", "bundle_loader");
-    targetBuilder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
-
-    return targetBuilder.build();
+    return new AppleBinaryOutput(binaryInfoProvider, builder.build(), outputGroupCollector);
   }
 
   private static ExtraLinkArgs getExtraLinkArgs(RuleContext ruleContext) throws RuleErrorException {
@@ -281,5 +293,99 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     String binaryTypeString =
         ruleContext.attributes().get(AppleBinaryRule.BINARY_TYPE_ATTR, STRING);
     return BinaryType.fromString(binaryTypeString);
+  }
+
+  private static ConfiguredTarget ruleConfiguredTargetFromProvider(
+      RuleContext ruleContext, AppleBinaryOutput appleBinaryOutput) throws RuleErrorException {
+    NativeInfo nativeInfo = appleBinaryOutput.getBinaryInfoProvider();
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+
+    ObjcProvider objcProvider = null;
+    Artifact outputArtifact;
+
+    switch (getBinaryType(ruleContext)) {
+      case EXECUTABLE:
+        AppleExecutableBinaryProvider executableProvider =
+            (AppleExecutableBinaryProvider) nativeInfo;
+        objcProvider = executableProvider.getDepsObjcProvider();
+        outputArtifact = executableProvider.getAppleExecutableBinary();
+        break;
+      case DYLIB:
+        AppleDylibBinaryProvider dylibProvider = (AppleDylibBinaryProvider) nativeInfo;
+        objcProvider = dylibProvider.getDepsObjcProvider();
+        outputArtifact = dylibProvider.getAppleDylibBinary();
+        break;
+      case LOADABLE_BUNDLE:
+        AppleLoadableBundleBinaryProvider loadableBundleProvider =
+            (AppleLoadableBundleBinaryProvider) nativeInfo;
+        outputArtifact = loadableBundleProvider.getAppleLoadableBundleBinary();
+        break;
+      default:
+        ruleContext.ruleError("Unhandled binary type " + getBinaryType(ruleContext));
+        throw new RuleErrorException();
+    }
+
+    NestedSetBuilder<Artifact> filesToBuild =
+        NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
+
+    RuleConfiguredTargetBuilder targetBuilder =
+        ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
+
+    if (appleConfiguration.shouldLinkingRulesPropagateObjc() && objcProvider != null) {
+      targetBuilder.addNativeDeclaredProvider(objcProvider);
+    }
+
+    InstrumentedFilesProvider instrumentedFilesProvider =
+        InstrumentedFilesCollector.forward(ruleContext, "deps", "bundle_loader");
+
+    return targetBuilder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
+        .addNativeDeclaredProvider(nativeInfo)
+        .addNativeDeclaredProvider(appleBinaryOutput.getDebugOutputsProvider())
+        .addOutputGroups(appleBinaryOutput.getOutputGroups())
+        .build();
+
+  }
+
+  /**
+   * The set of rule outputs propagated by the {@code apple_binary} rule.
+   */
+  public static class AppleBinaryOutput {
+    private final NativeInfo binaryInfoProvider;
+    private final AppleDebugOutputsProvider debugOutputsProvider;
+    private final Map<String, NestedSet<Artifact>> outputGroups;
+
+    private AppleBinaryOutput(NativeInfo binaryInfoProvider,
+        AppleDebugOutputsProvider debugOutputsProvider,
+        Map<String, NestedSet<Artifact>> outputGroups) {
+      this.binaryInfoProvider = binaryInfoProvider;
+      this.debugOutputsProvider = debugOutputsProvider;
+      this.outputGroups = outputGroups;
+    }
+
+    /**
+     * Returns a {@link NativeInfo} possessing information about the linked binary. Depending
+     * on the type of binary, this may be either a {@link AppleExecutableBinaryProvider}, a
+     * {@link AppleDylibBinaryProvider}, or a {@link AppleLoadableBundleBinaryProvider}.
+     */
+    public NativeInfo getBinaryInfoProvider() {
+      return binaryInfoProvider;
+    }
+
+    /**
+     * Returns a {@link AppleDebugOutputsProvider} containing debug information about the linked
+     * binary.
+     */
+    public AppleDebugOutputsProvider getDebugOutputsProvider() {
+      return debugOutputsProvider;
+    }
+
+    /**
+     * Returns a map from output group name to set of artifacts belonging to this output group.
+     * This should be added to configured target information using
+     * {@link RuleConfiguredTargetBuilder#addOutputGroups(Map)}.
+     */
+    public Map<String, NestedSet<Artifact>> getOutputGroups() {
+      return outputGroups;
+    }
   }
 }

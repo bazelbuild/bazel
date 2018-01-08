@@ -127,19 +127,17 @@ public class MultiArchBinarySupport {
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
    * @param configToDepsCollectionMap a multimap from dependency configuration to the list of
    *     provider collections which are propagated from the dependencies of that configuration
-   * @param outputLipoBinary the artifact (lipo'ed binary) which should be output as a result of
-   *     this support
    * @param outputMapCollector a map to which output groups created by compile action generation are
    *     added
+   * @return a set containing all single-architecture binaries that are linked from this call
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public void registerActions(
+  public NestedSet<Artifact> registerActions(
       ApplePlatform platform,
       ExtraLinkArgs extraLinkArgs,
       Set<DependencySpecificConfiguration> dependencySpecificConfigurations,
       Iterable<Artifact> extraLinkInputs,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
-      Artifact outputLipoBinary,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
 
@@ -190,12 +188,7 @@ public class MultiArchBinarySupport {
           .validateAttributes();
       ruleContext.assertNoErrors();
     }
-
-    new LipoSupport(ruleContext)
-        .registerCombineArchitecturesAction(
-            binariesToLipo.build(),
-            outputLipoBinary,
-            platform);
+    return binariesToLipo.build();
   }
 
   /**
