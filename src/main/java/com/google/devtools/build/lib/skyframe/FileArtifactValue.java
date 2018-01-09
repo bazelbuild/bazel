@@ -203,30 +203,40 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
 
   @VisibleForTesting
   public static FileArtifactValue create(Artifact artifact) throws IOException {
-    Path path = artifact.getPath();
-    FileStatus stat = path.stat();
-    boolean isFile = stat.isFile();
-    return create(artifact, isFile, isFile ? stat.getSize() : 0, null);
+    return create(artifact.getPath());
   }
 
   static FileArtifactValue create(Artifact artifact, FileValue fileValue) throws IOException {
     boolean isFile = fileValue.isFile();
-    return create(artifact, isFile, isFile ? fileValue.getSize() : 0,
+    return create(artifact.getPath(), isFile, isFile ? fileValue.getSize() : 0,
         isFile ? fileValue.getDigest() : null);
   }
 
-  static FileArtifactValue create(Artifact artifact, boolean isFile, long size,
-      @Nullable byte[] digest) throws IOException {
+  static FileArtifactValue create(
+      Artifact artifact, FileValue fileValue, @Nullable byte[] injectedDigest) throws IOException {
+    boolean isFile = fileValue.isFile();
+    return create(artifact.getPath(), isFile, isFile ? fileValue.getSize() : 0, injectedDigest);
+  }
+
+  @VisibleForTesting
+  static FileArtifactValue create(Path path) throws IOException {
+    FileStatus stat = path.stat();
+    boolean isFile = stat.isFile();
+    return create(path, isFile, isFile ? stat.getSize() : 0, null);
+  }
+
+  private static FileArtifactValue create(
+      Path path, boolean isFile, long size, @Nullable byte[] digest) throws IOException {
     if (isFile && digest == null) {
-      digest = DigestUtils.getDigestOrFail(artifact.getPath(), size);
+      digest = DigestUtils.getDigestOrFail(path, size);
     }
     if (!isFile) {
       // In this case, we need to store the mtime because the action cache uses mtime for
       // directories to determine if this artifact has changed. We want this code path to go away
       // somehow (maybe by implementing FileSet in Skyframe).
-      return new DirectoryArtifactValue(artifact.getPath().getLastModifiedTime());
+      return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
-    Preconditions.checkState(digest != null, artifact);
+    Preconditions.checkState(digest != null, path);
     return createNormalFile(digest, size);
   }
 
