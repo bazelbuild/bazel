@@ -62,6 +62,11 @@ public class JavaRuntimeInfo extends NativeInfo {
   }
 
   /** The root directory of the Java installation. */
+  @SkylarkCallable(
+      name = "java_home",
+      doc = "Returns the execpath of the root of the Java installation.",
+      structField = true
+  )
   public PathFragment javaHome() {
     return javaHome;
   }
