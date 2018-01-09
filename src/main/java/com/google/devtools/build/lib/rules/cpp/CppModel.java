@@ -1318,9 +1318,7 @@ public final class CppModel {
             .addVariablesExtensions(variablesExtensions)
             .build();
     env.registerAction(maybePicAction);
-    if (linkType != LinkTargetType.EXECUTABLE) {
-      result.addStaticLibrary(maybePicAction.getOutputLibrary());
-    }
+    result.addStaticLibrary(maybePicAction.getOutputLibrary());
 
     // Create a second static library (.pic.a). Only in case (2) do we need both PIC and non-PIC
     // static libraries. In that case, the first static library contains the non-PIC code, and this
@@ -1344,9 +1342,7 @@ public final class CppModel {
               .addVariablesExtensions(variablesExtensions)
               .build();
       env.registerAction(picAction);
-      if (linkType != LinkTargetType.EXECUTABLE) {
-        result.addPicStaticLibrary(picAction.getOutputLibrary());
-      }
+      result.addPicStaticLibrary(picAction.getOutputLibrary());
     }
 
     if (!createDynamicLibrary) {
@@ -1456,10 +1452,6 @@ public final class CppModel {
 
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
     env.registerAction(dynamicLinkAction);
-
-    if (linkType == LinkTargetType.EXECUTABLE) {
-      return result.build();
-    }
 
     LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
     LibraryToLink interfaceLibrary = dynamicLinkAction.getInterfaceOutputLibrary();
