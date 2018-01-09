@@ -987,7 +987,7 @@ public final class AndroidRuleClasses {
                packaging system that provides improved incremental resource processing, smaller apks
                and more. The android_sdk rule must have the aapt2 binary to use this option.</li>
               <li><code>aapt_version = "auto"</code>: aapt is controlled by the
-                --android_aapt_version flag.</li>
+                --android_aapt flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
