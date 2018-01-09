@@ -350,7 +350,7 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
   }
 
   if (saved_errno != 0) {
-    return env->NewObject(errno_file_status_class, errorno_ctor, errno);
+    return env->NewObject(errno_file_status_class, errorno_ctor, saved_errno);
   }
   return env->NewObject(
       errno_file_status_class, no_error_ctor, stat_ref.st_mode,
@@ -392,6 +392,9 @@ static jobject StatCommon(JNIEnv *env,
   int saved_errno = 0;
   while ((r = stat_function(path_chars, &statbuf)) == -1 && errno == EINTR) { }
   if (r == -1) {
+    // Save errno immediately, before we do any other syscalls
+    saved_errno = errno;
+
     // EACCES ENOENT ENOTDIR ELOOP -> IOException
     // ENAMETOOLONGEFAULT          -> RuntimeException
     // ENOMEM                      -> OutOfMemoryError
@@ -403,8 +406,6 @@ static jobject StatCommon(JNIEnv *env,
       ::PostFileException(env, errno, path_chars);
       ::ReleaseStringLatin1Chars(path_chars);
       return NULL;
-    } else {
-      saved_errno = errno;
     }
   }
   ::ReleaseStringLatin1Chars(path_chars);
