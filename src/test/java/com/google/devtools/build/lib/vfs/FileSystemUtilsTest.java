@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExt
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyTool;
-import static com.google.devtools.build.lib.vfs.FileSystemUtils.createDirectoryAndParents;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.deleteTree;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.moveFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.relativePath;
@@ -643,56 +642,6 @@ public class FileSystemUtilsTest {
     assertThat(aDir.exists()).isFalse();
     assertThat(file3.exists()).isFalse();
   }
-
-  @Test
-  public void testCreateDirectories() throws IOException {
-    Path mainPath = fileSystem.getPath("/some/where/deep/in/the/hierarchy");
-    assertThat(createDirectoryAndParents(mainPath)).isTrue();
-    assertThat(mainPath.exists()).isTrue();
-    assertThat(createDirectoryAndParents(mainPath)).isFalse();
-  }
-
-  @Test
-  public void testCreateDirectoriesWhenAncestorIsFile() throws IOException {
-    Path somewhereDeepIn = fileSystem.getPath("/somewhere/deep/in");
-    assertThat(createDirectoryAndParents(somewhereDeepIn.getParentDirectory())).isTrue();
-    FileSystemUtils.createEmptyFile(somewhereDeepIn);
-    Path theHierarchy = somewhereDeepIn.getChild("the-hierarchy");
-    try {
-      createDirectoryAndParents(theHierarchy);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage("/somewhere/deep/in (Not a directory)");
-    }
-  }
-
-  @Test
-  public void testCreateDirectoriesWhenSymlinkToDir() throws IOException {
-    Path somewhereDeepIn = fileSystem.getPath("/somewhere/deep/in");
-    assertThat(createDirectoryAndParents(somewhereDeepIn)).isTrue();
-    Path realDir = fileSystem.getPath("/real/dir");
-    assertThat(createDirectoryAndParents(realDir)).isTrue();
-
-    Path theHierarchy = somewhereDeepIn.getChild("the-hierarchy");
-    theHierarchy.createSymbolicLink(realDir);
-
-    assertThat(createDirectoryAndParents(theHierarchy)).isFalse();
-  }
-
-  @Test
-  public void testCreateDirectoriesWhenSymlinkEmbedded() throws IOException {
-    Path somewhereDeepIn = fileSystem.getPath("/somewhere/deep/in");
-    assertThat(createDirectoryAndParents(somewhereDeepIn)).isTrue();
-    Path realDir = fileSystem.getPath("/real/dir");
-    assertThat(createDirectoryAndParents(realDir)).isTrue();
-
-    Path the = somewhereDeepIn.getChild("the");
-    the.createSymbolicLink(realDir);
-
-    Path theHierarchy = somewhereDeepIn.getChild("hierarchy");
-    assertThat(createDirectoryAndParents(theHierarchy)).isTrue();
-  }
-
 
   @Test
   public void testWriteIsoLatin1() throws Exception {
