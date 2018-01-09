@@ -26,6 +26,7 @@ public enum ArtifactCategory {
   PIC_FILE("%{output_name}.pic"),
   INCLUDED_FILE_LIST("%{output_name}.d"),
   OBJECT_FILE("%{output_name}.o"),
+  PIC_OBJECT_FILE("%{output_name}.pic.o"),
   CPP_MODULE("%{output_name}.pcm"),
   GENERATED_ASSEMBLY("%{output_name}.s"),
   PROCESSED_HEADER("%{output_name}.processed"),

@@ -168,6 +168,9 @@ public final class CppModel {
   /** Name of the build variable for the sysroot path variable name. */
   public static final String SYSROOT_VARIABLE_NAME = "sysroot";
 
+  private static final String PIC_CONFIGURATION_ERROR =
+      "PIC compilation is requested but the toolchain does not support it";
+
   private final CppSemantics semantics;
   private final RuleContext ruleContext;
   private final BuildConfiguration configuration;
@@ -432,24 +435,33 @@ public final class CppModel {
     return ruleContext.getRelatedArtifact(outputName, ".pic.pcm");
   }
 
-  /**
-   * @return whether this target needs to generate pic actions.
-   */
+  /** @return whether this target needs to generate pic actions. */
   private boolean getGeneratePicActions() {
-    return CppHelper.usePic(ruleContext, ccToolchain, false);
+    return featureConfiguration.isEnabled(CppRuleClasses.PIC)
+        && CppHelper.usePic(ruleContext, ccToolchain, false);
   }
 
-  /**
-   * @return whether this target needs to generate non-pic actions.
-   */
+  /** @return whether this target needs to generate non-pic actions. */
   private boolean getGenerateNoPicActions() {
-    return
-    // If we always need pic for everything, then don't bother to create a no-pic action.
-    (!CppHelper.usePic(ruleContext, ccToolchain, true)
-            || !CppHelper.usePic(ruleContext, ccToolchain, false))
-        // onlySingleOutput guarantees that the code is only ever linked into a dynamic library - so
-        // we don't need a no-pic action even if linking into a binary would require it.
-        && !((onlySingleOutput && getGeneratePicActions()));
+    boolean picFeatureEnabled = featureConfiguration.isEnabled(CppRuleClasses.PIC);
+    boolean usePicForBinaries = CppHelper.usePic(ruleContext, ccToolchain, true);
+    boolean usePicForNonBinaries = CppHelper.usePic(ruleContext, ccToolchain, false);
+
+    if (!usePicForNonBinaries) {
+      // This means you have to be prepared to use non-pic output for dynamic libraries.
+      return true;
+    }
+
+    // Either you're only making a dynamic library (onlySingleOutput) or pic should be used
+    // in all cases.
+    if (onlySingleOutput || usePicForBinaries) {
+      if (picFeatureEnabled) {
+        return false;
+      }
+      ruleContext.ruleError(PIC_CONFIGURATION_ERROR);
+    }
+
+    return true;
   }
 
   /**
@@ -636,7 +648,7 @@ public final class CppModel {
 
     if (usePic) {
       if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
-        ruleContext.ruleError("PIC compilation is requested but the toolchain does not support it");
+        ruleContext.ruleError(PIC_CONFIGURATION_ERROR);
       }
       buildVariables.addStringVariable(PIC_VARIABLE_NAME, "");
     }
@@ -764,14 +776,26 @@ public final class CppModel {
                     source,
                     builder,
                     ImmutableList.of(
-                        ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER));
+                        ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
+                    false);
             result.addHeaderTokenFile(headerTokenFile);
             break;
           case SOURCE:
             Artifact objectFile =
                 createCompileActionTemplate(
-                    env, source, builder, ImmutableList.of(ArtifactCategory.OBJECT_FILE));
+                    env, source, builder, ImmutableList.of(ArtifactCategory.OBJECT_FILE), false);
             result.addObjectFile(objectFile);
+
+            if (getGeneratePicActions()) {
+              Artifact picObjectFile =
+                  createCompileActionTemplate(
+                      env,
+                      source,
+                      builder,
+                      ImmutableList.of(ArtifactCategory.PIC_OBJECT_FILE),
+                      true);
+              result.addPicObjectFile(picObjectFile);
+            }
             break;
           default:
             throw new IllegalStateException(
@@ -1116,17 +1140,21 @@ public final class CppModel {
     return directOutputs.build();
   }
 
-  private Artifact createCompileActionTemplate(AnalysisEnvironment env,
-      CppSource source, CppCompileActionBuilder builder,
-      Iterable<ArtifactCategory> outputCategories) {
+  private Artifact createCompileActionTemplate(
+      AnalysisEnvironment env,
+      CppSource source,
+      CppCompileActionBuilder builder,
+      Iterable<ArtifactCategory> outputCategories,
+      boolean usePic) {
     Artifact sourceArtifact = source.getSource();
-    Artifact outputFiles = CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact);
+    Artifact outputFiles =
+        CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact, usePic);
     // TODO(rduan): Dotd file output is not supported yet.
     builder.setOutputs(outputFiles, /* dotdFile= */ null);
     setupCompileBuildVariables(
         builder,
         source.getLabel(),
-        /* usePic= */ false,
+        usePic,
         /* ccRelativeName= */ null,
         /* autoFdoImportPath= */ null,
         /* gcnoFile= */ null,
