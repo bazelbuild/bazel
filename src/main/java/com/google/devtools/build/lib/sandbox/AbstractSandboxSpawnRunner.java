@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
@@ -237,28 +236,28 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     writablePaths.add(sandboxExecRoot);
     String tmpDirString = env.get("TEST_TMPDIR");
     if (tmpDirString != null) {
-      PathFragment testTmpDir = PathFragment.create(tmpDirString);
-      if (testTmpDir.isAbsolute()) {
-        Path p = fileSystem.getPath(testTmpDir);
-        if (!p.exists()) {
-          // If `testTmpDir` itself is a symlink, then adding it to `writablePaths` would result in
-          // making the symlink itself writable, not what it points to. Therefore we need to resolve
-          // symlinks in `testTmpDir`, however for that we need `testTmpDir` to exist.
-          throw new IOException(
-              String.format(
-                  "Cannot resolve symlinks in TEST_TMPDIR, because it is a non-existent, "
-                      + "absolute path: \"%s\"",
-                  p.getPathString()));
-        }
-        writablePaths.add(p.resolveSymbolicLinks());
-      } else {
-        // We add this even though it is below sandboxExecRoot (and thus already writable as a
+      Path p = sandboxExecRoot.getRelative(tmpDirString);
+      if (p.startsWith(sandboxExecRoot)) {
+        // We add this path even though it is below sandboxExecRoot (and thus already writable as a
         // subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
         // needed directory if it doesn't exist yet.
-        writablePaths.add(sandboxExecRoot.getRelative(testTmpDir));
+        writablePaths.add(p);
+      } else if (p.exists()) {
+        // If `p` itself is a symlink, then adding it to `writablePaths` would result in making the
+        // symlink itself writable, not what it points to. Therefore we need to resolve symlinks in
+        // `p`, however for that we need `p` to exist.
+        writablePaths.add(p.resolveSymbolicLinks());
+      } else {
+        throw new IOException(
+            String.format(
+                "Cannot resolve symlinks in TEST_TMPDIR because it doesn't exist: \"%s\"",
+                p.getPathString()));
       }
     }
 
+    // TODO(laszlocsomor): Extract the logic that adds TEST_TMPDIR to writablePaths, and add tmpDir
+    // using the same method. Currently we don't resolve symlinks in tmpDir and so we might be
+    // adding a symlink to the writable paths, and not what the symlink points to.
     writablePaths.add(tmpDir);
 
     for (String writablePath : sandboxOptions.sandboxWritablePath) {
