@@ -399,11 +399,11 @@ static jobject StatCommon(JNIEnv *env,
     // ENAMETOOLONGEFAULT          -> RuntimeException
     // ENOMEM                      -> OutOfMemoryError
 
-    if (PostRuntimeException(env, errno, path_chars)) {
+    if (PostRuntimeException(env, saved_errno, path_chars)) {
       ::ReleaseStringLatin1Chars(path_chars);
       return NULL;
     } else if (should_throw) {
-      ::PostFileException(env, errno, path_chars);
+      ::PostFileException(env, saved_errno, path_chars);
       ::ReleaseStringLatin1Chars(path_chars);
       return NULL;
     }
