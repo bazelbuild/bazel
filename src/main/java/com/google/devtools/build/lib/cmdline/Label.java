@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /**
@@ -276,22 +277,12 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   /** The name of the target within the package. Canonical. */
   private final String name;
 
-  /** Precomputed hash code. */
-  private final int hashCode;
-
   private Label(PackageIdentifier packageIdentifier, String name) {
     Preconditions.checkNotNull(packageIdentifier);
     Preconditions.checkNotNull(name);
 
     this.packageIdentifier = packageIdentifier;
     this.name = name;
-    this.hashCode = hashCode(this.name, this.packageIdentifier);
-  }
-
-  /** A specialization of Arrays.HashCode() that does not require constructing a 2-element array. */
-  private static final int hashCode(Object obj1, Object obj2) {
-    int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
-    return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
   }
 
   private Object writeReplace() {
@@ -527,7 +518,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
 
   @Override
   public int hashCode() {
-    return hashCode;
+    return hashCode(name, packageIdentifier);
   }
 
   /** Two labels are equal iff both their name and their package name are equal. */
@@ -538,8 +529,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
     }
     Label otherLabel = (Label) other;
     // Perform the equality comparisons in order from least likely to most likely.
-    return hashCode == otherLabel.hashCode
-        && name.equals(otherLabel.name)
+    return name.equals(otherLabel.name)
         && packageIdentifier.equals(otherLabel.packageIdentifier);
   }
 
@@ -581,5 +571,14 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   @Override
   public void str(SkylarkPrinter printer) {
     printer.append(getCanonicalForm());
+  }
+
+  /**
+   * Specialization of {@link Arrays#hashCode()} that does not require constructing a 2-element
+   * array.
+   */
+  private static final int hashCode(Object obj1, Object obj2) {
+    int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
+    return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
   }
 }
