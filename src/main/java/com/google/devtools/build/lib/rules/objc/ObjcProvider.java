@@ -410,7 +410,346 @@ public final class ObjcProvider extends NativeInfo {
           XCASSETS_DIR,
           XCDATAMODEL,
           XIB);
-  
+
+  @SkylarkCallable(name = "asset_catalog",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "Asset catalog resource files."
+  )
+  public NestedSet<Artifact> assetCatalog() {
+    return get(ASSET_CATALOG);
+  }
+
+  @SkylarkCallable(name = "bundle_file",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "Files that are plopped into the final bundle at some arbitrary bundle path."
+  )
+  public SkylarkNestedSet bundleFile() {
+    return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(
+        BUNDLE_FILE, get(BUNDLE_FILE));
+  }
+
+  @SkylarkCallable(name = "define",
+      structField = true,
+      doc = "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
+          + "all invocations of the compiler for this target and all depending targets."
+  )
+  public NestedSet<String> define() {
+    return get(DEFINE);
+  }
+
+  @SkylarkCallable(name = "dynamic_framework_dir",
+      structField = true,
+      doc = "Exec paths of .framework directories corresponding to dynamic frameworks to link."
+  )
+  public SkylarkNestedSet dynamicFrameworkDir() {
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(DYNAMIC_FRAMEWORK_DIR));
+  }
+
+  @SkylarkCallable(name = "dynamic_framework_file",
+      structField = true,
+      doc = "Files in .framework directories belonging to a dynamically linked framework."
+  )
+  public NestedSet<Artifact> dynamicFrameworkFile() {
+    return get(DYNAMIC_FRAMEWORK_FILE);
+  }
+
+  @SkylarkCallable(name = "debug_symbols",
+      structField = true,
+      doc = "Files containing information on debug symbols."
+  )
+  public NestedSet<Artifact> debugSymbols() {
+    return get(DEBUG_SYMBOLS);
+  }
+
+  @SkylarkCallable(name = "debug_symbols_plist",
+      structField = true,
+      doc = "Files containing the plist of the debug symbols."
+  )
+  public NestedSet<Artifact> debugSymbolsPlist() {
+    return get(DEBUG_SYMBOLS_PLIST);
+  }
+
+  @SkylarkCallable(name = "exported_debug_artifacts",
+      structField = true,
+      doc = "Debug files that should be exported by the top-level target."
+  )
+  public NestedSet<Artifact> exportedDebugArtifacts() {
+    return get(EXPORTED_DEBUG_ARTIFACTS);
+  }
+
+  @SkylarkCallable(name = "framework_search_path_only",
+      structField = true,
+      doc = "Exec paths of .framework directories corresponding to frameworks to include "
+          + "in search paths, but not to link."
+  )
+  public SkylarkNestedSet frameworkSearchPathOnly() {
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(
+        get(FRAMEWORK_SEARCH_PATH_ONLY));
+  }
+
+  @SkylarkCallable(name = "force_load_library",
+      structField = true,
+      doc = "Libraries to load with -force_load."
+  )
+  public NestedSet<Artifact> forceLoadLibrary() {
+    return get(FORCE_LOAD_LIBRARY);
+  }
+
+  @SkylarkCallable(name = "header",
+      structField = true,
+      doc = "All header files. These may be either public or private headers."
+  )
+  public NestedSet<Artifact> header() {
+    return get(HEADER);
+  }
+
+  @SkylarkCallable(name = "imported_library",
+      structField = true,
+      doc = "Imported precompiled static libraries (.a files) to be linked into the binary."
+  )
+  public NestedSet<Artifact> importedLibrary() {
+    return get(IMPORTED_LIBRARY);
+  }
+
+  @SkylarkCallable(name = "include",
+      structField = true,
+      doc = "Include search paths specified with '-I' on the command line. Also known as "
+          + "header search paths (and distinct from <em>user</em> header search paths)."
+  )
+  public SkylarkNestedSet include() {
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(INCLUDE));
+  }
+
+  @SkylarkCallable(name = "include_system",
+      structField = true,
+      doc = "System include search paths (typically specified with -isystem)."
+  )
+  public SkylarkNestedSet includeSystem() {
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(INCLUDE_SYSTEM));
+  }
+
+  @SkylarkCallable(name = "iquote",
+      structField = true,
+      doc = "User header search paths (typically specified with -iquote)."
+  )
+  public SkylarkNestedSet iquote() {
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(IQUOTE));
+  }
+
+  @SkylarkCallable(name = "j2objc_library",
+      structField = true,
+      doc = "Static libraries that are built from J2ObjC-translated Java code."
+  )
+  public NestedSet<Artifact> j2objcLibrary() {
+    return get(J2OBJC_LIBRARY);
+  }
+
+  @SkylarkCallable(name = "jre_library",
+      structField = true,
+      doc = "J2ObjC JRE emulation libraries and their dependencies."
+  )
+  public NestedSet<Artifact> jreLibrary() {
+    return get(JRE_LIBRARY);
+  }
+
+  @SkylarkCallable(name = "library",
+      structField = true,
+      doc = "Library (.a) files compiled by dependencies of the current target."
+  )
+  public NestedSet<Artifact> library() {
+    return get(LIBRARY);
+  }
+
+  @SkylarkCallable(name = "link_inputs",
+      structField = true,
+      doc = "Link time artifacts from dependencies that do not fall into any other category such "
+          + "as libraries or archives. This catch-all provides a way to add arbitrary data (e.g. "
+          + "Swift AST files) to the linker. The rule that adds these is also responsible to "
+          + "add the necessary linker flags to 'linkopt'."
+  )
+  public NestedSet<Artifact> linkInputs() {
+    return get(LINK_INPUTS);
+  }
+
+  @SkylarkCallable(name = "linked_binary",
+      structField = true,
+      doc = "Single-architecture linked binaries to be combined for the final multi-architecture "
+          + "binary."
+  )
+  public NestedSet<Artifact> linkedBinary() {
+    return get(LINKED_BINARY);
+  }
+
+  @SkylarkCallable(name = "linkmap_file",
+      structField = true,
+      doc = "Single-architecture link map for a binary."
+  )
+  public NestedSet<Artifact> linkmapFile() {
+    return get(LINKMAP_FILE);
+  }
+
+  @SkylarkCallable(name = "linkopt",
+      structField = true,
+      doc = "Linking options."
+  )
+  public NestedSet<String> linkopt() {
+    return get(LINKOPT);
+  }
+
+  @SkylarkCallable(name = "merge_zip",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "Merge zips to include in the bundle. The entries of these zip files are included in "
+          + "the final bundle with the same path. The entries in the merge zips should not include "
+          + "the bundle root path (e.g. 'Foo.app')."
+  )
+  public NestedSet<Artifact> mergeZip() {
+    return get(MERGE_ZIP);
+  }
+
+  @SkylarkCallable(name = "module_map",
+      structField = true,
+      doc = "Clang module maps, used to enforce proper use of private header files."
+  )
+  public NestedSet<Artifact> moduleMap() {
+    return get(MODULE_MAP);
+  }
+
+  @SkylarkCallable(name = "multi_arch_dynamic_libraries",
+      structField = true,
+      doc = "Combined-architecture dynamic libraries to include in the final bundle."
+  )
+  public NestedSet<Artifact> multiArchDynamicLibraries() {
+    return get(MULTI_ARCH_DYNAMIC_LIBRARIES);
+  }
+
+  @SkylarkCallable(name = "multi_arch_linked_archives",
+      structField = true,
+      doc = "Combined-architecture archives to include in the final bundle."
+  )
+  public NestedSet<Artifact> multiArchLinkedArchives() {
+    return get(MULTI_ARCH_LINKED_ARCHIVES);
+  }
+
+  @SkylarkCallable(name = "multi_arch_linked_binaries",
+      structField = true,
+      doc = "Combined-architecture binaries to include in the final bundle."
+  )
+  public NestedSet<Artifact> multiArchLinkedBinaries() {
+    return get(MULTI_ARCH_LINKED_BINARIES);
+  }
+
+  @SkylarkCallable(name = "root_merge_zip",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "Merge zips to include in the ipa and outside the bundle root."
+  )
+  public NestedSet<Artifact> rootMergeZip() {
+    return get(ROOT_MERGE_ZIP);
+  }
+
+  @SkylarkCallable(name = "sdk_dylib",
+      structField = true,
+      doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'."
+  )
+  public NestedSet<String> sdkDylib() {
+    return get(SDK_DYLIB);
+  }
+
+  @SkylarkCallable(name = "sdk_framework",
+      structField = true,
+      doc = "Names of SDK frameworks to link with (e.g. 'AddressBook', 'QuartzCore')."
+  )
+  public SkylarkNestedSet sdkFramework() {
+    return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(SDK_FRAMEWORK,
+        get(SDK_FRAMEWORK));
+  }
+
+  @SkylarkCallable(name = "source",
+      structField = true,
+      doc = "All transitive source files."
+  )
+  public NestedSet<Artifact> source() {
+    return get(SOURCE);
+  }
+
+  @SkylarkCallable(name = "static_framework_file",
+      structField = true,
+      doc = "Files in .framework directories that should be statically included as inputs "
+          + "when compiling and linking."
+  )
+  public NestedSet<Artifact> staticFrameworkFile() {
+    return get(STATIC_FRAMEWORK_FILE);
+  }
+
+  @SkylarkCallable(name = "storyboard",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "Files for storyboard sources."
+  )
+  public NestedSet<Artifact> storyboard() {
+    return get(STORYBOARD);
+  }
+
+  @SkylarkCallable(name = "strings",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "Files for strings source files."
+  )
+  public NestedSet<Artifact> strings() {
+    return get(STRINGS);
+  }
+
+  @SkylarkCallable(name = "umbrella_header",
+      structField = true,
+      doc = "Clang umbrella header. Public headers are #included in umbrella headers to be "
+          + "compatible with J2ObjC segmented headers."
+  )
+  public NestedSet<Artifact> umbrellaHeader() {
+    return get(UMBRELLA_HEADER);
+  }
+
+  @SkylarkCallable(name = "weak_sdk_framework",
+      structField = true,
+      doc = "Names of SDK frameworks to weakly link with. For instance, 'MediaAccessibility'. "
+           + "In difference to regularly linked SDK frameworks, symbols from weakly linked "
+           + "frameworks do not cause an error if they are not present at runtime."
+  )
+  public SkylarkNestedSet weakSdkFramework() {
+    return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(WEAK_SDK_FRAMEWORK,
+        get(WEAK_SDK_FRAMEWORK));
+  }
+
+  @SkylarkCallable(name = "xcassets_dir",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "The set of all unique asset catalog directories (*.xcassets) containing files "
+          + "in 'asset_catalogs'."
+  )
+  public SkylarkNestedSet xcassetsDir() {
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(XCASSETS_DIR));
+  }
+
+  @SkylarkCallable(name = "xcdatamodel",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + "Files that comprise the data models of the final linked binary."
+  )
+  public NestedSet<Artifact> xcdatamodel() {
+    return get(XCDATAMODEL);
+  }
+
+  @SkylarkCallable(name = "xib",
+      structField = true,
+      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
+          + ".xib resource files"
+  )
+  public NestedSet<Artifact> xib() {
+    return get(XIB);
+  }
+
   /**
    * All keys in ObjcProvider that are explicitly not exposed to skylark. This is used for
    * testing and verification purposes to ensure that a conscious decision is made for all keys;
@@ -478,9 +817,8 @@ public final class ObjcProvider extends NativeInfo {
   private ObjcProvider(
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
-      ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems,
-      ImmutableMap<String, Object> skylarkFields) {
-    super(SKYLARK_CONSTRUCTOR, skylarkFields);
+      ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);
@@ -973,28 +1311,8 @@ public final class ObjcProvider extends NativeInfo {
         strictDependencyBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
 
-      ImmutableMap<Key<?>, NestedSet<?>> propagated = propagatedBuilder.build();
-      ImmutableMap<Key<?>, NestedSet<?>> nonPropagated = nonPropagatedBuilder.build();
-      ImmutableMap<Key<?>, NestedSet<?>> strictDependency = strictDependencyBuilder.build();
-
-      ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
-      for (Key<?> key : KEYS_FOR_SKYLARK) {
-        NestedSetBuilder union = new NestedSetBuilder(key.order);
-        if (propagated.containsKey(key)) {
-          union.addTransitive((NestedSet<?>) propagated.get(key));
-        }
-        if (strictDependency.containsKey(key)) {
-          union.addTransitive(strictDependency.get(key));
-        }
-        if (nonPropagated.containsKey(key)) {
-          union.addTransitive(nonPropagated.get(key));
-        }
-        skylarkFields.put(
-            key.getSkylarkKeyName(),
-            ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
-      }
-
-      return new ObjcProvider(propagated, nonPropagated, strictDependency, skylarkFields.build());
+      return new ObjcProvider(propagatedBuilder.build(), nonPropagatedBuilder.build(),
+          strictDependencyBuilder.build());
     }
   }
 
