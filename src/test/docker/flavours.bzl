@@ -20,11 +20,8 @@
 load("//src/test/docker:docker_pull.bzl", "docker_pull")
 
 FLAVOURS = [
-    "centos6.7",
+    "centos6.9",
     "debian-stretch",
-    "fedora23",
-    "ubuntu-15.04",
-    "ubuntu-16.04",
 ]
 
 def pull_images_for_docker_tests():
