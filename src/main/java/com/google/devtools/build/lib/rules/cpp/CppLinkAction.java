@@ -369,6 +369,12 @@ public final class CppLinkAction extends AbstractAction
       }
       FileSystemUtils.writeContent(getOutputFile(), ISO_8859_1, s.toString());
       getOutputFile().setExecutable(true); // (IOException)
+      for (Artifact output : getOutputs()) {
+        // Make ThinLTO link actions (that also have ThinLTO-specific outputs) kind of work; It does
+        // not actually work because this makes cc_fake_binary see the indexing action and not the
+        // actual linking action, but it's good enough for now.
+        FileSystemUtils.touchFile(output.getPath());
+      }
     } catch (IOException e) {
       throw new ActionExecutionException("failed to create fake link command for rule '"
                                          + getOwner().getLabel() + ": " + e.getMessage(),
