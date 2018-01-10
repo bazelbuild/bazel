@@ -17,7 +17,7 @@ Another implementation in Go can be found here: https://github.com/google/skylar
 This document was derived from the [description of the Go
 implementation](https://github.com/google/skylark/blob/master/doc/spec.md)
 of Skylark.
-It was was influenced by the Python specification,
+It was influenced by the Python specification,
 Copyright 1990&ndash;2017, Python Software Foundation,
 and the Go specification, Copyright 2009&ndash;2017, The Go Authors. It is
 now maintained by the Bazel team.
