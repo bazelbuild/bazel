@@ -1147,24 +1147,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testMissingJavabase() throws Exception {
-    // The javabase flag uses yet another code path with its own redirection logic on top of the
-    // redirect chaser.
-    scratch.file("jdk/BUILD",
-        "filegroup(name = 'jdk', srcs = [",
-        "    '//does/not/exist:a-piii', '//does/not/exist:b-k8', '//does/not/exist:c-default'])");
-    scratch.file("does/not/exist/BUILD");
-    useConfiguration("--javabase=//jdk");
-    reporter.removeHandler(failFastHandler);
-    try {
-      update(defaultFlags().with(Flag.KEEP_GOING));
-      fail();
-    } catch (InvalidConfigurationException e) {
-      // Expected
-    }
-  }
-
-  @Test
   public void testVisibilityReferencesNonexistentPackage() throws Exception {
     scratch.file("z/a/BUILD",
         "py_library(name='a', visibility=['//nonexistent:nothing'])");

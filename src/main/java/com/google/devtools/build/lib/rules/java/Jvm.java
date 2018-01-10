@@ -43,12 +43,12 @@ public final class Jvm extends BuildConfiguration.Fragment {
    */
   @AutoCodec.Constructor
   public Jvm(Label jvmLabel) {
-    Preconditions.checkArgument(jvmLabel != null);
-    this.jvmLabel = jvmLabel;
+    this.jvmLabel = Preconditions.checkNotNull(jvmLabel);
   }
 
   /**
-   * Returns a label that points to the current {@code java_runtime_suite} rule in use.
+   * Returns a label that points to the current {@code java_runtime_suite} or
+   * {@code java_runtime} rule in use.
    */
   public Label getJvmLabel() {
     return jvmLabel;

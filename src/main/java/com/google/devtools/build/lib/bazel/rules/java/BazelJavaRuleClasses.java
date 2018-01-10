@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -93,10 +94,14 @@ public class BazelJavaRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":jvm", LABEL).value(JavaSemantics.jvmAttribute(env)).useOutputLicenses())
+          .add(attr(":jvm", LABEL)
+              .value(JavaSemantics.jvmAttribute(env))
+              .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
+              .useOutputLicenses())
           .add(attr(":host_jdk", LABEL)
               .cfg(HostTransition.INSTANCE)
-              .value(JavaSemantics.hostJdkAttribute(env)))
+              .value(JavaSemantics.hostJdkAttribute(env))
+              .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
           .add(attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE))
           .build();
     }

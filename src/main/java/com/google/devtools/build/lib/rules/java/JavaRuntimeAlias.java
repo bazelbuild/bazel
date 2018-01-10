@@ -61,7 +61,9 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
           .requiresConfigurationFragments(JavaConfiguration.class, Jvm.class)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
-          .add(attr(":jvm", LABEL).value(JavaSemantics.jvmAttribute(environment)))
+          .add(attr(":jvm", LABEL)
+              .value(JavaSemantics.jvmAttribute(environment))
+              .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
           .build();
     }
 
