@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
@@ -32,7 +32,6 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -42,7 +41,7 @@ import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -394,29 +393,19 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       args.add("--emit_dependency_metadata_as_needed");
     }
 
-    // Just use params file, since classpaths can get long
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(result.getRootRelativePath()), result.getRoot());
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            args.build(),
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName, Mode.HOST))
             .addInput(jar)
-            .addInput(paramFile)
             .addInputs(bootclasspath)
             .addTransitiveInputs(classpath)
             .addOutput(result)
             .setMnemonic("Desugar")
             .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
-            .addCommandLine(CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build())
+            .addCommandLine(
+                // Always use params file, so we don't need to compute command line length first
+                args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
             .build(ruleContext));
     return result;
   }
@@ -444,36 +433,24 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       Artifact jar,
       Set<String> incrementalDexopts,
       Artifact dexArchive) {
-    // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
     CustomCommandLine args =
         new Builder()
             .addExecPath("--input_jar", jar)
             .addExecPath("--output_zip", dexArchive)
             .addAll(ImmutableList.copyOf(incrementalDexopts))
             .build();
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(dexArchive.getRootRelativePath()), dexArchive.getRoot());
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            args,
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
-            .addInput(paramFile)
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
             .setProgressMessage(
                 "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts)
-            .addCommandLine(
-                CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build());
+            // Always use params file for compatibility with WorkerSpawnStrategy
+            .addCommandLine(args, ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build());
     if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
       dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     }
