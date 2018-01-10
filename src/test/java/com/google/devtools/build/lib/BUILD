@@ -41,6 +41,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
