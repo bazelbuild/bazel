@@ -22,6 +22,7 @@ import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -127,7 +128,8 @@ class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
     Preconditions.checkNotNull(packagePath);
 
     final List<Path> processed = new ArrayList<>();
-    final Path metadataWorkingDirectory = dataBindingWorkingDirectory.resolve("metadata");
+    final Path metadataWorkingDirectory =
+        Files.createDirectory(dataBindingWorkingDirectory.resolve("metadata"));
     final Path databindingResourceRoot = dataBindingWorkingDirectory.resolve("resources");
     for (Path resource : resourceDirs) {
       processed.add(

@@ -182,7 +182,7 @@ public class AndroidResourceParsingActionBuilder {
         if (!Strings.isNullOrEmpty(resourceContainer.getJavaPackage())) {
           flatFileBuilder.add("--packagePath", resourceContainer.getJavaPackage());
         }
-        builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+        flatFileBuilder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
         outs.add(dataBindingInfoZip);
       }
       // Create the spawn action.
