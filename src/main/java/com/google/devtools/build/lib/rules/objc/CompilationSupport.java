@@ -479,11 +479,13 @@ public class CompilationSupport {
         resultLink.link(
             compilationOutputsBuilder.build(), compilationContextBuilder.build());
 
-    Map<String, NestedSet<Artifact>> mergedOutputGroups =
-        Info.mergeOutputGroups(
+    List<Map<String, NestedSet<Artifact>>> outputGroupsList =
+        Arrays.asList(
             objcArcCompilationInfo.getOutputGroups(),
             nonObjcArcCompilationInfo.getOutputGroups(),
             linkingInfo.getOutputGroups());
+
+    Map<String, NestedSet<Artifact>> mergedOutputGroups = Info.mergeOutputGroups(outputGroupsList);
 
     return new Pair<>(compilationOutputsBuilder.build(), ImmutableMap.copyOf(mergedOutputGroups));
   }

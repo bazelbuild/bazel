@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
@@ -130,18 +129,12 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
         new CreateIncSymlinkAction(ruleContext.getActionOwner(), virtualArtifactMap, includeRoot));
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
-    Info.CompilationInfo compilationInfo =
+    CcLibraryHelper.Info info =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
             .addIncludeDirs(Arrays.asList(includePath))
             .addPublicHeaders(virtualArtifactMap.keySet())
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            .compile();
-    Info.LinkingInfo linkingInfo =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
-            .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            .link(
-                compilationInfo.getCcCompilationOutputs(),
-                compilationInfo.getCppCompilationContext());
+            .build();
 
     // cc_inc_library doesn't compile any file - no compilation outputs available.
     InstrumentedFilesProvider instrumentedFilesProvider =
@@ -150,12 +143,9 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
               /*withBaselineCoverage=*/true);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProviders(compilationInfo.getProviders())
-        .addProviders(linkingInfo.getProviders())
+        .addProviders(info.getProviders())
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
-        .addOutputGroups(
-            Info.mergeOutputGroups(
-                compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups()))
+        .addOutputGroups(info.getOutputGroups())
         .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
