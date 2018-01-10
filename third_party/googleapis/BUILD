@@ -4,8 +4,8 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
-load("@//third_party/grpc:build_defs.bzl", "java_grpc_library")
-load("@//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 filegroup(
     name = "srcs",
