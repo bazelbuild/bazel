@@ -92,7 +92,7 @@ public class SpawnInputExpander {
         PathFragment location = root.getRelative(mapping.getKey());
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
-          if (strict && !actionFileCache.getMetadata(localArtifact).isFile()) {
+          if (strict && !actionFileCache.getMetadata(localArtifact).getType().isFile()) {
             throw new IOException("Not a file: " + localArtifact.getPath().getPathString());
           }
           addMapping(inputMap, location, localArtifact);

@@ -59,11 +59,6 @@ public class ActionCacheChecker {
     }
 
     @Override
-    public boolean isFile() {
-      return true;
-    }
-
-    @Override
     public byte[] getDigest() {
       return EMPTY_DIGEST;
     }
