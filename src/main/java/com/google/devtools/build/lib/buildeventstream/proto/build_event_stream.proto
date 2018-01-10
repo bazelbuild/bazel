@@ -151,6 +151,15 @@ message BuildEventId {
     string label = 1;
   }
 
+  // Identifier of an event reporting an event associated with a configured
+  // label, usually a visibility error. In any case, an event with such an
+  // id will always report some form of error (i.e., the payload will be an
+  // Aborted event); there are no regular events using this identifier.
+  message ConfiguredLabelId {
+    string label = 1;
+    ConfigurationId configuration = 2;
+  }
+
   // Identifier of an event reporting on an individual test run. The label
   // identifies the test that is reported about, the remaining fields are
   // in such a way as to uniquely identify the action within a build. In fact,
@@ -196,6 +205,7 @@ message BuildEventId {
     TargetCompletedId target_completed = 5;
     ActionCompletedId action_completed = 6;
     UnconfiguredLabelId unconfigured_label = 19;
+    ConfiguredLabelId configured_label = 21;
     TestResultId test_result = 8;
     TestSummaryId test_summary = 7;
     BuildFinishedId build_finished = 9;

@@ -154,6 +154,13 @@ genrule(
     srcs = ["//visibility/hidden:hello"],
     cmd = "cp $< $@",
 )
+
+genrule(
+    name = "indirect",
+    outs = ["indirect.txt"],
+    srcs = [":cannotsee"],
+    cmd = "cp $< $@",
+)
 EOF
 mkdir -p failingtool
 cat > failingtool/BUILD <<'EOF'
@@ -628,16 +635,31 @@ function test_visibility_failure() {
   bazel shutdown
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log_once 'reason: ANALYSIS_FAILURE'
-  expect_log_once '^aborted'
+  expect_log 'reason: ANALYSIS_FAILURE'
+  expect_log '^aborted'
 
   # The same should hold true, if the server has already analyzed the target
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log_once 'reason: ANALYSIS_FAILURE'
-  expect_log_once '^aborted'
+  expect_log 'reason: ANALYSIS_FAILURE'
+  expect_log '^aborted'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
+}
+
+function test_visibility_indirect() {
+  # verify that an indirect visibility error is reported, including the
+  # target that violates visibility constraints.
+  bazel shutdown
+  (bazel build --build_event_text_file=$TEST_log \
+         //visibility:indirect && fail "build failure expected") || true
+  expect_log 'reason: ANALYSIS_FAILURE'
+  expect_log '^aborted'
+  expect_log '//visibility:cannotsee'
+  # There should be precisely one events with target_completed as event id type
+  (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
+  [ `grep target_completed event_id_types | wc -l` -eq 1 ] \
+      || fail "not precisely one target_completed event id"
 }
 
 function test_loading_failure_keep_going() {
