@@ -549,9 +549,11 @@ public class JavaHeaderCompileAction extends SpawnAction {
         result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
       }
 
-      result.addAll("--javacopts", javacOpts);
-      // terminate --javacopts with `--` to support javac flags that start with `--`
-      result.add("--");
+      if (!javacOpts.isEmpty()) {
+        result.addAll("--javacopts", javacOpts);
+        // terminate --javacopts with `--` to support javac flags that start with `--`
+        result.add("--");
+      }
 
       if (ruleKind != null) {
         result.add("--rule_kind", ruleKind);
