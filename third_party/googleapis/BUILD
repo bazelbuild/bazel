@@ -4,8 +4,8 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
-load("@//third_party/grpc:build_defs.bzl", "java_grpc_library")
-load("@//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 filegroup(
     name = "srcs",
@@ -44,7 +44,7 @@ filegroup(
       ":google_devtools_remoteexecution_v1test_remote_execution_java_grpc_srcs",
       ":google_watch_v1_java_grpc_srcs",
     ],
-    visibility = ["@//src:__pkg__"],
+    visibility = ["@io_bazel//src:__pkg__"],
 )
 
 java_proto_library(
