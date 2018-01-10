@@ -75,11 +75,6 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     return of(proto.hasValue() ? proto.getValue() : null, proto.getMappedStringValue());
   }
 
-  private StyleXmlResourceValue(@Nullable String parent, ImmutableMap<String, String> values) {
-    this.parent = parent;
-    this.values = values;
-  }
-
   public static XmlResourceValue from(Value proto) {
     Style style = proto.getCompoundValue().getStyle();
     String parent = "";
@@ -87,7 +82,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     if (style.hasParent()) {
       parent = proto.getCompoundValue().getStyle().getParent().getName();
       if (parent.startsWith("style/")) {
-        //Aapt2 compile breaks when style parent references are prepended with 'style/'
+        // Aapt2 compile breaks when style parent references are prepended with 'style/'
         parent = parent.substring(6);
       }
     }
@@ -95,6 +90,11 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     Map<String, String> items = itemMapFromProto(style);
 
     return of(parent, items);
+  }
+
+  private StyleXmlResourceValue(@Nullable String parent, ImmutableMap<String, String> values) {
+    this.parent = parent;
+    this.values = values;
   }
 
   private static Map<String, String> itemMapFromProto(Style style) {
@@ -112,7 +112,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
           itemValue = "@null";
         }
       } else {
-        throw new IllegalArgumentException("Could not parse item value from Style resource.");
+        itemValue = styleEntry.getItem().getStr().getValue();
       }
       result.put(itemName, itemValue);
     }
