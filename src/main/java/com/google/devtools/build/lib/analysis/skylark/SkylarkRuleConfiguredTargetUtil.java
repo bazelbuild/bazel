@@ -268,7 +268,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       SkylarkRuleContext context, RuleConfiguredTargetBuilder builder, Object target, Location loc)
       throws EvalException {
 
-    Info oldStyleProviders = NativeProvider.STRUCT.create(loc);
+    Info oldStyleProviders = NativeProvider.STRUCT.createEmpty(loc);
     ArrayList<Info> declaredProviders = new ArrayList<>();
 
     if (target instanceof Info) {

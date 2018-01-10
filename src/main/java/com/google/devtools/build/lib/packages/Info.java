@@ -99,6 +99,8 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   /**
    * Preprocesses a map of field values to convert the field names and field values to
    * Skylark-acceptable names and types.
+   *
+   * <p>This preserves the order of the map entries.
    */
   protected static ImmutableMap<String, Object> copyValues(Map<String, Object> values) {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
@@ -108,23 +110,6 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
           SkylarkType.convertToSkylark(e.getValue(), /*env=*/ null));
     }
     return builder.build();
-  }
-
-  /**
-   * Returns whether the given field name exists.
-   *
-   * <p>This conceptually extends the API for {@link ClassObject}.
-   */
-  public abstract boolean hasField(String name);
-
-  /** Returns a value and try to cast it into specified type */
-  public <T> T getValue(String key, Class<T> type) throws EvalException {
-    Object obj = getValue(key);
-    if (obj == null) {
-      return null;
-    }
-    SkylarkType.checkType(obj, type, key);
-    return type.cast(obj);
   }
 
   /**
@@ -141,24 +126,43 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   }
 
   /**
-   * Returns the fields of this struct.
+   * Returns whether the given field name exists.
    *
-   * Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
-   * be thrown.
+   * <p>This conceptually extends the API for {@link ClassObject}.
    */
-  @Override
-  public abstract ImmutableCollection<String> getFieldNames();
+  public abstract boolean hasField(String name);
 
   /**
-   * Returns the value associated with the name field in this struct,
-   * or null if the field does not exist.
+   * {@inheritDoc}
    *
-   * Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
+   * <p>Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
    * be thrown.
    */
   @Nullable
   @Override
   public abstract Object getValue(String name);
+
+  /**
+   * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
+   * EvalException} if the cast fails.
+   */
+  public <T> T getValue(String key, Class<T> type) throws EvalException {
+    Object obj = getValue(key);
+    if (obj == null) {
+      return null;
+    }
+    SkylarkType.checkType(obj, type, key);
+    return type.cast(obj);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
+   * be thrown.
+   */
+  @Override
+  public abstract ImmutableCollection<String> getFieldNames();
 
   @Override
   public String getErrorMessageForUnknownField(String name) {

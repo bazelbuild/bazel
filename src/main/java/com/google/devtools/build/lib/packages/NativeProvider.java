@@ -45,7 +45,7 @@ public abstract class NativeProvider<V extends Info> extends Provider {
   private final String errorMessageFormatForUnknownField;
 
   /** "struct" function. */
-  public static final StructConstructor STRUCT = new StructConstructor();
+  public static final StructProvider STRUCT = new StructProvider();
 
   private final Class<V> valueClass;
 
@@ -61,17 +61,17 @@ public abstract class NativeProvider<V extends Info> extends Provider {
    * Skylark code.
    */
   @Deprecated
-  public static interface WithLegacySkylarkName {
+  public interface WithLegacySkylarkName {
     String getSkylarkName();
   }
 
   /**
-   * A constructor for default {@code struct}s.
+   * The provider for the built-in type {@code struct}.
    *
-   * <p>Singleton, instance is {@link #STRUCT}.
+   * <p>Its singleton instance is {@link #STRUCT}.
    */
-  public static final class StructConstructor extends NativeProvider<Info> {
-    private StructConstructor() {
+  public static final class StructProvider extends NativeProvider<Info> {
+    private StructProvider() {
       super(Info.class, "struct");
     }
 
@@ -82,11 +82,19 @@ public abstract class NativeProvider<V extends Info> extends Provider {
       return SkylarkInfo.fromMap(this, kwargs, loc);
     }
 
-    public Info create(Map<String, Object> values, String message) {
-      return new SkylarkInfo.MapBackedSkylarkInfo(this, values, message);
+    /**
+     * Creates a struct with the he given field values and message format for unknown fields.
+     *
+     * <p>The custom message is useful for objects that have fields but aren't exactly used as
+     * providers, such as the {@code native} object, and the struct fields of {@code ctx} like
+     * {@code ctx.attr}.
+     * */
+    public Info create(Map<String, Object> values, String errorMessageFormatForUnknownField) {
+      return new SkylarkInfo.MapBackedSkylarkInfo(this, values, errorMessageFormatForUnknownField);
     }
 
-    public Info create(Location loc) {
+    /** Creates an empty struct with the given location. */
+    public Info createEmpty(Location loc) {
       return SkylarkInfo.fromMap(this, ImmutableMap.of(), loc);
     }
   }

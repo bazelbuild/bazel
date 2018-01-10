@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
@@ -21,22 +22,28 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeProvider.StructConstructor;
+import com.google.devtools.build.lib.packages.NativeProvider.StructProvider;
 import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.util.Arrays;
 import java.util.Map;
 
-/** Implementation of {@link Info} created from Skylark. */
+/**
+ * A provider instance of either 1) a Skylark-defined provider ({@link SkylarkInfo}), or 2) the
+ * built-in "struct" type ({@link NativeProvider#STRUCT}).
+ *
+ * <p>There are two concrete subclasses corresponding to two different implementation strategies.
+ * One is map-based and schemaless, the other has a fixed layout and is more memory-efficient.
+ */
 public abstract class SkylarkInfo extends Info implements Concatable {
 
   public SkylarkInfo(Provider provider, Location loc) {
     super(provider, loc);
   }
 
-  public SkylarkInfo(StructConstructor provider, String message) {
-    super(provider, message);
+  public SkylarkInfo(StructProvider provider, String errorMessageFormatForUnknownField) {
+    super(provider, errorMessageFormatForUnknownField);
   }
 
   @Override
@@ -46,7 +53,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
 
   @Override
   public boolean isImmutable() {
-    // If the provider is not yet exported the hash code of the object is subject to change
+    // If the provider is not yet exported, the hash code of the object is subject to change.
     if (!getProvider().isExported()) {
       return false;
     }
@@ -58,15 +65,21 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     return true;
   }
 
-  /** Return all the values stored in the object. */
+  /**
+   * Returns all the field values stored in the object, in the canonical order.
+   *
+   * <p>{@code protected} because this is only used for {@link #isImmutable}. It saves us having to
+   * get values one-by-one.
+   */
   protected abstract Iterable<Object> getValues();
 
   /**
-   * {@link SkylarkInfo} implementation that stores its values in a map. This is mainly used for the
-   * Skylark {@code struct()} constructor.
+   * A {@link SkylarkInfo} implementation that stores its values in a map. This is used for structs
+   * and for schemaless Skylark-defined providers.
    */
   static final class MapBackedSkylarkInfo extends SkylarkInfo {
-    protected final ImmutableMap<String, Object> values;
+
+    private final ImmutableMap<String, Object> values;
 
     public MapBackedSkylarkInfo(Provider provider, Map<String, Object> kwargs, Location loc) {
       super(provider, loc);
@@ -74,19 +87,21 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     public MapBackedSkylarkInfo(
-        StructConstructor provider, Map<String, Object> values, String message) {
-      super(provider, message);
+        StructProvider provider,
+        Map<String, Object> values,
+        String errorMessageFormatForUnknownField) {
+      super(provider, errorMessageFormatForUnknownField);
       this.values = copyValues(values);
-    }
-
-    @Override
-    public Object getValue(String name) {
-      return values.get(name);
     }
 
     @Override
     public boolean hasField(String name) {
       return values.containsKey(name);
+    }
+
+    @Override
+    public Object getValue(String name) {
+      return values.get(name);
     }
 
     @Override
@@ -163,6 +178,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
 
     @Override
     public Concatable concat(Concatable left, Concatable right, Location loc) throws EvalException {
+      // Casts are safe because SkylarkInfoConcatter is only used by SkylarkInfo.
       SkylarkInfo lval = (SkylarkInfo) left;
       SkylarkInfo rval = (SkylarkInfo) right;
       Provider provider = lval.getProvider();
@@ -170,7 +186,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
         throw new EvalException(
             loc,
             String.format(
-                "Cannot concat %s with %s",
+                "Cannot use '+' operator on instances of different providers (%s and %s)",
                 provider.getPrintableName(), rval.getProvider().getPrintableName()));
       }
       SetView<String> commonFields =
@@ -179,7 +195,8 @@ public abstract class SkylarkInfo extends Info implements Concatable {
       if (!commonFields.isEmpty()) {
         throw new EvalException(
             loc,
-            "Cannot concat structs with common field(s): " + Joiner.on(",").join(commonFields));
+            "Cannot use '+' operator on provider instances with overlapping field(s): "
+                + Joiner.on(",").join(commonFields));
       }
       // Keep homogeneous compact concatenations compact.
       if (lval instanceof CompactSkylarkInfo
