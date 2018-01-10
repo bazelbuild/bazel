@@ -322,7 +322,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (toolchain != null) {
       try {
         toolchainInfo =
-            new CppToolchainInfo(
+            CppToolchainInfo.create(
                 toolchain,
                 cppConfiguration.getCrosstoolTopPathFragment(),
                 cppConfiguration.getCcToolchainRuleLabel());

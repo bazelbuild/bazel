@@ -16,11 +16,15 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -55,6 +59,8 @@ import java.util.Objects;
 @ThreadSafe
 public class Path
     implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
+  public static final InjectingObjectCodec<Path, FileSystemProvider> CODEC =
+      new PathCodecWithInjectedFileSystem();
 
   /** Filesystem-specific factory for {@link Path} objects. */
   public static interface PathFactory {
@@ -1236,5 +1242,28 @@ public class Path
       b = b.getParentDirectory();
     } while (!a.equals(b)); // This has to happen eventually.
     return previousa.name.compareTo(previousb.name);
+  }
+
+  private static class PathCodecWithInjectedFileSystem
+      implements InjectingObjectCodec<Path, FileSystemProvider> {
+
+    @Override
+    public Class<Path> getEncodedClass() {
+      return Path.class;
+    }
+
+    @Override
+    public void serialize(
+        FileSystemProvider unusedDependency, Path path, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      PathFragment.CODEC.serialize(path.asFragment(), codedOut);
+    }
+
+    @Override
+    public Path deserialize(FileSystemProvider fsProvider, CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      PathFragment pathFragment = PathFragment.CODEC.deserialize(codedIn);
+      return fsProvider.getFileSystem().getPath(pathFragment);
+    }
   }
 }

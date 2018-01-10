@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,7 +61,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
   private CppConfigurationLoader loader(String crosstoolFileContents) throws IOException {
     getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstoolFileContents);
-    return new CppConfigurationLoader(Functions.<String>identity());
+    return new CppConfigurationLoader(CpuTransformer.IDENTITY);
   }
 
   @Before

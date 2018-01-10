@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.Marshaller.Context;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
-import com.google.protobuf.GeneratedMessage;
+import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.ProtocolMessageEnum;
 import java.util.Collection;
 import java.util.Comparator;
@@ -446,7 +446,7 @@ class Marshallers {
       new Marshaller() {
         @Override
         public boolean matches(DeclaredType type) {
-          return isSubtype(type, GeneratedMessage.class);
+          return isSubtype(type, AbstractMessage.class);
         }
 
         @Override

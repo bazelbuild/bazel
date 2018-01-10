@@ -18,21 +18,28 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.Serializable;
 import java.util.List;
 
 /** Represents a list of c++ tool flags. */
+@AutoCodec
 @Immutable
 public class FlagList implements Serializable {
+  public static final ObjectCodec<FlagList> CODEC = new FlagList_AutoCodec();
+
   /** Represents an optional flag that can be toggled using the package features mechanism. */
+  @AutoCodec
   @Immutable
-  @VisibleForTesting
   static class OptionalFlag implements Serializable {
+    public static final ObjectCodec<OptionalFlag> CODEC = new FlagList_OptionalFlag_AutoCodec();
+
     private final String name;
     private final ImmutableList<String> flags;
 
-    @VisibleForTesting
+    @AutoCodec.Constructor
     OptionalFlag(String name, ImmutableList<String> flags) {
       this.name = name;
       this.flags = flags;
@@ -51,7 +58,7 @@ public class FlagList implements Serializable {
   private final ImmutableList<OptionalFlag> optionalFlags;
   private final ImmutableList<String> suffixFlags;
 
-  @VisibleForTesting
+  @AutoCodec.Constructor
   FlagList(
       ImmutableList<String> prefixFlags,
       ImmutableList<OptionalFlag> optionalFlags,

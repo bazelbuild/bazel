@@ -16,10 +16,14 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -307,6 +311,18 @@ public class PathTest {
     Path p = root.getRelative("/tmp/foo bar.txt");
     URI uri = p.toURI();
     assertThat(uri.toString()).isEqualTo("file:///tmp/foo%20bar.txt");
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    ObjectCodecTester.newBuilder(
+            new InjectingObjectCodecAdapter<>(Path.CODEC, FsUtils.TEST_FILESYSTEM_PROVIDER))
+        .addSubjects(
+            ImmutableList.of(
+                FsUtils.TEST_FILESYSTEM.getPath("/"),
+                FsUtils.TEST_FILESYSTEM.getPath("/some/path"),
+                FsUtils.TEST_FILESYSTEM.getPath("/some/other/path/with/empty/last/fragment/")))
+        .buildAndRunTests();
   }
 
   private void assertAsFragmentWorks(String expected) {

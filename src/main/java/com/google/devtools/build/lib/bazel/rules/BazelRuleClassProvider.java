@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -109,6 +108,7 @@ import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
@@ -342,8 +342,7 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           builder.addSkylarkAccessibleTopLevels("cc_common", CcModule.INSTANCE);
 
-          builder.addConfig(
-              CppOptions.class, new CppConfigurationLoader(Functions.<String>identity()));
+          builder.addConfig(CppOptions.class, new CppConfigurationLoader(CpuTransformer.IDENTITY));
 
           builder.addBuildInfoFactory(new CppBuildInfo());
           builder.addDynamicTransitionMaps(CppRuleClasses.DYNAMIC_TRANSITIONS_MAP);
