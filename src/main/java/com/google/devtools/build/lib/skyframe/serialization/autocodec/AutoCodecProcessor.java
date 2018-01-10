@@ -236,7 +236,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
     MethodSpec.Builder serializeBuilder =
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, parameters.dependency);
     for (VariableElement parameter : parameters.fields) {
-      VariableElement field = getFieldByName(encodedType, parameter.getSimpleName().toString());
+      VariableElement field =
+          getFieldByName(encodedType, parameter.getSimpleName().toString()).value;
       TypeKind typeKind = field.asType().getKind();
       switch (typeKind) {
         case BOOLEAN:
@@ -429,23 +430,22 @@ public class AutoCodecProcessor extends AbstractProcessor {
       List<? extends VariableElement> parameters) {
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
     for (VariableElement param : parameters) {
-      VariableElement field = getFieldByName(encodedType, param.getSimpleName().toString());
-      if (!env.getTypeUtils().isSameType(field.asType(), param.asType())) {
+      FieldValueAndClass field = getFieldByName(encodedType, param.getSimpleName().toString());
+      if (!env.getTypeUtils().isSameType(field.value.asType(), param.asType())) {
         throw new IllegalArgumentException(
             encodedType.getQualifiedName()
                 + " field "
-                + field.getSimpleName()
+                + field.value.getSimpleName()
                 + " has mismatching type.");
       }
       builder.addField(
           TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
       constructor.beginControlFlow("try");
-      // TODO(shahan): also support fields defined in superclasses if needed.
       constructor.addStatement(
           "this.$L_offset = $T.getInstance().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
           param.getSimpleName(),
           UnsafeProvider.class,
-          encodedType.asType(),
+          field.declaringClassType,
           param.getSimpleName());
       constructor.nextControlFlow("catch ($T e)", NoSuchFieldException.class);
       constructor.addStatement("throw new $T(e)", IllegalStateException.class);
@@ -454,20 +454,45 @@ public class AutoCodecProcessor extends AbstractProcessor {
     builder.addMethod(constructor.build());
   }
 
+  /** The value of a field, as well as the class that directly declares it. */
+  private static class FieldValueAndClass {
+    final VariableElement value;
+    final TypeElement declaringClassType;
+
+    FieldValueAndClass(VariableElement value, TypeElement declaringClassType) {
+      this.value = value;
+      this.declaringClassType = declaringClassType;
+    }
+  }
+
   /**
    * Returns the VariableElement for the field named {@code name}.
    *
    * <p>Throws IllegalArgumentException if no such field is found.
    */
-  private static VariableElement getFieldByName(TypeElement type, String name) {
-    return ElementFilter.fieldsIn(type.getEnclosedElements())
-        .stream()
-        .filter(f -> f.getSimpleName().contentEquals(name))
-        .findAny()
+  private FieldValueAndClass getFieldByName(TypeElement type, String name) {
+    return getFieldByNameRecursive(type, name)
         .orElseThrow(
             () ->
                 new IllegalArgumentException(
                     type.getQualifiedName() + ": no field with name matching " + name));
+  }
+
+  private Optional<FieldValueAndClass> getFieldByNameRecursive(TypeElement type, String name) {
+    Optional<VariableElement> field =
+        ElementFilter.fieldsIn(type.getEnclosedElements())
+            .stream()
+            .filter(f -> f.getSimpleName().contentEquals(name))
+            .findAny();
+
+    if (field.isPresent()) {
+      return Optional.of(new FieldValueAndClass(field.get(), type));
+    }
+    if (type.getSuperclass().getKind() != TypeKind.NONE) {
+      return getFieldByNameRecursive(
+          env.getElementUtils().getTypeElement(type.getSuperclass().toString()), name);
+    }
+    return Optional.empty();
   }
 
   private static TypeSpec.Builder buildClassWithPolymorphicStrategy(
