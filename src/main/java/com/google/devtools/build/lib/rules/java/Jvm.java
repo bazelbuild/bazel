@@ -20,18 +20,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /**
  * This class represents a Java virtual machine with a path.
  */
 @AutoCodec
-@SkylarkModule(
-  name = "jvm",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
-  doc = "A configuration fragment representing the Java virtual machine."
-)
 @Immutable
 public final class Jvm extends BuildConfiguration.Fragment {
   public static final ObjectCodec<Jvm> CODEC = new Jvm_AutoCodec();

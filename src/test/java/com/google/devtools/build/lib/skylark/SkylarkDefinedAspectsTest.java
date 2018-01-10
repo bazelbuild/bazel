@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -203,7 +203,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "def _impl(target, ctx):",
         "   print('This aspect does nothing')",
         "   return struct()",
-        "MyAspect = aspect(implementation=_impl, fragments=['jvm'], host_fragments=['cpp'])");
+        "MyAspect = aspect(implementation=_impl, fragments=['java'], host_fragments=['cpp'])");
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -212,11 +212,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AspectDefinition aspectDefinition = aspectValue.getAspect().getDefinition();
     assertThat(
         aspectDefinition.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(Jvm.class, ConfigurationTransitionProxy.NONE))
+            .isLegalConfigurationFragment(JavaConfiguration.class,
+                ConfigurationTransitionProxy.NONE))
         .isTrue();
     assertThat(
         aspectDefinition.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(Jvm.class, HostTransition.INSTANCE))
+            .isLegalConfigurationFragment(JavaConfiguration.class, HostTransition.INSTANCE))
         .isFalse();
     assertThat(
         aspectDefinition.getConfigurationFragmentPolicy()
