@@ -249,15 +249,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // [*] The only library link type is STATIC_LIBRARY. EXECUTABLE specifies a normal
     // cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
     // output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
-    CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-    if (linkCompileOutputSeparately) {
-      Info.LinkingInfo linkingInfo =
-          linkingHelper.link(ccCompilationOutputs, cppCompilationContext);
-      ccLinkingOutputs = linkingInfo.getCcLinkingOutputs();
-      linkingHelper.setLinkType(LinkTargetType.STATIC_LIBRARY);
-    } else {
-      linkingHelper.setLinkType(linkType);
-    }
+    linkingHelper.setLinkType(
+        linkCompileOutputSeparately ? LinkTargetType.STATIC_LIBRARY : linkType);
+    Info.LinkingInfo linkingInfo = linkingHelper.link(ccCompilationOutputs, cppCompilationContext);
 
     CcLinkParams linkParams =
         collectCcLinkParams(
@@ -274,7 +268,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             common,
             precompiledFiles,
             ccCompilationOutputs,
-            ccLinkingOutputs,
+            linkingInfo.getCcLinkingOutputs(),
             cppCompilationContext.getTransitiveCompilationPrerequisites(),
             fake,
             binary,
@@ -454,7 +448,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             ccToolchain,
             linkingOutputs,
-            ccLinkingOutputs,
+            linkingInfo.getCcLinkingOutputs(),
             cppCompilationContext,
             linkStaticness,
             filesToBuild,
