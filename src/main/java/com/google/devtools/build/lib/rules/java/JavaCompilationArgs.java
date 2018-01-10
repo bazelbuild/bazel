@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.FileType;
-import java.util.Collection;
 
 /** A container of Java compilation artifacts. */
 @AutoValue
@@ -96,6 +95,15 @@ public abstract class JavaCompilationArgs {
     private Builder() {
     }
 
+    public static Builder copyOf(Builder builder){
+      Builder result = new Builder();
+      result.addTransitiveRuntimeJars(builder.runtimeJarsBuilder.build());
+      result.addTransitiveCompileTimeJars(builder.compileTimeJarsBuilder.build());
+      result.addTransitiveFullCompileTimeJars(builder.fullCompileTimeJarsBuilder.build());
+      result.addInstrumentationMetadata(builder.instrumentationMetadataBuilder.build());
+      return result;
+    }
+
     /**
      * Legacy method for dealing with objects which construct
      * {@link JavaCompilationArtifacts} objects.
@@ -155,6 +163,11 @@ public abstract class JavaCompilationArgs {
       return this;
     }
 
+    public Builder addFullCompileTimeJar(Artifact fullCompileTimeJar) {
+      this.fullCompileTimeJarsBuilder.add(fullCompileTimeJar);
+      return this;
+    }
+
     public Builder addTransitiveCompileTimeJars(NestedSet<Artifact> compileTimeJars) {
       this.compileTimeJarsBuilder.addTransitive(compileTimeJars);
       return this;
@@ -170,7 +183,7 @@ public abstract class JavaCompilationArgs {
       return this;
     }
 
-    public Builder addInstrumentationMetadata(Collection<Artifact> instrumentationMetadata) {
+    public Builder addInstrumentationMetadata(Iterable<Artifact> instrumentationMetadata) {
       this.instrumentationMetadataBuilder.addAll(instrumentationMetadata);
       return this;
     }

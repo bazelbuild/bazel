@@ -13,28 +13,40 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.syntax.SkylarkType.BOOL;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -48,8 +60,82 @@ import javax.annotation.Nullable;
 @Immutable
 public final class JavaInfo extends NativeInfo {
 
+  public static final String SKYLARK_NAME = "JavaInfo";
+
+  private static final SkylarkType SEQUENCE_OF_ARTIFACTS =
+      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(Artifact.class));
+  private static final SkylarkType SEQUENCE_OF_JAVA_INFO =
+      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(JavaInfo.class));
+  private static final SkylarkType LIST_OF_ARTIFACTS =
+      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(Artifact.class));
+
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /*numMandatoryPositionals=*/ 0,
+              /*numOptionalPositionals=*/ 0,
+              /*numMandatoryNamedOnly=*/ 1,
+              /*starArg=*/ false,
+              /*kwArg=*/ false,
+              "output_jar",
+              "sources",
+              "source_jars",
+              "use_ijar",
+              "neverlink",
+              "deps",
+              "runtime_deps",
+              "exports",
+              "actions",
+              "java_toolchain"),
+
+          /*defaultValues=*/ Arrays.asList(
+              SkylarkList.createImmutable(Collections.emptyList()), // sources
+              SkylarkList.createImmutable(Collections.emptyList()), // source_jars
+              Boolean.TRUE, // use_ijar
+              Boolean.FALSE, // neverlink
+              SkylarkList.createImmutable(Collections.emptyList()), // deps
+              SkylarkList.createImmutable(Collections.emptyList()), // runtime_deps
+              SkylarkList.createImmutable(Collections.emptyList()), // exports
+              Runtime.NONE, // actions
+              Runtime.NONE), // java_toolchain
+          /*types=*/ ImmutableList.of(
+              SkylarkType.of(Artifact.class), // output_jar
+              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // sources
+              SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // source_jars
+              BOOL, // use_ijar
+              BOOL, // neverlink
+              SEQUENCE_OF_JAVA_INFO, // deps
+              SEQUENCE_OF_JAVA_INFO, // runtime_deps
+              SEQUENCE_OF_JAVA_INFO, // exports
+              SkylarkType.of(SkylarkActionFactory.class), // actions
+              SkylarkType.of(ConfiguredTarget.class))); // java_toolchain
+
   public static final NativeProvider<JavaInfo> PROVIDER =
-      new NativeProvider<JavaInfo>(JavaInfo.class, "JavaInfo") {};
+      new NativeProvider<JavaInfo>(JavaInfo.class, SKYLARK_NAME, SIGNATURE) {
+
+        @Override
+        @SuppressWarnings("unchecked")
+        protected JavaInfo createInstanceFromSkylark(Object[] args, Location loc)
+            throws EvalException {
+
+          JavaInfo javaInfo =
+              JavaInfoBuildHelper.getInstance()
+                  .createJavaInfo(
+                      (Artifact) args[0],
+                      (SkylarkList<Artifact>) args[1],
+                      (SkylarkList<Artifact>) args[2],
+                      (Boolean) args[3],
+                      (Boolean) args[4],
+                      (SkylarkList<JavaInfo>) args[5],
+                      (SkylarkList<JavaInfo>) args[6],
+                      (SkylarkList<JavaInfo>) args[7],
+                      args[8],
+                      args[9],
+                      loc);
+
+          return javaInfo;
+        }
+      };
 
   public static final JavaInfo EMPTY = JavaInfo.Builder.create().build();
 
@@ -206,8 +292,8 @@ public final class JavaInfo extends NativeInfo {
     return providersList.build();
   }
 
-  private JavaInfo(TransitiveInfoProviderMap providers, boolean neverlink) {
-    super(PROVIDER);
+  private JavaInfo(TransitiveInfoProviderMap providers, boolean neverlink, Location location) {
+    super(PROVIDER, ImmutableMap.of(), location);
     this.providers = providers;
     this.neverlink = neverlink;
   }
@@ -430,6 +516,7 @@ public final class JavaInfo extends NativeInfo {
   public static class Builder {
     TransitiveInfoProviderMapBuilder providerMap;
     private boolean neverlink;
+    private Location location = Location.BUILTIN;
 
     private Builder(TransitiveInfoProviderMapBuilder providerMap) {
       this.providerMap = providerMap;
@@ -449,6 +536,11 @@ public final class JavaInfo extends NativeInfo {
       return this;
     }
 
+    public Builder setLocation(Location location) {
+      this.location = location;
+      return this;
+    }
+
     public <P extends TransitiveInfoProvider> Builder addProvider(
         Class<P> providerClass, TransitiveInfoProvider provider) {
       Preconditions.checkArgument(ALLOWED_PROVIDERS.contains(providerClass));
@@ -457,7 +549,7 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public JavaInfo build() {
-      return new JavaInfo(providerMap.build(), neverlink);
+      return new JavaInfo(providerMap.build(), neverlink, location);
     }
   }
 }

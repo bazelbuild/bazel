@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
@@ -1453,6 +1454,337 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
   }
 
+  @Test
+  public void javaInfoBuildHelperCreateJavaInfoWithOutputJarOnly() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  javaInfo = JavaInfo(",
+        "    output_jar = ctx.file.output_jar, ",
+        "    use_ijar = False",
+        "  )",
+        "  return [result(property = javaInfo)]",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep' : attr.label(), ",
+        "    'output_jar' : attr.label(allow_single_file=True)",
+        "  }",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'my_skylark_rule',",
+        "  output_jar = 'my_skylark_rule_lib.jar'",
+        ")");
+    assertNoEvents();
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    Info info =
+        myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
+
+    @SuppressWarnings("unchecked")
+    JavaInfo javaInfo = (JavaInfo) info.getValue("property");
+
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        javaInfo.getProvider(JavaCompilationArgsProvider.class);
+
+
+    assertThat(
+        prettyJarNames(javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+
+
+
+
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider
+                .getRecursiveJavaCompilationArgs()
+                .getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+
+
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+  }
+
+  @Test
+  public void javaInfoBuildHelperCreateJavaInfoWithOutputJarAndUseIJar() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  javaInfo = JavaInfo(",
+        "    output_jar = ctx.file.output_jar,",
+        "    use_ijar = True,",
+        "    actions = ctx.actions,",
+        "    java_toolchain = ctx.attr._java_toolchain",
+        "  )",
+        "  return [result(property = javaInfo)]",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep' : attr.label(),",
+        "    'output_jar' : attr.label(allow_single_file=True),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'my_skylark_rule',",
+        "  output_jar = 'my_skylark_rule_lib.jar'",
+        ")");
+    assertNoEvents();
+
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
+
+    assertThat(
+        prettyJarNames(javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib-ijar.jar");
+
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider
+                .getRecursiveJavaCompilationArgs()
+                .getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib-ijar.jar");
+  }
+
+  @Test
+  public void javaInfoBuildHelperCreateJavaInfoWithDeps() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  dp = [dep[java_common.provider] for dep in ctx.attr.dep]",
+        "  javaInfo = JavaInfo(",
+        "    output_jar = ctx.file.output_jar,",
+        "    use_ijar = False,",
+        "    deps = dp",
+        "  )",
+        "  return [result(property = javaInfo)]",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep' : attr.label_list(), ",
+        "    'output_jar' : attr.label(allow_single_file=True), ",
+        "  }",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(name = 'my_skylark_rule',",
+        "        output_jar = 'my_skylark_rule_lib.jar',",
+        "        dep = [':my_java_lib_direct']",
+        ")");
+    assertNoEvents();
+
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
+
+    assertThat(
+        prettyJarNames(javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider
+                .getRecursiveJavaCompilationArgs()
+                .getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct-hjar.jar");
+  }
+
+  @Test
+  public void javaInfoBuildHelperCreateJavaInfoWithRunTimeDeps() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  dp = [dep[java_common.provider] for dep in ctx.attr.dep]",
+        "  javaInfo = JavaInfo(",
+        "    output_jar = ctx.file.output_jar,",
+        "    use_ijar = False,",
+        "    runtime_deps = dp",
+        "  )",
+        "  return [result(property = javaInfo)]",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep' : attr.label_list(), ",
+        "    'output_jar' : attr.label(allow_single_file=True), ",
+        "  }",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(name = 'my_skylark_rule',",
+        "        output_jar = 'my_skylark_rule_lib.jar',",
+        "        dep = [':my_java_lib_direct']",
+        ")");
+    assertNoEvents();
+
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
+
+    assertThat(
+        prettyJarNames(javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider
+                .getRecursiveJavaCompilationArgs()
+                .getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+  }
+
+  @Test
+  public void javaInfoBuildHelperCreateJavaInfoWithDepsAndNeverLink() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  dp = [dep[java_common.provider] for dep in ctx.attr.dep]",
+        "  javaInfo = JavaInfo(",
+        "    output_jar = ctx.file.output_jar, ",
+        "    use_ijar = False,",
+        "    deps = dp,",
+        "    neverlink = True",
+        "  )",
+        "  return [result(property = javaInfo)]",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep' : attr.label_list(), ",
+        "    'output_jar' : attr.label(allow_single_file=True), ",
+        "  }",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(name = 'my_skylark_rule',",
+        "        output_jar = 'my_skylark_rule_lib.jar',",
+        "        dep = [':my_java_lib_direct']",
+        ")");
+    assertNoEvents();
+
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
+
+    assertThat(
+        prettyJarNames(javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars()))
+        .isEmpty();
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
+        .isEmpty();
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider
+                .getRecursiveJavaCompilationArgs()
+                .getFullCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
+    assertThat(
+        prettyJarNames(
+            javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars()))
+        .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct-hjar.jar");
+  }
+
+  private JavaInfo fetchJavaInfo() throws LabelSyntaxException {
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    Info info =
+        myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
+
+    @SuppressWarnings("unchecked")
+    JavaInfo javaInfo = (JavaInfo) info.getValue("property");
+    return javaInfo;
+  }
   private void writeBuildFileForJavaToolchain() throws Exception  {
     scratch.file("java/com/google/test/turbine_canary_deploy.jar");
     scratch.file("java/com/google/test/tzdata.jar");
