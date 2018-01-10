@@ -81,12 +81,12 @@ class LambdaClassMaker {
     if (!Files.exists(rootPathPrefix.getParent())) {
       return ImmutableList.of();
     }
-    try (Stream<Path> paths =
-        Files.list(rootPathPrefix.getParent())
-            .filter(
-                path -> path.toString().startsWith(rootPathPrefixStr)
-                    && !existingPaths.contains(path))) {
-      return paths.collect(ImmutableList.toImmutableList());
+    try (Stream<Path> paths = Files.list(rootPathPrefix.getParent())) {
+      return paths
+          .filter(
+              path ->
+                  path.toString().startsWith(rootPathPrefixStr) && !existingPaths.contains(path))
+          .collect(ImmutableList.toImmutableList());
     }
   }
 }
