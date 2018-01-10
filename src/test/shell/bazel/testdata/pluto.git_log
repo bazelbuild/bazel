@@ -1,4 +1,40 @@
-commit b87de9346bb1a4a3d4d2ab1a567b07c5d11a486a (HEAD -> master, tag: 1-build)
+commit a367b7e7f8f362697a079b7d23935bd079058af8 (HEAD -> master, tag: 3-subdir-bare)
+Author: John Doe <john@foo.com>
+Date:   Fri Dec 29 20:33:35 2017 -0500
+
+    Remove BUILD and WORKSPACE files
+
+diff --git a/WORKSPACE b/WORKSPACE
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/pluto/BUILD b/pluto/BUILD
+deleted file mode 100644
+index 874e03f..0000000
+--- a/pluto/BUILD
++++ /dev/null
+@@ -1,5 +0,0 @@
+-filegroup(
+-    name = "pluto",
+-    srcs = ["info"],
+-    visibility = ["//visibility:public"],
+-)
+
+commit ceab34fb9b4b9370d52dd5153074089a51bfb50e (tag: 2-subdir)
+Author: John Doe <john@foo.com>
+Date:   Wed Dec 27 20:54:31 2017 +0000
+
+    Move pluto files into pluto subdirectory
+
+diff --git a/BUILD b/pluto/BUILD
+similarity index 100%
+rename from BUILD
+rename to pluto/BUILD
+diff --git a/info b/pluto/info
+similarity index 100%
+rename from info
+rename to pluto/info
+
+commit b87de9346bb1a4a3d4d2ab1a567b07c5d11a486a (tag: 1-build)
 Author: John Doe <john@foo.com>
 Date:   Thu Jul 16 04:50:53 2015 -0700
 

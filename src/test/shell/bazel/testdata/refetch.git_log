@@ -1,4 +1,15 @@
-commit 62777acc140a240a3ec8fa1adecaa6bc9e25ccdd (HEAD -> master)
+commit b0a2adafea74d36e0374a119eab6623dbe5ba418 (HEAD -> master)
+Author: John Doe <john@foo.com>
+Date:   Fri Dec 29 18:36:06 2017 -0500
+
+    Move BUILD into a subdirectory
+
+diff --git a/BUILD b/gdir/BUILD
+similarity index 100%
+rename from BUILD
+rename to gdir/BUILD
+
+commit 62777acc140a240a3ec8fa1adecaa6bc9e25ccdd
 Author: John Doe <john@foo.com>
 Date:   Wed Nov 25 13:20:07 2015 +0100
 

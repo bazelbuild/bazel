@@ -58,7 +58,16 @@ function set_up() {
 #   BUILD
 #   info
 #
-# Then, set up workspace with the following files:
+# Followed by a test at 2-subdir which contains the following files to test
+# the strip_prefix functionality:
+#
+# pluto/
+#   pluto/
+#     WORKSPACE
+#     BUILD
+#     info
+#
+# In each case, set up workspace with the following files:
 #
 # $WORKSPACE_DIR/
 #   WORKSPACE
@@ -67,11 +76,12 @@ function set_up() {
 #     planet_info.sh
 #
 # //planets has a dependency on a target in the pluto Git repository.
-function test_git_repository() {
+function do_git_repository_test() {
   local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
-  # Commit 85b8224 corresponds to tag 1-build. See testdata/pluto.git_log.
-  local commit_hash="b87de93"
-
+  # Commit corresponds to tag 1-build. See testdata/pluto.git_log.
+  local commit_hash="$1"
+  local strip_prefix=""
+  [ $# -eq 2 ] && strip_prefix="strip_prefix=\"$2\","
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
@@ -80,6 +90,7 @@ git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
     commit = "$commit_hash",
+    $strip_prefix
 )
 EOF
   mkdir -p planets
@@ -102,12 +113,30 @@ EOF
   expect_log "Pluto is a dwarf planet"
 }
 
+function test_git_repository() {
+  do_git_repository_test "b87de93"
+}
+
+function test_git_repository_strip_prefix() {
+  # This commit has the files in a subdirectory named 'pluto'
+  # so we strip_prefix and the build should still work.
+  do_git_repository_test "ceab34f" "pluto"
+}
+
 function test_new_git_repository_with_build_file() {
-  do_new_git_repository_test "build_file"
+  do_new_git_repository_test "0-initial" "build_file"
+}
+
+function test_new_git_repository_with_build_file_strip_prefix() {
+  do_new_git_repository_test "3-subdir-bare" "build_file" "pluto"
 }
 
 function test_new_git_repository_with_build_file_content() {
-  do_new_git_repository_test "build_file_content"
+  do_new_git_repository_test "0-initial" "build_file_content"
+}
+
+function test_new_git_repository_with_build_file_content_strip_prefix() {
+  do_new_git_repository_test "3-subdir-bare" "build_file_content" "pluto"
 }
 
 # Test cloning a Git repository using the new_git_repository rule.
@@ -117,6 +146,12 @@ function test_new_git_repository_with_build_file_content() {
 #
 # pluto/
 #   info
+#
+# Then it uses the pluto Git repository at tag 3-subdir-bare, which contains the
+# following files:
+# pluto/
+#   pluto/
+#     info
 #
 # Set up workspace with the following files:
 #
@@ -131,18 +166,21 @@ function test_new_git_repository_with_build_file_content() {
 # repository.
 function do_new_git_repository_test() {
   local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local strip_prefix=""
+  [ $# -eq 3 ] && strip_prefix="strip_prefix=\"$3\","
 
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
 
-  if [ "$1" == "build_file" ] ; then
+  if [ "$2" == "build_file" ] ; then
     cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
-    tag = "0-initial",
+    tag = "$1",
     build_file = "//:pluto.BUILD",
+    $strip_prefix
 )
 EOF
 
@@ -162,7 +200,8 @@ load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
-    tag = "0-initial",
+    tag = "$1",
+    $strip_prefix
     build_file_content = """
 filegroup(
     name = "pluto",
@@ -189,8 +228,12 @@ EOF
   chmod +x planets/planet_info.sh
 
   bazel run //planets:planet-info >& $TEST_log \
-    || echo "Expected build/run to succeed"
-  expect_log "Pluto is a planet"
+      || echo "Expected build/run to succeed"
+  if [ "$1" == "0-initial" ]; then
+      expect_log "Pluto is a planet"
+  else
+      expect_log "Pluto is a dwarf planet"
+  fi
 }
 
 # Test cloning a Git repository that has a submodule using the
@@ -316,6 +359,26 @@ EOF
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
 
+function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
+  local repo_dir=$TEST_TMPDIR/repos/refetch
+  # Change the strip_prefix which should cause a new checkout
+  cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='b0a2ada', verbose=True)
+EOF
+  bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
+  expect_log "Cloning"
+  assert_contains "GIT 2" bazel-genfiles/external/g/gdir/go
+
+  cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='b0a2ada', verbose=True, strip_prefix="gdir")
+EOF
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  expect_log "Cloning"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
+}
+
 
 function test_git_repository_refetched_when_commit_changes() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
@@ -366,6 +429,17 @@ EOF
   assert_contains "GIT 1" bazel-genfiles/external/g/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
+
+  cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='g', remote='$repo_dir', commit='b0a2ada', strip_prefix="gdir")
+EOF
+
+  bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
+  expect_log "External repository 'g' is not up-to-date"
+  bazel build  @g//:g >& $TEST_log || fail "Build failed"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
+
 }
 
 # Helper function for setting up the workspace as follows
@@ -403,7 +477,7 @@ EOF
 #   info
 function test_git_repository_both_commit_tag_error() {
   setup_error_test
-  local pluto_repo_dir=$TEST_TMPDIR/pluto
+  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
   # Commit 85b8224 corresponds to tag 1-build. See testdata/pluto.git_log.
   local commit_hash="b87de93"
 
@@ -434,7 +508,7 @@ EOF
 #   info
 function test_git_repository_no_commit_tag_error() {
   setup_error_test
-  local pluto_repo_dir=$TEST_TMPDIR/pluto
+  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
@@ -448,6 +522,28 @@ EOF
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "Exactly one of commit and tag must be provided"
+}
+
+# Verifies that if a non-existent subdirectory is supplied, then strip_prefix
+# throws an error.
+function test_invalid_strip_prefix_error() {
+  setup_error_test
+  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+
+  cd $WORKSPACE_DIR
+  cat > WORKSPACE <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    strip_prefix = "dir_does_not_exist"
+)
+EOF
+
+  bazel fetch //planets:planet-info >& $TEST_log \
+    || echo "Expect run to fail."
+  expect_log "strip_prefix at dir_does_not_exist does not exist in repo"
 }
 
 run_suite "skylark git_repository tests"
