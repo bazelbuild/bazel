@@ -176,8 +176,6 @@ public final class JavaConfiguration extends Fragment {
   private final boolean useLegacyBazelJavaTest;
 
   JavaConfiguration(
-      boolean generateJavaDeps,
-      List<String> defaultJvmFlags,
       JavaOptions javaOptions)
       throws InvalidConfigurationException {
     this.commandLineJavacFlags =
@@ -186,9 +184,10 @@ public final class JavaConfiguration extends Fragment {
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
     this.headerCompilationDisableJavacFallback = javaOptions.headerCompilationDisableJavacFallback;
-    this.generateJavaDeps = generateJavaDeps;
+    this.generateJavaDeps =
+        javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
     this.javaClasspath = javaOptions.javaClasspath;
-    this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
+    this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.jvmOpts);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
     this.proguardBinary = javaOptions.proguard;
