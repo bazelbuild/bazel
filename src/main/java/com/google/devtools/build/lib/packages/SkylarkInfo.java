@@ -39,11 +39,8 @@ import javax.annotation.Nullable;
 public abstract class SkylarkInfo extends Info implements Concatable {
 
   // Private because this should not be subclassed outside this file.
-  private SkylarkInfo(
-      Provider provider,
-      @Nullable Location loc,
-      @Nullable String errorMessageFormatForUnknownField) {
-    super(provider, loc, errorMessageFormatForUnknownField);
+  private SkylarkInfo(Provider provider, @Nullable Location loc) {
+    super(provider, loc);
   }
 
   @Override
@@ -90,10 +87,15 @@ public abstract class SkylarkInfo extends Info implements Concatable {
    * Creates a schemaless (map-based) provider instance with the given provider type, field values,
    * and unknown-field error message.
    *
-   * <p>The creation location will be {@link Location#BUILTIN}.
-   *
    * <p>This is used to create structs for special purposes, such as {@code ctx.attr} and the
-   * {@code native} module.
+   * {@code native} module. The creation location will be {@link Location#BUILTIN}.
+   *
+   * <p>{@code errorMessageFormatForUnknownField} is a string format, as for {@link
+   * Provider#getErrorMessageFormatForUnknownField}.
+   *
+   * <p>It is preferred to not use this method. Instead, create a new subclass of {@link
+   * NativeProvider} with the desired error message format, and create a corresponding {@link
+   * NativeInfo} subclass.
    */
   // TODO(bazel-team): Make the special structs that need a custom error message use a different
   // provider (subclassing NativeProvider) and a different Info implementation. Then remove this
@@ -123,8 +125,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
   public static SkylarkInfo createSchemaful(
       SkylarkProvider provider, Object[] values, @Nullable Location loc) {
     Preconditions.checkArgument(provider.getLayout() != null, "provider cannot be schemaless");
-    return new CompactSkylarkInfo(
-        provider, provider.getLayout(), values, loc, /*errorMessageFormatForUnknownField=*/ null);
+    return new CompactSkylarkInfo(provider, provider.getLayout(), values, loc);
   }
 
   /**
@@ -142,8 +143,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
       ImmutableMap<String, Integer> layout,
       Object[] values,
       @Nullable Location loc) {
-    return new CompactSkylarkInfo(
-        provider, layout, values, loc, /*errorMessageFormatForUnknownField=*/ null);
+    return new CompactSkylarkInfo(provider, layout, values, loc);
   }
 
   /** Returns the layout for this provider if it is schemaful, null otherwise. */
@@ -159,13 +159,22 @@ public abstract class SkylarkInfo extends Info implements Concatable {
 
     private final ImmutableMap<String, Object> values;
 
+    /**
+     * Formattable string with one {@code '%s'} placeholder for the missing field name.
+     *
+     * <p>If null, uses the default format specified by the provider.
+     */
+    @Nullable
+    private final String errorMessageFormatForUnknownField;
+
     MapBackedSkylarkInfo(
         Provider provider,
         Map<String, Object> values,
         @Nullable Location loc,
         @Nullable String errorMessageFormatForUnknownField) {
-      super(provider, loc, errorMessageFormatForUnknownField);
+      super(provider, loc);
       this.values = copyValues(values);
+      this.errorMessageFormatForUnknownField = errorMessageFormatForUnknownField;
     }
 
     @Override
@@ -189,6 +198,12 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
+    protected String getErrorMessageFormatForUnknownField() {
+      return errorMessageFormatForUnknownField != null
+          ? errorMessageFormatForUnknownField : super.getErrorMessageFormatForUnknownField();
+    }
+
+    @Override
     public ImmutableMap<String, Integer> getLayout() {
       return null;
     }
@@ -205,9 +220,8 @@ public abstract class SkylarkInfo extends Info implements Concatable {
         Provider provider,
         ImmutableMap<String, Integer> layout,
         Object[] values,
-        @Nullable Location loc,
-        @Nullable String errorMessageFormatForUnknownField) {
-      super(provider, loc, errorMessageFormatForUnknownField);
+        @Nullable Location loc) {
+      super(provider, loc);
       this.layout = Preconditions.checkNotNull(layout);
       Preconditions.checkArgument(
           layout.size() == values.length,

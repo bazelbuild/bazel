@@ -57,33 +57,16 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
    */
   private final Location location;
 
-  /** Formattable string with one {@code '%s'} placeholder for the missing field name. */
-  private final String errorMessageFormatForUnknownField;
-
-  // Ideally we'd use a builder pattern for Info, but that would be cumbersome since it doesn't mix
-  // well with inheritance. Instead, we just use nullable constructor args.
-
   /**
    * Constructs an {@link Info}.
    *
    * @param provider the provider describing the type of this instance
    * @param location the Skylark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
-   * @param errorMessageFormatForUnknownField a string format, as for {@link
-   *     Provider#getErrorMessageFormatForUnknownField}. If null, defaults to the format specified
-   *     by the provider. It is preferred to not use this field; instead, create a new subclass of
-   *     {@link NativeProvider}.
    */
-  protected Info(
-      Provider provider,
-      @Nullable Location location,
-      @Nullable String errorMessageFormatForUnknownField) {
+  protected Info(Provider provider, @Nullable Location location) {
     this.provider = Preconditions.checkNotNull(provider);
     this.location = location == null ? Location.BUILTIN : location;
-    this.errorMessageFormatForUnknownField =
-        errorMessageFormatForUnknownField == null
-            ? provider.getErrorMessageFormatForUnknownField()
-            : errorMessageFormatForUnknownField;
   }
 
   /**
@@ -155,11 +138,20 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   @Override
   public abstract ImmutableCollection<String> getFieldNames();
 
+  /**
+   * Returns the error message format to use for unknown fields.
+   *
+   * <p>By default, it is the one specified by the provider.
+   */
+  protected String getErrorMessageFormatForUnknownField() {
+    return provider.getErrorMessageFormatForUnknownField();
+  }
+
   @Override
   public String getErrorMessageForUnknownField(String name) {
     String suffix = "Available attributes: "
         + Joiner.on(", ").join(Ordering.natural().sortedCopy(getFieldNames()));
-    return String.format(errorMessageFormatForUnknownField, name) + "\n" + suffix;
+    return String.format(getErrorMessageFormatForUnknownField(), name) + "\n" + suffix;
   }
 
   @Override
