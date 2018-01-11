@@ -52,8 +52,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   private final SpawnRunner spawnRunner;
   private final AtomicInteger execCount = new AtomicInteger();
 
-  public AbstractSpawnStrategy(SpawnRunner spawnRunner) {
-    this.spawnInputExpander = new SpawnInputExpander(false);
+  public AbstractSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
+    this.spawnInputExpander = new SpawnInputExpander(execRoot, false);
     this.spawnRunner = spawnRunner;
   }
 

@@ -136,6 +136,7 @@ public class StandaloneSpawnStrategyTest {
             ImmutableMap.<String, SpawnActionContext>of(
                 "",
                 new StandaloneSpawnStrategy(
+                    execRoot,
                     new LocalSpawnRunner(
                         execRoot,
                         localExecutionOptions,

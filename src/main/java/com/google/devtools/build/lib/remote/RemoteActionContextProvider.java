@@ -82,7 +82,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               cache,
               executor,
               digestUtil);
-      return ImmutableList.of(new RemoteSpawnStrategy(spawnRunner));
+      return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }
 

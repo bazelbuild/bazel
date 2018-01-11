@@ -47,7 +47,8 @@ final class WorkerActionContextProvider extends ActionContextProvider {
             env.getReporter(),
             createFallbackRunner(env));
 
-    WorkerSpawnStrategy workerSpawnStrategy = new WorkerSpawnStrategy(spawnRunner);
+    WorkerSpawnStrategy workerSpawnStrategy =
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner);
     TestActionContext workerTestStrategy =
         new WorkerTestStrategy(env, env.getOptions(), workers, extraFlags);
     this.strategies = ImmutableList.of(workerSpawnStrategy, workerTestStrategy);

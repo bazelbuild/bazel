@@ -67,7 +67,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
               cmdEnv,
               new ProcessWrapperSandboxedSpawnRunner(
                   cmdEnv, sandboxBase, productName, timeoutKillDelay));
-      contexts.add(new ProcessWrapperSandboxedStrategy(spawnRunner));
+      contexts.add(new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on Linux.
@@ -76,7 +76,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
           withFallback(
               cmdEnv,
               LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, productName, timeoutKillDelay));
-      contexts.add(new LinuxSandboxedStrategy(spawnRunner));
+      contexts.add(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
     // This is the preferred sandboxing strategy on macOS.
@@ -85,7 +85,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
           withFallback(
               cmdEnv,
               new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, productName, timeoutKillDelay));
-      contexts.add(new DarwinSandboxedStrategy(spawnRunner));
+      contexts.add(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
     return new SandboxActionContextProvider(contexts.build());

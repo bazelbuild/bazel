@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -44,13 +45,14 @@ public class SpawnInputExpander {
   @VisibleForTesting
   static final ActionInput EMPTY_FILE = new EmptyActionInput("/dev/null");
 
+  private final Path execRoot;
   private final boolean strict;
 
   /**
    * Creates a new instance. If strict is true, then the expander checks for directories in runfiles
    * and throws an exception if it finds any. Otherwise it silently ignores directories in runfiles
-   * and adds a mapping for them. At this time, directories in filesets are always silently added
-   * as mappings.
+   * and adds a mapping for them. At this time, directories in filesets are always silently added as
+   * mappings.
    *
    * <p>Directories in inputs are a correctness issue: Bazel only tracks dependencies at the action
    * level, and it does not track dependencies on directories. Making a directory available to a
@@ -61,7 +63,8 @@ public class SpawnInputExpander {
    * the subprocess. However, that's a breaking change, and therefore we make it depend on this flag
    * for now.
    */
-  public SpawnInputExpander(boolean strict) {
+  public SpawnInputExpander(Path execRoot, boolean strict) {
+    this.execRoot = execRoot;
     this.strict = strict;
   }
 
@@ -104,16 +107,15 @@ public class SpawnInputExpander {
   }
 
   /**
-   * Parses the fileset manifest file, adding to the inputMappings where
-   * appropriate. Lines referring to directories are recursed.
+   * Parses the fileset manifest file, adding to the inputMappings where appropriate. Lines
+   * referring to directories are recursed.
    */
   @VisibleForTesting
   void parseFilesetManifest(
       Map<PathFragment, ActionInput> inputMappings, Artifact manifest, String workspaceName)
-          throws IOException {
+      throws IOException {
     FilesetManifest filesetManifest =
-        FilesetManifest.parseManifestFile(
-            manifest, manifest.getRoot().getExecRoot(), workspaceName, ERROR);
+        FilesetManifest.parseManifestFile(manifest, execRoot, workspaceName, ERROR);
     for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
       String value = mapping.getValue();
       ActionInput artifact = value == null ? EMPTY_FILE : ActionInputHelper.fromPath(value);
