@@ -72,7 +72,6 @@ public class StandaloneTestStrategy extends TestStrategy {
           .put("PYTHON_RUNFILES", TestPolicy.RUNFILES_DIR)
           .put("RUNFILES_DIR", TestPolicy.RUNFILES_DIR)
           .put("TEST_TMPDIR", TestPolicy.TEST_TMP_DIR)
-          .put("HOME", TestPolicy.TEST_TMP_DIR)
           .put("RUN_UNDER_RUNFILES", "1")
           .build();
 
