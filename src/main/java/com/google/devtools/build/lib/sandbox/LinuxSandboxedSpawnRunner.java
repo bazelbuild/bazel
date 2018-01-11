@@ -185,7 +185,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         localEnvProvider.rewriteLocalEnv(
             spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment, tmpDir);
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     Duration timeout = policy.getTimeout();
 
@@ -235,10 +235,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected ImmutableSet<Path> getWritableDirs(
-      Path sandboxExecRoot, Map<String, String> env, Path tmpDir) throws IOException {
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
+      throws IOException {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
-    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env, tmpDir));
+    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
 
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
