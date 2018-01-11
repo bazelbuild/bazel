@@ -35,11 +35,15 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -53,16 +57,18 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A package, which is a container of {@link Rule}s, each of
- * which contains a dictionary of named attributes.
+ * A package, which is a container of {@link Rule}s, each of which contains a dictionary of named
+ * attributes.
  *
- * <p>Package instances are intended to be immutable and for all practical
- * purposes can be treated as such. Note, however, that some member variables
- * exposed via the public interface are not strictly immutable, so until their
- * types are guaranteed immutable we're not applying the {@code @Immutable}
- * annotation here.
+ * <p>Package instances are intended to be immutable and for all practical purposes can be treated
+ * as such. Note, however, that some member variables exposed via the public interface are not
+ * strictly immutable, so until their types are guaranteed immutable we're not applying the
+ * {@code @Immutable} annotation here.
  */
+@SuppressWarnings("JavaLangClash")
 public class Package {
+  public static final InjectingObjectCodec<Package, PackageCodecDependencies> CODEC =
+      new PackageCodec();
 
   /**
    * Common superclass for all name-conflict exceptions.
@@ -1550,6 +1556,35 @@ public class Package {
         message += target.getTargetKind();
       }
       return message + ", defined at " + target.getLocation();
+    }
+  }
+
+  /** Package codec implementation. */
+  private static final class PackageCodec
+      implements InjectingObjectCodec<Package, PackageCodecDependencies> {
+    @Override
+    public Class<Package> getEncodedClass() {
+      return Package.class;
+    }
+
+    @Override
+    public void serialize(
+        PackageCodecDependencies codecDeps, Package input, CodedOutputStream codedOut)
+        throws IOException {
+      codecDeps.getPackageSerializer().serialize(input, codedOut);
+    }
+
+    @Override
+    public Package deserialize(PackageCodecDependencies codecDeps, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      try {
+        return codecDeps.getPackageDeserializer().deserialize(codedIn);
+      } catch (PackageDeserializationException e) {
+        throw new SerializationException("Failed to deserialize Package", e);
+      } catch (InterruptedException e) {
+        throw new IllegalStateException(
+            "Unexpected InterruptedException during Package deserialization", e);
+      }
     }
   }
 }
