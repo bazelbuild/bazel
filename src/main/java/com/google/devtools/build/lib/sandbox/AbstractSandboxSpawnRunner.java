@@ -229,37 +229,24 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
    */
   protected ImmutableSet<Path> getWritableDirs(
       Path sandboxExecRoot, Map<String, String> env, Path tmpDir) throws IOException {
-    FileSystem fileSystem = sandboxExecRoot.getFileSystem();
-
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
     writablePaths.add(sandboxExecRoot);
-    String tmpDirString = env.get("TEST_TMPDIR");
-    if (tmpDirString != null) {
-      Path p = sandboxExecRoot.getRelative(tmpDirString);
-      if (p.startsWith(sandboxExecRoot)) {
-        // We add this path even though it is below sandboxExecRoot (and thus already writable as a
-        // subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
-        // needed directory if it doesn't exist yet.
-        writablePaths.add(p);
-      } else if (p.exists()) {
-        // If `p` itself is a symlink, then adding it to `writablePaths` would result in making the
-        // symlink itself writable, not what it points to. Therefore we need to resolve symlinks in
-        // `p`, however for that we need `p` to exist.
-        writablePaths.add(p.resolveSymbolicLinks());
-      } else {
-        throw new IOException(
-            String.format(
-                "Cannot resolve symlinks in TEST_TMPDIR because it doesn't exist: \"%s\"",
-                p.getPathString()));
-      }
+    String testTmpdir = env.get("TEST_TMPDIR");
+    if (testTmpdir != null) {
+      addWritablePath(
+          sandboxExecRoot,
+          writablePaths,
+          sandboxExecRoot.getRelative(testTmpdir),
+          "Cannot resolve symlinks in TEST_TMPDIR because it doesn't exist: \"%s\"");
     }
+    addWritablePath(
+        sandboxExecRoot,
+        writablePaths,
+        tmpDir,
+        "Cannot resolve symlinks in tmpDir because it doesn't exist: \"%s\"");
 
-    // TODO(laszlocsomor): Extract the logic that adds TEST_TMPDIR to writablePaths, and add tmpDir
-    // using the same method. Currently we don't resolve symlinks in tmpDir and so we might be
-    // adding a symlink to the writable paths, and not what the symlink points to.
-    writablePaths.add(tmpDir);
-
+    FileSystem fileSystem = sandboxExecRoot.getFileSystem();
     for (String writablePath : sandboxOptions.sandboxWritablePath) {
       Path path = fileSystem.getPath(writablePath);
       writablePaths.add(path);
@@ -267,6 +254,27 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     return writablePaths.build();
+  }
+
+  private void addWritablePath(
+      Path sandboxExecRoot,
+      ImmutableSet.Builder<Path> writablePaths,
+      Path path,
+      String pathDoesNotExistErrorTemplate)
+      throws IOException {
+    if (path.startsWith(sandboxExecRoot)) {
+      // We add this path even though it is below sandboxExecRoot (and thus already writable as a
+      // subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
+      // needed directory if it doesn't exist yet.
+      writablePaths.add(path);
+    } else if (path.exists()) {
+      // If `path` itself is a symlink, then adding it to `writablePaths` would result in making
+      // the symlink itself writable, not what it points to. Therefore we need to resolve symlinks
+      // in `path`, however for that we need `path` to exist.
+      writablePaths.add(path.resolveSymbolicLinks());
+    } else {
+      throw new IOException(String.format(pathDoesNotExistErrorTemplate, path.getPathString()));
+    }
   }
 
   protected ImmutableSet<Path> getInaccessiblePaths() {
