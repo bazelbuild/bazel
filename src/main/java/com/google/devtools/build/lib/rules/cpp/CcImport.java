@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -68,13 +69,14 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
         CcCommon.configureFeatures(ruleContext, ccToolchain);
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
-    CcLibraryHelper helper =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport);
 
-    // Add headers
+    // Add headers to compilation step.
     final CcCommon common = new CcCommon(ruleContext);
-    helper.addPublicHeaders(common.getHeaders());
-    helper.setHeadersCheckingMode(HeadersCheckingMode.STRICT);
+    Info.CompilationInfo compilationInfo =
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+            .addPublicHeaders(common.getHeaders())
+            .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
+            .compile();
 
     // Get alwayslink attribute
     boolean alwayslink = ruleContext.attributes().get("alwayslink", Type.BOOLEAN);
@@ -88,14 +90,17 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
             .getPathString();
 
+    CcLibraryHelper linkingHelper =
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport);
+
     if (staticLibrary != null) {
       if (CppFileTypes.PIC_ARCHIVE.matches(staticLibrary.getPath())) {
-        helper.addPicStaticLibraries(
+        linkingHelper.addPicStaticLibraries(
             ImmutableList.of(
                 LinkerInputs.opaqueLibraryToLink(
                     staticLibrary, staticLibraryCategory, libraryIdentifier, alwayslink)));
       } else {
-        helper.addStaticLibraries(
+        linkingHelper.addStaticLibraries(
             ImmutableList.of(
                 LinkerInputs.opaqueLibraryToLink(
                     staticLibrary, staticLibraryCategory, libraryIdentifier, alwayslink)));
@@ -121,7 +126,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                         sharedLibrary,
                         libraryIdentifier));
       }
-      helper.addExecutionDynamicLibraries(executionDynamicLibraryList);
+      linkingHelper.addExecutionDynamicLibraries(executionDynamicLibraryList);
     }
 
     if (interfaceLibrary != null) {
@@ -151,15 +156,20 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     }
 
     if (dynamicLibraryList != null) {
-      helper.addDynamicLibraries(dynamicLibraryList);
+      linkingHelper.addDynamicLibraries(dynamicLibraryList);
     }
 
-    CcLibraryHelper.Info info = helper.build();
+    Info.LinkingInfo linkingInfo =
+        linkingHelper.link(
+            compilationInfo.getCcCompilationOutputs(), compilationInfo.getCppCompilationContext());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProviders(info.getProviders())
+        .addProviders(compilationInfo.getProviders())
+        .addProviders(linkingInfo.getProviders())
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
-        .addOutputGroups(info.getOutputGroups())
+        .addOutputGroups(
+            Info.mergeOutputGroups(
+                compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups()))
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

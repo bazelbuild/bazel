@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
@@ -812,7 +811,7 @@ public final class CppModel {
   private void createHeaderAction(
       Label sourceLabel,
       String outputName,
-      Builder result,
+      CcCompilationOutputs.Builder result,
       AnalysisEnvironment env,
       CppCompileActionBuilder builder,
       boolean generateDotd)
@@ -933,7 +932,7 @@ public final class CppModel {
   private void createClifMatchAction(
       Label sourceLabel,
       String outputName,
-      Builder result,
+      CcCompilationOutputs.Builder result,
       AnalysisEnvironment env,
       CppCompileActionBuilder builder)
       throws RuleErrorException {

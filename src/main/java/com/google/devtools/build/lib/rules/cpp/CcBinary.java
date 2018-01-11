@@ -93,7 +93,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext context,
       CcToolchainProvider toolchain,
       CcLinkingOutputs linkingOutputs,
-      CcLibraryHelper.Info info,
+      CcLinkingOutputs ccLibraryLinkingOutputs,
+      CppCompilationContext cppCompilationContext,
       LinkStaticness linkStaticness,
       NestedSet<Artifact> filesToBuild,
       Iterable<Artifact> fakeLinkerInputs,
@@ -116,8 +117,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
     if (linkCompileOutputSeparately) {
       builder.addArtifacts(
-          LinkerInputs.toLibraryArtifacts(
-              info.getCcLinkingOutputs().getExecutionDynamicLibraries()));
+          LinkerInputs.toLibraryArtifacts(ccLibraryLinkingOutputs.getExecutionDynamicLibraries()));
     }
     // For cc_binary and cc_test rules, there is an implicit dependency on
     // the malloc library package, which is specified by the "malloc" attribute.
@@ -148,7 +148,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         sourcesBuilder.add(cppSource.getSource());
       }
       builder.addSymlinksToArtifacts(sourcesBuilder.build());
-      CppCompilationContext cppCompilationContext = info.getCppCompilationContext();
       builder.addSymlinksToArtifacts(cppCompilationContext.getDeclaredIncludeSrcs());
       // Add additional files that are referenced from the compile command, like module maps
       // or header modules.
@@ -195,47 +194,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.hasErrors()) {
       return null;
     }
-    
-    List<String> linkopts = common.getLinkopts();
-    LinkStaticness linkStaticness =
-        getLinkStaticness(ruleContext, linkopts, cppConfiguration, ccToolchain);
-
-    // We currently only want link the dynamic library generated for test code separately.
-    boolean linkCompileOutputSeparately =
-        ruleContext.isTestTarget()
-            && cppConfiguration.getLinkCompileOutputSeparately()
-            && linkStaticness == LinkStaticness.DYNAMIC;
-
-    CcLibraryHelper helper =
-        new CcLibraryHelper(
-                ruleContext,
-                semantics,
-                featureConfiguration,
-                ccToolchain,
-                fdoSupport)
-            .fromCommon(common)
-            .addSources(common.getSources())
-            .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
-            .setFake(fake)
-            .addPrecompiledFiles(precompiledFiles)
-            .enableInterfaceSharedObjects();
-    // When linking the object files directly into the resulting binary, we do not need
-    // library-level link outputs; thus, we do not let CcLibraryHelper produce link outputs
-    // (either shared object files or archives) for a non-library link type [*], and add
-    // the object files explicitly in determineLinkerArguments.
-    //
-    // When linking the object files into their own library, we want CcLibraryHelper to
-    // take care of creating the library link outputs for us, so we need to set the link
-    // type to STATIC_LIBRARY.
-    //
-    // [*] The only library link type is STATIC_LIBRARY. EXECUTABLE specifies a normal
-    // cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
-    // output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
-    helper.setLinkType(linkCompileOutputSeparately ? LinkTargetType.STATIC_LIBRARY : linkType);
-
-    CcLibraryHelper.Info info = helper.build();
-    CppCompilationContext cppCompilationContext = info.getCppCompilationContext();
-    CcCompilationOutputs ccCompilationOutputs = info.getCcCompilationOutputs();
 
     // if cc_binary includes "linkshared=1", then gcc will be invoked with
     // linkopt "-shared", which causes the result of linking to be a shared
@@ -254,13 +212,53 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    CcLibraryHelper compilationHelper =
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+            .fromCommon(common)
+            .addSources(common.getSources())
+            .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
+            .setFake(fake)
+            .addPrecompiledFiles(precompiledFiles);
+    Info.CompilationInfo compilationInfo = compilationHelper.compile();
+    CppCompilationContext cppCompilationContext = compilationInfo.getCppCompilationContext();
+    CcCompilationOutputs ccCompilationOutputs = compilationInfo.getCcCompilationOutputs();
+
+    CcLibraryHelper linkingHelper =
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+            .fromCommon(common)
+            .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
+            .setFake(fake)
+            .enableInterfaceSharedObjects();
+    List<String> linkopts = common.getLinkopts();
+    LinkStaticness linkStaticness =
+        getLinkStaticness(ruleContext, linkopts, cppConfiguration, ccToolchain);
+    // We currently only want link the dynamic library generated for test code separately.
+    boolean linkCompileOutputSeparately =
+        ruleContext.isTestTarget()
+            && cppConfiguration.getLinkCompileOutputSeparately()
+            && linkStaticness == LinkStaticness.DYNAMIC;
+    // When linking the object files directly into the resulting binary, we do not need
+    // library-level link outputs; thus, we do not let CcLibraryHelper produce link outputs
+    // (either shared object files or archives) for a non-library link type [*], and add
+    // the object files explicitly in determineLinkerArguments.
+    //
+    // When linking the object files into their own library, we want CcLibraryHelper to
+    // take care of creating the library link outputs for us, so we need to set the link
+    // type to STATIC_LIBRARY.
+    //
+    // [*] The only library link type is STATIC_LIBRARY. EXECUTABLE specifies a normal
+    // cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
+    // output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
+    linkingHelper.setLinkType(
+        linkCompileOutputSeparately ? LinkTargetType.STATIC_LIBRARY : linkType);
+    Info.LinkingInfo linkingInfo = linkingHelper.link(ccCompilationOutputs, cppCompilationContext);
+
     CcLinkParams linkParams =
         collectCcLinkParams(
             ruleContext,
             linkStaticness != LinkStaticness.DYNAMIC,
             isLinkShared(ruleContext),
             linkopts);
-
     CppLinkActionBuilder linkActionBuilder =
         determineLinkerArguments(
             ruleContext,
@@ -269,7 +267,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             fdoSupport,
             common,
             precompiledFiles,
-            info,
+            ccCompilationOutputs,
+            linkingInfo.getCcLinkingOutputs(),
             cppCompilationContext.getTransitiveCompilationPrerequisites(),
             fake,
             binary,
@@ -449,12 +448,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             ccToolchain,
             linkingOutputs,
-            info,
+            linkingInfo.getCcLinkingOutputs(),
+            cppCompilationContext,
             linkStaticness,
             filesToBuild,
             fakeLinkerInputs,
             fake,
-            helper.getCompilationUnitSources(),
+            compilationHelper.getCompilationUnitSources(),
             linkCompileOutputSeparately);
     RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
         ruleContext, runfiles, executable);
@@ -543,7 +543,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       FdoSupportProvider fdoSupport,
       CcCommon common,
       PrecompiledFiles precompiledFiles,
-      Info info,
+      CcCompilationOutputs compilationOutputs,
+      CcLinkingOutputs linkingOutputs,
       ImmutableSet<Artifact> compilationPrerequisites,
       boolean fake,
       Artifact binary,
@@ -560,12 +561,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Either link in the .o files generated for the sources of this target or link in the
     // generated dynamic library they are compiled into.
     if (linkCompileOutputSeparately) {
-      for (LibraryToLink library : info.getCcLinkingOutputs().getDynamicLibraries()) {
+      for (LibraryToLink library : linkingOutputs.getDynamicLibraries()) {
         builder.addLibrary(library);
       }
     } else {
       boolean usePic = CppHelper.usePic(context, toolchain, !isLinkShared(context));
-      Iterable<Artifact> objectFiles = info.getCcCompilationOutputs().getObjectFiles(usePic);
+      Iterable<Artifact> objectFiles = compilationOutputs.getObjectFiles(usePic);
 
       if (fake) {
         builder.addFakeObjectFiles(objectFiles);
@@ -574,7 +575,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    builder.addLtoBitcodeFiles(info.getCcCompilationOutputs().getLtoBitcodeFiles());
+    builder.addLtoBitcodeFiles(compilationOutputs.getLtoBitcodeFiles());
     builder.addNonCodeInputs(common.getLinkerScripts());
 
     // Determine the libraries to link in.
