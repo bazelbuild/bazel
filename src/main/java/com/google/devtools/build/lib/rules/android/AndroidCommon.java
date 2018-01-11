@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Info;
@@ -242,7 +241,6 @@ public class AndroidCommon {
 
   public static AndroidIdeInfoProvider createAndroidIdeInfoProvider(
       RuleContext ruleContext,
-      AndroidSemantics semantics,
       AndroidIdlHelper idlHelper,
       OutputJar resourceJar,
       Artifact aar,
@@ -258,7 +256,6 @@ public class AndroidCommon {
             .setAar(aar)
             .setNativeLibs(nativeLibs.getMap())
             .addIdlImportRoot(idlHelper.getIdlImportRoot())
-            .addIdlParcelables(idlHelper.getIdlParcelables())
             .addIdlSrcs(idlHelper.getIdlSources())
             .addIdlGeneratedJavaFiles(idlHelper.getIdlGeneratedJavaSources())
             .addAllApksUnderTest(apksUnderTest);
@@ -271,10 +268,6 @@ public class AndroidCommon {
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       ideInfoProviderBuilder
           .setDefinesAndroidResources(true)
-          .addResourceSources(resourceApk.getPrimaryResource().getArtifacts(ResourceType.RESOURCES))
-          .addAssetSources(
-              resourceApk.getPrimaryResource().getArtifacts(ResourceType.ASSETS),
-              getAssetDir(ruleContext))
           // Sets the possibly merged manifest and the raw manifest.
           .setGeneratedManifest(resourceApk.getPrimaryResource().getManifest())
           .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET))
@@ -291,14 +284,6 @@ public class AndroidCommon {
       return attributes.get("custom_package", Type.STRING);
     }
     return getDefaultJavaPackage(ruleContext.getRule());
-  }
-
-  public static Iterable<String> getPossibleJavaPackages(Rule rule) {
-    AggregatingAttributeMapper attributes = AggregatingAttributeMapper.of(rule);
-    if (attributes.isAttributeValueExplicitlySpecified("custom_package")) {
-      return attributes.visitAttribute("custom_package", Type.STRING);
-    }
-    return ImmutableList.of(getDefaultJavaPackage(rule));
   }
 
   private static String getDefaultJavaPackage(Rule rule) {
@@ -762,7 +747,6 @@ public class AndroidCommon {
             AndroidIdeInfoProvider.class,
             createAndroidIdeInfoProvider(
                 ruleContext,
-                androidSemantics,
                 idlHelper,
                 resourceJar,
                 aar,

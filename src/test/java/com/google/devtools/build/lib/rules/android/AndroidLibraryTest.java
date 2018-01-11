@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
@@ -1116,26 +1115,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
     final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
-    assertThat(provider.getAssetDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(), PathFragment.create("java/android/assets")),
-                SourceDirectory.fromRoot(
-                    targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                    PathFragment.create("java/android/assets"))));
-    assertThat(provider.getResourceDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(), PathFragment.create("java/android/res"))));
-
-    assertThat(provider.getIdlImports())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(), PathFragment.create("java/android"))));
-
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1165,33 +1144,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget(
         "//research/handwriting/java/com/google/research/handwriting:r");
     final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
-    assertThat(provider.getAssetDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting/assets")),
-                SourceDirectory.fromRoot(
-                    targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting/assets"))));
-    assertThat(provider.getResourceDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting/res"))));
-
-    assertThat(provider.getIdlImports())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting"))));
-
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1224,23 +1176,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
     final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
-    assertThat(provider.getAssetDirs()).containsExactly(
-        SourceDirectory.fromSourceRoot(
-            rootDirectory.asFragment(), PathFragment.create("java/android/assets")),
-        SourceDirectory.fromRoot(
-            targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-            PathFragment.create("java/android/assets")));
-    assertThat(provider.getResourceDirs()).containsExactly(
-        SourceDirectory.fromSourceRoot(
-            rootDirectory.asFragment(), PathFragment.create("java/android/res")));
-
-    assertThat(provider.getIdlImports()).containsExactly(
-        SourceDirectory.fromSourceRoot(
-            rootDirectory.asFragment(), PathFragment.create("java/android")),
-        SourceDirectory.fromRoot(
-            targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-            PathFragment.create("java/android")));
-
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
