@@ -604,9 +604,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
-        new ConfiguredTargetKey(target.getLabel(), ownerConfig), false,
-        events, env, configuration);
+    CachingAnalysisEnvironment analysisEnvironment =
+        view.createAnalysisEnvironment(
+            ConfiguredTargetKey.of(target.getLabel(), ownerConfig),
+            false,
+            events,
+            env,
+            configuration);
     if (env.valuesMissing()) {
       return null;
     }

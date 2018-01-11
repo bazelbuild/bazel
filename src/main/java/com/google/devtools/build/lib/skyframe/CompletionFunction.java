@@ -103,8 +103,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     public ConfiguredTargetValue getValueFromSkyKey(SkyKey skyKey, Environment env)
         throws InterruptedException {
       TargetCompletionKey tcKey = (TargetCompletionKey) skyKey.argument();
-      ConfiguredTargetKey lac = tcKey.configuredTargetKey();
-      return (ConfiguredTargetValue) env.getValue(lac.getSkyKey());
+      return (ConfiguredTargetValue) env.getValue(tcKey.configuredTargetKey());
     }
 
     @Override
@@ -179,7 +178,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         throws InterruptedException {
       AspectCompletionKey acKey = (AspectCompletionKey) skyKey.argument();
       AspectKey aspectKey = acKey.aspectKey();
-      return (AspectValue) env.getValue(aspectKey.getSkyKey());
+      return (AspectValue) env.getValue(aspectKey);
     }
 
     @Override

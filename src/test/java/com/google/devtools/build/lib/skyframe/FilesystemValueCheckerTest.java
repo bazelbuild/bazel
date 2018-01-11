@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -360,13 +359,12 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(out2.getPath(), "fizzlepop");
 
     SkyKey actionLookupKey =
-        ActionLookupValue.key(
-            new ActionLookupKey() {
-              @Override
-              protected SkyFunctionName getType() {
-                return SkyFunctionName.FOR_TESTING;
-              }
-            });
+        new ActionLookupKey() {
+          @Override
+          public SkyFunctionName functionName() {
+            return SkyFunctionName.FOR_TESTING;
+          }
+        };
     SkyKey actionKey1 = ActionExecutionValue.key(actionLookupKey, 0);
     SkyKey actionKey2 = ActionExecutionValue.key(actionLookupKey, 1);
     differencer.inject(
@@ -440,13 +438,12 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.createDirectoryAndParents(last.getPath());
 
     SkyKey actionLookupKey =
-        ActionLookupValue.key(
-            new ActionLookupKey() {
-              @Override
-              protected SkyFunctionName getType() {
-                return SkyFunctionName.FOR_TESTING;
-              }
-            });
+        new ActionLookupKey() {
+          @Override
+          public SkyFunctionName functionName() {
+            return SkyFunctionName.FOR_TESTING;
+          }
+        };
     SkyKey actionKey1 = ActionExecutionValue.key(actionLookupKey, 0);
     SkyKey actionKey2 = ActionExecutionValue.key(actionLookupKey, 1);
     SkyKey actionKeyEmpty = ActionExecutionValue.key(actionLookupKey, 2);

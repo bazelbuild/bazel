@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
@@ -408,8 +407,7 @@ public final class AspectFunction implements SkyFunction {
       throws DuplicateException {
     ArrayList<ConfiguredAspect> aspectValues = new ArrayList<>();
     for (AspectKey aspectKey : aspectKeys) {
-      SkyKey skyAspectKey = aspectKey.getSkyKey();
-      AspectValue aspectValue = (AspectValue) values.get(skyAspectKey);
+      AspectValue aspectValue = (AspectValue) values.get(aspectKey);
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       aspectValues.add(configuredAspect);
     }
@@ -438,14 +436,13 @@ public final class AspectFunction implements SkyFunction {
       return;
     }
     ImmutableList<AspectKey> baseKeys = key.getBaseKeys();
-    SkyKey skyKey = key.getSkyKey();
-    result.put(key.getAspectDescriptor(), skyKey);
+    result.put(key.getAspectDescriptor(), key);
     for (AspectKey baseKey : baseKeys) {
       buildSkyKeys(baseKey, result, aspectPathBuilder);
     }
     // Post-order list of aspect SkyKeys gives the order of propagating aspects:
     // the aspect comes after all aspects it transitively sees.
-    aspectPathBuilder.add(skyKey);
+    aspectPathBuilder.add(key);
   }
 
   private SkyValue createAliasAspect(
@@ -462,7 +459,7 @@ public final class AspectFunction implements SkyFunction {
     // the real configured target.
     Label aliasLabel = aliasChain.size() > 1 ? aliasChain.get(1) : configuredTarget.getLabel();
 
-    SkyKey depKey = ActionLookupValue.key(originalKey.withLabel(aliasLabel));
+    SkyKey depKey = originalKey.withLabel(aliasLabel);
 
     // Compute the AspectValue of the target the alias refers to (which can itself be either an
     // alias or a real target)

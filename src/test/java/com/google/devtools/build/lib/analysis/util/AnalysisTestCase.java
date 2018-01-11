@@ -437,10 +437,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner)
       throws InterruptedException {
     Label label = owner.getLabel();
-    return buildView.getArtifactFactory().getDerivedArtifact(
-        label.getPackageFragment().getRelative(packageRelativePath),
-        getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
-        new ConfiguredTargetKey(owner));
+    return buildView
+        .getArtifactFactory()
+        .getDerivedArtifact(
+            label.getPackageFragment().getRelative(packageRelativePath),
+            getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
+            ConfiguredTargetKey.of(owner));
   }
 
   protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {

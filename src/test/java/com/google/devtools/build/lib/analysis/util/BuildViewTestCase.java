@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -1022,11 +1021,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * be "foo.o".
    */
   protected Artifact getBinArtifact(String packageRelativePath, String owner) {
-    ConfiguredTargetKey config = makeConfiguredTargetKey(owner);
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        config.getConfiguration().getBinDirectory(RepositoryName.MAIN),
-        config);
+        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
+        makeConfiguredTargetKey(owner));
   }
 
   /**
@@ -1036,9 +1034,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * be "foo.o".
    */
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
         owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
-        new ConfiguredTargetKey(owner));
+        ConfiguredTargetKey.of(owner));
   }
 
   /**
@@ -1074,10 +1073,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
         (AspectValue.AspectKey)
-            ActionLookupValue.key(AspectValue.createAspectKey(
-                owner.getLabel(), owner.getConfiguration(),
-                new AspectDescriptor(creatingAspectFactory, parameters), owner.getConfiguration()
-            ))
+            AspectValue.createAspectKey(
+                    owner.getLabel(),
+                    owner.getConfiguration(),
+                    new AspectDescriptor(creatingAspectFactory, parameters),
+                    owner.getConfiguration())
                 .argument());
   }
 
@@ -1101,8 +1101,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * just be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, String owner) {
-    ConfiguredTargetKey configKey = makeConfiguredTargetKey(owner);
-    return getGenfilesArtifact(packageRelativePath, configKey, configKey.getConfiguration());
+    BuildConfiguration config = getConfiguration(owner);
+    return getGenfilesArtifact(
+        packageRelativePath, ConfiguredTargetKey.of(makeLabel(owner), config), config);
   }
 
   /**
@@ -1112,8 +1113,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * just be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ConfiguredTargetKey configKey = new ConfiguredTargetKey(owner);
-    return getGenfilesArtifact(packageRelativePath, configKey, configKey.getConfiguration());
+    ConfiguredTargetKey configKey = ConfiguredTargetKey.of(owner);
+    return getGenfilesArtifact(packageRelativePath, configKey, owner.getConfiguration());
   }
 
   /**
@@ -1138,13 +1139,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        owner.getConfiguration().getGenfilesDirectory(
-            owner.getTarget().getLabel().getPackageIdentifier().getRepository()),
+        owner
+            .getConfiguration()
+            .getGenfilesDirectory(
+                owner.getTarget().getLabel().getPackageIdentifier().getRepository()),
         (AspectValue.AspectKey)
-            ActionLookupValue.key(AspectValue.createAspectKey(
-                owner.getLabel(), owner.getConfiguration(),
-                new AspectDescriptor(creatingAspectFactory, params), owner.getConfiguration()
-            ))
+            AspectValue.createAspectKey(
+                    owner.getLabel(),
+                    owner.getConfiguration(),
+                    new AspectDescriptor(creatingAspectFactory, params),
+                    owner.getConfiguration())
                 .argument());
   }
 
@@ -1202,9 +1206,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @param owner the artifact's owner.
    */
   protected Artifact getSharedArtifact(String rootRelativePath, ConfiguredTarget owner) {
-    return getDerivedArtifact(PathFragment.create(rootRelativePath),
+    return getDerivedArtifact(
+        PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
-        new ConfiguredTargetKey(owner));
+        ConfiguredTargetKey.of(owner));
   }
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {
@@ -1293,7 +1298,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
+  private BuildConfiguration getConfiguration(String label) {
     BuildConfiguration config;
     try {
       config = getConfiguredTarget(label).getConfiguration();
@@ -1304,7 +1309,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       //TODO(b/36585204): Clean this up
       throw new RuntimeException(e);
     }
-    return new ConfiguredTargetKey(makeLabel(label), config);
+    return config;
+  }
+
+  private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
+    return ConfiguredTargetKey.of(makeLabel(label), getConfiguration(label));
   }
 
   protected static List<String> actionInputsToPaths(Iterable<? extends ActionInput> actionInputs) {
@@ -1923,7 +1932,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       root = configuration.getGenfilesDirectory(repository);
     }
     ArtifactOwner owner =
-        new ConfiguredTargetKey(target.getTarget().getLabel(), target.getConfiguration());
+        ConfiguredTargetKey.of(target.getTarget().getLabel(), target.getConfiguration());
 
     RawAttributeMapper attr = RawAttributeMapper.of(associatedRule);
 

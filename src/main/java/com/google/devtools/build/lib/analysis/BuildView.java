@@ -490,13 +490,15 @@ public class BuildView {
       eventBus.post(new TargetConfiguredEvent(target, byLabel.get(target.getLabel())));
     }
 
-    List<ConfiguredTargetKey> topLevelCtKeys = Lists.transform(topLevelTargetsWithConfigs,
-        new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
-          @Override
-          public ConfiguredTargetKey apply(TargetAndConfiguration node) {
-            return new ConfiguredTargetKey(node.getLabel(), node.getConfiguration());
-          }
-        });
+    List<ConfiguredTargetKey> topLevelCtKeys =
+        Lists.transform(
+            topLevelTargetsWithConfigs,
+            new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
+              @Override
+              public ConfiguredTargetKey apply(TargetAndConfiguration node) {
+                return ConfiguredTargetKey.of(node.getLabel(), node.getConfiguration());
+              }
+            });
 
     Multimap<Pair<Label, String>, BuildConfiguration> aspectConfigurations =
         ArrayListMultimap.create();
@@ -646,13 +648,14 @@ public class BuildView {
     Iterables.addAll(artifactsToBuild, baselineCoverageArtifacts);
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper;
-      actionsWrapper = coverageReportActionFactory.createCoverageReportActionsWrapper(
-          eventHandler,
-          directories,
-          allTargetsToTest,
-          baselineCoverageArtifacts,
-          getArtifactFactory(),
-          CoverageReportValue.ARTIFACT_OWNER);
+      actionsWrapper =
+          coverageReportActionFactory.createCoverageReportActionsWrapper(
+              eventHandler,
+              directories,
+              allTargetsToTest,
+              baselineCoverageArtifacts,
+              getArtifactFactory(),
+              CoverageReportValue.COVERAGE_REPORT_KEY);
       if (actionsWrapper != null) {
         ImmutableList<ActionAnalysisMetadata> actions = actionsWrapper.getActions();
         skyframeExecutor.injectCoverageReportData(actions);
@@ -673,7 +676,7 @@ public class BuildView {
           public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
             ArtifactOwner artifactOwner = artifact.getArtifactOwner();
             if (artifactOwner instanceof ActionLookupValue.ActionLookupKey) {
-              SkyKey key = ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
+              SkyKey key = (ActionLookupValue.ActionLookupKey) artifactOwner;
               ActionLookupValue val;
               try {
                 val = (ActionLookupValue) graph.getValue(key);
@@ -1081,7 +1084,7 @@ public class BuildView {
         new CachingAnalysisEnvironment(
             getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
-            new ConfiguredTargetKey(target.getLabel(), targetConfig),
+            ConfiguredTargetKey.of(target.getLabel(), targetConfig),
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             eventHandler,

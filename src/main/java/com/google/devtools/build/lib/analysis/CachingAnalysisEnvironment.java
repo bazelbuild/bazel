@@ -297,14 +297,14 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public Artifact getStableWorkspaceStatusArtifact() throws InterruptedException {
-    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
-            .getStableArtifact();
+    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.BUILD_INFO_KEY))
+        .getStableArtifact();
   }
 
   @Override
   public Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException {
-    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
-            .getVolatileArtifact();
+    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.BUILD_INFO_KEY))
+        .getVolatileArtifact();
   }
 
   // See SkyframeBuildView#getWorkspaceStatusValues for the code that this method is attempting to
@@ -327,8 +327,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       throws InterruptedException {
     boolean stamp = AnalysisUtils.isStampingEnabled(ruleContext, config);
     BuildInfoCollectionValue collectionValue =
-        (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(
-            new BuildInfoCollectionValue.BuildInfoKeyAndConfig(key, config)));
+        (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(key, config));
     if (collectionValue == null) {
       throw collectDebugInfoAndCrash(key, config);
     }

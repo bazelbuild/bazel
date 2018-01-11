@@ -86,7 +86,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
   public static final SkyFunctionName ACTION_EXECUTION =
       SkyFunctionName.create("ACTION_EXECUTION");
-  public static final SkyFunctionName ACTION_LOOKUP = SkyFunctionName.create("ACTION_LOOKUP");
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.create("RECURSIVE_DIRECTORY_TRAVERSAL");
   public static final SkyFunctionName FILESET_ENTRY = SkyFunctionName.create("FILESET_ENTRY");

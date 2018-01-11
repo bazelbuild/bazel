@@ -15,20 +15,19 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * Value that stores expanded actions from ActionTemplate.
  */
 public final class ActionTemplateExpansionValue extends ActionLookupValue {
-
   ActionTemplateExpansionValue(
       ActionKeyContext actionKeyContext,
       Iterable<Action> expandedActions,
@@ -36,21 +35,17 @@ public final class ActionTemplateExpansionValue extends ActionLookupValue {
     super(actionKeyContext, ImmutableList.copyOf(expandedActions), removeActionsAfterEvaluation);
   }
 
-  static SkyKey key(ActionTemplate<?> actionTemplate) {
-    return LegacySkyKey.create(
-        SkyFunctions.ACTION_TEMPLATE_EXPANSION, createActionTemplateExpansionKey(actionTemplate));
-  }
+  private static final Interner<ActionTemplateExpansionKey> interner =
+      BlazeInterners.newWeakInterner();
 
-  static ActionTemplateExpansionKey createActionTemplateExpansionKey(
-      ActionTemplate<?> actionTemplate) {
-    return new ActionTemplateExpansionKey(actionTemplate);
+  static ActionTemplateExpansionKey key(ActionTemplate<?> actionTemplate) {
+    return interner.intern(new ActionTemplateExpansionKey(actionTemplate));
   }
-
 
   static final class ActionTemplateExpansionKey extends ActionLookupKey {
     private final ActionTemplate<?> actionTemplate;
 
-    ActionTemplateExpansionKey(ActionTemplate<?> actionTemplate) {
+    private ActionTemplateExpansionKey(ActionTemplate<?> actionTemplate) {
       Preconditions.checkNotNull(
           actionTemplate,
           "Passed in action template cannot be null: %s",
@@ -59,10 +54,9 @@ public final class ActionTemplateExpansionValue extends ActionLookupValue {
     }
 
     @Override
-    protected SkyFunctionName getType() {
+    public SkyFunctionName functionName() {
       return SkyFunctions.ACTION_TEMPLATE_EXPANSION;
     }
-
 
     @Override
     public Label getLabel() {

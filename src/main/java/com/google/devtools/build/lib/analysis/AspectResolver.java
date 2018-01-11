@@ -156,7 +156,7 @@ public final class AspectResolver {
         dependentAspects.build(),
         aspectDeps.getAspect(),
         dep.getAspectConfiguration(aspectDeps.getAspect()));
-    result.put(aspectKey.getAspectDescriptor(), aspectKey.getSkyKey());
+    result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }
 

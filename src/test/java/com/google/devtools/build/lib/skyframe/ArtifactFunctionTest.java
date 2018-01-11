@@ -321,10 +321,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private void setGeneratingActions() throws InterruptedException {
-    if (evaluator.getExistingValue(OWNER_KEY) == null) {
+    if (evaluator.getExistingValue(ALL_OWNER) == null) {
       differencer.inject(
           ImmutableMap.of(
-              OWNER_KEY,
+              ALL_OWNER,
               new ActionLookupValue(
                   actionKeyContext, ImmutableList.<ActionAnalysisMetadata>copyOf(actions), false)));
     }

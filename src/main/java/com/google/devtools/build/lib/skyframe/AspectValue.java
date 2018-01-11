@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -56,6 +58,7 @@ public final class AspectValue extends ActionLookupValue {
     private final BuildConfiguration aspectConfiguration;
     private final BuildConfiguration baseConfiguration;
     private final AspectDescriptor aspectDescriptor;
+    private int hashCode;
 
     private AspectKey(
         Label label,
@@ -71,7 +74,7 @@ public final class AspectValue extends ActionLookupValue {
     }
 
     @Override
-    protected SkyFunctionName getType() {
+    public SkyFunctionName functionName() {
       return SkyFunctions.ASPECT;
     }
 
@@ -148,6 +151,31 @@ public final class AspectValue extends ActionLookupValue {
 
     @Override
     public int hashCode() {
+      // We use the hash code caching strategy employed by java.lang.String. There are three subtle
+      // things going on here:
+      //
+      // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
+      // Yes, this means that if the hash code is really 0 then we will "recompute" it each time.
+      // But this isn't a problem in practice since a hash code of 0 should be rare.
+      //
+      // (2) Since we have no synchronization, multiple threads can race here thinking there are the
+      // first one to compute and cache the hash code.
+      //
+      // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
+      // thread may not be visible by another.
+      //
+      // All three of these issues are benign from a correctness perspective; in the end we have no
+      // overhead from synchronization, at the cost of potentially computing the hash code more than
+      // once.
+      int h = hashCode;
+      if (h == 0) {
+        h = computeHashCode();
+        hashCode = h;
+      }
+      return h;
+    }
+
+    private int computeHashCode() {
       return Objects.hashCode(
           label,
           baseKeys,
@@ -227,6 +255,7 @@ public final class AspectValue extends ActionLookupValue {
     private final BuildConfiguration targetConfiguration;
     private final SkylarkImport skylarkImport;
     private final String skylarkValueName;
+    private int hashCode;
 
     private SkylarkAspectLoadingKey(
         Label targetLabel,
@@ -243,7 +272,7 @@ public final class AspectValue extends ActionLookupValue {
     }
 
     @Override
-    protected SkyFunctionName getType() {
+    public SkyFunctionName functionName() {
       return SkyFunctions.LOAD_SKYLARK_ASPECT;
     }
 
@@ -282,6 +311,31 @@ public final class AspectValue extends ActionLookupValue {
 
     @Override
     public int hashCode() {
+      // We use the hash code caching strategy employed by java.lang.String. There are three subtle
+      // things going on here:
+      //
+      // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
+      // Yes, this means that if the hash code is really 0 then we will "recompute" it each time.
+      // But this isn't a problem in practice since a hash code of 0 should be rare.
+      //
+      // (2) Since we have no synchronization, multiple threads can race here thinking there are the
+      // first one to compute and cache the hash code.
+      //
+      // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
+      // thread may not be visible by another.
+      //
+      // All three of these issues are benign from a correctness perspective; in the end we have no
+      // overhead from synchronization, at the cost of potentially computing the hash code more than
+      // once.
+      int h = hashCode;
+      if (h == 0) {
+        h = computeHashCode();
+        hashCode = h;
+      }
+      return h;
+    }
+
+    private int computeHashCode() {
       return Objects.hashCode(targetLabel,
           aspectConfiguration,
           targetConfiguration,
@@ -392,24 +446,27 @@ public final class AspectValue extends ActionLookupValue {
       ImmutableList<AspectKey> baseKeys,
       AspectDescriptor aspectDescriptor,
       BuildConfiguration aspectConfiguration) {
-    return new AspectKey(
+    return aspectKeyInterner.intern(new AspectKey(
         label, baseConfiguration,
         baseKeys,
         aspectDescriptor,
         aspectConfiguration
-    );
+    ));
   }
 
+  private static final Interner<AspectKey> aspectKeyInterner = BlazeInterners.newWeakInterner();
 
   public static AspectKey createAspectKey(
       Label label,
       BuildConfiguration baseConfiguration, AspectDescriptor aspectDescriptor,
       BuildConfiguration aspectConfiguration) {
-    return new AspectKey(
-        label, baseConfiguration, ImmutableList.<AspectKey>of(),
-        aspectDescriptor, aspectConfiguration);
+    return aspectKeyInterner.intern(
+        new AspectKey(
+            label, baseConfiguration, ImmutableList.of(), aspectDescriptor, aspectConfiguration));
   }
 
+  private static final Interner<SkylarkAspectLoadingKey> skylarkAspectKeyInterner =
+      BlazeInterners.newWeakInterner();
 
   public static SkylarkAspectLoadingKey createSkylarkAspectKey(
       Label targetLabel,
@@ -417,7 +474,12 @@ public final class AspectValue extends ActionLookupValue {
       BuildConfiguration targetConfiguration,
       SkylarkImport skylarkImport,
       String skylarkExportName) {
-    return new SkylarkAspectLoadingKey(
-        targetLabel, aspectConfiguration, targetConfiguration, skylarkImport, skylarkExportName);
+    return skylarkAspectKeyInterner.intern(
+        new SkylarkAspectLoadingKey(
+            targetLabel,
+            aspectConfiguration,
+            targetConfiguration,
+            skylarkImport,
+            skylarkExportName));
   }
 }

@@ -743,7 +743,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         // well as ActionExecutionValues, since they do not depend on ActionLookupValues.
         SkyFunctionName.functionIsIn(ImmutableSet.of(
             SkyFunctions.CONFIGURED_TARGET,
-            SkyFunctions.ACTION_LOOKUP,
             SkyFunctions.BUILD_INFO,
             SkyFunctions.TARGET_COMPLETION,
             SkyFunctions.BUILD_INFO_COLLECTION,

@@ -104,8 +104,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     List<Action> actions = evaluate(spawnActionTemplate);
     assertThat(actions).hasSize(3);
 
-    ArtifactOwner owner = ActionTemplateExpansionValue.createActionTemplateExpansionKey(
-        spawnActionTemplate);
+    ArtifactOwner owner = ActionTemplateExpansionValue.key(spawnActionTemplate);
     int i = 0;
     for (Action action : actions) {
       String childName = "child" + i;

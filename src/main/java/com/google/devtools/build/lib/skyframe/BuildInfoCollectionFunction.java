@@ -58,7 +58,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     final BuildInfoKeyAndConfig keyAndConfig = (BuildInfoKeyAndConfig) skyKey.argument();
     WorkspaceStatusValue infoArtifactValue =
-        (WorkspaceStatusValue) env.getValue(WorkspaceStatusValue.SKY_KEY);
+        (WorkspaceStatusValue) env.getValue(WorkspaceStatusValue.BUILD_INFO_KEY);
     if (infoArtifactValue == null) {
       return null;
     }

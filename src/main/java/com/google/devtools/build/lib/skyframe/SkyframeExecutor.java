@@ -752,20 +752,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // TODO(janakr): don't invalidate here, just use different keys for different configs. Can't
       // be done right now because of lack of configuration trimming and fact that everything
       // depends on workspace status action.
-      invalidate(WorkspaceStatusValue.SKY_KEY::equals);
+      invalidate(WorkspaceStatusValue.BUILD_INFO_KEY::equals);
     }
   }
 
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
     return workspaceStatusActionFactory.createWorkspaceStatusAction(
-        artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId, workspaceName);
+        artifactFactory.get(), WorkspaceStatusValue.BUILD_INFO_KEY, buildId, workspaceName);
   }
 
   @VisibleForTesting
   @Nullable
   public WorkspaceStatusAction getLastWorkspaceStatusAction() throws InterruptedException {
     WorkspaceStatusValue workspaceStatusValue =
-        (WorkspaceStatusValue) memoizingEvaluator.getExistingValue(WorkspaceStatusValue.SKY_KEY);
+        (WorkspaceStatusValue)
+            memoizingEvaluator.getExistingValue(WorkspaceStatusValue.BUILD_INFO_KEY);
     return workspaceStatusValue == null
         ? null
         : (WorkspaceStatusAction) workspaceStatusValue.getAction(0);
@@ -818,11 +819,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public Collection<Artifact> getWorkspaceStatusArtifacts(ExtendedEventHandler eventHandler)
       throws InterruptedException {
     // Should already be present, unless the user didn't request any targets for analysis.
-    EvaluationResult<WorkspaceStatusValue> result = buildDriver.evaluate(
-        ImmutableList.of(WorkspaceStatusValue.SKY_KEY), /*keepGoing=*/true, /*numThreads=*/1,
-        eventHandler);
+    EvaluationResult<WorkspaceStatusValue> result =
+        buildDriver.evaluate(
+            ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ 1,
+            eventHandler);
     WorkspaceStatusValue value =
-        Preconditions.checkNotNull(result.get(WorkspaceStatusValue.SKY_KEY));
+        Preconditions.checkNotNull(result.get(WorkspaceStatusValue.BUILD_INFO_KEY));
     return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
   }
 
@@ -1313,8 +1317,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       for (BuildConfiguration depConfig : configs.get(key)) {
         skyKeys.add(ConfiguredTargetValue.key(key.getLabel(), depConfig));
         for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
-          skyKeys.add(ActionLookupValue.key(AspectValue.createAspectKey(key.getLabel(), depConfig,
-              aspectDescriptor, depConfig)));
+          skyKeys.add(
+              AspectValue.createAspectKey(key.getLabel(), depConfig, aspectDescriptor, depConfig));
         }
       }
     }
@@ -1346,8 +1350,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         List<ConfiguredAspect> configuredAspects = new ArrayList<>();
 
         for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
-          SkyKey aspectKey = ActionLookupValue.key(AspectValue.createAspectKey(key.getLabel(),
-              depConfig, aspectDescriptor, depConfig));
+          SkyKey aspectKey =
+              AspectValue.createAspectKey(key.getLabel(), depConfig, aspectDescriptor, depConfig);
           if (result.get(aspectKey) == null) {
             continue DependentNodeLoop;
           }
@@ -1642,7 +1646,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     List<SkyKey> keys = new ArrayList<>(ConfiguredTargetValue.keys(values));
     for (AspectValueKey aspectKey : aspectKeys) {
-      keys.add(aspectKey.getSkyKey());
+      keys.add(aspectKey);
     }
     EvaluationResult<ActionLookupValue> result =
         buildDriver.evaluate(keys, keepGoing, numThreads, eventHandler);
@@ -1746,8 +1750,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     ArtifactOwner artifactOwner = artifact.getArtifactOwner();
     Preconditions.checkState(artifactOwner instanceof ActionLookupValue.ActionLookupKey,
         "%s %s", artifact, artifactOwner);
-    SkyKey actionLookupKey =
-        ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
+    SkyKey actionLookupKey = (ActionLookupValue.ActionLookupKey) artifactOwner;
 
     synchronized (valueLookupLock) {
       // Note that this will crash (attempting to run a configured target value builder after

@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
@@ -221,7 +220,7 @@ public final class SkyframeBuildView {
     NestedSetBuilder<Package> packages =
         singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
     for (AspectValueKey aspectKey : aspectKeys) {
-      AspectValue value = (AspectValue) result.get(aspectKey.getSkyKey());
+      AspectValue value = (AspectValue) result.get(aspectKey);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;
@@ -237,8 +236,7 @@ public final class SkyframeBuildView {
     // list of values, i.e., that the order is deterministic.
     Collection<ConfiguredTarget> goodCts = Lists.newArrayListWithCapacity(values.size());
     for (ConfiguredTargetKey value : values) {
-      ConfiguredTargetValue ctValue =
-          (ConfiguredTargetValue) result.get(ConfiguredTargetValue.key(value));
+      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) result.get(value);
       if (ctValue == null) {
         continue;
       }
@@ -450,13 +448,13 @@ public final class SkyframeBuildView {
       BuildConfiguration config,
       ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories)
       throws InterruptedException {
-    env.getValue(WorkspaceStatusValue.SKY_KEY);
+    env.getValue(WorkspaceStatusValue.BUILD_INFO_KEY);
     // These factories may each create their own build info artifacts, all depending on the basic
     // build-info.txt and build-changelist.txt.
     List<SkyKey> depKeys = Lists.newArrayList();
     for (BuildInfoKey key : buildInfoFactories.keySet()) {
       if (buildInfoFactories.get(key).isEnabled(config)) {
-        depKeys.add(BuildInfoCollectionValue.key(new BuildInfoKeyAndConfig(key, config)));
+        depKeys.add(BuildInfoCollectionValue.key(key, config));
       }
     }
     env.getValues(depKeys);

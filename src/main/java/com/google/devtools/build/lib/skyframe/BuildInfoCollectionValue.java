@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Objects;
 
@@ -47,18 +49,26 @@ public class BuildInfoCollectionValue extends ActionLookupValue {
     return getStringHelper().add("collection", collection).toString();
   }
 
+  private static final Interner<BuildInfoKeyAndConfig> keyInterner =
+      BlazeInterners.newWeakInterner();
+
+  public static BuildInfoKeyAndConfig key(
+      BuildInfoFactory.BuildInfoKey key, BuildConfiguration config) {
+    return keyInterner.intern(new BuildInfoKeyAndConfig(key, config));
+  }
+
   /** Key for BuildInfoCollectionValues. */
   public static class BuildInfoKeyAndConfig extends ActionLookupKey {
     private final BuildInfoFactory.BuildInfoKey infoKey;
     private final BuildConfiguration config;
 
-    public BuildInfoKeyAndConfig(BuildInfoFactory.BuildInfoKey key, BuildConfiguration config) {
+    private BuildInfoKeyAndConfig(BuildInfoFactory.BuildInfoKey key, BuildConfiguration config) {
       this.infoKey = Preconditions.checkNotNull(key, config);
       this.config = Preconditions.checkNotNull(config, key);
     }
 
     @Override
-    protected SkyFunctionName getType() {
+    public SkyFunctionName functionName() {
       return SkyFunctions.BUILD_INFO_COLLECTION;
     }
 

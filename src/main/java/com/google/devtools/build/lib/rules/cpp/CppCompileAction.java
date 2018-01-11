@@ -474,7 +474,7 @@ public class CppCompileAction extends AbstractAction
     }
     Map<Artifact, SkyKey> skyKeys = new HashMap<>();
     for (Artifact artifact : this.usedModules) {
-      skyKeys.put(artifact, ActionLookupValue.key((ActionLookupKey) artifact.getArtifactOwner()));
+      skyKeys.put(artifact, (ActionLookupKey) artifact.getArtifactOwner());
     }
     Map<SkyKey, SkyValue> skyValues = env.getValues(skyKeys.values());
     Set<Artifact> additionalModules = Sets.newLinkedHashSet();

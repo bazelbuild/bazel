@@ -32,13 +32,13 @@ public final class TestCompletionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     TestCompletionValue.TestCompletionKey key =
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
-    ConfiguredTargetKey lac = key.configuredTargetKey();
+    ConfiguredTargetKey ctKey = key.configuredTargetKey();
     TopLevelArtifactContext ctx = key.topLevelArtifactContext();
-    if (env.getValue(TargetCompletionValue.key(lac, ctx, /*willTest=*/true)) == null) {
+    if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /*willTest=*/ true)) == null) {
       return null;
     }
 
-    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(lac.getSkyKey());
+    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(ctKey);
     if (ctValue == null) {
       return null;
     }
