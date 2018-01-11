@@ -213,6 +213,8 @@ void ForEachDirectoryEntry(const std::string &path,
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
 const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
 
+bool AsWindowsPath(const std::string &path, std::string *result);
+
 bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath);
 
 // Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.

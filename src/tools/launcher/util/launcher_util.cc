@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include <algorithm>
 #include <sstream>
 #include <string>
 
@@ -168,6 +169,88 @@ string GetRandomStr(size_t len) {
     rand_str << alphabet[x % strlen(alphabet)];
   }
   return rand_str.str();
+}
+
+bool NormalizePath(const string& path, string* result) {
+  if (!blaze_util::AsWindowsPath(path, result)) {
+    PrintError("Failed to normalize %s", path.c_str());
+    return false;
+  }
+  std::transform(result->begin(), result->end(), result->begin(), ::tolower);
+  return true;
+}
+
+bool RelativeTo(const string& path, const string& base, string* result) {
+  if (blaze_util::IsAbsolute(path) != blaze_util::IsAbsolute(base)) {
+    PrintError(
+        "Cannot calculate relative path from an absolute and a non-absolute"
+        " path.\npath = %s\nbase = %s",
+        path.c_str(), base.c_str());
+    return false;
+  }
+
+  if (blaze_util::IsAbsolute(path) && blaze_util::IsAbsolute(base) &&
+      path[0] != base[0]) {
+    PrintError(
+        "Cannot calculate relative path from absolute path under different "
+        "drives."
+        "\npath = %s\nbase = %s",
+        path.c_str(), base.c_str());
+    return false;
+  }
+
+  // Record the back slash position after the last matched path fragment
+  int pos = 0;
+  int back_slash_pos = -1;
+  while (path[pos] == base[pos] && base[pos] != '\0') {
+    if (path[pos] == '\\') {
+      back_slash_pos = pos;
+    }
+    pos++;
+  }
+
+  if (base[pos] == '\0' && path[pos] == '\0') {
+    // base == path in this case
+    result->assign("");
+    return true;
+  }
+
+  if ((base[pos] == '\0' && path[pos] == '\\') ||
+      (base[pos] == '\\' && path[pos] == '\0')) {
+    // In this case, one of the paths is the parent of another one.
+    // We should move back_slash_pos to the end of the shorter path.
+    // eg. path = c:\foo\bar, base = c:\foo => back_slash_pos = 6
+    //  or path = c:\foo, base = c:\foo\bar => back_slash_pos = 6
+    back_slash_pos = pos;
+  }
+
+  ostringstream buffer;
+
+  // Create the ..\\ prefix
+  // eg. path = C:\foo\bar1, base = C:\foo\bar2, we need ..\ prefix
+  // In case "base" is a parent of "path", we set back_slash_pos to the end
+  // of "base", so we need no prefix when back_slash_pos + 1 > base.length().
+  // back_slash_pos + 1 == base.length() is not possible because the last
+  // character of a normalized path won't be back slash.
+  if (back_slash_pos + 1 < base.length()) {
+    buffer << "..\\";
+  }
+  for (int i = back_slash_pos + 1; i < base.length(); i++) {
+    if (base[i] == '\\') {
+      buffer << "..\\";
+    }
+  }
+
+  // Add the result of not matched path fragments into result
+  // eg. path = C:\foo\bar1, base = C:\foo\bar2, adding `bar1`
+  // In case "path" is a parent of "base", we set back_slash_pos to the end
+  // of "path", so we need no suffix when back_slash_pos == path.length().
+  if (back_slash_pos != path.length()) {
+    buffer << path.substr(back_slash_pos + 1);
+  }
+
+  result->assign(buffer.str());
+  return true;
 }
 
 }  // namespace launcher
