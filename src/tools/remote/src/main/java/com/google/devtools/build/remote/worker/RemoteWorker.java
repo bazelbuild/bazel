@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
@@ -97,9 +96,7 @@ public final class RemoteWorker {
     } catch (OptionsParsingException e) {
       throw new Error("The specified hash function '" + value + "' is not supported.");
     }
-    return OS.getCurrent() == OS.WINDOWS
-        ? new JavaIoFileSystem(hashFunction)
-        : new UnixFileSystem(hashFunction);
+    return new JavaIoFileSystem(hashFunction);
   }
 
   public RemoteWorker(
