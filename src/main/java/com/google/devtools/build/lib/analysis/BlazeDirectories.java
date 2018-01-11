@@ -73,7 +73,8 @@ public final class BlazeDirectories {
     this.productName = productName;
     Path outputBase = serverDirectories.getOutputBase();
     Path execRootBase = outputBase.getChild("execroot");
-    boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
+    boolean useDefaultExecRootName =
+        this.workspace == null || this.workspace.getParentDirectory() == null;
     if (useDefaultExecRootName) {
       // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
       // a lot of code that depends on it being non-null.
