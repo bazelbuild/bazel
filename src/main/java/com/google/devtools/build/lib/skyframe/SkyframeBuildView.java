@@ -347,7 +347,8 @@ public final class SkyframeBuildView {
       if (analysisRootCause != null) {
         eventBus.post(
             new AnalysisFailureEvent(
-                ConfiguredTargetKey.of(topLevelLabel, label.getConfiguration()),
+                ConfiguredTargetKey.of(
+                    topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration()),
                 analysisRootCause));
       }
     }

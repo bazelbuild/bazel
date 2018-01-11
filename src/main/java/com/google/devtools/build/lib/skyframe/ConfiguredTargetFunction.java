@@ -139,15 +139,28 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
     NestedSetBuilder<Label> transitiveLoadingRootCauses = NestedSetBuilder.stableOrder();
+
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
     Label label = configuredTargetKey.getLabel();
-
-    BuildConfiguration configuration = configuredTargetKey.getConfiguration();
-
-    PackageValue packageValue =
-        (PackageValue) env.getValue(PackageValue.key(label.getPackageIdentifier()));
-    if (packageValue == null) {
+    BuildConfiguration configuration = null;
+    ImmutableSet<SkyKey> packageAndMaybeConfiguration;
+    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
+    SkyKey configurationKeyMaybe = configuredTargetKey.getConfigurationKey();
+    if (configurationKeyMaybe == null) {
+      packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
+    } else {
+      packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
+    }
+    Map<SkyKey, SkyValue> packageAndMaybeConfigurationValues =
+        env.getValues(packageAndMaybeConfiguration);
+    if (env.valuesMissing()) {
       return null;
+    }
+    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
+    if (configurationKeyMaybe != null) {
+      configuration =
+          ((BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe))
+              .getConfiguration();
     }
 
     // TODO(ulfjack): This tries to match the logic in TransitiveTargetFunction /
