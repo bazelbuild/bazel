@@ -39,12 +39,12 @@ public class NativeInfo extends Info {
   }
 
   public NativeInfo(NativeProvider<?> provider) {
-    super(provider, Location.BUILTIN);
+    super(provider, Location.BUILTIN, /*errorMessageFormatForUnknownField=*/ null);
     this.values = ImmutableMap.of();
   }
 
   public NativeInfo(NativeProvider<?> provider, Map<String, Object> values, Location loc) {
-    super(provider, loc);
+    super(provider, loc, /*errorMessageFormatForUnknownField=*/ null);
     this.values = copyValues(values);
   }
 

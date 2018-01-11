@@ -168,10 +168,10 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
     if (layout == null) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
-      return SkylarkInfo.fromMap(this, kwargs, loc);
+      return SkylarkInfo.createSchemaless(this, kwargs, loc);
     } else {
       // Note: This depends on the layout map using the same ordering as args.
-      return new SkylarkInfo.CompactSkylarkInfo(this, layout, args, loc);
+      return SkylarkInfo.createSchemaful(this, args, loc);
     }
   }
 
@@ -202,11 +202,22 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
    * <p>Note: In the future, this method may be replaced by one that returns more detailed schema
    * information (if/when the allowed schemas for structs become more complex).
    */
-  public @Nullable ImmutableList<String> getFields() {
+  @Nullable
+  public ImmutableList<String> getFields() {
     if (layout == null) {
       return null;
     }
     return ImmutableList.copyOf(layout.keySet());
+  }
+
+  /**
+   * Returns the layout, or null if the provider is schemaless.
+   *
+   * <p>This is used only by SkylarkInfo.
+   */
+  @Nullable
+  ImmutableMap<String, Integer> getLayout() {
+    return layout;
   }
 
   @Override

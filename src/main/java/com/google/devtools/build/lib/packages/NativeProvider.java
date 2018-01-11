@@ -79,7 +79,7 @@ public abstract class NativeProvider<V extends Info> extends Provider {
     protected Info createInstanceFromSkylark(Object[] args, Location loc) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
-      return SkylarkInfo.fromMap(this, kwargs, loc);
+      return SkylarkInfo.createSchemaless(this, kwargs, loc);
     }
 
     /**
@@ -90,12 +90,13 @@ public abstract class NativeProvider<V extends Info> extends Provider {
      * {@code ctx.attr}.
      * */
     public Info create(Map<String, Object> values, String errorMessageFormatForUnknownField) {
-      return new SkylarkInfo.MapBackedSkylarkInfo(this, values, errorMessageFormatForUnknownField);
+      return SkylarkInfo.createSchemalessWithCustomMessage(
+          this, values, errorMessageFormatForUnknownField);
     }
 
     /** Creates an empty struct with the given location. */
     public Info createEmpty(Location loc) {
-      return SkylarkInfo.fromMap(this, ImmutableMap.of(), loc);
+      return SkylarkInfo.createSchemaless(this, ImmutableMap.of(), loc);
     }
   }
 
