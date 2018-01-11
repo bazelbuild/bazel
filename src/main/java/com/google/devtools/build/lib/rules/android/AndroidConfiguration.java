@@ -740,28 +740,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean throwOnResourceConflict;
 
     @Option(
-      name = "experimental_android_allow_android_resources",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "For use in testing before migrating away from android_resources. If false, will"
-              + " fail when non-whitelisted android_resources rules are encountered."
-    )
-    public boolean allowAndroidResources;
-
-    @Option(
-      name = "experimental_android_allow_resources_attr",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "For use in testing before migrating away from android_resources. If false, will"
-              + " fail when non-whitelisted instances of the 'resources' attribute are encountered."
-    )
-    public boolean allowResourcesAttr;
-
-    @Option(
       name = "experimental_skip_parsing_action",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -860,8 +838,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useAapt2ForRobolectric;
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
-  private final boolean allowAndroidResources;
-  private final boolean allowResourcesAttr;
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
 
@@ -897,8 +873,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.allowAndroidResources = options.allowAndroidResources;
-    this.allowResourcesAttr = options.allowResourcesAttr;
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
 
@@ -944,8 +918,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean useAapt2ForRobolectric,
       boolean throwOnResourceConflict,
       boolean useParallelDex2Oat,
-      boolean allowAndroidResources,
-      boolean allowResourcesAttr,
       boolean skipParsingAction,
       boolean fixedResourceNeverlinking) {
     this.sdk = sdk;
@@ -976,8 +948,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useAapt2ForRobolectric = useAapt2ForRobolectric;
     this.throwOnResourceConflict = throwOnResourceConflict;
     this.useParallelDex2Oat = useParallelDex2Oat;
-    this.allowAndroidResources = allowAndroidResources;
-    this.allowResourcesAttr = allowResourcesAttr;
     this.skipParsingAction = skipParsingAction;
     this.fixedResourceNeverlinking = fixedResourceNeverlinking;
   }
@@ -1108,14 +1078,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean throwOnResourceConflict() {
     return throwOnResourceConflict;
-  }
-
-  public boolean allowAndroidResources() {
-    return this.allowAndroidResources;
-  }
-
-  public boolean allowResourcesAttr() {
-    return this.allowResourcesAttr;
   }
 
   public boolean skipParsingAction() {
