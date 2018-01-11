@@ -300,7 +300,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     NativeInfo nativeInfo = appleBinaryOutput.getBinaryInfoProvider();
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
-    ObjcProvider objcProvider = null;
+    ObjcProvider objcProvider;
     Artifact outputArtifact;
 
     switch (getBinaryType(ruleContext)) {
@@ -318,6 +318,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       case LOADABLE_BUNDLE:
         AppleLoadableBundleBinaryProvider loadableBundleProvider =
             (AppleLoadableBundleBinaryProvider) nativeInfo;
+        objcProvider = loadableBundleProvider.getDepsObjcProvider();
         outputArtifact = loadableBundleProvider.getAppleLoadableBundleBinary();
         break;
       default:

@@ -1591,6 +1591,24 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(compileArgs2).contains("FLAG_2_ON");
   }
 
+  @Test
+  public void testLoadableBundleObjcProvider() throws Exception {
+    scratch.file(
+        "testlib/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        "    sdk_frameworks = ['TestFramework'],",
+        ")");
+
+    getRuleType().scratchTarget(scratch,
+        "binary_type", "'loadable_bundle'",
+        "deps", "['//testlib:lib']");
+
+    ObjcProvider objcProvider = providerForTarget("//x:x");
+    assertThat(objcProvider.sdkFramework().toCollection()).contains("TestFramework");
+  }
+
   protected RuleType getRuleType() {
     return RULE_TYPE;
   }
