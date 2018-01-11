@@ -191,6 +191,25 @@ alias(
   actual = "//alias/actual:it",
 )
 EOF
+mkdir -p chain
+cat > chain/BUILD <<'EOF'
+genrule(
+  name = "entry0",
+  outs = ["entry0.txt"],
+  cmd = "echo Hello0; touch $@",
+)
+EOF
+for i in `seq 1 10`
+do
+    cat >> chain/BUILD <<EOF
+genrule(
+  name = "entry$i",
+  outs = ["entry$i.txt"],
+  srcs = [ "entry$(( $i - 1)).txt" ],
+  cmd = "echo Hello$i; cp \$< \$@",
+)
+EOF
+done
 }
 
 #### TESTS #############################################################
@@ -701,6 +720,18 @@ function test_stdout_stderr_reported() {
   sample_line=`cat stderr.log | grep 'slow' | head -n 1 | tr '[]\r' '....'`
   echo "Sample regexp of stderr: ${sample_line}"
   expect_log "stderr.*${sample_line}"
+}
+
+function test_unbuffered_stdout_stderr() {
+   # Verify that the option --bes_outerr_buffer_size ensures that messages are
+   # flushed out to the BEP immediately
+  bazel clean --expunge
+  bazel build --build_event_text_file="${TEST_log}" \
+        --bes_outerr_buffer_size=1 chain:entry10
+  progress_count=$(grep '^progress' "${TEST_log}" | wc -l )
+  # As we requested no buffereing, each action output has to be reported
+  # immediately, creating an individual progress event.
+  [ "${progress_count}" -gt 10 ] || fail "expected at least 10 progress events"
 }
 
 function test_srcfiles() {
