@@ -3,7 +3,17 @@
 [
     {
         "configurations": [
-            {"node": "linux-x86_64"},
+            {
+             "node": "linux-x86_64",
+              "python_version": "2"
+            },
+            {
+             "node": "linux-x86_64",
+             "python_version": "3",
+             "parameters": {
+                 "build_opts": ["--python_path=/usr/bin/python3"]
+             }
+            },
             {"node": "ubuntu_16.04-x86_64"}
         ],
         "parameters": {
