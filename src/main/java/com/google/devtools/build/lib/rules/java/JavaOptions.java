@@ -432,15 +432,6 @@ public class JavaOptions extends FragmentOptions {
   public List<String> checkedConstraints;
 
   @Option(
-    name = "experimental_disable_jvm",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Disables the Jvm configuration entirely."
-  )
-  public boolean disableJvm;
-
-  @Option(
     name = "java_optimization_mode",
     defaultValue = "legacy",
     converter = JavaOptimizationModeConverter.class,

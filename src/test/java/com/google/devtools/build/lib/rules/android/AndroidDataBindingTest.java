@@ -286,11 +286,4 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         "package android.binary; public class MyApp {};");
     assertThat(getConfiguredTarget("//java/android/binary:app")).isNotNull();
   }
-
-  @Test
-  public void testNoJvmFragment() throws Exception {
-    writeDataBindingFiles();
-    useConfiguration("--experimental_disable_jvm");
-    assertThat(getConfiguredTarget("//java/android/binary:app")).isNotNull();
-  }
 }

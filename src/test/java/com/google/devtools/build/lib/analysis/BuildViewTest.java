@@ -1281,28 +1281,6 @@ public class BuildViewTest extends BuildViewTestBase {
         .containsExactly(ruleClassProvider.getUniversalFragment());
   }
 
-  @Test
-  public void errorOnMissingDepFragments() throws Exception {
-    scratch.file("foo/BUILD",
-        "cc_library(",
-        "    name = 'ccbin', ",
-        "    srcs = ['c.cc'],",
-        "    data = [':javalib'])",
-        "java_library(",
-        "    name = 'javalib',",
-        "    srcs = ['javalib.java'])");
-    useConfiguration("--experimental_dynamic_configs=on", "--experimental_disable_jvm");
-    reporter.removeHandler(failFastHandler);
-    try {
-      update("//foo:ccbin");
-      fail();
-    } catch (ViewCreationFailedException e) {
-      // Expected.
-    }
-    assertContainsEvent("//foo:ccbin: dependency //foo:javalib from attribute \"data\" is missing "
-        + "required config fragments: Jvm");
-  }
-
   /**
    * Here, injecting_rule injects an aspect which acts on a action_rule() and registers an action.
    * The action_rule() registers another action of its own.

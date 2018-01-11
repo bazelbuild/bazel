@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 
 /**
  * A provider to load jvm configurations from the package path.
@@ -32,15 +31,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
  */
 public final class JvmConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
-  public Jvm create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException, InterruptedException {
-    JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-    if (javaOptions.disableJvm) {
-      // TODO(bazel-team): Instead of returning null here, add another method to the interface.
-      return null;
-    }
-
-    return new Jvm(javaOptions.javaBase);
+  public Jvm create(ConfigurationEnvironment env, BuildOptions buildOptions) {
+    return new Jvm(buildOptions.get(JavaOptions.class).javaBase);
   }
 
   @Override
