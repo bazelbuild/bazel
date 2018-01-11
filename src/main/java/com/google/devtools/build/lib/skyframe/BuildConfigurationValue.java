@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -28,13 +31,15 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * A Skyframe value representing a {@link BuildConfiguration}.
- */
+/** A Skyframe value representing a {@link BuildConfiguration}. */
 // TODO(bazel-team): mark this immutable when BuildConfiguration is immutable.
 // @Immutable
+@AutoCodec(dependency = FileSystemProvider.class)
 @ThreadSafe
 public class BuildConfigurationValue implements SkyValue {
+  public static final InjectingObjectCodec<BuildConfigurationValue, FileSystemProvider> CODEC =
+      new BuildConfigurationValue_AutoCodec();
+
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
   private final BuildConfiguration configuration;

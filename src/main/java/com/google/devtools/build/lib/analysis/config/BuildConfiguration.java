@@ -54,14 +54,18 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
@@ -73,6 +77,9 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -112,6 +119,9 @@ import javax.annotation.Nullable;
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
 public class BuildConfiguration implements BuildEvent {
+  public static final InjectingObjectCodec<BuildConfiguration, FileSystemProvider> CODEC =
+      new BuildConfigurationCodec();
+
   /**
    * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
    * output from buildMnemonic.
@@ -129,7 +139,11 @@ public class BuildConfiguration implements BuildEvent {
    * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
    * fragment instances may be shared across configurations.
    */
+  @AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC, dependency = FileSystemProvider.class)
   public abstract static class Fragment {
+    public static final InjectingObjectCodec<Fragment, FileSystemProvider> CODEC =
+        new BuildConfiguration_Fragment_AutoCodec();
+
     /**
      * Validates the options for this Fragment. Issues warnings for the
      * use of deprecated options, and warnings or errors for any option settings
@@ -1100,6 +1114,7 @@ public class BuildConfiguration implements BuildEvent {
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
 
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
+  private final String repositoryName;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
 
@@ -1377,7 +1392,7 @@ public class BuildConfiguration implements BuildEvent {
     this.fragments = makeFragmentsMap(fragmentsMap);
 
     this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
-
+    this.repositoryName = repositoryName;
     this.buildOptions = buildOptions.clone();
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
@@ -2151,5 +2166,42 @@ public class BuildConfiguration implements BuildEvent {
             .putAllMakeVariable(getMakeEnvironment())
             .setCpu(getCpu());
     return GenericBuildEvent.protoChaining(this).setConfiguration(builder.build()).build();
+  }
+
+  private static class BuildConfigurationCodec
+      implements InjectingObjectCodec<BuildConfiguration, FileSystemProvider> {
+    @Override
+    public Class<BuildConfiguration> getEncodedClass() {
+      return BuildConfiguration.class;
+    }
+
+    @Override
+    public void serialize(
+        FileSystemProvider fsProvider, BuildConfiguration obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      BlazeDirectories.CODEC.serialize(fsProvider, obj.directories, codedOut);
+      codedOut.writeInt32NoTag(obj.fragments.size());
+      for (Fragment fragment : obj.fragments.values()) {
+        Fragment.CODEC.serialize(fsProvider, fragment, codedOut);
+      }
+      BuildOptions.CODEC.serialize(obj.buildOptions, codedOut);
+      StringCodecs.asciiOptimized().serialize(obj.repositoryName, codedOut);
+    }
+
+    @Override
+    public BuildConfiguration deserialize(FileSystemProvider fsProvider, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      BlazeDirectories blazeDirectories = BlazeDirectories.CODEC.deserialize(fsProvider, codedIn);
+      int length = codedIn.readInt32();
+      ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> builder =
+          new ImmutableSortedMap.Builder<>(lexicalFragmentSorter);
+      for (int i = 0; i < length; ++i) {
+        Fragment fragment = Fragment.CODEC.deserialize(fsProvider, codedIn);
+        builder.put(fragment.getClass(), fragment);
+      }
+      BuildOptions options = BuildOptions.CODEC.deserialize(codedIn);
+      String repositoryName = StringCodecs.asciiOptimized().deserialize(codedIn);
+      return new BuildConfiguration(blazeDirectories, builder.build(), options, repositoryName);
+    }
   }
 }

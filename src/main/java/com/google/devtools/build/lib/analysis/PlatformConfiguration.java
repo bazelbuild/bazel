@@ -16,16 +16,18 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.PlatformOptions.ToolchainResolutionOverride;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.List;
 
 /** A configuration fragment describing the current platform configuration. */
+@AutoCodec
 @ThreadSafety.Immutable
 @SkylarkModule(
   name = "platform",
@@ -33,6 +35,8 @@ import java.util.List;
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 public class PlatformConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<PlatformConfiguration> CODEC =
+      new PlatformConfiguration_AutoCodec();
 
   private final Label executionPlatform;
   private final ImmutableList<Label> targetPlatforms;
@@ -40,28 +44,18 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableMap<Label, Label> toolchainResolutionOverrides;
   private final ImmutableList<Label> enabledToolchainTypes;
 
-  public PlatformConfiguration(
+  @AutoCodec.Constructor
+  PlatformConfiguration(
       Label executionPlatform,
-      List<Label> targetPlatforms,
-      List<Label> extraToolchains,
-      List<ToolchainResolutionOverride> overrides,
-      List<Label> enabledToolchainTypes) {
-
+      ImmutableList<Label> targetPlatforms,
+      ImmutableList<Label> extraToolchains,
+      ImmutableMap<Label, Label> toolchainResolutionOverrides,
+      ImmutableList<Label> enabledToolchainTypes) {
     this.executionPlatform = executionPlatform;
-    this.targetPlatforms = ImmutableList.copyOf(targetPlatforms);
-    this.extraToolchains = ImmutableList.copyOf(extraToolchains);
-    this.toolchainResolutionOverrides = convertOverrides(overrides);
-    this.enabledToolchainTypes = ImmutableList.copyOf(enabledToolchainTypes);
-  }
-
-  private static ImmutableMap<Label, Label> convertOverrides(
-      List<ToolchainResolutionOverride> overrides) {
-    ImmutableMap.Builder<Label, Label> builder = new ImmutableMap.Builder<>();
-    for (ToolchainResolutionOverride override : overrides) {
-      builder.put(override.toolchainType(), override.toolchainLabel());
-    }
-
-    return builder.build();
+    this.targetPlatforms = targetPlatforms;
+    this.extraToolchains = extraToolchains;
+    this.toolchainResolutionOverrides = toolchainResolutionOverrides;
+    this.enabledToolchainTypes = enabledToolchainTypes;
   }
 
   @SkylarkCallable(
