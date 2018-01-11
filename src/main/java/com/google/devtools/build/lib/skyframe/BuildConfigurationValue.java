@@ -70,17 +70,12 @@ public class BuildConfigurationValue implements SkyValue {
   static final class Key implements SkyKey, Serializable {
     private final ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments;
     private final BuildOptions buildOptions;
-    private final boolean enableActions;
     // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.
     private volatile int hashCode = -1;
 
     Key(ImmutableSortedSet<Class<? extends Fragment>> fragments, BuildOptions buildOptions) {
       this.fragments = fragments;
       this.buildOptions = Preconditions.checkNotNull(buildOptions);
-      // Cache this value for quicker access on .equals() / .hashCode(). We don't cache it inside
-      // BuildOptions because BuildOptions is mutable, so a cached value there could fall out of
-      // date while the BuildOptions is being prepared for this key.
-      this.enableActions = buildOptions.enableActions();
     }
 
     ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getFragments() {
@@ -106,14 +101,13 @@ public class BuildConfigurationValue implements SkyValue {
       }
       Key otherConfig = (Key) o;
       return buildOptions.equals(otherConfig.buildOptions)
-          && Objects.equals(fragments, otherConfig.fragments)
-          && enableActions == otherConfig.enableActions;
+          && Objects.equals(fragments, otherConfig.fragments);
     }
 
     @Override
     public int hashCode() {
       if (hashCode == -1) {
-        hashCode = Objects.hash(fragments, buildOptions, enableActions);
+        hashCode = Objects.hash(fragments, buildOptions);
       }
       return hashCode;
     }
