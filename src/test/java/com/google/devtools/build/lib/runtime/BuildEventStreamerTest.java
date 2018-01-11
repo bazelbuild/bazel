@@ -699,6 +699,36 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testNoopFlush() throws Exception {
+    // Verify that the streamer ignores a flush, if neither stream produces any output.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String stdoutMsg = "Some text that was written to stdout.";
+    String stderrMsg = "The UI text that bazel wrote to stderr.";
+    when(outErr.getOut()).thenReturn(stdoutMsg).thenReturn("");
+    when(outErr.getErr()).thenReturn(stderrMsg).thenReturn("");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.buildEvent(startEvent);
+    assertThat(transport.getEvents()).hasSize(1);
+    streamer.flush(); // Output, so a new progress event has to be added
+    assertThat(transport.getEvents()).hasSize(2);
+    streamer.flush(); // No further output, so no additional event should be generated.
+    assertThat(transport.getEvents()).hasSize(2);
+
+    assertThat(transport.getEvents().get(0)).isEqualTo(startEvent);
+    assertThat(transport.getEventProtos().get(1).getProgress().getStdout()).isEqualTo(stdoutMsg);
+    assertThat(transport.getEventProtos().get(1).getProgress().getStderr()).isEqualTo(stderrMsg);
+  }
+
+  @Test
   public void testEarlyFlushBadInitialEvent() throws Exception {
     // Verify that an early flush works correctly with an unusual start event.
     // In this case, we expect 3 events in the stream, in that order:
