@@ -139,17 +139,17 @@ public interface JavaSemantics {
   /** Implementation for the :jvm attribute. */
   static LateBoundDefault<?, Label> jvmAttribute(RuleDefinitionEnvironment env) {
     return LateBoundDefault.fromTargetConfiguration(
-        Jvm.class,
+        JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
-        (rule, attributes, jvm) -> jvm.getJvmLabel());
+        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /** Implementation for the :host_jdk attribute. */
   static LateBoundDefault<?, Label> hostJdkAttribute(RuleDefinitionEnvironment env) {
     return LateBoundDefault.fromHostConfiguration(
-        Jvm.class,
+        JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (rule, attributes, jvm) -> jvm.getJvmLabel());
+        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /**

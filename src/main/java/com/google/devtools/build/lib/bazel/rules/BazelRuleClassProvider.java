@@ -128,7 +128,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAlias;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
-import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoSkylarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleBinaryRule;
@@ -393,7 +392,6 @@ public class BazelRuleClassProvider {
         @Override
         public void init(Builder builder) {
           builder.addConfigurationOptions(JavaOptions.class);
-          builder.addConfigurationFragment(new JvmConfigurationLoader());
           builder.addConfigurationFragment(new JavaConfigurationLoader());
 
           builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
-import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -278,7 +277,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new CppConfigurationLoader(CpuTransformer.IDENTITY),
         new PythonConfigurationLoader(),
         new BazelPythonConfiguration.Loader(),
-        new JvmConfigurationLoader(),
         new JavaConfigurationLoader(),
         new ObjcConfigurationLoader(),
         new AppleConfiguration.Loader(),

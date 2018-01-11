@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Base rule definition for android_local_test */
@@ -39,7 +38,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, Jvm.class)
+        .requiresConfigurationFragments(JavaConfiguration.class)
 
         // Update documentation for inherited attributes
 

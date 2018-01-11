@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFac
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.Jvm;
 
 /** Rule definition for Bazel android_local_test */
 public class BazelAndroidLocalTestRule implements RuleDefinition {
@@ -59,7 +58,7 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, Jvm.class)
+        .requiresConfigurationFragments(JavaConfiguration.class)
         .setImplicitOutputsFunction(ANDROID_ROBOLECTRIC_IMPLICIT_OUTPUTS)
         .override(
             attr("deps", LABEL_LIST)

@@ -494,7 +494,7 @@ public class JavaCommon {
    */
   public static String getJavaExecutableForStub(
       RuleContext ruleContext, @Nullable Artifact launcher) {
-    Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
+    Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
     PathFragment javaExecutable;
     JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
 

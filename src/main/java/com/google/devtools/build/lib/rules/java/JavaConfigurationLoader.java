@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 
 /**
@@ -38,18 +37,18 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException, InterruptedException {
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-    return create(javaOptions, javaOptions.javaToolchain);
+    return create(javaOptions);
+  }
+
+  private JavaConfiguration create(JavaOptions javaOptions)
+      throws InvalidConfigurationException {
+    boolean generateJavaDeps =
+        javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
+    return new JavaConfiguration(generateJavaDeps, javaOptions.jvmOpts, javaOptions);
   }
 
   @Override
   public Class<? extends Fragment> creates() {
     return JavaConfiguration.class;
-  }
-  
-  private JavaConfiguration create(JavaOptions javaOptions, Label javaToolchain)
-      throws InvalidConfigurationException {
-    boolean generateJavaDeps =
-        javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
-    return new JavaConfiguration(generateJavaDeps, javaOptions.jvmOpts, javaOptions, javaToolchain);
   }
 }
