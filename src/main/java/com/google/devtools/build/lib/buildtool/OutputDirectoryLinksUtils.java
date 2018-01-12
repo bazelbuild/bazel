@@ -154,6 +154,10 @@ public class OutputDirectoryLinksUtils {
    */
   public static PathFragment getPrettyPath(Path file, String workspaceName,
       Path workspaceDirectory, String symlinkPrefix, String productName) {
+    if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
+      return file.asFragment();
+    }
+
     for (String link : LINKS) {
       PathFragment result = relativize(file, workspaceDirectory, symlinkPrefix + link);
       if (result != null) {
