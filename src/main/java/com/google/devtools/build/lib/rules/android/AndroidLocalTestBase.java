@@ -235,7 +235,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         manifestProtoOutput,
         genSourceJar,
         outputDepsProtoArtifact,
-        instrumentationMetadata);
+        instrumentationMetadata,
+        /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build());

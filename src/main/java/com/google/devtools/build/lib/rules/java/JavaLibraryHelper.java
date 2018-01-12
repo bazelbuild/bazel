@@ -209,10 +209,11 @@ public final class JavaLibraryHelper {
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
     helper.createCompileAction(
         output,
-        null /* manifestProtoOutput */,
-        null /* gensrcOutputJar */,
+        /* manifestProtoOutput= */ null,
+        /* gensrcOutputJar= */ null,
         outputDepsProto,
-        null /* outputMetadata */);
+        /* instrumentationMetadataJar= */ null,
+        /* nativeHeaderOutput= */ null);
 
     artifactsBuilder.addRuntimeJar(output);
     Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);

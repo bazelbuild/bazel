@@ -127,6 +127,7 @@ public class AndroidCommon {
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
+  private Artifact nativeHeaderOutput;
   private Artifact iJar;
   private Artifact srcJar;
   private Artifact genClassJar;
@@ -448,7 +449,8 @@ public class AndroidCommon {
             null /* manifestProtoOutput */,
             null /* genSourceJar */,
             outputDepsProto,
-            javaArtifactsBuilder);
+            javaArtifactsBuilder,
+            /* nativeHeaderOutput= */ null);
       }
     } else {
       // Otherwise, it should have been the AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR.
@@ -635,9 +637,16 @@ public class AndroidCommon {
         .addAllTransitiveSourceJars(javaCommon.collectTransitiveSourceJars(srcJar));
     helper.createSourceJarAction(srcJar, genSourceJar);
 
+    nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
+
     outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
     helper.createCompileActionWithInstrumentation(
-        classJar, manifestProtoOutput, genSourceJar, outputDepsProto, javaArtifactsBuilder);
+        classJar,
+        manifestProtoOutput,
+        genSourceJar,
+        outputDepsProto,
+        javaArtifactsBuilder,
+        nativeHeaderOutput);
 
     if (isBinary) {
       generatedExtensionRegistryProvider =
@@ -707,6 +716,7 @@ public class AndroidCommon {
         javaRuleOutputJarsProviderBuilder
             .addOutputJar(classJar, iJar, ImmutableList.of(srcJar))
             .setJdeps(outputDepsProto)
+            .setNativeHeaders(nativeHeaderOutput)
             .build();
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     JavaCompilationArgsProvider compilationArgsProvider =

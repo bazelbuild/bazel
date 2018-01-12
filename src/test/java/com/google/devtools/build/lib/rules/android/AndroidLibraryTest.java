@@ -13,18 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -32,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -42,6 +47,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
@@ -635,7 +641,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(actualArgs).contains(flag);
     String actualFlagValue = actualArgs.get(actualArgs.indexOf(flag) + 1);
     ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
-    for (String resourceDependency : actualFlagValue.split(",")) {
+    for (String resourceDependency : Splitter.on(',').split(actualFlagValue)) {
       assertThat(actualFlagValue).matches("[^;]*;[^;]*;[^;]*;.*");
       actualPaths.add(resourceDependency.split(";")[1].split("#"));
     }
@@ -1810,5 +1816,41 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(provider.getAar()).isNull();
     assertThat(provider.getTransitiveAars()).containsExactly(transitive);
+  }
+
+  @Test
+  public void nativeHeaderOutputs() throws Exception {
+    scratch.file(
+        "java/com/google/jni/BUILD", //
+        "android_library(",
+        "    name = 'jni',",
+        "    srcs = ['Foo.java', 'Bar.java'],",
+        ")");
+
+    FileConfiguredTarget target = getFileConfiguredTarget("//java/com/google/jni:libjni.jar");
+    SpawnAction action = (SpawnAction) getGeneratingAction(target.getArtifact());
+    String outputPath = outputPath(action, "java/com/google/jni/libjni-native-header.jar");
+    assertThat(action.getArguments())
+        .contains("@" + getBinArtifact("libjni.jar-2.params", target).getExecPathString());
+    assertThat(Joiner.on(' ').join(getParamFileContents(action)))
+        .contains(Joiner.on(' ').join("--native_header_output", outputPath));
+
+    Artifact nativeHeaderOutput =
+        JavaInfo.getProvider(
+                JavaRuleOutputJarsProvider.class, getConfiguredTarget("//java/com/google/jni"))
+            .getNativeHeaders();
+    assertThat(nativeHeaderOutput.getExecPathString()).isEqualTo(outputPath);
+  }
+
+  private static String outputPath(Action action, String suffix) {
+    System.err.println(action.getOutputs());
+    Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(action.getOutputs(), suffix);
+    return verifyNotNull(artifact, suffix).getExecPath().getPathString();
+  }
+
+  private Iterable<String> getParamFileContents(Action action)
+      throws CommandLineExpansionException {
+    Artifact paramFile = getFirstArtifactEndingWith(action.getInputs(), "-2.params");
+    return ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents();
   }
 }
