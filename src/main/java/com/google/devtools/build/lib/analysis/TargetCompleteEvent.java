@@ -175,7 +175,7 @@ public final class TargetCompleteEvent
       BuildEventConverters converters,
       Iterable<Artifact> artifacts) {
     for (Artifact artifact : artifacts) {
-      String name = artifact.getPath().relativeTo(artifact.getRoot().getPath()).getPathString();
+      String name = artifact.getRootRelativePathString();
       String uri = converters.pathConverter().apply(artifact.getPath());
       builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
     }
