@@ -10,6 +10,12 @@ load(
     "JDK9_JVM_OPTS",
 )
 
+# Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
+toolchain_type(name = "toolchain_type")
+
+# Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
+toolchain_type(name = "runtime_toolchain_type")
+
 java_runtime_alias(name = "current_java_runtime")
 
 java_host_runtime_alias(name = "current_host_java_runtime")
