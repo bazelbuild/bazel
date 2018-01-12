@@ -15,10 +15,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//third_party:apache_httpclient",
-        "//third_party:apache_httpcore",
         "//third_party:auth",
-        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",
