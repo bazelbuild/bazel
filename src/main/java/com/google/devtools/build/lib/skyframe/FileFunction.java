@@ -252,7 +252,8 @@ public class FileFunction implements SkyFunction {
         // reported exactly once.
         return null;
       }
-      throw new FileFunctionException(Preconditions.checkNotNull(fse, rootedPath));
+      throw new FileFunctionException(
+          Preconditions.checkNotNull(fse, rootedPath), Transience.PERSISTENT);
     }
 
     return resolveFromAncestors(symlinkTargetRootedPath, env);
@@ -278,15 +279,6 @@ public class FileFunction implements SkyFunction {
    * {@link FileFunction#compute}.
    */
   private static final class FileFunctionException extends SkyFunctionException {
-
-    public FileFunctionException(InconsistentFilesystemException e, Transience transience) {
-      super(e, transience);
-    }
-
-    public FileFunctionException(FileSymlinkException e) {
-      super(e, Transience.PERSISTENT);
-    }
-
     public FileFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }

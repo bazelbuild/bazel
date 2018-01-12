@@ -46,7 +46,7 @@ public class DirtinessCheckerUtils {
       RootedPath rootedPath = (RootedPath) key.argument();
       try {
         return FileStateValue.create(rootedPath, tsgm);
-      } catch (InconsistentFilesystemException | IOException e) {
+      } catch (IOException e) {
         // TODO(bazel-team): An IOException indicates a failure to get a file digest or a symlink
         // target, not a missing file. Such a failure really shouldn't happen, so failing early
         // may be better here.

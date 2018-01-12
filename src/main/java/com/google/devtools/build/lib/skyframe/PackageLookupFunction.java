@@ -146,8 +146,15 @@ public class PackageLookupFunction implements SkyFunction {
     SkyKey fileSkyKey = FileValue.key(fileRootedPath);
     FileValue fileValue = null;
     try {
-      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
-          FileSymlinkException.class, InconsistentFilesystemException.class);
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
+    } catch (InconsistentFilesystemException e) {
+      // This error is not transient from the perspective of the PackageLookupFunction.
+      throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
+    } catch (FileSymlinkException e) {
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
+          "Symlink cycle detected while trying to find " + basename + " file "
+              + fileRootedPath.asPath()),
+          Transience.PERSISTENT);
     } catch (IOException e) {
       // TODO(bazel-team): throw an IOException here and let PackageFunction wrap that into a
       // BuildFileNotFoundException.
@@ -155,14 +162,6 @@ public class PackageLookupFunction implements SkyFunction {
           "IO errors while looking for " + basename + " file reading "
               + fileRootedPath.asPath() + ": " + e.getMessage(), e),
           Transience.PERSISTENT);
-    } catch (FileSymlinkException e) {
-      throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
-          "Symlink cycle detected while trying to find " + basename + " file "
-              + fileRootedPath.asPath()),
-          Transience.PERSISTENT);
-    } catch (InconsistentFilesystemException e) {
-      // This error is not transient from the perspective of the PackageLookupFunction.
-      throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
     }
     return fileValue;
   }

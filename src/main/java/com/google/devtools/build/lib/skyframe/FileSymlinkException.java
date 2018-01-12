@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import java.io.IOException;
+
 /** Exception indicating a problem with symlinks. */
-public abstract class FileSymlinkException extends Exception {
+public abstract class FileSymlinkException extends IOException {
   protected FileSymlinkException(String message) {
     super(message);
   }

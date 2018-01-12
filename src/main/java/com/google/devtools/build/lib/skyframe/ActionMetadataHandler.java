@@ -575,17 +575,13 @@ public class ActionMetadataHandler implements MetadataHandler {
     }
     RootedPath realRootedPath = RootedPath.toRootedPathMaybeUnderRoot(realPath,
         ImmutableList.of(artifact.getRoot().getPath()));
-    FileStateValue fileStateValue;
-    FileStateValue realFileStateValue;
-    try {
-      fileStateValue = FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
-      // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
-      // and is a source file (since changes to those are checked separately).
-      realFileStateValue = realPath.equals(path) ? fileStateValue
-          : FileStateValue.create(realRootedPath, tsgm);
-    } catch (InconsistentFilesystemException e) {
-      throw new IOException(e);
-    }
+    FileStateValue fileStateValue =
+        FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
+    // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
+    // and is a source file (since changes to those are checked separately).
+    FileStateValue realFileStateValue = realPath.equals(path)
+        ? fileStateValue
+        : FileStateValue.create(realRootedPath, tsgm);
     return FileValue.value(rootedPath, fileStateValue, realRootedPath, realFileStateValue);
   }
 

@@ -174,7 +174,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       // We are free to traverse this directory.
       Collection<SkyKey> dependentKeys = createRecursiveTraversalKeys(env, traversal);
       return resultForDirectory(traversal, rootInfo, traverseChildren(env, dependentKeys));
-    } catch (FileSymlinkException | InconsistentFilesystemException | IOException e) {
+    } catch (IOException e) {
       throw new RecursiveFilesystemTraversalFunctionException(
           new FileOperationException("Error while traversing fileset: " + e.getMessage()));
     } catch (MissingDepException e) {
@@ -213,16 +213,10 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   }
 
   private static FileInfo lookUpFileInfo(Environment env, TraversalRequest traversal)
-      throws MissingDepException, FileSymlinkException, InconsistentFilesystemException,
-          IOException, InterruptedException {
+      throws MissingDepException, IOException, InterruptedException {
     // Stat the file.
     FileValue fileValue =
-        (FileValue)
-            env.getValueOrThrow(
-                FileValue.key(traversal.path),
-                FileSymlinkException.class,
-                InconsistentFilesystemException.class,
-                IOException.class);
+        (FileValue) env.getValueOrThrow(FileValue.key(traversal.path), IOException.class);
 
     if (env.valuesMissing()) {
       throw new MissingDepException();
@@ -301,8 +295,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
    */
   private static PkgLookupResult checkIfPackage(
       Environment env, TraversalRequest traversal, FileInfo rootInfo)
-      throws MissingDepException, FileSymlinkException, InconsistentFilesystemException,
-          IOException, InterruptedException {
+      throws MissingDepException, IOException, InterruptedException {
     Preconditions.checkArgument(rootInfo.type.exists() && !rootInfo.type.isFile(),
         "{%s} {%s}", traversal, rootInfo);
     PackageLookupValue pkgLookup = (PackageLookupValue) getDependentSkyValue(env,

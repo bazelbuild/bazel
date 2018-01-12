@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -53,12 +52,7 @@ abstract class AndroidRepositoryFunction extends RepositoryFunction {
     RootedPath rootedPath = RootedPath.toRootedPath(root, dirPath);
     try {
       FileValue dirFileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  FileValue.key(rootedPath),
-                  IOException.class,
-                  FileSymlinkException.class,
-                  InconsistentFilesystemException.class);
+          (FileValue) env.getValueOrThrow(FileValue.key(rootedPath), IOException.class);
       if (dirFileValue == null) {
         return null;
       }
@@ -76,8 +70,6 @@ abstract class AndroidRepositoryFunction extends RepositoryFunction {
               InconsistentFilesystemException.class);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-    } catch (FileSymlinkException | InconsistentFilesystemException e) {
-      throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
   }
 

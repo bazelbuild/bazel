@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -308,16 +307,13 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
         RootedPath.toRootedPath(directory, sourcePropertiesFilePath));
 
     try {
-      env.getValueOrThrow(releaseFileKey,
-          IOException.class,
-          FileSymlinkException.class,
-          InconsistentFilesystemException.class);
+      env.getValueOrThrow(releaseFileKey, IOException.class);
 
       Properties properties = new Properties();
       properties.load(sourcePropertiesFilePath.getInputStream());
       return properties;
 
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+    } catch (IOException e) {
       String error = String.format(
           "Could not read %s in Android SDK: %s", sourcePropertiesFilePath, e.getMessage());
       throw new RepositoryFunctionException(new IOException(error), Transience.PERSISTENT);
@@ -421,7 +417,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
         }
         directoryListingValues.put(pathFragment, (DirectoryListingValue) skyValue);
       } catch (InconsistentFilesystemException e) {
-        throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
     }
     return directoryListingValues.build();

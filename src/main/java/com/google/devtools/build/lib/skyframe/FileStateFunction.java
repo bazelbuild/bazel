@@ -54,8 +54,6 @@ public class FileStateFunction implements SkyFunction {
       return FileStateValue.NONEXISTENT_FILE_STATE_NODE;
     } catch (IOException e) {
       throw new FileStateFunctionException(e);
-    } catch (InconsistentFilesystemException e) {
-      throw new FileStateFunctionException(e);
     }
   }
 
@@ -70,10 +68,6 @@ public class FileStateFunction implements SkyFunction {
    */
   private static final class FileStateFunctionException extends SkyFunctionException {
     public FileStateFunctionException(IOException e) {
-      super(e, Transience.TRANSIENT);
-    }
-
-    public FileStateFunctionException(InconsistentFilesystemException e) {
       super(e, Transience.TRANSIENT);
     }
   }

@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -252,17 +250,11 @@ public class NewRepositoryFileHandler {
         // don't write to things in the file system this FileValue depends on. In theory, the latter
         // is possible if the file referenced by workspace_file is a symlink to somewhere under the
         // external/ directory, but if you do that, you are really asking for trouble.
-        fileValue =
-            (FileValue)
-                env.getValueOrThrow(
-                    fileKey,
-                    IOException.class,
-                    FileSymlinkException.class,
-                    InconsistentFilesystemException.class);
+        fileValue = (FileValue) env.getValueOrThrow(fileKey, IOException.class);
         if (fileValue == null) {
           return null;
         }
-      } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+      } catch (IOException e) {
         throw new RepositoryFunctionException(
             new IOException("Cannot lookup " + fileAttribute + ": " + e.getMessage()),
             Transience.TRANSIENT);

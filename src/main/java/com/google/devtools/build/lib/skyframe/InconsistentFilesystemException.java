@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import java.io.IOException;
+
 /**
  * Used to indicate a filesystem inconsistency, e.g. file 'a/b' exists but directory 'a' doesn't
  * exist. This generally means the result of the build is undefined but we shouldn't crash hard.
  */
-public class InconsistentFilesystemException extends Exception {
+public class InconsistentFilesystemException extends IOException {
   public InconsistentFilesystemException(String inconsistencyMessage) {
     super("Inconsistent filesystem operations. " + inconsistencyMessage + " The results of the "
         + "build are not guaranteed to be correct. You should probably run 'blaze clean' and "
