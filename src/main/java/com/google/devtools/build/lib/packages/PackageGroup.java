@@ -53,6 +53,7 @@ public class PackageGroup implements Target {
     this.containingPackage = pkg;
     this.includes = ImmutableList.copyOf(includes);
 
+    // TODO(bazel-team): Consider refactoring so constructor takes a PackageGroupContents. 
     ImmutableList.Builder<PackageSpecification> packagesBuilder = ImmutableList.builder();
     for (String packageSpecification : packageSpecifications) {
       PackageSpecification specification = null;
