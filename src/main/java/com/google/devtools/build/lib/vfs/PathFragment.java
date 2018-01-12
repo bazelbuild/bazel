@@ -390,6 +390,10 @@ public abstract class PathFragment
     return true;
   }
 
+  public static boolean isNormalized(String path) {
+    return PathFragment.create(path).isNormalized();
+  }
+
   /**
    * Normalizes the path fragment: removes "." and ".." segments if possible
    * (if there are too many ".." segments, the resulting PathFragment will still
@@ -635,6 +639,10 @@ public abstract class PathFragment
    * Windows-style volume label ("C:") which is actually a relative path.
    */
   public abstract boolean isAbsolute();
+
+  public static boolean isAbsolute(String path) {
+    return PathFragment.create(path).isAbsolute();
+  }
 
   /**
    * Returns the segments of this path fragment. This array should not be
