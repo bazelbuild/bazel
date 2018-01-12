@@ -11,8 +11,6 @@ filegroup(
         "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
         "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
         "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//src/conditions:windows_msys": ["//src/main/native/windows:windows_jni.dll"],
-        "//src/conditions:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [
@@ -189,16 +187,6 @@ py_binary(
             "//src/tools/launcher:launcher",
             "//third_party/def_parser:def_parser",
         ],
-        "//src/conditions:windows_msys": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-            "//src/tools/launcher:launcher",
-            "//third_party/def_parser:def_parser",
-        ],
-        "//src/conditions:windows_msvc": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-            "//src/tools/launcher:launcher",
-            "//third_party/def_parser:def_parser",
-        ],
         "//src/conditions:arm": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
@@ -211,12 +199,6 @@ py_binary(
         ],
         "//src/conditions:darwin_x86_64": [
             "@openjdk_macos//file",
-        ],
-        "//src/conditions:windows_msys": [
-            "@openjdk_win//file",
-        ],
-        "//src/conditions:windows_msvc": [
-            "@openjdk_win//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win//file",
@@ -436,12 +418,5 @@ test_suite(
 alias(
     name = "windows",
     actual = "//src/conditions:windows",
-    visibility = ["//visibility:public"],
-)
-
-# config_setting alias left here because bazel-only third_party code is pointing to it
-alias(
-    name = "windows_msvc",
-    actual = "//src/conditions:windows_msvc",
     visibility = ["//visibility:public"],
 )

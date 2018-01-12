@@ -14,13 +14,6 @@ cc_test(
         "//src/conditions:windows": [
             "blaze_util_windows_test.cc",
         ],
-        "//src/conditions:windows_msys": [
-            "blaze_util_test.cc",
-            "blaze_util_windows_test.cc",
-        ],
-        "//src/conditions:windows_msvc": [
-            "blaze_util_windows_test.cc",
-        ],
         "//conditions:default": [
             "blaze_util_test.cc",
             "blaze_util_posix_test.cc",

@@ -12,7 +12,6 @@ filegroup(
     name = "def_parser",
     srcs = select({
       "//src/conditions:host_windows": ["def_parser_windows"],
-      "//src/conditions:host_windows_msvc": ["def_parser_windows"],
       "//conditions:default": [
         "no_op.bat",
       ],

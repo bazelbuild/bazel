@@ -15,14 +15,10 @@ java_test(
     size = "small",
     srcs = select({
         "//src/conditions:windows": ["WindowsJunctionCreatorTest.java"],
-        "//src/conditions:windows_msvc": ["WindowsJunctionCreatorTest.java"],
-        "//src/conditions:windows_msys": ["WindowsJunctionCreatorTest.java"],
         "//conditions:default": ["NoopJunctionCreatorTest.java"],
     }),
     test_class = select({
         "//src/conditions:windows": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
-        "//src/conditions:windows_msvc": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
-        "//src/conditions:windows_msys": "com.google.devtools.build.android.junctions.WindowsJunctionCreatorTest",
         "//conditions:default": "com.google.devtools.build.android.junctions.NoopJunctionCreatorTest",
     }),
     deps = [
