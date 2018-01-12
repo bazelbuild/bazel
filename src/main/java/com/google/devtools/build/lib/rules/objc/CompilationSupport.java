@@ -454,7 +454,7 @@ public class CompilationSupport {
             .addVariableExtension(extensionBuilder.build());
 
     if (linkType != null) {
-      resultLink.setLinkType(linkType);
+      resultLink.setStaticLinkType(linkType);
     }
 
     if (linkActionInput != null) {

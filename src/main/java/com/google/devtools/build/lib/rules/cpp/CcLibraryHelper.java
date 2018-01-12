@@ -838,8 +838,8 @@ public final class CcLibraryHelper {
    * by the linker even if they are not otherwise used. This is useful for libraries that register
    * themselves somewhere during initialization.
    *
-   * <p>This only sets the link type (see {@link #setLinkType}), either to a static library or to
-   * an alwayslink static library (blaze uses a different file extension to signal alwayslink to
+   * <p>This only sets the link type (see {@link #setStaticLinkType}), either to a static library or
+   * to an alwayslink static library (blaze uses a different file extension to signal alwayslink to
    * downstream code).
    */
   public CcLibraryHelper setAlwayslink(boolean alwayslink) {
@@ -853,8 +853,10 @@ public final class CcLibraryHelper {
    * Directly set the link type. This can be used instead of {@link #setAlwayslink}. Setting
    * anything other than a static link causes this class to skip the link action creation.
    */
-  public CcLibraryHelper setLinkType(LinkTargetType linkType) {
-    this.linkType = Preconditions.checkNotNull(linkType);
+  public CcLibraryHelper setStaticLinkType(LinkTargetType linkType) {
+    Preconditions.checkNotNull(linkType);
+    Preconditions.checkState(linkType.staticness() == Staticness.STATIC);
+    this.linkType = linkType;
     return this;
   }
 
