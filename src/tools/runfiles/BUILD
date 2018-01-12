@@ -7,7 +7,12 @@ exports_files(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(
+        ["**"],
+        exclude = [".*"],  # .swp files and such
+    ) + [
+        "//src/tools/runfiles/java/com/google/devtools/build/runfiles:srcs",
+    ],
     visibility = ["//src:__pkg__"],
 )
 
@@ -28,19 +33,25 @@ sh_test(
     deps = [":runfiles_sh_lib"],
 )
 
+alias(
+    name = "java-runfiles",
+    actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles",
+    visibility = ["//visibility:public"],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+        "//src/tools/runfiles/java/com/google/devtools/build/runfiles:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
 )
