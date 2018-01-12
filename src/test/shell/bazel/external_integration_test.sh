@@ -873,4 +873,34 @@ EOF
   shutdown_server
 }
 
+function test_same_name() {
+  mkdir ext
+  echo foo> ext/foo
+  EXTREPODIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+new_http_archive(
+  name="ext",
+  strip_prefix="ext",
+  url="file://${EXTREPODIR}/ext.zip",
+  build_file_content="exports_files([\"foo\"])",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "localfoo",
+  srcs = ["@ext//:foo"],
+  outs = ["foo"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:localfoo \
+    || fail 'Expected @ext//:foo and //:foo not to conflict'
+}
+
 run_suite "external tests"

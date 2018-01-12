@@ -270,6 +270,16 @@ public class Package {
     defaultRestrictedTo = environments;
   }
 
+  /**
+   * Returns the source root (a directory) beneath which this package's BUILD file was found.
+   *
+   * <p> Assumes invariant:
+   * {@code getSourceRoot().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
+   */
+  public Path getSourceRoot() {
+    return sourceRoot;
+  }
+
   // This must always be consistent with Root.computeSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.
   private static Path getSourceRoot(Path buildFile, PathFragment packageFragment) {
@@ -351,16 +361,6 @@ public class Package {
    */
   public Path getFilename() {
     return filename;
-  }
-
-  /**
-   * Returns the source root (a directory) beneath which this package's BUILD file was found.
-   *
-   * <p> Assumes invariant:
-   * {@code getSourceRoot().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
-   */
-  public Path getSourceRoot() {
-    return sourceRoot;
   }
 
   /**
@@ -1103,13 +1103,13 @@ public class Package {
       return subincludes == null ? Maps.<Label, Path>newHashMap() : subincludes;
     }
 
-    public Collection<Target> getTargets() {
-      return Package.getTargets(targets);
-    }
-
     @Nullable
     public Target getTarget(String name) {
       return targets.get(name);
+    }
+
+    public Collection<Target> getTargets() {
+      return Package.getTargets(targets);
     }
 
     /**
@@ -1499,9 +1499,9 @@ public class Package {
      */
     private void checkForInputOutputConflicts(Rule rule, Set<String> outputFiles)
         throws NameConflictException, InterruptedException {
-      PathFragment packageFragment = rule.getLabel().getPackageFragment();
+      PackageIdentifier packageIdentifier = rule.getLabel().getPackageIdentifier();
       for (Label inputLabel : rule.getLabels()) {
-        if (packageFragment.equals(inputLabel.getPackageFragment())
+        if (packageIdentifier.equals(inputLabel.getPackageIdentifier())
             && outputFiles.contains(inputLabel.getName())) {
           throw inputOutputNameConflict(rule, inputLabel.getName());
         }
