@@ -44,7 +44,7 @@ public abstract class AbstractPackageLoaderTest {
   @Before
   public final void init() throws Exception {
     FileSystem fs = new InMemoryFileSystem();
-    pkgRoot = fs.getRootDirectory().getChild("pkgRoot");
+    pkgRoot = fs.getPath("/").getRelative("pkgRoot");
     FileSystemUtils.createDirectoryAndParents(pkgRoot);
     Reporter reporter = new Reporter(new EventBus());
     handler = new StoredEventHandler();

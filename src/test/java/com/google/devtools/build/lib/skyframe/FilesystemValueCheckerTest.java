@@ -638,7 +638,7 @@ public class FilesystemValueCheckerTest {
             for (PathFragment pathFrag : paths) {
               stats.add(
                   FileStatusWithDigestAdapter.adapt(
-                      fs.getRootDirectory().getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
+                      fs.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
             }
             return stats;
           }
@@ -656,7 +656,7 @@ public class FilesystemValueCheckerTest {
               throws IOException {
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
-              final Path path = fs.getRootDirectory().getRelative(pathFrag);
+              final Path path = fs.getPath("/").getRelative(pathFrag);
               stats.add(statWithDigest(path, path.statIfFound(Symlinks.NOFOLLOW)));
             }
             return stats;
@@ -696,7 +696,7 @@ public class FilesystemValueCheckerTest {
             for (PathFragment pathFrag : paths) {
               stats.add(
                   FileStatusWithDigestAdapter.adapt(
-                      fs.getRootDirectory().getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
+                      fs.getPath("/").getRelative(pathFrag).statIfFound(Symlinks.NOFOLLOW)));
             }
             return stats;
           }

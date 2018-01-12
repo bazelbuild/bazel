@@ -42,13 +42,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DiffAwarenessManagerTest {
   private FileSystem fs;
-  private Path root;
   protected EventCollectionApparatus events;
 
   @Before
   public final void createFileSystem() throws Exception  {
     fs = new InMemoryFileSystem();
-    root = fs.getRootDirectory();
   }
 
   @Before
@@ -59,7 +57,7 @@ public class DiffAwarenessManagerTest {
 
   @Test
   public void testEverythingModifiedIfNoDiffAwareness() throws Exception {
-    Path pathEntry = root.getRelative("pathEntry");
+    Path pathEntry = fs.getPath("/pathEntry");
     DiffAwarenessFactoryStub factory = new DiffAwarenessFactoryStub();
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     assertWithMessage("Expected EVERYTHING_MODIFIED since there are no factories")
@@ -73,7 +71,7 @@ public class DiffAwarenessManagerTest {
 
   @Test
   public void testResetAndSetPathEntriesCallClose() throws Exception {
-    Path pathEntry = root.getRelative("pathEntry");
+    Path pathEntry = fs.getPath("/pathEntry");
     ModifiedFileSet diff = ModifiedFileSet.NOTHING_MODIFIED;
     DiffAwarenessStub diffAwareness1 = new DiffAwarenessStub(ImmutableList.of(diff));
     DiffAwarenessStub diffAwareness2 = new DiffAwarenessStub(ImmutableList.of(diff));
@@ -98,7 +96,7 @@ public class DiffAwarenessManagerTest {
 
   @Test
   public void testHandlesUnprocessedDiffs() throws Exception {
-    Path pathEntry = root.getRelative("pathEntry");
+    Path pathEntry = fs.getPath("/pathEntry");
     ModifiedFileSet diff1 = ModifiedFileSet.builder().modify(PathFragment.create("file1")).build();
     ModifiedFileSet diff2 = ModifiedFileSet.builder().modify(PathFragment.create("file2")).build();
     ModifiedFileSet diff3 = ModifiedFileSet.builder().modify(PathFragment.create("file3")).build();
@@ -134,7 +132,7 @@ public class DiffAwarenessManagerTest {
 
   @Test
   public void testHandlesBrokenDiffs() throws Exception {
-    Path pathEntry = root.getRelative("pathEntry");
+    Path pathEntry = fs.getPath("/pathEntry");
     DiffAwarenessFactoryStub factory1 = new DiffAwarenessFactoryStub();
     DiffAwarenessStub diffAwareness1 =
         new DiffAwarenessStub(ImmutableList.<ModifiedFileSet>of(), 1);

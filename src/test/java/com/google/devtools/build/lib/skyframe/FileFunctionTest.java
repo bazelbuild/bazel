@@ -110,8 +110,8 @@ public class FileFunctionTest {
 
   private void createFsAndRoot(CustomInMemoryFs fs) throws IOException {
     this.fs = fs;
-    pkgRoot = fs.getRootDirectory().getRelative("root");
-    outputBase = fs.getRootDirectory().getRelative("output_base");
+    pkgRoot = fs.getPath("/root");
+    outputBase = fs.getPath("/output_base");
     pkgLocator =
         new PathPackageLocator(
             outputBase,
@@ -634,7 +634,7 @@ public class FileFunctionTest {
 
   @Test
   public void testSymlinkAcrossPackageRoots() throws Exception {
-    Path otherPkgRoot = fs.getRootDirectory().getRelative("other_root");
+    Path otherPkgRoot = fs.getPath("/other_root");
     pkgLocator =
         new PathPackageLocator(
             outputBase,
@@ -835,7 +835,7 @@ public class FileFunctionTest {
             return super.getDigest(path, hf);
           }
         };
-    pkgRoot = fs.getRootDirectory().getRelative("root");
+    pkgRoot = fs.getPath("/root");
     Path file = file("file");
     FileSystemUtils.writeContentAsLatin1(file, Strings.repeat("a", 20));
     byte[] digest = file.getDigest();

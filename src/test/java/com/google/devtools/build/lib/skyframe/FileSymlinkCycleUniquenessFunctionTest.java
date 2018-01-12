@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,7 +28,7 @@ public class FileSymlinkCycleUniquenessFunctionTest {
 
   @Test
   public void testHashCodeAndEqualsContract() throws Exception {
-    Path root = new InMemoryFileSystem().getRootDirectory().getRelative("root");
+    Path root = new InMemoryFileSystem().getPath("/root");
     RootedPath p1 = RootedPath.toRootedPath(root, PathFragment.create("p1"));
     RootedPath p2 = RootedPath.toRootedPath(root, PathFragment.create("p2"));
     RootedPath p3 = RootedPath.toRootedPath(root, PathFragment.create("p3"));

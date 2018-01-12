@@ -105,9 +105,9 @@ public abstract class GlobFunctionTest {
   @Before
   public final void setUp() throws Exception  {
     fs = new CustomInMemoryFs(new ManualClock());
-    root = fs.getRootDirectory().getRelative("root/workspace");
-    writableRoot = fs.getRootDirectory().getRelative("writableRoot/workspace");
-    outputBase = fs.getRootDirectory().getRelative("output_base");
+    root = fs.getPath("/root/workspace");
+    writableRoot = fs.getPath("/writableRoot/workspace");
+    outputBase = fs.getPath("/output_base");
     pkgPath = root.getRelative(PKG_ID.getPackageFragment());
 
     pkgLocator =

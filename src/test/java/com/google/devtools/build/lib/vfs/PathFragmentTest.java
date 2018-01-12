@@ -78,7 +78,7 @@ public class PathFragmentTest {
         .addEqualityGroup(PathFragment.create("/something/else"))
         .addEqualityGroup(PathFragment.create("/"), PathFragment.create("//////"))
         .addEqualityGroup(PathFragment.create(""), PathFragment.EMPTY_FRAGMENT)
-        .addEqualityGroup(filesystem.getRootDirectory()) // A Path object.
+        .addEqualityGroup(filesystem.getPath("/")) // A Path object.
         .testEquals();
   }
 
