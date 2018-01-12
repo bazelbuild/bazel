@@ -185,7 +185,7 @@ public class SpawnInputExpanderTest {
     // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
     scratchFile("/root/out/_foo/MANIFEST");
 
-    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).isEmpty();
@@ -199,7 +199,7 @@ public class SpawnInputExpanderTest {
         "workspace/bar /dir/file",
         "<some digest>");
 
-    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).hasSize(1);
@@ -217,7 +217,7 @@ public class SpawnInputExpanderTest {
         "workspace/baz /dir/file",
         "<some digest>");
 
-    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).hasSize(2);
@@ -235,7 +235,7 @@ public class SpawnInputExpanderTest {
         "workspace/bar /some",
         "<some digest>");
 
-    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).hasSize(1);

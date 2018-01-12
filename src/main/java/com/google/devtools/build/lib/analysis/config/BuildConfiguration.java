@@ -1194,13 +1194,10 @@ public class BuildConfiguration implements BuildEvent {
       Path outputDir = execRoot.getRelative(directories.getRelativeOutputPath())
           .getRelative(outputDirName);
       if (middleman) {
-        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir,
-            repositoryName.equals(mainRepositoryName)));
+        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir));
       }
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
-      return INTERNER.intern(
-          Root.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment),
-              repositoryName.equals(mainRepositoryName)));
+      return INTERNER.intern(Root.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment)));
     }
   }
 

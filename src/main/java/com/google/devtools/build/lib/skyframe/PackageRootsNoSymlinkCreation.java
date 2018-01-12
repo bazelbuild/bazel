@@ -31,7 +31,7 @@ public class PackageRootsNoSymlinkCreation implements PackageRoots {
 
   @VisibleForTesting
   public PackageRootsNoSymlinkCreation(Path sourcePath) {
-    this.sourceRoot = Root.asSourceRoot(sourcePath, true);
+    this.sourceRoot = Root.asSourceRoot(sourcePath);
   }
 
   @Override

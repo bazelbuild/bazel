@@ -284,7 +284,7 @@ public class FdoSupport {
     Root fdoRoot =
         (fdoProfile == null)
             ? null
-            : Root.asDerivedRoot(execRoot, execRoot.getRelative(productName + "-fdo"), true);
+            : Root.asDerivedRoot(execRoot, execRoot.getRelative(productName + "-fdo"));
 
     PathFragment fdoRootExecPath = fdoProfile == null
         ? null

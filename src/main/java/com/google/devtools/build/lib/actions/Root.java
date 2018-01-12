@@ -52,33 +52,36 @@ import javax.annotation.Nullable;
 @Immutable
 public final class Root implements Comparable<Root>, Serializable, SkylarkValue {
 
-  /**
-   * Returns the given path as a source root. The path may not be {@code null}.
-   */
-  // TODO(kchodorow): remove once roots don't need to know if they're in the main repo.
-  public static Root asSourceRoot(Path path, boolean isMainRepo) {
-    return new Root(null, path, false, isMainRepo);
-  }
-
   // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.
   public static Root computeSourceRoot(Path packageRoot, RepositoryName repository) {
     if (repository.isMain()) {
-      return Root.asSourceRoot(packageRoot, true);
+      return asSourceRoot(packageRoot);
     } else {
       Path actualRoot = packageRoot;
       for (int i = 0; i < repository.getSourceRoot().segmentCount(); i++) {
         actualRoot = actualRoot.getParentDirectory();
       }
-      return Root.asSourceRoot(actualRoot, false);
+      return asSourceRoot(actualRoot);
     }
   }
 
-  /**
-   * testonly until {@link #asSourceRoot(Path, boolean)} is deleted.
-   */
+  /** Returns the given path as a source root. The path may not be {@code null}. */
   public static Root asSourceRoot(Path path) {
-    return asSourceRoot(path, true);
+    return new Root(null, path);
+  }
+
+  /**
+   * Returns the given path as a derived root, relative to the given exec root. The root must be a
+   * proper sub-directory of the exec root (i.e. not equal). Neither may be {@code null}.
+   *
+   * <p>Be careful with this method - all derived roots must be registered with the artifact factory
+   * before the analysis phase.
+   */
+  public static Root asDerivedRoot(Path execRoot, Path root) {
+    Preconditions.checkArgument(root.startsWith(execRoot));
+    Preconditions.checkArgument(!root.equals(execRoot));
+    return new Root(execRoot, root);
   }
 
   /**
@@ -89,43 +92,14 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
    */
   @VisibleForTesting
   public static Root asDerivedRoot(Path path) {
-    return new Root(path, path, true);
-   }
-
-  /**
-   * Returns the given path as a derived root, relative to the given exec root. The root must be a
-   * proper sub-directory of the exec root (i.e. not equal). Neither may be {@code null}.
-   *
-   * <p>Be careful with this method - all derived roots must be registered with the artifact factory
-   * before the analysis phase.
-   */
-  // TODO(kchodorow): remove once roots don't need to know if they're in the main repo.
-  public static Root asDerivedRoot(Path execRoot, Path root, boolean isMainRepo) {
-    Preconditions.checkArgument(root.startsWith(execRoot));
-    Preconditions.checkArgument(!root.equals(execRoot));
-    return new Root(execRoot, root, false, isMainRepo);
+    return new Root(path, path);
   }
 
-  /**
-   * testonly until {@link #asDerivedRoot(Path, Path, boolean)} is deleted.
-   */
-  public static Root asDerivedRoot(Path execRoot, Path root) {
-    return Root.asDerivedRoot(execRoot, root, true);
-  }
-
-  // TODO(kchodorow): remove once roots don't need to know if they're in the main repo.
-  public static Root middlemanRoot(Path execRoot, Path outputDir, boolean isMainRepo) {
+  public static Root middlemanRoot(Path execRoot, Path outputDir) {
     Path root = outputDir.getRelative("internal");
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
-    return new Root(execRoot, root, true, isMainRepo);
-  }
-
-  /**
-   * testonly until {@link #middlemanRoot(Path, Path, boolean)} is deleted.
-   */
-  public static Root middlemanRoot(Path execRoot, Path outputDir) {
-    return Root.middlemanRoot(execRoot, outputDir, true);
+    return new Root(execRoot, root, true);
   }
 
   /**
@@ -133,28 +107,24 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
    * root, but this is currently allowed. Do not add any further uses besides the ones that already
    * exist!
    */
-  // TODO(kchodorow): remove isMainRepo once roots don't need to know if they're in the main repo.
-  static Root execRootAsDerivedRoot(Path execRoot, boolean isMainRepo) {
-    return new Root(execRoot, execRoot, false, isMainRepo);
+  static Root execRootAsDerivedRoot(Path execRoot) {
+    return new Root(execRoot, execRoot);
   }
 
   @Nullable private final Path execRoot;
   private final Path path;
   private final boolean isMiddlemanRoot;
-  private final boolean isMainRepo;
   private final PathFragment execPath;
 
-
-  private Root(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot, boolean isMainRepo) {
+  private Root(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot) {
     this.execRoot = execRoot;
     this.path = Preconditions.checkNotNull(path);
     this.isMiddlemanRoot = isMiddlemanRoot;
-    this.isMainRepo = isMainRepo;
     this.execPath = isSourceRoot() ? PathFragment.EMPTY_FRAGMENT : path.relativeTo(execRoot);
   }
 
-  private Root(@Nullable Path execRoot, Path path, boolean isMainRepo) {
-    this(execRoot, path, false, isMainRepo);
+  private Root(@Nullable Path execRoot, Path path) {
+    this(execRoot, path, false);
   }
 
   public Path getPath() {
@@ -188,10 +158,6 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
     return isMiddlemanRoot;
   }
 
-  public boolean isMainRepo() {
-    return isMainRepo;
-  }
-
   @Override
   public int compareTo(Root o) {
     return path.compareTo(o.path);
@@ -199,7 +165,7 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
 
   @Override
   public int hashCode() {
-    return Objects.hash(execRoot, path.hashCode(), isMainRepo);
+    return Objects.hash(execRoot, path.hashCode());
   }
 
   @Override
@@ -211,8 +177,7 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
       return false;
     }
     Root r = (Root) o;
-    return path.equals(r.path) && Objects.equals(execRoot, r.execRoot)
-        && Objects.equals(isMainRepo, r.isMainRepo);
+    return path.equals(r.path) && Objects.equals(execRoot, r.execRoot);
   }
 
   @Override

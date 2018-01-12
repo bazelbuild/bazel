@@ -276,9 +276,7 @@ public final class ConfiguredTargetFactory {
       Artifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(),
-              Root.asSourceRoot(
-                  inputFile.getPackage().getSourceRoot(),
-                  inputFile.getPackage().getPackageIdentifier().getRepository().isMain()),
+              Root.asSourceRoot(inputFile.getPackage().getSourceRoot()),
               ConfiguredTargetKey.of(target.getLabel(), config));
 
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
