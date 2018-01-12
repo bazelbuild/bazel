@@ -1253,9 +1253,9 @@ public class Path
     }
 
     @Override
-    public void serialize(
-        FileSystemProvider unusedDependency, Path path, CodedOutputStream codedOut)
+    public void serialize(FileSystemProvider fsProvider, Path path, CodedOutputStream codedOut)
         throws IOException, SerializationException {
+      Preconditions.checkArgument(path.getFileSystem() == fsProvider.getFileSystem());
       PathFragment.CODEC.serialize(path.asFragment(), codedOut);
     }
 

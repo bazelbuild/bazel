@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.common.options.Options;
 import java.util.Map;
@@ -417,7 +416,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testCodec() throws Exception {
     ObjectCodecTester.newBuilder(
             new InjectingObjectCodecAdapter<>(
-                BuildConfiguration.CODEC, FsUtils.TEST_FILESYSTEM_PROVIDER))
+                BuildConfiguration.CODEC, () -> getScratch().getFileSystem()))
         .addSubjects(
             create(),
             create("--cpu=piii"),
