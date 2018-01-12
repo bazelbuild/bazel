@@ -969,7 +969,8 @@ public class CppLinkActionBuilder {
           .setLinkopts(ImmutableList.copyOf(linkopts));
     } else {
       List<String> opts = new ArrayList<>(linkopts);
-      opts.addAll(featureConfiguration.getCommandLine("lto-indexing", buildVariables));
+      opts.addAll(
+          featureConfiguration.getCommandLine("lto-indexing", buildVariables, null /* expander */));
       opts.addAll(cppConfiguration.getLtoIndexOptions());
       linkCommandLineBuilder.setLinkopts(ImmutableList.copyOf(opts));
     }
@@ -1065,9 +1066,13 @@ public class CppLinkActionBuilder {
     }
     if (linkCommandLine.getParamFile() != null) {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
+      // Pass along tree artifacts, so they can be properly expanded.
+      Iterable<Artifact> expandedNonLibraryTreeArtifactInputs =
+          Iterables.filter(expandedNonLibraryInputs, a -> a.isTreeArtifact());
       Action parameterFileWriteAction =
           new ParameterFileWriteAction(
               getOwner(),
+              expandedNonLibraryTreeArtifactInputs,
               paramFile,
               linkCommandLine.paramCmdLine(),
               ParameterFile.ParameterFileType.UNQUOTED,
@@ -1260,15 +1265,6 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  private void addObjectFile(LinkerInput input) {
-    // We skip file extension checks for TreeArtifacts because they represent directory artifacts
-    // without a file extension.
-    String name = input.getArtifact().getFilename();
-    Preconditions.checkArgument(
-        input.getArtifact().isTreeArtifact() || Link.OBJECT_FILETYPES.matches(name), name);
-    this.objectFiles.add(input);
-  }
-
   public CppLinkActionBuilder addLtoBitcodeFiles(ImmutableMap<Artifact, Artifact> files) {
     Preconditions.checkState(ltoBitcodeFiles == null);
     ltoBitcodeFiles = files;
@@ -1278,6 +1274,15 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder setDefFile(Artifact defFile) {
     this.defFile = defFile;
     return this;
+  }
+
+   private void addObjectFile(LinkerInput input) {
+    // We skip file extension checks for TreeArtifacts because they represent directory artifacts
+    // without a file extension.
+    String name = input.getArtifact().getFilename();
+    Preconditions.checkArgument(
+        input.getArtifact().isTreeArtifact() || Link.OBJECT_FILETYPES.matches(name), name);
+    this.objectFiles.add(input);
   }
 
   /**
@@ -2058,10 +2063,16 @@ public class CppLinkActionBuilder {
           name = inputArtifact.getExecPathString();
         }
 
-        librariesToLink.addValue(
-            artifactCategory.equals(ArtifactCategory.OBJECT_FILE)
-                ? LibraryToLinkValue.forObjectFile(name, inputIsWholeArchive)
-                : LibraryToLinkValue.forStaticLibrary(name, inputIsWholeArchive));
+        if (artifactCategory.equals(ArtifactCategory.OBJECT_FILE)) {
+          if (inputArtifact.isTreeArtifact()) {
+            librariesToLink.addValue(
+                LibraryToLinkValue.forObjectDirectory(inputArtifact, inputIsWholeArchive));
+          } else {
+            librariesToLink.addValue(LibraryToLinkValue.forObjectFile(name, inputIsWholeArchive));
+          }
+        } else {
+          librariesToLink.addValue(LibraryToLinkValue.forStaticLibrary(name, inputIsWholeArchive));
+        }
       }
     }
   }

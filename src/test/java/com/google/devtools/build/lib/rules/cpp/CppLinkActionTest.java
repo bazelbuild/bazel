@@ -23,7 +23,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -44,11 +50,15 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -602,7 +612,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput.ifso"));
 
-    List<String> commandLine = builder.build().getCommandLine();
+    List<String> commandLine = builder.build().getCommandLine(null);
     assertThat(commandLine).hasSize(6);
     assertThat(commandLine.get(0)).endsWith("custom/crosstool/scripts/link_dynamic_library.sh");
     assertThat(commandLine.get(1)).isEqualTo("yes");
@@ -653,5 +663,66 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setWholeArchive(true);
 
     assertError("the need whole archive flag must be false for static links", builder);
+  }
+
+  private Artifact createTreeArtifact(String name) {
+    FileSystem fs = scratch.getFileSystem();
+    Path execRoot = fs.getPath(TestUtils.tmpDir());
+    PathFragment execPath = PathFragment.create("out").getRelative(name);
+    Path path = execRoot.getRelative(execPath);
+    return new SpecialArtifact(
+        path,
+        Root.asDerivedRoot(execRoot, execRoot.getRelative("out")),
+        execPath,
+        ArtifactOwner.NULL_OWNER,
+        SpecialArtifactType.TREE);
+  }
+
+  private void verifyArguments(
+      Iterable<String> arguments,
+      Iterable<String> allowedArguments,
+      Iterable<String> disallowedArguments) {
+    assertThat(arguments).containsAllIn(allowedArguments);
+    assertThat(arguments).containsNoneIn(disallowedArguments);
+  }
+
+  @Test
+  public void testLinksTreeArtifactLibraries() throws Exception {
+    Artifact testTreeArtifact = createTreeArtifact("library_directory");
+
+    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+
+    ArtifactExpander expander =
+        new ArtifactExpander() {
+          @Override
+          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+            if (artifact.equals(testTreeArtifact)) {
+              output.add(library0);
+              output.add(library1);
+            }
+          };
+        };
+
+    CppLinkActionBuilder builder =
+        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+            .setLibraryIdentifier("foo")
+            .addObjectFiles(ImmutableList.of(testTreeArtifact))
+            // Makes sure this doesn't use a params file.
+            .setFake(true);
+
+    CppLinkAction linkAction = builder.build();
+
+    Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
+    Iterable<String> treeFileArtifactsPaths =
+        ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
+
+    // Should only reference the tree artifact.
+    verifyArguments(linkAction.getCommandLine(null), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(linkAction.getArguments(), treeArtifactsPaths, treeFileArtifactsPaths);
+
+    // Should only reference tree file artifacts.
+    verifyArguments(
+        linkAction.getCommandLine(expander), treeFileArtifactsPaths, treeArtifactsPaths);
   }
 }
