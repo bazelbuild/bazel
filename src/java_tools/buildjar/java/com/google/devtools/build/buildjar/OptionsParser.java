@@ -106,18 +106,8 @@ public final class OptionsParser {
     for (String arg = argQueue.pollFirst(); arg != null; arg = argQueue.pollFirst()) {
       switch (arg) {
         case "--javacopts":
-          // Collect additional arguments to javac.
-          // Assumes that javac options do not start with "--".
-          // otherwise we have to do something like adding a "--"
-          // terminator to the passed arguments.
-          collectFlagArguments(javacOpts, argQueue, "--");
+          readJavacopts(javacOpts, argQueue);
           sourcePathFromJavacOpts();
-          if (!argQueue.isEmpty() && argQueue.peekFirst().equals("--")) {
-            // Support --javacopts terminated with "--", in preparation for requiring javacopts
-            // to be terminated with "--", in preparation for supporting --javacopts that start
-            // with "--".
-            argQueue.removeFirst();
-          }
           break;
         case "--direct_dependency":
           {
@@ -299,6 +289,21 @@ public final class OptionsParser {
       }
       output.add(arg);
     }
+  }
+
+  /**
+   * Returns a list of javacopts. Reads options until a terminating {@code "--"} is reached, to
+   * support parsing javacopts that start with {@code --} (e.g. --release).
+   */
+  private static void readJavacopts(List<String> javacopts, Deque<String> argumentDeque) {
+    while (!argumentDeque.isEmpty()) {
+      String arg = argumentDeque.pollFirst();
+      if (arg.equals("--")) {
+        return;
+      }
+      javacopts.add(arg);
+    }
+    throw new IllegalArgumentException("javacopts should be terminated by `--`");
   }
 
   private static final Splitter CLASSPATH_SPLITTER =
