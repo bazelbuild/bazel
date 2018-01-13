@@ -202,22 +202,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean dumpToStdout;
 
   @Option(
-    name = "experimental_post_build_query",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.UNKNOWN}
-  )
-  public String queryExpression;
-
-  @Option(
-    name = "experimental_query_options",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.UNKNOWN}
-  )
-  public String queryOptions;
-
-  @Option(
     name = "analyze",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

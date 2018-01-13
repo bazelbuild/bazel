@@ -13,21 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
 
-/**
- * Command-line options for the Blaze query language, revision 2.
- */
-public class QueryOptions extends OptionsBase {
+/** Command-line options for the Blaze query language, revision 2. */
+public class QueryOptions extends CommonQueryOptions {
   /** An enum converter for {@code  AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<AspectResolver.Mode> {
     public AspectResolutionModeConverter() {
@@ -131,37 +126,6 @@ public class QueryOptions extends OptionsBase {
   public OrderOutput orderOutput;
 
   @Option(
-    name = "host_deps",
-    defaultValue = "true",
-    category = "query",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "If enabled, dependencies on 'host configuration' targets will be included in the "
-            + "dependency graph over which the query operates.  A 'host configuration' dependency "
-            + "edge, such as the one from any 'proto_library' rule to the Protocol Compiler, "
-            + "usually points to a tool executed during the build (on the host machine) rather "
-            + "than a part of the same 'target' program.  Queries whose purpose is to discover "
-            + "the set of things needed during a build will typically enable this option; queries "
-            + "aimed at revealing the structure of a single program will typically disable this "
-            + "option."
-  )
-  public boolean includeHostDeps;
-
-  @Option(
-    name = "implicit_deps",
-    defaultValue = "true",
-    category = "query",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "If enabled, implicit dependencies will be included in the dependency graph over "
-            + "which the query operates. An implicit dependency is one that is not explicitly "
-            + "specified in the BUILD file but added by blaze."
-  )
-  public boolean includeImplicitDeps;
-
-  @Option(
     name = "graph:node_limit",
     defaultValue = "512",
     category = "query",
@@ -236,20 +200,6 @@ public class QueryOptions extends OptionsBase {
   public boolean strictTestSuite;
 
   @Option(
-    name = "universe_scope",
-    converter = Converters.CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
-    category = "query",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "A comma-separated set of target patterns (additive and subtractive). The query may "
-            + "be performed in the universe defined by the transitive closure of the specified "
-            + "targets."
-  )
-  public List<String> universeScope;
-
-  @Option(
     name = "relative_locations",
     defaultValue = "false",
     category = "query",
@@ -318,16 +268,11 @@ public class QueryOptions extends OptionsBase {
   public boolean protoFlattenSelects;
 
   /** Return the current options as a set of QueryEnvironment settings. */
+  @Override
   public Set<Setting> toSettings() {
-    Set<Setting> settings = EnumSet.noneOf(Setting.class);
+    Set<Setting> settings = super.toSettings();
     if (strictTestSuite) {
       settings.add(Setting.TESTS_EXPRESSION_STRICT);
-    }
-    if (!includeHostDeps) {
-      settings.add(Setting.NO_HOST_DEPS);
-    }
-    if (!includeImplicitDeps) {
-      settings.add(Setting.NO_IMPLICIT_DEPS);
     }
     return settings;
   }

@@ -62,9 +62,11 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -77,7 +79,6 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -237,7 +238,7 @@ public final class BuildTool {
         // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
         // graph beforehand if this option is specified, or add another option to wipe if desired
         // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
-        if (request.getBuildOptions().queryExpression != null) {
+        if (request.getQueryExpression() != null) {
           if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
             throw new ConfiguredTargetQueryCommandLineException(
                 "Configured query is not allowed if incrementality state is not being kept");
@@ -415,7 +416,7 @@ public final class BuildTool {
       List<TargetAndConfiguration> topLevelTargetsWithConfigs)
       throws InterruptedException, QueryException, IOException {
 
-    String queryExpr = request.getBuildOptions().queryExpression;
+    QueryExpression expr = request.getQueryExpression();
 
     // Currently, CTQE assumes that all top level targets take on the same default config and we
     // don't have the ability to map multiple configs to multiple top level targets.
@@ -426,7 +427,7 @@ public final class BuildTool {
     for (TargetAndConfiguration targAndConfig : topLevelTargetsWithConfigs) {
       if (!targAndConfig.getConfiguration().equals(sampleConfig)) {
         throw new QueryException(
-            new TargetLiteral(queryExpr),
+            new TargetLiteral(expr.toString()),
             String.format(
                 "Top level targets %s and %s have different configurations (top level "
                     + "targets with different configurations is not supported)",
@@ -436,7 +437,6 @@ public final class BuildTool {
 
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
-    String queryOptions = request.getBuildOptions().queryOptions;
     ConfiguredTargetQueryEnvironment configuredTargetQueryEnvironment =
         new ConfiguredTargetQueryEnvironment(
             request.getKeepGoing(),
@@ -447,26 +447,25 @@ public final class BuildTool {
             env.newTargetPatternEvaluator().getOffset(),
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
-            queryOptions == null
-                ? new HashSet<>()
-                : ConfiguredTargetQueryEnvironment.parseOptions(queryOptions).toSettings());
-    QueryEvalResult result = configuredTargetQueryEnvironment.evaluateQuery(
-        queryExpr,
-        new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
-          @Override
-          public void processOutput(Iterable<ConfiguredTarget> partialResult)
-              throws IOException, InterruptedException {
-            for (ConfiguredTarget configuredTarget : partialResult) {
-              env.getReporter()
-                  .getOutErr()
-                  .printOutLn(
-                      configuredTarget.getLabel()
-                          + " ("
-                          + configuredTarget.getConfiguration()
-                          + ")");
-            }
-          }
-        });
+            request.getOptions(CommonQueryOptions.class).toSettings());
+    QueryEvalResult result =
+        configuredTargetQueryEnvironment.evaluateQuery(
+            expr,
+            new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
+              @Override
+              public void processOutput(Iterable<ConfiguredTarget> partialResult)
+                  throws IOException, InterruptedException {
+                for (ConfiguredTarget configuredTarget : partialResult) {
+                  env.getReporter()
+                      .getOutErr()
+                      .printOutLn(
+                          configuredTarget.getLabel()
+                              + " ("
+                              + configuredTarget.getConfiguration()
+                              + ")");
+                }
+              }
+            });
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }

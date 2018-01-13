@@ -43,6 +43,7 @@ java_library(
     srcs = glob(["output/*.java"]),
     deps = [
         ":abstract-blaze-query-env",
+        ":common-query-options",
         ":fake-load-target",
         ":query-engine",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -70,6 +71,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "common-query-options",
+    srcs = [
+        "CommonQueryOptions.java",
+    ],
+    deps = [
+        ":query-engine",
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )
 
