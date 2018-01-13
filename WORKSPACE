@@ -27,6 +27,12 @@ bind(
     actual = "//third_party:guava",
 )
 
+# Used by //third_party/protobuf:protobuf_java_util
+bind(
+    name = "gson",
+    actual = "//third_party:gson",
+)
+
 # Used by //third_party/protobuf:protobuf_python
 bind(
     name = "six",
