@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -70,6 +71,15 @@ public abstract class SkylarkInfo extends Info implements Concatable {
    */
   protected abstract Iterable<Object> getValues();
 
+  /** Returns the layout for this provider if it is schemaful, null otherwise. */
+  @Nullable
+  public abstract Layout getLayout();
+
+  /** Returns true if this provider is schemaful (array-based), false otherwise. */
+  public boolean isCompact() {
+    return getLayout() != null;
+  }
+
   /**
    * Creates a schemaless (map-based) provider instance with the given provider type and field
    * values.
@@ -109,49 +119,96 @@ public abstract class SkylarkInfo extends Info implements Concatable {
   }
 
   /**
-   * Creates a schemaful (array-based) provider instance with the given provider type and values,
-   * where the layout is specified by the provider type.
+   * Creates a schemaful (array-based) provider instance with the given provider type, layout, and
+   * values.
    *
-   * <p>This factory method requires a {@link SkylarkProvider} in order to retrieve the layout. To
-   * obtain a schemaful provider instance for another kind of provider type, use {@link
-   * #createSchemafulWithCustomLayout} instead.
-   *
-   * <p>{@code provider} must be schemaful. The order of {@code values} must correspond to {@code
-   * provider}'s layout.
+   * <p>The order of the values must correspond to the given layout.
    *
    * <p>{@code loc} is the creation location for this instance. Built-in provider instances may use
    * {@link Location#BUILTIN}, which is the default if null.
    */
   public static SkylarkInfo createSchemaful(
-      SkylarkProvider provider, Object[] values, @Nullable Location loc) {
-    Preconditions.checkArgument(provider.getLayout() != null, "provider cannot be schemaless");
-    return new CompactSkylarkInfo(provider, provider.getLayout(), values, loc);
-  }
-
-  /**
-   * Creates a schemaful (array-based) provider instance with the given provider type and values,
-   * and with a custom layout.
-   *
-   * <p>The order of the values must correspond to the given layout. Any layout specified by the
-   * provider (i.e., if it is a schemaful {@link SkylarkProvider}) is ignored.
-   *
-   * <p>{@code loc} is the creation location for this instance. Built-in provider instances may use
-   * {@link Location#BUILTIN}, which is the default if null.
-   */
-  public static SkylarkInfo createSchemafulWithCustomLayout(
       Provider provider,
-      ImmutableMap<String, Integer> layout,
+      Layout layout,
       Object[] values,
       @Nullable Location loc) {
     return new CompactSkylarkInfo(provider, layout, values, loc);
   }
 
-  /** Returns the layout for this provider if it is schemaful, null otherwise. */
-  public abstract ImmutableMap<String, Integer> getLayout();
+  /**
+   * A specification of what fields a provider instance has, and how they are ordered in an
+   * array-backed implementation.
+   *
+   * <p>The provider instance may only have fields that appear in its layout. Not all fields in the
+   * layout need be present on the instance.
+   */
+  @Immutable
+  public static final class Layout {
 
-  /** Returns true if this provider is schemaful (array-based), false otherwise. */
-  public boolean isCompact() {
-    return getLayout() != null;
+    /**
+     * A map from field names to a contiguous range of integers [0, n), ordered by integer value.
+     */
+    private final ImmutableMap<String, Integer> map;
+
+    /**
+     * Constructs a {@link Layout} from the given field names.
+     *
+     * <p>The order of the field names is preserved in the layout.
+     *
+     * @throws IllegalArgumentException if any field names are given more than once
+     */
+    public Layout(Iterable<String> fields) {
+      ImmutableMap.Builder<String, Integer> layoutBuilder = ImmutableMap.builder();
+      int i = 0;
+      for (String field : fields) {
+        layoutBuilder.put(field, i++);
+      }
+      this.map = layoutBuilder.build();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof Layout)) {
+        return false;
+      }
+      if (map == other) {
+        return true;
+      }
+      return map.equals(((Layout) other).map);
+    }
+
+    @Override
+    public int hashCode() {
+      return map.hashCode();
+    }
+
+    /** Returns the number of fields in the layout. */
+    public int size() {
+      return map.size();
+    }
+
+    /** Returns whether or not a field is mentioned in the layout. */
+    public boolean hasField(String field) {
+      return map.containsKey(field);
+    }
+
+    /**
+     * Returns the index position associated with the given field, or null if the field is not
+     * mentioned by the layout.
+     */
+    public Integer getFieldIndex(String field) {
+      return map.get(field);
+    }
+
+    /** Returns the field names specified by this layout, in order. */
+    public ImmutableCollection<String> getFields() {
+      return map.keySet();
+    }
+
+    /** Returns the entry set of the underlying map, in order. */
+    public ImmutableCollection<Map.Entry<String, Integer>> entrySet() {
+      return map.entrySet();
+    }
   }
 
   /** A {@link SkylarkInfo} implementation that stores its values in a map. */
@@ -204,7 +261,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
-    public ImmutableMap<String, Integer> getLayout() {
+    public Layout getLayout() {
       return null;
     }
   }
@@ -212,13 +269,13 @@ public abstract class SkylarkInfo extends Info implements Concatable {
   /** A {@link SkylarkInfo} implementation that stores its values in array to save space. */
   private static final class CompactSkylarkInfo extends SkylarkInfo implements Concatable {
 
-    private final ImmutableMap<String, Integer> layout;
+    private final Layout layout;
     /** Treated as immutable. */
     private final Object[] values;
 
     CompactSkylarkInfo(
         Provider provider,
-        ImmutableMap<String, Integer> layout,
+        Layout layout,
         Object[] values,
         @Nullable Location loc) {
       super(provider, loc);
@@ -231,7 +288,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
 
     @Override
     public Object getValue(String name) {
-      Integer index = layout.get(name);
+      Integer index = layout.getFieldIndex(name);
       if (index == null) {
         return null;
       }
@@ -240,7 +297,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
 
     @Override
     public boolean hasField(String name) {
-      Integer index = layout.get(name);
+      Integer index = layout.getFieldIndex(name);
       return index != null && values[index] != null;
     }
 
@@ -261,7 +318,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
-    public ImmutableMap<String, Integer> getLayout() {
+    public Layout getLayout() {
       return layout;
     }
   }
@@ -299,15 +356,15 @@ public abstract class SkylarkInfo extends Info implements Concatable {
       if (leftInfo instanceof CompactSkylarkInfo && rightInfo instanceof CompactSkylarkInfo) {
         CompactSkylarkInfo compactLeft = (CompactSkylarkInfo) leftInfo;
         CompactSkylarkInfo compactRight = (CompactSkylarkInfo) rightInfo;
-        ImmutableMap<String, Integer> layout = compactLeft.layout;
-        if (layout == compactRight.layout) {
+        Layout layout = compactLeft.layout;
+        if (layout.equals(compactRight.layout)) {
           int nvals = layout.size();
           Object[] newValues = new Object[nvals];
           for (int i = 0; i < nvals; i++) {
             newValues[i] =
                 (compactLeft.values[i] != null) ? compactLeft.values[i] : compactRight.values[i];
           }
-          return createSchemafulWithCustomLayout(provider, layout, newValues, loc);
+          return createSchemaful(provider, layout, newValues, loc);
         }
       }
       // Fall back on making a map-based instance.
