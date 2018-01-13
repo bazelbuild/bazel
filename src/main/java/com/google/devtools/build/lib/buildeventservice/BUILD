@@ -29,7 +29,7 @@ java_library(
         "//third_party/grpc:grpc-jar",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
-        "@com_google_protobuf//:well_known_types_any_proto",
+        "@com_google_protobuf//:any_proto",
         "@googleapis//:google_devtools_build_v1_build_events_java_proto",
         "@googleapis//:google_devtools_build_v1_build_status_java_proto",
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
