@@ -269,6 +269,9 @@ public final class DependencyModule {
       collectDependenciesFromArtifact(depsArtifact);
     }
 
+    // TODO(b/71936047): it should be an error for requiredClasspath to contain paths that are not
+    // in originalClasspath
+
     // Filter the initial classpath and keep the original order
     return originalClasspath
         .stream()
