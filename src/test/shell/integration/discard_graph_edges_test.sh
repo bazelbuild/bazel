@@ -361,7 +361,8 @@ function test_packages_cleared_implicit_noincrementality_data() {
   BUILD_FLAGS="$old_build_flags"
 }
 
-function test_actions_deleted_after_execution_nobatch_keep_analysis () {
+# Flaky on ci:  https://ci.bazel.build/job/bazel-tests/1710/
+function DISABLED_test_actions_deleted_after_execution_nobatch_keep_analysis () {
   readonly local old_startup_flags="$STARTUP_FLAGS"
   STARTUP_FLAGS="--nobatch"
   readonly local old_build_flags="$BUILD_FLAGS"
