@@ -146,9 +146,8 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       }
 
       if (!repositoryValue.repositoryExists()) {
-        // This shouldn't be possible; we're given a repository, so we assume that the caller has
-        // already checked for its existence.
-        throw new IllegalStateException(String.format("No such repository '%s'", repository));
+        eventHandler.handle(Event.error(String.format("No such repository '%s'", repository)));
+        return ImmutableList.of();
       }
       roots.add(repositoryValue.getPath());
     }
