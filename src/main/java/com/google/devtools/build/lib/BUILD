@@ -332,7 +332,6 @@ java_library(
         "//third_party:asm-commons",
         "//third_party:asm-util",
         "//third_party:auto_value",
-        "//third_party:bytebuddy",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
