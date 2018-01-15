@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -29,11 +28,9 @@ import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/**
- * A cache of Artifacts, keyed by Path.
- */
+/** A cache of Artifacts, keyed by Path. */
 @ThreadSafe
-public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, ArtifactDeserializer {
+public class ArtifactFactory implements ArtifactResolver {
 
   private final Path execRoot;
   private final Path execRootParent;
@@ -49,8 +46,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    * execPaths in the symlink forest.
    */
   private PackageRoots.PackageRootLookup packageRoots;
-
-  private ArtifactIdRegistry artifactIdRegistry = new ArtifactIdRegistry();
 
   private static class SourceArtifactCache {
 
@@ -135,7 +130,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    */
   public synchronized void clear() {
     packageRoots = null;
-    artifactIdRegistry = new ArtifactIdRegistry();
     sourceArtifactCache.clear();
   }
 
@@ -437,20 +431,5 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   @VisibleForTesting  // for our own unit tests only.
   synchronized boolean isDerivedArtifact(PathFragment execPath) {
     return execPath.startsWith(derivedPathPrefix);
-  }
-
-  @Override
-  public Artifact lookupArtifactById(int artifactId) {
-    return artifactIdRegistry.lookupArtifactById(artifactId);
-  }
-
-  @Override
-  public ImmutableList<Artifact> lookupArtifactsByIds(Iterable<Integer> artifactIds) {
-    return artifactIdRegistry.lookupArtifactsByIds(artifactIds);
-  }
-
-  @Override
-  public int getArtifactId(Artifact artifact) {
-    return artifactIdRegistry.getArtifactId(artifact);
   }
 }
