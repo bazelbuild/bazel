@@ -89,9 +89,10 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
-    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
-        ? new XCodeLocalEnvProvider()
-        : LocalEnvProvider.UNMODIFIED;
+    LocalEnvProvider localEnvProvider =
+        OS.getCurrent() == OS.DARWIN
+            ? new XCodeLocalEnvProvider(env.getClientEnv())
+            : LocalEnvProvider.UNMODIFIED;
     return
         new LocalSpawnRunner(
             env.getExecRoot(),

@@ -19,8 +19,8 @@ import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.matches;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,7 +78,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatcher;
 
 /** Unit tests for {@link LocalSpawnRunner}. */
 @RunWith(JUnit4.class)
@@ -647,18 +646,7 @@ public class LocalSpawnRunnerTest {
         .rewriteLocalEnv(
             any(),
             eq(fs.getPath("/execroot")),
-            argThat(
-                new ArgumentMatcher<Path>() {
-                  @Override
-                  public boolean matches(Object arg) {
-                    if (!(arg instanceof Path)) {
-                      return false;
-                    }
-                    return ((Path) arg)
-                        .getPathString()
-                        .matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$");
-                  }
-                }),
+            matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"),
             eq("product-name"));
   }
 

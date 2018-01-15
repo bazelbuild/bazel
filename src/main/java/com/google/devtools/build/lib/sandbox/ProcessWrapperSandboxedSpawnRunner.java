@@ -89,7 +89,9 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     this.timeoutKillDelay = timeoutKillDelay;
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.localEnvProvider =
-        OS.getCurrent() == OS.DARWIN ? new XCodeLocalEnvProvider() : PosixLocalEnvProvider.INSTANCE;
+        OS.getCurrent() == OS.DARWIN
+            ? new XCodeLocalEnvProvider(cmdEnv.getClientEnv())
+            : new PosixLocalEnvProvider(cmdEnv.getClientEnv());
   }
 
   @Override
@@ -104,7 +106,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     Path tmpDir = sandboxExecRoot.getRelative("tmp");
 
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
+        localEnvProvider.rewriteLocalEnv(
+            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
 
     Duration timeout = policy.getTimeout();
     ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =

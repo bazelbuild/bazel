@@ -13,29 +13,46 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
 import java.util.Map;
 
 /** {@link LocalEnvProvider} implementation for actions running on Unix-like platforms. */
 public final class PosixLocalEnvProvider implements LocalEnvProvider {
+  private final Map<String, String> clientEnv;
 
-  public static final PosixLocalEnvProvider INSTANCE = new PosixLocalEnvProvider();
+  /**
+   * Create a new {@link PosixLocalEnvProvider}.
+   *
+   * @param clientEnv a map of the current Bazel command's environment
+   */
+  public PosixLocalEnvProvider(Map<String, String> clientEnv) {
+    this.clientEnv = clientEnv;
+  }
 
   /**
    * Compute an environment map for local actions on Unix-like platforms (e.g. Linux, macOS).
    *
    * <p>Returns a map with the same keys and values as {@code env}. Overrides the value of TMPDIR
-   * (or adds it if not present in {@code env}) by {@code tmpDir}.
+   * (or adds it if not present in {@code env}) by the value of {@code clientEnv.get("TMPDIR")}, or
+   * if that's empty or null, then by "/tmp".
    */
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, Path tmpDir, String productName) throws IOException {
+      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMPDIR")));
-    result.put("TMPDIR", tmpDir.getPathString());
+    String p = clientEnv.get("TMPDIR");
+    if (Strings.isNullOrEmpty(p)) {
+      // Do not use `fallbackTmpDir`, use `/tmp` instead. This way if the user didn't export TMPDIR
+      // in their environment, Bazel will still set a TMPDIR that's Posixy enough and plays well
+      // with heavily path-length-limited scenarios, such as the socket creation scenario that
+      // motivated https://github.com/bazelbuild/bazel/issues/4376.
+      p = "/tmp";
+    }
+    result.put("TMPDIR", p);
     return result.build();
   }
 }
