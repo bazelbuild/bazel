@@ -407,4 +407,33 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     // Just request the last external repository to force the whole loading.
     getConfiguredTarget("@foo//:bar");
   }
+
+  @Test
+  public void testBindAndRepoSameNameDoesNotCrash() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("/repo2/data.txt", "data");
+    scratch.file("/repo2/BUILD", "load('@//:rulez.bzl', 'r')", "r(name = 'z')");
+    scratch.file("/repo2/WORKSPACE");
+
+    scratch.file(
+        "rulez.bzl",
+        "def _impl(ctx):",
+        "    pass",
+        "r = rule(_impl, attrs = { 'deps' : attr.label_list() })");
+    scratch.file("BUILD", "load(':rulez.bzl', 'r')", "r(name = 'x', deps = ['//external:zlib'])");
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("bind(name = 'zlib', actual = '@zlib//:z')")
+            .add("local_repository(name = 'zlib', path = '/repo2')")
+            .build());
+    invalidatePackages();
+    getConfiguredTarget("//:x");
+    assertContainsEvent(
+        "Target '//external:zlib' is not visible from target '//:x'. "
+            + "Check the visibility declaration of the former target if you think the "
+            + "dependency is legitimate");
+  }
 }

@@ -157,9 +157,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       if (prerequisiteTarget instanceof Rule) {
         Rule prerequisiteRule = (Rule) prerequisiteTarget;
         String thisDeprecation =
-            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING);
+            NonconfigurableAttributeMapper.of(rule).has("deprecation", Type.STRING)
+                ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
+                : null;
         String thatDeprecation =
-            NonconfigurableAttributeMapper.of(prerequisiteRule).get("deprecation", Type.STRING);
+            NonconfigurableAttributeMapper.of(prerequisiteRule).has("deprecation", Type.STRING)
+                ? NonconfigurableAttributeMapper.of(prerequisiteRule)
+                    .get("deprecation", Type.STRING)
+                : null;
         if (shouldEmitDeprecationWarningFor(
             thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
           errors.ruleWarning("target '" + rule.getLabel() +  "' depends on deprecated target '"
