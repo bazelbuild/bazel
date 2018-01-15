@@ -873,6 +873,51 @@ EOF
   shutdown_server
 }
 
+function test_sha256_weird() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  touch WORKSPACE BUILD foo
+  zip -r repo.zip *
+  startup_server $PWD
+  cd -
+
+  cat > WORKSPACE <<EOF
+http_archive(
+    name = "repo",
+    sha256 = "a random string",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... &> $TEST_log && fail "Expected to fail"
+  expect_log "Invalid SHA256 checksum"
+  shutdown_server
+}
+
+function test_sha256_incorrect() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  touch WORKSPACE BUILD foo
+  zip -r repo.zip *
+  startup_server $PWD
+  cd -
+
+  cat > WORKSPACE <<EOF
+http_archive(
+    name = "repo",
+    sha256 = "61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/repo.zip\\] to"
+  expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
+  shutdown_server
+}
+
+
+
 function test_same_name() {
   mkdir ext
   echo foo> ext/foo
