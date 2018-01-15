@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Str
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValueBuilder;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -52,7 +50,6 @@ import org.junit.runners.JUnit4;
  * Tests for toolchain features.
  */
 @RunWith(JUnit4.class)
-@TestSpec(size = Suite.MEDIUM_TESTS)
 public class CcToolchainFeaturesTest {
 
   /**
