@@ -28,7 +28,8 @@ def _clone_or_update(ctx):
   if ctx.attr.strip_prefix:
     directory = directory + "-tmp"
 
-  st = ctx.execute(['bash', '-c', """
+  bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+  st = ctx.execute([bash_exe, '-c', """
 set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
@@ -56,7 +57,7 @@ set -ex
 
     ctx.symlink(dest_link, ctx.path('.'))
   if ctx.attr.init_submodules:
-    st = ctx.execute(['bash', '-c', """
+    st = ctx.execute([bash_exe, '-c', """
 set -ex
 (   cd '{directory}'
     git submodule update --init --checkout --force )
