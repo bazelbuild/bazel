@@ -9,20 +9,20 @@ filegroup(
     visibility = ["//src/tools/runfiles:__pkg__"],
 )
 
-java_library(
-    name = "runfiles",
+filegroup(
+    name = "java-srcs",
     srcs = [
         "DirectoryBased.java",
         "ManifestBased.java",
         "Runfiles.java",
+        "Util.java",
     ],
-    visibility = [
-        "//src/tools/runfiles:__pkg__",
-    ],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+)
+
+java_library(
+    name = "runfiles",
+    srcs = [":java-srcs"],
+    visibility = ["//src/tools/runfiles:__pkg__"],
 )
 
 java_test(
@@ -40,6 +40,12 @@ java_test(
 java_test(
     name = "ManifestBasedTest",
     srcs = ["ManifestBasedTest.java"],
+    deps = [":test_deps"],
+)
+
+java_test(
+    name = "UtilTest",
+    srcs = ["UtilTest.java"],
     deps = [":test_deps"],
 )
 

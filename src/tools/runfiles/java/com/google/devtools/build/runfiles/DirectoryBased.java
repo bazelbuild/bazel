@@ -14,22 +14,18 @@
 
 package com.google.devtools.build.runfiles;
 
-import com.google.common.base.Preconditions;
-import javax.annotation.Nullable;
-
 /** {@link Runfiles} implementation that appends runfiles paths to the runfiles root. */
 class DirectoryBased extends Runfiles {
   private final String runfilesRoot;
 
   DirectoryBased(String runfilesDir) {
-    Preconditions.checkArgument(runfilesDir != null);
-    Preconditions.checkArgument(!runfilesDir.isEmpty());
+    Util.checkArgument(runfilesDir != null);
+    Util.checkArgument(!runfilesDir.isEmpty());
     this.runfilesRoot = runfilesDir;
   }
 
   @Override
-  @Nullable
-  String rlocationUnchecked(String path) {
+  String rlocationChecked(String path) {
     return runfilesRoot + "/" + path;
   }
 }

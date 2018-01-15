@@ -14,27 +14,27 @@
 
 package com.google.devtools.build.runfiles;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /** {@link Runfiles} implementation that parses a runfiles-manifest file to look up runfiles. */
 class ManifestBased extends Runfiles {
-  private final ImmutableMap<String, String> runfiles;
+  private final Map<String, String> runfiles;
 
   ManifestBased(String manifestPath) throws IOException {
-    Preconditions.checkArgument(manifestPath != null);
-    Preconditions.checkArgument(!manifestPath.isEmpty());
+    Util.checkArgument(manifestPath != null);
+    Util.checkArgument(!manifestPath.isEmpty());
     this.runfiles = loadRunfiles(manifestPath);
   }
 
-  private static ImmutableMap<String, String> loadRunfiles(String path) throws IOException {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
+  private static Map<String, String> loadRunfiles(String path) throws IOException {
+    HashMap<String, String> result = new HashMap<>();
     try (BufferedReader r =
         new BufferedReader(
             new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8))) {
@@ -46,12 +46,11 @@ class ManifestBased extends Runfiles {
         result.put(runfile, realPath);
       }
     }
-    return result.build();
+    return Collections.unmodifiableMap(result);
   }
 
   @Override
-  @Nullable
-  public String rlocationUnchecked(String path) {
+  public String rlocationChecked(String path) {
     return runfiles.get(path);
   }
 }

@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.runfiles;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * Returns the runtime location of runfiles (data-dependencies of Bazel-built binaries and tests).
@@ -84,23 +81,25 @@ public abstract class Runfiles {
   /**
    * Returns the runtime path of a runfile (a Bazel-built binary's/test's data-dependency).
    *
-   * <p>The caller should check that the returned path exists. A null return value means the rule
-   * definitely doesn't know about this data-dependency. A non-null return value means no guarantee
-   * though that the file would exist.
+   * <p>The returned path may not be valid. The caller should check the path's validity and that the
+   * path exists.
+   *
+   * <p>The function may return null. In that case the caller can be sure that the rule does not
+   * know about this data-dependency.
    *
    * @param path runfiles-root-relative path of the runfile
+   * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
+   *     empty, it's absolute or contains uplevel references
    */
-  @Nullable
   public final String rlocation(String path) {
-    Preconditions.checkArgument(path != null);
-    Preconditions.checkArgument(!path.isEmpty());
-    Preconditions.checkArgument(
-        !path.contains(".."), "path contains uplevel references: \"%s\"", path);
-    Preconditions.checkArgument(
+    Util.checkArgument(path != null);
+    Util.checkArgument(!path.isEmpty());
+    Util.checkArgument(!path.contains(".."), "path contains uplevel references: \"%s\"", path);
+    Util.checkArgument(
         !new File(path).isAbsolute() && path.charAt(0) != File.separatorChar,
         "path is absolute: \"%s\"",
         path);
-    return rlocationUnchecked(path);
+    return rlocationChecked(path);
   }
 
   /** Returns true if the platform supports runfiles only via manifests. */
@@ -108,10 +107,9 @@ public abstract class Runfiles {
     return "1".equals(env.get("RUNFILES_MANIFEST_ONLY"));
   }
 
-  @Nullable
   private static String getManifestPath(Map<String, String> env) throws IOException {
     String value = env.get("RUNFILES_MANIFEST_FILE");
-    if (Strings.isNullOrEmpty(value)) {
+    if (Util.isNullOrEmpty(value)) {
       throw new IOException(
           "Cannot load runfiles manifest: $RUNFILES_MANIFEST_ONLY is 1 but"
               + " $RUNFILES_MANIFEST_FILE is empty or undefined");
@@ -119,21 +117,19 @@ public abstract class Runfiles {
     return value;
   }
 
-  @Nullable
   private static String getRunfilesDir(Map<String, String> env) throws IOException {
     // On Linux and macOS, Bazel sets RUNFILES_DIR and TEST_SRCDIR.
     // Google-internal Blaze sets only TEST_SRCDIR.
     String value = env.get("RUNFILES_DIR");
-    if (Strings.isNullOrEmpty(value)) {
+    if (Util.isNullOrEmpty(value)) {
       value = env.get("TEST_SRCDIR");
     }
-    if (Strings.isNullOrEmpty(value)) {
+    if (Util.isNullOrEmpty(value)) {
       throw new IOException(
           "Cannot find runfiles: $RUNFILES_DIR and $TEST_SRCDIR are both unset or empty");
     }
     return value;
   }
 
-  @Nullable
-  abstract String rlocationUnchecked(String path);
+  abstract String rlocationChecked(String path);
 }
