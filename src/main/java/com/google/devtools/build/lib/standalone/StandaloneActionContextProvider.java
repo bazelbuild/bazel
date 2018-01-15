@@ -104,10 +104,10 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider()
+            ? new XCodeLocalEnvProvider(env.getClientEnv())
             : (OS.getCurrent() == OS.WINDOWS
-                ? WindowsLocalEnvProvider.INSTANCE
-                : PosixLocalEnvProvider.INSTANCE);
+                ? new WindowsLocalEnvProvider(env.getClientEnv())
+                : new PosixLocalEnvProvider(env.getClientEnv()));
     return
         new LocalSpawnRunner(
             env.getExecRoot(),

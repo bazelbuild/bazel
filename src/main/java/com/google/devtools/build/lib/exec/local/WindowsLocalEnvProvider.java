@@ -13,33 +13,54 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
 import java.util.Map;
 
 /** {@link LocalEnvProvider} implementation for actions running on Windows. */
 public final class WindowsLocalEnvProvider implements LocalEnvProvider {
+  private final Map<String, String> clientEnv;
 
-  public static final WindowsLocalEnvProvider INSTANCE = new WindowsLocalEnvProvider();
+  /**
+   * Create a new {@link WindowsLocalEnvProvider}.
+   *
+   * @param clientEnv a map of the current Bazel command's environment
+   */
+  public WindowsLocalEnvProvider(Map<String, String> clientEnv) {
+    this.clientEnv = clientEnv;
+  }
 
   /**
    * Compute an environment map for local actions on Windows.
    *
    * <p>Returns a map with the same keys and values as {@code env}. Overrides the value of TMP and
-   * TEMP (or adds them if not present in {@code env}) by {@code tmpDir}.
+   * TEMP (or adds them if not present in {@code env}) by the same value, which is:
+   *
+   * <ul>
+   *   <li>the value of {@code clientEnv.get("TMP")}, or if that's empty or null, then
+   *   <li>the value of {@code clientEnv.get("TEMP")}, or if that's empty or null, then
+   *   <li>the value of {@code fallbackTmpDir}.
+   * </ul>
    *
    * <p>The values for TMP and TEMP will use backslashes as directory separators.
    */
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, Path tmpDir, String productName) throws IOException {
+      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMP") && !k.equals("TEMP")));
-    String tmpPath = tmpDir.getPathString().replace('/', '\\');
-    result.put("TMP", tmpPath);
-    result.put("TEMP", tmpPath);
+    String p = clientEnv.get("TMP");
+    if (Strings.isNullOrEmpty(p)) {
+      p = clientEnv.get("TEMP");
+      if (Strings.isNullOrEmpty(p)) {
+        p = fallbackTmpDir;
+      }
+    }
+    p = p.replace('/', '\\');
+    result.put("TMP", p);
+    result.put("TEMP", p);
     return result.build();
   }
 }

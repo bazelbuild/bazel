@@ -35,28 +35,53 @@ class ActionTempTest(test_base.TestBase):
     bazel_bin = self._BazelOutputDirectory('bazel-bin')
     bazel_genfiles = self._BazelOutputDirectory('bazel-genfiles')
 
-    self._AssertWritableTempDir(
-        'standalone',
-        expected_tmpdir_regex=(r'execroot[\\/].+[\\/]local-spawn-runner.[0-9]+'
-                               r'[\\/]work$'),
-        bazel_bin=bazel_bin,
-        bazel_genfiles=bazel_genfiles)
+    # Test without user-defined temp directory.
+    # In the absence of TMP/TEMP/TMPDIR, the LocalEnvProvider implementations
+    # set the fallback temp directory.
+    if test_base.TestBase.IsWindows():
+      expected_tmpdir_regex = r'execroot\\.+\\local-spawn-runner.[0-9]+\\work$'
+    else:
+      expected_tmpdir_regex = '^/tmp$'
+
+    self._AssertTempDir('standalone', expected_tmpdir_regex, bazel_bin,
+                        bazel_genfiles)
     if not test_base.TestBase.IsWindows():
-      expected_tmpdir_regex = r'bazel-sandbox/[0-9]+/execroot/.*/tmp$'
-      self._AssertWritableTempDir('sandboxed', expected_tmpdir_regex, bazel_bin,
-                                  bazel_genfiles)
-      self._AssertWritableTempDir('processwrapper-sandbox',
-                                  expected_tmpdir_regex, bazel_bin,
-                                  bazel_genfiles)
+      self._AssertTempDir('sandboxed', expected_tmpdir_regex, bazel_bin,
+                          bazel_genfiles)
+      self._AssertTempDir('processwrapper-sandbox', expected_tmpdir_regex,
+                          bazel_bin, bazel_genfiles)
+
+    # Test with user-defined temp directory.
+    self._AssertClientEnvTemp('standalone', bazel_bin, bazel_genfiles)
+    if not test_base.TestBase.IsWindows():
+      self._AssertClientEnvTemp('sandboxed', bazel_bin, bazel_genfiles)
+      self._AssertClientEnvTemp('processwrapper-sandbox', bazel_bin,
+                                bazel_genfiles)
 
   # Helper methods start here -------------------------------------------------
 
-  def _AssertWritableTempDir(self,
-                             strategy,
-                             expected_tmpdir_regex,
-                             bazel_bin,
-                             bazel_genfiles,
-                             env_add=None):
+  def _AssertClientEnvTemp(self, strategy, bazel_bin, bazel_genfiles):
+
+    def _Impl(tmp_dir):
+      self._AssertTempDir(
+          strategy=strategy,
+          expected_tmpdir_regex=os.path.basename(tmp_dir),
+          bazel_bin=bazel_bin,
+          bazel_genfiles=bazel_genfiles,
+          env_add=dict((k, tmp_dir) for k in self._TempEnvvars()))
+
+    _Impl(self.ScratchDir(strategy + '-temp-1'))
+    # Assert that the actions pick up the current client environment.
+    # Check this by invalidating the actions (update input.txt) and running
+    # Bazel with a different environment.
+    _Impl(self.ScratchDir(strategy + '-temp-2'))
+
+  def _AssertTempDir(self,
+                     strategy,
+                     expected_tmpdir_regex,
+                     bazel_bin,
+                     bazel_genfiles,
+                     env_add=None):
     self._invalidations += 1
     input_file_contents = str(self._invalidations)
     self._UpdateInputFile(input_file_contents)
@@ -97,17 +122,19 @@ class ActionTempTest(test_base.TestBase):
           '@echo ON',
           'if [%TMP%] == [] exit /B 1',
           'if [%TEMP%] == [] exit /B 1',
-          'if not exist %2 exit /B 2',
+          'if not exist "%2" exit /B 2',
           'set input_file=%2',
-          '',
-          'echo foo1 > %TMP%\\foo1.txt',
-          'echo foo2 > %TEMP%\\foo2.txt',
-          'type "%input_file:/=\\%" > %1',
-          'type %TMP%\\foo1.txt >> %1',
-          'type %TEMP%\\foo2.txt >> %1',
-          'echo bar >> %1',
-          'set TMP >> %1',
-          'set TEMP >> %1',
+          # TMP/TEMP may refer to directories that other processes are also
+          # writing to, so let's not try to create any files there because we
+          # cannot generate safe temp file names. Instead just check that the
+          # directory exists. It'd be nice to check that the directory is
+          # writable, but I (@laszlocsomor) don't know how to do that without
+          # actually attempting to write to the directory.
+          'type "%input_file:/=\\%" > "%1"',
+          'if exist "%TMP%" (echo TMP:y >> "%1") else (echo TMP:n >> "%1")',
+          'if exist "%TEMP%" (echo TEMP:y >> "%1") else (echo TEMP:n >> "%1")',
+          'set TMP >> "%1"',
+          'set TEMP >> "%1"',
           'exit /B 0',
       ]
     else:
@@ -118,9 +145,12 @@ class ActionTempTest(test_base.TestBase):
           'if [ -n "${TMPDIR:-}" ]; then',
           '  sleep 1',
           '  cat "$2" > "$1"',
-          '  echo foo > "$TMPDIR/foo.txt"',
-          '  cat "$TMPDIR/foo.txt" >> "$1"',
-          '  echo bar >> "$1"',
+          # TMPDIR might be "/tmp" or other shared directory, so we need a
+          # unique name for the temp file we want to create there.
+          '  tmpfile="$(mktemp "$TMPDIR/tmp.XXXXXXXX")"',
+          '  echo foo > "$tmpfile"',
+          '  cat "$tmpfile" >> "$1"',
+          '  rm "$tmpfile"',
           '  echo "TMPDIR=${TMPDIR}" >> "$1"',
           'else',
           '  exit 1',
@@ -214,22 +244,20 @@ class ActionTempTest(test_base.TestBase):
   def _AssertOutputFileContents(self, lines, input_file_line,
                                 expected_tmpdir_regex):
     if test_base.TestBase.IsWindows():
-      # 6 lines = input_file_line, foo1, foo2, 'bar', TMP, TEMP
-      self.assertEqual(len(lines), 6)
-      self.assertEqual(lines[0:4], [input_file_line, 'foo1', 'foo2', 'bar'])
-      tmp = [l for l in lines if l.startswith('TMP')]
-      temp = [l for l in lines if l.startswith('TEMP')]
-      self.assertEqual(len(tmp), 1)
-      self.assertEqual(len(temp), 1)
-      tmp = tmp[0].split('=', 1)[1]
-      temp = temp[0].split('=', 1)[1]
+      # 5 lines = input_file_line, TMP:y, TEMP:y, TMP=<path>, TEMP=<path>
+      if len(lines) != 5:
+        self.fail('lines=%s' % lines)
+      self.assertEqual(lines[0:3], [input_file_line, 'TMP:y', 'TEMP:y'])
+      tmp = lines[3].split('=', 1)[1]
+      temp = lines[4].split('=', 1)[1]
       self.assertRegexpMatches(tmp, expected_tmpdir_regex)
       self.assertEqual(tmp, temp)
     else:
-      # 4 lines = input_file_line, foo, bar, TMPDIR
-      self.assertGreaterEqual(len(lines), 4)
-      self.assertEqual(lines[0:3], [input_file_line, 'foo', 'bar'])
-      tmpdir = lines[3].split('=', 1)[1]
+      # 3 lines = input_file_line, foo, TMPDIR
+      if len(lines) != 3:
+        self.fail('lines=%s' % lines)
+      self.assertEqual(lines[0:2], [input_file_line, 'foo'])
+      tmpdir = lines[2].split('=', 1)[1]
       self.assertRegexpMatches(tmpdir, expected_tmpdir_regex)
 
 

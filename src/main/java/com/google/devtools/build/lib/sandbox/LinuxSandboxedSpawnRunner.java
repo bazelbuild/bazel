@@ -167,7 +167,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutKillDelay = timeoutKillDelay;
-    this.localEnvProvider = PosixLocalEnvProvider.INSTANCE;
+    this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
   }
 
   @Override
@@ -182,7 +182,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path tmpDir = sandboxExecRoot.getRelative("tmp");
 
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
+        localEnvProvider.rewriteLocalEnv(
+            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
 
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment, tmpDir);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
