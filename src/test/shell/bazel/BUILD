@@ -241,6 +241,13 @@ sh_test(
 )
 
 sh_test(
+    name = "external_patching_test",
+    size = "medium",
+    srcs = ["external_patching_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "git_repository_test",
     size = "large",
     srcs = ["git_repository_test.sh"],
