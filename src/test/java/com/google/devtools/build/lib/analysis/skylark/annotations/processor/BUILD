@@ -29,3 +29,20 @@ filegroup(
     name = "ProcessorTestFiles",
     srcs = glob(["optiontestsources/*.java"]),
 )
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)

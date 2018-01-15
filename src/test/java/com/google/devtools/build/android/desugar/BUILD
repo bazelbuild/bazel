@@ -1968,6 +1968,7 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+        "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:all_windows_tests",
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:all_windows_tests",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:all_windows_tests",
     ],
