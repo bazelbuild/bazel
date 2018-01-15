@@ -157,24 +157,6 @@ public class ArtifactFactory implements ArtifactResolver {
     return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
   }
 
-  /**
-   * Only for use by BinTools! Returns an artifact for a tool at the given path
-   * fragment, relative to the exec root, creating it if not found. This method
-   * only works for normalized, relative paths.
-   */
-  public Artifact getDerivedArtifact(PathFragment execPath, Path execRoot) {
-    Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
-    Preconditions.checkArgument(execPath.isNormalized(), execPath);
-    // TODO(bazel-team): Check that either BinTools do not change over the life of the Blaze server,
-    // or require that a legitimate ArtifactOwner be passed in here to allow for ownership.
-    return getArtifact(
-        execRoot.getRelative(execPath),
-        Root.execRootAsDerivedRoot(execRoot),
-        execPath,
-        ArtifactOwner.NULL_OWNER,
-        null);
-  }
-
   private void validatePath(PathFragment rootRelativePath, Root root) {
     Preconditions.checkArgument(!root.isSourceRoot());
     Preconditions.checkArgument(!rootRelativePath.isAbsolute(), rootRelativePath);

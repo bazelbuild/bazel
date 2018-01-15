@@ -102,15 +102,6 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
     return new Root(execRoot, root, true);
   }
 
-  /**
-   * Returns the exec root as a derived root. The exec root should never be treated as a derived
-   * root, but this is currently allowed. Do not add any further uses besides the ones that already
-   * exist!
-   */
-  static Root execRootAsDerivedRoot(Path execRoot) {
-    return new Root(execRoot, execRoot);
-  }
-
   @Nullable private final Path execRoot;
   private final Path path;
   private final boolean isMiddlemanRoot;

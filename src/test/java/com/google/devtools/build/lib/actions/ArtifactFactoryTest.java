@@ -210,26 +210,6 @@ public class ArtifactFactoryTest {
     }
   }
 
-  @Test
-  public void testGetDerivedArtifact() throws Exception {
-    PathFragment toolPath = PathFragment.create("_bin/tool");
-    Artifact artifact = artifactFactory.getDerivedArtifact(toolPath, execRoot);
-    assertThat(artifact.getExecPath()).isEqualTo(toolPath);
-    assertThat(artifact.getRoot()).isEqualTo(Root.asDerivedRoot(execRoot));
-    assertThat(artifact.getPath()).isEqualTo(execRoot.getRelative(toolPath));
-    assertThat(artifact.getOwner()).isNull();
-  }
-
-  @Test
-  public void testGetDerivedArtifactFailsForAbsolutePath() throws Exception {
-    try {
-      artifactFactory.getDerivedArtifact(PathFragment.create("/_bin/b"), execRoot);
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected exception
-    }
-  }
-
   private static class MockPackageRootResolver implements PackageRootResolver {
     private Map<PathFragment, Root> packageRoots = Maps.newHashMap();
 
