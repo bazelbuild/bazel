@@ -81,6 +81,14 @@ public class JavaRuntimeInfo extends NativeInfo {
     return javaBinaryExecPath;
   }
 
+  @SkylarkCallable(
+      name = "java_executable_runfiles_path",
+      doc = "Returns the path of the Java executable in runfiles trees. This should only be used "
+          + "when one needs to access the JVM during the execution of a binary or a test built "
+          + "by Bazel. In particular, when one needs to invoke the JVM during an action, "
+          + "java_executable_exec_path should be used instead.",
+      structField = true
+  )
   /** The runfiles path of the Java binary. */
   public PathFragment javaBinaryRunfilesPath() {
     return javaBinaryRunfilesPath;
