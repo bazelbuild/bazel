@@ -251,10 +251,8 @@ EOF
     || fail "Failed to build //pkg:test"
   assert_contains "PATH=$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path" \
     bazel-genfiles/pkg/test.out
-  assert_contains "TMPDIR=.*execroot.*local-spawn-runner.*work$" \
-    bazel-genfiles/pkg/test.out
-  assert_not_contains "TMPDIR=.*newfancytmpdir" \
-    bazel-genfiles/pkg/test.out
+  # Bazel respectes the client environment's TMPDIR.
+  assert_contains "TMPDIR=${new_tmpdir}$" bazel-genfiles/pkg/test.out
   if [ -n "${old_tmpdir}" ]
   then
     export TMPDIR="${old_tmpdir}"
