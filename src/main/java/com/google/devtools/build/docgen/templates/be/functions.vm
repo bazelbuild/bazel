@@ -62,7 +62,7 @@ load("//tools/build_rules:build_defs.bzl", "COMPILER_FLAGS", "LINKER_FLAGS")
 </p>
 
 <pre class="code">
-load(""//tools/build_rules:build_defs.bzl", BUILD_DEF_COMPILER_FLAGS="COMPILER_FLAGS", "LINKER_FLAGS")
+load("//tools/build_rules:build_defs.bzl", BUILD_DEF_COMPILER_FLAGS="COMPILER_FLAGS", "LINKER_FLAGS")
 </pre>
 <p>
 This will make <code>COMPILER_FLAGS</code> exported from
