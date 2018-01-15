@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts.Builder;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -171,6 +170,7 @@ public final class JavaCompilationHelper {
    * @param outputDepsProto the compiler-generated jdeps file to create with the Action (null if not
    *     requested)
    * @param instrumentationMetadataJar metadata file (null if no instrumentation is needed or if
+   *     --experimental_java_coverage is true).
    * @param nativeHeaderOutput an archive of generated native header files.
    */
   public void createCompileAction(
@@ -308,7 +308,7 @@ public final class JavaCompilationHelper {
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcJar,
       @Nullable Artifact outputDepsProto,
-      Builder javaArtifactsBuilder,
+      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       @Nullable Artifact nativeHeaderOutput) {
     createCompileAction(
         outputJar,

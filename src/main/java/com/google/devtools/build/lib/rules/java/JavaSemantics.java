@@ -62,8 +62,6 @@ public interface JavaSemantics {
 
   SafeImplicitOutputsFunction JAVA_LIBRARY_CLASS_JAR =
       fromTemplates("lib%{name}.jar");
-  SafeImplicitOutputsFunction JAVA_LIBRARY_NATIVE_HEADER_JAR =
-      fromTemplates("lib%{name}-native-header.jar");
   SafeImplicitOutputsFunction JAVA_LIBRARY_SOURCE_JAR =
       fromTemplates("lib%{name}-src.jar");
 
