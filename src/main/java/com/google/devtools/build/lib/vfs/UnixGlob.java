@@ -449,8 +449,8 @@ public final class UnixGlob {
       return delegate;
     }
 
-    public void setException(IOException exception) {
-      delegate.setException(exception);
+    public void setException(Throwable throwable) {
+      delegate.setException(throwable);
     }
 
     public void set(List<Path> paths) {
@@ -488,7 +488,7 @@ public final class UnixGlob {
     private final ThreadPoolExecutor executor;
     private final AtomicLong totalOps = new AtomicLong(0);
     private final AtomicLong pendingOps = new AtomicLong(0);
-    private final AtomicReference<IOException> failure = new AtomicReference<>();
+    private final AtomicReference<Throwable> failure = new AtomicReference<>();
     private volatile boolean canceled = false;
 
     GlobVisitor(
@@ -593,7 +593,7 @@ public final class UnixGlob {
           Profiler.instance().startTask(ProfilerTask.VFS_GLOB, this);
           try {
             reallyGlob(base, baseIsDir, idx, context);
-          } catch (IOException e) {
+          } catch (Throwable e) {
             failure.set(e);
           } finally {
             Profiler.instance().completeTask(ProfilerTask.VFS_GLOB);
