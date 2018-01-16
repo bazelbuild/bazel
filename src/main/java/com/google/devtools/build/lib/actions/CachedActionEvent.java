@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+
 /**
  * This event is fired during the build if an action was in the action cache.
  */
-public class CachedActionEvent {
+public class CachedActionEvent implements ProgressLike {
 
   private final Action action;
   private final long nanoTimeStart;

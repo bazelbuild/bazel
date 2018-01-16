@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguratio
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 import java.util.logging.Level;
@@ -34,7 +35,7 @@ import java.util.logging.Logger;
  * This event is fired during the build, when an action is executed. It contains information about
  * the action: the Action itself, and the output file names its stdout and stderr are recorded in.
  */
-public class ActionExecutedEvent implements BuildEventWithConfiguration {
+public class ActionExecutedEvent implements BuildEventWithConfiguration, ProgressLike {
   private static final Logger logger = Logger.getLogger(ActionExecutedEvent.class.getName());
 
   private final Action action;

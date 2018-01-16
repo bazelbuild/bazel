@@ -360,7 +360,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
     if (!state.hasArtifactData()) {
-      return skyframeActionExecutor.executeAction(action, null, -1, null, actionLookupData);
+      return skyframeActionExecutor
+          .executeAction(env.getListener(), action, null, -1, null, actionLookupData);
     }
     // This may be recreated if we discover inputs.
     ActionMetadataHandler metadataHandler = new ActionMetadataHandler(state.inputArtifactData,
@@ -370,6 +371,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (!state.hasCheckedActionCache()) {
       state.token =
           skyframeActionExecutor.checkActionCache(
+              env.getListener(),
               action,
               metadataHandler,
               actionStartTime,
@@ -443,7 +445,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
-                action, metadataHandler, actionStartTime, actionExecutionContext, actionLookupData);
+                env.getListener(), action, metadataHandler, actionStartTime, actionExecutionContext,
+                actionLookupData);
       }
     } catch (IOException e) {
       throw new ActionExecutionException(

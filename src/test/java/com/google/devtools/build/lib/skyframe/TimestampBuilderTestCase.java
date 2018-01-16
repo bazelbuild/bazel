@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -118,7 +117,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected RecordingDifferencer differencer = new SequencedRecordingDifferencer();
   private Set<ActionAnalysisMetadata> actions;
 
-  protected AtomicReference<EventBus> eventBusRef = new AtomicReference<>();
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
@@ -179,8 +177,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     ActionExecutionStatusReporter statusReporter =
         ActionExecutionStatusReporter.create(new StoredEventHandler());
     final SkyframeActionExecutor skyframeActionExecutor =
-        new SkyframeActionExecutor(
-            actionKeyContext, eventBusRef, new AtomicReference<>(statusReporter));
+        new SkyframeActionExecutor(actionKeyContext, new AtomicReference<>(statusReporter));
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
