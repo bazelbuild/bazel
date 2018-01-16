@@ -93,15 +93,14 @@ py_test(
 <p>It's also possible to specify a main module:</p>
 
 <pre class="code">
-py_binary(
-    name = "foo",
+py_test(
+    name = "runtest_test",
     srcs = [
-        "bar.py",
-        "baz.py",
+        "runtest_main.py",
+        "runtest_lib.py",
     ],
-    main = "bar.py",
+    main = "runtest_main.py",
 )
 </pre>
 
 <!-- #END_BLAZE_RULE -->*/
-
