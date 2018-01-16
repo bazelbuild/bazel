@@ -39,6 +39,11 @@ def _patch(ctx):
     st = ctx.execute([bash_exe, "-c", command])
     if st.return_code:
       fail("Error applying patch %s:\n%s" % (str(patchfile), st.stderr))
+  for cmd in ctx.attr.patch_cmds:
+    st = ctx.execute([bash_exe, "-c", cmd])
+    if st.return_code:
+      fail("Error applying patch command %s:\n%s%s"
+           % (cmd, st.stdout, st.stderr))
 
 def _http_archive_impl(ctx):
   """Implementation of the http_archive rule."""
@@ -82,6 +87,7 @@ _http_archive_attrs = {
     "build_file_content": attr.string(),
     "patches": attr.label_list(default=[]),
     "patch_tool": attr.string(default="patch"),
+    "patch_cmds": attr.string_list(default=[]),
 }
 
 
@@ -187,6 +193,7 @@ Args:
   patches: A list of files that are to be applied as patches after extracting
     the archive.
   patch_tool: the patch(1) utility to use.
+  patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
 

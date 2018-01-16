@@ -60,6 +60,7 @@ http_archive(
   urls=["file://${EXTREPODIR}/ext.zip"],
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:patch_foo.sh"],
+  patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
   cat > BUILD <<'EOF'
@@ -74,6 +75,7 @@ EOF
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'There are' $foopath || fail "expected patch to be applied"
+  grep env $foopath && fail "expected patch commands to be executed" || :
 
   # Verify that changes to the patches attribute trigger enough rebuilding
   cat > WORKSPACE <<EOF
@@ -88,6 +90,7 @@ EOF
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
+  grep -q 'env' $foopath || fail "expected unpatched file"
 }
 
 run_suite "external patching tests"
