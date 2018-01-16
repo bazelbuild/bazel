@@ -948,4 +948,20 @@ EOF
     || fail 'Expected @ext//:foo and //:foo not to conflict'
 }
 
+function test_failing_fetch_with_keep_going() {
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = ["@fake//:fake"],
+)
+EOF
+  touch hello-world.cc
+
+  bazel fetch --keep_going //... >& $TEST_log && fail "Expected to fail" || true
+}
+
 run_suite "external tests"
