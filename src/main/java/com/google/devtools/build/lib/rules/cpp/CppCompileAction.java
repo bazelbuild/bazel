@@ -186,6 +186,7 @@ public class CppCompileAction extends AbstractAction
   @VisibleForTesting public final CompileCommandLine compileCommandLine;
   private final ImmutableMap<String, String> executionInfo;
   private final ImmutableMap<String, String> environment;
+  private final String actionName;
 
   @VisibleForTesting final CppConfiguration cppConfiguration;
   private final FeatureConfiguration featureConfiguration;
@@ -330,6 +331,7 @@ public class CppCompileAction extends AbstractAction
     this.actionClassId = actionClassId;
     this.executionInfo = executionInfo;
     this.environment = environment;
+    this.actionName = actionName;
 
     // We do not need to include the middleman artifact since it is a generated
     // artifact and will definitely exist prior to this action execution.
@@ -1281,11 +1283,23 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    if (sourceFile.isFileType(CppFileTypes.OBJC_SOURCE)
-        || sourceFile.isFileType(CppFileTypes.OBJCPP_SOURCE)) {
-      return "ObjcCompile";
-    } else {
-      return "CppCompile";
+    switch (actionName) {
+      case OBJC_COMPILE:
+      case OBJCPP_COMPILE:
+        return "ObjcCompile";
+
+      case LINKSTAMP_COMPILE:
+        // When compiling shared native deps, e.g. when two java_binary rules have the same set of
+        // native dependencies, the CppCompileAction for link stamp data is shared also. This means
+        // that out of two CppCompileAction instances, only one is actually executed, which means
+        // that if extra actions are attached to both, one of the extra actions will find a
+        // CppCompileAction for which discoverInputs() hasn't been called and thus trigger an
+        // assertion. As a band-aid, change the mnemonic of said actions so that one can attach
+        // extra actions to regular CppCompileActions without tickling this bug.
+        return "CppLinkstampCompile";
+
+      default:
+        return "CppCompile";
     }
   }
 
