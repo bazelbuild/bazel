@@ -21,6 +21,7 @@ import com.android.aapt.Resources.Package;
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Type;
 import com.android.aapt.Resources.Value;
+import com.android.aapt.Resources.Visibility.Level;
 import com.android.resources.ResourceType;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -104,26 +105,41 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
         ResourceType resourceType = ResourceType.getEnum(resourceFormatType.getName());
 
         for (Resources.Entry resource : resourceFormatType.getEntryList()) {
-          Value resourceValue = resource.getConfigValue(0).getValue();
           String resourceName = packageName + resource.getName();
-          List<ConfigValue> configValues = resource.getConfigValueList();
 
-          Preconditions.checkArgument(configValues.size() == 1);
-          int sourceIndex = configValues.get(0).getValue().getSource().getPathIdx();
-
-          String source = sourcePool.get(sourceIndex);
-
-          DataSource dataSource = DataSource.of(Paths.get(source));
           FullyQualifiedName fqn = fqnFactory.create(resourceType, resourceName);
           fullyQualifiedNames.put(
-              packageName + resourceType + "/" + resource.getName(),
+              String.format("%s%s/%s", packageName, resourceType, resource.getName()),
               new SimpleEntry<FullyQualifiedName, Boolean>(fqn, packageName.isEmpty()));
 
-          if (packageName.isEmpty()) {
+          List<ConfigValue> configValues = resource.getConfigValueList();
+          if (configValues.isEmpty()
+              && resource.getVisibility().getLevel() == Level.PUBLIC) {
+            int sourceIndex = resource.getVisibility().getSource().getPathIdx();
+
+            String source = sourcePool.get(sourceIndex);
+            DataSource dataSource = DataSource.of(Paths.get(source));
+
+            DataResourceXml dataResourceXml = DataResourceXml
+                .fromPublic(dataSource, resourceType, resource.getEntryId().getId());
+            consumers.combiningConsumer.accept(fqn, dataResourceXml);
+          } else if (packageName.isEmpty()) {// This means this resource is not in the android sdk
+            Preconditions.checkArgument(configValues.size() == 1);
+            int sourceIndex =
+                configValues.get(0)
+                    .getValue()
+                    .getSource()
+                    .getPathIdx();
+
+            String source = sourcePool.get(sourceIndex);
+            DataSource dataSource = DataSource.of(Paths.get(source));
+
+            Value resourceValue = resource.getConfigValue(0).getValue();
             DataResourceXml dataResourceXml =
-                DataResourceXml.from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
+                DataResourceXml
+                    .from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
+
             if (resourceType == ResourceType.ID
-                || resourceType == ResourceType.PUBLIC
                 || resourceType == ResourceType.STYLEABLE) {
               consumers.combiningConsumer.accept(fqn, dataResourceXml);
             } else {

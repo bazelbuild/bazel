@@ -60,8 +60,10 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   static final QName TAG_INTEGER = QName.valueOf("integer");
   static final QName TAG_ITEM = QName.valueOf("item");
   static final QName TAG_LAYOUT = QName.valueOf("layout");
+  static final QName TAG_MENU = QName.valueOf("menu");
   static final QName TAG_MIPMAP = QName.valueOf("mipmap");
   static final QName TAG_PUBLIC = QName.valueOf("public");
+  static final QName TAG_RAW = QName.valueOf("raw");
   static final QName TAG_STRING = QName.valueOf("string");
 
   /** Provides an enumeration resource type and simple value validation. */
@@ -118,14 +120,21 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     LAYOUT(TAG_LAYOUT) {
       @Override
       public boolean validate(String value) {
-        // TODO(corysmith): Validate the item type.
+        // TODO(corysmith): Validate the layout type.
+        return true;
+      }
+    },
+    MENU(TAG_MENU) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the menu type.
         return true;
       }
     },
     MIPMAP(TAG_MIPMAP) {
       @Override
       public boolean validate(String value) {
-        // TODO(corysmith): Validate the item type.
+        // TODO(corysmith): Validate the mipmap type.
         return true;
       }
     },
@@ -133,6 +142,13 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       @Override
       public boolean validate(String value) {
         // TODO(corysmith): Validate the public type.
+        return true;
+      }
+    },
+    RAW(TAG_RAW) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the raw type.
         return true;
       }
     },

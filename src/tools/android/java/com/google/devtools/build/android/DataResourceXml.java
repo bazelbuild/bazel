@@ -170,6 +170,20 @@ public class DataResourceXml implements DataResource {
         source, valueFromProto(xmlValue), Namespaces.from(xmlValue.getNamespace()));
   }
 
+  public static DataResourceXml from(
+      Value protoValue,
+      DataSource source,
+      ResourceType resourceType,
+      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      throws InvalidProtocolBufferException {
+    DataResourceXml dataResourceXml =
+        createWithNamespaces(
+            source,
+            valueFromProto(protoValue, resourceType, fullyQualifiedNames),
+            Namespaces.empty());
+    return dataResourceXml;
+  }
+
   private static XmlResourceValue valueFromProto(SerializeFormat.DataValueXml proto)
       throws InvalidProtocolBufferException {
     Preconditions.checkArgument(proto.hasType());
@@ -197,20 +211,6 @@ public class DataResourceXml implements DataResource {
     }
   }
 
-  public static DataResourceXml from(
-      Value protoValue,
-      DataSource source,
-      ResourceType resourceType,
-      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
-      throws InvalidProtocolBufferException {
-    DataResourceXml dataResourceXml =
-        createWithNamespaces(
-            source,
-            valueFromProto(protoValue, resourceType, fullyQualifiedNames),
-            Namespaces.empty());
-    return dataResourceXml;
-  }
-
   private static XmlResourceValue valueFromProto(
       Value proto,
       ResourceType resourceType,
@@ -225,8 +225,6 @@ public class DataResourceXml implements DataResource {
         return PluralXmlResourceValue.from(proto);
       case ATTR:
         return AttrXmlResourceValue.from(proto);
-      case PUBLIC:
-        throw new RuntimeException();
       case STYLEABLE:
         return StyleableXmlResourceValue.from(proto, fullyQualifiedNames);
       case ID:
@@ -252,6 +250,13 @@ public class DataResourceXml implements DataResource {
       default:
         throw new IllegalArgumentException();
     }
+  }
+
+  public static DataResourceXml fromPublic(DataSource source, ResourceType resourceType, int id) {
+    DataResourceXml dataResourceXml =
+        createWithNamespaces(
+            source, PublicXmlResourceValue.from(resourceType, id), Namespaces.empty());
+    return dataResourceXml;
   }
 
   private static XmlResourceValue parseXmlElements(
@@ -325,13 +330,13 @@ public class DataResourceXml implements DataResource {
     return createWithNamespaces(sourcePath, xml, ImmutableMap.<String, String>of());
   }
 
+  public static DataResourceXml createWithNoNamespace(DataSource source, XmlResourceValue xml) {
+    return new DataResourceXml(source, xml, Namespaces.empty());
+  }
+
   public static DataResourceXml createWithNamespaces(
       Path sourcePath, XmlResourceValue xml, ImmutableMap<String, String> prefixToUri) {
     return createWithNamespaces(sourcePath, xml, Namespaces.from(prefixToUri));
-  }
-
-  public static DataResourceXml createWithNoNamespace(DataSource source, XmlResourceValue xml) {
-    return new DataResourceXml(source, xml, Namespaces.empty());
   }
 
   public static DataResourceXml createWithNamespaces(
