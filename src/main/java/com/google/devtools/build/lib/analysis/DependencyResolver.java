@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
@@ -728,7 +728,7 @@ public abstract class DependencyResolver {
           ruleConfig, rule, attributeAndOwner.attribute, toTarget, attributeMap);
       outgoingEdges.put(
           attributeAndOwner.attribute,
-          transition == ConfigurationTransitionProxy.NULL
+          transition == NullTransition.INSTANCE
               ? Dependency.withNullConfiguration(depLabel)
               : Dependency.withTransitionAndAspects(depLabel, transition,
                     requiredAspects(attributeAndOwner, toTarget)));

@@ -403,8 +403,7 @@ public class BaseRuleClasses {
    */
   public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
       ImmutableMap.of(
-          ConfigurationTransitionProxy.NONE, DynamicTransitionMapper.SELF,
-          ConfigurationTransitionProxy.NULL, DynamicTransitionMapper.SELF
+          ConfigurationTransitionProxy.NONE, DynamicTransitionMapper.SELF
           // ConfigurationTransitionProxy.DATA is skipped because it's C++-specific.
           // The C++ rule definitions handle its mapping.
       );

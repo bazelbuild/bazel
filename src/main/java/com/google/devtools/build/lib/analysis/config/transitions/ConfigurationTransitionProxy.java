@@ -25,9 +25,6 @@ public enum ConfigurationTransitionProxy implements Transition {
   /** No transition, i.e., the same configuration as the current. */
   NONE,
 
-  /** Transition to a null configuration (applies to, e.g., input files). */
-  NULL,
-
   /** Transition from the target configuration to the data configuration. */
   // TODO(bazel-team): Move this elsewhere.
   DATA,
