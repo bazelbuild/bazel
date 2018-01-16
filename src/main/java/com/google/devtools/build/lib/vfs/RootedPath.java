@@ -14,6 +14,11 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -125,5 +130,36 @@ public class RootedPath implements Serializable {
   @Override
   public String toString() {
     return "[" + root + "]/[" + relativePath + "]";
+  }
+
+  /** Custom serialization for {@link RootedPath}s. */
+  public static class RootedPathCodec implements ObjectCodec<RootedPath> {
+
+    private final PathCodec pathCodec;
+
+    /** Create an instance which will deserialize RootedPaths on {@code fileSystem}. */
+    public RootedPathCodec(FileSystem fileSystem) {
+      this.pathCodec = new PathCodec(fileSystem);
+    }
+
+    @Override
+    public Class<RootedPath> getEncodedClass() {
+      return RootedPath.class;
+    }
+
+    @Override
+    public void serialize(RootedPath rootedPath, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      pathCodec.serialize(rootedPath.getRoot(), codedOut);
+      PathFragment.CODEC.serialize(rootedPath.getRelativePath(), codedOut);
+    }
+
+    @Override
+    public RootedPath deserialize(CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      Path root = pathCodec.deserialize(codedIn);
+      PathFragment relativePath = PathFragment.CODEC.deserialize(codedIn);
+      return toRootedPath(root, relativePath);
+    }
   }
 }
