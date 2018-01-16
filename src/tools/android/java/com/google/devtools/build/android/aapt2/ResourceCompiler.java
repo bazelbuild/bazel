@@ -228,7 +228,7 @@ public class ResourceCompiler {
         // Aapt cannot interpret these regions so we rename them to get them to compile
         String renamedResFolder = resFolder
             .replaceFirst("sr[_\\-]r?latn", "b+sr+Latn")
-            .replaceFirst("es[_\\-]419", "b+es+419");
+            .replaceFirst("es[_\\-]r?419", "b+es+419");
 
         if (!renamedResFolder.equals(resFolder)) {
           file = Files.copy(
