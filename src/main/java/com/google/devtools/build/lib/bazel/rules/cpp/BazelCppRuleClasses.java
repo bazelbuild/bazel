@@ -425,7 +425,9 @@ public class BazelCppRuleClasses {
            The <code>linkstatic</code> attribute has a different meaning if used on a
            <a href="${link cc_library}"><code>cc_library()</code></a> rule.
            For a C++ library, <code>linkstatic=1</code> indicates that only
-           static linking is allowed, so no <code>.so</code> will be produced.
+           static linking is allowed, so no <code>.so</code> will be produced. linkstatic=0 does not
+           prevent static libraries from being created. The attribute is meant to control the
+           creation of dynamic libraries.
            </p>
            <p>
            If <code>linkstatic=0</code>, then the build tool will create symlinks to
