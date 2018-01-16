@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -163,9 +163,10 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory)
       throws InterruptedException {
     Rule rule = outputFile.getAssociatedRule();
-    Root root = rule.hasBinaryOutput()
-        ? configuration.getBinDirectory(rule.getRepository())
-        : configuration.getGenfilesDirectory(rule.getRepository());
+    ArtifactRoot root =
+        rule.hasBinaryOutput()
+            ? configuration.getBinDirectory(rule.getRepository())
+            : configuration.getGenfilesDirectory(rule.getRepository());
     ArtifactOwner owner =
         ConfiguredTargetKey.of(
             rule.getLabel(),
@@ -276,7 +277,7 @@ public final class ConfiguredTargetFactory {
       Artifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(),
-              Root.asSourceRoot(inputFile.getPackage().getSourceRoot()),
+              ArtifactRoot.asSourceRoot(inputFile.getPackage().getSourceRoot()),
               ConfiguredTargetKey.of(target.getLabel(), config));
 
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);

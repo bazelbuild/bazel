@@ -44,14 +44,14 @@ import org.junit.runners.JUnit4;
 public class CustomCommandLineTest {
 
   private Scratch scratch;
-  private Root rootDir;
+  private ArtifactRoot rootDir;
   private Artifact artifact1;
   private Artifact artifact2;
 
   @Before
   public void createArtifacts() throws Exception  {
     scratch = new Scratch();
-    rootDir = Root.asSourceRoot(scratch.dir("/exec/root"));
+    rootDir = ArtifactRoot.asSourceRoot(scratch.dir("/exec/root"));
     artifact1 = new Artifact(scratch.file("/exec/root/dir/file1.txt"), rootDir);
     artifact2 = new Artifact(scratch.file("/exec/root/dir/file2.txt"), rootDir);
   }

@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -82,7 +82,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root) {
+          public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
           }
@@ -533,7 +533,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   private Artifact scratchArtifact(String s) {
     Path execRoot = outputBase.getRelative("exec");
     Path outputRoot = execRoot.getRelative("out");
-    Root root = Root.asDerivedRoot(execRoot, outputRoot);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
     try {
       return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
     } catch (IOException e) {
@@ -673,7 +673,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     Path path = execRoot.getRelative(execPath);
     return new SpecialArtifact(
         path,
-        Root.asDerivedRoot(execRoot, execRoot.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
         ArtifactOwner.NULL_OWNER,
         SpecialArtifactType.TREE);

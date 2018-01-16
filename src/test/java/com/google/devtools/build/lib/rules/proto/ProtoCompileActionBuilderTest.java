@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -45,9 +45,9 @@ import org.junit.runners.JUnit4;
 public class ProtoCompileActionBuilderTest {
 
   private static final InMemoryFileSystem FILE_SYSTEM = new InMemoryFileSystem();
-  private final Root root = Root.asSourceRoot(FILE_SYSTEM.getPath("/"));
-  private final Root derivedRoot =
-      Root.asDerivedRoot(FILE_SYSTEM.getPath("/"), FILE_SYSTEM.getPath("/out"));
+  private final ArtifactRoot root = ArtifactRoot.asSourceRoot(FILE_SYSTEM.getPath("/"));
+  private final ArtifactRoot derivedRoot =
+      ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), FILE_SYSTEM.getPath("/out"));
 
   @Test
   public void commandLine_basic() throws Exception {

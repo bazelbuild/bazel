@@ -44,16 +44,19 @@ import javax.annotation.Nullable;
  * <p>The derived roots must have paths that point inside the exec root, i.e. below the directory
  * that is the root of the merged directory tree.
  */
-@SkylarkModule(name = "root",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "A root for files. The roots are the directories containing files, and they are mapped "
-        + "together into a single directory tree to form the execution environment.")
+@SkylarkModule(
+  name = "root",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "A root for files. The roots are the directories containing files, and they are mapped "
+          + "together into a single directory tree to form the execution environment."
+)
 @Immutable
-public final class Root implements Comparable<Root>, Serializable, SkylarkValue {
+public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, SkylarkValue {
 
   // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.
-  public static Root computeSourceRoot(Path packageRoot, RepositoryName repository) {
+  public static ArtifactRoot computeSourceRoot(Path packageRoot, RepositoryName repository) {
     if (repository.isMain()) {
       return asSourceRoot(packageRoot);
     } else {
@@ -66,8 +69,8 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
   }
 
   /** Returns the given path as a source root. The path may not be {@code null}. */
-  public static Root asSourceRoot(Path path) {
-    return new Root(null, path);
+  public static ArtifactRoot asSourceRoot(Path path) {
+    return new ArtifactRoot(null, path);
   }
 
   /**
@@ -77,17 +80,17 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
    * <p>Be careful with this method - all derived roots must be registered with the artifact factory
    * before the analysis phase.
    */
-  public static Root asDerivedRoot(Path execRoot, Path root) {
+  public static ArtifactRoot asDerivedRoot(Path execRoot, Path root) {
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
-    return new Root(execRoot, root);
+    return new ArtifactRoot(execRoot, root);
   }
 
-  public static Root middlemanRoot(Path execRoot, Path outputDir) {
+  public static ArtifactRoot middlemanRoot(Path execRoot, Path outputDir) {
     Path root = outputDir.getRelative("internal");
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
-    return new Root(execRoot, root, true);
+    return new ArtifactRoot(execRoot, root, true);
   }
 
   @Nullable private final Path execRoot;
@@ -95,14 +98,14 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
   private final boolean isMiddlemanRoot;
   private final PathFragment execPath;
 
-  private Root(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot) {
+  private ArtifactRoot(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot) {
     this.execRoot = execRoot;
     this.path = Preconditions.checkNotNull(path);
     this.isMiddlemanRoot = isMiddlemanRoot;
     this.execPath = isSourceRoot() ? PathFragment.EMPTY_FRAGMENT : path.relativeTo(execRoot);
   }
 
-  private Root(@Nullable Path execRoot, Path path) {
+  private ArtifactRoot(@Nullable Path execRoot, Path path) {
     this(execRoot, path, false);
   }
 
@@ -138,7 +141,7 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
   }
 
   @Override
-  public int compareTo(Root o) {
+  public int compareTo(ArtifactRoot o) {
     return path.compareTo(o.path);
   }
 
@@ -152,10 +155,10 @@ public final class Root implements Comparable<Root>, Serializable, SkylarkValue 
     if (o == this) {
       return true;
     }
-    if (!(o instanceof Root)) {
+    if (!(o instanceof ArtifactRoot)) {
       return false;
     }
-    Root r = (Root) o;
+    ArtifactRoot r = (ArtifactRoot) o;
     return path.equals(r.path) && Objects.equals(execRoot, r.execRoot);
   }
 

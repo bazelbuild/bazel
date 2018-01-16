@@ -40,13 +40,13 @@ public class CompositeRunfilesSupplierTest {
   private RunfilesSupplier mockSecond;
 
   private Path execRoot;
-  private Root rootDir;
+  private ArtifactRoot rootDir;
 
   @Before
   public final void createMocks() throws IOException {
     Scratch scratch = new Scratch();
     execRoot = scratch.getFileSystem().getPath("/");
-    rootDir = Root.asDerivedRoot(execRoot, scratch.dir("/fake/root/dont/matter"));
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/fake/root/dont/matter"));
 
     mockFirst = mock(RunfilesSupplier.class);
     mockSecond = mock(RunfilesSupplier.class);
@@ -131,7 +131,7 @@ public class CompositeRunfilesSupplierTest {
         shared, firstSharedMappings);
    }
 
-  private static Map<PathFragment, Artifact> mkMappings(Root rootDir, String... paths) {
+  private static Map<PathFragment, Artifact> mkMappings(ArtifactRoot rootDir, String... paths) {
     ImmutableMap.Builder<PathFragment, Artifact> builder = ImmutableMap.builder();
     for (String path : paths) {
       builder.put(PathFragment.create(path), mkArtifact(rootDir, path));
@@ -139,11 +139,11 @@ public class CompositeRunfilesSupplierTest {
     return builder.build();
   }
 
-  private static Artifact mkArtifact(Root rootDir, String path) {
+  private static Artifact mkArtifact(ArtifactRoot rootDir, String path) {
     return new Artifact(PathFragment.create(path), rootDir);
   }
 
-  private static List<Artifact> mkArtifacts(Root rootDir, String... paths) {
+  private static List<Artifact> mkArtifacts(ArtifactRoot rootDir, String... paths) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (String path : paths) {
       builder.add(mkArtifact(rootDir, path));

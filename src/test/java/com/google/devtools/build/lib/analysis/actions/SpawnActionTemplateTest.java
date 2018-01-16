@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -48,13 +48,13 @@ public class SpawnActionTemplateTest {
     }
   };
 
-  private Root root;
+  private ArtifactRoot root;
 
   @Before
   public void setRootDir() throws Exception  {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    root = Root.asDerivedRoot(execRoot, scratch.dir("/exec/root"));
+    root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/root"));
   }
 
   @Test

@@ -23,7 +23,7 @@ import static java.util.Arrays.asList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -45,14 +45,14 @@ public class TopLevelArtifactHelperTest {
   private OutputGroupInfo groupProvider;
 
   private Path path;
-  private Root root;
+  private ArtifactRoot root;
   private int artifactIdx;
 
   @Before
   public final void setRootDir() throws Exception {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    root = Root.asDerivedRoot(execRoot, scratch.dir("/blaze-out"));
+    root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/blaze-out"));
     path = scratch.dir("/blaze-out/foo");
   }
 

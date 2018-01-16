@@ -40,11 +40,11 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
@@ -327,7 +327,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   Artifact createSourceArtifact(FileSystem fs, String name) {
     Path root = fs.getPath(TestUtils.tmpDir());
-    return new Artifact(PathFragment.create(name), Root.asSourceRoot(root));
+    return new Artifact(PathFragment.create(name), ArtifactRoot.asSourceRoot(root));
   }
 
   protected Artifact createDerivedArtifact(String name) {
@@ -340,7 +340,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     Path path = execRoot.getRelative(execPath);
     return new Artifact(
         path,
-        Root.asDerivedRoot(execRoot, execRoot.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
         ACTION_LOOKUP_KEY);
   }

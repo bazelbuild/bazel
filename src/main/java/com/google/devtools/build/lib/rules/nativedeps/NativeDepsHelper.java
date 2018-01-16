@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -175,7 +175,7 @@ public abstract class NativeDepsHelper {
       CcToolchainProvider toolchain,
       Artifact nativeDeps,
       String libraryIdentifier,
-      Root bindirIfShared,
+      ArtifactRoot bindirIfShared,
       boolean useDynamicRuntime,
       CppSemantics cppSemantics)
       throws InterruptedException {

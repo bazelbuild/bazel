@@ -31,9 +31,9 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
@@ -106,12 +106,12 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     }
   };
 
-  private Root root;
+  private ArtifactRoot root;
 
   @Before
   public void setRootDir() throws Exception  {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
-    root = Root.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
+    root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
   }
 
   @Test

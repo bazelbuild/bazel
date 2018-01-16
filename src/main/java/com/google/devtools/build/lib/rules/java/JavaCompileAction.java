@@ -32,10 +32,10 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
@@ -474,17 +474,15 @@ public final class JavaCompileAction extends SpawnAction {
    */
   public interface ArtifactFactory {
 
-    /**
-     * Create an artifact with the specified root-relative path under the specified root.
-     */
-    Artifact create(PathFragment rootRelativePath, Root root);
+    /** Create an artifact with the specified root-relative path under the specified root. */
+    Artifact create(PathFragment rootRelativePath, ArtifactRoot root);
   }
 
   @VisibleForTesting
   static ArtifactFactory createArtifactFactory(final AnalysisEnvironment env) {
     return new ArtifactFactory() {
       @Override
-      public Artifact create(PathFragment rootRelativePath, Root root) {
+      public Artifact create(PathFragment rootRelativePath, ArtifactRoot root) {
         return env.getDerivedArtifact(rootRelativePath, root);
       }
     };
@@ -557,15 +555,17 @@ public final class JavaCompileAction extends SpawnAction {
      * Creates a Builder from an owner and a build configuration.
      */
     public Builder(final RuleContext ruleContext, JavaSemantics semantics) {
-      this(ruleContext.getActionOwner(),
+      this(
+          ruleContext.getActionOwner(),
           ruleContext.getAnalysisEnvironment(),
           new ArtifactFactory() {
             @Override
-            public Artifact create(PathFragment rootRelativePath, Root root) {
+            public Artifact create(PathFragment rootRelativePath, ArtifactRoot root) {
               return ruleContext.getDerivedArtifact(rootRelativePath, root);
             }
           },
-          ruleContext.getConfiguration(), semantics);
+          ruleContext.getConfiguration(),
+          semantics);
     }
 
     public JavaCompileAction build() {

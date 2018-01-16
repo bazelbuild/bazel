@@ -48,11 +48,11 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -830,19 +830,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
   }
 
-  public Map<PathFragment, Root> getArtifactRootsForFiles(
+  public Map<PathFragment, ArtifactRoot> getArtifactRootsForFiles(
       final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths)
       throws InterruptedException {
     return getArtifactRoots(eventHandler, execPaths, true);
   }
 
-  public Map<PathFragment, Root> getArtifactRoots(
+  public Map<PathFragment, ArtifactRoot> getArtifactRoots(
       final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths)
       throws InterruptedException {
     return getArtifactRoots(eventHandler, execPaths, false);
   }
 
-  private Map<PathFragment, Root> getArtifactRoots(
+  private Map<PathFragment, ArtifactRoot> getArtifactRoots(
       final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths, boolean forFiles)
       throws InterruptedException {
     final Map<PathFragment, SkyKey> packageKeys = new HashMap<>();
@@ -867,12 +867,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return new HashMap<>();
     }
 
-    Map<PathFragment, Root> roots = new HashMap<>();
+    Map<PathFragment, ArtifactRoot> roots = new HashMap<>();
     for (PathFragment execPath : execPaths) {
       ContainingPackageLookupValue value = result.get(packageKeys.get(execPath));
       if (value.hasContainingPackage()) {
-        roots.put(execPath,
-            Root.computeSourceRoot(
+        roots.put(
+            execPath,
+            ArtifactRoot.computeSourceRoot(
                 value.getContainingPackageRoot(),
                 value.getContainingPackageName().getRepository()));
       } else {

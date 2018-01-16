@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CompileCommandLine.Builder;
@@ -42,7 +42,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
   private Artifact scratchArtifact(String s) {
     Path execRoot = outputBase.getRelative("exec");
     Path outputRoot = execRoot.getRelative("root");
-    Root root = Root.asDerivedRoot(execRoot, outputRoot);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
     try {
       return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
     } catch (IOException e) {

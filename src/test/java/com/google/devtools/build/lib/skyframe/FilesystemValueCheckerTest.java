@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -608,14 +608,14 @@ public class FilesystemValueCheckerTest {
     Path outputPath = fs.getPath("/bin");
     outputPath.createDirectory();
     return new Artifact(
-        outputPath.getRelative(relPath), Root.asDerivedRoot(fs.getPath("/"), outputPath));
+        outputPath.getRelative(relPath), ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputPath));
   }
 
   private Artifact createTreeArtifact(String relPath) throws IOException {
     Path outputDir = fs.getPath("/bin");
     Path outputPath = outputDir.getRelative(relPath);
     outputDir.createDirectory();
-    Root derivedRoot = Root.asDerivedRoot(fs.getPath("/"), outputDir);
+    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputDir);
     return new SpecialArtifact(outputPath, derivedRoot,
         derivedRoot.getExecPath().getRelative(outputPath.relativeTo(derivedRoot.getPath())),
         ArtifactOwner.NULL_OWNER, SpecialArtifactType.TREE);

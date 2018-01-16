@@ -58,7 +58,7 @@ public class ActionLookupValueTest {
   public void testActionNotPresentAfterEvaluation() {
     Path execRoot = fs.getPath("/execroot");
     Path outputRootPath = execRoot.getRelative("blaze-out");
-    Root root = Root.asDerivedRoot(execRoot, outputRootPath);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRootPath);
     Action normalAction = mock(Action.class);
     Artifact normalArtifact = new Artifact(PathFragment.create("normal"), root);
     when(normalAction.getOutputs()).thenReturn(ImmutableSet.of(normalArtifact));

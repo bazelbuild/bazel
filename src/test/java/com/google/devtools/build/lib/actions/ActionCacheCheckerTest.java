@@ -274,15 +274,16 @@ public class ActionCacheCheckerTest {
 
   @Test
   public void testMiddleman_DifferentFiles() throws Exception {
-    Action action = new NullMiddlemanAction() {
-      @Override
-      public synchronized Iterable<Artifact> getInputs() {
-        FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
-        Path path = fileSystem.getPath("/input");
-        Root root = Root.asSourceRoot(fileSystem.getPath("/"));
-        return ImmutableList.of(new Artifact(path, root));
-      }
-    };
+    Action action =
+        new NullMiddlemanAction() {
+          @Override
+          public synchronized Iterable<Artifact> getInputs() {
+            FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
+            Path path = fileSystem.getPath("/input");
+            ArtifactRoot root = ArtifactRoot.asSourceRoot(fileSystem.getPath("/"));
+            return ImmutableList.of(new Artifact(path, root));
+          }
+        };
     runAction(action);  // Not cached so recorded as different deps.
     FileSystemUtils.writeContentAsLatin1(action.getPrimaryInput().getPath(), "modified");
     runAction(action);  // Cache miss because input files were modified.

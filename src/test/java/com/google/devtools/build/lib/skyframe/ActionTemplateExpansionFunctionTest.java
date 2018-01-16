@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -209,7 +209,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     Path fullPath = rootDirectory.getRelative(execPath);
     return new SpecialArtifact(
         fullPath,
-        Root.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
         execPath,
         ArtifactOwner.NULL_OWNER,
         SpecialArtifactType.TREE);

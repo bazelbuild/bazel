@@ -25,11 +25,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -129,7 +129,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   private Artifact getSourceArtifact(String path) throws Exception {
-    return new Artifact(PathFragment.create(path), Root.asSourceRoot(rootDirectory));
+    return new Artifact(PathFragment.create(path), ArtifactRoot.asSourceRoot(rootDirectory));
   }
 
   private Artifact createSourceArtifact(String path) throws Exception {

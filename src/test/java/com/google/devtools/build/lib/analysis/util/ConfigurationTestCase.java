@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -201,7 +201,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public void assertConfigurationsHaveUniqueOutputDirectories(
       BuildConfigurationCollection configCollection) throws Exception {
-    Map<Root, BuildConfiguration> outputPaths = new HashMap<>();
+    Map<ArtifactRoot, BuildConfiguration> outputPaths = new HashMap<>();
     for (BuildConfiguration config : configCollection.getTargetConfigurations()) {
       if (config.isActionsEnabled()) {
         BuildConfiguration otherConfig = outputPaths.get(

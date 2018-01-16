@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -1183,7 +1183,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     Path path = execRoot.getRelative(execPath);
     return new SpecialArtifact(
         path,
-        Root.asDerivedRoot(execRoot, execRoot.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
         ACTION_LOOKUP_KEY,
         SpecialArtifactType.TREE);

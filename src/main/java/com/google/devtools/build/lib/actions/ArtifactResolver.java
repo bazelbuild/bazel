@@ -34,15 +34,15 @@ public interface ArtifactResolver {
    * @param owner the artifact owner.
    * @return the canonical source artifact for the given path
    */
-  Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
+  Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner);
 
   /**
    * Returns the source Artifact for the specified path, creating it if not found and setting its
    * root and execPath.
    *
-   * @see #getSourceArtifact(PathFragment, Root, ArtifactOwner)
+   * @see #getSourceArtifact(PathFragment, ArtifactRoot, ArtifactOwner)
    */
-  Artifact getSourceArtifact(PathFragment execPath, Root root);
+  Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root);
 
   /**
    * Resolves a source Artifact given an execRoot-relative path.

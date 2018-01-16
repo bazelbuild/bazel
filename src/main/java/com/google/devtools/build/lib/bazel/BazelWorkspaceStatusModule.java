@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
@@ -304,7 +304,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     public WorkspaceStatusAction createWorkspaceStatusAction(
         ArtifactFactory factory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
         String workspaceName) {
-      Root root = env.getDirectories().getBuildDataDirectory(workspaceName);
+      ArtifactRoot root = env.getDirectories().getBuildDataDirectory(workspaceName);
 
       Artifact stableArtifact = factory.getDerivedArtifact(
           PathFragment.create("stable-status.txt"), root, artifactOwner);

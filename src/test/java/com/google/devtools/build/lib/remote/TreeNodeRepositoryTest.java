@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -46,14 +46,14 @@ public class TreeNodeRepositoryTest {
   private Scratch scratch;
   private DigestUtil digestUtil;
   private Path execRoot;
-  private Root rootDir;
+  private ArtifactRoot rootDir;
 
   @Before
   public final void setRootDir() throws Exception {
     digestUtil = new DigestUtil(HashFunction.SHA256);
     scratch = new Scratch(new InMemoryFileSystem(BlazeClock.instance(), HashFunction.SHA256));
     execRoot = scratch.getFileSystem().getPath("/exec/root");
-    rootDir = Root.asSourceRoot(scratch.dir("/exec/root"));
+    rootDir = ArtifactRoot.asSourceRoot(scratch.dir("/exec/root"));
   }
 
   private TreeNodeRepository createTestTreeNodeRepository() {

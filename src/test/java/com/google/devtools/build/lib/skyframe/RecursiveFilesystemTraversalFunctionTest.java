@@ -28,8 +28,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -150,12 +150,13 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private Artifact sourceArtifact(String path) {
-    return new Artifact(PathFragment.create(path), Root.asSourceRoot(rootDirectory));
+    return new Artifact(PathFragment.create(path), ArtifactRoot.asSourceRoot(rootDirectory));
   }
 
   private Artifact sourceArtifactUnderPackagePath(String path, String packagePath) {
     return new Artifact(
-        PathFragment.create(path), Root.asSourceRoot(rootDirectory.getRelative(packagePath)));
+        PathFragment.create(path),
+        ArtifactRoot.asSourceRoot(rootDirectory.getRelative(packagePath)));
   }
 
   private Artifact derivedArtifact(String path) {
@@ -164,7 +165,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Artifact output =
         new Artifact(
             fullPath,
-            Root.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
+            ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
             execPath);
     return output;
   }

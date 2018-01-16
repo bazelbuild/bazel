@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.PackageRoots;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Optional;
@@ -27,11 +27,11 @@ import java.util.Optional;
  * whose {@link PackageRootLookup} returns the unique source root for any given package identifier.
  */
 public class PackageRootsNoSymlinkCreation implements PackageRoots {
-  private final Root sourceRoot;
+  private final ArtifactRoot sourceRoot;
 
   @VisibleForTesting
   public PackageRootsNoSymlinkCreation(Path sourcePath) {
-    this.sourceRoot = Root.asSourceRoot(sourcePath);
+    this.sourceRoot = ArtifactRoot.asSourceRoot(sourcePath);
   }
 
   @Override

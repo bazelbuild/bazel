@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -172,14 +172,13 @@ public class FdoSupport {
   private final Path fdoProfile;
 
   /**
-   * Temporary directory to which the coverage ZIP file is extracted to
-   * (relative to the exec root), or {@code null} if FDO optimization is
-   * disabled. This is used to create artifacts for the extracted files.
+   * Temporary directory to which the coverage ZIP file is extracted to (relative to the exec root),
+   * or {@code null} if FDO optimization is disabled. This is used to create artifacts for the
+   * extracted files.
    *
-   * <p>Note that this root is intentionally not registered with the artifact
-   * factory.
+   * <p>Note that this root is intentionally not registered with the artifact factory.
    */
-  private final Root fdoRoot;
+  private final ArtifactRoot fdoRoot;
 
   /**
    * The relative path of the FDO root to the exec root.
@@ -227,8 +226,14 @@ public class FdoSupport {
    * @param fdoProfile path to the profile file passed to --fdo_optimize option
    * @param lipoMode value of the --lipo_mode option
    */
-  private FdoSupport(FdoMode fdoMode, LipoMode lipoMode, Root fdoRoot, PathFragment fdoRootExecPath,
-      PathFragment fdoInstrument, Path fdoProfile, FdoZipContents fdoZipContents) {
+  private FdoSupport(
+      FdoMode fdoMode,
+      LipoMode lipoMode,
+      ArtifactRoot fdoRoot,
+      PathFragment fdoRootExecPath,
+      PathFragment fdoInstrument,
+      Path fdoProfile,
+      FdoZipContents fdoZipContents) {
     this.fdoInstrument = fdoInstrument;
     this.fdoProfile = fdoProfile;
     this.fdoRoot = fdoRoot;
@@ -248,7 +253,7 @@ public class FdoSupport {
     }
   }
 
-  public Root getFdoRoot() {
+  public ArtifactRoot getFdoRoot() {
     return fdoRoot;
   }
 
@@ -281,10 +286,10 @@ public class FdoSupport {
       lipoMode = LipoMode.OFF;
     }
 
-    Root fdoRoot =
+    ArtifactRoot fdoRoot =
         (fdoProfile == null)
             ? null
-            : Root.asDerivedRoot(execRoot, execRoot.getRelative(productName + "-fdo"));
+            : ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative(productName + "-fdo"));
 
     PathFragment fdoRootExecPath = fdoProfile == null
         ? null

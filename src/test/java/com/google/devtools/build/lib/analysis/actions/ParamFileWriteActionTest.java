@@ -28,9 +28,9 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -50,14 +50,14 @@ import org.junit.runners.JUnit4;
 /** Tests for ParamFileWriteAction. */
 @RunWith(JUnit4.class)
 public class ParamFileWriteActionTest extends BuildViewTestCase {
-  private Root rootDir;
+  private ArtifactRoot rootDir;
   private Artifact outputArtifact;
   private Artifact treeArtifact;
 
   @Before
   public void createArtifacts() throws Exception  {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
-    rootDir = Root.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     FileSystemUtils.createDirectoryAndParents(outputArtifact.getPath().getParentDirectory());
     treeArtifact = createTreeArtifact("artifact/myTreeFileArtifact");

@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -187,7 +187,7 @@ public final class TestActionBuilder {
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
     BuildConfiguration config = ruleContext.getConfiguration();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-    Root root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
+    ArtifactRoot root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(

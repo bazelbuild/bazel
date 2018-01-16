@@ -145,7 +145,7 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
+  public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
     Preconditions.checkArgument(!execPath.isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
     execPath = execPath.normalize();
@@ -153,11 +153,11 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Artifact getSourceArtifact(PathFragment execPath, Root root) {
+  public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root) {
     return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
   }
 
-  private void validatePath(PathFragment rootRelativePath, Root root) {
+  private void validatePath(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkArgument(!root.isSourceRoot());
     Preconditions.checkArgument(!rootRelativePath.isAbsolute(), rootRelativePath);
     Preconditions.checkArgument(rootRelativePath.isNormalized(), rootRelativePath);
@@ -177,8 +177,8 @@ public class ArtifactFactory implements ArtifactResolver {
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
   // TODO(bazel-team): Don't allow root == execRootParent.
-  public Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root,
-      ArtifactOwner owner) {
+  public Artifact getDerivedArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     Path path = root.getPath().getRelative(rootRelativePath);
     return getArtifact(path, root, path.relativeTo(root.getExecRoot()), owner, null);
@@ -192,8 +192,8 @@ public class ArtifactFactory implements ArtifactResolver {
    * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
-  public Artifact getFilesetArtifact(PathFragment rootRelativePath, Root root,
-      ArtifactOwner owner) {
+  public Artifact getFilesetArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     Path path = root.getPath().getRelative(rootRelativePath);
     return getArtifact(
@@ -201,22 +201,22 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   /**
-   * Returns an artifact that represents a TreeArtifact; that is, a directory containing some
-   * tree of ArtifactFiles unknown at analysis time.
+   * Returns an artifact that represents a TreeArtifact; that is, a directory containing some tree
+   * of ArtifactFiles unknown at analysis time.
    *
    * <p>The root must be below the execRootParent, and the execPath of the resulting Artifact is
    * computed as {@code root.getRelative(rootRelativePath).relativeTo(root.execRoot)}.
    */
-  public Artifact getTreeArtifact(PathFragment rootRelativePath, Root root,
-      ArtifactOwner owner) {
+  public Artifact getTreeArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     Path path = root.getPath().getRelative(rootRelativePath);
     return getArtifact(
         path, root, path.relativeTo(root.getExecRoot()), owner, SpecialArtifactType.TREE);
   }
 
-  public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, Root root,
-      ArtifactOwner owner) {
+  public Artifact getConstantMetadataArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     Path path = root.getPath().getRelative(rootRelativePath);
     return getArtifact(
@@ -225,12 +225,15 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   /**
-   * Returns the Artifact for the specified path, creating one if not found and
-   * setting the <code>root</code> and <code>execPath</code> to the
-   * specified values.
+   * Returns the Artifact for the specified path, creating one if not found and setting the <code>
+   * root</code> and <code>execPath</code> to the specified values.
    */
-  private synchronized Artifact getArtifact(Path path, Root root, PathFragment execPath,
-      ArtifactOwner owner, @Nullable SpecialArtifactType type) {
+  private synchronized Artifact getArtifact(
+      Path path,
+      ArtifactRoot root,
+      PathFragment execPath,
+      ArtifactOwner owner,
+      @Nullable SpecialArtifactType type) {
     Preconditions.checkNotNull(root);
     Preconditions.checkNotNull(execPath);
 
@@ -250,7 +253,11 @@ public class ArtifactFactory implements ArtifactResolver {
     return artifact;
   }
 
-  private Artifact createArtifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner,
+  private Artifact createArtifact(
+      Path path,
+      ArtifactRoot root,
+      PathFragment execPath,
+      ArtifactOwner owner,
       @Nullable SpecialArtifactType type) {
     Preconditions.checkNotNull(owner, path);
     if (type == null) {
@@ -261,13 +268,15 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   /**
-   * Returns an {@link Artifact} with exec path formed by composing {@code baseExecPath} and
-   * {@code relativePath} (via {@code baseExecPath.getRelative(relativePath)} if baseExecPath is
-   * not null). That Artifact will have root determined by the package roots of this factory if it
-   * lives in a subpackage distinct from that of baseExecPath, and {@code baseRoot} otherwise.
+   * Returns an {@link Artifact} with exec path formed by composing {@code baseExecPath} and {@code
+   * relativePath} (via {@code baseExecPath.getRelative(relativePath)} if baseExecPath is not null).
+   * That Artifact will have root determined by the package roots of this factory if it lives in a
+   * subpackage distinct from that of baseExecPath, and {@code baseRoot} otherwise.
    */
   public synchronized Artifact resolveSourceArtifactWithAncestor(
-      PathFragment relativePath, PathFragment baseExecPath, Root baseRoot,
+      PathFragment relativePath,
+      PathFragment baseExecPath,
+      ArtifactRoot baseRoot,
       RepositoryName repositoryName) {
     Preconditions.checkState(
         (baseExecPath == null) == (baseRoot == null),
@@ -288,10 +297,10 @@ public class ArtifactFactory implements ArtifactResolver {
     if (isDerivedArtifact(execPath)) {
       return null;
     }
-    Root sourceRoot = findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName);
+    ArtifactRoot sourceRoot = findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName);
     Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
     if (artifact != null) {
-      Root artifactRoot = artifact.getRoot();
+      ArtifactRoot artifactRoot = artifact.getRoot();
       Preconditions.checkState(
           sourceRoot == null || sourceRoot.equals(artifactRoot),
           "roots mismatch: %s %s %s",
@@ -308,8 +317,10 @@ public class ArtifactFactory implements ArtifactResolver {
    * root directory if our execPath doesn't start with baseExecPath due to uplevel references.
    */
   @Nullable
-  private Root findSourceRoot(
-      PathFragment execPath, @Nullable PathFragment baseExecPath, @Nullable Root baseRoot,
+  private ArtifactRoot findSourceRoot(
+      PathFragment execPath,
+      @Nullable PathFragment baseExecPath,
+      @Nullable ArtifactRoot baseRoot,
       RepositoryName repositoryName) {
     PathFragment dir = execPath.getParentDirectory();
     if (dir == null) {
@@ -323,7 +334,7 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     while (dir != null && !dir.equals(baseExecPath)) {
-      Root sourceRoot =
+      ArtifactRoot sourceRoot =
           packageRoots.getRootForPackage(PackageIdentifier.create(repositoryName, dir));
       if (sourceRoot != null) {
         return sourceRoot;
@@ -365,7 +376,8 @@ public class ArtifactFactory implements ArtifactResolver {
         unresolvedPaths.add(execPath);
       }
     }
-    Map<PathFragment, Root> sourceRoots = resolver.findPackageRootsForFiles(unresolvedPaths);
+    Map<PathFragment, ArtifactRoot> sourceRoots =
+        resolver.findPackageRootsForFiles(unresolvedPaths);
     // We are missing some dependencies. We need to rerun this method later.
     if (sourceRoots == null) {
       return null;
@@ -380,7 +392,7 @@ public class ArtifactFactory implements ArtifactResolver {
   public Path getPathFromSourceExecPath(PathFragment execPath) {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
-    Root sourceRoot =
+    ArtifactRoot sourceRoot =
         packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
     if (sourceRoot != null) {
       return sourceRoot.getPath().getRelative(execPath);
@@ -388,7 +400,7 @@ public class ArtifactFactory implements ArtifactResolver {
     return execRoot.getRelative(execPath);
   }
 
-  private Artifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
+  private Artifact createArtifactIfNotValid(ArtifactRoot sourceRoot, PathFragment execPath) {
     if (sourceRoot == null) {
       return null;  // not a path that we can find...
     }

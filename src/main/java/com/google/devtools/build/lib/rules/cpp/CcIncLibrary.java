@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -85,7 +85,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
     // is actually a symlink into the source tree.
     PathFragment includeDirectory = PathFragment.create("_")
         .getRelative(ruleContext.getTarget().getName());
-    Root configIncludeDirectory =
+    ArtifactRoot configIncludeDirectory =
         ruleContext.getConfiguration().getIncludeDirectory(ruleContext.getRule().getRepository());
     PathFragment includePath =
         configIncludeDirectory

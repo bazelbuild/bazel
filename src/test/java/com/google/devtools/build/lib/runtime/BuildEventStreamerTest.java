@@ -26,8 +26,8 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -520,7 +520,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
   private Artifact makeArtifact(String pathString) {
     Path path = outputBase.getRelative(PathFragment.create(pathString));
-    return new Artifact(path, Root.asSourceRoot(outputBase));
+    return new Artifact(path, ArtifactRoot.asSourceRoot(outputBase));
   }
 
   @Test

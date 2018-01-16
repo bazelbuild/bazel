@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
@@ -156,13 +156,13 @@ public abstract class ResourceTestBase {
 
   public FakeRuleErrorConsumer errorConsumer;
   public FileSystem fileSystem;
-  public Root root;
+  public ArtifactRoot root;
 
   @Before
   public void setup() {
     errorConsumer = new FakeRuleErrorConsumer();
     fileSystem = new InMemoryFileSystem();
-    root = Root.asSourceRoot(fileSystem.getRootDirectory());
+    root = ArtifactRoot.asSourceRoot(fileSystem.getRootDirectory());
   }
 
   @After

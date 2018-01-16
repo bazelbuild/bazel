@@ -164,7 +164,7 @@ public class Artifact
 
   private final int hashCode;
   private final Path path;
-  private final Root root;
+  private final ArtifactRoot root;
   private final PathFragment execPath;
   private final PathFragment rootRelativePath;
   private final ArtifactOwner owner;
@@ -176,18 +176,20 @@ public class Artifact
    *
    * <p>In a source Artifact, the path tail after the root will be identical to the execPath, but
    * the root will be orthogonal to execRoot.
+   *
    * <pre>
    *  [path] == [/root/][execPath]
    * </pre>
    *
    * <p>In a derived Artifact, the execPath will overlap with part of the root, which in turn will
    * be below the execRoot.
+   *
    * <pre>
    *  [path] == [/root][pathTail] == [/execRoot][execPath] == [/execRoot][rootPrefix][pathTail]
    * </pre>
    */
   @VisibleForTesting
-  public Artifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner) {
+  public Artifact(Path path, ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
     if (root == null || !path.startsWith(root.getPath())) {
       throw new IllegalArgumentException(root + ": illegal root for " + path
           + " (execPath: " + execPath + ")");
@@ -233,7 +235,7 @@ public class Artifact
    * <pre>
    */
   @VisibleForTesting
-  public Artifact(Path path, Root root, PathFragment execPath) {
+  public Artifact(Path path, ArtifactRoot root, PathFragment execPath) {
     this(path, root, execPath, ArtifactOwner.NULL_OWNER);
   }
 
@@ -241,17 +243,15 @@ public class Artifact
    * Constructs a source or derived Artifact for the specified path and specified root. The root
    * must be an ancestor of the path.
    */
-  @VisibleForTesting  // Only exists for testing.
-  public Artifact(Path path, Root root) {
+  @VisibleForTesting // Only exists for testing.
+  public Artifact(Path path, ArtifactRoot root) {
     this(path, root, root.getExecPath().getRelative(path.relativeTo(root.getPath())),
         ArtifactOwner.NULL_OWNER);
   }
 
-  /**
-   * Constructs a source or derived Artifact for the specified root-relative path and root.
-   */
-  @VisibleForTesting  // Only exists for testing.
-  public Artifact(PathFragment rootRelativePath, Root root) {
+  /** Constructs a source or derived Artifact for the specified root-relative path and root. */
+  @VisibleForTesting // Only exists for testing.
+  public Artifact(PathFragment rootRelativePath, ArtifactRoot root) {
     this(root.getPath().getRelative(rootRelativePath), root,
         root.getExecPath().getRelative(rootRelativePath), ArtifactOwner.NULL_OWNER);
   }
@@ -347,13 +347,15 @@ public class Artifact
 
   /**
    * Returns the root beneath which this Artifact resides, if any. This may be one of the
-   * package-path entries (for source Artifacts), or one of the bin, genfiles or includes dirs
-   * (for derived Artifacts). It will always be an ancestor of getPath().
+   * package-path entries (for source Artifacts), or one of the bin, genfiles or includes dirs (for
+   * derived Artifacts). It will always be an ancestor of getPath().
    */
-  @SkylarkCallable(name = "root", structField = true,
-      doc = "The root beneath which this file resides."
+  @SkylarkCallable(
+    name = "root",
+    structField = true,
+    doc = "The root beneath which this file resides."
   )
-  public final Root getRoot() {
+  public final ArtifactRoot getRoot() {
     return root;
   }
 
@@ -443,7 +445,11 @@ public class Artifact
     private final SpecialArtifactType type;
 
     @VisibleForTesting
-    public SpecialArtifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner,
+    public SpecialArtifact(
+        Path path,
+        ArtifactRoot root,
+        PathFragment execPath,
+        ArtifactOwner owner,
         SpecialArtifactType type) {
       super(path, root, execPath, owner);
       this.type = type;

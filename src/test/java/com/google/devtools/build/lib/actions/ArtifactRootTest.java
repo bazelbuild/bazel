@@ -25,15 +25,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link Root}. */
+/** Tests for {@link ArtifactRoot}. */
 @RunWith(JUnit4.class)
-public class RootTest {
+public class ArtifactRootTest {
   private Scratch scratch = new Scratch();
 
   @Test
   public void testAsSourceRoot() throws IOException {
     Path sourceDir = scratch.dir("/source");
-    Root root = Root.asSourceRoot(sourceDir);
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(sourceDir);
     assertThat(root.isSourceRoot()).isTrue();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
     assertThat(root.getPath()).isEqualTo(sourceDir);
@@ -43,7 +43,7 @@ public class RootTest {
   @Test
   public void testBadAsSourceRoot() {
     try {
-      Root.asSourceRoot(null);
+      ArtifactRoot.asSourceRoot(null);
       fail();
     } catch (NullPointerException expected) {
     }
@@ -53,7 +53,7 @@ public class RootTest {
   public void testAsDerivedRoot() throws IOException {
     Path execRoot = scratch.dir("/exec");
     Path rootDir = scratch.dir("/exec/root");
-    Root root = Root.asDerivedRoot(execRoot, rootDir);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
     assertThat(root.isSourceRoot()).isFalse();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.create("root"));
     assertThat(root.getPath()).isEqualTo(rootDir);
@@ -65,7 +65,7 @@ public class RootTest {
     try {
       Path execRoot = scratch.dir("/exec");
       Path outsideDir = scratch.dir("/not_exec");
-      Root.asDerivedRoot(execRoot, outsideDir);
+      ArtifactRoot.asDerivedRoot(execRoot, outsideDir);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -75,7 +75,7 @@ public class RootTest {
   public void testBadAsDerivedRootSameForBoth() throws IOException {
     try {
       Path execRoot = scratch.dir("/exec");
-      Root.asDerivedRoot(execRoot, execRoot);
+      ArtifactRoot.asDerivedRoot(execRoot, execRoot);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -85,7 +85,7 @@ public class RootTest {
   public void testBadAsDerivedRootNullDir() throws IOException {
     try {
       Path execRoot = scratch.dir("/exec");
-      Root.asDerivedRoot(execRoot, null);
+      ArtifactRoot.asDerivedRoot(execRoot, null);
       fail();
     } catch (NullPointerException expected) {
     }
@@ -95,7 +95,7 @@ public class RootTest {
   public void testBadAsDerivedRootNullExecRoot() throws IOException {
     try {
       Path execRoot = scratch.dir("/exec");
-      Root.asDerivedRoot(null, execRoot);
+      ArtifactRoot.asDerivedRoot(null, execRoot);
       fail();
     } catch (NullPointerException expected) {
     }
@@ -107,11 +107,11 @@ public class RootTest {
     Path rootDir = scratch.dir("/exec/root");
     Path otherRootDir = scratch.dir("/");
     Path sourceDir = scratch.dir("/source");
-    Root rootA = Root.asDerivedRoot(execRoot, rootDir);
-    assertEqualsAndHashCode(true, rootA, Root.asDerivedRoot(execRoot, rootDir));
-    assertEqualsAndHashCode(false, rootA, Root.asSourceRoot(sourceDir));
-    assertEqualsAndHashCode(false, rootA, Root.asSourceRoot(rootDir));
-    assertEqualsAndHashCode(false, rootA, Root.asDerivedRoot(otherRootDir, rootDir));
+    ArtifactRoot rootA = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
+    assertEqualsAndHashCode(true, rootA, ArtifactRoot.asDerivedRoot(execRoot, rootDir));
+    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(sourceDir));
+    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(rootDir));
+    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asDerivedRoot(otherRootDir, rootDir));
   }
 
   public void assertEqualsAndHashCode(boolean expected, Object a, Object b) {

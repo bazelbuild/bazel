@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.CommandHelper;
@@ -94,7 +94,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     this.ruleContext = ruleContext;
   }
 
-  Root newFileRoot() throws EvalException {
+  ArtifactRoot newFileRoot() throws EvalException {
     return context.isForAspect()
         ? ruleContext.getConfiguration().getBinDirectory(ruleContext.getRule().getRepository())
         : ruleContext.getBinOrGenfilesDirectory();
