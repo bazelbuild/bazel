@@ -146,7 +146,6 @@ public final class CcLibraryHelper {
     private final TransitiveInfoProviderMapBuilder providers;
     private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
-    private final CcLinkingOutputs linkingOutputs;
     private final CcLinkingOutputs linkingOutputsExcludingPrecompiledLibraries;
     private final CppCompilationContext context;
 
@@ -258,7 +257,6 @@ public final class CcLibraryHelper {
                   compilationInfo.getOutputGroups().entrySet(),
                   linkingInfo.getOutputGroups().entrySet()));
       this.compilationOutputs = compilationInfo.getCcCompilationOutputs();
-      this.linkingOutputs = linkingInfo.getCcLinkingOutputs();
       this.linkingOutputsExcludingPrecompiledLibraries =
           linkingInfo.getCcLinkingOutputsExcludingPrecompiledLibraries();
       this.context = compilationInfo.getCppCompilationContext();
@@ -274,10 +272,6 @@ public final class CcLibraryHelper {
 
     public CcCompilationOutputs getCcCompilationOutputs() {
       return compilationOutputs;
-    }
-
-    public CcLinkingOutputs getCcLinkingOutputs() {
-      return linkingOutputs;
     }
 
     /**
@@ -362,7 +356,8 @@ public final class CcLibraryHelper {
   private boolean emitCcNativeLibrariesProvider;
   private boolean emitCcSpecificLinkParamsProvider;
   private boolean emitInterfaceSharedObjects;
-  private boolean emitDynamicLibrary = true;
+  private boolean createDynamicLibrary = true;
+  private boolean createStaticLibraries = true;
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
   private final SourceCategory sourceCategory;
@@ -950,7 +945,18 @@ public final class CcLibraryHelper {
    * performed at the binary rule level.
    */
   public CcLibraryHelper setCreateDynamicLibrary(boolean emitDynamicLibrary) {
-    this.emitDynamicLibrary = emitDynamicLibrary;
+    this.createDynamicLibrary = emitDynamicLibrary;
+    return this;
+  }
+
+  /** When createStaticLibraries is true, there are no actions created for static libraries. */
+  public CcLibraryHelper setCreateStaticLibraries(boolean emitStaticLibraries) {
+    this.createStaticLibraries = emitStaticLibraries;
+    return this;
+  }
+
+  public CcLibraryHelper setNeverlink(boolean neverlink) {
+    this.neverlink = neverlink;
     return this;
   }
 
@@ -1270,7 +1276,8 @@ public final class CcLibraryHelper {
         .addLinkActionInputs(linkActionInputs)
         .setFake(fake)
         .setAllowInterfaceSharedObjects(emitInterfaceSharedObjects)
-        .setCreateDynamicLibrary(emitDynamicLibrary)
+        .setCreateDynamicLibrary(createDynamicLibrary)
+        .setCreateStaticLibraries(createStaticLibraries)
         // Note: this doesn't actually save the temps, it just makes the CppModel use the
         // configurations --save_temps setting to decide whether to actually save the temps.
         .setSaveTemps(true)
@@ -1410,6 +1417,11 @@ public final class CcLibraryHelper {
             .getBinOrGenfilesDirectory()
             .getExecPath()
             .getRelative(ruleContext.getUniqueDirectory("_virtual_includes")));
+  }
+
+  /** Creates context for cc compile action from generated inputs. */
+  public CppCompilationContext initializeCppCompilationContext() {
+    return initializeCppCompilationContext(initializeCppModel());
   }
 
   /**
@@ -1571,13 +1583,6 @@ public final class CcLibraryHelper {
         featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
         featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
         !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
-  }
-
-  /**
-   * Creates context for cc compile action from generated inputs.
-   */
-  public CppCompilationContext initializeCppCompilationContext() {
-    return initializeCppCompilationContext(initializeCppModel());
   }
 
   private Iterable<CppModuleMap> collectModuleMaps() {

@@ -194,6 +194,7 @@ public final class CppModel {
   private final List<Artifact> linkActionInputs = new ArrayList<>();
   private boolean allowInterfaceSharedObjects;
   private boolean createDynamicLibrary = true;
+  private boolean createStaticLibraries = true;
   private Artifact soImplArtifact;
   private FeatureConfiguration featureConfiguration;
   private List<VariablesExtension> variablesExtensions = new ArrayList<>();
@@ -383,6 +384,11 @@ public final class CppModel {
 
   public CppModel setCreateDynamicLibrary(boolean createDynamicLibrary) {
     this.createDynamicLibrary = createDynamicLibrary;
+    return this;
+  }
+
+  public CppModel setCreateStaticLibraries(boolean createStaticLibraries) {
+    this.createStaticLibraries = createStaticLibraries;
     return this;
   }
 
@@ -1308,12 +1314,45 @@ public final class CppModel {
       // because it needs some data that's not available at this point.
       return result.build();
     }
-
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     boolean usePicForBinaries = CppHelper.usePic(ruleContext, ccToolchain, /* forBinary= */ true);
     boolean usePicForSharedLibs =
         CppHelper.usePic(ruleContext, ccToolchain, /* forBinary= */ false);
 
+    PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
+    String libraryIdentifier =
+        ruleContext
+            .getPackageDirectory()
+            .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
+            .getPathString();
+
+    if (createStaticLibraries) {
+      createStaticLibraries(
+          result,
+          env,
+          usePicForBinaries,
+          usePicForSharedLibs,
+          libraryIdentifier,
+          ccOutputs,
+          nonCodeLinkerInputs);
+    }
+
+    if (createDynamicLibrary) {
+      createDynamicLibrary(result, env, usePicForSharedLibs, libraryIdentifier, ccOutputs);
+    }
+
+    return result.build();
+  }
+
+  private void createStaticLibraries(
+      CcLinkingOutputs.Builder result,
+      AnalysisEnvironment env,
+      boolean usePicForBinaries,
+      boolean usePicForSharedLibs,
+      String libraryIdentifier,
+      CcCompilationOutputs ccOutputs,
+      Iterable<Artifact> nonCodeLinkerInputs)
+      throws RuleErrorException, InterruptedException {
     // Create static library (.a). The linkType only reflects whether the library is alwayslink or
     // not. The PIC-ness is determined by whether we need to use PIC or not. There are three cases
     // for (usePicForSharedLibs usePicForBinaries):
@@ -1322,18 +1361,18 @@ public final class CppModel {
     // (2) (true false)  -> shared libraries as pic, but not binaries
     // (3) (true true)   -> both shared libraries and binaries as pic
     //
-    // In case (3), we always need PIC, so only create one static library containing the PIC object
+    // In case (3), we always need PIC, so only create one static library containing the PIC
+    // object
     // files. The name therefore does not match the content.
     //
-    // Presumably, it is done this way because the .a file is an implicit output of every cc_library
+    // Presumably, it is done this way because the .a file is an implicit output of every
+    // cc_library
     // rule, so we can't use ".pic.a" that in the always-PIC case.
 
     // If the crosstool is configured to select an output artifact, we use that selection.
     // Otherwise, we use linux defaults.
     Artifact linkedArtifact = getLinkedArtifact(linkType);
-    PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
-    String libraryIdentifier = ruleContext.getPackageDirectory().getRelative(
-        labelName.replaceName("lib" + labelName.getBaseName())).getPathString();
+
     CppLinkAction maybePicAction =
         newLinkActionBuilder(linkedArtifact)
             .addObjectFiles(ccOutputs.getObjectFiles(usePicForBinaries))
@@ -1346,37 +1385,46 @@ public final class CppModel {
             .addVariablesExtensions(variablesExtensions)
             .build();
     env.registerAction(maybePicAction);
-    result.addStaticLibrary(maybePicAction.getOutputLibrary());
+    if (usePicForBinaries) {
+      result.addPicStaticLibrary(maybePicAction.getOutputLibrary());
+    } else {
+      result.addStaticLibrary(maybePicAction.getOutputLibrary());
+      // Create a second static library (.pic.a). Only in case (2) do we need both PIC and non-PIC
+      // static libraries. In that case, the first static library contains the non-PIC code, and
+      // this
+      // one contains the PIC code, so the names match the content.
+      if (usePicForSharedLibs) {
+        LinkTargetType picLinkType =
+            (linkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY)
+                ? LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY
+                : LinkTargetType.PIC_STATIC_LIBRARY;
 
-    // Create a second static library (.pic.a). Only in case (2) do we need both PIC and non-PIC
-    // static libraries. In that case, the first static library contains the non-PIC code, and this
-    // one contains the PIC code, so the names match the content.
-    if (!usePicForBinaries && usePicForSharedLibs) {
-      LinkTargetType picLinkType = (linkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY)
-          ? LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY
-          : LinkTargetType.PIC_STATIC_LIBRARY;
-
-      // If the crosstool is configured to select an output artifact, we use that selection.
-      // Otherwise, we use linux defaults.
-      Artifact picArtifact = getLinkedArtifact(picLinkType);
-      CppLinkAction picAction =
-          newLinkActionBuilder(picArtifact)
-              .addObjectFiles(ccOutputs.getObjectFiles(/* usePic= */ true))
-              .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
-              .setLinkType(picLinkType)
-              .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-              .addActionInputs(linkActionInputs)
-              .setLibraryIdentifier(libraryIdentifier)
-              .addVariablesExtensions(variablesExtensions)
-              .build();
-      env.registerAction(picAction);
-      result.addPicStaticLibrary(picAction.getOutputLibrary());
+        // If the crosstool is configured to select an output artifact, we use that selection.
+        // Otherwise, we use linux defaults.
+        Artifact picArtifact = getLinkedArtifact(picLinkType);
+        CppLinkAction picAction =
+            newLinkActionBuilder(picArtifact)
+                .addObjectFiles(ccOutputs.getObjectFiles(/* usePic= */ true))
+                .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
+                .setLinkType(picLinkType)
+                .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+                .addActionInputs(linkActionInputs)
+                .setLibraryIdentifier(libraryIdentifier)
+                .addVariablesExtensions(variablesExtensions)
+                .build();
+        env.registerAction(picAction);
+        result.addPicStaticLibrary(picAction.getOutputLibrary());
+      }
     }
+  }
 
-    if (!createDynamicLibrary) {
-      return result.build();
-    }
-
+  private void createDynamicLibrary(
+      CcLinkingOutputs.Builder result,
+      AnalysisEnvironment env,
+      boolean usePicForSharedLibs,
+      String libraryIdentifier,
+      CcCompilationOutputs ccOutputs)
+      throws RuleErrorException, InterruptedException {
     // Create dynamic library.
     Artifact soImpl;
     String mainLibraryIdentifier;
@@ -1483,9 +1531,6 @@ public final class CppModel {
 
     LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
     LibraryToLink interfaceLibrary = dynamicLinkAction.getInterfaceOutputLibrary();
-    if (interfaceLibrary == null) {
-      interfaceLibrary = dynamicLibrary;
-    }
 
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
@@ -1495,20 +1540,10 @@ public final class CppModel {
     // solibDir, instead we use the original interface library and dynamic library.
     if (neverLink
         || featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
-      result.addDynamicLibrary(interfaceLibrary);
+      result.addDynamicLibrary(interfaceLibrary == null ? dynamicLibrary : interfaceLibrary);
       result.addExecutionDynamicLibrary(dynamicLibrary);
     } else {
-      Artifact libraryLink =
-          SolibSymlinkAction.getDynamicLibrarySymlink(
-              ruleContext,
-              ccToolchain.getSolibDirectory(),
-              interfaceLibrary.getArtifact(),
-              /* preserveName= */ false,
-              /* prefixConsumer= */ false,
-              ruleContext.getConfiguration());
-      result.addDynamicLibrary(LinkerInputs.solibLibraryToLink(
-          libraryLink, interfaceLibrary.getArtifact(), libraryIdentifier));
-      Artifact implLibraryLink =
+      Artifact implLibraryLinkArtifact =
           SolibSymlinkAction.getDynamicLibrarySymlink(
               ruleContext,
               ccToolchain.getSolibDirectory(),
@@ -1516,11 +1551,31 @@ public final class CppModel {
               /* preserveName= */ false,
               /* prefixConsumer= */ false,
               ruleContext.getConfiguration());
-      result.addExecutionDynamicLibrary(LinkerInputs.solibLibraryToLink(
-          implLibraryLink, dynamicLibrary.getArtifact(), libraryIdentifier));
+      LibraryToLink implLibraryLink =
+          LinkerInputs.solibLibraryToLink(
+              implLibraryLinkArtifact, dynamicLibrary.getArtifact(), libraryIdentifier);
+      result.addExecutionDynamicLibrary(implLibraryLink);
+
+      LibraryToLink libraryLink;
+      if (interfaceLibrary == null) {
+        libraryLink = implLibraryLink;
+      } else {
+        Artifact libraryLinkArtifact =
+            SolibSymlinkAction.getDynamicLibrarySymlink(
+                ruleContext,
+                ccToolchain.getSolibDirectory(),
+                interfaceLibrary.getArtifact(),
+                /* preserveName= */ false,
+                /* prefixConsumer= */ false,
+                ruleContext.getConfiguration());
+        libraryLink =
+            LinkerInputs.solibLibraryToLink(
+                libraryLinkArtifact, interfaceLibrary.getArtifact(), libraryIdentifier);
+      }
+      result.addDynamicLibrary(libraryLink);
     }
-    return result.build();
   }
+
 
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(
