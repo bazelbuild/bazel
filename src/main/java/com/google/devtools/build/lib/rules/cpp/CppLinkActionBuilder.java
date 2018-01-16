@@ -992,7 +992,8 @@ public class CppLinkActionBuilder {
               cppConfiguration,
               CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
               featureConfiguration,
-              linkType == LinkTargetType.DYNAMIC_LIBRARY && toolchain.toolchainNeedsPic(),
+              cppConfiguration.forcePic()
+                  || (linkType == LinkTargetType.DYNAMIC_LIBRARY && toolchain.toolchainNeedsPic()),
               Matcher.quoteReplacement(
                   isNativeDeps && cppConfiguration.shareNativeDeps()
                       ? output.getExecPathString()
