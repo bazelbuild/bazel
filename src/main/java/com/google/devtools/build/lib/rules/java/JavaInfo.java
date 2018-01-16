@@ -368,7 +368,7 @@ public final class JavaInfo extends NativeInfo {
       structField = true
   )
   public SkylarkList<Artifact> getSourceJars() {
-    //TODO(http://github.com/bazelbuild/bazel/issues/4221) change return type to NestedSet<Artifact>
+    //TODO(#4221) change return type to NestedSet<Artifact>
     JavaSourceJarsProvider provider = providers.getProvider(JavaSourceJarsProvider.class);
     ImmutableList<Artifact> sourceJars =
         provider == null ? ImmutableList.of() : provider.getSourceJars();

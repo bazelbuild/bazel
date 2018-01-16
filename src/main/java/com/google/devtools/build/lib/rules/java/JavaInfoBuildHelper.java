@@ -71,7 +71,7 @@ final class JavaInfoBuildHelper {
    * @return new created JavaInfo instance
    * @throws EvalException if some mandatory parameter are missing
    */
-  //todo(b/69780248 gh/3769) only populates JavaInfo with JavaCompilationArgsProvider
+  // TODO(b/69780248) only populates JavaInfo with JavaCompilationArgsProvider. See #3769
   public JavaInfo createJavaInfo(
       Artifact outputJar,
       SkylarkList<Artifact> sourceFiles,
@@ -80,7 +80,7 @@ final class JavaInfoBuildHelper {
       Boolean neverlink,
       SkylarkList<JavaInfo> compileTimeDeps,
       SkylarkList<JavaInfo> runtimeDeps,
-      SkylarkList<JavaInfo> exports, //todo(b/69780248  gh/3769) handle exports.
+      SkylarkList<JavaInfo> exports, // TODO(b/69780248) handle exports. See #3769
       Object action,
       Object javaToolchain,
       Location location)
@@ -120,9 +120,32 @@ final class JavaInfoBuildHelper {
         JavaCompilationArgsProvider.class,
         JavaCompilationArgsProvider.create(
             javaCompilationArgsBuilder.build(), recursiveJavaCompilationArgsBuilder.build()));
-    //todo(b/69780248 gh/3769) add other providers.
+
+    NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
+    transitiveSourceJars.addAll(sourceJars);
+    addSourceJars(transitiveSourceJars, Iterables.concat(compileTimeDeps, runtimeDeps));
+
+    javaInfoBuilder.addProvider(
+        JavaSourceJarsProvider.class,
+        JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars));
+
+    // TODO(b/69780248) add other providers. See #3769
 
     return javaInfoBuilder.build();
+  }
+
+
+  private void addSourceJars(NestedSetBuilder<Artifact> builder, Iterable<JavaInfo> javaInfos){
+    List<JavaSourceJarsProvider> javaSourceJarsProviders =
+        JavaInfo.getProvidersFromListOfJavaProviders(JavaSourceJarsProvider.class, javaInfos);
+
+    for (JavaSourceJarsProvider sourceJarsProvider : javaSourceJarsProviders) {
+      builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
+
+      NestedSet<Artifact> directSrc  = NestedSetBuilder.<Artifact>stableOrder()
+          .addAll(sourceJarsProvider.getSourceJars()).build();
+      builder.addTransitive(directSrc);
+    }
   }
 
   public JavaInfo create(
