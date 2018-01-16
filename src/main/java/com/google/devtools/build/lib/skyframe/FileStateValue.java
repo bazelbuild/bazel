@@ -133,19 +133,12 @@ public abstract class FileStateValue implements SkyValue {
   @ThreadSafe
   public static final class RegularFileStateValue extends FileStateValue {
     private final long size;
-    // Only needed for empty-file equality-checking. Otherwise is always -1.
-    // TODO(bazel-team): Consider getting rid of this special case for empty files.
-    private final long mtime;
     @Nullable private final byte[] digest;
     @Nullable private final FileContentsProxy contentsProxy;
 
-    public RegularFileStateValue(long size, long mtime, byte[] digest,
-        FileContentsProxy contentsProxy) {
+    public RegularFileStateValue(long size, byte[] digest, FileContentsProxy contentsProxy) {
       Preconditions.checkState((digest == null) != (contentsProxy == null));
       this.size = size;
-      // mtime is forced to be -1 so that we do not accidentally depend on it for non-empty files,
-      // which should only be compared using digests.
-      this.mtime = size == 0 ? mtime : -1;
       this.digest = digest;
       this.contentsProxy = contentsProxy;
     }
@@ -168,13 +161,12 @@ public abstract class FileStateValue implements SkyValue {
           if (tsgm != null) {
             tsgm.notifyDependenceOnFileTime(path.asFragment(), mtime);
           }
-          return new RegularFileStateValue(stat.getSize(), stat.getLastModifiedTime(), null,
-              FileContentsProxy.create(stat));
+          return new RegularFileStateValue(stat.getSize(), null, FileContentsProxy.create(stat));
         } else {
           // We are careful here to avoid putting the value ID into FileMetadata if we already have
           // a digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
           // robust.
-          return new RegularFileStateValue(stat.getSize(), stat.getLastModifiedTime(), digest, null);
+          return new RegularFileStateValue(stat.getSize(), digest, null);
         }
       } catch (IOException e) {
         String errorMessage = e.getMessage() != null
@@ -208,10 +200,6 @@ public abstract class FileStateValue implements SkyValue {
       return size;
     }
 
-    public long getMtime() {
-      return mtime;
-    }
-
     @Override
     @Nullable
     public byte[] getDigest() {
@@ -232,14 +220,13 @@ public abstract class FileStateValue implements SkyValue {
       }
       RegularFileStateValue other = (RegularFileStateValue) obj;
       return size == other.size
-          && mtime == other.mtime
           && Arrays.equals(digest, other.digest)
           && Objects.equals(contentsProxy, other.contentsProxy);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(size, mtime, Arrays.hashCode(digest), contentsProxy);
+      return Objects.hash(size, Arrays.hashCode(digest), contentsProxy);
     }
 
     @Override
@@ -247,7 +234,6 @@ public abstract class FileStateValue implements SkyValue {
       return MoreObjects.toStringHelper(this)
           .add("digest", digest)
           .add("size", size)
-          .add("mtime", mtime)
           .add("contentsProxy", contentsProxy).toString();
     }
 
@@ -256,8 +242,7 @@ public abstract class FileStateValue implements SkyValue {
       String contents = digest != null
           ? String.format("digest of %s", Arrays.toString(digest))
           : contentsProxy.prettyPrint();
-      String extra = mtime != -1 ? String.format(" and mtime of %d", mtime) : "";
-      return String.format("regular file with size of %d and %s%s", size, contents, extra);
+      return String.format("regular file with size of %d and %s", size, contents);
     }
   }
 

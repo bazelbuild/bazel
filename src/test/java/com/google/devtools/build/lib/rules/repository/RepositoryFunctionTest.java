@@ -125,12 +125,12 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     RootedPath path = RootedPath.toRootedPath(rootDirectory, scratch.file("foo", "bar"));
 
     // Digest should be returned if the FileStateValue has it.
-    FileStateValue fsv = new RegularFileStateValue(3, 100, new byte[] {1, 2, 3, 4}, null);
+    FileStateValue fsv = new RegularFileStateValue(3, new byte[] {1, 2, 3, 4}, null);
     FileValue fv = new RegularFileValue(path, fsv);
     assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo("01020304");
 
     // Digest should also be returned if the FileStateValue doesn't have it.
-    fsv = new RegularFileStateValue(3, 100, null, new FileContentsProxy(100, 200));
+    fsv = new RegularFileStateValue(3, null, new FileContentsProxy(100, 200));
     fv = new RegularFileValue(path, fsv);
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
     assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo(expectedDigest);

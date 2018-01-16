@@ -452,8 +452,6 @@ public class FileFunctionTest {
     p.setLastModifiedTime(0L);
     FileValue a = valueForPath(p);
     p.setLastModifiedTime(1L);
-    assertThat(valueForPath(p)).isNotEqualTo(a);
-    p.setLastModifiedTime(0L);
     assertThat(valueForPath(p)).isEqualTo(a);
     FileSystemUtils.writeContentAsLatin1(p, "content");
     // Same digest, but now non-empty.
@@ -471,7 +469,7 @@ public class FileFunctionTest {
     assertThat(value.getDigest()).isNull();
 
     p.setLastModifiedTime(10L);
-    assertThat(valueForPath(p)).isNotEqualTo(value);
+    assertThat(valueForPath(p)).isEqualTo(value);
 
     p.setLastModifiedTime(0L);
     assertThat(valueForPath(p)).isEqualTo(value);
@@ -496,16 +494,6 @@ public class FileFunctionTest {
     FileValue value = valueForPath(p);
     assertThat(value.exists()).isTrue();
     assertThat(value.getDigest()).isNotNull();
-  }
-
-  @Test
-  public void testFileModificationModTime() throws Exception {
-    fastDigest = false;
-    Path p = file("file");
-    FileValue a = valueForPath(p);
-    p.setLastModifiedTime(42);
-    FileValue b = valueForPath(p);
-    assertThat(a.equals(b)).isFalse();
   }
 
   @Test
