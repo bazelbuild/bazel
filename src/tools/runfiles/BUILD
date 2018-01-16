@@ -1,9 +1,9 @@
-package(default_visibility = ["//visibility:private"])
+# This package contains sources for language-specific runfiles libraries.
+#
+# Do not depend on these rules. Depend on the ones in @bazel_tools//tools/runfiles instead, that way
+# your binary won't require the Bazel source tree to work correctly.
 
-exports_files(
-    ["runfiles.sh"],
-    visibility = ["//visibility:public"],
-)
+package(default_visibility = ["//visibility:private"])
 
 filegroup(
     name = "srcs",
@@ -16,10 +16,18 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "//src/tools/runfiles/java/com/google/devtools/build/runfiles:embedded_tools",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
 sh_library(
     name = "runfiles_sh_lib",
     srcs = ["runfiles.sh"],
-    visibility = ["//visibility:public"],
 )
 
 sh_test(
@@ -29,12 +37,6 @@ sh_test(
         "//conditions:default": ["runfiles_posix_test.sh"],
     }),
     deps = [":runfiles_sh_lib"],
-)
-
-alias(
-    name = "java-runfiles",
-    actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles",
-    visibility = ["//visibility:public"],
 )
 
 test_suite(

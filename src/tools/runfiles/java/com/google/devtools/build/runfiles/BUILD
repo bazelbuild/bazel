@@ -19,6 +19,15 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":java-srcs",
+    ],
+    visibility = ["//src/tools/runfiles:__pkg__"],
+)
+
 java_library(
     name = "runfiles",
     srcs = [":java-srcs"],

@@ -1,0 +1,17 @@
+package(default_visibility = ["//visibility:private"])
+
+filegroup(
+    name = "java-srcs",
+    srcs = [
+        "DirectoryBased.java",
+        "ManifestBased.java",
+        "Runfiles.java",
+        "Util.java",
+    ],
+)
+
+java_library(
+    name = "runfiles",
+    srcs = [":java-srcs"],
+    visibility = ["//tools/runfiles:__pkg__"],
+)

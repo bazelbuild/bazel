@@ -151,7 +151,7 @@ py_binary(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/launcher:srcs",
-        "//src/tools/runfiles:srcs",
+        "//src/tools/runfiles:embedded_tools",
         "//src/tools/singlejar:embedded_tools",
         "//src/main/cpp/util:embedded_tools",
         "//src/main/native:embedded_tools",
