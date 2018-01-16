@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.android.resources.ResourceFolderType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -165,27 +166,25 @@ public final class LocalResourceContainer {
   }
 
   /**
-   * Creates a {@link LocalResourceContainer} containing the resources included in a {@link
-   * FileProvider}.
+   * Creates a {@link LocalResourceContainer} containing all the resources and assets in directory
+   * artifacts.
    *
    * <p>In general, {@link #forAssetsAndResources(RuleContext, String, PathFragment, String)} should
    * be used instead. No assets or transitive resources will be included in the container produced
    * by this method.
    *
-   * @param ruleContext the current context
-   * @param resourceFileProvider the provider containing resources
-   * @param resourcesAttr the attribute used to refer to resource files in this target.
+   * @param assetsDir the tree artifact containing a {@code assets/} directory
+   * @param resourcesDir the tree artifact containing a {@code res/} directory
    */
-  public static LocalResourceContainer forResourceFileProvider(
-      RuleContext ruleContext, FileProvider resourceFileProvider, String resourcesAttr)
-      throws RuleErrorException {
-    ImmutableList<Artifact> resources = getResources(ImmutableList.of(resourceFileProvider));
-
+  static LocalResourceContainer forAssetsAndResourcesDirectories(
+      Artifact assetsDir, Artifact resourcesDir) {
+    Preconditions.checkArgument(resourcesDir.isTreeArtifact());
+    Preconditions.checkArgument(assetsDir.isTreeArtifact());
     return new LocalResourceContainer(
-        resources,
-        getResourceRoots(ruleContext, resources, resourcesAttr),
-        ImmutableList.of(),
-        ImmutableList.of());
+        ImmutableList.of(resourcesDir),
+        ImmutableList.of(resourcesDir.getExecPath().getChild("res")),
+        ImmutableList.of(assetsDir),
+        ImmutableList.of(assetsDir.getExecPath().getChild("assets")));
   }
 
   private static ImmutableList<Artifact> getResources(Iterable<FileProvider> targets) {

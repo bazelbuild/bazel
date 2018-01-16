@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
@@ -83,14 +81,12 @@ public class AarImport implements RuleConfiguredTargetFactory {
             ruleContext, aar, ANDROID_MANIFEST, androidManifestArtifact));
 
     Artifact resources = createAarTreeArtifact(ruleContext, "resources");
-    ruleContext.registerAction(createAarResourcesExtractorActions(ruleContext, aar, resources));
+    Artifact assets = createAarTreeArtifact(ruleContext, "assets");
+    ruleContext.registerAction(
+        createAarResourcesExtractorActions(ruleContext, aar, resources, assets));
 
     ApplicationManifest androidManifest =
         ApplicationManifest.fromExplicitManifest(ruleContext, androidManifestArtifact);
-
-    FileProvider resourcesProvider =
-        new FileProvider(
-            new NestedSetBuilder<Artifact>(Order.NAIVE_LINK_ORDER).add(resources).build());
 
     Artifact resourcesZip =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
@@ -98,8 +94,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ResourceApk resourceApk =
         androidManifest.packAarWithDataAndResources(
             ruleContext,
-            LocalResourceContainer.forResourceFileProvider(
-                ruleContext, resourcesProvider, "resources"),
+            LocalResourceContainer.forAssetsAndResourcesDirectories(assets, resources),
             ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
@@ -195,7 +190,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static Action[] createAarResourcesExtractorActions(
-      RuleContext ruleContext, Artifact aar, Artifact outputTree) {
+      RuleContext ruleContext, Artifact aar, Artifact resourcesDir, Artifact assetsDir) {
     return new SpawnAction.Builder()
         .useDefaultShellEnvironment()
         .setExecutable(
@@ -203,11 +198,13 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 AarImportBaseRule.AAR_RESOURCES_EXTRACTOR, Mode.HOST))
         .setMnemonic("AarResourcesExtractor")
         .addInput(aar)
-        .addOutput(outputTree)
+        .addOutput(resourcesDir)
+        .addOutput(assetsDir)
         .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("--input_aar", aar)
-                .addExecPath("--output_res_dir", outputTree)
+                .addExecPath("--output_res_dir", resourcesDir)
+                .addExecPath("--output_assets_dir", assetsDir)
                 .build())
         .build(ruleContext);
   }
