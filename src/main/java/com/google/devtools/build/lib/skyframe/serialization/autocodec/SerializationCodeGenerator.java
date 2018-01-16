@@ -14,22 +14,25 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import com.google.common.base.Preconditions;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
+import javax.lang.model.type.TypeMirror;
 
 /**
- * Generates serialize and deserialize code fragments for matching types.
+ * Generates serialize and deserialize code fragments.
  *
  * <p>All methods are logically static and take the {@link ProcessingEnvironment} as a parameter.
  */
-interface Marshaller {
-  static class Context {
+interface SerializationCodeGenerator {
+  class Context {
     /** Builder for the method. */
     public final MethodSpec.Builder builder;
     /** Type of {@code name}. */
-    public final DeclaredType type;
+    public final TypeMirror type;
     /** Name of variable. */
     public final String name;
     /**
@@ -39,11 +42,11 @@ interface Marshaller {
      */
     public final int depth;
 
-    Context(MethodSpec.Builder builder, DeclaredType type, String name) {
+    Context(MethodSpec.Builder builder, TypeMirror type, String name) {
       this(builder, type, name, 0);
     }
 
-    private Context(MethodSpec.Builder builder, DeclaredType type, String name, int depth) {
+    private Context(MethodSpec.Builder builder, TypeMirror type, String name, int depth) {
       this.builder = builder;
       this.type = type;
       this.name = name;
@@ -51,12 +54,22 @@ interface Marshaller {
     }
 
     /** Returns a new context with a new type and name at the next recursion depth. */
-    Context with(DeclaredType newType, String newName) {
+    Context with(TypeMirror newType, String newName) {
       return new Context(builder, newType, newName, depth + 1);
     }
 
     TypeName getTypeName() {
       return TypeName.get(type);
+    }
+
+    DeclaredType getDeclaredType() {
+      Preconditions.checkState(type instanceof DeclaredType, "Expected DeclaredType, was " + type);
+      return (DeclaredType) type;
+    }
+
+    /** Returns true if this Context represents a type that can be null */
+    boolean canBeNull() {
+      return !(type instanceof PrimitiveType);
     }
 
     /**
@@ -69,12 +82,21 @@ interface Marshaller {
     }
   };
 
-  /** Returns true if `type` is handled by this. */
-  boolean matches(DeclaredType type);
-
   /** Appends code statements to serialize a pre-declared variable. */
   void addSerializationCode(Context context);
 
   /** Appends code statements to initialize the pre-declared variable with deserialization. */
   void addDeserializationCode(Context context);
+
+  /** A {@link SerializationCodeGenerator} for a particular declared type. */
+  interface Marshaller extends SerializationCodeGenerator {
+    /** Returns true if {@code type} is handled by this. */
+    boolean matches(DeclaredType type);
+  }
+
+  /** A {@link SerializationCodeGenerator} for primitive values. */
+  interface PrimitiveValueSerializationCodeGenerator extends SerializationCodeGenerator {
+    /** Returns true if {@code type} is handled by this. */
+    boolean matches(PrimitiveType type);
+  }
 }

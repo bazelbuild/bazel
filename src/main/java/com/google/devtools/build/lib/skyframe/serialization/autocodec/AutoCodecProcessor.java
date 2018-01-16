@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.PolymorphicHelper;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
@@ -252,6 +253,18 @@ public class AutoCodecProcessor extends AbstractProcessor {
               UnsafeProvider.class,
               parameter.getSimpleName());
           break;
+        case ARRAY:
+          serializeBuilder.addStatement(
+              "$T unsafe_$L = ($T)$T.getInstance().getObject(input, $L_offset)",
+              field.asType(),
+              parameter.getSimpleName(),
+              field.asType(),
+              UnsafeProvider.class,
+              parameter.getSimpleName());
+          marshallers.writeSerializationCode(
+              new Marshaller.Context(
+                  serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
+          break;
         case DECLARED:
           serializeBuilder.addStatement(
               "$T unsafe_$L = ($T)$T.getInstance().getObject(input, $L_offset)",
@@ -316,6 +329,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
         case INT:
           serializeBuilder.addStatement("codedOut.writeInt32NoTag($L)", paramAccessor);
           break;
+        case ARRAY:
+          marshallers.writeSerializationCode(
+              new Marshaller.Context(serializeBuilder, parameter.asType(), paramAccessor));
+          break;
         case DECLARED:
           marshallers.writeSerializationCode(
               new Marshaller.Context(
@@ -346,6 +363,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
           break;
         case INT:
           builder.addStatement("int $L = codedIn.readInt32()", paramName);
+          break;
+        case ARRAY:
+          marshallers.writeDeserializationCode(
+              new Marshaller.Context(builder, parameter.asType(), paramName));
           break;
         case DECLARED:
           marshallers.writeDeserializationCode(

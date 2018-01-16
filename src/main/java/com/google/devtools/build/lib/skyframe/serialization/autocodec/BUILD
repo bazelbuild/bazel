@@ -46,8 +46,8 @@ java_library(
     srcs = [
         "AutoCodecProcessor.java",
         "AutoCodecUtil.java",
-        "Marshaller.java",
         "Marshallers.java",
+        "SerializationCodeGenerator.java",
     ],
     deps = [
         ":autocodec-annotation",
