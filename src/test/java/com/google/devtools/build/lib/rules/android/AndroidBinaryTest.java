@@ -635,7 +635,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testIncrementalDexing_attributeIncompatibleWithProguard() throws Exception {
+  public void testIncrementalDexing_incompatibleWithProguardWhenDisabled() throws Exception {
+    useConfiguration("--experimental_incremental_dexing_after_proguard=0"); // disable with Proguard
     checkError("java/com/google/android", "top", "target cannot be incrementally dexed",
         "android_binary(",
         "  name = 'top',",
