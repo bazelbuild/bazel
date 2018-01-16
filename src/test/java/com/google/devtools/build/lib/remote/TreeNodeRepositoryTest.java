@@ -45,21 +45,21 @@ import org.junit.runners.JUnit4;
 public class TreeNodeRepositoryTest {
   private Scratch scratch;
   private DigestUtil digestUtil;
+  private Path execRoot;
   private Root rootDir;
-  private Path rootPath;
 
   @Before
   public final void setRootDir() throws Exception {
     digestUtil = new DigestUtil(HashFunction.SHA256);
     scratch = new Scratch(new InMemoryFileSystem(BlazeClock.instance(), HashFunction.SHA256));
-    rootDir = Root.asDerivedRoot(scratch.dir("/exec/root"));
-    rootPath = rootDir.getPath();
+    execRoot = scratch.getFileSystem().getPath("/exec/root");
+    rootDir = Root.asSourceRoot(scratch.dir("/exec/root"));
   }
 
   private TreeNodeRepository createTestTreeNodeRepository() {
     ActionInputFileCache inputFileCache =
-        new SingleBuildFileCache(rootPath.getPathString(), scratch.getFileSystem());
-    return new TreeNodeRepository(rootPath, inputFileCache, digestUtil);
+        new SingleBuildFileCache(execRoot.getPathString(), scratch.getFileSystem());
+    return new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
   }
 
   private TreeNode buildFromActionInputs(TreeNodeRepository repo, ActionInput... inputs)

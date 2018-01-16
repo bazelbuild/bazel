@@ -51,8 +51,9 @@ public class TopLevelArtifactHelperTest {
   @Before
   public final void setRootDir() throws Exception {
     Scratch scratch = new Scratch();
-    path = scratch.dir("/foo");
-    root = Root.asDerivedRoot(scratch.dir("/"));
+    Path execRoot = scratch.getFileSystem().getPath("/");
+    root = Root.asDerivedRoot(execRoot, scratch.dir("/blaze-out"));
+    path = scratch.dir("/blaze-out/foo");
   }
 
   private void setup(Iterable<Pair<String, Integer>> groupArtifacts) {

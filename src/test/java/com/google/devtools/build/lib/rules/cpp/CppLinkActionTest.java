@@ -531,10 +531,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   private Artifact scratchArtifact(String s) {
+    Path execRoot = outputBase.getRelative("exec");
+    Path outputRoot = execRoot.getRelative("out");
+    Root root = Root.asDerivedRoot(execRoot, outputRoot);
     try {
-      return new Artifact(
-          scratch.overwriteFile(outputBase.getRelative("WORKSPACE").getRelative(s).toString()),
-          Root.asDerivedRoot(scratch.dir(outputBase.getRelative("WORKSPACE").toString())));
+      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -618,7 +619,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(commandLine.get(1)).isEqualTo("yes");
     assertThat(commandLine.get(2)).endsWith("tools/cpp/build_interface_so");
     assertThat(commandLine.get(3)).endsWith("foo.so");
-    assertThat(commandLine.get(4)).isEqualTo("FakeInterfaceOutput.ifso");
+    assertThat(commandLine.get(4)).isEqualTo("out/FakeInterfaceOutput.ifso");
     assertThat(commandLine.get(5)).isEqualTo("dynamic_library_linker_tool");
   }
 

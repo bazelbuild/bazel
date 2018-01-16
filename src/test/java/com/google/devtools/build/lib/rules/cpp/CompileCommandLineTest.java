@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CompileCommandLine.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
@@ -39,12 +40,11 @@ import org.junit.runners.JUnit4;
 public class CompileCommandLineTest extends BuildViewTestCase {
 
   private Artifact scratchArtifact(String s) {
+    Path execRoot = outputBase.getRelative("exec");
+    Path outputRoot = execRoot.getRelative("root");
+    Root root = Root.asDerivedRoot(execRoot, outputRoot);
     try {
-      return new Artifact(
-          scratch.overwriteFile(
-              outputBase.getRelative("compile_command_line").getRelative(s).toString()),
-          Root.asDerivedRoot(
-              scratch.dir(outputBase.getRelative("compile_command_line").toString())));
+      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
