@@ -1313,5 +1313,18 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
     assertThat(javacopts).doesNotContain("-source");
   }
+
+  @Test
+  public void processJavacopts_normalizeRelease() {
+    TurbineOptions options =
+        TurbineOptions.builder()
+            .setOutput("/out")
+            .setTempDir("/tmp")
+            .addAllJavacOpts(ImmutableList.of("-source", "8", "-target", "8", "--release", "9"))
+            .build();
+    ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
+    assertThat(javacopts).contains("--release");
+    assertThat(javacopts).containsNoneOf("-source", "-target");
+  }
 }
 
