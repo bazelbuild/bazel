@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
@@ -23,24 +26,29 @@ import java.util.Objects;
 /**
  * A Location is a range of characters within a file.
  *
- * <p>The start and end locations may be the same, in which case the Location
- * denotes a point in the file, not a range.  The path may be null, indicating
- * an unknown file.
+ * <p>The start and end locations may be the same, in which case the Location denotes a point in the
+ * file, not a range. The path may be null, indicating an unknown file.
  *
- * <p>Implementations of Location should be optimised for speed of construction,
- * not speed of attribute access, as far more Locations are created during
- * parsing than are ever used to display error messages.
+ * <p>Implementations of Location should be optimised for speed of construction, not speed of
+ * attribute access, as far more Locations are created during parsing than are ever used to display
+ * error messages.
  */
+@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public abstract class Location implements Serializable {
+  public static final ObjectCodec<Location> CODEC = new Location_AutoCodec();
 
+  @AutoCodec
   @Immutable
-  private static final class LocationWithPathAndStartColumn extends Location {
+  static final class LocationWithPathAndStartColumn extends Location {
+    public static final ObjectCodec<LocationWithPathAndStartColumn> CODEC =
+        new Location_LocationWithPathAndStartColumn_AutoCodec();
+
     private final PathFragment path;
     private final LineAndColumn startLineAndColumn;
 
-    private LocationWithPathAndStartColumn(PathFragment path, int startOffSet, int endOffSet,
-        LineAndColumn startLineAndColumn) {
-      super(startOffSet, endOffSet);
+    LocationWithPathAndStartColumn(
+        PathFragment path, int startOffset, int endOffset, LineAndColumn startLineAndColumn) {
+      super(startOffset, endOffset);
       this.path = path;
       this.startLineAndColumn = startLineAndColumn;
     }
@@ -254,11 +262,12 @@ public abstract class Location implements Serializable {
     return this.startOffset == that.startOffset && this.endOffset == that.endOffset;
   }
 
-  /**
-   * A value class that describes the line and column of an offset in a file.
-   */
+  /** A value class that describes the line and column of an offset in a file. */
+  @AutoCodec
   @Immutable
-  public static final class LineAndColumn implements Serializable {
+  public static final class LineAndColumn {
+    public static final ObjectCodec<LineAndColumn> CODEC = new Location_LineAndColumn_AutoCodec();
+
     private final int line;
     private final int column;
 
@@ -293,11 +302,16 @@ public abstract class Location implements Serializable {
     }
   }
 
-  /**
-   * Dummy location for built-in functions which ensures that stack traces contain "nice" location
-   * strings.
-   */
-  public static final Location BUILTIN = new Location(0, 0) {
+  private static final class BuiltinLocation extends Location {
+    public static final BuiltinLocation INSTANCE = new BuiltinLocation();
+
+    public static final ObjectCodec<BuiltinLocation> CODEC =
+        SingletonCodec.of(INSTANCE, "BuiltinLocation");
+
+    private BuiltinLocation() {
+      super(0, 0);
+    }
+
     @Override
     public String toString() {
       return "Built-In";
@@ -307,7 +321,23 @@ public abstract class Location implements Serializable {
     public PathFragment getPath() {
       return null;
     }
-  };
+
+    @Override
+    public int hashCode() {
+      return internalHashCode();
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      return object instanceof BuiltinLocation;
+    }
+  }
+
+  /**
+   * Dummy location for built-in functions which ensures that stack traces contain "nice" location
+   * strings.
+   */
+  public static final Location BUILTIN = BuiltinLocation.INSTANCE;
 
   /**
    * Returns the location in the format "filename:line".
