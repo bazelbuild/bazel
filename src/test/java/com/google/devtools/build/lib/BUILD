@@ -1360,6 +1360,24 @@ java_test(
 )
 
 java_test(
+    name = "repository-tests",
+    srcs = glob(["repository/*.java"]),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "rules-tests",
     srcs = glob(["rules/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
