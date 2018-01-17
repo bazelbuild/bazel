@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -140,7 +141,10 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     }
     semantics.collectDefaultRunfiles(ruleContext, builder);
     builder.add(ruleContext, PythonRunfilesProvider.TO_RUNFILES);
-    builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
+
+    if (ruleContext.attributes().get("legacy_create_init", Type.BOOLEAN)) {
+      builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
+    }
     semantics.collectRunfilesForBinary(ruleContext, builder, common);
     return builder.build();
   }
