@@ -76,13 +76,13 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   // helper func for testListLiterals:
-  private static DictionaryEntryLiteral getElem(DictionaryLiteral list, int index) {
-    return list.getEntries().get(index);
+  private static int getIntElem(ListLiteral list, int index) {
+    return ((IntegerLiteral) list.getElements().get(index)).getValue();
   }
 
   // helper func for testListLiterals:
-  private static int getIntElem(ListLiteral list, int index) {
-    return ((IntegerLiteral) list.getElements().get(index)).getValue();
+  private static DictionaryEntryLiteral getElem(DictionaryLiteral list, int index) {
+    return list.getEntries().get(index);
   }
 
   // helper func for testListLiterals:
@@ -1347,20 +1347,6 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testKwargsForbidden() throws Exception {
-    setFailFast(false);
-    parseFile("func(**dict)");
-    assertContainsError("**kwargs arguments are not allowed in BUILD files");
-  }
-
-  @Test
-  public void testArgsForbidden() throws Exception {
-    setFailFast(false);
-    parseFile("func(*array)");
-    assertContainsError("*args arguments are not allowed in BUILD files");
-  }
-
-  @Test
   public void testOptionalArgBeforeMandatoryArgInFuncDef() throws Exception {
     setFailFast(false);
     parseFileForSkylark("def func(a, b = 'a', c):\n  return 0\n");
@@ -1470,9 +1456,35 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testDefInBuild() throws Exception {
     setFailFast(false);
-    BuildFileAST result = parseFileWithComments("def func(): pass");
-    assertContainsError("syntax error at 'def': This is not supported in BUILD files. "
-        + "Move the block to a .bzl file and load it");
-    assertThat(result.containsErrors()).isTrue();
+    parseFile("def func(): pass");
+    assertContainsError("function definitions are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testForStatementForbiddenInBuild() throws Exception {
+    setFailFast(false);
+    parseFile("for _ in []: pass");
+    assertContainsError("for statements are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testIfStatementForbiddenInBuild() throws Exception {
+    setFailFast(false);
+    parseFile("if False: pass");
+    assertContainsError("if statements are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testKwargsForbiddenInBuild() throws Exception {
+    setFailFast(false);
+    parseFile("func(**dict)");
+    assertContainsError("**kwargs arguments are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testArgsForbiddenInBuild() throws Exception {
+    setFailFast(false);
+    parseFile("func(*array)");
+    assertContainsError("*args arguments are not allowed in BUILD files");
   }
 }
