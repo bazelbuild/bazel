@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -97,7 +98,8 @@ public class ArtifactTest {
   @Test
   public void testRootPrefixedExecPath_noRoot() throws IOException {
     Path f1 = scratch.file("/exec/dir/file.ext");
-    Artifact a1 = new Artifact(f1.relativeTo(execDir), ArtifactRoot.asSourceRoot(execDir));
+    Artifact a1 =
+        new Artifact(f1.relativeTo(execDir), ArtifactRoot.asSourceRoot(Root.fromPath(execDir)));
     assertThat(Artifact.asRootPrefixedExecPath(a1)).isEqualTo(":dir/file.ext");
   }
 
@@ -128,7 +130,7 @@ public class ArtifactTest {
 
   @Test
   public void testGetFilename() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.dir("/foo"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact javaFile = new Artifact(scratch.file("/foo/Bar.java"), root);
     Artifact generatedHeader = new Artifact(scratch.file("/foo/bar.proto.h"), root);
     Artifact generatedCc = new Artifact(scratch.file("/foo/bar.proto.cc"), root);
@@ -141,7 +143,7 @@ public class ArtifactTest {
 
   @Test
   public void testGetExtension() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.dir("/foo"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact javaFile = new Artifact(scratch.file("/foo/Bar.java"), root);
     assertThat(javaFile.getExtension()).isEqualTo("java");
   }
@@ -154,7 +156,7 @@ public class ArtifactTest {
 
   private List<Artifact> getFooBarArtifacts(MutableActionGraph actionGraph, boolean collapsedList)
       throws Exception {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.dir("/foo"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact aHeader1 = new Artifact(scratch.file("/foo/bar1.h"), root);
     Artifact aHeader2 = new Artifact(scratch.file("/foo/bar2.h"), root);
     Artifact aHeader3 = new Artifact(scratch.file("/foo/bar3.h"), root);
@@ -272,7 +274,7 @@ public class ArtifactTest {
 
   @Test
   public void testRootRelativePathIsSameAsExecPath() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.dir("/foo"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact a = new Artifact(scratch.file("/foo/bar1.h"), root);
     assertThat(a.getRootRelativePath()).isSameAs(a.getExecPath());
   }
@@ -346,7 +348,9 @@ public class ArtifactTest {
   @Test
   public void testDirnameInExecutionDir() throws Exception {
     Artifact artifact =
-        new Artifact(scratch.file("/foo/bar.txt"), ArtifactRoot.asSourceRoot(scratch.dir("/foo")));
+        new Artifact(
+            scratch.file("/foo/bar.txt"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo"))));
 
     assertThat(artifact.getDirname()).isEqualTo(".");
   }
@@ -365,7 +369,7 @@ public class ArtifactTest {
     assertThat(
             new Artifact(
                     scratch.file("/src/foo.cc"),
-                    ArtifactRoot.asSourceRoot(scratch.dir("/")),
+                    ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
                     PathFragment.create("src/foo.cc"))
                 .isSourceArtifact())
         .isTrue();
@@ -387,6 +391,7 @@ public class ArtifactTest {
 
   private Artifact createDirNameArtifact() throws Exception {
     return new Artifact(
-        scratch.file("/aaa/bbb/ccc/ddd"), ArtifactRoot.asSourceRoot(scratch.dir("/")));
+        scratch.file("/aaa/bbb/ccc/ddd"),
+        ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))));
   }
 }

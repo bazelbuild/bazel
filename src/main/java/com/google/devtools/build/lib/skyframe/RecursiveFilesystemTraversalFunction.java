@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -308,7 +308,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         return PkgLookupResult.conflict(traversal, rootInfo);
       } else {
         // The traversal's root was a source directory and it defines a package.
-        Path pkgRoot = pkgLookup.getRoot();
+        Root pkgRoot = pkgLookup.getRoot();
         if (!pkgRoot.equals(traversal.path.getRoot())) {
           // However the root of this package is different from what we expected. stat() the real
           // BUILD file of that package.

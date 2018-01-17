@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -53,6 +54,7 @@ import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +83,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.copyOf(roots),
+                Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
@@ -118,7 +120,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testPropagatesFilesystemInconsistencies() throws Exception {
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
-    Path pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
     Path fooBuildFile = scratch.file("foo/BUILD");
     Path fooDir = fooBuildFile.getParentDirectory();
 
@@ -184,7 +186,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testPropagatesFilesystemInconsistencies_Globbing() throws Exception {
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
-    Path pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
     scratch.file("foo/BUILD",
         "subinclude('//a:a')",
         "sh_library(name = 'foo', srcs = glob(['bar/**/baz.sh']))");
@@ -264,7 +266,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/d.txt")).build(),
-            rootDirectory);
+            Root.fromPath(rootDirectory));
     value = validPackage(skyKey);
     assertThat(
             (Iterable<Label>)
@@ -295,7 +297,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
-            rootDirectory);
+            Root.fromPath(rootDirectory));
     assertSrcs(validPackage(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
     scratch.overwriteFile(
         "foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.txt', '*.config'])) # comment");
@@ -303,7 +305,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
-            rootDirectory);
+            Root.fromPath(rootDirectory));
     assertSrcs(validPackage(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
@@ -314,7 +316,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.<Path>of(rootDirectory),
+                ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
@@ -361,7 +363,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
-            rootDirectory);
+            Root.fromPath(rootDirectory));
     PackageValue fooValue2 = validPackage(fooKey);
     assertThat(fooValue2).isNotEqualTo(fooValue);
     assertSrcs(fooValue2, "foo", "//foo:link.sh", "//foo:ordinary.sh");
@@ -403,7 +405,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/irrelevant")).build(),
-            rootDirectory);
+            Root.fromPath(rootDirectory));
     assertThat(validPackage(skyKey)).isSameAs(value);
   }
 
@@ -421,7 +423,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/irrelevant")).build(),
-            rootDirectory);
+            Root.fromPath(rootDirectory));
     assertThat(validPackage(skyKey)).isSameAs(value);
   }
 
@@ -450,10 +452,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.overwriteFile("bar/ext.bzl",
         "load('//qux:ext.bzl', 'c')",
         "a = c");
-    getSkyframeExecutor().invalidateFilesUnderPathForTesting(
-        reporter,
-        ModifiedFileSet.builder().modify(PathFragment.create("bar/ext.bzl")).build(),
-        rootDirectory);
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("bar/ext.bzl")).build(),
+            Root.fromPath(rootDirectory));
 
     value = validPackage(skyKey);
     assertThat(value.getPackage().getSkylarkFileDependencies()).containsExactly(
@@ -569,7 +572,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Predicates.equalTo(
                 com.google.devtools.build.lib.skyframe.FileStateValue.key(
                     RootedPath.toRootedPath(
-                        workspacePath.getParentDirectory(),
+                        Root.fromPath(workspacePath.getParentDirectory()),
                         PathFragment.create(workspacePath.getBaseName())))));
 
     reporter.removeHandler(failFastHandler);
@@ -605,8 +608,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "exports_files(glob(['*.txt']))",
         "#some-irrelevant-comment");
 
-    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(), rootDirectory);
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
+            Root.fromPath(rootDirectory));
 
     value = validPackage(skyKey);
     assertThat(value.getPackage().containsErrors()).isFalse();
@@ -621,8 +627,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     scratch.file("foo/nope");
-    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.builder().modify(PathFragment.create("foo/nope")).build(), rootDirectory);
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/nope")).build(),
+            Root.fromPath(rootDirectory));
 
     PackageValue newValue = validPackage(skyKey);
     assertThat(newValue.getPackage().containsErrors()).isFalse();
@@ -657,8 +666,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.overwriteFile("foo/BUILD",
         "[sh_library(name = x + '-matched') for x in glob(['**'], exclude_directories = 0)]",
         "#some-irrelevant-comment");
-    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(), rootDirectory);
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
+            Root.fromPath(rootDirectory));
 
     value = validPackage(skyKey);
     assertThat(value.getPackage().containsErrors()).isFalse();

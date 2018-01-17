@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryExceptio
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -120,7 +120,7 @@ public class PackageLookupFunction implements SkyFunction {
     // to having restart the SkyFunction after every new dependency. However, if we try to batch
     // the missing value keys, more dependencies than necessary will be declared. This wart can be
     // fixed once we have nicer continuation support [skyframe-loading]
-    for (Path packagePathEntry : pkgLocator.getPathEntries()) {
+    for (Root packagePathEntry : pkgLocator.getPathEntries()) {
 
       // This checks for the build file names in the correct precedence order.
       for (BuildFileName buildFileName : buildFilesByPriority) {
@@ -168,7 +168,7 @@ public class PackageLookupFunction implements SkyFunction {
 
   private PackageLookupValue getPackageLookupValue(
       Environment env,
-      ImmutableList<Path> packagePathEntries,
+      ImmutableList<Root> packagePathEntries,
       PackageIdentifier packageIdentifier,
       BuildFileName buildFileName)
       throws PackageLookupFunctionException, InterruptedException {
@@ -177,7 +177,7 @@ public class PackageLookupFunction implements SkyFunction {
     // to having restart the SkyFunction after every new dependency. However, if we try to batch
     // the missing value keys, more dependencies than necessary will be declared. This wart can be
     // fixed once we have nicer continuation support [skyframe-loading]
-    for (Path packagePathEntry : packagePathEntries) {
+    for (Root packagePathEntry : packagePathEntries) {
       PackageLookupValue result =
           getPackageLookupValue(env, packagePathEntry, packageIdentifier, buildFileName);
       if (result == null) {
@@ -192,7 +192,7 @@ public class PackageLookupFunction implements SkyFunction {
 
   private PackageLookupValue getPackageLookupValue(
       Environment env,
-      Path packagePathEntry,
+      Root packagePathEntry,
       PackageIdentifier packageIdentifier,
       BuildFileName buildFileName)
       throws InterruptedException, PackageLookupFunctionException {
@@ -235,7 +235,7 @@ public class PackageLookupFunction implements SkyFunction {
         if (localRepositoryPath.isAbsolute()) {
           // We need the package path to also be absolute.
           pathToRequestedPackage =
-              packagePathEntry.asFragment().getRelative(pathToRequestedPackage);
+              packagePathEntry.getRelative(pathToRequestedPackage).asFragment();
         }
         PathFragment remainingPath = pathToRequestedPackage.relativeTo(localRepositoryPath);
         PackageIdentifier correctPackage =
@@ -264,7 +264,7 @@ public class PackageLookupFunction implements SkyFunction {
   }
 
   private PackageLookupValue computeWorkspacePackageLookupValue(
-      Environment env, ImmutableList<Path> packagePathEntries)
+      Environment env, ImmutableList<Root> packagePathEntries)
       throws PackageLookupFunctionException, InterruptedException {
     PackageLookupValue result =
         getPackageLookupValue(
@@ -281,7 +281,7 @@ public class PackageLookupFunction implements SkyFunction {
     if (packagePathEntries.isEmpty()) {
       return PackageLookupValue.NO_BUILD_FILE_VALUE;
     }
-    Path lastPackagePath = packagePathEntries.get(packagePathEntries.size() - 1);
+    Root lastPackagePath = packagePathEntries.get(packagePathEntries.size() - 1);
     FileValue lastPackagePackagePathFileValue = getFileValue(
         RootedPath.toRootedPath(lastPackagePath, PathFragment.EMPTY_FRAGMENT),
         env,
@@ -326,14 +326,14 @@ public class PackageLookupFunction implements SkyFunction {
       PathFragment buildFileFragment =
           id.getPackageFragment().getRelative(buildFileName.getFilenameFragment());
       RootedPath buildFileRootedPath =
-          RootedPath.toRootedPath(repositoryValue.getPath(), buildFileFragment);
+          RootedPath.toRootedPath(Root.fromPath(repositoryValue.getPath()), buildFileFragment);
       FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
       if (fileValue == null) {
         return null;
       }
 
       if (fileValue.isFile()) {
-        return PackageLookupValue.success(repositoryValue.getPath(), buildFileName);
+        return PackageLookupValue.success(Root.fromPath(repositoryValue.getPath()), buildFileName);
       }
     }
 

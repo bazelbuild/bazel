@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -170,7 +171,7 @@ public class PackageCacheTest extends FoundationTestCase {
 
   private void invalidatePackages() throws InterruptedException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
-        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
+        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
   }
 
   private Package getPackage(String packageName)
@@ -336,7 +337,7 @@ public class PackageCacheTest extends FoundationTestCase {
     Package oldPkg = getPackage("pkg");
     assertThat(getPackage("pkg")).isSameAs(oldPkg); // change not yet visible
     assertThat(oldPkg.getFilename()).isEqualTo(buildFile1);
-    assertThat(oldPkg.getSourceRoot()).isEqualTo(rootDirectory);
+    assertThat(oldPkg.getSourceRoot()).isEqualTo(Root.fromPath(rootDirectory));
 
     buildFile1.delete();
     invalidatePackages();
@@ -344,7 +345,7 @@ public class PackageCacheTest extends FoundationTestCase {
     Package newPkg = getPackage("pkg");
     assertThat(newPkg).isNotSameAs(oldPkg);
     assertThat(newPkg.getFilename()).isEqualTo(buildFile2);
-    assertThat(newPkg.getSourceRoot()).isEqualTo(scratch.dir("/otherroot"));
+    assertThat(newPkg.getSourceRoot()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
 
     // TODO(bazel-team): (2009) test BUILD file moves in the other direction too.
   }

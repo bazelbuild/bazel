@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -112,10 +113,10 @@ public class Package {
   protected String workspaceName;
 
   /**
-   * The root of the source tree in which this package was found. It is an invariant that
-   * {@code sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}.
+   * The root of the source tree in which this package was found. It is an invariant that {@code
+   * sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}.
    */
-  private Path sourceRoot;
+  private Root sourceRoot;
 
   /**
    * The "Make" environment of this package, containing package-local
@@ -273,22 +274,22 @@ public class Package {
   /**
    * Returns the source root (a directory) beneath which this package's BUILD file was found.
    *
-   * <p> Assumes invariant:
-   * {@code getSourceRoot().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
+   * <p>Assumes invariant: {@code
+   * getSourceRoot().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
    */
-  public Path getSourceRoot() {
+  public Root getSourceRoot() {
     return sourceRoot;
   }
 
   // This must always be consistent with Root.computeSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.
-  private static Path getSourceRoot(Path buildFile, PathFragment packageFragment) {
+  private static Root getSourceRoot(Path buildFile, PathFragment packageFragment) {
     Path current = buildFile.getParentDirectory();
     for (int i = 0, len = packageFragment.segmentCount();
          i < len && !packageFragment.equals(PathFragment.EMPTY_FRAGMENT); i++) {
       current = current.getParentDirectory();
     }
-    return current;
+    return Root.fromPath(current);
   }
 
   /**

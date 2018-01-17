@@ -554,7 +554,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       throws IOException {
     Path path = artifact.getPath();
     RootedPath rootedPath =
-        RootedPath.toRootedPath(artifact.getRoot().getPath(), artifact.getRootRelativePath());
+        RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getRootRelativePath());
     if (statNoFollow == null) {
       statNoFollow = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
       if (statNoFollow == null) {
@@ -573,8 +573,9 @@ public class ActionMetadataHandler implements MetadataHandler {
         throw new IOException("symlink cycle");
       }
     }
-    RootedPath realRootedPath = RootedPath.toRootedPathMaybeUnderRoot(realPath,
-        ImmutableList.of(artifact.getRoot().getPath()));
+    RootedPath realRootedPath =
+        RootedPath.toRootedPathMaybeUnderRoot(
+            realPath, ImmutableList.of(artifact.getRoot().getRoot()));
     FileStateValue fileStateValue =
         FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
     // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed

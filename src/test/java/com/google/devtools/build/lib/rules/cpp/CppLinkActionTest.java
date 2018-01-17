@@ -524,7 +524,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   public Artifact getOutputArtifact(String relpath) {
     return new Artifact(
-        getTargetConfiguration().getBinDirectory(RepositoryName.MAIN).getPath()
+        getTargetConfiguration()
+            .getBinDirectory(RepositoryName.MAIN)
+            .getRoot()
             .getRelative(relpath),
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
         getTargetConfiguration().getBinFragment().getRelative(relpath));

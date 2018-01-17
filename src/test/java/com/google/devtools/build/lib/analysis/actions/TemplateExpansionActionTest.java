@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.Before;
@@ -77,7 +78,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   private void createArtifacts(String template) throws Exception {
-    ArtifactRoot workspace = ArtifactRoot.asSourceRoot(scratch.dir("/workspace"));
+    ArtifactRoot workspace = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
     outputRoot =
         ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
     Path input = scratch.overwriteFile("/workspace/input.txt", StandardCharsets.UTF_8, template);

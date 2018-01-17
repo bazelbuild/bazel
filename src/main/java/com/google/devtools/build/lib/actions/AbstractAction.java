@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
@@ -399,13 +400,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       if (output.getRoot() == null) {
         throw e;
       }
-      String outputRootDir = output.getRoot().getPath().getPathString();
-      if (!path.getPathString().startsWith(outputRootDir)) {
+      Root outputRoot = output.getRoot().getRoot();
+      if (!outputRoot.contains(path)) {
         throw e;
       }
 
       Path parentDir = path.getParentDirectory();
-      if (!parentDir.isWritable() && parentDir.getPathString().startsWith(outputRootDir)) {
+      if (!parentDir.isWritable() && outputRoot.contains(parentDir)) {
         // Retry deleting after making the parent writable.
         parentDir.setWritable(true);
         deleteOutput(fileSystem, output);

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
@@ -34,10 +35,11 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
   private final SkyKey key = WorkspaceNameValue.key();
 
   private EvaluationResult<WorkspaceNameValue> eval() throws InterruptedException {
-    getSkyframeExecutor().invalidateFilesUnderPathForTesting(
-        reporter,
-        ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).build(),
-        rootDirectory);
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).build(),
+            Root.fromPath(rootDirectory));
     return SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
   }

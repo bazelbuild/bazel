@@ -142,6 +142,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -257,7 +258,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
-            ImmutableList.of(rootDirectory),
+            ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         skylarkSemanticsOptions,
@@ -428,8 +429,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @throws InterruptedException
    */
   protected void invalidatePackages(boolean alsoConfigs) throws InterruptedException {
-    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
     if (alsoConfigs) {
       try {
         // Also invalidate all configurations. This is important: by invalidating all files we
@@ -494,7 +495,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     view = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationsForTesting(masterConfig);
 
-    view.setArtifactRoots(new PackageRootsNoSymlinkCreation(rootDirectory));
+    view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
@@ -823,7 +824,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
         new ModifiedFileSet.Builder().modify(PathFragment.create(buildFilePathString)).build(),
-        rootDirectory);
+        Root.fromPath(rootDirectory));
     return (Rule) getTarget("//" + packageName + ":" + ruleName);
   }
 
@@ -976,7 +977,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Artifact getSourceArtifact(String name) {
-    return getSourceArtifact(PathFragment.create(name), ArtifactRoot.asSourceRoot(rootDirectory));
+    return getSourceArtifact(
+        PathFragment.create(name), ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)));
   }
 
   /**

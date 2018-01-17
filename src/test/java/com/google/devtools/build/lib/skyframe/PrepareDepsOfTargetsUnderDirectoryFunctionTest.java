@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -54,7 +55,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
 
   private SkyKey createCollectPackagesKey(
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
-    RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
+    RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return CollectPackagesUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths);
   }
@@ -65,14 +66,14 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
 
   private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
       ImmutableSet<PathFragment> excludedPaths) {
-    RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
+    RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths);
   }
 
   private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
       ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
-    RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
+    RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths, filteringPolicy);
   }

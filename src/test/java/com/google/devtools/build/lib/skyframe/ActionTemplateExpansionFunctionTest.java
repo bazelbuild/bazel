@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -75,7 +76,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new AtomicReference<>(
             new PathPackageLocator(
                 rootDirectory.getFileSystem().getPath("/outputbase"),
-                ImmutableList.of(rootDirectory),
+                ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =

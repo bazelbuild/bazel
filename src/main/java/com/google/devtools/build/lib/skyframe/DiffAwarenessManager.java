@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -36,7 +36,7 @@ public final class DiffAwarenessManager {
   // The manager attempts to instantiate these in the order in which they are passed to the
   // constructor; this is critical in the case where a factory always succeeds.
   private final ImmutableList<? extends DiffAwareness.Factory> diffAwarenessFactories;
-  private Map<Path, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
+  private Map<Root, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
 
   public DiffAwarenessManager(Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     this.diffAwarenessFactories = ImmutableList.copyOf(diffAwarenessFactories);
@@ -77,11 +77,11 @@ public final class DiffAwarenessManager {
   }
 
   /**
-   * Gets the set of changed files since the last call with this path entry, or
-   * {@code ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
+   * Gets the set of changed files since the last call with this path entry, or {@code
+   * ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
   public ProcessableModifiedFileSet getDiff(
-      EventHandler eventHandler, Path pathEntry, OptionsClassProvider options) {
+      EventHandler eventHandler, Root pathEntry, OptionsClassProvider options) {
     DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
@@ -120,7 +120,7 @@ public final class DiffAwarenessManager {
   }
 
   private void handleBrokenDiffAwareness(
-      EventHandler eventHandler, Path pathEntry, BrokenDiffAwarenessException e) {
+      EventHandler eventHandler, Root pathEntry, BrokenDiffAwarenessException e) {
     currentDiffAwarenessStates.remove(pathEntry);
     logger.info("Broken diff awareness for " + pathEntry + ": " + e);
     eventHandler.handle(Event.warn(e.getMessage() + "... temporarily falling back to manually "
@@ -132,7 +132,7 @@ public final class DiffAwarenessManager {
    * current one, or otherwise {@code null} if no factory could make a fresh one.
    */
   @Nullable
-  private DiffAwarenessState maybeGetDiffAwarenessState(Path pathEntry) {
+  private DiffAwarenessState maybeGetDiffAwarenessState(Root pathEntry) {
     DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
     if (diffAwarenessState != null) {
       return diffAwarenessState;
@@ -153,15 +153,15 @@ public final class DiffAwarenessManager {
   private class ProcessableModifiedFileSetImpl implements ProcessableModifiedFileSet {
 
     private final ModifiedFileSet modifiedFileSet;
-    private final Path pathEntry;
+    private final Root pathEntry;
     /**
      * The {@link View} that should be the baseline on the next {@link #getDiff} call after
      * {@link #markProcessed} is called.
      */
     private final View nextView;
 
-    private ProcessableModifiedFileSetImpl(ModifiedFileSet modifiedFileSet, Path pathEntry,
-        View nextView) {
+    private ProcessableModifiedFileSetImpl(
+        ModifiedFileSet modifiedFileSet, Root pathEntry, View nextView) {
       this.modifiedFileSet = modifiedFileSet;
       this.pathEntry = pathEntry;
       this.nextView = nextView;

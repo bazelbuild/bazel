@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -280,7 +281,7 @@ public class ActionCacheCheckerTest {
           public synchronized Iterable<Artifact> getInputs() {
             FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
             Path path = fileSystem.getPath("/input");
-            ArtifactRoot root = ArtifactRoot.asSourceRoot(fileSystem.getPath("/"));
+            ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
             return ImmutableList.of(new Artifact(path, root));
           }
         };

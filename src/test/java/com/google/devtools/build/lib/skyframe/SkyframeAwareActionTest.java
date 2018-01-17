@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
@@ -352,7 +353,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     differencer.invalidate(
         ImmutableList.of(
             FileStateValue.key(
-                RootedPath.toRootedPath(file.getRoot().getPath(), file.getRootRelativePath()))));
+                RootedPath.toRootedPath(file.getRoot().getRoot(), file.getRootRelativePath()))));
   }
 
   private void assertActionExecutions(
@@ -445,7 +446,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
   private RootedPath createSkyframeDepOfAction() throws Exception {
     scratch.file(rootDirectory.getRelative("action.dep").getPathString(), "blah");
-    return RootedPath.toRootedPath(rootDirectory, PathFragment.create("action.dep"));
+    return RootedPath.toRootedPath(Root.fromPath(rootDirectory), PathFragment.create("action.dep"));
   }
 
   private void appendToFile(Path path) throws Exception {

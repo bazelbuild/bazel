@@ -113,7 +113,9 @@ public abstract class FileSystem {
   }
 
   /** Lazy-initialized on first access, always use {@link FileSystem#getRootDirectory} */
-  private Path rootPath;
+  private volatile Path rootPath;
+
+  private volatile Root root;
 
   /** Returns filesystem-specific path factory. */
   protected PathFactory getPathFactory() {
@@ -157,6 +159,17 @@ public abstract class FileSystem {
       }
     }
     return rootPath;
+  }
+
+  final Root getRoot() {
+    if (root == null) {
+      synchronized (this) {
+        if (root == null) {
+          root = new Root.PathRoot(getRootDirectory());
+        }
+      }
+    }
+    return root;
   }
 
   /**

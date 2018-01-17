@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -36,7 +36,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   public abstract PackageIdentifier getContainingPackageName();
 
   /** If there is a containing package, returns its package root */
-  public abstract Path getContainingPackageRoot();
+  public abstract Root getContainingPackageRoot();
 
   public static SkyKey key(PackageIdentifier id) {
     Preconditions.checkArgument(!id.getPackageFragment().isAbsolute(), id);
@@ -44,7 +44,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     return LegacySkyKey.create(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, id);
   }
 
-  public static ContainingPackage withContainingPackage(PackageIdentifier pkgId, Path root) {
+  public static ContainingPackage withContainingPackage(PackageIdentifier pkgId, Root root) {
     return new ContainingPackage(pkgId, root);
   }
 
@@ -64,7 +64,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     }
 
     @Override
-    public Path getContainingPackageRoot() {
+    public Root getContainingPackageRoot() {
       throw new IllegalStateException();
     }
   }
@@ -72,9 +72,9 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   /** A successful lookup value. */
   public static class ContainingPackage extends ContainingPackageLookupValue {
     private final PackageIdentifier containingPackage;
-    private final Path containingPackageRoot;
+    private final Root containingPackageRoot;
 
-    private ContainingPackage(PackageIdentifier pkgId, Path containingPackageRoot) {
+    private ContainingPackage(PackageIdentifier pkgId, Root containingPackageRoot) {
       this.containingPackage = pkgId;
       this.containingPackageRoot = containingPackageRoot;
     }
@@ -90,7 +90,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     }
 
     @Override
-    public Path getContainingPackageRoot() {
+    public Root getContainingPackageRoot() {
       return containingPackageRoot;
     }
 

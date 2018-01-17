@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -32,7 +33,7 @@ public interface PackageRoots {
    * this build are present in the map. Should only be needed for planting the symlink forest. If it
    * is absent, planting the symlink forest is not necessary.
    */
-  Optional<ImmutableMap<PackageIdentifier, Path>> getPackageRootsMap();
+  Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap();
 
   PackageRootLookup getPackageRootLookup();
 

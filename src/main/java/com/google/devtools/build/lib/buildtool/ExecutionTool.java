@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -518,7 +519,7 @@ public class ExecutionTool {
   }
 
   private void prepare(PackageRoots packageRoots) throws ExecutorInitException {
-    Optional<ImmutableMap<PackageIdentifier, Path>> packageRootMap =
+    Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
     if (!packageRootMap.isPresent()) {
       return;

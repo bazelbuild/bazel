@@ -39,52 +39,55 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
 
   @Test
   public void testDifferentOrderSameActionKey() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out"));
+    Path includePath = rootDirectory.getRelative("out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, includePath);
     Artifact a = new Artifact(PathFragment.create("a"), root);
     Artifact b = new Artifact(PathFragment.create("b"), root);
     Artifact c = new Artifact(PathFragment.create("c"), root);
     Artifact d = new Artifact(PathFragment.create("d"), root);
-    CreateIncSymlinkAction action1 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b, c, d), root.getPath());
+    CreateIncSymlinkAction action1 =
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b, c, d), includePath);
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = new Artifact(PathFragment.create("a"), root);
     b = new Artifact(PathFragment.create("b"), root);
     c = new Artifact(PathFragment.create("c"), root);
     d = new Artifact(PathFragment.create("d"), root);
-    CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(c, d, a, b), root.getPath());
+    CreateIncSymlinkAction action2 =
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(c, d, a, b), includePath);
     assertThat(action2.computeKey(actionKeyContext))
         .isEqualTo(action1.computeKey(actionKeyContext));
   }
 
   @Test
   public void testDifferentTargetsDifferentActionKey() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out"));
+    Path includePath = rootDirectory.getRelative("out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, includePath);
     Artifact a = new Artifact(PathFragment.create("a"), root);
     Artifact b = new Artifact(PathFragment.create("b"), root);
-    CreateIncSymlinkAction action1 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b), root.getPath());
+    CreateIncSymlinkAction action1 =
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = new Artifact(PathFragment.create("a"), root);
     b = new Artifact(PathFragment.create("c"), root);
-    CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b), root.getPath());
+    CreateIncSymlinkAction action2 =
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
     assertThat(action2.computeKey(actionKeyContext))
         .isNotEqualTo(action1.computeKey(actionKeyContext));
   }
 
   @Test
   public void testDifferentSymlinksDifferentActionKey() throws Exception {
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out"));
+    Path includePath = rootDirectory.getRelative("out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, includePath);
     Artifact a = new Artifact(PathFragment.create("a"), root);
     Artifact b = new Artifact(PathFragment.create("b"), root);
-    CreateIncSymlinkAction action1 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b), root.getPath());
+    CreateIncSymlinkAction action1 =
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = new Artifact(PathFragment.create("c"), root);
     b = new Artifact(PathFragment.create("b"), root);
-    CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b), root.getPath());
+    CreateIncSymlinkAction action2 =
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
     assertThat(action2.computeKey(actionKeyContext))
         .isNotEqualTo(action1.computeKey(actionKeyContext));
   }

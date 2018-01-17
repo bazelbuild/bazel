@@ -23,9 +23,8 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.CodedInputStream;
@@ -45,8 +44,8 @@ public final class GlobDescriptor implements SkyKey {
   private static final Interner<GlobDescriptor> interner = BlazeInterners.newWeakInterner();
 
   /** Creates and returns a new {@link ObjectCodec} for {@link GlobDescriptor}s. */
-  public static ObjectCodec<GlobDescriptor> getCodec(PathCodec pathCodec) {
-    return new GlobDescriptorCodec(pathCodec);
+  public static ObjectCodec<GlobDescriptor> getCodec(ObjectCodec<Root> rootCodec) {
+    return new GlobDescriptorCodec(rootCodec);
   }
 
   /**
@@ -55,14 +54,13 @@ public final class GlobDescriptor implements SkyKey {
    * @param packageId the name of the owner package (must be an existing package)
    * @param packageRoot the package root of {@code packageId}
    * @param subdir the subdirectory being looked at (must exist and must be a directory. It's
-   *               assumed that there are no other packages between {@code packageName} and
-   *               {@code subdir}.
+   *     assumed that there are no other packages between {@code packageName} and {@code subdir}.
    * @param pattern a valid glob pattern
    * @param excludeDirs true if directories should be excluded from results
    */
   public static GlobDescriptor create(
       PackageIdentifier packageId,
-      Path packageRoot,
+      Root packageRoot,
       PathFragment subdir,
       String pattern,
       boolean excludeDirs) {
@@ -72,13 +70,17 @@ public final class GlobDescriptor implements SkyKey {
   }
 
   private final PackageIdentifier packageId;
-  private final Path packageRoot;
+  private final Root packageRoot;
   private final PathFragment subdir;
   private final String pattern;
   private final boolean excludeDirs;
 
-  private GlobDescriptor(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
-      String pattern, boolean excludeDirs) {
+  private GlobDescriptor(
+      PackageIdentifier packageId,
+      Root packageRoot,
+      PathFragment subdir,
+      String pattern,
+      boolean excludeDirs) {
     this.packageId = Preconditions.checkNotNull(packageId);
     this.packageRoot = Preconditions.checkNotNull(packageRoot);
     this.subdir = Preconditions.checkNotNull(subdir);
@@ -102,10 +104,8 @@ public final class GlobDescriptor implements SkyKey {
     return packageId;
   }
 
-  /**
-   * Returns the package root of {@code getPackageId()}.
-   */
-  public Path getPackageRoot() {
+  /** Returns the package root of {@code getPackageId()}. */
+  public Root getPackageRoot() {
     return packageRoot;
   }
 
@@ -168,11 +168,11 @@ public final class GlobDescriptor implements SkyKey {
   private static class GlobDescriptorCodec implements ObjectCodec<GlobDescriptor> {
 
     private final PackageIdentifierCodec packageIdCodec = new PackageIdentifierCodec();
-    private final PathCodec pathCodec;
+    private final ObjectCodec<Root> rootCodec;
     private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
 
-    private GlobDescriptorCodec(PathCodec pathCodec) {
-      this.pathCodec = pathCodec;
+    private GlobDescriptorCodec(ObjectCodec<Root> rootCodec) {
+      this.rootCodec = rootCodec;
     }
 
     @Override
@@ -184,7 +184,7 @@ public final class GlobDescriptor implements SkyKey {
     public void serialize(GlobDescriptor globDesc, CodedOutputStream codedOut)
         throws IOException, SerializationException {
       packageIdCodec.serialize(globDesc.getPackageId(), codedOut);
-      pathCodec.serialize(globDesc.getPackageRoot(), codedOut);
+      rootCodec.serialize(globDesc.getPackageRoot(), codedOut);
       PathFragment.CODEC.serialize(globDesc.getSubdir(), codedOut);
       stringCodec.serialize(globDesc.getPattern(), codedOut);
       codedOut.writeBoolNoTag(globDesc.excludeDirs());
@@ -194,7 +194,7 @@ public final class GlobDescriptor implements SkyKey {
     public GlobDescriptor deserialize(CodedInputStream codedIn)
         throws SerializationException, IOException {
       PackageIdentifier packageId = packageIdCodec.deserialize(codedIn);
-      Path packageRoot = pathCodec.deserialize(codedIn);
+      Root packageRoot = rootCodec.deserialize(codedIn);
       PathFragment pathFragment = PathFragment.CODEC.deserialize(codedIn);
       String pattern = stringCodec.deserialize(codedIn);
       boolean excludeDirs = codedIn.readBool();

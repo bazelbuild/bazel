@@ -53,13 +53,13 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     String outputDirPrefix =
         outputBase + "/execroot/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
 
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix);
-    assertThat(config.getBinDirectory(RepositoryName.MAIN).getPath().toString())
+    assertThat(config.getBinDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/bin");
-    assertThat(config.getIncludeDirectory(RepositoryName.MAIN).getPath().toString())
+    assertThat(config.getIncludeDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/include");
-    assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getPath().toString())
+    assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/testlogs");
   }
 
@@ -70,7 +70,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     }
 
     BuildConfiguration config = create("--platform_suffix=-test");
-    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(
             outputBase
                 + "/execroot/"

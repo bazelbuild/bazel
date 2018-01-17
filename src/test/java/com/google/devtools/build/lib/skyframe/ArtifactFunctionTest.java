@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -245,7 +246,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private Artifact createSourceArtifact(String path) {
-    return new Artifact(PathFragment.create(path), ArtifactRoot.asSourceRoot(root));
+    return new Artifact(PathFragment.create(path), ArtifactRoot.asSourceRoot(Root.fromPath(root)));
   }
 
   private Artifact createDerivedArtifact(String path) {
@@ -264,7 +265,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private Artifact createMiddlemanArtifact(String path) {
     ArtifactRoot middlemanRoot =
         ArtifactRoot.middlemanRoot(middlemanPath, middlemanPath.getRelative("out"));
-    Path fullPath = middlemanRoot.getPath().getRelative(path);
+    Path fullPath = middlemanRoot.getRoot().getRelative(path);
     return new Artifact(
         fullPath, middlemanRoot, fullPath.relativeTo(middlemanRoot.getExecRoot()), ALL_OWNER);
   }

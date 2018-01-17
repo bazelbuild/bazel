@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.vfs.PathCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,33 +32,34 @@ public class GlobDescriptorTest {
 
   @Test
   public void testSerialization() throws Exception {
-    ObjectCodecTester.newBuilder(GlobDescriptor.getCodec(new PathCodec(FsUtils.TEST_FILESYSTEM)))
+    ObjectCodecTester.newBuilder(
+            GlobDescriptor.getCodec(Root.getCodec(new PathCodec(FsUtils.TEST_FILESYSTEM))))
         .addSubjects(
             GlobDescriptor.create(
                 PackageIdentifier.create("@foo", PathFragment.create("//bar")),
-                FsUtils.TEST_FILESYSTEM.getPath("/packageRoot"),
+                Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/packageRoot")),
                 PathFragment.create("subdir"),
                 "pattern",
                 /*excludeDirs=*/ false),
             GlobDescriptor.create(
                 PackageIdentifier.create("@bar", PathFragment.create("//foo")),
-                FsUtils.TEST_FILESYSTEM.getPath("/anotherPackageRoot"),
+                Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/anotherPackageRoot")),
                 PathFragment.create("anotherSubdir"),
                 "pattern",
                 /*excludeDirs=*/ true))
-        .verificationFunction(
-            (orig, deserialized) -> assertThat(deserialized).isSameAs(orig))
+        .verificationFunction((orig, deserialized) -> assertThat(deserialized).isSameAs(orig))
         .buildAndRunTests();
   }
 
   @Test
   public void testCreateReturnsInternedInstances() throws LabelSyntaxException {
-    GlobDescriptor original = GlobDescriptor.create(
-        PackageIdentifier.create("@foo", PathFragment.create("//bar")),
-        FsUtils.TEST_FILESYSTEM.getPath("/packageRoot"),
-        PathFragment.create("subdir"),
-        "pattern",
-        /*excludeDirs=*/ false);
+    GlobDescriptor original =
+        GlobDescriptor.create(
+            PackageIdentifier.create("@foo", PathFragment.create("//bar")),
+            Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/packageRoot")),
+            PathFragment.create("subdir"),
+            "pattern",
+            /*excludeDirs=*/ false);
 
     GlobDescriptor sameCopy = GlobDescriptor.create(
         original.getPackageId(),

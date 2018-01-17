@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.BuildDriver;
@@ -246,7 +247,7 @@ public final class ActionsTestUtil {
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact(
           PathFragment.create("dummy"),
-          ArtifactRoot.asSourceRoot(new InMemoryFileSystem().getRootDirectory()));
+          ArtifactRoot.asSourceRoot(Root.fromFileSystemRoot(new InMemoryFileSystem())));
 
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(

@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -167,7 +167,7 @@ public class ProcessPackageDirectory {
       RootedPath rootedPath,
       RepositoryName repositoryName,
       Set<PathFragment> excludedPaths) {
-    Path root = rootedPath.getRoot();
+    Root root = rootedPath.getRoot();
     PathFragment rootRelativePath = rootedPath.getRelativePath();
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
     List<SkyKey> childDeps = new ArrayList<>();

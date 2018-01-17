@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -79,7 +80,7 @@ public class ASTFileLookupFunction implements SkyFunction {
     //
     // Determine whether the file designated by fileLabel exists.
     //
-    Path packageRoot = pkgLookupValue.getRoot();
+    Root packageRoot = pkgLookupValue.getRoot();
     RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, filePathFragment);
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -55,7 +56,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.of(rootDirectory, alternativeRoot),
+                ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),

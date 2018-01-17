@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.util.Arrays;
@@ -551,7 +552,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter,
             new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
-            rootDirectory);
+            Root.fromPath(rootDirectory));
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
     scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
     scratch.file(

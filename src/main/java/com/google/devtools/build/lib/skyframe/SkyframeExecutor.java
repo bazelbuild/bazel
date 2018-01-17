@@ -130,6 +130,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.BuildDriver;
@@ -715,7 +716,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * need to track all loaded packages.
    */
   @Nullable
-  protected Path getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
+  protected Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
     return null;
   }
 
@@ -910,7 +911,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @VisibleForTesting
-  ImmutableList<Path> getPathEntries() {
+  ImmutableList<Root> getPathEntries() {
     return pkgLocator.get().getPathEntries();
   }
 
@@ -923,9 +924,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         || (oldType.equals(Dirent.Type.SYMLINK) && newType.equals(FileStateType.SYMLINK));
   }
 
-  protected Differencer.Diff getDiff(TimestampGranularityMonitor tsgm,
-      Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry)
-          throws InterruptedException {
+  protected Differencer.Diff getDiff(
+      TimestampGranularityMonitor tsgm,
+      Iterable<PathFragment> modifiedSourceFiles,
+      final Root pathEntry)
+      throws InterruptedException {
     if (Iterables.isEmpty(modifiedSourceFiles)) {
       return new ImmutableDiff(ImmutableList.<SkyKey>of(), ImmutableMap.<SkyKey, SkyValue>of());
     }
@@ -1626,7 +1629,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   @VisibleForTesting
   public abstract void invalidateFilesUnderPathForTesting(
-      ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Path pathEntry)
+      ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
       throws InterruptedException;
 
   /**

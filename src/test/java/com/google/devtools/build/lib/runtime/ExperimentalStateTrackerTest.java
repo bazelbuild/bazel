@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.net.URL;
@@ -68,7 +69,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
   private Action mockAction(String progressMessage, String primaryOutput) {
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(outputBase));
+    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
 
     Action action = Mockito.mock(Action.class);
     when(action.getProgressMessage()).thenReturn(progressMessage);
@@ -473,7 +474,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(outputBase));
+    Artifact artifact = new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
     ActionExecutionMetadata actionMetadata = Mockito.mock(ActionExecutionMetadata.class);
     when(actionMetadata.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(actionMetadata.getPrimaryOutput()).thenReturn(artifact);

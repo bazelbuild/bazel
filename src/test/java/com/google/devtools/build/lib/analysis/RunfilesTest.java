@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,7 +52,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksCatchesBadObscurer() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = new Artifact(PathFragment.create("a"), root);
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(PathFragment.create("a/b"), new Artifact(PathFragment.create("c/b"),
@@ -65,7 +66,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksCatchesBadGrandParentObscurer() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = new Artifact(PathFragment.create("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
@@ -80,7 +81,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksCatchesBadObscurerNoListener() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = new Artifact(PathFragment.create("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
@@ -94,7 +95,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksIgnoresOkObscurer() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = new Artifact(PathFragment.create("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
@@ -110,7 +111,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testFilterListForObscuringSymlinksNoObscurers() throws Exception {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = new Artifact(PathFragment.create("a"),
                                           root);
     obscuringMap.put(pathA, artifactA);
@@ -142,7 +143,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutCatchesConflict() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Artifact artifactC = new Artifact(PathFragment.create("c"), root);
@@ -159,7 +160,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutReportsError() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Artifact artifactC = new Artifact(PathFragment.create("c"), root);
@@ -177,7 +178,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutCatchesConflictBetweenNullAndNotNull() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
@@ -192,7 +193,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutCatchesConflictBetweenNotNullAndNull() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
@@ -208,7 +209,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutIgnoresConflict() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Artifact artifactC = new Artifact(PathFragment.create("c"), root);
@@ -224,7 +225,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutIgnoresConflictNoListener() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Artifact artifactC = new Artifact(PathFragment.create("c"), root);
@@ -240,7 +241,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutIgnoresSameArtifact() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Artifact artifactB2 = new Artifact(PathFragment.create("b"), root);
@@ -271,7 +272,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testPutNoConflicts() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     PathFragment pathB = PathFragment.create("b");
     PathFragment pathC = PathFragment.create("c");
@@ -325,7 +326,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testLegacyRunfilesStructure() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment workspaceName = PathFragment.create("wsname");
     PathFragment pathB = PathFragment.create("external/repo/b");
     Artifact artifactB = new Artifact(pathB, root);
@@ -346,7 +347,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testRunfileAdded() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment workspaceName = PathFragment.create("wsname");
     PathFragment pathB = PathFragment.create("external/repo/b");
     Artifact artifactB = new Artifact(pathB, root);
@@ -369,7 +370,7 @@ public class RunfilesTest extends FoundationTestCase {
   // TODO(kchodorow): remove this once the default workspace name is always set.
   @Test
   public void testConflictWithExternal() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathB = PathFragment.create("repo/b");
     PathFragment externalPathB = Label.EXTERNAL_PACKAGE_NAME.getRelative(pathB);
     Artifact artifactB = new Artifact(pathB, root);
@@ -393,7 +394,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testMergeWithSymlinks() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(scratch.resolve("/workspace"));
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = new Artifact(PathFragment.create("a/target"), root);
     Artifact artifactB = new Artifact(PathFragment.create("b/target"), root);
     PathFragment sympathA = PathFragment.create("a/symlink");

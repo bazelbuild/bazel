@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -60,7 +61,8 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
     Path workspacePath = scratch.overwriteFile("WORKSPACE", contents);
     fakeWorkspaceFileValue.setSize(workspacePath.getFileSize());
     return RootedPath.toRootedPath(
-        workspacePath.getParentDirectory(), PathFragment.create(workspacePath.getBaseName()));
+        Root.fromPath(workspacePath.getParentDirectory()),
+        PathFragment.create(workspacePath.getBaseName()));
   }
 
   private SkyFunction.Environment getEnv() throws InterruptedException {

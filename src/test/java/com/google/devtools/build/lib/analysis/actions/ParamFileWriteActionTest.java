@@ -111,7 +111,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   private Artifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        rootDir.getPath().getRelative(relpath),
+        rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
         ArtifactOwner.NULL_OWNER,

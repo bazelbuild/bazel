@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -520,7 +521,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
   private Artifact makeArtifact(String pathString) {
     Path path = outputBase.getRelative(PathFragment.create(pathString));
-    return new Artifact(path, ArtifactRoot.asSourceRoot(outputBase));
+    return new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
   }
 
   @Test

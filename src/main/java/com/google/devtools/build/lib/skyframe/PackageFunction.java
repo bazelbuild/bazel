@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -433,7 +434,7 @@ public class PackageFunction implements SkyFunction {
    * @throws PackageFunctionException if there is an error computing the workspace file or adding
    *     its rules to the //external package.
    */
-  private SkyValue getExternalPackage(Environment env, Path packageLookupPath)
+  private SkyValue getExternalPackage(Environment env, Root packageLookupPath)
       throws PackageFunctionException, InterruptedException {
     SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
     if (skylarkSemantics == null) {
@@ -808,7 +809,7 @@ public class PackageFunction implements SkyFunction {
   }
 
   private static void handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
-      Path pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
+      Root pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
       throws InternalInconsistentFilesystemException, InterruptedException {
     Set<SkyKey> containingPkgLookupKeys = Sets.newHashSet();
     Map<Target, SkyKey> targetToKey = new HashMap<>();
@@ -887,7 +888,10 @@ public class PackageFunction implements SkyFunction {
   }
 
   private static boolean maybeAddEventAboutLabelCrossingSubpackage(
-      Package.Builder pkgBuilder, Path pkgRoot, Label label, @Nullable Location location,
+      Package.Builder pkgBuilder,
+      Root pkgRoot,
+      Label label,
+      @Nullable Location location,
       @Nullable ContainingPackageLookupValue containingPkgLookupValue) {
     if (containingPkgLookupValue == null) {
       return true;
@@ -914,7 +918,7 @@ public class PackageFunction implements SkyFunction {
     PathFragment labelNameFragment = PathFragment.create(label.getName());
     String message = String.format("Label '%s' crosses boundary of subpackage '%s'",
         label, containingPkg);
-    Path containingRoot = containingPkgLookupValue.getContainingPackageRoot();
+    Root containingRoot = containingPkgLookupValue.getContainingPackageRoot();
     if (pkgRoot.equals(containingRoot)) {
       PathFragment labelNameInContainingPackage = labelNameFragment.subFragment(
           containingPkg.getPackageFragment().segmentCount()
@@ -993,12 +997,15 @@ public class PackageFunction implements SkyFunction {
    */
   private static class SkyframeHybridGlobber implements GlobberWithSkyframeGlobDeps {
     private final PackageIdentifier packageId;
-    private final Path packageRoot;
+    private final Root packageRoot;
     private final Environment env;
     private final LegacyGlobber legacyGlobber;
     private final Set<SkyKey> globDepsRequested = Sets.newConcurrentHashSet();
 
-    private SkyframeHybridGlobber(PackageIdentifier packageId, Path packageRoot, Environment env,
+    private SkyframeHybridGlobber(
+        PackageIdentifier packageId,
+        Root packageRoot,
+        Environment env,
         LegacyGlobber legacyGlobber) {
       this.packageId = packageId;
       this.packageRoot = packageRoot;
@@ -1225,7 +1232,7 @@ public class PackageFunction implements SkyFunction {
   private GlobberWithSkyframeGlobDeps makeGlobber(
       Path buildFilePath,
       PackageIdentifier packageId,
-      Path packageRoot,
+      Root packageRoot,
       SkyFunction.Environment env) {
     LegacyGlobber legacyGlobber = packageFactory.createLegacyGlobber(
         buildFilePath.getParentDirectory(), packageId, packageLocator);
@@ -1243,15 +1250,14 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Constructs a {@link Package} object for the given package using legacy package loading.
-   * Note that the returned package may be in error.
+   * Constructs a {@link Package} object for the given package using legacy package loading. Note
+   * that the returned package may be in error.
    *
    * <p>May return null if the computation has to be restarted.
    *
-   * <p>Exactly one of {@code replacementContents} and {@code buildFileValue} will be
-   * non-{@code null}. The former indicates that we have a faux BUILD file with the given contents
-   * and the latter indicates that we have a legitimate BUILD file and should actually read its
-   * contents.
+   * <p>Exactly one of {@code replacementContents} and {@code buildFileValue} will be non-{@code
+   * null}. The former indicates that we have a faux BUILD file with the given contents and the
+   * latter indicates that we have a legitimate BUILD file and should actually read its contents.
    */
   @Nullable
   private BuilderAndGlobDeps loadPackage(
@@ -1263,7 +1269,7 @@ public class PackageFunction implements SkyFunction {
       RuleVisibility defaultVisibility,
       SkylarkSemantics skylarkSemantics,
       List<Statement> preludeStatements,
-      Path packageRoot,
+      Root packageRoot,
       Environment env)
       throws InterruptedException, PackageFunctionException {
     BuilderAndGlobDeps builderAndGlobDeps = packageFunctionCache.getIfPresent(packageId);

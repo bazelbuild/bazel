@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -73,10 +74,10 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
     }
 
     @Override
-    public DiffAwareness maybeCreate(com.google.devtools.build.lib.vfs.Path pathEntry) {
+    public DiffAwareness maybeCreate(Root pathEntry) {
       com.google.devtools.build.lib.vfs.Path resolvedPathEntry;
       try {
-        resolvedPathEntry = pathEntry.resolveSymbolicLinks();
+        resolvedPathEntry = pathEntry.asPath().resolveSymbolicLinks();
       } catch (IOException e) {
         return null;
       }

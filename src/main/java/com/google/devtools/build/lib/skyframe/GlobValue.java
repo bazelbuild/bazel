@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -75,14 +75,19 @@ public final class GlobValue implements SkyValue {
   }
 
   /**
-   * Constructs a {@link SkyKey} for a glob lookup. {@code packageName} is assumed to be an
-   * existing package. Trying to glob into a non-package is undefined behavior.
+   * Constructs a {@link SkyKey} for a glob lookup. {@code packageName} is assumed to be an existing
+   * package. Trying to glob into a non-package is undefined behavior.
    *
    * @throws InvalidGlobPatternException if the pattern is not valid.
    */
   @ThreadSafe
-  public static SkyKey key(PackageIdentifier packageId, Path packageRoot, String pattern,
-      boolean excludeDirs, PathFragment subdir) throws InvalidGlobPatternException {
+  public static SkyKey key(
+      PackageIdentifier packageId,
+      Root packageRoot,
+      String pattern,
+      boolean excludeDirs,
+      PathFragment subdir)
+      throws InvalidGlobPatternException {
     if (pattern.indexOf('?') != -1) {
       throw new InvalidGlobPatternException(pattern, "wildcard ? forbidden");
     }
@@ -101,8 +106,12 @@ public final class GlobValue implements SkyValue {
    * <p>Do not use outside {@code GlobFunction}.
    */
   @ThreadSafe
-  static SkyKey internalKey(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
-      String pattern, boolean excludeDirs) {
+  static SkyKey internalKey(
+      PackageIdentifier packageId,
+      Root packageRoot,
+      PathFragment subdir,
+      String pattern,
+      boolean excludeDirs) {
     return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, excludeDirs);
   }
 

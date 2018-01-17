@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -73,7 +74,7 @@ abstract class ArtifactFunctionTestCase {
         new AtomicReference<>(
             new PathPackageLocator(
                 root.getFileSystem().getPath("/outputbase"),
-                ImmutableList.of(root),
+                ImmutableList.of(Root.fromPath(root)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     BlazeDirectories directories =
         new BlazeDirectories(new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME);

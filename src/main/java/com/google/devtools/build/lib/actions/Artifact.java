@@ -190,7 +190,7 @@ public class Artifact
    */
   @VisibleForTesting
   public Artifact(Path path, ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
-    if (root == null || !path.startsWith(root.getPath())) {
+    if (root == null || !root.getRoot().contains(path)) {
       throw new IllegalArgumentException(root + ": illegal root for " + path
           + " (execPath: " + execPath + ")");
     }
@@ -209,7 +209,7 @@ public class Artifact
     // These two lines establish the invariant that
     // execPath == rootRelativePath <=> execPath.equals(rootRelativePath)
     // This is important for isSourceArtifact.
-    PathFragment rootRel = path.relativeTo(root.getPath());
+    PathFragment rootRel = root.getRoot().relativize(path);
     if (!execPath.endsWith(rootRel)) {
       throw new IllegalArgumentException(execPath + ": illegal execPath doesn't end with "
           + rootRel + " at " + path + " with root " + root);
@@ -245,15 +245,21 @@ public class Artifact
    */
   @VisibleForTesting // Only exists for testing.
   public Artifact(Path path, ArtifactRoot root) {
-    this(path, root, root.getExecPath().getRelative(path.relativeTo(root.getPath())),
+    this(
+        path,
+        root,
+        root.getExecPath().getRelative(root.getRoot().relativize(path)),
         ArtifactOwner.NULL_OWNER);
   }
 
   /** Constructs a source or derived Artifact for the specified root-relative path and root. */
   @VisibleForTesting // Only exists for testing.
   public Artifact(PathFragment rootRelativePath, ArtifactRoot root) {
-    this(root.getPath().getRelative(rootRelativePath), root,
-        root.getExecPath().getRelative(rootRelativePath), ArtifactOwner.NULL_OWNER);
+    this(
+        root.getRoot().getRelative(rootRelativePath),
+        root,
+        root.getExecPath().getRelative(rootRelativePath),
+        ArtifactOwner.NULL_OWNER);
   }
 
   public final Path getPath() {
@@ -665,7 +671,11 @@ public class Artifact
     } else {
       // Derived Artifact: path and root are under execRoot
       PathFragment execRoot = trimTail(path.asFragment(), execPath);
-      return "[[" + execRoot + "]" + root.getPath().asFragment().relativeTo(execRoot) + "]"
+      return "[["
+          + execRoot
+          + "]"
+          + root.getRoot().asPath().asFragment().relativeTo(execRoot)
+          + "]"
           + rootRelativePath;
     }
   }

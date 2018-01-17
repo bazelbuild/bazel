@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -201,7 +202,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       return ImmutableList.of();
     }
 
-    List<Path> roots = new ArrayList<>();
+    List<Root> roots = new ArrayList<>();
     if (repository.isMain()) {
       roots.addAll(pkgPath.getPathEntries());
     } else {
@@ -212,14 +213,14 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
         // "nothing".
         return ImmutableList.of();
       }
-      roots.add(repositoryValue.getPath());
+      roots.add(Root.fromPath(repositoryValue.getPath()));
     }
 
     // If we found a TargetsBelowDirectory pattern in the universe that contains this directory,
     // then we can look for packages in and under it in the graph. If we didn't find one, then the
     // directory wasn't in the universe, so return an empty list.
     ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
-    for (Path root : roots) {
+    for (Root root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       TraversalInfo info =
           new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories);

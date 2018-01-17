@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -212,7 +213,7 @@ public abstract class RepositoryFunction {
         Path file = rule.getPackage().getPackageDirectory().getRelative(filePathFragment);
         rootedPath =
             RootedPath.toRootedPath(
-                file.getParentDirectory(), PathFragment.create(file.getBaseName()));
+                Root.fromPath(file.getParentDirectory()), PathFragment.create(file.getBaseName()));
       }
 
       SkyKey fileSkyKey = FileValue.key(rootedPath);
@@ -281,7 +282,7 @@ public abstract class RepositoryFunction {
     }
 
     // And now for the file
-    Path packageRoot = pkgLookupValue.getRoot();
+    Root packageRoot = pkgLookupValue.getRoot();
     return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
   }
 
@@ -473,8 +474,10 @@ public abstract class RepositoryFunction {
   @Nullable
   protected static FileValue getRepositoryDirectory(Path repositoryDirectory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    SkyKey outputDirectoryKey = FileValue.key(RootedPath.toRootedPath(
-        repositoryDirectory, PathFragment.EMPTY_FRAGMENT));
+    SkyKey outputDirectoryKey =
+        FileValue.key(
+            RootedPath.toRootedPath(
+                Root.fromPath(repositoryDirectory), PathFragment.EMPTY_FRAGMENT));
     FileValue value;
     try {
       value = (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class);

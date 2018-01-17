@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -94,7 +95,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new AtomicReference<>(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.of(emptyPackagePath, rootDirectory),
+                ImmutableList.of(Root.fromPath(emptyPackagePath), Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
@@ -228,9 +229,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
 
     scratch.overwriteFile(
         ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_blacklisted");
-    RootedPath rootedBlacklist = RootedPath.toRootedPath(
-        blacklist.getParentDirectory().getParentDirectory(),
-        PathFragment.create("config/blacklisted.txt"));
+    RootedPath rootedBlacklist =
+        RootedPath.toRootedPath(
+            Root.fromPath(blacklist.getParentDirectory().getParentDirectory()),
+            PathFragment.create("config/blacklisted.txt"));
     differencer.invalidate(ImmutableSet.of(FileStateValue.key(rootedBlacklist)));
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
@@ -261,7 +263,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("parentpackage/everythinggood/BUILD");
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/everythinggood");
     assertThat(packageLookupValue.packageExists()).isTrue();
-    assertThat(packageLookupValue.getRoot()).isEqualTo(rootDirectory);
+    assertThat(packageLookupValue.getRoot()).isEqualTo(Root.fromPath(rootDirectory));
     assertThat(packageLookupValue.getBuildFileName()).isEqualTo(BuildFileName.BUILD);
   }
 
@@ -270,7 +272,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("parentpackage/everythinggood/BUILD.bazel");
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/everythinggood");
     assertThat(packageLookupValue.packageExists()).isTrue();
-    assertThat(packageLookupValue.getRoot()).isEqualTo(rootDirectory);
+    assertThat(packageLookupValue.getRoot()).isEqualTo(Root.fromPath(rootDirectory));
     assertThat(packageLookupValue.getBuildFileName()).isEqualTo(BuildFileName.BUILD_DOT_BAZEL);
   }
 
@@ -280,7 +282,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("parentpackage/everythinggood/BUILD.bazel");
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/everythinggood");
     assertThat(packageLookupValue.packageExists()).isTrue();
-    assertThat(packageLookupValue.getRoot()).isEqualTo(rootDirectory);
+    assertThat(packageLookupValue.getRoot()).isEqualTo(Root.fromPath(rootDirectory));
     assertThat(packageLookupValue.getBuildFileName()).isEqualTo(BuildFileName.BUILD_DOT_BAZEL);
   }
 
@@ -292,7 +294,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     // BUILD file in the first package path should be preferred to BUILD.bazel in the second.
     PackageLookupValue packageLookupValue = lookupPackage("foo");
     assertThat(packageLookupValue.packageExists()).isTrue();
-    assertThat(packageLookupValue.getRoot()).isEqualTo(emptyPackagePath);
+    assertThat(packageLookupValue.getRoot()).isEqualTo(Root.fromPath(emptyPackagePath));
     assertThat(packageLookupValue.getBuildFileName()).isEqualTo(BuildFileName.BUILD);
   }
 
@@ -301,7 +303,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("BUILD");
     PackageLookupValue packageLookupValue = lookupPackage("");
     assertThat(packageLookupValue.packageExists()).isTrue();
-    assertThat(packageLookupValue.getRoot()).isEqualTo(rootDirectory);
+    assertThat(packageLookupValue.getRoot()).isEqualTo(Root.fromPath(rootDirectory));
     assertThat(packageLookupValue.getBuildFileName()).isEqualTo(BuildFileName.BUILD);
   }
 
@@ -311,13 +313,13 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     PackageLookupValue packageLookupValue = lookupPackage(
         PackageIdentifier.createInMainRepo("external"));
     assertThat(packageLookupValue.packageExists()).isTrue();
-    assertThat(packageLookupValue.getRoot()).isEqualTo(rootDirectory);
+    assertThat(packageLookupValue.getRoot()).isEqualTo(Root.fromPath(rootDirectory));
   }
 
   @Test
   public void testPackageLookupValueHashCodeAndEqualsContract() throws Exception {
-    Path root1 = rootDirectory.getRelative("root1");
-    Path root2 = rootDirectory.getRelative("root2");
+    Root root1 = Root.fromPath(rootDirectory.getRelative("root1"));
+    Root root2 = Root.fromPath(rootDirectory.getRelative("root2"));
     // Our (seeming) duplication of parameters here is intentional. Some of the subclasses of
     // PackageLookupValue are supposed to have reference equality semantics, and some are supposed
     // to have logical equality semantics.

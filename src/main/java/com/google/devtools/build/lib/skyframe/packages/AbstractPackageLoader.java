@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -215,7 +216,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PathPackageLocator pkgLocator =
         new PathPackageLocator(
             null,
-            ImmutableList.of(workspaceDir),
+            ImmutableList.of(Root.fromPath(workspaceDir)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     this.ruleClassProvider = builder.ruleClassProvider;
     this.skylarkSemantics = builder.skylarkSemantics;

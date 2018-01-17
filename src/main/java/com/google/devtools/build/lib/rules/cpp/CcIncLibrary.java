@@ -93,7 +93,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
             .getRelative(packageFragment)
             .getRelative(includeDirectory);
     Path includeRoot =
-        configIncludeDirectory.getPath().getRelative(packageFragment).getRelative(includeDirectory);
+        configIncludeDirectory.getRoot().getRelative(packageFragment).getRelative(includeDirectory);
 
     // For every source artifact, we compute a virtual artifact that is below the include directory.
     // These are used for include checking.

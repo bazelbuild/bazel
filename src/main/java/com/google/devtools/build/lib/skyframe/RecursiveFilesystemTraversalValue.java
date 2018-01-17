@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileType;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -167,7 +167,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * <p>This method can be used when a package is found out to be under a different root path than
      * originally assumed.
      */
-    TraversalRequest forChangedRootPath(Path newRoot) {
+    TraversalRequest forChangedRootPath(Root newRoot) {
       return duplicate(RootedPath.toRootedPath(newRoot, path.getRelativePath()),
           skipTestingForSubpackage);
     }

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -58,7 +59,8 @@ public class FilesetManifestTest {
     // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
     scratchFile("/root/_foo/MANIFEST");
 
-    Artifact artifact = new Artifact(fs.getPath("/root/foo"), ArtifactRoot.asSourceRoot(execRoot));
+    Artifact artifact =
+        new Artifact(fs.getPath("/root/foo"), ArtifactRoot.asSourceRoot(Root.fromPath(execRoot)));
     FilesetManifest manifest =
         FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries()).isEmpty();

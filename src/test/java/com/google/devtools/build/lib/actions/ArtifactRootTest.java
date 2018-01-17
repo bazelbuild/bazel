@@ -20,6 +20,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,10 +34,10 @@ public class ArtifactRootTest {
   @Test
   public void testAsSourceRoot() throws IOException {
     Path sourceDir = scratch.dir("/source");
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(sourceDir);
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(sourceDir));
     assertThat(root.isSourceRoot()).isTrue();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
-    assertThat(root.getPath()).isEqualTo(sourceDir);
+    assertThat(root.getRoot()).isEqualTo(Root.fromPath(sourceDir));
     assertThat(root.toString()).isEqualTo("/source[source]");
   }
 
@@ -56,7 +57,7 @@ public class ArtifactRootTest {
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
     assertThat(root.isSourceRoot()).isFalse();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.create("root"));
-    assertThat(root.getPath()).isEqualTo(rootDir);
+    assertThat(root.getRoot()).isEqualTo(Root.fromPath(rootDir));
     assertThat(root.toString()).isEqualTo("/exec/root[derived]");
   }
 
@@ -109,8 +110,8 @@ public class ArtifactRootTest {
     Path sourceDir = scratch.dir("/source");
     ArtifactRoot rootA = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
     assertEqualsAndHashCode(true, rootA, ArtifactRoot.asDerivedRoot(execRoot, rootDir));
-    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(sourceDir));
-    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(rootDir));
+    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(Root.fromPath(sourceDir)));
+    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(Root.fromPath(rootDir)));
     assertEqualsAndHashCode(false, rootA, ArtifactRoot.asDerivedRoot(otherRootDir, rootDir));
   }
 

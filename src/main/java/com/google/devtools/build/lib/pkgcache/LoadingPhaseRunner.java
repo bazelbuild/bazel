@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -57,13 +57,11 @@ public abstract class LoadingPhaseRunner {
       @Nullable LoadingCallback callback)
       throws TargetParsingException, LoadingFailedException, InterruptedException;
 
-  /**
-   * Returns a map of collected package names to root paths.
-   */
-  public static ImmutableMap<PackageIdentifier, Path> collectPackageRoots(
+  /** Returns a map of collected package names to root paths. */
+  public static ImmutableMap<PackageIdentifier, Root> collectPackageRoots(
       Collection<Package> packages) {
     // Make a map of the package names to their root paths.
-    ImmutableMap.Builder<PackageIdentifier, Path> packageRoots = ImmutableMap.builder();
+    ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
     for (Package pkg : packages) {
       packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot());
     }

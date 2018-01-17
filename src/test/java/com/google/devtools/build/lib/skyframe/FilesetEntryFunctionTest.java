@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -84,7 +85,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         new AtomicReference<>(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.of(rootDirectory),
+                ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
@@ -129,7 +130,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   private Artifact getSourceArtifact(String path) throws Exception {
-    return new Artifact(PathFragment.create(path), ArtifactRoot.asSourceRoot(rootDirectory));
+    return new Artifact(
+        PathFragment.create(path), ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)));
   }
 
   private Artifact createSourceArtifact(String path) throws Exception {
@@ -139,18 +141,18 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   private static RootedPath rootedPath(Artifact artifact) {
-    return RootedPath.toRootedPath(artifact.getRoot().getPath(), artifact.getRootRelativePath());
+    return RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getRootRelativePath());
   }
 
   private static RootedPath childOf(Artifact artifact, String relative) {
     return RootedPath.toRootedPath(
-        artifact.getRoot().getPath(), artifact.getRootRelativePath().getRelative(relative));
+        artifact.getRoot().getRoot(), artifact.getRootRelativePath().getRelative(relative));
   }
 
   private static RootedPath siblingOf(Artifact artifact, String relative) {
     PathFragment parent =
         Preconditions.checkNotNull(artifact.getRootRelativePath().getParentDirectory());
-    return RootedPath.toRootedPath(artifact.getRoot().getPath(), parent.getRelative(relative));
+    return RootedPath.toRootedPath(artifact.getRoot().getRoot(), parent.getRelative(relative));
   }
 
   private void createFile(Path path, String... contents) throws Exception {

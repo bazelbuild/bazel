@@ -66,8 +66,8 @@ public class ExecutableSymlinkActionTest {
 
   @Test
   public void testSimple() throws Exception {
-    Path inputFile = inputRoot.getPath().getChild("some-file");
-    Path outputFile = outputRoot.getPath().getChild("some-output");
+    Path inputFile = inputRoot.getRoot().getRelative("some-file");
+    Path outputFile = outputRoot.getRoot().getRelative("some-output");
     FileSystemUtils.createEmptyFile(inputFile);
     inputFile.setExecutable(/*executable=*/true);
     Artifact input = new Artifact(inputFile, inputRoot);
@@ -80,10 +80,10 @@ public class ExecutableSymlinkActionTest {
 
   @Test
   public void testFailIfInputIsNotAFile() throws Exception {
-    Path dir = inputRoot.getPath().getChild("some-dir");
+    Path dir = inputRoot.getRoot().getRelative("some-dir");
     FileSystemUtils.createDirectoryAndParents(dir);
     Artifact input = new Artifact(dir, inputRoot);
-    Artifact output = new Artifact(outputRoot.getPath().getChild("some-output"), outputRoot);
+    Artifact output = new Artifact(outputRoot.getRoot().getRelative("some-output"), outputRoot);
     ExecutableSymlinkAction action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, input, output);
     try {
       action.execute(createContext());
@@ -95,11 +95,11 @@ public class ExecutableSymlinkActionTest {
 
   @Test
   public void testFailIfInputIsNotExecutable() throws Exception {
-    Path file = inputRoot.getPath().getChild("some-file");
+    Path file = inputRoot.getRoot().getRelative("some-file");
     FileSystemUtils.createEmptyFile(file);
     file.setExecutable(/*executable=*/false);
     Artifact input = new Artifact(file, inputRoot);
-    Artifact output = new Artifact(outputRoot.getPath().getChild("some-output"), outputRoot);
+    Artifact output = new Artifact(outputRoot.getRoot().getRelative("some-output"), outputRoot);
     ExecutableSymlinkAction action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, input, output);
     try {
       action.execute(createContext());

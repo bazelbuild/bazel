@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Optional;
 
 /**
@@ -30,12 +30,12 @@ public class PackageRootsNoSymlinkCreation implements PackageRoots {
   private final ArtifactRoot sourceRoot;
 
   @VisibleForTesting
-  public PackageRootsNoSymlinkCreation(Path sourcePath) {
+  public PackageRootsNoSymlinkCreation(Root sourcePath) {
     this.sourceRoot = ArtifactRoot.asSourceRoot(sourcePath);
   }
 
   @Override
-  public Optional<ImmutableMap<PackageIdentifier, Path>> getPackageRootsMap() {
+  public Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap() {
     return Optional.empty();
   }
 

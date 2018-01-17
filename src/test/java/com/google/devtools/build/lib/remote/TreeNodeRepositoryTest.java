@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Directory;
@@ -53,7 +54,7 @@ public class TreeNodeRepositoryTest {
     digestUtil = new DigestUtil(HashFunction.SHA256);
     scratch = new Scratch(new InMemoryFileSystem(BlazeClock.instance(), HashFunction.SHA256));
     execRoot = scratch.getFileSystem().getPath("/exec/root");
-    rootDir = ArtifactRoot.asSourceRoot(scratch.dir("/exec/root"));
+    rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/exec/root")));
   }
 
   private TreeNodeRepository createTestTreeNodeRepository() {

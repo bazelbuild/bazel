@@ -149,7 +149,7 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkArgument(!execPath.isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
     execPath = execPath.normalize();
-    return getArtifact(root.getPath().getRelative(execPath), root, execPath, owner, null);
+    return getArtifact(root.getRoot().getRelative(execPath), root, execPath, owner, null);
   }
 
   @Override
@@ -161,10 +161,10 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkArgument(!root.isSourceRoot());
     Preconditions.checkArgument(!rootRelativePath.isAbsolute(), rootRelativePath);
     Preconditions.checkArgument(rootRelativePath.isNormalized(), rootRelativePath);
-    Preconditions.checkArgument(root.getPath().startsWith(execRootParent), "%s %s", root,
-        execRootParent);
-    Preconditions.checkArgument(!root.getPath().equals(execRootParent), "%s %s", root,
-        execRootParent);
+    Preconditions.checkArgument(
+        root.getRoot().asPath().startsWith(execRootParent), "%s %s", root, execRootParent);
+    Preconditions.checkArgument(
+        !root.getRoot().asPath().equals(execRootParent), "%s %s", root, execRootParent);
     // TODO(bazel-team): this should only accept roots from derivedRoots.
     //Preconditions.checkArgument(derivedRoots.contains(root), "%s not in %s", root, derivedRoots);
   }
@@ -180,7 +180,7 @@ public class ArtifactFactory implements ArtifactResolver {
   public Artifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getPath().getRelative(rootRelativePath);
+    Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(path, root, path.relativeTo(root.getExecRoot()), owner, null);
   }
 
@@ -195,7 +195,7 @@ public class ArtifactFactory implements ArtifactResolver {
   public Artifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getPath().getRelative(rootRelativePath);
+    Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
         path, root, path.relativeTo(root.getExecRoot()), owner, SpecialArtifactType.FILESET);
   }
@@ -210,7 +210,7 @@ public class ArtifactFactory implements ArtifactResolver {
   public Artifact getTreeArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getPath().getRelative(rootRelativePath);
+    Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
         path, root, path.relativeTo(root.getExecRoot()), owner, SpecialArtifactType.TREE);
   }
@@ -218,7 +218,7 @@ public class ArtifactFactory implements ArtifactResolver {
   public Artifact getConstantMetadataArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getPath().getRelative(rootRelativePath);
+    Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
         path, root, path.relativeTo(root.getExecRoot()), owner,
         SpecialArtifactType.CONSTANT_METADATA);
@@ -395,7 +395,7 @@ public class ArtifactFactory implements ArtifactResolver {
     ArtifactRoot sourceRoot =
         packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
     if (sourceRoot != null) {
-      return sourceRoot.getPath().getRelative(execPath);
+      return sourceRoot.getRoot().getRelative(execPath);
     }
     return execRoot.getRelative(execPath);
   }

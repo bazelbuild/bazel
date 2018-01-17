@@ -1008,6 +1008,6 @@ public final class SkylarkRuleContext implements SkylarkValue {
   public String getBuildFileRelativePath() throws EvalException {
     checkMutable("build_file_path");
     Package pkg = ruleContext.getRule().getPackage();
-    return pkg.getBuildFile().getPath().relativeTo(pkg.getSourceRoot()).getPathString();
+    return pkg.getSourceRoot().relativize(pkg.getBuildFile().getPath()).getPathString();
   }
 }

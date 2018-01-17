@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -73,9 +74,9 @@ public class ArtifactFactoryTest {
   @Before
   public final void createFiles() throws Exception  {
     execRoot = scratch.dir("/output/workspace");
-    clientRoot = ArtifactRoot.asSourceRoot(scratch.dir("/client/workspace"));
-    clientRoRoot = ArtifactRoot.asSourceRoot(scratch.dir("/client/RO/workspace"));
-    alienRoot = ArtifactRoot.asSourceRoot(scratch.dir("/client/workspace"));
+    clientRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/client/workspace")));
+    clientRoRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/client/RO/workspace")));
+    alienRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/client/workspace")));
     outRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out-root/x/bin"));
 
     fooPath = PathFragment.create("foo");
@@ -135,11 +136,11 @@ public class ArtifactFactoryTest {
   public void testResolveArtifact_noDerived_derivedRoot() throws Exception {
     assertThat(
             artifactFactory.resolveSourceArtifact(
-                outRoot.getPath().getRelative(fooRelative).relativeTo(execRoot), MAIN))
+                outRoot.getRoot().getRelative(fooRelative).relativeTo(execRoot), MAIN))
         .isNull();
     assertThat(
             artifactFactory.resolveSourceArtifact(
-                outRoot.getPath().getRelative(barRelative).relativeTo(execRoot), MAIN))
+                outRoot.getRoot().getRelative(barRelative).relativeTo(execRoot), MAIN))
         .isNull();
   }
 
@@ -159,8 +160,7 @@ public class ArtifactFactoryTest {
         ImmutableMap.of(PackageIdentifier.createInMainRepo(PathFragment.create("")), clientRoot);
     artifactFactory.setPackageRoots(packageRoots::get);
     PathFragment outsideWorkspace = PathFragment.create("../foo");
-    PathFragment insideWorkspace =
-        PathFragment.create("../" + clientRoot.getPath().getBaseName() + "/foo");
+    PathFragment insideWorkspace = PathFragment.create("../workspace/foo");
     assertThat(artifactFactory.resolveSourceArtifact(outsideWorkspace, MAIN)).isNull();
     assertWithMessage(
             "Up-level-containing paths that descend into the right workspace aren't allowed")

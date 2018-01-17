@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -304,8 +305,10 @@ public class FdoSupport {
         PrecomputedValue.dependOnBuildId(env);
       } else {
         Path path = fdoMode == FdoMode.AUTO_FDO ? getAutoFdoImportsPath(fdoProfile) : fdoProfile;
-        env.getValue(FileValue.key(RootedPath.toRootedPathMaybeUnderRoot(path,
-            ImmutableList.of(execRoot))));
+        env.getValue(
+            FileValue.key(
+                RootedPath.toRootedPathMaybeUnderRoot(
+                    path, ImmutableList.of(Root.fromPath(execRoot)))));
       }
     }
 

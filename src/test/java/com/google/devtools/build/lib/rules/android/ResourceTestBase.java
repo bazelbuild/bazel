@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -162,7 +163,7 @@ public abstract class ResourceTestBase {
   public void setup() {
     errorConsumer = new FakeRuleErrorConsumer();
     fileSystem = new InMemoryFileSystem();
-    root = ArtifactRoot.asSourceRoot(fileSystem.getRootDirectory());
+    root = ArtifactRoot.asSourceRoot(Root.fromFileSystemRoot(fileSystem));
   }
 
   @After
@@ -182,6 +183,6 @@ public abstract class ResourceTestBase {
   public Artifact getResource(String pathString) {
     Path path = fileSystem.getPath("/" + RESOURCE_ROOT + "/" + pathString);
     return new Artifact(
-        path, root, root.getExecPath().getRelative(path.relativeTo(root.getPath())), OWNER);
+        path, root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
   }
 }

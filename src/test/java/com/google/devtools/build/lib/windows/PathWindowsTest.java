@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.windows.WindowsFileSystem.WindowsPath;
@@ -282,8 +283,8 @@ public class PathWindowsTest {
     assertThat(child).isInstanceOf(WindowsPath.class);
     assertThat(child.startsWith(ancestor)).isTrue();
     assertThat(child.relativeTo(ancestor)).isEqualTo(PathFragment.create("baz"));
-    RootedPath actual = RootedPath.toRootedPath(ancestor, child);
-    assertThat(actual.getRoot()).isEqualTo(ancestor);
+    RootedPath actual = RootedPath.toRootedPath(Root.fromPath(ancestor), child);
+    assertThat(actual.getRoot()).isEqualTo(Root.fromPath(ancestor));
     assertThat(actual.getRelativePath()).isEqualTo(PathFragment.create("baz"));
   }
 

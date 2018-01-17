@@ -19,8 +19,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Set;
 
@@ -75,7 +75,7 @@ public interface FilesetTraversalParams {
      *
      * <p>This is typically the workspace root or some output tree's root (e.g. genfiles, binfiles).
      */
-    public abstract Path getRootPart();
+    public abstract Root getRootPart();
 
     /**
      * Returns the {@link #getRootPart() root}-relative part of the path.
@@ -96,12 +96,12 @@ public interface FilesetTraversalParams {
 
     static DirectTraversalRoot forPackage(Artifact buildFile) {
       return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
-          buildFile.getRoot().getPath(), buildFile.getRootRelativePath().getParentDirectory());
+          buildFile.getRoot().getRoot(), buildFile.getRootRelativePath().getParentDirectory());
     }
 
     static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
       return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
-          fileOrDirectory.getRoot().getPath(), fileOrDirectory.getRootRelativePath());
+          fileOrDirectory.getRoot().getRoot(), fileOrDirectory.getRootRelativePath());
     }
   }
 

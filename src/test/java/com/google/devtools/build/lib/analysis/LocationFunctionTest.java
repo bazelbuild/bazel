@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Arrays;
 import java.util.Collection;
@@ -50,7 +51,8 @@ public class LocationFunctionTest {
           fs.getPath(path),
           ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), fs.getPath("/exec/out")));
     } else {
-      return new Artifact(fs.getPath(path), ArtifactRoot.asSourceRoot(fs.getPath("/exec")));
+      return new Artifact(
+          fs.getPath(path), ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/exec"))));
     }
   }
 

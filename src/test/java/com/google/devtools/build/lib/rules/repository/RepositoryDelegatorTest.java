@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -82,7 +83,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         new AtomicReference<>(
             new PathPackageLocator(
                 root,
-                ImmutableList.of(root),
+                ImmutableList.of(Root.fromPath(root)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator,

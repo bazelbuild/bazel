@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.DelegatingWalkableGraph;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -219,7 +220,8 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
 
   protected void syncPackages(ModifiedFileSet modifiedFileSet) throws InterruptedException {
     getSkyframeExecutor()
-        .invalidateFilesUnderPathForTesting(reporter, modifiedFileSet, rootDirectory);
+        .invalidateFilesUnderPathForTesting(
+            reporter, modifiedFileSet, Root.fromPath(rootDirectory));
   }
 
   protected Set<Target> asTargetSet(Iterable<String> strLabels)

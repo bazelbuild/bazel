@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -216,7 +217,7 @@ public class NewRepositoryFileHandler {
         }
 
         // And now for the file
-        Path packageRoot = pkgLookupValue.getRoot();
+        Root packageRoot = pkgLookupValue.getRoot();
         rootedFile = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
       } else {
         // TODO(dmarting): deprecate using a path for the workspace_file attribute.
@@ -236,9 +237,10 @@ public class NewRepositoryFileHandler {
         if (file.isAbsolute()) {
           rootedFile =
               RootedPath.toRootedPath(
-                  fileTarget.getParentDirectory(), PathFragment.create(fileTarget.getBaseName()));
+                  Root.fromPath(fileTarget.getParentDirectory()),
+                  PathFragment.create(fileTarget.getBaseName()));
         } else {
-          rootedFile = RootedPath.toRootedPath(workspacePath, file);
+          rootedFile = RootedPath.toRootedPath(Root.fromPath(workspacePath), file);
         }
       }
       SkyKey fileKey = FileValue.key(rootedFile);

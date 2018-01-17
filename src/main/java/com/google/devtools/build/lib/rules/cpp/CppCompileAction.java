@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -904,16 +905,16 @@ public class CppCompileAction extends AbstractAction
       }
     }
     // Still not found: see if it is in a subdir of a declared package.
-    Path root = input.getRoot().getPath();
+    Root root = input.getRoot().getRoot();
     for (Path dir = input.getPath().getParentDirectory();;) {
       if (dir.getRelative(BUILD_PATH_FRAGMENT).exists()) {
         return false;  // Bad: this is a sub-package, not a subdir of a declared package.
       }
       dir = dir.getParentDirectory();
-      if (dir.equals(root)) {
+      if (dir.equals(root.asPath())) {
         return false;  // Bad: at the top, give up.
       }
-      if (declaredIncludeDirs.contains(dir.relativeTo(root))) {
+      if (declaredIncludeDirs.contains(root.relativize(dir))) {
         return true;  // OK: found under a declared dir.
       }
     }

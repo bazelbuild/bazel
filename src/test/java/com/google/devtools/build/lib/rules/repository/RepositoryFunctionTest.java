@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.FileValue.RegularFileValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -122,7 +123,8 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testFileValueToMarkerValue() throws Exception {
-    RootedPath path = RootedPath.toRootedPath(rootDirectory, scratch.file("foo", "bar"));
+    RootedPath path =
+        RootedPath.toRootedPath(Root.fromPath(rootDirectory), scratch.file("foo", "bar"));
 
     // Digest should be returned if the FileStateValue has it.
     FileStateValue fsv = new RegularFileStateValue(3, new byte[] {1, 2, 3, 4}, null);

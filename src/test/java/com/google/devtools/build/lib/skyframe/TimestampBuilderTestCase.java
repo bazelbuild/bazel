@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -160,7 +161,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new AtomicReference<>(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.of(rootDirectory),
+                ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     AtomicReference<TimestampGranularityMonitor> tsgmRef = new AtomicReference<>(tsgm);
     BlazeDirectories directories =
@@ -324,7 +325,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   Artifact createSourceArtifact(FileSystem fs, String name) {
     Path root = fs.getPath(TestUtils.tmpDir());
-    return new Artifact(PathFragment.create(name), ArtifactRoot.asSourceRoot(root));
+    return new Artifact(PathFragment.create(name), ArtifactRoot.asSourceRoot(Root.fromPath(root)));
   }
 
   protected Artifact createDerivedArtifact(String name) {

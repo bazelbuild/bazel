@@ -426,26 +426,23 @@ public final class AnalysisTestUtil {
     BuildConfiguration targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
     rootMap.put(
-        targetConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
-        "bin");
+        targetConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin");
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
-        targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
-        "bin");
+        targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getRoot().toString(), "bin");
     rootMap.put(
-        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
+        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getRoot().toString(),
         "internal");
 
     BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
     rootMap.put(
-        hostConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
-        "bin(host)");
+        hostConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin(host)");
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
     rootMap.put(
-        hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
+        hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getRoot().toString(),
         "bin(host)");
     rootMap.put(
-        hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
+        hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getRoot().toString(),
         "internal(host)");
 
     // The output paths that bin, genfiles, etc. refer to may or may not include the C++-contributed
@@ -466,10 +463,7 @@ public final class AnalysisTestUtil {
       if (root.isSourceRoot()) {
         files.add("src " + artifact.getRootRelativePath());
       } else {
-        String name = rootMap.get(root.getPath().toString());
-        if (name == null) {
-          name = "/";
-        }
+        String name = rootMap.getOrDefault(root.getRoot().toString(), "/");
         files.add(name + " " + artifact.getRootRelativePath());
       }
     }

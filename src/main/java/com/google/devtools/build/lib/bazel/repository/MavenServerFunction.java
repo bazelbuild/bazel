@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -102,9 +103,10 @@ public class MavenServerFunction implements SkyFunction {
         } else {
           PathFragment settingsFilePath =
               PathFragment.create(mapper.get("settings_file", Type.STRING));
-          RootedPath settingsPath = RootedPath.toRootedPath(
-              directories.getWorkspace().getRelative(settingsFilePath),
-              PathFragment.EMPTY_FRAGMENT);
+          RootedPath settingsPath =
+              RootedPath.toRootedPath(
+                  Root.fromPath(directories.getWorkspace().getRelative(settingsFilePath)),
+                  PathFragment.EMPTY_FRAGMENT);
           FileValue fileValue = (FileValue) env.getValue(FileValue.key(settingsPath));
           if (fileValue == null) {
             return null;
@@ -187,9 +189,11 @@ public class MavenServerFunction implements SkyFunction {
     if (m2Home != null) {
       PathFragment mavenInstallSettings =
           PathFragment.create(m2Home).getRelative("conf/settings.xml");
-      systemKey = FileValue.key(
-          RootedPath.toRootedPath(directories.getWorkspace().getRelative(mavenInstallSettings),
-              PathFragment.EMPTY_FRAGMENT));
+      systemKey =
+          FileValue.key(
+              RootedPath.toRootedPath(
+                  Root.fromPath(directories.getWorkspace().getRelative(mavenInstallSettings)),
+                  PathFragment.EMPTY_FRAGMENT));
       settingsFilesBuilder.add(systemKey);
     }
 
@@ -198,9 +202,11 @@ public class MavenServerFunction implements SkyFunction {
     SkyKey userKey = null;
     if (userHome != null) {
       PathFragment userSettings = PathFragment.create(userHome).getRelative(".m2/settings.xml");
-      userKey = FileValue.key(RootedPath.toRootedPath(
-          directories.getWorkspace().getRelative(userSettings),
-          PathFragment.EMPTY_FRAGMENT));
+      userKey =
+          FileValue.key(
+              RootedPath.toRootedPath(
+                  Root.fromPath(directories.getWorkspace().getRelative(userSettings)),
+                  PathFragment.EMPTY_FRAGMENT));
       settingsFilesBuilder.add(userKey);
     }
 

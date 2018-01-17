@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -92,9 +92,9 @@ public class DirtinessCheckerUtils {
   }
 
   static final class MissingDiffDirtinessChecker extends BasicFilesystemDirtinessChecker {
-    private final Set<Path> missingDiffPackageRoots;
+    private final Set<Root> missingDiffPackageRoots;
 
-    MissingDiffDirtinessChecker(final Set<Path> missingDiffPackageRoots) {
+    MissingDiffDirtinessChecker(final Set<Root> missingDiffPackageRoots) {
       this.missingDiffPackageRoots = missingDiffPackageRoots;
     }
 

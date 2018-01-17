@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -76,7 +77,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesSingleFile() throws Exception {
     Artifact artifact =
-        new Artifact(fs.getPath("/root/dir/file"), ArtifactRoot.asSourceRoot(fs.getPath("/root")));
+        new Artifact(
+            fs.getPath("/root/dir/file"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
@@ -91,7 +94,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesDirectoryStrict() throws Exception {
     Artifact artifact =
-        new Artifact(fs.getPath("/root/dir/file"), ArtifactRoot.asSourceRoot(fs.getPath("/root")));
+        new Artifact(
+            fs.getPath("/root/dir/file"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
@@ -108,7 +113,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesDirectoryNonStrict() throws Exception {
     Artifact artifact =
-        new Artifact(fs.getPath("/root/dir/file"), ArtifactRoot.asSourceRoot(fs.getPath("/root")));
+        new Artifact(
+            fs.getPath("/root/dir/file"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
     FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
@@ -124,9 +131,13 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesTwoFiles() throws Exception {
     Artifact artifact1 =
-        new Artifact(fs.getPath("/root/dir/file"), ArtifactRoot.asSourceRoot(fs.getPath("/root")));
+        new Artifact(
+            fs.getPath("/root/dir/file"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
     Artifact artifact2 =
-        new Artifact(fs.getPath("/root/dir/baz"), ArtifactRoot.asSourceRoot(fs.getPath("/root")));
+        new Artifact(
+            fs.getPath("/root/dir/baz"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
     Runfiles runfiles = new Runfiles.Builder("workspace")
         .addArtifact(artifact1)
         .addArtifact(artifact2)
@@ -147,7 +158,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesSymlink() throws Exception {
     Artifact artifact =
-        new Artifact(fs.getPath("/root/dir/file"), ArtifactRoot.asSourceRoot(fs.getPath("/root")));
+        new Artifact(
+            fs.getPath("/root/dir/file"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
     Runfiles runfiles = new Runfiles.Builder("workspace")
         .addSymlink(PathFragment.create("symlink"), artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
@@ -163,7 +176,9 @@ public class SpawnInputExpanderTest {
   @Test
   public void testRunfilesRootSymlink() throws Exception {
     Artifact artifact =
-        new Artifact(fs.getPath("/root/dir/file"), ArtifactRoot.asSourceRoot(fs.getPath("/root")));
+        new Artifact(
+            fs.getPath("/root/dir/file"),
+            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))));
     Runfiles runfiles = new Runfiles.Builder("workspace")
         .addRootSymlink(PathFragment.create("symlink"), artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
