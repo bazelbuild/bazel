@@ -925,6 +925,7 @@ function test_same_name() {
   zip ext.zip ext/*
   rm -rf ext
 
+  rm -rf main
   mkdir main
   cd main
   cat > WORKSPACE <<EOF
@@ -946,6 +947,55 @@ EOF
 
   bazel build //:localfoo \
     || fail 'Expected @ext//:foo and //:foo not to conflict'
+}
+
+function test_missing_build() {
+  mkdir ext
+  echo foo> ext/foo
+  EXTREPODIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+  build_file="@//:ext.BUILD",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "localfoo",
+  srcs = ["@ext//:foo"],
+  outs = ["foo"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:localfoo && fail 'Expected failure' || :
+
+  cat > ext.BUILD <<'EOF'
+exports_files(["foo"])
+EOF
+
+  bazel build //:localfoo || fail 'Expected success'
+
+  # Changes to the BUILD file in the external repository should be tracked
+  rm -f ext.BUILD && touch ext.BUILD
+
+  bazel build //:localfoo && fail 'Expected failure' || :
+
+  # Verify that we don't call out unconditionally
+  cat > ext.BUILD <<'EOF'
+exports_files(["foo"])
+EOF
+  bazel build //:localfoo || fail 'Expected success'
+  rm -f "${EXTREPODIR}/ext.zip"
+  bazel build //:localfoo || fail 'Expected success'
 }
 
 run_suite "external tests"
