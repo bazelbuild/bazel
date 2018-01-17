@@ -172,6 +172,12 @@ public class MobileInstallCommand implements BlazeCommand {
     WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
 
     if (mobileInstallOptions.mode == Mode.CLASSIC) {
+      // Notify internal users that classic mode is deprecated. Use mobile_install_aspect as a proxy
+      // for internal vs external users.
+      if (!mobileInstallOptions.mobileInstallAspect.startsWith("@")) {
+        env.getReporter().handle(Event.warn(
+            "mobile-install --mode=classic is deprecated. This option will go away soon."));
+      }
       if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
         env.getReporter().handle(Event.warn(
            "Warm start is enabled, but will have no effect on a non-incremental build"));
