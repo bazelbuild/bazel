@@ -406,7 +406,7 @@ public final class PackageFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
-    threadPool = new ThreadPoolExecutor(100, 100, 15L, TimeUnit.SECONDS,
+    threadPool = new ThreadPoolExecutor(100, Integer.MAX_VALUE, 15L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>(),
         new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").build());
     // Do not consume threads when not in use.
@@ -430,7 +430,6 @@ public final class PackageFactory {
    */
   public void setGlobbingThreads(int globbingThreads) {
     threadPool.setCorePoolSize(globbingThreads);
-    threadPool.setMaximumPoolSize(globbingThreads);
   }
 
   /**
