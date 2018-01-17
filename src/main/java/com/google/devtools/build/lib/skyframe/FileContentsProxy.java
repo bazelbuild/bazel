@@ -20,12 +20,13 @@ import java.util.Objects;
 
 /**
  * In case we can't get a fast digest from the filesystem, we store this metadata as a proxy to
- * the file contents. Currently it is a pair of the mtime and "value id", for which we xor the
- * inode (on Linux) and the ctime. We might want to add the device number in the future.
+ * the file contents. Currently it is a pair of a relevant timestamp and a "node id". On Linux the
+ * former is the ctime and the latter is the inode number. We might want to add the device number
+ * in the future.
  *
- * <p>For an example of why mtime alone is insufficient, note that 'mv' preserves timestamps. So if
- * files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged after
- * the user executes `mv a b` between two builds.
+ * <p>For a Linux example of why mtime alone is insufficient, note that 'mv' preserves timestamps.
+ * So if files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged
+ * after the user executes `mv a b` between two builds.
  */
 public final class FileContentsProxy implements Serializable {
   private final long ctime;
