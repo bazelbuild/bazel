@@ -1052,7 +1052,7 @@ public class ObjcRuleClasses {
               .direct_compile_time_input()
               .mandatoryProviders(ImmutableList.of(
                   SkylarkProviderIdentifier.forKey(
-                      AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR.getKey())))
+                      AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.getKey())))
               .allowedFileTypes()
               .aspect(objcProtoAspect))
           .build();

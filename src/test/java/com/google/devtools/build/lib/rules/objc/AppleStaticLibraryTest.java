@@ -122,7 +122,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider provider =  getConfiguredTarget("//package:test")
-        .get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR).getDepsObjcProvider();
+        .get(AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR).getDepsObjcProvider();
     // Do not remove SDK_FRAMEWORK values in avoid_deps.
     assertThat(provider.get(ObjcProvider.SDK_FRAMEWORK))
         .containsAllOf(new SdkFramework("AvoidSDK"), new SdkFramework("BaseSDK"));
@@ -485,8 +485,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   public void testAppleStaticLibraryProvider() throws Exception {
     RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
     ConfiguredTarget binTarget = getConfiguredTarget("//x:x");
-    AppleStaticLibraryProvider provider =
-        binTarget.get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR);
+    AppleStaticLibraryInfo provider =
+        binTarget.get(AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();

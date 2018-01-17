@@ -188,7 +188,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     targetBuilder
         .addNativeDeclaredProvider(
-            new AppleStaticLibraryProvider(
+            new AppleStaticLibraryInfo(
                 ruleIntermediateArtifacts.combinedArchitectureArchive(),
                 objcProvider))
         .addOutputGroups(outputGroupCollector);

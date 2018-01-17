@@ -278,13 +278,13 @@ public class MultiArchBinarySupport {
     // Dylibs.
     Iterable<ObjcProvider> frameworkObjcProviders =
         Streams.stream(getTypedProviders(transitiveInfoCollections,
-            AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR))
+            AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR))
         .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
         .collect(ImmutableList.toImmutableList());
     // Bundle Loaders.
     Iterable<ObjcProvider> executableObjcProviders =
         Streams.stream(getTypedProviders(transitiveInfoCollections,
-            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR))
+            AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR))
         .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
         .collect(ImmutableList.toImmutableList());
 

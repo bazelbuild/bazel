@@ -1046,18 +1046,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     if (objcProvider != null) {
       return objcProvider;
     }
-    AppleExecutableBinaryProvider executableProvider =
-        getConfiguredTarget(label).get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+    AppleExecutableBinaryInfo executableProvider =
+        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return executableProvider.getDepsObjcProvider();
     }
-    AppleDylibBinaryProvider dylibProvider =
-        getConfiguredTarget(label).get(AppleDylibBinaryProvider.SKYLARK_CONSTRUCTOR);
+    AppleDylibBinaryInfo dylibProvider =
+        getConfiguredTarget(label).get(AppleDylibBinaryInfo.SKYLARK_CONSTRUCTOR);
     if (dylibProvider != null) {
       return dylibProvider.getDepsObjcProvider();
     }
-    AppleLoadableBundleBinaryProvider loadableBundleProvider =
-        getConfiguredTarget(label).get(AppleLoadableBundleBinaryProvider.SKYLARK_CONSTRUCTOR);
+    AppleLoadableBundleBinaryInfo loadableBundleProvider =
+        getConfiguredTarget(label).get(AppleLoadableBundleBinaryInfo.SKYLARK_CONSTRUCTOR);
     if (loadableBundleProvider != null) {
       return loadableBundleProvider.getDepsObjcProvider();
     }

@@ -18,10 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /**
  * Provider containing information regarding multi-architecture Apple static libraries, as is
- * propagated that by the {@code apple_static_library} rule.
+ * propagated by the {@code apple_static_library} rule.
  *
  * <p>This provider contains:
  *
@@ -32,28 +35,32 @@ import com.google.devtools.build.lib.packages.NativeProvider;
  *       included in this archive multiple times).
  * </ul>
  */
-public final class AppleStaticLibraryProvider extends NativeInfo {
+@SkylarkModule(
+    name = "AppleStaticLibrary",
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "A provider containing information regarding multi-architecture Apple static libraries, "
+        + "as is propagated by the apple_static_library rule."
+)
+public final class AppleStaticLibraryInfo extends NativeInfo {
 
-  /** Skylark name for the AppleStaticLibraryProvider. */
+  /** Skylark name for the AppleStaticLibraryInfo. */
   public static final String SKYLARK_NAME = "AppleStaticLibrary";
 
-  /** Skylark constructor and identifier for AppleStaticLibraryProvider. */
-  public static final NativeProvider<AppleStaticLibraryProvider> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<AppleStaticLibraryProvider>(
-          AppleStaticLibraryProvider.class, SKYLARK_NAME) {};
+  /** Skylark constructor and identifier for AppleStaticLibraryInfo. */
+  public static final NativeProvider<AppleStaticLibraryInfo> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AppleStaticLibraryInfo>(
+          AppleStaticLibraryInfo.class, SKYLARK_NAME) {};
 
   private final Artifact multiArchArchive;
   private final ObjcProvider depsObjcProvider;
 
   /**
-   * Creates a new AppleStaticLibraryProvider provider that propagates the given
+   * Creates a new AppleStaticLibraryInfo provider that propagates the given
    * {@code apple_static_library} information.
    */
-  public AppleStaticLibraryProvider(Artifact multiArchArchive,
+  public AppleStaticLibraryInfo(Artifact multiArchArchive,
       ObjcProvider depsObjcProvider) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of(
-        "archive", multiArchArchive,
-        "objc", depsObjcProvider));
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.multiArchArchive = multiArchArchive;
     this.depsObjcProvider = depsObjcProvider;
   }
@@ -61,6 +68,10 @@ public final class AppleStaticLibraryProvider extends NativeInfo {
   /**
    * Returns the multi-architecture archive that {@code apple_static_library} created.
    */
+  @SkylarkCallable(name = "archive",
+      structField = true,
+      doc = "The multi-arch archive (.a) output by apple_static_library."
+  )
   public Artifact getMultiArchArchive() {
     return multiArchArchive;
   }
@@ -69,6 +80,11 @@ public final class AppleStaticLibraryProvider extends NativeInfo {
    * Returns the {@link ObjcProvider} which contains information about the transitive dependencies
    * linked into the archive.
    */
+  @SkylarkCallable(name = "objc",
+      structField = true,
+      doc = "A provider which contains information about the transitive dependencies linked into "
+          + "the archive."
+  )
   public ObjcProvider getDepsObjcProvider() {
     return depsObjcProvider;
   }

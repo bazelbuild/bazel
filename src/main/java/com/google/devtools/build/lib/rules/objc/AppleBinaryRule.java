@@ -129,7 +129,7 @@ public class AppleBinaryRule implements RuleDefinition {
                 .mandatoryProviders(
                     ImmutableList.of(
                         SkylarkProviderIdentifier.forKey(
-                            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey())))
+                            AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR.getKey())))
                 .allowedFileTypes()
                 .singleArtifact()
                 .aspect(objcProtoAspect))

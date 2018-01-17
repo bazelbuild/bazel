@@ -195,7 +195,7 @@ public class AppleSkylarkCommon {
   }
 
   @SkylarkCallable(
-    name = AppleDynamicFrameworkProvider.SKYLARK_NAME,
+    name = AppleDynamicFrameworkInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleDynamicFramework</code> provider.<p>"
             + "If a target propagates the <code>AppleDynamicFramework</code> provider, use this "
@@ -207,11 +207,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleDynamicFrameworkConstructor() {
-    return AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR;
+    return AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleDylibBinaryProvider.SKYLARK_NAME,
+    name = AppleDylibBinaryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleDylibBinary</code> provider.<p>"
             + "If a target propagates the <code>AppleDylibBinary</code> provider, use this as the "
@@ -223,11 +223,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleDylibBinaryConstructor() {
-    return AppleDylibBinaryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleDylibBinaryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleExecutableBinaryProvider.SKYLARK_NAME,
+    name = AppleExecutableBinaryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleExecutableBinary</code> provider.<p>"
             + "If a target propagates the <code>AppleExecutableBinary</code> provider,"
@@ -239,11 +239,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleExecutableBinaryConstructor() {
-    return AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleStaticLibraryProvider.SKYLARK_NAME,
+    name = AppleStaticLibraryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleStaticLibrary</code> provider.<p>"
             + "If a target propagates the <code>AppleStaticLibrary</code> provider, use "
@@ -255,11 +255,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleStaticLibraryProvider() {
-    return AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleDebugOutputsProvider.SKYLARK_NAME,
+    name = AppleDebugOutputsInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleDebugOutputs</code> provider.<p>"
             + "If a target propagates the <code>AppleDebugOutputs</code> provider, use this as the "
@@ -271,11 +271,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleDebugOutputsConstructor() {
-    return AppleDebugOutputsProvider.SKYLARK_CONSTRUCTOR;
+    return AppleDebugOutputsInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleLoadableBundleBinaryProvider.SKYLARK_NAME,
+    name = AppleLoadableBundleBinaryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleLoadableBundleBinary</code> provider.<p>"
             + "If a target propagates the <code>AppleLoadableBundleBinary</code> provider, "
@@ -287,7 +287,7 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleLoadableBundleBinaryConstructor() {
-    return AppleLoadableBundleBinaryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleLoadableBundleBinaryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
@@ -449,19 +449,19 @@ public class AppleSkylarkCommon {
   @SkylarkSignature(
     name = "new_dynamic_framework_provider",
     objectType = AppleSkylarkCommon.class,
-    returnType = AppleDynamicFrameworkProvider.class,
+    returnType = AppleDynamicFrameworkInfo.class,
     doc = "Creates a new AppleDynamicFramework provider instance.",
     parameters = {
       @Param(name = "self", type = AppleSkylarkCommon.class, doc = "The apple_common instance."),
       @Param(
-        name = AppleDynamicFrameworkProvider.DYLIB_BINARY_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.DYLIB_BINARY_FIELD_NAME,
         type = Artifact.class,
         named = true,
         positional = false,
         doc = "The dylib binary artifact of the dynamic framework."
       ),
       @Param(
-        name = AppleDynamicFrameworkProvider.OBJC_PROVIDER_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.OBJC_PROVIDER_FIELD_NAME,
         type = ObjcProvider.class,
         named = true,
         positional = false,
@@ -470,7 +470,7 @@ public class AppleSkylarkCommon {
                 + "dependencies linked into the binary."
       ),
       @Param(
-        name = AppleDynamicFrameworkProvider.FRAMEWORK_DIRS_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.FRAMEWORK_DIRS_FIELD_NAME,
         type = SkylarkNestedSet.class,
         generic1 = String.class,
         named = true,
@@ -482,7 +482,7 @@ public class AppleSkylarkCommon {
                 + "framework."
       ),
       @Param(
-        name = AppleDynamicFrameworkProvider.FRAMEWORK_FILES_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.FRAMEWORK_FILES_FIELD_NAME,
         type = SkylarkNestedSet.class,
         generic1 = Artifact.class,
         named = true,
@@ -499,7 +499,7 @@ public class AppleSkylarkCommon {
       new BuiltinFunction("new_dynamic_framework_provider") {
         @SuppressWarnings("unused")
         // This method is registered statically for skylark, and never called directly.
-        public AppleDynamicFrameworkProvider invoke(
+        public AppleDynamicFrameworkInfo invoke(
             AppleSkylarkCommon self,
             Artifact dylibBinary,
             ObjcProvider depsObjcProvider,
@@ -520,7 +520,7 @@ public class AppleSkylarkCommon {
               dynamicFrameworkFiles != Runtime.NONE
                   ? ((SkylarkNestedSet) dynamicFrameworkFiles).getSet(Artifact.class)
                   : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-          return new AppleDynamicFrameworkProvider(
+          return new AppleDynamicFrameworkInfo(
               dylibBinary, depsObjcProvider, frameworkDirs, frameworkFiles);
         }
       };

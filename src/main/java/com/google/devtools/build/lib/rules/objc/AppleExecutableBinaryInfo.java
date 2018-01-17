@@ -16,42 +16,51 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
  * the 'executable' type. This provider contains:
  *
  * <ul>
- *   <li>'binary': The dylib artifact output by apple_binary
+ *   <li>'binary': The executable binary artifact output by apple_binary
  *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
  *       dependencies linked into the binary, (intended so that bundle loaders depending on this
  *       executable may avoid relinking symbols included in the loadable binary
  * </ul>
  */
-public final class AppleExecutableBinaryProvider extends NativeInfo {
+@Immutable
+@SkylarkModule(
+    name = "AppleExecutableBinary",
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "A provider containing the executable binary output that was built using an "
+        + "apple_binary target with the 'executable' type."
+)
+public final class AppleExecutableBinaryInfo extends NativeInfo {
 
-  /** Skylark name for the AppleExecutableBinaryProvider. */
+  /** Skylark name for the AppleExecutableBinaryInfo. */
   public static final String SKYLARK_NAME = "AppleExecutableBinary";
 
-  /** Skylark constructor and identifier for AppleExecutableBinaryProvider. */
-  public static final NativeProvider<AppleExecutableBinaryProvider> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<AppleExecutableBinaryProvider>(
-          AppleExecutableBinaryProvider.class, SKYLARK_NAME) {};
+  /** Skylark constructor and identifier for AppleExecutableBinaryInfo. */
+  public static final NativeProvider<AppleExecutableBinaryInfo> SKYLARK_CONSTRUCTOR =
+      new NativeProvider<AppleExecutableBinaryInfo>(
+          AppleExecutableBinaryInfo.class, SKYLARK_NAME) {};
 
   private final Artifact appleExecutableBinary;
   private final ObjcProvider depsObjcProvider;
 
   /**
-   * Creates a new AppleExecutableBinaryProvider provider that propagates the given apple_binary
+   * Creates a new AppleExecutableBinaryInfo provider that propagates the given apple_binary
    * configured as an executable.
    */
-  public AppleExecutableBinaryProvider(Artifact appleExecutableBinary,
+  public AppleExecutableBinaryInfo(Artifact appleExecutableBinary,
       ObjcProvider depsObjcProvider) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of(
-        "binary", appleExecutableBinary,
-        "objc", depsObjcProvider));
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.appleExecutableBinary = appleExecutableBinary;
     this.depsObjcProvider = depsObjcProvider;
   }
@@ -59,6 +68,10 @@ public final class AppleExecutableBinaryProvider extends NativeInfo {
   /**
    * Returns the multi-architecture executable binary that apple_binary created.
    */
+  @SkylarkCallable(name = "binary",
+      structField = true,
+      doc = "The executable binary file output by apple_binary."
+  )
   public Artifact getAppleExecutableBinary() {
     return appleExecutableBinary;
   }
@@ -67,6 +80,11 @@ public final class AppleExecutableBinaryProvider extends NativeInfo {
    * Returns the {@link ObjcProvider} which contains information about the transitive dependencies
    * linked into the dylib.
    */
+  @SkylarkCallable(name = "objc",
+      structField = true,
+      doc = "A provider which contains information about the transitive dependencies linked into "
+          + "the binary."
+  )
   public ObjcProvider getDepsObjcProvider() {
     return depsObjcProvider;
   }
