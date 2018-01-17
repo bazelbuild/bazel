@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
@@ -82,6 +83,25 @@ class Marshallers {
     if (requiresNullityCheck(context)) {
       context.builder.endControlFlow();
     }
+  }
+
+  /**
+   *  Writes out the deserialization loop and build code for any entity serialized as a list.
+   *
+   * @param context context object for list with possibly another type.
+   * @param repeated context for generic type deserialization.
+   * @param builderName String for referencing the entity builder.
+   */
+  void writeListDeserializationLoopAndBuild(Context context, Context repeated, String builderName) {
+    String lengthName = context.makeName("length");
+    context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
+    String indexName = context.makeName("i");
+    context.builder.beginControlFlow(
+        "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
+    writeDeserializationCode(repeated);
+    context.builder.addStatement("$L.add($L)", builderName, repeated.name);
+    context.builder.endControlFlow();
+    context.builder.addStatement("$L = $L.build()", context.name, builderName);
   }
 
   private static boolean requiresNullityCheck(Context context) {
@@ -333,15 +353,36 @@ class Marshallers {
               repeated.getTypeName(),
               builderName,
               ImmutableList.Builder.class);
-          String lengthName = context.makeName("length");
-          context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-          String indexName = context.makeName("i");
-          context.builder.beginControlFlow(
-              "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-          writeDeserializationCode(repeated);
-          context.builder.addStatement("$L.add($L)", builderName, repeated.name);
-          context.builder.endControlFlow();
-          context.builder.addStatement("$L = $L.build()", context.name, builderName);
+          writeListDeserializationLoopAndBuild(context, repeated, builderName);
+        }
+      };
+
+  private final Marshaller immutableSetMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesErased(type, ImmutableSet.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          listMarshaller.addSerializationCode(context);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          Context repeated =
+              context.with(
+                  (DeclaredType) context.getDeclaredType().getTypeArguments().get(0),
+                  context.makeName("repeated"));
+          String builderName = context.makeName("builder");
+          context.builder.addStatement(
+              "$T<$T> $L = new $T<>()",
+              ImmutableSet.Builder.class,
+              repeated.getTypeName(),
+              builderName,
+              ImmutableSet.Builder.class);
+          writeListDeserializationLoopAndBuild(context, repeated, builderName);
         }
       };
 
@@ -371,15 +412,7 @@ class Marshallers {
               builderName,
               ImmutableSortedSet.Builder.class,
               Comparator.class);
-          String lengthName = context.makeName("length");
-          context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-          String indexName = context.makeName("i");
-          context.builder.beginControlFlow(
-              "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-          writeDeserializationCode(repeated);
-          context.builder.addStatement("$L.add($L)", builderName, repeated.name);
-          context.builder.endControlFlow();
-          context.builder.addStatement("$L = $L.build()", context.name, builderName);
+          writeListDeserializationLoopAndBuild(context, repeated, builderName);
         }
       };
 
@@ -678,6 +711,7 @@ class Marshallers {
           optionalMarshaller,
           mapEntryMarshaller,
           listMarshaller,
+          immutableSetMarshaller,
           immutableSortedSetMarshaller,
           mapMarshaller,
           immutableMapMarshaller,
