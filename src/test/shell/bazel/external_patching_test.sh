@@ -77,6 +77,21 @@ EOF
   grep -q 'There are' $foopath || fail "expected patch to be applied"
   grep env $foopath && fail "expected patch commands to be executed" || :
 
+  # Verify that changes to the patch files trigger enough rebuilding
+  cat > patch_foo.sh <<'EOF'
+--- foo.sh.orig	2018-01-15 10:39:20.183909147 +0100
++++ foo.sh	2018-01-15 10:43:35.331566052 +0100
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo completely differently patched
+EOF
+  bazel build :foo.sh
+  foopath=`bazel info bazel-genfiles`/foo.sh
+  grep -q 'differently patched' $foopath \
+      || fail "expected the new patch to be applied"
+
   # Verify that changes to the patches attribute trigger enough rebuilding
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
