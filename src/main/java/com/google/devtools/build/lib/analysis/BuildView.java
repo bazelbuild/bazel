@@ -21,6 +21,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -80,6 +81,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStati
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
@@ -894,13 +896,15 @@ public class BuildView {
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException,
       InterruptedException, InconsistentAspectOrderException {
-    return skyframeExecutor.getConfiguredTargets(
-        eventHandler,
-        ct.getConfiguration(),
-        ImmutableSet.copyOf(
-            getDirectPrerequisiteDependenciesForTesting(
-                    eventHandler, ct, configurations, /*toolchainContext=*/ null)
-                .values()));
+    return Collections2.transform(
+        skyframeExecutor.getConfiguredTargets(
+            eventHandler,
+            ct.getConfiguration(),
+            ImmutableSet.copyOf(
+                getDirectPrerequisiteDependenciesForTesting(
+                        eventHandler, ct, configurations, /*toolchainContext=*/ null)
+                    .values())),
+        ConfiguredTargetAndTarget::getConfiguredTarget);
   }
 
   @VisibleForTesting
@@ -1002,7 +1006,7 @@ public class BuildView {
     return ImmutableMap.copyOf(keys);
   }
 
-  private OrderedSetMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
+  private OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> getPrerequisiteMapForTesting(
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
       BuildConfigurationCollection configurations,
@@ -1013,11 +1017,11 @@ public class BuildView {
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainContext);
 
-    ImmutableMultimap<Dependency, ConfiguredTarget> cts = skyframeExecutor.getConfiguredTargetMap(
-        eventHandler,
-        target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()));
+    ImmutableMultimap<Dependency, ConfiguredTargetAndTarget> cts =
+        skyframeExecutor.getConfiguredTargetMap(
+            eventHandler, target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()));
 
-    OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
       result.putAll(entry.getKey(), cts.get(entry.getValue()));
     }
@@ -1111,7 +1115,7 @@ public class BuildView {
     ToolchainContext toolchainContext =
         skyframeExecutor.getToolchainContextForTesting(
             requiredToolchains, targetConfig, eventHandler);
-    OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap =
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap =
         getPrerequisiteMapForTesting(eventHandler, target, configurations, toolchainContext);
     toolchainContext.resolveToolchains(prerequisiteMap);
 
@@ -1147,13 +1151,13 @@ public class BuildView {
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
              InconsistentAspectOrderException {
-    Collection<ConfiguredTarget> configuredTargets =
+    Collection<ConfiguredTargetAndTarget> configuredTargets =
         getPrerequisiteMapForTesting(
                 eventHandler, dependentTarget, configurations, /*toolchainContext=*/ null)
             .values();
-    for (ConfiguredTarget ct : configuredTargets) {
-      if (ct.getLabel().equals(desiredTarget)) {
-        return ct;
+    for (ConfiguredTargetAndTarget ct : configuredTargets) {
+      if (ct.getTarget().getLabel().equals(desiredTarget)) {
+        return ct.getConfiguredTarget();
       }
     }
     return null;

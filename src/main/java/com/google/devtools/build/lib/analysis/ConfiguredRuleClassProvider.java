@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -85,14 +86,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public interface PrerequisiteValidator {
     /**
-     * Checks whether the rule in {@code contextBuilder} is allowed to depend on
-     * {@code prerequisite} through the attribute {@code attribute}.
+     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
+     * prerequisite} through the attribute {@code attribute}.
      *
      * <p>Can be used for enforcing any organization-specific policies about the layout of the
      * workspace.
      */
     void validate(
-        RuleContext.Builder contextBuilder, ConfiguredTarget prerequisite, Attribute attribute);
+        RuleContext.Builder contextBuilder,
+        ConfiguredTargetAndTarget prerequisite,
+        Attribute attribute);
   }
 
   /** Validator to check for and warn on the deprecation of dependencies. */
@@ -100,7 +103,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     /** Checks if the given prerequisite is deprecated and prints a warning if so. */
     @Override
     public void validate(
-        RuleContext.Builder contextBuilder, ConfiguredTarget prerequisite, Attribute attribute) {
+        RuleContext.Builder contextBuilder,
+        ConfiguredTargetAndTarget prerequisite,
+        Attribute attribute) {
       validateDirectPrerequisiteForDeprecation(
           contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
     }
@@ -148,7 +153,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     /** Checks if the given prerequisite is deprecated and prints a warning if so. */
     public static void validateDirectPrerequisiteForDeprecation(
-        RuleErrorConsumer errors, Rule rule, ConfiguredTarget prerequisite, boolean forAspect) {
+        RuleErrorConsumer errors,
+        Rule rule,
+        ConfiguredTargetAndTarget prerequisite,
+        boolean forAspect) {
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
       PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();

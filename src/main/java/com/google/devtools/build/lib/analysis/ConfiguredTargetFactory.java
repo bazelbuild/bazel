@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -98,7 +99,7 @@ public final class ConfiguredTargetFactory {
    * to the {@code AnalysisEnvironment}.
    */
   private NestedSet<PackageGroupContents> convertVisibility(
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       EventHandler reporter,
       Target target,
       BuildConfiguration packageGroupConfiguration) {
@@ -116,7 +117,7 @@ public final class ConfiguredTargetFactory {
       NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
       for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
         // PackageGroupsConfiguredTargets are always in the package-group configuration.
-        ConfiguredTarget group =
+        TransitiveInfoCollection group =
             findPrerequisite(prerequisiteMap, groupLabel, packageGroupConfiguration);
         PackageSpecificationProvider provider = null;
         // group == null can only happen if the package group list comes
@@ -145,12 +146,14 @@ public final class ConfiguredTargetFactory {
     }
   }
 
-  private ConfiguredTarget findPrerequisite(
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap, Label label,
+  private TransitiveInfoCollection findPrerequisite(
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      Label label,
       BuildConfiguration config) {
-    for (ConfiguredTarget prerequisite : prerequisiteMap.get(null)) {
-      if (prerequisite.getLabel().equals(label) && (prerequisite.getConfiguration() == config)) {
-        return prerequisite;
+    for (ConfiguredTargetAndTarget prerequisite : prerequisiteMap.get(null)) {
+      if (prerequisite.getTarget().getLabel().equals(label)
+          && (prerequisite.getConfiguredTarget().getConfiguration() == config)) {
+        return prerequisite.getConfiguredTarget();
       }
     }
     return null;
@@ -227,7 +230,7 @@ public final class ConfiguredTargetFactory {
       Target target,
       BuildConfiguration config,
       BuildConfiguration hostConfig,
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
@@ -301,7 +304,7 @@ public final class ConfiguredTargetFactory {
       Rule rule,
       BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
@@ -406,11 +409,11 @@ public final class ConfiguredTargetFactory {
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
-      ConfiguredTarget associatedTarget,
+      ConfiguredTargetAndTarget associatedTarget,
       ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
@@ -449,8 +452,9 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    ConfiguredAspect configuredAspect = aspectFactory
-        .create(associatedTarget, ruleContext, aspect.getParameters());
+    ConfiguredAspect configuredAspect =
+        aspectFactory.create(
+            associatedTarget.getConfiguredTarget(), ruleContext, aspect.getParameters());
     if (configuredAspect != null) {
       validateAdvertisedProviders(
           configuredAspect, aspect.getDefinition().getAdvertisedProviders(),

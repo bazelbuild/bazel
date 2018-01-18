@@ -64,8 +64,11 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -250,7 +253,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Calculate the dependencies of this target.
-      OrderedSetMultimap<Attribute, ConfiguredTarget> depValueMap =
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depValueMap =
           computeDependencies(
               env,
               resolver,
@@ -370,7 +373,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    *     the host configuration as early as possible and pass this reference to all consumers
    */
   @Nullable
-  static OrderedSetMultimap<Attribute, ConfiguredTarget> computeDependencies(
+  static OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> computeDependencies(
       Environment env,
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
@@ -420,7 +423,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Resolve configured target dependencies and handle errors.
-    Map<SkyKey, ConfiguredTarget> depValues =
+    Map<SkyKey, ConfiguredTargetAndTarget> depValues =
         resolveConfiguredTargetDependencies(
             env,
             depValueNames.values(),
@@ -510,7 +513,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
     configValueNames = staticConfigs.build();
 
-    Map<SkyKey, ConfiguredTarget> configValues =
+    Map<SkyKey, ConfiguredTargetAndTarget> configValues =
         resolveConfiguredTargetDependencies(
             env,
             configValueNames,
@@ -523,7 +526,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configValueNames) {
       SkyKey baseKey = ConfiguredTargetValue.key(entry.getLabel(), entry.getConfiguration());
-      ConfiguredTarget value = configValues.get(baseKey);
+      ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
       // The code above guarantees that value is non-null here.
       ConfigMatchingProvider provider = value.getProvider(ConfigMatchingProvider.class);
       if (provider != null) {
@@ -542,13 +545,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * * Resolves the targets referenced in depValueNames and returns their ConfiguredTarget
-   * instances.
+   * Resolves the targets referenced in depValueNames and returns their {@link
+   * ConfiguredTargetAndTarget} instances.
    *
    * <p>Returns null if not all instances are available yet.
    */
   @Nullable
-  private static Map<SkyKey, ConfiguredTarget> resolveConfiguredTargetDependencies(
+  private static Map<SkyKey, ConfiguredTargetAndTarget> resolveConfiguredTargetDependencies(
       Environment env,
       Collection<Dependency> deps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
@@ -556,33 +559,92 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
     boolean failed = false;
-    Iterable<SkyKey> depKeys = Iterables.transform(deps,
-        input -> ConfiguredTargetValue.key(input.getLabel(), input.getConfiguration()));
+    // Naively we would like to just fetch all requested ConfiguredTargets, together with their
+    // Packages. However, some ConfiguredTargets are AliasConfiguredTargets, which means that their
+    // associated Targets (and therefore associated Packages) don't correspond to their own Labels.
+    // We don't know the associated Package until we fetch the ConfiguredTarget. Therefore, we have
+    // to do a potential second pass, in which we fetch all the Packages for AliasConfiguredTargets.
+    Iterable<SkyKey> depKeys =
+        Iterables.concat(
+            Iterables.transform(
+                deps,
+                input -> ConfiguredTargetValue.key(input.getLabel(), input.getConfiguration())),
+            Iterables.transform(
+                deps, input -> PackageValue.key(input.getLabel().getPackageIdentifier())));
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
             env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
-    Map<SkyKey, ConfiguredTarget> result =
-        Maps.newHashMapWithExpectedSize(depValuesOrExceptions.size());
-    for (Map.Entry<SkyKey, ValueOrException<ConfiguredValueCreationException>> entry
-        : depValuesOrExceptions.entrySet()) {
-      try {
-        ConfiguredTargetValue depValue = (ConfiguredTargetValue) entry.getValue().get();
-        if (depValue == null) {
-          missedValues = true;
-        } else {
-          result.put(entry.getKey(), depValue.getConfiguredTarget());
-          if (transitivePackagesForPackageRootResolution != null) {
-            transitivePackagesForPackageRootResolution.addTransitive(
-                depValue.getTransitivePackagesForPackageRootResolution());
+    Map<SkyKey, ConfiguredTargetAndTarget> result = Maps.newHashMapWithExpectedSize(deps.size());
+    Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
+    List<Dependency> aliasDepsToRedo = new ArrayList<>();
+    Map<SkyKey, SkyValue> aliasPackageValues = null;
+    Collection<Dependency> depsToProcess = deps;
+    for (int i = 0; i < 2; i++) {
+      for (Dependency dep : depsToProcess) {
+        SkyKey key = ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration());
+        try {
+          ConfiguredTargetValue depValue =
+              (ConfiguredTargetValue) depValuesOrExceptions.get(key).get();
+
+          if (depValue == null) {
+            missedValues = true;
+          } else {
+            ConfiguredTarget depCt = depValue.getConfiguredTarget();
+            Label depLabel = depCt.getLabel();
+            SkyKey packageKey = PackageValue.key(depLabel.getPackageIdentifier());
+            PackageValue pkgValue;
+            if (i == 0) {
+              ValueOrException<ConfiguredValueCreationException> packageResult =
+                  depValuesOrExceptions.get(packageKey);
+              if (packageResult == null) {
+                aliasPackagesToFetch.add(packageKey);
+                aliasDepsToRedo.add(dep);
+                continue;
+              } else {
+                pkgValue =
+                    Preconditions.checkNotNull(
+                        (PackageValue) packageResult.get(),
+                        "Package should have been loaded during dep resolution: %s",
+                        dep);
+              }
+            } else {
+              // We were doing AliasConfiguredTarget mop-up.
+              pkgValue = (PackageValue) aliasPackageValues.get(packageKey);
+              if (pkgValue == null) {
+                // This is unexpected: on the second iteration, all packages should be present,
+                // since the configured targets that depend on them are present. But since that is
+                // not a guarantee Skyframe makes, we tolerate their absence.
+                missedValues = true;
+                continue;
+              }
+            }
+            try {
+              result.put(
+                  key,
+                  new ConfiguredTargetAndTarget(
+                      depValue.getConfiguredTarget(),
+                      pkgValue.getPackage().getTarget(depLabel.getName())));
+            } catch (NoSuchTargetException e) {
+              throw new IllegalStateException("Target already verified for " + dep, e);
+            }
+            if (transitivePackagesForPackageRootResolution != null) {
+              transitivePackagesForPackageRootResolution.addTransitive(
+                  depValue.getTransitivePackagesForPackageRootResolution());
+            }
           }
+        } catch (ConfiguredValueCreationException e) {
+          // TODO(ulfjack): If there is an analysis root cause, we drop all loading root causes.
+          if (e.getAnalysisRootCause() != null) {
+            throw new DependencyEvaluationException(e);
+          }
+          transitiveLoadingRootCauses.addTransitive(e.loadingRootCauses);
+          failed = true;
         }
-      } catch (ConfiguredValueCreationException e) {
-        // TODO(ulfjack): If there is an analysis root cause, we drop all loading root causes.
-        if (e.getAnalysisRootCause() != null) {
-          throw new DependencyEvaluationException(e);
-        }
-        transitiveLoadingRootCauses.addTransitive(e.loadingRootCauses);
-        failed = true;
       }
+      if (aliasDepsToRedo.isEmpty()) {
+        break;
+      }
+      aliasPackageValues = env.getValues(aliasPackagesToFetch);
+      depsToProcess = aliasDepsToRedo;
     }
     if (missedValues) {
       return null;
@@ -593,7 +655,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return result;
     }
   }
-
 
   @Override
   public String extractTag(SkyKey skyKey) {
@@ -606,7 +667,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       Target target,
       BuildConfiguration configuration,
-      OrderedSetMultimap<Attribute, ConfiguredTarget> depValueMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)

@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -86,6 +87,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -169,7 +171,7 @@ public final class RuleContext extends TargetContext
    */
   private final ImmutableList<Aspect> aspects;
   private final ImmutableList<AspectDescriptor> aspectDescriptors;
-  private final ListMultimap<String, ConfiguredTarget> targetMap;
+  private final ListMultimap<String, ConfiguredTargetAndTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final AspectAwareAttributeMapper attributes;
@@ -189,7 +191,7 @@ public final class RuleContext extends TargetContext
   private RuleContext(
       Builder builder,
       AttributeMap attributes,
-      ListMultimap<String, ConfiguredTarget> targetMap,
+      ListMultimap<String, ConfiguredTargetAndTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
@@ -368,7 +370,11 @@ public final class RuleContext extends TargetContext
    * Returns an immutable map from attribute name to list of configured targets for that attribute.
    */
   public ListMultimap<String, ? extends TransitiveInfoCollection> getConfiguredTargetMap() {
-    return targetMap;
+    return Multimaps.transformValues(targetMap, ConfiguredTargetAndTarget::getConfiguredTarget);
+  }
+
+  private List<? extends TransitiveInfoCollection> getDeps(String key) {
+    return Lists.transform(targetMap.get(key), ConfiguredTargetAndTarget::getConfiguredTarget);
   }
 
   /**
@@ -726,8 +732,8 @@ public final class RuleContext extends TargetContext
     ImmutableMap.Builder<String, TransitiveInfoCollection> result = ImmutableMap.builder();
     Map<String, Label> dict = attributes().get(attributeName, BuildType.LABEL_DICT_UNARY);
     Map<Label, ConfiguredTarget> labelToDep = new HashMap<>();
-    for (ConfiguredTarget dep : targetMap.get(attributeName)) {
-      labelToDep.put(dep.getLabel(), dep);
+    for (ConfiguredTargetAndTarget dep : targetMap.get(attributeName)) {
+      labelToDep.put(dep.getTarget().getLabel(), dep.getConfiguredTarget());
     }
 
     for (Map.Entry<String, Label> entry : dict.entrySet()) {
@@ -758,7 +764,7 @@ public final class RuleContext extends TargetContext
     }
 
     checkAttribute(attributeName, mode);
-    return targetMap.get(attributeName);
+    return getDeps(attributeName);
   }
 
   /**
@@ -773,7 +779,7 @@ public final class RuleContext extends TargetContext
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
     SplitTransition transition = attributeDefinition.getSplitTransition(
         ConfiguredAttributeMapper.of(rule, configConditions));
-    List<ConfiguredTarget> deps = targetMap.get(attributeName);
+    List<? extends TransitiveInfoCollection> deps = getDeps(attributeName);
 
     List<BuildOptions> splitOptions = transition.split(getConfiguration().getOptions());
     if (splitOptions.isEmpty()) {
@@ -823,7 +829,7 @@ public final class RuleContext extends TargetContext
    */
   public TransitiveInfoCollection getPrerequisite(String attributeName, Mode mode) {
     checkAttribute(attributeName, mode);
-    List<? extends TransitiveInfoCollection> elements = targetMap.get(attributeName);
+    List<? extends TransitiveInfoCollection> elements = getDeps(attributeName);
     if (elements.size() > 1) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
           + " produces more than one prerequisite");
@@ -1392,7 +1398,7 @@ public final class RuleContext extends TargetContext
     private final BuildConfiguration hostConfiguration;
     private final PrerequisiteValidator prerequisiteValidator;
     private final ErrorReporter reporter;
-    private OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
+    private OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
@@ -1423,7 +1429,7 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(visibility);
       AttributeMap attributes = ConfiguredAttributeMapper.of(rule, configConditions);
       validateAttributes(attributes);
-      ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
+      ListMultimap<String, ConfiguredTargetAndTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(rule, configConditions);
       return new RuleContext(
@@ -1451,7 +1457,8 @@ public final class RuleContext extends TargetContext
      * Sets the prerequisites and checks their visibility. It also generates appropriate error or
      * warning messages and sets the error flag as appropriate.
      */
-    Builder setPrerequisites(OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
+    Builder setPrerequisites(
+        OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap) {
       this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
       return this;
     }
@@ -1500,8 +1507,8 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTarget src) {
-      if (src.getProvider(FilesetProvider.class) != null) {
+    private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndTarget src) {
+      if (src.getConfiguredTarget().getProvider(FilesetProvider.class) != null) {
         return true;
       }
       if (filesetEntry.isSourceFileset()) {
@@ -1538,25 +1545,27 @@ public final class RuleContext extends TargetContext
           continue;
         }
         String attributeName = attr.getName();
-        Map<Label, ConfiguredTarget> ctMap = new HashMap<>();
-        for (ConfiguredTarget prerequisite : prerequisiteMap.get(attr)) {
-          ctMap.put(AliasProvider.getDependencyLabel(prerequisite), prerequisite);
+        Map<Label, ConfiguredTargetAndTarget> ctMap = new HashMap<>();
+        for (ConfiguredTargetAndTarget prerequisite : prerequisiteMap.get(attr)) {
+          ctMap.put(
+              AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget()), prerequisite);
         }
         List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule, configConditions)
             .get(attributeName, BuildType.FILESET_ENTRY_LIST);
         for (FilesetEntry entry : entries) {
           if (entry.getFiles() == null) {
             Label label = entry.getSrcLabel();
-            ConfiguredTarget src = ctMap.get(label);
+            ConfiguredTargetAndTarget src = ctMap.get(label);
             if (!validateFilesetEntry(entry, src)) {
               continue;
             }
 
-            mapBuilder.put(attributeName, new ConfiguredFilesetEntry(entry, src));
+            mapBuilder.put(
+                attributeName, new ConfiguredFilesetEntry(entry, src.getConfiguredTarget()));
           } else {
             ImmutableList.Builder<TransitiveInfoCollection> files = ImmutableList.builder();
             for (Label file : entry.getFiles()) {
-              files.add(ctMap.get(file));
+              files.add(ctMap.get(file).getConfiguredTarget());
             }
             mapBuilder.put(attributeName, new ConfiguredFilesetEntry(entry, files.build()));
           }
@@ -1565,14 +1574,12 @@ public final class RuleContext extends TargetContext
       return mapBuilder.build();
     }
 
-    /**
-     * Determines and returns a map from attribute name to list of configured targets.
-     */
-    private ImmutableSortedKeyListMultimap<String, ConfiguredTarget> createTargetMap() {
-      ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTarget> mapBuilder =
+    /** Determines and returns a map from attribute name to list of configured targets. */
+    private ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndTarget> createTargetMap() {
+      ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndTarget> mapBuilder =
           ImmutableSortedKeyListMultimap.builder();
 
-      for (Map.Entry<Attribute, Collection<ConfiguredTarget>> entry :
+      for (Map.Entry<Attribute, Collection<ConfiguredTargetAndTarget>> entry :
           prerequisiteMap.asMap().entrySet()) {
         Attribute attribute = entry.getKey();
         if (attribute == null) {
@@ -1586,7 +1593,7 @@ public final class RuleContext extends TargetContext
 
         if (attribute.isSilentRuleClassFilter()) {
           Predicate<RuleClass> filter = attribute.getAllowedRuleClassesPredicate();
-          for (ConfiguredTarget configuredTarget : entry.getValue()) {
+          for (ConfiguredTargetAndTarget configuredTarget : entry.getValue()) {
             Target prerequisiteTarget = configuredTarget.getTarget();
             if ((prerequisiteTarget instanceof Rule)
                 && filter.apply(((Rule) prerequisiteTarget).getRuleClassObject())) {
@@ -1595,7 +1602,7 @@ public final class RuleContext extends TargetContext
             }
           }
         } else {
-          for (ConfiguredTarget configuredTarget : entry.getValue()) {
+          for (ConfiguredTargetAndTarget configuredTarget : entry.getValue()) {
             validateDirectPrerequisite(attribute, configuredTarget);
             mapBuilder.put(attribute.getName(), configuredTarget);
           }
@@ -1657,8 +1664,11 @@ public final class RuleContext extends TargetContext
       reporter.assertNoErrors();
     }
 
-    private String badPrerequisiteMessage(String targetKind, ConfiguredTarget prerequisite,
-        String reason, boolean isWarning) {
+    private String badPrerequisiteMessage(
+        String targetKind,
+        ConfiguredTargetAndTarget prerequisite,
+        String reason,
+        boolean isWarning) {
       String msgPrefix = targetKind != null ? targetKind + " " : "";
       String msgReason = reason != null ? " (" + reason + ")" : "";
       if (isWarning) {
@@ -1671,8 +1681,12 @@ public final class RuleContext extends TargetContext
           msgPrefix, AliasProvider.printLabelWithAliasChain(prerequisite), msgReason);
     }
 
-    private void reportBadPrerequisite(Attribute attribute, String targetKind,
-        ConfiguredTarget prerequisite, String reason, boolean isWarning) {
+    private void reportBadPrerequisite(
+        Attribute attribute,
+        String targetKind,
+        ConfiguredTargetAndTarget prerequisite,
+        String reason,
+        boolean isWarning) {
       String message = badPrerequisiteMessage(targetKind, prerequisite, reason, isWarning);
       if (isWarning) {
         attributeWarning(attribute.getName(), message);
@@ -1681,8 +1695,8 @@ public final class RuleContext extends TargetContext
       }
     }
 
-    private void validateDirectPrerequisiteType(ConfiguredTarget prerequisite,
-        Attribute attribute) {
+    private void validateDirectPrerequisiteType(
+        ConfiguredTargetAndTarget prerequisite, Attribute attribute) {
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
 
@@ -1764,8 +1778,8 @@ public final class RuleContext extends TargetContext
       return RuleContext.isVisible(rule, prerequisite);
     }
 
-    private void validateDirectPrerequisiteFileTypes(ConfiguredTarget prerequisite,
-        Attribute attribute) {
+    private void validateDirectPrerequisiteFileTypes(
+        ConfiguredTargetAndTarget prerequisite, Attribute attribute) {
       if (attribute.isSkipAnalysisTimeFileTypeCheck()) {
         return;
       }
@@ -1785,11 +1799,12 @@ public final class RuleContext extends TargetContext
       // If we performed this check when allowedFileTypes == NO_FILE this would
       // always throw an error in those cases
       if (allowedFileTypes != FileTypeSet.NO_FILE) {
-        Iterable<Artifact> artifacts = prerequisite.getProvider(FileProvider.class)
-            .getFilesToBuild();
+        Iterable<Artifact> artifacts =
+            prerequisite.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
         if (attribute.isSingleArtifact() && Iterables.size(artifacts) != 1) {
-          attributeError(attribute.getName(),
-              "'" + prerequisite.getLabel() + "' must produce a single file");
+          attributeError(
+              attribute.getName(),
+              "'" + prerequisite.getTarget().getLabel() + "' must produce a single file");
           return;
         }
         for (Artifact sourceArtifact : artifacts) {
@@ -1797,9 +1812,17 @@ public final class RuleContext extends TargetContext
             return;
           }
         }
-        attributeError(attribute.getName(), "'" + prerequisite.getLabel()
-            + "' does not produce any " + getRuleClassNameForLogging() + " " + attribute.getName()
-            + " files (expected " + allowedFileTypes + ")");
+        attributeError(
+            attribute.getName(),
+            "'"
+                + prerequisite.getTarget().getLabel()
+                + "' does not produce any "
+                + getRuleClassNameForLogging()
+                + " "
+                + attribute.getName()
+                + " files (expected "
+                + allowedFileTypes
+                + ")");
       }
     }
 
@@ -1808,7 +1831,8 @@ public final class RuleContext extends TargetContext
      * dependency is valid if it is from a rule in allowedRuledClasses, OR if all of the providers
      * in requiredProviders are provided by the target.
      */
-    private void validateRuleDependency(ConfiguredTarget prerequisite, Attribute attribute) {
+    private void validateRuleDependency(
+        ConfiguredTargetAndTarget prerequisite, Attribute attribute) {
 
       Set<String> unfulfilledRequirements = new LinkedHashSet<>();
       if (checkRuleDependencyClass(prerequisite, attribute, unfulfilledRequirements)) {
@@ -1832,7 +1856,9 @@ public final class RuleContext extends TargetContext
 
     /** Check if prerequisite should be allowed based on its rule class. */
     private boolean checkRuleDependencyClass(
-        ConfiguredTarget prerequisite, Attribute attribute, Set<String> unfulfilledRequirements) {
+        ConfiguredTargetAndTarget prerequisite,
+        Attribute attribute,
+        Set<String> unfulfilledRequirements) {
       if (attribute.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
         if (attribute
             .getAllowedRuleClassesPredicate()
@@ -1858,7 +1884,7 @@ public final class RuleContext extends TargetContext
      * <p>If yes, also issues said warning.
      */
     private boolean checkRuleDependencyClassWarnings(
-        ConfiguredTarget prerequisite, Attribute attribute) {
+        ConfiguredTargetAndTarget prerequisite, Attribute attribute) {
       if (attribute
           .getAllowedRuleClassesWarningPredicate()
           .apply(((Rule) prerequisite.getTarget()).getRuleClassObject())) {
@@ -1879,7 +1905,9 @@ public final class RuleContext extends TargetContext
 
     /** Check if prerequisite should be allowed based on required providers on the attribute. */
     private boolean checkRuleDependencyMandatoryProviders(
-        ConfiguredTarget prerequisite, Attribute attribute, Set<String> unfulfilledRequirements) {
+        ConfiguredTargetAndTarget prerequisite,
+        Attribute attribute,
+        Set<String> unfulfilledRequirements) {
       RequiredProviders requiredProviders = attribute.getRequiredProviders();
 
       if (requiredProviders.acceptsAny()) {
@@ -1887,20 +1915,24 @@ public final class RuleContext extends TargetContext
         return false;
       }
 
-      if (prerequisite.satisfies(requiredProviders)) {
+      if (prerequisite.getConfiguredTarget().satisfies(requiredProviders)) {
         return true;
       }
 
       unfulfilledRequirements.add(
           String.format(
               "'%s' does not have mandatory providers: %s",
-              prerequisite.getLabel(),
-              prerequisite.missingProviders(requiredProviders).getDescription()));
+              prerequisite.getTarget().getLabel(),
+              prerequisite
+                  .getConfiguredTarget()
+                  .missingProviders(requiredProviders)
+                  .getDescription()));
 
       return false;
     }
 
-    private void validateDirectPrerequisite(Attribute attribute, ConfiguredTarget prerequisite) {
+    private void validateDirectPrerequisite(
+        Attribute attribute, ConfiguredTargetAndTarget prerequisite) {
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

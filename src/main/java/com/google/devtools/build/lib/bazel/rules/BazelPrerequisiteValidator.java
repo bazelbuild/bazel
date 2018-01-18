@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.syntax.Type;
 
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */
@@ -33,7 +33,7 @@ public class BazelPrerequisiteValidator
 
   @Override
   public void validate(
-      RuleContext.Builder context, ConfiguredTarget prerequisite, Attribute attribute) {
+      RuleContext.Builder context, ConfiguredTargetAndTarget prerequisite, Attribute attribute) {
     validateDirectPrerequisiteVisibility(context, prerequisite, attribute.getName());
     validateDirectPrerequisiteForTestOnly(context, prerequisite);
     ConfiguredRuleClassProvider.DeprecationValidator.validateDirectPrerequisiteForDeprecation(
@@ -41,15 +41,17 @@ public class BazelPrerequisiteValidator
   }
 
   private void validateDirectPrerequisiteVisibility(
-      RuleContext.Builder context, ConfiguredTarget prerequisite, String attrName) {
+      RuleContext.Builder context, ConfiguredTargetAndTarget prerequisite, String attrName) {
     Rule rule = context.getRule();
     Target prerequisiteTarget = prerequisite.getTarget();
     if (!context
             .getRule()
             .getLabel()
             .getPackageIdentifier()
-            .equals(AliasProvider.getDependencyLabel(prerequisite).getPackageIdentifier())
-        && !context.isVisible(prerequisite)) {
+            .equals(
+                AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
+                    .getPackageIdentifier())
+        && !context.isVisible(prerequisite.getConfiguredTarget())) {
       String errorMessage;
       if (!context.getConfiguration().checkVisibility()) {
         errorMessage =
@@ -98,7 +100,7 @@ public class BazelPrerequisiteValidator
   }
 
   private void validateDirectPrerequisiteForTestOnly(
-      RuleContext.Builder context, ConfiguredTarget prerequisite) {
+      RuleContext.Builder context, ConfiguredTargetAndTarget prerequisite) {
     Rule rule = context.getRule();
 
     if (rule.getRuleClassObject().getAdvertisedProviders().canHaveAnyProvider()) {
