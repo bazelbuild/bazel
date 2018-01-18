@@ -186,7 +186,7 @@ public class FileFunctionTest {
   }
 
   private FileValue valueForPathOutsidePkgRoot(Path path) throws InterruptedException {
-    return valueForPathHelper(Root.fromFileSystemRoot(fs), path);
+    return valueForPathHelper(Root.absoluteRoot(fs), path);
   }
 
   private FileValue valueForPathHelper(Root root, Path path) throws InterruptedException {
@@ -315,8 +315,8 @@ public class FileFunctionTest {
         .containsExactly(
             rootedPath("a"),
             rootedPath(""),
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.EMPTY_FRAGMENT),
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("outside")));
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/")),
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/outside")));
   }
 
   @Test
@@ -332,8 +332,8 @@ public class FileFunctionTest {
         .containsExactly(
             rootedPath("a"),
             rootedPath(""),
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.EMPTY_FRAGMENT),
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("absolute")));
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/")),
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/absolute")));
   }
 
   @Test
@@ -347,17 +347,17 @@ public class FileFunctionTest {
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
     seenFiles.addAll(
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
-    Root root = Root.fromFileSystemRoot(fs);
+    Root root = Root.absoluteRoot(fs);
     assertThat(seenFiles)
         .containsExactly(
             rootedPath("WORKSPACE"),
             rootedPath("a"),
             rootedPath(""),
-            RootedPath.toRootedPath(root, PathFragment.EMPTY_FRAGMENT),
-            RootedPath.toRootedPath(root, PathFragment.create("output_base")),
-            RootedPath.toRootedPath(root, PathFragment.create("output_base/external")),
-            RootedPath.toRootedPath(root, PathFragment.create("output_base/external/a")),
-            RootedPath.toRootedPath(root, PathFragment.create("output_base/external/a/b")));
+            RootedPath.toRootedPath(root, PathFragment.create("/")),
+            RootedPath.toRootedPath(root, PathFragment.create("/output_base")),
+            RootedPath.toRootedPath(root, PathFragment.create("/output_base/external")),
+            RootedPath.toRootedPath(root, PathFragment.create("/output_base/external/a")),
+            RootedPath.toRootedPath(root, PathFragment.create("/output_base/external/a/b")));
   }
 
   @Test
@@ -1111,7 +1111,7 @@ public class FileFunctionTest {
       // InMemoryFS is not supported for serialization.
       FileSystem fs = FileSystems.getJavaIoFileSystem();
       Path.setFileSystemForSerialization(fs);
-      pkgRoot = Root.fromFileSystemRoot(fs);
+      pkgRoot = Root.absoluteRoot(fs);
 
       FileValue a = valueForPath(fs.getPath("/"));
 
@@ -1654,7 +1654,7 @@ public class FileFunctionTest {
         return RootedPath.toRootedPath(root, path);
       }
     }
-    return RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), path);
+    return RootedPath.toRootedPath(Root.absoluteRoot(fs), path);
   }
 
   private SkyKey skyKey(String pathString) {

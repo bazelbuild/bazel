@@ -15,11 +15,15 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.util.Comparator;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,8 +41,10 @@ public class RootTest {
 
   @Test
   public void testEqualsAndHashCodeContract() throws Exception {
+    FileSystem otherFs = new InMemoryFileSystem(BlazeClock.instance());
     new EqualsTester()
-        .addEqualityGroup(Root.fromFileSystemRoot(fs), Root.fromFileSystemRoot(fs))
+        .addEqualityGroup(Root.absoluteRoot(fs), Root.absoluteRoot(fs))
+        .addEqualityGroup(Root.absoluteRoot(otherFs), Root.absoluteRoot(otherFs))
         .addEqualityGroup(Root.fromPath(fs.getPath("/foo")), Root.fromPath(fs.getPath("/foo")))
         .testEquals();
   }
@@ -49,27 +55,53 @@ public class RootTest {
     assertThat(root.asPath()).isEqualTo(fs.getPath("/foo"));
     assertThat(root.contains(fs.getPath("/foo/bar"))).isTrue();
     assertThat(root.contains(fs.getPath("/boo/bar"))).isFalse();
+    assertThat(root.contains(PathFragment.create("/foo/bar"))).isTrue();
+    assertThat(root.contains(PathFragment.create("foo/bar"))).isFalse();
     assertThat(root.getRelative(PathFragment.create("bar"))).isEqualTo(fs.getPath("/foo/bar"));
     assertThat(root.getRelative("bar")).isEqualTo(fs.getPath("/foo/bar"));
+    assertThat(root.getRelative(PathFragment.create("/bar"))).isEqualTo(fs.getPath("/bar"));
     assertThat(root.relativize(fs.getPath("/foo/bar"))).isEqualTo(PathFragment.create("bar"));
+    assertThat(root.relativize(PathFragment.create("/foo/bar")))
+        .isEqualTo(PathFragment.create("bar"));
+    MoreAsserts.expectThrows(
+        IllegalArgumentException.class, () -> root.relativize(PathFragment.create("foo")));
   }
 
   @Test
-  public void testFileSystemRootPath() throws Exception {
-    Root root = Root.fromFileSystemRoot(fs);
-    assertThat(root.asPath()).isEqualTo(fs.getPath("/"));
+  public void testFileSystemAbsoluteRoot() throws Exception {
+    Root root = Root.absoluteRoot(fs);
+    assertThat(root.asPath()).isNull();
     assertThat(root.contains(fs.getPath("/foo"))).isTrue();
-    assertThat(root.getRelative(PathFragment.create("foo"))).isEqualTo(fs.getPath("/foo"));
-    assertThat(root.getRelative("foo")).isEqualTo(fs.getPath("/foo"));
-    assertThat(root.relativize(fs.getPath("/foo"))).isEqualTo(PathFragment.create("foo"));
+    assertThat(root.contains(PathFragment.create("/foo/bar"))).isTrue();
+    assertThat(root.contains(PathFragment.create("foo/bar"))).isFalse();
+    assertThat(root.getRelative("/foo")).isEqualTo(fs.getPath("/foo"));
+    assertThat(root.relativize(fs.getPath("/foo"))).isEqualTo(PathFragment.create("/foo"));
+    assertThat(root.relativize(PathFragment.create("/foo"))).isEqualTo(PathFragment.create("/foo"));
+
+    MoreAsserts.expectThrows(
+        IllegalArgumentException.class, () -> root.getRelative(PathFragment.create("foo")));
+    MoreAsserts.expectThrows(
+        IllegalArgumentException.class, () -> root.getRelative(PathFragment.create("foo")));
+    MoreAsserts.expectThrows(
+        IllegalArgumentException.class, () -> root.relativize(PathFragment.create("foo")));
+  }
+
+  @Test
+  public void testCompareTo() throws Exception {
+    Root a = Root.fromPath(fs.getPath("/a"));
+    Root b = Root.fromPath(fs.getPath("/b"));
+    Root root = Root.absoluteRoot(fs);
+    List<Root> list = Lists.newArrayList(a, root, b);
+    list.sort(Comparator.naturalOrder());
+    assertThat(list).containsExactly(root, a, b).inOrder();
   }
 
   @Test
   public void testSerialization() throws Exception {
-    ObjectCodec<Root> codec = Root.getCodec(new PathCodec(fs));
+    ObjectCodec<Root> codec = Root.getCodec(fs, new PathCodec(fs));
     ObjectCodecTester.newBuilder(codec)
-        .verificationFunction((a, b) -> a.equals(b))
-        .addSubjects(Root.fromFileSystemRoot(fs), Root.fromPath(fs.getPath("/foo")))
+        .addSubjects(Root.absoluteRoot(fs), Root.fromPath(fs.getPath("/foo")))
+        .skipBadDataTest()
         .buildAndRunTests();
   }
 }

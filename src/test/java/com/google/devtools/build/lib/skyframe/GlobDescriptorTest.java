@@ -33,7 +33,8 @@ public class GlobDescriptorTest {
   @Test
   public void testSerialization() throws Exception {
     ObjectCodecTester.newBuilder(
-            GlobDescriptor.getCodec(Root.getCodec(new PathCodec(FsUtils.TEST_FILESYSTEM))))
+            GlobDescriptor.getCodec(
+                Root.getCodec(FsUtils.TEST_FILESYSTEM, new PathCodec(FsUtils.TEST_FILESYSTEM))))
         .addSubjects(
             GlobDescriptor.create(
                 PackageIdentifier.create("@foo", PathFragment.create("//bar")),

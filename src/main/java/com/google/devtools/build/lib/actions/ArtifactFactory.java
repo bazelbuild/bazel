@@ -146,7 +146,8 @@ public class ArtifactFactory implements ArtifactResolver {
 
   @Override
   public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
-    Preconditions.checkArgument(!execPath.isAbsolute(), "%s %s %s", execPath, root, owner);
+    Preconditions.checkArgument(
+        execPath.isAbsolute() == root.getRoot().isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
     execPath = execPath.normalize();
     return getArtifact(root.getRoot().getRelative(execPath), root, execPath, owner, null);
@@ -159,7 +160,8 @@ public class ArtifactFactory implements ArtifactResolver {
 
   private void validatePath(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkArgument(!root.isSourceRoot());
-    Preconditions.checkArgument(!rootRelativePath.isAbsolute(), rootRelativePath);
+    Preconditions.checkArgument(
+        rootRelativePath.isAbsolute() == root.getRoot().isAbsolute(), rootRelativePath);
     Preconditions.checkArgument(rootRelativePath.isNormalized(), rootRelativePath);
     Preconditions.checkArgument(
         root.getRoot().asPath().startsWith(execRootParent), "%s %s", root, execRootParent);

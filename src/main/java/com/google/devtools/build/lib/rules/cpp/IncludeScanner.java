@@ -155,7 +155,7 @@ public interface IncludeScanner {
       for (Artifact included : includes) {
         // Check for absolute includes -- we assign the file system root as
         // the root path for such includes
-        if (included.getRoot().getRoot().isRootDirectory()) {
+        if (included.getRoot().getRoot().isAbsolute()) {
           if (FileSystemUtils.startsWithAny(
               included.getPath().asFragment(), absoluteBuiltInIncludeDirs)) {
             // Skip include files found in absolute include directories.

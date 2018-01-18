@@ -41,7 +41,10 @@ public class RootedPath implements Serializable {
 
   /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
   private RootedPath(Root root, PathFragment relativePath) {
-    Preconditions.checkState(!relativePath.isAbsolute(), "relativePath: %s root: %s", relativePath,
+    Preconditions.checkState(
+        relativePath.isAbsolute() == root.isAbsolute(),
+        "relativePath: %s root: %s",
+        relativePath,
         root);
     this.root = root;
     this.relativePath = relativePath.normalize();
@@ -51,10 +54,8 @@ public class RootedPath implements Serializable {
   /** Returns a rooted path representing {@code relativePath} relative to {@code root}. */
   public static RootedPath toRootedPath(Root root, PathFragment relativePath) {
     if (relativePath.isAbsolute()) {
-      if (root.isRootDirectory()) {
-        return new RootedPath(
-            Root.fromPath(root.getRelative(relativePath.windowsVolume())),
-            relativePath.toRelative());
+      if (root.isAbsolute()) {
+        return new RootedPath(root, relativePath);
       } else {
         Preconditions.checkArgument(
             root.contains(relativePath),
@@ -84,7 +85,7 @@ public class RootedPath implements Serializable {
         return toRootedPath(root, path);
       }
     }
-    return toRootedPath(Root.fromFileSystemRoot(path.getFileSystem()), path);
+    return toRootedPath(Root.absoluteRoot(path.getFileSystem()), path);
   }
 
   public Path asPath() {
@@ -135,7 +136,7 @@ public class RootedPath implements Serializable {
 
     /** Create an instance which will deserialize RootedPaths on {@code fileSystem}. */
     public RootedPathCodec(FileSystem fileSystem) {
-      this.rootCodec = Root.getCodec(new PathCodec(fileSystem));
+      this.rootCodec = Root.getCodec(fileSystem, new PathCodec(fileSystem));
     }
 
     @Override

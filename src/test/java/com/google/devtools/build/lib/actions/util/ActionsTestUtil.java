@@ -246,8 +246,8 @@ public final class ActionsTestUtil {
 
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact(
-          PathFragment.create("dummy"),
-          ArtifactRoot.asSourceRoot(Root.fromFileSystemRoot(new InMemoryFileSystem())));
+          PathFragment.create("/dummy"),
+          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())));
 
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(

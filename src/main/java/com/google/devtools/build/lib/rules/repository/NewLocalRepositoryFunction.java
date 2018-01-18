@@ -57,7 +57,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path path = fs.getPath(pathFragment);
 
-    RootedPath dirPath = RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), path);
+    RootedPath dirPath = RootedPath.toRootedPath(Root.absoluteRoot(fs), path);
 
     try {
       FileValue dirFileValue =

@@ -163,7 +163,7 @@ public abstract class ResourceTestBase {
   public void setup() {
     errorConsumer = new FakeRuleErrorConsumer();
     fileSystem = new InMemoryFileSystem();
-    root = ArtifactRoot.asSourceRoot(Root.fromFileSystemRoot(fileSystem));
+    root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
   }
 
   @After

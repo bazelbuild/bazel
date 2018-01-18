@@ -160,7 +160,7 @@ public class FilesystemValueCheckerTest {
 
     SkyKey skyKey =
         FileStateValue.key(
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("foo")));
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo")));
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(skyKey),
@@ -211,14 +211,13 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.ensureSymbolicLink(sym1, path);
     FileSystemUtils.ensureSymbolicLink(sym2, path);
     SkyKey fooKey =
-        FileValue.key(
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("foo")));
+        FileValue.key(RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo")));
     RootedPath symlinkRootedPath =
-        RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("bar"));
+        RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/bar"));
     SkyKey symlinkKey = FileValue.key(symlinkRootedPath);
     SkyKey symlinkFileStateKey = FileStateValue.key(symlinkRootedPath);
     RootedPath sym1RootedPath =
-        RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("sym1"));
+        RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/sym1"));
     SkyKey sym1FileStateKey = FileStateValue.key(sym1RootedPath);
     Iterable<SkyKey> allKeys = ImmutableList.of(symlinkKey, fooKey);
 
@@ -280,10 +279,10 @@ public class FilesystemValueCheckerTest {
 
     SkyKey key1 =
         FileStateValue.key(
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("foo1")));
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo1")));
     SkyKey key2 =
         FileStateValue.key(
-            RootedPath.toRootedPath(Root.fromFileSystemRoot(fs), PathFragment.create("foo2")));
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo2")));
     Iterable<SkyKey> skyKeys = ImmutableList.of(key1, key2);
     EvaluationResult<SkyValue> result =
         driver.evaluate(

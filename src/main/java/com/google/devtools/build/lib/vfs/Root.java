@@ -13,24 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * A root path used in {@link RootedPath} and in artifact roots.
  *
  * <p>A typical root could be the exec path, a package root, or an output root specific to some
- * configuration.
+ * configuration. We also support absolute roots for non-hermetic paths outside the user workspace.
  */
 public interface Root extends Comparable<Root>, Serializable {
 
-  static ObjectCodec<Root> getCodec(PathCodec pathCodec) {
-    return new RootCodec(pathCodec);
+  static ObjectCodec<Root> getCodec(FileSystem fileSystem, PathCodec pathCodec) {
+    return new RootCodec(fileSystem, pathCodec);
   }
 
   /** Constructs a root from a path. */
@@ -38,9 +42,9 @@ public interface Root extends Comparable<Root>, Serializable {
     return new PathRoot(path);
   }
 
-  /** Returns a root from the file system's root directory. */
-  static Root fromFileSystemRoot(FileSystem fileSystem) {
-    return fileSystem.getRoot();
+  /** Returns an absolute root. Can only be used with absolute path fragments. */
+  static Root absoluteRoot(FileSystem fileSystem) {
+    return fileSystem.getAbsoluteRoot();
   }
 
   /** Returns a path by concatenating the root and the root-relative path. */
@@ -52,23 +56,24 @@ public interface Root extends Comparable<Root>, Serializable {
   /** Returns the relative path between the root and the given path. */
   PathFragment relativize(Path path);
 
-  @Deprecated
-  PathFragment relativize(PathFragment relativePath);
+  /** Returns the relative path between the root and the given absolute path fragment. */
+  PathFragment relativize(PathFragment pathFragment);
 
   /** Returns whether the given path is under this root. */
   boolean contains(Path path);
 
-  @Deprecated
-  boolean contains(PathFragment relativePath);
+  /** Returns whether the given absolute path fragment is under this root. */
+  boolean contains(PathFragment pathFragment);
 
   /**
-   * Returns the underlying path. Please avoid using this method. Roots may eventually not be
-   * directly backed by paths.
+   * Returns the underlying path. Please avoid using this method.
+   *
+   * <p>Not all roots are backed by paths, so this may return null.
    */
+  @Nullable
   Path asPath();
 
-  @Deprecated
-  boolean isRootDirectory();
+  boolean isAbsolute();
 
   /** Implementation of Root that is backed by a {@link Path}. */
   final class PathRoot implements Root {
@@ -115,8 +120,8 @@ public interface Root extends Comparable<Root>, Serializable {
     }
 
     @Override
-    public boolean isRootDirectory() {
-      return path.isRootDirectory();
+    public boolean isAbsolute() {
+      return false;
     }
 
     @Override
@@ -126,7 +131,13 @@ public interface Root extends Comparable<Root>, Serializable {
 
     @Override
     public int compareTo(Root o) {
-      return path.compareTo(((PathRoot) o).path);
+      if (o instanceof AbsoluteRoot) {
+        return 1;
+      } else if (o instanceof PathRoot) {
+        return path.compareTo(((PathRoot) o).path);
+      } else {
+        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
+      }
     }
 
     @Override
@@ -147,11 +158,111 @@ public interface Root extends Comparable<Root>, Serializable {
     }
   }
 
+  /** An absolute root of a file system. Can only resolve absolute path fragments. */
+  final class AbsoluteRoot implements Root {
+    private FileSystem fileSystem; // Non-final for serialization
+
+    AbsoluteRoot(FileSystem fileSystem) {
+      this.fileSystem = fileSystem;
+    }
+
+    @Override
+    public Path getRelative(PathFragment relativePath) {
+      Preconditions.checkArgument(relativePath.isAbsolute());
+      return fileSystem.getPath(relativePath);
+    }
+
+    @Override
+    public Path getRelative(String relativePath) {
+      return getRelative(PathFragment.create(relativePath));
+    }
+
+    @Override
+    public PathFragment relativize(Path path) {
+      return path.asFragment();
+    }
+
+    @Override
+    public PathFragment relativize(PathFragment pathFragment) {
+      Preconditions.checkArgument(pathFragment.isAbsolute());
+      return pathFragment;
+    }
+
+    @Override
+    public boolean contains(Path path) {
+      return true;
+    }
+
+    @Override
+    public boolean contains(PathFragment pathFragment) {
+      return pathFragment.isAbsolute();
+    }
+
+    @Override
+    public boolean isAbsolute() {
+      return true;
+    }
+
+    @Override
+    public Path asPath() {
+      return null;
+    }
+
+    @Override
+    public String toString() {
+      return "<absolute root>";
+    }
+
+    @Override
+    public int compareTo(Root o) {
+      if (o instanceof AbsoluteRoot) {
+        return Integer.compare(fileSystem.hashCode(), ((AbsoluteRoot) o).fileSystem.hashCode());
+      } else if (o instanceof PathRoot) {
+        return -1;
+      } else {
+        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
+      }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      AbsoluteRoot that = (AbsoluteRoot) o;
+      return Objects.equal(fileSystem, that.fileSystem);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(fileSystem);
+    }
+
+    @SuppressWarnings("unused")
+    private void readObject(ObjectInputStream in) throws IOException {
+      fileSystem = Path.getFileSystemForSerialization();
+    }
+
+    @SuppressWarnings("unused")
+    private void writeObject(ObjectOutputStream out) throws IOException {
+      Preconditions.checkState(
+          fileSystem == Path.getFileSystemForSerialization(),
+          "%s %s",
+          fileSystem,
+          Path.getFileSystemForSerialization());
+    }
+  }
+
   /** Codec to serialize {@link Root}s. */
   class RootCodec implements ObjectCodec<Root> {
+    private final FileSystem fileSystem;
     private final PathCodec pathCodec;
 
-    private RootCodec(PathCodec pathCodec) {
+    private RootCodec(FileSystem fileSystem, PathCodec pathCodec) {
+      this.fileSystem = fileSystem;
       this.pathCodec = pathCodec;
     }
 
@@ -164,7 +275,11 @@ public interface Root extends Comparable<Root>, Serializable {
     public void serialize(Root obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       if (obj instanceof PathRoot) {
+        codedOut.writeBoolNoTag(false);
         pathCodec.serialize(((PathRoot) obj).path, codedOut);
+      } else if (obj instanceof AbsoluteRoot) {
+        Preconditions.checkArgument(((AbsoluteRoot) obj).fileSystem == fileSystem);
+        codedOut.writeBoolNoTag(true);
       } else {
         throw new AssertionError("Unknown Root subclass: " + obj.getClass().getName());
       }
@@ -172,8 +287,13 @@ public interface Root extends Comparable<Root>, Serializable {
 
     @Override
     public Root deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
-      Path path = pathCodec.deserialize(codedIn);
-      return new PathRoot(path);
+      boolean isAbsolute = codedIn.readBool();
+      if (isAbsolute) {
+        return fileSystem.getAbsoluteRoot();
+      } else {
+        Path path = pathCodec.deserialize(codedIn);
+        return new PathRoot(path);
+      }
     }
   }
 }

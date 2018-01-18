@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -189,6 +190,27 @@ public class ArtifactFactoryTest {
     assertThat(artifactFactory.isDerivedArtifact(fooRelative)).isFalse();
     assertThat(artifactFactory.isDerivedArtifact(
         PathFragment.create("bazel-out/local-fastbuild/bin/foo"))).isTrue();
+  }
+
+  @Test
+  public void testAbsoluteArtifact() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+    ArtifactRoot absoluteRoot =
+        ArtifactRoot.asSourceRoot(Root.absoluteRoot(scratch.getFileSystem()));
+
+    assertThat(artifactFactory.getSourceArtifact(PathFragment.create("foo"), root).getExecPath())
+        .isEqualTo(PathFragment.create("foo"));
+    assertThat(
+            artifactFactory
+                .getSourceArtifact(PathFragment.create("/foo"), absoluteRoot)
+                .getExecPath())
+        .isEqualTo(PathFragment.create("/foo"));
+    MoreAsserts.expectThrows(
+        IllegalArgumentException.class,
+        () -> artifactFactory.getSourceArtifact(PathFragment.create("/foo"), root));
+    MoreAsserts.expectThrows(
+        IllegalArgumentException.class,
+        () -> artifactFactory.getSourceArtifact(PathFragment.create("foo"), absoluteRoot));
   }
 
   @Test

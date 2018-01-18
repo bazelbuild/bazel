@@ -194,7 +194,9 @@ public class Artifact
       throw new IllegalArgumentException(root + ": illegal root for " + path
           + " (execPath: " + execPath + ")");
     }
-    if (execPath == null || execPath.isAbsolute() || !path.asFragment().endsWith(execPath)) {
+    if (execPath == null
+        || execPath.isAbsolute() != root.getRoot().isAbsolute()
+        || !path.asFragment().endsWith(execPath)) {
       throw new IllegalArgumentException(execPath + ": illegal execPath for " + path
           + " (root: " + root + ")");
     }
