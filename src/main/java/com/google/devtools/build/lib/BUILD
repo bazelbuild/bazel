@@ -666,8 +666,6 @@ java_library(
         "//third_party:aether",
         "//third_party:apache_commons_codec",
         "//third_party:apache_commons_logging",
-        "//third_party:apache_httpclient",
-        "//third_party:apache_httpcore",
         "//third_party:jsch",
         "//third_party:maven",
         "//third_party:maven_model",

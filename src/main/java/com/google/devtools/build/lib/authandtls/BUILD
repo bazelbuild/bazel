@@ -11,8 +11,6 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:apache_httpclient",
-        "//third_party:apache_httpcore",
         "//third_party:auth",
         "//third_party:guava",
         "//third_party:jsr305",

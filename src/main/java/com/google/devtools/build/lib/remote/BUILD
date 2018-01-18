@@ -31,8 +31,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:apache_httpclient",
-        "//third_party:apache_httpcore",
         "//third_party:api_client",
         "//third_party:auth",
         "//third_party:guava",
