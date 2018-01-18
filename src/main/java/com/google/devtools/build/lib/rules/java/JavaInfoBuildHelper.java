@@ -13,22 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.Iterables.concat;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.RUNTIME_ONLY;
+import static java.util.stream.Stream.concat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -39,6 +42,9 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
 /** Implements logic for creating JavaInfo from different set of input parameters. */
@@ -71,7 +77,7 @@ final class JavaInfoBuildHelper {
    * @return new created JavaInfo instance
    * @throws EvalException if some mandatory parameter are missing
    */
-  // TODO(b/69780248) only populates JavaInfo with JavaCompilationArgsProvider. See #3769
+  // TODO(b/69780248): only populates JavaInfo with JavaCompilationArgsProvider. See #3769
   public JavaInfo createJavaInfo(
       Artifact outputJar,
       SkylarkList<Artifact> sourceFiles,
@@ -80,7 +86,7 @@ final class JavaInfoBuildHelper {
       Boolean neverlink,
       SkylarkList<JavaInfo> compileTimeDeps,
       SkylarkList<JavaInfo> runtimeDeps,
-      SkylarkList<JavaInfo> exports, // TODO(b/69780248) handle exports. See #3769
+      SkylarkList<JavaInfo> exports, // TODO(b/69780248): handle exports. See #3769
       Object action,
       Object javaToolchain,
       Location location)
@@ -108,44 +114,90 @@ final class JavaInfoBuildHelper {
     JavaCompilationArgs.Builder recursiveJavaCompilationArgsBuilder =
         JavaCompilationArgs.Builder.copyOf(javaCompilationArgsBuilder);
 
-
     ClasspathType type = neverlink ? COMPILE_ONLY : BOTH;
-    recursiveJavaCompilationArgsBuilder.addTransitiveArgs(
-        fetchAggregatedRecursiveJavaCompilationArgsFromProvider(compileTimeDeps), type);
 
-    recursiveJavaCompilationArgsBuilder.addTransitiveArgs(
-        fetchAggregatedRecursiveJavaCompilationArgsFromProvider(runtimeDeps), RUNTIME_ONLY);
+    fetchProviders(exports, JavaCompilationArgsProvider.class)
+        .map(JavaCompilationArgsProvider::getJavaCompilationArgs)
+        .forEach(args->javaCompilationArgsBuilder.addTransitiveArgs(args, type));
 
-    javaInfoBuilder.addProvider(
-        JavaCompilationArgsProvider.class,
+    fetchProviders(concat(exports, compileTimeDeps), JavaCompilationArgsProvider.class)
+        .map(JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs)
+        .forEach(args->recursiveJavaCompilationArgsBuilder.addTransitiveArgs(args, type));
+
+    fetchProviders(runtimeDeps, JavaCompilationArgsProvider.class)
+        .map(JavaCompilationArgsProvider::getRecursiveJavaCompilationArgs)
+        .forEach(args->recursiveJavaCompilationArgsBuilder.addTransitiveArgs(args, RUNTIME_ONLY));
+
+    javaInfoBuilder.addProvider(JavaCompilationArgsProvider.class,
         JavaCompilationArgsProvider.create(
             javaCompilationArgsBuilder.build(), recursiveJavaCompilationArgsBuilder.build()));
 
-    NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
-    transitiveSourceJars.addAll(sourceJars);
-    addSourceJars(transitiveSourceJars, Iterables.concat(compileTimeDeps, runtimeDeps));
+    javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
 
-    javaInfoBuilder.addProvider(
-        JavaSourceJarsProvider.class,
-        JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars));
+    javaInfoBuilder.addProvider(JavaSourceJarsProvider.class,
+        createJavaSourceJarsProvider(sourceJars, concat(compileTimeDeps, runtimeDeps, exports)));
 
-    // TODO(b/69780248) add other providers. See #3769
+    // TODO(b/69780248): add other providers. See #3769
 
     return javaInfoBuilder.build();
   }
 
+  private JavaSourceJarsProvider createJavaSourceJarsProvider(
+      Iterable<Artifact> sourceJars, Iterable<JavaInfo> transitiveDeps) {
+    NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
 
-  private void addSourceJars(NestedSetBuilder<Artifact> builder, Iterable<JavaInfo> javaInfos){
-    List<JavaSourceJarsProvider> javaSourceJarsProviders =
-        JavaInfo.getProvidersFromListOfJavaProviders(JavaSourceJarsProvider.class, javaInfos);
+    transitiveSourceJars.addAll(sourceJars);
 
-    for (JavaSourceJarsProvider sourceJarsProvider : javaSourceJarsProviders) {
-      builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
+    fetchSourceJars(transitiveDeps)
+        .forEach(transitiveSourceJars::addTransitive);
 
-      NestedSet<Artifact> directSrc  = NestedSetBuilder.<Artifact>stableOrder()
-          .addAll(sourceJarsProvider.getSourceJars()).build();
-      builder.addTransitive(directSrc);
-    }
+    return JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars);
+  }
+
+  private Iterable<NestedSet<Artifact>> fetchSourceJars(Iterable<JavaInfo> javaInfos) {
+    Stream<NestedSet<Artifact>> sourceJars =
+        fetchProviders(javaInfos, JavaSourceJarsProvider.class)
+            .map(JavaSourceJarsProvider::getSourceJars)
+            .map(sourceJarsList -> NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsList));
+
+    Stream<NestedSet<Artifact>> transitiveSourceJars =
+        fetchProviders(javaInfos, JavaSourceJarsProvider.class)
+            .map(JavaSourceJarsProvider::getTransitiveSourceJars);
+
+    return concat(sourceJars, transitiveSourceJars)::iterator;
+  }
+
+  /**
+   * Returns Stream of not null Providers.
+   *
+   * Gets Stream from dependencies, transforms to Provider defined by providerClass param
+   * and filters nulls.
+   *
+   * @see JavaInfo#merge(List)
+   */
+  private <P extends TransitiveInfoProvider>Stream<P> fetchProviders(Iterable<JavaInfo> javaInfos,
+      Class<P> providerClass){
+    return StreamSupport.stream(javaInfos.spliterator(), /*parallel=*/ false)
+        .map(javaInfo -> javaInfo.getProvider(providerClass))
+        .filter(Objects::nonNull);
+  }
+
+  private JavaExportsProvider createJavaExportsProvider(Iterable<JavaInfo> javaInfos) {
+    NestedSet<Label> exportsNestedSet = fetchExports(javaInfos);
+
+    // TODO(b/69780248): I need to add javaInfos there too. See #3769
+    // The problem is JavaInfo can not be converted to Label.
+    return new JavaExportsProvider(exportsNestedSet);
+  }
+
+  private NestedSet<Label> fetchExports(Iterable<JavaInfo> javaInfos){
+    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
+
+    fetchProviders(javaInfos, JavaExportsProvider.class)
+        .map(JavaExportsProvider::getTransitiveExports)
+        .forEach(builder::addTransitive);
+
+    return builder.build();
   }
 
   public JavaInfo create(
@@ -282,7 +334,7 @@ final class JavaInfoBuildHelper {
 
     JavaPluginInfoProvider transitivePluginsProvider =
         JavaPluginInfoProvider.merge(
-            Iterables.concat(
+            concat(
                 JavaInfo.getProvidersFromListOfJavaProviders(
                     JavaPluginInfoProvider.class, exportedPlugins),
                 JavaInfo.getProvidersFromListOfJavaProviders(
@@ -362,27 +414,6 @@ final class JavaInfoBuildHelper {
           null, javaToolchain.getLabel() + " does not provide JavaToolchainProvider.");
     }
     return javaToolchainProvider;
-  }
-
-
-  /**
-   * Merge collection of JavaInfos to one. Gets CompilationArgsProvider and call
-   * getRecursiveJavaCompilationArgs on it and return.
-   *
-   * @see JavaInfo#merge(List)
-   */
-  private JavaCompilationArgs fetchAggregatedRecursiveJavaCompilationArgsFromProvider(
-      SkylarkList<JavaInfo> dependencies) {
-
-    JavaInfo aggregatedDependencies = JavaInfo.merge(dependencies);
-    JavaCompilationArgsProvider compilationArgsProvider =
-        aggregatedDependencies.getProvider(JavaCompilationArgsProvider.class);
-    if (compilationArgsProvider == null) {
-      // this should not happen: JavaInfo.merge() always creates JavaCompilationArgsProvider
-      throw new IllegalStateException(
-          "compilationArgsProvider is null. check JavaInfo.merge implementation.");
-    }
-    return compilationArgsProvider.getRecursiveJavaCompilationArgs();
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
