@@ -326,6 +326,7 @@ java_test(
         ],
         exclude = ALL_WINDOWS_TESTS,
     ),
+    flaky = True,
     tags = [
         "foundations",
         "no_windows",
