@@ -258,6 +258,11 @@ alias(
     actual = "//third_party/java/jarjar:jarjar_bin",
 )
 
+alias(
+    name = "instrumentation_test_entry_point",
+    actual = "@android_test_support//:instrumentation_test_runner",
+)
+
 # This is the default binding of //external:android/sdk. If someone attempts to
 # build a rule that depends on //external:android/sdk without setting up
 # android_sdk_repository in their WORKSPACE, the genrule will fail with a
