@@ -267,7 +267,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         ArtifactRoot.middlemanRoot(middlemanPath, middlemanPath.getRelative("out"));
     Path fullPath = middlemanRoot.getRoot().getRelative(path);
     return new Artifact(
-        fullPath, middlemanRoot, fullPath.relativeTo(middlemanRoot.getExecRoot()), ALL_OWNER);
+        fullPath, middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
   }
 
   private Artifact createDerivedTreeArtifactWithAction(String path) {

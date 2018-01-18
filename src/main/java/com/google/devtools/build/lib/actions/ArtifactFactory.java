@@ -183,7 +183,7 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     Path path = root.getRoot().getRelative(rootRelativePath);
-    return getArtifact(path, root, path.relativeTo(root.getExecRoot()), owner, null);
+    return getArtifact(path, root, root.getExecPath().getRelative(rootRelativePath), owner, null);
   }
 
   /**
@@ -199,7 +199,11 @@ public class ArtifactFactory implements ArtifactResolver {
     validatePath(rootRelativePath, root);
     Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
-        path, root, path.relativeTo(root.getExecRoot()), owner, SpecialArtifactType.FILESET);
+        path,
+        root,
+        root.getExecPath().getRelative(rootRelativePath),
+        owner,
+        SpecialArtifactType.FILESET);
   }
 
   /**
@@ -214,7 +218,11 @@ public class ArtifactFactory implements ArtifactResolver {
     validatePath(rootRelativePath, root);
     Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
-        path, root, path.relativeTo(root.getExecRoot()), owner, SpecialArtifactType.TREE);
+        path,
+        root,
+        root.getExecPath().getRelative(rootRelativePath),
+        owner,
+        SpecialArtifactType.TREE);
   }
 
   public Artifact getConstantMetadataArtifact(
@@ -222,7 +230,10 @@ public class ArtifactFactory implements ArtifactResolver {
     validatePath(rootRelativePath, root);
     Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
-        path, root, path.relativeTo(root.getExecRoot()), owner,
+        path,
+        root,
+        root.getExecPath().getRelative(rootRelativePath),
+        owner,
         SpecialArtifactType.CONSTANT_METADATA);
   }
 

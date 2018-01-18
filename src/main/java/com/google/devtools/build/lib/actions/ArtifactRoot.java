@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.Serializable;
 import java.util.Objects;
-import javax.annotation.Nullable;
 
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped
@@ -70,8 +69,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   }
 
   /** Returns the given path as a source root. The path may not be {@code null}. */
-  public static ArtifactRoot asSourceRoot(Root path) {
-    return new ArtifactRoot(null, PathFragment.EMPTY_FRAGMENT, path);
+  public static ArtifactRoot asSourceRoot(Root root) {
+    return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source);
   }
 
   /**
@@ -85,7 +84,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
     PathFragment execPath = root.relativeTo(execRoot);
-    return new ArtifactRoot(execRoot, execPath, Root.fromPath(root));
+    return new ArtifactRoot(Root.fromPath(root), execPath, RootType.Output);
   }
 
   public static ArtifactRoot middlemanRoot(Path execRoot, Path outputDir) {
@@ -93,24 +92,23 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
     PathFragment execPath = root.relativeTo(execRoot);
-    return new ArtifactRoot(execRoot, execPath, Root.fromPath(root), true);
+    return new ArtifactRoot(Root.fromPath(root), execPath, RootType.Middleman);
   }
 
-  @Nullable private final Path execRoot;
+  private enum RootType {
+    Source,
+    Output,
+    Middleman
+  }
+
   private final Root root;
-  private final boolean isMiddlemanRoot;
   private final PathFragment execPath;
+  private final RootType rootType;
 
-  private ArtifactRoot(
-      @Nullable Path execRoot, PathFragment execPath, Root root, boolean isMiddlemanRoot) {
-    this.execRoot = execRoot;
+  private ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
     this.root = Preconditions.checkNotNull(root);
-    this.isMiddlemanRoot = isMiddlemanRoot;
     this.execPath = execPath;
-  }
-
-  private ArtifactRoot(@Nullable Path execRoot, PathFragment execPath, Root root) {
-    this(execRoot, execPath, root, false);
+    this.rootType = rootType;
   }
 
   public Root getRoot() {
@@ -131,17 +129,13 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return getExecPath().getPathString();
   }
 
-  @Nullable
-  public Path getExecRoot() {
-    return execRoot;
-  }
 
   public boolean isSourceRoot() {
-    return execRoot == null;
+    return rootType == RootType.Source;
   }
 
   boolean isMiddlemanRoot() {
-    return isMiddlemanRoot;
+    return rootType == RootType.Middleman;
   }
 
   @Override
@@ -151,7 +145,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @Override
   public int hashCode() {
-    return Objects.hash(execRoot, root.hashCode());
+    return Objects.hash(root, execPath, rootType);
   }
 
   @Override
@@ -163,7 +157,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
       return false;
     }
     ArtifactRoot r = (ArtifactRoot) o;
-    return root.equals(r.root) && Objects.equals(execRoot, r.execRoot);
+    return root.equals(r.root) && execPath.equals(r.execPath) && rootType == r.rootType;
   }
 
   @Override
