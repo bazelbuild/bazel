@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -46,14 +47,20 @@ public class AarImportTest extends BuildViewTestCase {
         "    aar = 'foo.aar',",
         ")",
         "aar_import(",
+        "    name = 'baz',",
+        "    aar = 'baz.aar',",
+        ")",
+        "aar_import(",
         "    name = 'bar',",
         "    aar = 'bar.aar',",
+        "    deps = [':baz'],",
         "    exports = [':foo', '//java:baz'],",
         ")");
     scratch.file("java/BUILD",
         "android_binary(",
         "    name = 'app',",
         "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['App.java'],",
         "    deps = ['//a:bar'],",
         ")",
         "android_library(",
@@ -124,7 +131,8 @@ public class AarImportTest extends BuildViewTestCase {
         androidLibraryTarget.getProvider(NativeLibsZipsProvider.class).getAarNativeLibs();
     assertThat(nativeLibs).containsExactly(
         ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
-        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"));
+        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"),
+        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "baz/native_libs.zip"));
   }
 
   @Test
@@ -177,6 +185,22 @@ public class AarImportTest extends BuildViewTestCase {
     // aar_import should not set a custom java package. Instead aapt will read the
     // java package from the manifest.
     assertThat(resourceContainer.getJavaPackage()).isNull();
+  }
+
+  @Test
+  public void testDepsPropagatesMergedAarJars() throws Exception {
+    Action appCompileAction =
+        getGeneratingAction(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(
+                    getFileConfiguredTarget("//java:app.apk").getArtifact()),
+                "libapp.jar"));
+    assertThat(appCompileAction).isNotNull();
+    assertThat(ActionsTestUtil.prettyArtifactNames(appCompileAction.getInputs()))
+        .containsAllOf(
+            "a/_aar/foo/classes_and_libs_merged.jar",
+            "a/_aar/bar/classes_and_libs_merged.jar",
+            "a/_aar/baz/classes_and_libs_merged.jar");
   }
 
   @Test

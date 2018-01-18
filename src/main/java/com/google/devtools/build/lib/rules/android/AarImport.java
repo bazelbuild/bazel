@@ -122,7 +122,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
     }
 
     ImmutableList<TransitiveInfoCollection> targets =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("exports", Mode.TARGET));
+        ImmutableList.<TransitiveInfoCollection>builder()
+            .addAll(ruleContext.getPrerequisites("exports", Mode.TARGET))
+            .addAll(ruleContext.getPrerequisites("deps", Mode.TARGET))
+            .build();
     JavaCommon common =
         new JavaCommon(
             ruleContext,
