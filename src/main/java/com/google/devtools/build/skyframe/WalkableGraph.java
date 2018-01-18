@@ -103,6 +103,13 @@ public interface WalkableGraph {
         Set<SkyKey> roots, int numThreads, ExtendedEventHandler eventHandler)
         throws InterruptedException;
 
+    /**
+     * Returns true if this instance has already been used to {@link #prepareAndGet} {@code roots}.
+     * If so, cached results from {@link #prepareAndGet} can be re-used safely, potentially saving
+     * some processing time.
+     */
+    boolean isUpToDate(Set<SkyKey> roots);
+
     /** Returns the {@link SkyKey} that defines this universe. */
     SkyKey getUniverseKey(Collection<String> roots, String offset);
   }

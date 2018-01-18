@@ -37,6 +37,13 @@ public interface BuildDriver {
   String meta(Iterable<SkyKey> roots, OptionsClassProvider options)
       throws AbruptExitException, InterruptedException;
 
+  /**
+   * Returns true if this {@link BuildDriver} instance has already been used to {@link #evaluate}
+   * the given {@code roots} at the Version that would be passed along to the next call to {@link
+   * MemoizingEvaluator#evaluate} in {@link #evaluate}.
+   */
+  boolean alreadyEvaluated(Iterable<SkyKey> roots);
+
   MemoizingEvaluator getGraphForTesting();
 
   @Nullable
