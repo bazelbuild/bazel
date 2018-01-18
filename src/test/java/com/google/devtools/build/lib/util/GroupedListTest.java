@@ -269,6 +269,19 @@ public class GroupedListTest {
     assertElementsEqualInGroups(groupedList, elements);
   }
 
+  @Test
+  public void removeFromListWithDuplicates() {
+    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedListHelper<String> helper = new GroupedListHelper<>();
+    helper.startGroup();
+    helper.add("a");
+    helper.endGroup();
+    groupedList.append(helper);
+    groupedList.append(helper);
+    groupedList.remove(ImmutableSet.of("a"));
+    assertThat(groupedList.isEmpty()).isTrue();
+  }
+
   private static Object createAndCompress(Collection<String> list) {
     GroupedList<String> result = new GroupedList<>();
     GroupedListHelper<String> helper = new GroupedListHelper<>();
