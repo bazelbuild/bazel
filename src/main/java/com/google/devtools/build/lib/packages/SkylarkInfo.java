@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -70,6 +72,13 @@ public abstract class SkylarkInfo extends Info implements Concatable {
    * get values one-by-one.
    */
   protected abstract Iterable<Object> getValues();
+
+  /**
+   * Returns the custom (i.e. per-instance, as opposed to per-provider-type) error message string
+   * format used by this provider instance, or null if not set.
+   */
+  @Nullable
+  public abstract String getCustomErrorMessageFormatForUnknownField();
 
   /** Returns the layout for this provider if it is schemaful, null otherwise. */
   @Nullable
@@ -133,6 +142,15 @@ public abstract class SkylarkInfo extends Info implements Concatable {
       Object[] values,
       @Nullable Location loc) {
     return new CompactSkylarkInfo(provider, layout, values, loc);
+  }
+
+  /**
+   * Returns the concrete implementation classes of this abstract class.
+   *
+   * <p>This is useful for code that depends on reflection.
+   */
+  public static List<Class<? extends SkylarkInfo>> getImplementationClasses() {
+    return ImmutableList.of(MapBackedSkylarkInfo.class, CompactSkylarkInfo.class);
   }
 
   /**
@@ -261,6 +279,11 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
+    public String getCustomErrorMessageFormatForUnknownField() {
+      return errorMessageFormatForUnknownField;
+    }
+
+    @Override
     public Layout getLayout() {
       return null;
     }
@@ -315,6 +338,11 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     @Override
     protected Iterable<Object> getValues() {
       return Arrays.asList(values);
+    }
+
+    @Override
+    public String getCustomErrorMessageFormatForUnknownField() {
+      return null;
     }
 
     @Override

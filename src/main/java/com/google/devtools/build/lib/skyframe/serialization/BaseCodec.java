@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.List;
 
 /** An opaque interface for codecs that just reveals the {@link Class} of its objects. */
 interface BaseCodec<T> {
@@ -28,4 +30,22 @@ interface BaseCodec<T> {
    * (b/26186886).
    */
   Class<T> getEncodedClass();
+
+  /**
+   * Returns additional subtypes of {@code T} that may be serialized/deserialized using this codec
+   * without loss of information.
+   *
+   * <p>This method is intended for when {@code T} has multiple concrete implementations whose
+   * details are known to the codec but not to the codec dispatching mechanism. It signals that the
+   * dispatcher may choose to use this codec for the subtype, rather than raise {@link
+   * SerializationException.NoCodecException}.
+   *
+   * <p>This method should not be used if the codec's serialization and deserialization methods
+   * perform their own dispatching to other codecs for subtypes of {@code T}.
+   *
+   * <p>{@code T} itself should not be included in the returned list.
+   */
+  default List<Class<? extends T>> additionalEncodedSubclasses() {
+    return ImmutableList.of();
+  }
 }
