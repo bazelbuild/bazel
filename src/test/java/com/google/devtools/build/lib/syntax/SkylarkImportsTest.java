@@ -17,9 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.hamcrest.CoreMatchers.startsWith;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -228,5 +228,16 @@ public class SkylarkImportsTest {
   public void testInvalidRelativePathInvalidFilename() throws Exception {
     // tab character is invalid
     invalidImportTest("\tfile", SkylarkImports.INVALID_FILENAME_PREFIX);
+  }
+
+  @Test
+  public void serialization() throws Exception {
+    ObjectCodecTester.newBuilder(SkylarkImport.CODEC)
+        .addSubjects(
+            SkylarkImports.create("//some/skylark:file.bzl"),
+            SkylarkImports.create("/some/skylark/file"),
+            SkylarkImports.create(":subdirectory/containing/file.bzl"),
+            SkylarkImports.create("file"))
+        .buildAndRunTests();
   }
 }
