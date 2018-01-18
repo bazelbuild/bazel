@@ -488,7 +488,9 @@ public final class UnixGlob {
     private final ThreadPoolExecutor executor;
     private final AtomicLong totalOps = new AtomicLong(0);
     private final AtomicLong pendingOps = new AtomicLong(0);
-    private final AtomicReference<Throwable> failure = new AtomicReference<>();
+    private final AtomicReference<IOException> ioException = new AtomicReference<>();
+    private final AtomicReference<RuntimeException> runtimeException = new AtomicReference<>();
+    private final AtomicReference<Error> error = new AtomicReference<>();
     private volatile boolean canceled = false;
 
     GlobVisitor(
@@ -584,6 +586,19 @@ public final class UnixGlob {
       return result;
     }
 
+    private Throwable getMostSeriousThrowableSoFar() {
+      if (error.get() != null) {
+        return error.get();
+      }
+      if (runtimeException.get() != null) {
+        return runtimeException.get();
+      }
+      if (ioException.get() != null) {
+        return ioException.get();
+      }
+      return null;
+    }
+
     /** Should only be called by link {@GlobTaskContext}. */
     private void queueGlob(final Path base, final boolean baseIsDir, final int idx,
         final GlobTaskContext context) {
@@ -593,8 +608,12 @@ public final class UnixGlob {
           Profiler.instance().startTask(ProfilerTask.VFS_GLOB, this);
           try {
             reallyGlob(base, baseIsDir, idx, context);
-          } catch (Throwable e) {
-            failure.set(e);
+          } catch (IOException e) {
+            ioException.set(e);
+          } catch (RuntimeException e) {
+            runtimeException.set(e);
+          } catch (Error e) {
+            error.set(e);
           } finally {
             Profiler.instance().completeTask(ProfilerTask.VFS_GLOB);
           }
@@ -618,7 +637,7 @@ public final class UnixGlob {
       Runnable wrapped =
           () -> {
             try {
-              if (!canceled && failure.get() == null) {
+              if (!canceled && getMostSeriousThrowableSoFar() == null) {
                 r.run();
               }
             } finally {
@@ -646,10 +665,12 @@ public final class UnixGlob {
         // We get to 0 iff we are done all the relevant work. This is because we always increment
         // the pending ops count as we're enqueuing, and don't decrement until the task is complete
         // (which includes accounting for any additional tasks that one enqueues).
+
+        Throwable mostSeriousThrowable = getMostSeriousThrowableSoFar();
         if (canceled) {
           result.markCanceled();
-        } else if (failure.get() != null) {
-          result.setException(failure.get());
+        } else if (mostSeriousThrowable != null) {
+          result.setException(mostSeriousThrowable);
         } else {
           result.set(ImmutableList.copyOf(results));
         }
