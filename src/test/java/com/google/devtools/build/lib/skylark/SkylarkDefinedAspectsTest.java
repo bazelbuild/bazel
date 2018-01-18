@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -212,8 +212,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AspectDefinition aspectDefinition = aspectValue.getAspect().getDefinition();
     assertThat(
         aspectDefinition.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(JavaConfiguration.class,
-                ConfigurationTransitionProxy.NONE))
+            .isLegalConfigurationFragment(JavaConfiguration.class, NoTransition.INSTANCE))
         .isTrue();
     assertThat(
         aspectDefinition.getConfigurationFragmentPolicy()
@@ -221,8 +220,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         .isFalse();
     assertThat(
         aspectDefinition.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(CppConfiguration.class,
-                ConfigurationTransitionProxy.NONE))
+            .isLegalConfigurationFragment(CppConfiguration.class, NoTransition.INSTANCE))
         .isFalse();
     assertThat(
         aspectDefinition.getConfigurationFragmentPolicy()

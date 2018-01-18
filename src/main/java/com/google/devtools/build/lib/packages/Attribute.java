@@ -29,7 +29,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -359,7 +359,7 @@ public final class Attribute implements Comparable<Attribute> {
   public static class Builder <TYPE> {
     private final String name;
     private final Type<TYPE> type;
-    private Transition configTransition = ConfigurationTransitionProxy.NONE;
+    private Transition configTransition = NoTransition.INSTANCE;
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
     private SplitTransitionProvider splitTransitionProvider;
@@ -479,7 +479,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Defines the configuration transition for this attribute.
      */
     public Builder<TYPE> cfg(SplitTransitionProvider splitTransitionProvider) {
-      Preconditions.checkState(this.configTransition == ConfigurationTransitionProxy.NONE,
+      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
 
       this.splitTransitionProvider = Preconditions.checkNotNull(splitTransitionProvider);
@@ -499,7 +499,7 @@ public final class Attribute implements Comparable<Attribute> {
      * {@code NONE}.
      */
     public Builder<TYPE> cfg(Transition configTransition) {
-      Preconditions.checkState(this.configTransition == ConfigurationTransitionProxy.NONE,
+      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
       if (configTransition instanceof SplitTransition) {
         return cfg((SplitTransition) configTransition);
@@ -1801,7 +1801,7 @@ public final class Attribute implements Comparable<Attribute> {
       ImmutableList<RuleAspect<?>> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
-        (configTransition == ConfigurationTransitionProxy.NONE)
+        (configTransition == NoTransition.INSTANCE)
         || type.getLabelClass() == LabelClass.DEPENDENCY
         || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
         "Configuration transitions can only be specified for label or label list attributes");

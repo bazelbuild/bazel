@@ -22,7 +22,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.common.testing.NullPointerTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -377,30 +377,22 @@ public class DependencyTest extends AnalysisTestCase {
             Dependency.withTransitionAndAspects(b, HostTransition.INSTANCE, differentAspects))
         .addEqualityGroup(
             // base set but with transition NONE
-            Dependency.withTransitionAndAspects(a, ConfigurationTransitionProxy.NONE, twoAspects),
-            Dependency.withTransitionAndAspects(
-                aExplicit, ConfigurationTransitionProxy.NONE, twoAspects),
-            Dependency.withTransitionAndAspects(a, ConfigurationTransitionProxy.NONE,
-                inverseAspects),
-            Dependency.withTransitionAndAspects(
-                aExplicit, ConfigurationTransitionProxy.NONE, inverseAspects))
+            Dependency.withTransitionAndAspects(a, NoTransition.INSTANCE, twoAspects),
+            Dependency.withTransitionAndAspects(aExplicit, NoTransition.INSTANCE, twoAspects),
+            Dependency.withTransitionAndAspects(a, NoTransition.INSTANCE, inverseAspects),
+            Dependency.withTransitionAndAspects(aExplicit, NoTransition.INSTANCE, inverseAspects))
         .addEqualityGroup(
             // base set but with transition NONE and different aspects
-            Dependency.withTransitionAndAspects(a, ConfigurationTransitionProxy.NONE,
-                differentAspects),
-            Dependency.withTransitionAndAspects(
-                aExplicit, ConfigurationTransitionProxy.NONE, differentAspects))
+            Dependency.withTransitionAndAspects(a, NoTransition.INSTANCE, differentAspects),
+            Dependency.withTransitionAndAspects(aExplicit, NoTransition.INSTANCE, differentAspects))
         .addEqualityGroup(
             // base set but with transition NONE and label //b
-            Dependency.withTransitionAndAspects(b, ConfigurationTransitionProxy.NONE, twoAspects),
-            Dependency.withTransitionAndAspects(b, ConfigurationTransitionProxy.NONE,
-                inverseAspects))
+            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, twoAspects),
+            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, inverseAspects))
         .addEqualityGroup(
             // inverse of base set: transition NONE, label //b, different aspects
-            Dependency.withTransitionAndAspects(b, ConfigurationTransitionProxy.NONE,
-                differentAspects),
-            Dependency.withTransitionAndAspects(b, ConfigurationTransitionProxy.NONE,
-                differentAspects))
+            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, differentAspects),
+            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, differentAspects))
         .testEquals();
   }
 }

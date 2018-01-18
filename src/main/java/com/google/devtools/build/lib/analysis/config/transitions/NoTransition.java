@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,18 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+
 /**
- * Declaration how the configuration should change when following a label or label list attribute.
- *
- * <p>Do not add to this. This is a legacy interface from when Blaze had limited support for
- * transitions. Use {@link PatchTransition} or {@link SplitTransition} instead.
+ * No-op configuration transition.
  */
-@Deprecated
-public enum ConfigurationTransitionProxy implements Transition {
-  /** Transition from the target configuration to the data configuration. */
-  // TODO(bazel-team): Move this elsewhere.
-  DATA,
+public final class NoTransition implements PatchTransition {
+  public static final NoTransition INSTANCE = new NoTransition();
+
+  private NoTransition() {}
+
+  @Override
+  public BuildOptions apply(BuildOptions options) {
+    return options;
+  }
 }

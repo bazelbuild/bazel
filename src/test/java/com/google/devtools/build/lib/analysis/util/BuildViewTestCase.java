@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
@@ -1508,7 +1509,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
       Transition transition) throws InterruptedException {
-    if (transition == ConfigurationTransitionProxy.NONE) {
+    if (transition == NoTransition.INSTANCE) {
       return fromConfig;
     } else if (transition == NullTransition.INSTANCE) {
       return null;

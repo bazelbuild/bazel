@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
@@ -957,7 +957,7 @@ public class BuildView {
           Iterable<BuildOptions> buildOptions) {
         Preconditions.checkArgument(ct.getConfiguration().fragmentClasses().equals(fragments));
         Dependency asDep = Dependency.withTransitionAndAspects(ct.getLabel(),
-            ConfigurationTransitionProxy.NONE, AspectCollection.EMPTY);
+            NoTransition.INSTANCE, AspectCollection.EMPTY);
         ImmutableList.Builder<BuildConfiguration> builder = ImmutableList.builder();
         for (BuildOptions options : buildOptions) {
           builder.add(Iterables.getOnlyElement(
@@ -1036,19 +1036,19 @@ public class BuildView {
           .getTarget(handler, label)
           .getAssociatedRule();
     } catch (NoSuchPackageException | NoSuchTargetException e) {
-      return ConfigurationTransitionProxy.NONE;
+      return NoTransition.INSTANCE;
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new AssertionError("Configuration of " + label + " interrupted");
     }
     if (rule == null) {
-      return ConfigurationTransitionProxy.NONE;
+      return NoTransition.INSTANCE;
     }
     RuleTransitionFactory factory = rule
         .getRuleClassObject()
         .getTransitionFactory();
     if (factory == null) {
-      return ConfigurationTransitionProxy.NONE;
+      return NoTransition.INSTANCE;
     }
 
     // dynamicTransitionMapper is only needed because of ConfigurationTransitionProxy.DATA:
@@ -1056,7 +1056,7 @@ public class BuildView {
     // C++-specific patch transition that implements it.
     PatchTransition transition = (PatchTransition)
         ruleClassProvider.getDynamicTransitionMapper().map(factory.buildTransitionFor(rule));
-    return (transition == null) ? ConfigurationTransitionProxy.NONE : transition;
+    return (transition == null) ? NoTransition.INSTANCE : transition;
   }
 
   /**

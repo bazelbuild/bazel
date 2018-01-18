@@ -29,8 +29,6 @@ public final class CoreRules implements RuleSet {
 
   @Override
   public void init(Builder builder) {
-    builder.addDynamicTransitionMaps(BaseRuleClasses.DYNAMIC_TRANSITIONS_MAP);
-
     builder.addConfig(TestConfiguration.TestOptions.class, new TestConfiguration.Loader());
     builder.addRuleDefinition(new BaseRuleClasses.RootRule());
     builder.addRuleDefinition(new BaseRuleClasses.BaseRule());

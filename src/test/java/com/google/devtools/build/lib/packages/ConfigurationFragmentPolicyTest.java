@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -92,7 +92,7 @@ public final class ConfigurationFragmentPolicyTest {
 
     assertThat(policy.isLegalConfigurationFragment(Integer.class)).isTrue();
     assertThat(
-            policy.isLegalConfigurationFragment(Integer.class, ConfigurationTransitionProxy.NONE))
+            policy.isLegalConfigurationFragment(Integer.class, NoTransition.INSTANCE))
         .isTrue();
     // TODO(mstaib): .isFalse() when dynamic configurations care which configuration a fragment was
     // specified for
@@ -102,13 +102,13 @@ public final class ConfigurationFragmentPolicyTest {
     assertThat(policy.isLegalConfigurationFragment(Long.class)).isTrue();
     // TODO(mstaib): .isFalse() when dynamic configurations care which configuration a fragment was
     // specified for
-    assertThat(policy.isLegalConfigurationFragment(Long.class, ConfigurationTransitionProxy.NONE))
+    assertThat(policy.isLegalConfigurationFragment(Long.class, NoTransition.INSTANCE))
         .isTrue();
     assertThat(policy.isLegalConfigurationFragment(Long.class, TEST_HOST_TRANSITION))
         .isTrue();
 
     assertThat(policy.isLegalConfigurationFragment(String.class)).isFalse();
-    assertThat(policy.isLegalConfigurationFragment(String.class, ConfigurationTransitionProxy.NONE))
+    assertThat(policy.isLegalConfigurationFragment(String.class, NoTransition.INSTANCE))
         .isFalse();
     assertThat(policy.isLegalConfigurationFragment(String.class, TEST_HOST_TRANSITION))
         .isFalse();
@@ -128,8 +128,7 @@ public final class ConfigurationFragmentPolicyTest {
 
     assertThat(policy.isLegalConfigurationFragment(TestFragment.class)).isTrue();
     assertThat(
-            policy.isLegalConfigurationFragment(TestFragment.class,
-                ConfigurationTransitionProxy.NONE))
+            policy.isLegalConfigurationFragment(TestFragment.class, NoTransition.INSTANCE))
         .isTrue();
     assertThat(
             policy.isLegalConfigurationFragment(TestFragment.class, TEST_HOST_TRANSITION))
@@ -137,8 +136,7 @@ public final class ConfigurationFragmentPolicyTest {
 
     assertThat(policy.isLegalConfigurationFragment(OtherFragment.class)).isTrue();
     assertThat(
-            policy.isLegalConfigurationFragment(OtherFragment.class,
-                ConfigurationTransitionProxy.NONE))
+            policy.isLegalConfigurationFragment(OtherFragment.class, NoTransition.INSTANCE))
         .isFalse();
     assertThat(
             policy.isLegalConfigurationFragment(OtherFragment.class, TEST_HOST_TRANSITION))
@@ -146,8 +144,7 @@ public final class ConfigurationFragmentPolicyTest {
 
     assertThat(policy.isLegalConfigurationFragment(UnknownFragment.class)).isFalse();
     assertThat(
-            policy.isLegalConfigurationFragment(
-                UnknownFragment.class, ConfigurationTransitionProxy.NONE))
+            policy.isLegalConfigurationFragment(UnknownFragment.class, NoTransition.INSTANCE))
         .isFalse();
     assertThat(
             policy.isLegalConfigurationFragment(

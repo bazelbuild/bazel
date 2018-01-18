@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingSplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -77,7 +78,7 @@ public final class TransitionResolver {
     // II. Host configurations never switch to another. All prerequisites of host targets have the
     // same host configuration.
     if (fromConfig.isHostConfiguration()) {
-      return ConfigurationTransitionProxy.NONE;
+      return NoTransition.INSTANCE;
     }
 
     // Make sure config_setting dependencies are resolved in the referencing rule's configuration,
@@ -94,13 +95,13 @@ public final class TransitionResolver {
     // TODO(bazel-team): don't require special casing here. This is far too hackish.
     if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClassObject().isConfigMatcher()) {
       // TODO(gregce): see if this actually gets called
-      return ConfigurationTransitionProxy.NONE;
+      return NoTransition.INSTANCE;
     }
 
     // The current transition to apply. When multiple transitions are requested, this is a
     // ComposingSplitTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
-    Transition currentTransition = ConfigurationTransitionProxy.NONE;
+    Transition currentTransition = NoTransition.INSTANCE;
 
     // Apply the parent rule's outgoing transition if it has one.
     RuleTransitionFactory transitionFactory =
@@ -140,7 +141,7 @@ public final class TransitionResolver {
     // Top-level transitions (chosen by configuration fragments):
     Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
     if (topLevelTransition == null) {
-      topLevelTransition = ConfigurationTransitionProxy.NONE;
+      topLevelTransition = NoTransition.INSTANCE;
     }
 
     // Rule class transitions (chosen by rule class definitions):
@@ -165,7 +166,7 @@ public final class TransitionResolver {
   public Transition composeTransitions(Transition transition1, Transition transition2) {
     if (isFinal(transition1)) {
       return transition1;
-    } else if (transition2 == ConfigurationTransitionProxy.NONE) {
+    } else if (transition2 == NoTransition.INSTANCE) {
       return transition1;
     } else if (transition2 == NullTransition.INSTANCE) {
       // A NULL transition can just replace earlier transitions: no need to compose them.
@@ -180,7 +181,7 @@ public final class TransitionResolver {
 
     // TODO(gregce): remove the below conversion when all transitions are patch transitions.
     Transition dynamicTransition = transitionMapper.map(transition2);
-    return transition1 == ConfigurationTransitionProxy.NONE
+    return transition1 == NoTransition.INSTANCE
         ? dynamicTransition
         : new ComposingSplitTransition(transition1, dynamicTransition);
   }
@@ -202,7 +203,7 @@ public final class TransitionResolver {
         "cannot apply splits after null transitions (null transitions are expected to be final)");
     Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
         "cannot apply splits after host transitions (host transitions are expected to be final)");
-    return currentTransition == ConfigurationTransitionProxy.NONE
+    return currentTransition == NoTransition.INSTANCE
         ? split
         : new ComposingSplitTransition(currentTransition, split);
   }
@@ -226,7 +227,7 @@ public final class TransitionResolver {
       PatchTransition ruleClassTransition = (PatchTransition)
           transitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
       if (ruleClassTransition != null) {
-        if (currentTransition == ConfigurationTransitionProxy.NONE) {
+        if (currentTransition == NoTransition.INSTANCE) {
           return ruleClassTransition;
         } else {
           return new ComposingSplitTransition(currentTransition, ruleClassTransition);

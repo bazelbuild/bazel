@@ -28,15 +28,10 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -392,19 +387,4 @@ public class BaseRuleClasses {
           .build();
     }
   }
-
-  /**
-   * Declares the implementations for {@link ConfigurationTransitionProxy} enums.
-   *
-   * <p>We can't put this in {@link Attribute} because that's in the {@code lib.packages} package,
-   * which has no access to configuration classes.
-   *
-   * <p>New transitions should extend {@link PatchTransition}, which avoids the need for this map.
-   */
-  public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
-      ImmutableMap.of(
-          ConfigurationTransitionProxy.NONE, DynamicTransitionMapper.SELF
-          // ConfigurationTransitionProxy.DATA is skipped because it's C++-specific.
-          // The C++ rule definitions handle its mapping.
-      );
 }

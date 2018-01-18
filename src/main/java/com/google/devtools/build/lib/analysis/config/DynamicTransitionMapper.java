@@ -14,43 +14,23 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.RuleClass;
 
 /**
  * Maps non-{@link PatchTransition} declarations to their implementable equivalents.
  *
  * <p>Blaze applies configuration transitions by executing {@link PatchTransition} instances. But
- * for legacy reasons, not every transition declaration is a {@link PatchTransition}. The most
- * prominent example is {@link ConfigurationTransitionProxy}, which defines its transitions as
- * enums. These transitions are used all over the place. So we need a way to continue to support
- * them.
+ * for legacy reasons, {@link ConfigurationTransitionProxy#DATA} (which is used for C++/LIPO logic)
+ * is an implementation-free enum.
  *
- * <p>Hence this class.
- *
- * <p>Going forward, we should eliminate the need for this class by eliminating
- * non-{@link PatchTransition} transitions. This is conceptually straightforward: replace
- * declarations of the form {@link RuleClass.Builder#cfg(Transition)} with
- * {@link RuleClass.Builder#cfg(PatchTransition)}. That way, transition declarations "just work",
- * with no extra fuss. But this is a migration that will take some time to complete.
- *
- * {@link ConfigurationTransitionProxy#DATA} provides the most complicated challenge. This is
- * C++/LIPO logic, and the implementation is in C++ rule code
- * ({@link com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}). But the enum
- * is defined in {@link Attribute}, which is in {@code lib.packages}, which has access to neither
- * rule-specific nor configuration-specific code. Furthermore, many non-C++ rules declare this
- * transition. We ultimately need a cleaner way to inject this rules-specific logic into general
- * Blaze code.
+ * <p>We should ultimately restrict that logic just to the C++ rule definitions and remove this
+ * interface. But {@link ConfigurationTransitionProxy#DATA} is used everywhere, including in
+ * non-C++ rules and in {@code lib.packages} code, which lacks acccess to C++ configuration logic.
   */
 public final class DynamicTransitionMapper {
-  /**
-   * Use this to declare a no-op transition that keeps the input configuration.
-   */
-  public static final Transition SELF = new Transition() {};
-
   private final ImmutableMap<Transition, Transition> map;
 
   /**
@@ -79,11 +59,9 @@ public final class DynamicTransitionMapper {
       return fromTransition;
     }
     Transition toTransition = map.get(fromTransition);
-    if (toTransition == SELF) {
-      return fromTransition;
-    } else if (toTransition != null) {
-      return toTransition;
+    if (toTransition == null) {
+      throw new IllegalArgumentException("No dynamic mapping for " + fromTransition.toString());
     }
-    throw new IllegalArgumentException("No dynamic mapping for " + fromTransition.toString());
+    return toTransition;
   }
 }
