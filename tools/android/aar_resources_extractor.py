@@ -43,7 +43,7 @@ def ExtractResources(aar, output_res_dir):
   aar_contains_no_resources = True
   output_res_dir_abs = os.path.abspath(output_res_dir)
   for name in aar.namelist():
-    if name.startswith("res/"):
+    if name.startswith("res/") and not name.endswith("/"):
       ExtractOneFile(aar, name, output_res_dir_abs)
       aar_contains_no_resources = False
   if aar_contains_no_resources:
@@ -56,7 +56,7 @@ def ExtractAssets(aar, output_assets_dir):
   aar_contains_no_assets = True
   output_assets_dir_abs = os.path.abspath(output_assets_dir)
   for name in aar.namelist():
-    if name.startswith("assets/"):
+    if name.startswith("assets/") and not name.endswith("/"):
       ExtractOneFile(aar, name, output_assets_dir_abs)
       aar_contains_no_assets = False
   if aar_contains_no_assets:

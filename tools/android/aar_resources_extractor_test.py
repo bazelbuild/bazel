@@ -50,6 +50,7 @@ class AarResourcesExtractorTest(unittest.TestCase):
 
   def testNoResources(self):
     aar = zipfile.ZipFile(io.BytesIO(), "w")
+    aar.writestr("res/", "")
     os.makedirs("out_dir")
     aar_resources_extractor.ExtractResources(aar, "out_dir")
     self.assertEqual([_HostPath("out_dir/res/values/empty.xml")],
@@ -76,6 +77,7 @@ class AarResourcesExtractorTest(unittest.TestCase):
 
   def testNoAssets(self):
     aar = zipfile.ZipFile(io.BytesIO(), "w")
+    aar.writestr("assets/", "")
     os.makedirs("out_dir")
     aar_resources_extractor.ExtractAssets(aar, "out_dir")
     expected_assets = [
