@@ -68,12 +68,23 @@ public class PlatformOptions extends FragmentOptions {
   )
   public String hostPlatformRemotePropertiesOverride;
 
-  // TODO(katre): Add execution platforms.
+  @Option(
+    name = "extra_execution_platforms",
+    converter = LabelListConverter.class,
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "The labels of platforms that are available as execution platforms to run actions. "
+            + "These platforms will be considered before those declared in the WORKSPACE file by "
+            + "register_execution_platforms()."
+  )
+  public List<Label> extraExecutionPlatforms;
 
   @Option(
     name = "platforms",
     oldName = "experimental_platforms",
-    converter = BuildConfiguration.LabelListConverter.class,
+    converter = LabelListConverter.class,
     defaultValue = "@bazel_tools//platforms:target_platform",
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {
@@ -149,6 +160,7 @@ public class PlatformOptions extends FragmentOptions {
     host.platforms =
         this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
     host.hostPlatform = this.hostPlatform;
+    host.extraExecutionPlatforms = this.extraExecutionPlatforms;
     host.extraToolchains = this.extraToolchains;
     host.enabledToolchainTypes = this.enabledToolchainTypes;
     host.hostPlatformRemotePropertiesOverride = this.hostPlatformRemotePropertiesOverride;

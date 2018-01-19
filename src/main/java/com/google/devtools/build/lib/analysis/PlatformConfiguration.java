@@ -39,6 +39,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
       new PlatformConfiguration_AutoCodec();
 
   private final Label executionPlatform;
+  private final ImmutableList<Label> extraExecutionPlatforms;
   private final ImmutableList<Label> targetPlatforms;
   private final ImmutableList<Label> extraToolchains;
   private final ImmutableMap<Label, Label> toolchainResolutionOverrides;
@@ -47,11 +48,13 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   @AutoCodec.Constructor
   PlatformConfiguration(
       Label executionPlatform,
+      ImmutableList<Label> extraExecutionPlatforms,
       ImmutableList<Label> targetPlatforms,
       ImmutableList<Label> extraToolchains,
       ImmutableMap<Label, Label> toolchainResolutionOverrides,
       ImmutableList<Label> enabledToolchainTypes) {
     this.executionPlatform = executionPlatform;
+    this.extraExecutionPlatforms = extraExecutionPlatforms;
     this.targetPlatforms = targetPlatforms;
     this.extraToolchains = extraToolchains;
     this.toolchainResolutionOverrides = toolchainResolutionOverrides;
@@ -65,6 +68,11 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   )
   public Label getExecutionPlatform() {
     return executionPlatform;
+  }
+
+  /** Additional platforms that are available for action execution. */
+  public ImmutableList<Label> getExtraExecutionPlatforms() {
+    return extraExecutionPlatforms;
   }
 
   @SkylarkCallable(name = "platforms", structField = true, doc = "The current target platforms")

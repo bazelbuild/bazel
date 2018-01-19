@@ -52,6 +52,7 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
     Label executionPlatform = options.hostPlatform;
     return new PlatformConfiguration(
         executionPlatform,
+        ImmutableList.copyOf(options.extraExecutionPlatforms),
         ImmutableList.copyOf(options.platforms),
         ImmutableList.copyOf(options.extraToolchains),
         convertOverrides(options.toolchainResolutionOverrides),
