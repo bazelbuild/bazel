@@ -403,7 +403,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   static Iterable<String> iquoteArgs(ObjcProvider provider, BuildConfiguration configuration) {
     return Interspersing.beforeEach(
         "-iquote",
-        PathFragment.safePathStrings(ObjcCommon.userHeaderSearchPaths(provider, configuration)));
+        Iterables.transform(
+            ObjcCommon.userHeaderSearchPaths(provider, configuration),
+            PathFragment::getSafePathString));
   }
 
   @Test

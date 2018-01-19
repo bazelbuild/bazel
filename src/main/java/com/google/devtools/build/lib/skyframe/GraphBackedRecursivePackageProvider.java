@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -269,11 +271,15 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
             PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
             ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
-                PathFragment.filterPathsStartingWith(
-                    info.blacklistedSubdirectories, subdirectoryRelativePath);
+                info.blacklistedSubdirectories
+                    .stream()
+                    .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
+                    .collect(toImmutableSet());
             ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-                PathFragment.filterPathsStartingWith(
-                    info.excludedSubdirectories, subdirectoryRelativePath);
+                info.excludedSubdirectories
+                    .stream()
+                    .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
+                    .collect(toImmutableSet());
             if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(subdirectoryRelativePath)) {
               subdirTraversalBuilder.add(
                   new TraversalInfo(

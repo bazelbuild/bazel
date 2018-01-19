@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -209,7 +211,10 @@ public class ProcessPackageDirectory {
       // TODO(bazel-team): Replace the excludedPaths set with a trie or a SortedSet for better
       // efficiency.
       ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-          PathFragment.filterPathsStartingWith(excludedPaths, subdirectory);
+          excludedPaths
+              .stream()
+              .filter(pathFragment -> pathFragment.startsWith(subdirectory))
+              .collect(toImmutableSet());
       RootedPath subdirectoryRootedPath = RootedPath.toRootedPath(root, subdirectory);
       childDeps.add(
           skyKeyTransformer.makeSkyKey(

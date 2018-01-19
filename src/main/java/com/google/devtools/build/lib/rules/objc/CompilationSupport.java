@@ -694,13 +694,18 @@ public class CompilationSupport {
     return frameworkNames
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
-        .addAll(PathFragment.safePathStrings(
-            uniqueParentDirectories(provider.getStaticFrameworkDirs())))
-        .addAll(PathFragment.safePathStrings(
-            uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR))))
         .addAll(
-            PathFragment.safePathStrings(
-                uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY))))
+            Iterables.transform(
+                uniqueParentDirectories(provider.getStaticFrameworkDirs()),
+                PathFragment::getSafePathString))
+        .addAll(
+            Iterables.transform(
+                uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR)),
+                PathFragment::getSafePathString))
+        .addAll(
+            Iterables.transform(
+                uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)),
+                PathFragment::getSafePathString))
         .build();
   }
 

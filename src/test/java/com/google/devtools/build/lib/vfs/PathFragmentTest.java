@@ -388,34 +388,6 @@ public class PathFragmentTest {
   }
 
   @Test
-  public void testFilterPathsStartingWith() {
-    // Retains everything:
-    ImmutableSet<PathFragment> allUnderA = toPathsSet("a/b", "a/c", "a/d");
-    assertThat(PathFragment.filterPathsStartingWith(allUnderA, PathFragment.create("a")))
-        .containsExactlyElementsIn(allUnderA);
-
-    // Retains some but not others:
-    ImmutableSet<PathFragment> mixed = toPathsSet("a/b", "a/c", "b/c");
-    assertThat(PathFragment.filterPathsStartingWith(mixed,
-        PathFragment.create("a"))).containsExactlyElementsIn(toPathsSet("a/b", "a/c"));
-
-    // Retains none:
-    assertThat(PathFragment.filterPathsStartingWith(allUnderA, PathFragment.create("b"))).isEmpty();
-
-    // Retains paths equal to the startingWithPath:
-    assertThat(PathFragment.filterPathsStartingWith(toPathsSet("a"),
-        PathFragment.create("a"))).containsExactlyElementsIn(toPathsSet("a"));
-
-    // Retains everything when startingWithPath is the empty fragment:
-    assertThat(PathFragment.filterPathsStartingWith(mixed, PathFragment.EMPTY_FRAGMENT))
-        .containsExactlyElementsIn(mixed);
-
-    // Supports multi-segment startingWithPaths:
-    assertThat(PathFragment.filterPathsStartingWith(toPathsSet("a/b/c", "a/b/d", "a/c/d"),
-        PathFragment.create("a/b"))).containsExactlyElementsIn(toPathsSet("a/b/c", "a/b/d"));
-  }
-
-  @Test
   public void testCheckAllPathsStartWithButAreNotEqualTo() {
     // Check passes:
     PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a/c"),

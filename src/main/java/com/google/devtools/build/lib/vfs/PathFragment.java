@@ -13,12 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -317,23 +313,6 @@ public abstract class PathFragment
     } else {
       return getPathString();
     }
-  }
-
-  /**
-   * Returns a sequence consisting of the {@link #getSafePathString()} return of each item in
-   * {@code fragments}.
-   */
-  public static Iterable<String> safePathStrings(Iterable<PathFragment> fragments) {
-    return Iterables.transform(fragments, PathFragment::getSafePathString);
-  }
-
-  /** Returns the subset of {@code paths} that start with {@code startingWithPath}. */
-  public static ImmutableSet<PathFragment> filterPathsStartingWith(
-      Set<PathFragment> paths, PathFragment startingWithPath) {
-    return paths
-        .stream()
-        .filter(pathFragment -> pathFragment.startsWith(startingWithPath))
-        .collect(toImmutableSet());
   }
 
   /**
