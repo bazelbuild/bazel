@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
@@ -68,6 +69,11 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     }
 
     @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return false;
+    }
+
+    @Override
     public String toString() {
       return "singleton marker artifact value (" + hashCode() + ")";
     }
@@ -92,6 +98,11 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     @Override
     public long getModifiedTime() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return false;
     }
 
     @Override
@@ -140,6 +151,11 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     }
 
     @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return false;
+    }
+
+    @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("mtime", mtime).toString();
     }
@@ -147,10 +163,12 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
 
   private static final class RegularFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
+    @Nullable private final FileContentsProxy proxy;
     private final long size;
 
-    private RegularFileArtifactValue(byte[] digest, long size) {
+    private RegularFileArtifactValue(byte[] digest, @Nullable FileContentsProxy proxy, long size) {
       this.digest = Preconditions.checkNotNull(digest);
+      this.proxy = proxy;
       this.size = size;
     }
 
@@ -170,6 +188,15 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     }
 
     @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      if (proxy == null) {
+        return false;
+      }
+      FileStatus stat = path.statIfFound(Symlinks.FOLLOW);
+      return stat == null || !stat.isFile() || !proxy.equals(FileContentsProxy.create(stat));
+    }
+
+    @Override
     public long getModifiedTime() {
       throw new UnsupportedOperationException(
           "regular file's mtime should never be called. (" + this + ")");
@@ -181,51 +208,77 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
     }
   }
 
-  @VisibleForTesting
-  public static FileArtifactValue create(Artifact artifact) throws IOException {
-    return create(artifact.getPath());
-  }
-
   static FileArtifactValue create(Artifact artifact, FileValue fileValue) throws IOException {
     boolean isFile = fileValue.isFile();
-    return create(artifact.getPath(), isFile, isFile ? fileValue.getSize() : 0,
+    FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
+    return create(artifact.getPath(), isFile, isFile ? fileValue.getSize() : 0, proxy,
         isFile ? fileValue.getDigest() : null);
   }
 
   static FileArtifactValue create(
       Artifact artifact, FileValue fileValue, @Nullable byte[] injectedDigest) throws IOException {
     boolean isFile = fileValue.isFile();
-    return create(artifact.getPath(), isFile, isFile ? fileValue.getSize() : 0, injectedDigest);
+    FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
+    return create(artifact.getPath(), isFile, isFile ? fileValue.getSize() : 0, proxy,
+        injectedDigest);
   }
 
   @VisibleForTesting
-  static FileArtifactValue create(Path path) throws IOException {
-    FileStatus stat = path.stat();
-    boolean isFile = stat.isFile();
-    return create(path, isFile, isFile ? stat.getSize() : 0, null);
+  public static FileArtifactValue create(Artifact artifact) throws IOException {
+    return create(artifact.getPath());
+  }
+
+  @VisibleForTesting
+  public static FileArtifactValue create(Path path) throws IOException {
+    // Caution: there's a race condition between stating the file and computing the
+    // digest. We need to stat first, since we're using the stat to detect changes.
+    // We follow symlinks here to be consistent with getDigest.
+    FileStatus stat = path.stat(Symlinks.FOLLOW);
+    return create(path, stat.isFile(), stat.getSize(), FileContentsProxy.create(stat), null);
   }
 
   private static FileArtifactValue create(
-      Path path, boolean isFile, long size, @Nullable byte[] digest) throws IOException {
-    if (isFile && digest == null) {
-      digest = DigestUtils.getDigestOrFail(path, size);
-    }
+      Path path, boolean isFile, long size, FileContentsProxy proxy, @Nullable byte[] digest)
+          throws IOException {
     if (!isFile) {
       // In this case, we need to store the mtime because the action cache uses mtime for
       // directories to determine if this artifact has changed. We want this code path to go away
       // somehow (maybe by implementing FileSet in Skyframe).
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
+    if (digest == null) {
+      digest = DigestUtils.getDigestOrFail(path, size);
+    }
     Preconditions.checkState(digest != null, path);
-    return createNormalFile(digest, size);
+    return new RegularFileArtifactValue(digest, proxy, size);
   }
 
-  public static FileArtifactValue createNormalFile(byte[] digest, long size) {
-    return new RegularFileArtifactValue(digest, size);
+  public static FileArtifactValue createForVirtualActionInput(byte[] digest, long size) {
+    return new RegularFileArtifactValue(digest, /*proxy=*/ null, size);
+  }
+
+  public static FileArtifactValue createNormalFile(
+      byte[] digest, @Nullable FileContentsProxy proxy, long size) {
+    return new RegularFileArtifactValue(digest, proxy, size);
   }
 
   static FileArtifactValue createNormalFile(FileValue fileValue) {
-    return new RegularFileArtifactValue(fileValue.getDigest(), fileValue.getSize());
+    FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
+    return new RegularFileArtifactValue(fileValue.getDigest(), proxy, fileValue.getSize());
+  }
+
+  private static FileContentsProxy getProxyFromFileStateValue(FileStateValue value) {
+    if (value instanceof FileStateValue.RegularFileStateValue) {
+      return ((FileStateValue.RegularFileStateValue) value).getContentsProxy();
+    } else if (value instanceof FileStateValue.SpecialFileStateValue) {
+      return ((FileStateValue.SpecialFileStateValue) value).getContentsProxy();
+    }
+    return null;
+  }
+
+  @VisibleForTesting
+  public static FileArtifactValue createNormalFile(byte[] digest, long size) {
+    return createNormalFile(digest, /*proxy=*/null, size);
   }
 
   public static FileArtifactValue createDirectory(long mtime) {
@@ -238,7 +291,7 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
    */
   static FileArtifactValue createProxy(byte[] digest) {
     Preconditions.checkNotNull(digest);
-    return createNormalFile(digest, /*size=*/ 0);
+    return createNormalFile(digest, /*proxy=*/ null, /*size=*/ 0);
   }
 
   @Override
@@ -253,6 +306,15 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
 
   @Override
   public abstract long getModifiedTime();
+
+  /**
+   * Provides a best-effort determination whether the file was changed since the digest was
+   * computed. This method performs file system I/O, so may be expensive. It's primarily intended to
+   * avoid storing bad cache entries in an action cache. It should return true if there is a chance
+   * that the file was modified since the digest was computed. Better not upload if we are not sure
+   * that the cache entry is reliable.
+   */
+  public abstract boolean wasModifiedSinceDigest(Path path) throws IOException;
 
   @Override
   public boolean equals(Object o) {

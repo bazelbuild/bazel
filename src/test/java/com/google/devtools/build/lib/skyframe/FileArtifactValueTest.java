@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -30,11 +31,12 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class FileArtifactValueTest {
-  private final FileSystem fs = new InMemoryFileSystem();
+  private final ManualClock clock = new ManualClock();
+  private final FileSystem fs = new InMemoryFileSystem(clock);
 
   private Path scratchFile(String name, long mtime, String content) throws IOException {
     Path path = fs.getPath(name);
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, content);
     path.setLastModifiedTime(mtime);
     return path;
@@ -42,7 +44,7 @@ public class FileArtifactValueTest {
 
   private Path scratchDir(String name, long mtime) throws IOException {
     Path path = fs.getPath(name);
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     path.setLastModifiedTime(mtime);
     return path;
   }
@@ -114,9 +116,7 @@ public class FileArtifactValueTest {
 
   @Test
   public void testDirectory() throws Exception {
-    Path path = fs.getPath("/dir");
-    FileSystemUtils.createDirectoryAndParents(path);
-    path.setLastModifiedTime(1L);
+    Path path = scratchDir("/dir", /*mtime=*/ 1L);
     FileArtifactValue value = create(path);
     assertThat(value.getDigest()).isNull();
     assertThat(value.getModifiedTime()).isEqualTo(1L);
@@ -153,7 +153,7 @@ public class FileArtifactValueTest {
       }
     };
     Path path = fs.getPath("/some/path");
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, "content");
     try {
       create(path);
@@ -161,5 +161,54 @@ public class FileArtifactValueTest {
     } catch (IOException e) {
       assertThat(e).isSameAs(exception);
     }
+  }
+
+  @Test
+  public void testUptodateCheck() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue value = create(path);
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    clock.advanceMillis(1);
+    path.setLastModifiedTime(123); // Changing mtime implicitly updates ctime.
+    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+  }
+
+  @Test
+  public void testUptodateCheckDeleteFile() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue value = create(path);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    path.delete();
+    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+  }
+
+  @Test
+  public void testUptodateCheckDirectory() throws Exception {
+    // For now, we don't attempt to detect changes to directories.
+    Path path = scratchDir("/dir", 0L);
+    FileArtifactValue value = create(path);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    path.delete();
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+  }
+
+  @Test
+  public void testUptodateChangeFileToDirectory() throws Exception {
+    // For now, we don't attempt to detect changes to directories.
+    Path path = scratchFile("/dir/file", 0L, "");
+    FileArtifactValue value = create(path);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+    // If we only check ctime, then we need to change the clock here, or we get a ctime match on the
+    // stat.
+    path.delete();
+    path.createDirectoryAndParents();
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
   }
 }

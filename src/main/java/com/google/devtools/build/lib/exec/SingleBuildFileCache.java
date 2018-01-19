@@ -68,24 +68,20 @@ public class SingleBuildFileCache implements ActionInputFileCache {
                           ? ((Artifact) input).getPath()
                           : execRoot.getRelative(input.getExecPath());
                   try {
-                    byte[] digest = path.getDigest();
+                    FileArtifactValue metadata = FileArtifactValue.create(path);
+                    if (metadata.getType().isDirectory()) {
+                      throw new DigestOfDirectoryException(
+                          "Input is a directory: " + input.getExecPathString());
+                    }
                     BaseEncoding hex = BaseEncoding.base16().lowerCase();
                     ByteString hexDigest =
-                        ByteString.copyFrom(hex.encode(digest).getBytes(US_ASCII));
+                        ByteString.copyFrom(hex.encode(metadata.getDigest()).getBytes(US_ASCII));
                     // Inject reverse mapping. Doing this unconditionally in getDigest() showed up
                     // as a hotspot in CPU profiling.
                     digestToPath.put(hexDigest, input);
-                    return new ActionInputMetadata(digest, path.getFileSize());
+                    return new ActionInputMetadata(metadata);
                   } catch (IOException e) {
-                    if (path.isDirectory()) {
-                      // TODO(bazel-team): This is rather presumptuous- it could have been another
-                      // type of IOException.
-                      return new ActionInputMetadata(
-                          new DigestOfDirectoryException(
-                              "Input is a directory: " + input.getExecPathString()));
-                    } else {
-                      return new ActionInputMetadata(e);
-                    }
+                    return new ActionInputMetadata(e);
                   }
                 }
               });
@@ -119,8 +115,8 @@ public class SingleBuildFileCache implements ActionInputFileCache {
     private final IOException exceptionOnAccess;
 
     /** Constructor for a successful lookup. */
-    ActionInputMetadata(byte[] digest, long size) {
-      this.metadata = FileArtifactValue.createNormalFile(digest, size);
+    ActionInputMetadata(Metadata metadata) {
+      this.metadata = metadata;
       this.exceptionOnAccess = null;
     }
 

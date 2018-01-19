@@ -211,4 +211,16 @@ public final class RemoteOptions extends OptionsBase {
     help = "A file path to a local disk cache."
   )
   public PathFragment experimentalLocalDiskCachePath;
+
+  @Option(
+    name = "experimental_guard_against_concurrent_changes",
+    defaultValue = "true",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Turn this off to disable checking the ctime of input files of an action before "
+        + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
+        + "writing of files, which could cause false positives."
+  )
+  public boolean experimentalGuardAgainstConcurrentChanges;
 }

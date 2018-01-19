@@ -21,8 +21,11 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.skyframe.FileArtifactValue;
+import com.google.devtools.build.lib.skyframe.FileContentsProxy;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Tree;
 import com.google.protobuf.ByteString;
@@ -43,9 +46,10 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
   @Override
   public Metadata getMetadata(ActionInput input) throws IOException {
     String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
+    Path path = execRoot.getRelative(input.getExecPath());
+    FileStatus stat = path.stat(Symlinks.FOLLOW);
     return FileArtifactValue.createNormalFile(
-        HashCode.fromString(hexDigest).asBytes(),
-        execRoot.getRelative(input.getExecPath()).getFileSize());
+        HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
   }
 
   void setDigest(ActionInput input, String digest) {

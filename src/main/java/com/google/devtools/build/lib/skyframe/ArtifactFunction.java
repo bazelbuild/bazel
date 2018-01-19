@@ -268,7 +268,7 @@ class ArtifactFunction implements SkyFunction {
     // Directories are special-cased because their mtimes are used, so should have been constructed
     // during execution of the action (in ActionMetadataHandler#maybeStoreAdditionalData).
     Preconditions.checkState(data.isFile(), "Unexpected not file %s (%s)", artifact, data);
-    return FileArtifactValue.createNormalFile(data.getDigest(), data.getSize());
+    return FileArtifactValue.createNormalFile(data);
   }
 
   private static AggregatingArtifactValue createAggregatingValue(
