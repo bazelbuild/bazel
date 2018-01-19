@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
-import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
@@ -41,7 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import javax.annotation.Nullable;
 
 /**
  * A BuildRequest represents a single invocation of the build tool by a user.
@@ -70,8 +68,6 @@ public class BuildRequest implements OptionsClassProvider {
   private boolean needsInstrumentationFilter;
   private boolean runningInEmacs;
   private boolean runTests;
-
-  private QueryExpression queryExpression = null;
 
   private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
       ImmutableList.of(
@@ -169,22 +165,6 @@ public class BuildRequest implements OptionsClassProvider {
    */
   public OutErr getOutErr() {
     return outErr;
-  }
-
-  /**
-   * If this BuildRequest was created as part of a cquery, return the query expression, if not this
-   * will return null. TODO(juliexxia): find a better way to get this information through to
-   * BuildTool without polluting BuildRequest (like put into constructor of BuildTool or refactor to
-   * have a cquery specific BuildTool).
-   */
-  @Nullable
-  public QueryExpression getQueryExpression() {
-    return queryExpression;
-  }
-
-  /** Set this BuildRequest's query expression. */
-  public void setQueryExpression(QueryExpression expr) {
-    this.queryExpression = expr;
   }
 
   @Override

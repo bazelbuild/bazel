@@ -112,12 +112,21 @@ public final class BuildTool {
     this.runtime = env.getRuntime();
   }
 
+  public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
+      throws BuildFailedException, InterruptedException, ViewCreationFailedException,
+          TargetParsingException, LoadingFailedException, AbruptExitException,
+          InvalidConfigurationException, TestExecException,
+          ConfiguredTargetQueryCommandLineException {
+    buildTargets(request, result, validator, null);
+  }
+
   /**
    * The crux of the build system. Builds the targets specified in the request using the specified
    * Executor.
    *
    * <p>Performs loading, analysis and execution for the specified set of targets, honoring the
-   * configuration options in the BuildRequest. Returns normally iff successful, throws an exception
+   * configuration options in the BuildRequest. Also performs a query on results of analysis phase
+   * if a query expression is specified. Returns normally iff successful, throws an exception
    * otherwise.
    *
    * <p>Callers must ensure that {@link #stopRequest} is called after this method, even if it
@@ -133,8 +142,14 @@ public final class BuildTool {
    *     the request object are populated
    * @param result the build result that is the mutable result of this build
    * @param validator target validator
+   * @param queryExpression if a query is to run after building targets, this will be the query
+   *     expression. If not, this will be null.
    */
-  public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
+  public void buildTargets(
+      BuildRequest request,
+      BuildResult result,
+      TargetValidator validator,
+      QueryExpression queryExpression)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
           InvalidConfigurationException, TestExecException,
@@ -238,14 +253,17 @@ public final class BuildTool {
         // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
         // graph beforehand if this option is specified, or add another option to wipe if desired
         // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
-        if (request.getQueryExpression() != null) {
+        if (queryExpression != null) {
           if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
             throw new ConfiguredTargetQueryCommandLineException(
                 "Configured query is not allowed if incrementality state is not being kept");
           }
           try {
             doConfiguredTargetQuery(
-                request, configurations, analysisResult.getTopLevelTargetsWithConfigs());
+                request,
+                configurations.getHostConfiguration(),
+                analysisResult.getTopLevelTargetsWithConfigs(),
+                queryExpression);
           } catch (QueryException | IOException e) {
             if (!request.getKeepGoing()) {
               throw new ViewCreationFailedException("Error doing configured target query", e);
@@ -325,12 +343,18 @@ public final class BuildTool {
       getReporter().handle(Event.error(e.getMessage()));
     }
   }
+
+  public BuildResult processRequest(BuildRequest request, TargetValidator validator) {
+    return processRequest(request, validator, null);
+  }
+
   /**
    * The crux of the build system. Builds the targets specified in the request using the specified
    * Executor.
    *
    * <p>Performs loading, analysis and execution for the specified set of targets, honoring the
-   * configuration options in the BuildRequest. Returns normally iff successful, throws an exception
+   * configuration options in the BuildRequest. Also performs a query on results of analysis phase
+   * if a query expression is specified. Returns normally iff successful, throws an exception
    * otherwise.
    *
    * <p>The caller is responsible for setting up and syncing the package cache.
@@ -342,16 +366,19 @@ public final class BuildTool {
    *        options; during this method's execution, the actualTargets and successfulTargets fields
    *        of the request object are populated
    * @param validator target validator
+   * @param queryExpression if a query is to run after building targets, this will be the query
+   *     expression. If not, this will be null.
    * @return the result as a {@link BuildResult} object
    */
-  public BuildResult processRequest(BuildRequest request, TargetValidator validator) {
+  public BuildResult processRequest(
+      BuildRequest request, TargetValidator validator, QueryExpression queryExpression) {
     BuildResult result = new BuildResult(request.getStartTime());
     env.getEventBus().register(result);
     maybeSetStopOnFirstFailure(request, result);
     Throwable catastrophe = null;
     ExitCode exitCode = ExitCode.BLAZE_INTERNAL_ERROR;
     try {
-      buildTargets(request, result, validator);
+      buildTargets(request, result, validator, queryExpression);
       exitCode = ExitCode.SUCCESS;
     } catch (BuildFailedException e) {
       if (e.isErrorAlreadyShown()) {
@@ -412,11 +439,10 @@ public final class BuildTool {
 
   private void doConfiguredTargetQuery(
       BuildRequest request,
-      BuildConfigurationCollection configurations,
-      List<TargetAndConfiguration> topLevelTargetsWithConfigs)
+      BuildConfiguration hostConfiguration,
+      List<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      QueryExpression queryExpression)
       throws InterruptedException, QueryException, IOException {
-
-    QueryExpression expr = request.getQueryExpression();
 
     // Currently, CTQE assumes that all top level targets take on the same default config and we
     // don't have the ability to map multiple configs to multiple top level targets.
@@ -427,7 +453,7 @@ public final class BuildTool {
     for (TargetAndConfiguration targAndConfig : topLevelTargetsWithConfigs) {
       if (!targAndConfig.getConfiguration().equals(sampleConfig)) {
         throw new QueryException(
-            new TargetLiteral(expr.toString()),
+            new TargetLiteral(queryExpression.toString()),
             String.format(
                 "Top level targets %s and %s have different configurations (top level "
                     + "targets with different configurations is not supported)",
@@ -443,14 +469,14 @@ public final class BuildTool {
             env.getReporter(),
             env.getRuntime().getQueryFunctions(),
             sampleConfig,
-            configurations.getHostConfiguration(),
+            hostConfiguration,
             env.newTargetPatternEvaluator().getOffset(),
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
             request.getOptions(CommonQueryOptions.class).toSettings());
     QueryEvalResult result =
         configuredTargetQueryEnvironment.evaluateQuery(
-            expr,
+            queryExpression,
             new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
               @Override
               public void processOutput(Iterable<ConfiguredTarget> partialResult)

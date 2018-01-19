@@ -104,7 +104,6 @@ public final class CqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    request.setQueryExpression(expr);
-    return new BuildTool(env).processRequest(request, null).getExitCondition();
+    return new BuildTool(env).processRequest(request, null, expr).getExitCondition();
   }
 }
