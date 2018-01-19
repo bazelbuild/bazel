@@ -1281,7 +1281,8 @@ public class Package {
       for (OutputFile outputFile : rule.getOutputFiles()) {
         targets.put(outputFile.getName(), outputFile);
         PathFragment outputFileFragment = PathFragment.create(outputFile.getName());
-        for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
+        int segmentCount = outputFileFragment.segmentCount();
+        for (int i = 1; i < segmentCount; i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
           outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
@@ -1473,7 +1474,8 @@ public class Package {
 
         // Check if a prefix of this output file matches an already existing one
         PathFragment outputFileFragment = PathFragment.create(outputFileName);
-        for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
+        int segmentCount = outputFileFragment.segmentCount();
+        for (int i = 1; i < segmentCount; i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
           if (outputFiles.containsKey(prefix)) {
             throw conflictingOutputFile(outputFile, outputFiles.get(prefix));

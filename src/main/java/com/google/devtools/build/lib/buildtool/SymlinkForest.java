@@ -123,7 +123,8 @@ class SymlinkForest {
         continue;
       }
       Root pkgRoot = entry.getValue();
-      for (int i = 1; i <= pkgId.getPackageFragment().segmentCount(); i++) {
+      int segmentCount = pkgId.getPackageFragment().segmentCount();
+      for (int i = 1; i <= segmentCount; i++) {
         PackageIdentifier dir = createInRepo(pkgId, pkgId.getPackageFragment().subFragment(0, i));
         Set<Root> roots = dirRootsMap.computeIfAbsent(dir, k -> Sets.newHashSet());
         roots.add(pkgRoot);

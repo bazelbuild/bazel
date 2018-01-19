@@ -509,7 +509,7 @@ public abstract class RepositoryFunction {
       throws IOException, InterruptedException {
     Path externalRepoDir = getExternalRepositoryDirectory(directories);
     PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
-    if (repositoryPath.segmentCount() == 0) {
+    if (repositoryPath.isEmpty()) {
       // We are the top of the repository path (<outputBase>/external), not in an actual external
       // repository path.
       return;

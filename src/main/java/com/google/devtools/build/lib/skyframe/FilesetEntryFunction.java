@@ -149,7 +149,7 @@ public final class FilesetEntryFunction implements SkyFunction {
         DirectoryTree root = new DirectoryTree();
         for (ResolvedFile f : rftv.getTransitiveFiles().toCollection()) {
           PathFragment path = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
-          if (path.segmentCount() > 0) {
+          if (!path.isEmpty()) {
             path = t.getDestPath().getRelative(path);
             DirectoryTree dir = root;
             for (int i = 0; i < path.segmentCount() - 1; ++i) {

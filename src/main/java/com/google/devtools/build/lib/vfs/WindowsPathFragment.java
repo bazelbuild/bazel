@@ -237,10 +237,6 @@ abstract class WindowsPathFragment extends PathFragment {
               && HELPER.segmentsEqual(this.segments, otherRelativeWindowsPathFragment.segments);
     }
 
-    private boolean isEmpty() {
-      return segmentCount() == 0;
-    }
-
     // Java serialization looks for the presence of this method in the concrete class. It is not
     // inherited from the parent class.
     @Override

@@ -324,30 +324,32 @@ public class AndroidCommon {
     if (needle.equals(PathFragment.EMPTY_FRAGMENT)) {
       return haystack;
     }
+    List<String> needleSegments = needle.getSegments();
     // Compute the overlap offset for duplicated parts of the needle.
-    int[] overlap = new int[needle.segmentCount() + 1];
+    int[] overlap = new int[needleSegments.size() + 1];
     // Start overlap at -1, as it will cancel out the increment in the search.
     // See http://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm for the
     // details.
     overlap[0] = -1;
-    for (int i = 0, j = -1; i < needle.segmentCount(); j++, i++, overlap[i] = j) {
-      while (j >= 0 && !needle.getSegment(i).equals(needle.getSegment(j))) {
+    for (int i = 0, j = -1; i < needleSegments.size(); j++, i++, overlap[i] = j) {
+      while (j >= 0 && !needleSegments.get(i).equals(needleSegments.get(j))) {
         // Walk the overlap until the bound is found.
         j = overlap[j];
       }
     }
     // TODO(corysmith): reverse the search algorithm.
     // Keep the index of the found so that the rightmost index is taken.
+    List<String> haystackSegments = haystack.getSegments();
     int found = -1;
-    for (int i = 0, j = 0; i < haystack.segmentCount(); i++) {
+    for (int i = 0, j = 0; i < haystackSegments.size(); i++) {
 
-      while (j >= 0 && !haystack.getSegment(i).equals(needle.getSegment(j))) {
+      while (j >= 0 && !haystackSegments.get(i).equals(needleSegments.get(j))) {
         // Not matching, walk the needle index to attempt another match.
         j = overlap[j];
       }
       j++;
       // Needle index is exhausted, so the needle must match.
-      if (j == needle.segmentCount()) {
+      if (j == needleSegments.size()) {
         // Record the found index + 1 to be inclusive of the end index.
         found = i + 1;
         // Subtract one from the needle index to restart the search process

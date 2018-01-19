@@ -612,6 +612,20 @@ public abstract class PathFragment
   }
 
   /**
+   * Returns a new path fragment that is a sub fragment of this one. The sub fragment begins at the
+   * specified <code>beginIndex</code> segment and contains the rest of the original path fragment.
+   *
+   * @param beginIndex the beginning index, inclusive.
+   * @return the specified sub fragment, never null.
+   * @exception IndexOutOfBoundsException if the <code>beginIndex</code> is negative, or <code>
+   *     endIndex</code> is larger than the length of this <code>String</code> object, or <code>
+   *     beginIndex</code> is larger than <code>endIndex</code>.
+   */
+  public PathFragment subFragment(int beginIndex) {
+    return subFragment(beginIndex, segments.length);
+  }
+
+  /**
    * Returns true iff the path represented by this object is absolute.
    *
    * <p>True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo"). False for a
@@ -641,6 +655,10 @@ public abstract class PathFragment
   // TODO(bazel-team): This doesn't need to pollute the PathFragment interface (ditto for
   // windowsVolume).
   public abstract char getDriveLetter();
+
+  public boolean isEmpty() {
+    return segments.length == 0;
+  }
 
   /**
    * Returns the number of segments in this path.

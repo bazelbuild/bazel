@@ -61,7 +61,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
       return asSourceRoot(packageRoot);
     } else {
       Path actualRootPath = packageRoot.asPath();
-      for (int i = 0; i < repository.getSourceRoot().segmentCount(); i++) {
+      int segmentCount = repository.getSourceRoot().segmentCount();
+      for (int i = 0; i < segmentCount; i++) {
         actualRootPath = actualRootPath.getParentDirectory();
       }
       return asSourceRoot(Root.fromPath(actualRootPath));

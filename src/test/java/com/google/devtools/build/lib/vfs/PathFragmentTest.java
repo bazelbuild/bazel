@@ -340,6 +340,8 @@ public class PathFragmentTest {
     assertPath("/", PathFragment.create("/foo/bar/baz").subFragment(0, 0));
     assertPath("", PathFragment.create("foo/bar/baz").subFragment(0, 0));
     assertPath("", PathFragment.create("foo/bar/baz").subFragment(1, 1));
+    assertPath("/foo/bar/baz", PathFragment.create("/foo/bar/baz").subFragment(0));
+    assertPath("bar/baz", PathFragment.create("/foo/bar/baz").subFragment(1));
     try {
       fail("unexpectedly succeeded: " + PathFragment.create("foo/bar/baz").subFragment(3, 2));
     } catch (IndexOutOfBoundsException e) { /* Expected. */ }

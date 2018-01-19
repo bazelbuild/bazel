@@ -298,7 +298,7 @@ public class ArtifactFactory implements ArtifactResolver {
         baseExecPath,
         baseRoot);
     Preconditions.checkState(
-        relativePath.segmentCount() > 0, "%s %s %s", relativePath, baseExecPath, baseRoot);
+        !relativePath.isEmpty(), "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
         baseExecPath == null ? relativePath : baseExecPath.getRelative(relativePath);
     execPath = execPath.normalize();

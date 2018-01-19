@@ -893,7 +893,7 @@ public class CppCompileAction extends AbstractAction
     }
     // Need to do dir/package matching: first try a quick exact lookup.
     PathFragment includeDir = input.getRootRelativePath().getParentDirectory();
-    if (includeDir.segmentCount() == 0 || declaredIncludeDirs.contains(includeDir)) {
+    if (includeDir.isEmpty() || declaredIncludeDirs.contains(includeDir)) {
       return true;  // OK: quick exact match.
     }
     // Not found in the quick lookup: try the wildcards.

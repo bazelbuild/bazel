@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceTyp
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -142,7 +143,8 @@ public final class LocalResourceContainer {
         PathFragment packageRelativePath = file.getRootRelativePath().relativeTo(packageFragment);
         if (packageRelativePath.startsWith(assetsDir)) {
           PathFragment relativePath = packageRelativePath.relativeTo(assetsDir);
-          assetRoots.add(trimTail(file.getExecPath(), relativePath));
+          PathFragment path = file.getExecPath();
+          assetRoots.add(path.subFragment(0, path.segmentCount() - relativePath.segmentCount()));
         } else {
           ruleContext.attributeError(
               ResourceType.ASSETS.getAttribute(),
@@ -273,8 +275,11 @@ public final class LocalResourceContainer {
         file.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
     PathFragment packageRelativePath = file.getRootRelativePath().relativeTo(packageFragment);
     try {
+      PathFragment path = file.getExecPath();
       resourceRoots.add(
-          trimTail(file.getExecPath(), makeRelativeTo(resourceDir, packageRelativePath)));
+          path.subFragment(
+              0,
+              path.segmentCount() - segmentCountAfterAncestor(resourceDir, packageRelativePath)));
     } catch (IllegalArgumentException e) {
       ruleErrorConsumer.attributeError(
           resourcesAttr,
@@ -304,7 +309,7 @@ public final class LocalResourceContainer {
     }
     // TODO(bazel-team): Expand Fileset to verify, or remove Fileset as an option for resources.
     if (artifact.isFileset() || artifact.isTreeArtifact()) {
-      return fragment.subFragment(segmentCount - 1, segmentCount);
+      return fragment.subFragment(segmentCount - 1);
     }
 
     // Check the resource folder type layout.
@@ -320,23 +325,20 @@ public final class LocalResourceContainer {
     return fragment.subFragment(segmentCount - 3, segmentCount - 2);
   }
 
-  /**
-   * Returns the root-part of a given path by trimming off the end specified by a given tail.
-   * Assumes that the tail is known to match, and simply relies on the segment lengths.
-   */
-  private static PathFragment trimTail(PathFragment path, PathFragment tail) {
-    return path.subFragment(0, path.segmentCount() - tail.segmentCount());
-  }
-
-  private static PathFragment makeRelativeTo(PathFragment ancestor, PathFragment path) {
+  private static int segmentCountAfterAncestor(PathFragment ancestor, PathFragment path) {
     String cutAtSegment = ancestor.getSegment(ancestor.segmentCount() - 1);
-    int totalPathSegments = path.segmentCount() - 1;
-    for (int i = totalPathSegments; i >= 0; i--) {
-      if (path.getSegment(i).equals(cutAtSegment)) {
-        return path.subFragment(i, totalPathSegments);
+    int index = -1;
+    List<String> segments = path.getSegments();
+    for (int i = segments.size() - 1; i >= 0; i--) {
+      if (segments.get(i).equals(cutAtSegment)) {
+        index = i;
+        break;
       }
     }
-    throw new IllegalArgumentException("PathFragment " + path + " is not beneath " + ancestor);
+    if (index == -1) {
+      throw new IllegalArgumentException("PathFragment " + path + " is not beneath " + ancestor);
+    }
+    return segments.size() - index - 1;
   }
 
   private final ImmutableList<Artifact> resources;
