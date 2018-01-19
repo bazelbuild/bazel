@@ -365,13 +365,6 @@ sh_test(
 )
 
 sh_test(
-    name = "cc_static_binary_test",
-    size = "medium",
-    srcs = ["cc_static_binary_test.sh"],
-    data = [":test-deps"],
-)
-
-sh_test(
     name = "bazel_sandboxing_test",
     size = "large",
     srcs = ["bazel_sandboxing_test.sh"],
