@@ -340,7 +340,7 @@ package_group(
 
 </p>
 
-<p>Legal license types include:</p>
+<p>Valid license types include:</p>
 <dl>
   <dt><code>restricted</code></dt><dd>Requires mandatory source
     distribution.</dd>
@@ -431,8 +431,8 @@ In addition filename patterns can contain the recursive <code>**</code>
 wildcard. This wildcard will match zero or more complete
 path segments separated by the directory separator <code>/</code>.
 This wildcard can only be used as a complete path segment. For example,
-<code>"x/**/*.java"</code> is legal, but <code>"test**/testdata.xml"</code>
-and <code>"**.java"</code> are both illegal. No other wildcards are supported.
+<code>"x/**/*.java"</code> is valid, but <code>"test**/testdata.xml"</code>
+and <code>"**.java"</code> are both invalid. No other wildcards are supported.
 </p>
 <p>
 Glob returns a sorted list of every file in the current package that:
@@ -756,7 +756,7 @@ cc_binary(
 
 <p>A workspace name must start with a letter and can contain letters, numbers,
   and underscores (this is to maximize the number of languages for which this
-  string can be a legal package/module name). It should describe the project in
+  string can be a valid package/module name). It should describe the project in
   reverse-DNS form, with elements separated by underscores. For example, if a
   project is hosted at example.com/some-project, you might use
   com_example_some_project as the workspace name.
