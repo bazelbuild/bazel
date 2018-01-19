@@ -124,6 +124,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
     Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
+    boolean uploadLocalResults = options.remoteUploadLocalResults;
     Action action =
         buildAction(
             execRoot,
@@ -141,7 +142,6 @@ class RemoteSpawnRunner implements SpawnRunner {
     Context previous = withMetadata.attach();
     try {
       boolean acceptCachedResult = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
-      boolean uploadLocalResults = options.remoteUploadLocalResults;
 
       try {
         // Try to lookup the action in the action cache.
@@ -177,6 +177,12 @@ class RemoteSpawnRunner implements SpawnRunner {
         remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, command);
       } catch (IOException e) {
         return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
+      }
+
+      if (!uploadLocalResults) {
+        action = action.toBuilder()
+            .setDoNotCache(true)
+            .build();
       }
 
       final ActionResult result;
