@@ -30,10 +30,6 @@ function is_darwin() {
   [[ "${PLATFORM}" =~ darwin ]]
 }
 
-function is_linux() {
-  [[ "${PLATFORM}" =~ linux ]]
-}
-
 function _log_base() {
   prefix=$1
   shift
