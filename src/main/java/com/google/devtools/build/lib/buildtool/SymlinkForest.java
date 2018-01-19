@@ -118,12 +118,12 @@ class SymlinkForest {
     Map<PackageIdentifier, Set<Root>> dirRootsMap = Maps.newTreeMap();
     for (Map.Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
+      if (pkgId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+        // This isn't a "real" package, don't add it to the symlink tree.
+        continue;
+      }
       Root pkgRoot = entry.getValue();
       for (int i = 1; i <= pkgId.getPackageFragment().segmentCount(); i++) {
-        if (pkgId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
-          // This isn't a "real" package, don't add it to the symlink tree.
-          continue;
-        }
         PackageIdentifier dir = createInRepo(pkgId, pkgId.getPackageFragment().subFragment(0, i));
         Set<Root> roots = dirRootsMap.computeIfAbsent(dir, k -> Sets.newHashSet());
         roots.add(pkgRoot);
