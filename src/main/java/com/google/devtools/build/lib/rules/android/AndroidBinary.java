@@ -1598,7 +1598,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return mainDexList;
   }
 
-  private static Artifact createMainDexProguardSpec(RuleContext ruleContext) {
+  public static Artifact createMainDexProguardSpec(RuleContext ruleContext) {
     return ProguardHelper.getProguardConfigArtifact(ruleContext, "main_dex");
   }
 

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import java.util.Set;
 import org.junit.Before;
@@ -64,14 +65,19 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
     // Only created in legacy mode:
     Artifact strippedJar = getFirstArtifactEndingWith(artifacts, "main_dex_intermediate.jar");
     Artifact mainDexList = getFirstArtifactEndingWith(artifacts, "main_dex_list.txt");
+    String ruleName = Label.parseAbsolute(ruleLabel).getName();
+    Artifact mainDexProguardSpec = getFirstArtifactEndingWith(
+        artifacts, "main_dex_" + ruleName + "_proguard.cfg");
 
     if (multidexMode == MultidexMode.LEGACY) {
       // First action: check that the stripped jar is generated through Proguard.
+      assertThat(mainDexProguardSpec).isNotNull();
       AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(getRuleContext(binary));
       assertThat(strippedJar).isNotNull();
       SpawnAction stripAction = getGeneratingSpawnAction(strippedJar);
       assertThat(stripAction.getCommandFilename())
           .isEqualTo(sdk.getProguard().getExecutable().getExecPathString());
+      assertThat(stripAction.getInputs()).contains(mainDexProguardSpec);
 
       // Second action: The dexer consumes the stripped jar to create the main dex class list.
       assertThat(mainDexList).isNotNull();

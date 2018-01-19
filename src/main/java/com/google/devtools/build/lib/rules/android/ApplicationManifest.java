@@ -316,6 +316,7 @@ public final class ApplicationManifest {
       @Nullable Artifact rTxt,
       boolean incremental,
       Artifact proguardCfg,
+      Artifact mainDexProguardCfg,
       @Nullable String packageUnderTest,
       boolean hasLocalResourceFiles)
       throws InterruptedException, RuleErrorException {
@@ -342,6 +343,7 @@ public final class ApplicationManifest {
             .withPrimary(resourceContainer)
             .withDependencies(resourceDeps)
             .setProguardOut(proguardCfg)
+            .setMainDexProguardOut(mainDexProguardCfg)
             .setApplicationId(manifestValues.get("applicationId"))
             .setVersionCode(manifestValues.get("versionCode"))
             .setVersionName(manifestValues.get("versionName"))
@@ -369,7 +371,7 @@ public final class ApplicationManifest {
         processed,
         processed.getManifest(),
         proguardCfg,
-        null);
+        mainDexProguardCfg);
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
