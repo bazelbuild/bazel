@@ -180,7 +180,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     RootedPath onlySubdir =
         Iterables.getOnlyElement(
             value.getSubdirectoryTransitivelyContainsPackagesOrErrors().keySet());
-    assertThat(onlySubdir.getRelativePath()).isEqualTo(PathFragment.create("a/c"));
+    assertThat(onlySubdir.getRootRelativePath()).isEqualTo(PathFragment.create("a/c"));
 
     // And the "a/c" subdirectory reports a package under it.
     assertThat(value.getSubdirectoryTransitivelyContainsPackagesOrErrors().get(onlySubdir))
@@ -234,7 +234,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     RootedPath onlySubdir =
         Iterables.getOnlyElement(
             value.getSubdirectoryTransitivelyContainsPackagesOrErrors().keySet());
-    assertThat(onlySubdir.getRelativePath()).isEqualTo(PathFragment.create("a/b"));
+    assertThat(onlySubdir.getRootRelativePath()).isEqualTo(PathFragment.create("a/b"));
 
     // And the "a/b" subdirectory does not report a package under it (because it got excluded).
     assertThat(value.getSubdirectoryTransitivelyContainsPackagesOrErrors().get(onlySubdir))
@@ -256,7 +256,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     RootedPath abd =
         Iterables.getOnlyElement(
             abValue.getSubdirectoryTransitivelyContainsPackagesOrErrors().keySet());
-    assertThat(abd.getRelativePath()).isEqualTo(PathFragment.create("a/b/d"));
+    assertThat(abd.getRootRelativePath()).isEqualTo(PathFragment.create("a/b/d"));
 
     // And no package is under "a/b/d".
     assertThat(abValue.getSubdirectoryTransitivelyContainsPackagesOrErrors().get(abd)).isFalse();

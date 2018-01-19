@@ -83,8 +83,7 @@ public class RecursivePkgValue implements SkyValue {
 
     public RecursivePkgKey(RepositoryName repositoryName, RootedPath rootedPath,
         ImmutableSet<PathFragment> excludedPaths) {
-      PathFragment.checkAllPathsAreUnder(excludedPaths,
-          rootedPath.getRelativePath());
+      PathFragment.checkAllPathsAreUnder(excludedPaths, rootedPath.getRootRelativePath());
       Preconditions.checkState(!repositoryName.isDefault());
       this.repositoryName = repositoryName;
       this.rootedPath = Preconditions.checkNotNull(rootedPath);

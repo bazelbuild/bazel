@@ -96,7 +96,9 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     RootedPath workspaceRootedFile =
         RootedPath.toRootedPath(
             directory.getRoot(),
-            directory.getRelativePath().getRelative(BuildFileName.WORKSPACE.getFilenameFragment()));
+            directory
+                .getRootRelativePath()
+                .getRelative(BuildFileName.WORKSPACE.getFilenameFragment()));
 
     SkyKey workspaceFileKey = FileValue.key(workspaceRootedFile);
     FileValue value;

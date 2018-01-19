@@ -36,36 +36,36 @@ import java.util.Objects;
 public class RootedPath implements Serializable {
 
   private final Root root;
-  private final PathFragment relativePath;
+  private final PathFragment rootRelativePath;
   private final Path path;
 
   /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
-  private RootedPath(Root root, PathFragment relativePath) {
+  private RootedPath(Root root, PathFragment rootRelativePath) {
     Preconditions.checkState(
-        relativePath.isAbsolute() == root.isAbsolute(),
-        "relativePath: %s root: %s",
-        relativePath,
+        rootRelativePath.isAbsolute() == root.isAbsolute(),
+        "rootRelativePath: %s root: %s",
+        rootRelativePath,
         root);
     this.root = root;
-    this.relativePath = relativePath.normalize();
-    this.path = root.getRelative(this.relativePath);
+    this.rootRelativePath = rootRelativePath.normalize();
+    this.path = root.getRelative(this.rootRelativePath);
   }
 
-  /** Returns a rooted path representing {@code relativePath} relative to {@code root}. */
-  public static RootedPath toRootedPath(Root root, PathFragment relativePath) {
-    if (relativePath.isAbsolute()) {
+  /** Returns a rooted path representing {@code rootRelativePath} relative to {@code root}. */
+  public static RootedPath toRootedPath(Root root, PathFragment rootRelativePath) {
+    if (rootRelativePath.isAbsolute()) {
       if (root.isAbsolute()) {
-        return new RootedPath(root, relativePath);
+        return new RootedPath(root, rootRelativePath);
       } else {
         Preconditions.checkArgument(
-            root.contains(relativePath),
-            "relativePath '%s' is absolute, but it's not under root '%s'",
-            relativePath,
+            root.contains(rootRelativePath),
+            "rootRelativePath '%s' is absolute, but it's not under root '%s'",
+            rootRelativePath,
             root);
-        return new RootedPath(root, root.relativize(relativePath));
+        return new RootedPath(root, root.relativize(rootRelativePath));
       }
     } else {
-      return new RootedPath(root, relativePath);
+      return new RootedPath(root, rootRelativePath);
     }
   }
 
@@ -100,11 +100,9 @@ public class RootedPath implements Serializable {
     return root;
   }
 
-  /**
-   * Returns the (normalized) path relative to {@code #getRoot}.
-   */
-  public PathFragment getRelativePath() {
-    return relativePath;
+  /** Returns the path fragment relative to {@code #getRoot}. */
+  public PathFragment getRootRelativePath() {
+    return rootRelativePath;
   }
 
   @Override
@@ -116,17 +114,18 @@ public class RootedPath implements Serializable {
       return false;
     }
     RootedPath other = (RootedPath) obj;
-    return Objects.equals(root, other.root) && Objects.equals(relativePath, other.relativePath);
+    return Objects.equals(root, other.root)
+        && Objects.equals(rootRelativePath, other.rootRelativePath);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(root, relativePath);
+    return Objects.hash(root, rootRelativePath);
   }
 
   @Override
   public String toString() {
-    return "[" + root + "]/[" + relativePath + "]";
+    return "[" + root + "]/[" + rootRelativePath + "]";
   }
 
   /** Custom serialization for {@link RootedPath}s. */
@@ -148,15 +147,15 @@ public class RootedPath implements Serializable {
     public void serialize(RootedPath rootedPath, CodedOutputStream codedOut)
         throws IOException, SerializationException {
       rootCodec.serialize(rootedPath.getRoot(), codedOut);
-      PathFragment.CODEC.serialize(rootedPath.getRelativePath(), codedOut);
+      PathFragment.CODEC.serialize(rootedPath.getRootRelativePath(), codedOut);
     }
 
     @Override
     public RootedPath deserialize(CodedInputStream codedIn)
         throws IOException, SerializationException {
       Root root = rootCodec.deserialize(codedIn);
-      PathFragment relativePath = PathFragment.CODEC.deserialize(codedIn);
-      return toRootedPath(root, relativePath);
+      PathFragment rootRelativePath = PathFragment.CODEC.deserialize(codedIn);
+      return toRootedPath(root, rootRelativePath);
     }
   }
 }

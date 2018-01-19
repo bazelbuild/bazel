@@ -285,7 +285,7 @@ public class PathWindowsTest {
     assertThat(child.relativeTo(ancestor)).isEqualTo(PathFragment.create("baz"));
     RootedPath actual = RootedPath.toRootedPath(Root.fromPath(ancestor), child);
     assertThat(actual.getRoot()).isEqualTo(Root.fromPath(ancestor));
-    assertThat(actual.getRelativePath()).isEqualTo(PathFragment.create("baz"));
+    assertThat(actual.getRootRelativePath()).isEqualTo(PathFragment.create("baz"));
   }
 
   @Test

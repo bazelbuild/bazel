@@ -258,7 +258,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
           (CollectPackagesUnderDirectoryValue) val;
       if (collectPackagesValue != null) {
         if (collectPackagesValue.isDirectoryPackage()) {
-          builder.add(info.rootedDir.getRelativePath());
+          builder.add(info.rootedDir.getRootRelativePath());
         }
 
         if (collectPackagesValue.getErrorMessage() != null) {
@@ -269,7 +269,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
             collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
         for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
-            PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
+            PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
             ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
                 info.blacklistedSubdirectories
                     .stream()

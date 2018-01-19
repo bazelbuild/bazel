@@ -54,10 +54,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   public static final class GeneratedPathConflictException extends
       RecursiveFilesystemTraversalException {
     GeneratedPathConflictException(TraversalRequest traversal) {
-      super(String.format(
-          "Generated directory %s conflicts with package under the same path. Additional info: %s",
-          traversal.path.getRelativePath().getPathString(),
-          traversal.errorInfo != null ? traversal.errorInfo : traversal.toString()));
+      super(
+          String.format(
+              "Generated directory %s conflicts with package under the same path. "
+                  + "Additional info: %s",
+              traversal.path.getRootRelativePath().getPathString(),
+              traversal.errorInfo != null ? traversal.errorInfo : traversal.toString()));
     }
   }
 
@@ -132,8 +134,10 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       if (rootInfo.type.isFile()) {
         if (traversal.pattern == null
-            || traversal.pattern.matcher(
-                   rootInfo.realPath.getRelativePath().getPathString()).matches()) {
+            || traversal
+                .pattern
+                .matcher(rootInfo.realPath.getRootRelativePath().getPathString())
+                .matches()) {
           // The root is a file or a symlink to one.
           return resultForFileRoot(traversal.path, rootInfo);
         } else {
@@ -152,8 +156,10 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
             new GeneratedPathConflictException(traversal));
       } else if (pkgLookupResult.isPackage() && !traversal.skipTestingForSubpackage) {
         // The traversal was requested for a directory that defines a package.
-        String msg = traversal.errorInfo + " crosses package boundary into package rooted at "
-            + traversal.path.getRelativePath().getPathString();
+        String msg =
+            traversal.errorInfo
+                + " crosses package boundary into package rooted at "
+                + traversal.path.getRootRelativePath().getPathString();
         switch (traversal.crossPkgBoundaries) {
           case CROSS:
             // We are free to traverse the subpackage but we need to display a warning.
@@ -298,8 +304,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       throws MissingDepException, IOException, InterruptedException {
     Preconditions.checkArgument(rootInfo.type.exists() && !rootInfo.type.isFile(),
         "{%s} {%s}", traversal, rootInfo);
-    PackageLookupValue pkgLookup = (PackageLookupValue) getDependentSkyValue(env,
-        PackageLookupValue.key(traversal.path.getRelativePath()));
+    PackageLookupValue pkgLookup =
+        (PackageLookupValue)
+            getDependentSkyValue(env, PackageLookupValue.key(traversal.path.getRootRelativePath()));
 
     if (pkgLookup.packageExists()) {
       if (traversal.isGenerated) {
@@ -340,8 +347,10 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
     List<SkyKey> result = new ArrayList<>();
     for (Dirent dirent : dirListing.getDirents()) {
-      RootedPath childPath = RootedPath.toRootedPath(traversal.path.getRoot(),
-          traversal.path.getRelativePath().getRelative(dirent.getName()));
+      RootedPath childPath =
+          RootedPath.toRootedPath(
+              traversal.path.getRoot(),
+              traversal.path.getRootRelativePath().getRelative(dirent.getName()));
       TraversalRequest childTraversal = traversal.forChildEntry(childPath);
       result.add(RecursiveFilesystemTraversalValue.key(childTraversal));
     }

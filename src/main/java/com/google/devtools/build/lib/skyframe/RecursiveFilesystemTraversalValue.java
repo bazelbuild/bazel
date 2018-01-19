@@ -168,8 +168,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * originally assumed.
      */
     TraversalRequest forChangedRootPath(Root newRoot) {
-      return duplicate(RootedPath.toRootedPath(newRoot, path.getRelativePath()),
-          skipTestingForSubpackage);
+      return duplicate(
+          RootedPath.toRootedPath(newRoot, path.getRootRelativePath()), skipTestingForSubpackage);
     }
 
     @Override
@@ -214,7 +214,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     PathFragment getNameInSymlinkTree() {
-      return linkName.getRelativePath();
+      return linkName.getRootRelativePath();
     }
 
     @Override
@@ -301,7 +301,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     public PathFragment getNameInSymlinkTree() {
-      return path.getRelativePath();
+      return path.getRootRelativePath();
     }
 
     @Override
@@ -360,7 +360,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     public PathFragment getNameInSymlinkTree() {
-      return path.getRelativePath();
+      return path.getRootRelativePath();
     }
 
     @Override

@@ -37,6 +37,6 @@ public class FsUtils {
 
   /** Returns path relative to {@link #TEST_ROOT}. */
   public static PathFragment rootPathRelative(String path) {
-    return TEST_ROOT.getRelativePath().getRelative(path);
+    return TEST_ROOT.getRootRelativePath().getRelative(path);
   }
 }

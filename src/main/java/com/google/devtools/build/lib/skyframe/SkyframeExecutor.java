@@ -984,7 +984,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         DirectoryListingStateValue oldDirListingStateValue =
             (DirectoryListingStateValue) valuesMap.get(dirListingStateKey);
         if (oldDirListingStateValue != null) {
-          String baseName = rootedPath.getRelativePath().getBaseName();
+          String baseName = rootedPath.getRootRelativePath().getBaseName();
           Dirent oldDirent = oldDirListingStateValue.getDirents().maybeGetDirent(baseName);
           changedType = (oldDirent == null)
               || !compatibleFileTypes(oldDirent.getType(), newValue.getType());
@@ -1005,8 +1005,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private static SkyKey parentDirectoryListingStateKey(RootedPath rootedPath) {
-    RootedPath parentDirRootedPath = RootedPath.toRootedPath(
-        rootedPath.getRoot(), rootedPath.getRelativePath().getParentDirectory());
+    RootedPath parentDirRootedPath =
+        RootedPath.toRootedPath(
+            rootedPath.getRoot(), rootedPath.getRootRelativePath().getParentDirectory());
     return DirectoryListingStateValue.key(parentDirRootedPath);
   }
 
