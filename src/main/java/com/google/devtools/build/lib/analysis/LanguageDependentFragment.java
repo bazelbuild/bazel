@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import java.util.Set;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.Objects;
 
 /**
  * Transitive info provider for rules that behave differently when used from
@@ -32,16 +34,25 @@ import java.util.Set;
  * <p>This provider is not really a roll-up of transitive information.
  */
 @Immutable
+@AutoCodec
 public final class LanguageDependentFragment implements TransitiveInfoProvider {
+  public static final ObjectCodec<LanguageDependentFragment> CODEC = new
+      LanguageDependentFragment_AutoCodec();
+
   /**
    * A language that can be supported by a multi-language configured target.
    *
    * <p>Note that no {@code hashCode}/{@code equals} methods are provided, because these
    * objects are expected to be compared for object identity, which is the default.
    */
+  @AutoCodec
   public static final class LibraryLanguage {
+    public static final ObjectCodec<LibraryLanguage> CODEC =
+        new LanguageDependentFragment_LibraryLanguage_AutoCodec();
+
     private final String displayName;
 
+    @AutoCodec.Constructor
     public LibraryLanguage(String displayName) {
       this.displayName = displayName;
     }
@@ -50,14 +61,29 @@ public final class LanguageDependentFragment implements TransitiveInfoProvider {
     public String toString() {
       return displayName;
     }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof LibraryLanguage)) {
+        return false;
+      }
+      LibraryLanguage otherLanguage = (LibraryLanguage) other;
+      return Objects.equals(displayName, otherLanguage.displayName);
+    }
+
+    @Override
+    public int hashCode() {
+      return displayName.hashCode();
+    }
   }
 
   private final Label label;
   private final ImmutableSet<LibraryLanguage> languages;
 
-  public LanguageDependentFragment(Label label, Set<LibraryLanguage> languages) {
+  @AutoCodec.Constructor
+  public LanguageDependentFragment(Label label, ImmutableSet<LibraryLanguage> languages) {
     this.label = label;
-    this.languages = ImmutableSet.copyOf(languages);
+    this.languages = languages;
   }
 
   /**
