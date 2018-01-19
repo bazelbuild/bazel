@@ -333,7 +333,6 @@ public class AndroidResourcesProcessorBuilder {
     ruleContext.registerAction(
         this.spawnActionBuilder
             .useDefaultShellEnvironment()
-            .useDefaultShellEnvironment()
             .addTool(sdk.getAapt2())
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
@@ -411,7 +410,6 @@ public class AndroidResourcesProcessorBuilder {
     // Create the spawn action.
     ruleContext.registerAction(
         this.spawnActionBuilder
-            .useDefaultShellEnvironment()
             .useDefaultShellEnvironment()
             .addTool(sdk.getAapt())
             .addTransitiveInputs(inputs.build())
