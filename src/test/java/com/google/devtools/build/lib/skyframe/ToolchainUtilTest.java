@@ -86,7 +86,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
 
     assertThat(toolchainContext.getRequiredToolchains()).containsExactly(testToolchainType);
     assertThat(toolchainContext.getResolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:test_toolchain_1"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"));
 
     assertThat(toolchainContext.getExecutionPlatform()).isNotNull();
     assertThat(toolchainContext.getExecutionPlatform().label())

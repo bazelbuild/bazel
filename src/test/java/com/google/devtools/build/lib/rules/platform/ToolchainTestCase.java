@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.IterableSubject;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Before;
@@ -58,6 +60,10 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
         .stream()
         .map((toolchain -> toolchain.toolchainLabel()))
         .collect(Collectors.toList());
+  }
+
+  private static String formatConstraints(Collection<String> constraints) {
+    return constraints.stream().map(c -> String.format("'%s'", c)).collect(joining(", "));
   }
 
   @Before
@@ -93,32 +99,31 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
             .build();
   }
 
+  public void addToolchain(
+      String packageName,
+      String toolchainName,
+      Collection<String> execConstraints,
+      Collection<String> targetConstraints,
+      String data)
+      throws Exception {
+    scratch.appendFile(
+        packageName + "/BUILD",
+        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+        "toolchain(",
+        "    name = '" + toolchainName + "',",
+        "    toolchain_type = '//toolchain:test_toolchain',",
+        "    exec_compatible_with = [" + formatConstraints(execConstraints) + "],",
+        "    target_compatible_with = [" + formatConstraints(targetConstraints) + "],",
+        "    toolchain = ':" + toolchainName + "_impl')",
+        "test_toolchain(",
+        "  name='" + toolchainName + "_impl',",
+        "  data = '" + data + "')");
+  }
+
   @Before
   public void createToolchains() throws Exception {
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_1', '//toolchain:toolchain_2')");
 
-    scratch.file(
-        "toolchain/BUILD",
-        "load(':toolchain_def.bzl', 'test_toolchain')",
-        "toolchain_type(name = 'test_toolchain')",
-        "toolchain(",
-        "    name = 'toolchain_1',",
-        "    toolchain_type = ':test_toolchain',",
-        "    exec_compatible_with = ['//constraints:linux'],",
-        "    target_compatible_with = ['//constraints:mac'],",
-        "    toolchain = ':test_toolchain_1')",
-        "toolchain(",
-        "    name = 'toolchain_2',",
-        "    toolchain_type = ':test_toolchain',",
-        "    exec_compatible_with = ['//constraints:mac'],",
-        "    target_compatible_with = ['//constraints:linux'],",
-        "    toolchain = ':test_toolchain_2')",
-        "test_toolchain(",
-        "  name='test_toolchain_1',",
-        "  data = 'foo')",
-        "test_toolchain(",
-        "  name='test_toolchain_2',",
-        "  data = 'bar')");
     scratch.file(
         "toolchain/toolchain_def.bzl",
         "def _impl(ctx):",
@@ -129,6 +134,20 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
         "    implementation = _impl,",
         "    attrs = {",
         "       'data': attr.string()})");
+
+    scratch.file("toolchain/BUILD", "toolchain_type(name = 'test_toolchain')");
+    addToolchain(
+        "toolchain",
+        "toolchain_1",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:mac"),
+        "foo");
+    addToolchain(
+        "toolchain",
+        "toolchain_2",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "bar");
 
     testToolchainType = makeLabel("//toolchain:test_toolchain");
   }

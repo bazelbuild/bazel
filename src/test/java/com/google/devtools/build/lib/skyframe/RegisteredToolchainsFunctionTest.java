@@ -44,17 +44,33 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // We have two registered toolchains, and two default for c++
     assertThat(value.registeredToolchains()).hasSize(4);
 
-    assertThat(value.registeredToolchains().stream().anyMatch(toolchain ->
-        (toolchain.toolchainType().equals(testToolchainType))
-            && toolchain.execConstraints().contains(linuxConstraint)
-            && toolchain.targetConstraints().contains(macConstraint)
-            && toolchain.toolchainLabel().equals(makeLabel("//toolchain:test_toolchain_1")))).isTrue();
+    assertThat(
+            value
+                .registeredToolchains()
+                .stream()
+                .anyMatch(
+                    toolchain ->
+                        (toolchain.toolchainType().equals(testToolchainType))
+                            && toolchain.execConstraints().contains(linuxConstraint)
+                            && toolchain.targetConstraints().contains(macConstraint)
+                            && toolchain
+                                .toolchainLabel()
+                                .equals(makeLabel("//toolchain:toolchain_1_impl"))))
+        .isTrue();
 
-    assertThat(value.registeredToolchains().stream().anyMatch(toolchain ->
-        (toolchain.toolchainType().equals(testToolchainType))
-            && toolchain.execConstraints().contains(macConstraint)
-            && toolchain.targetConstraints().contains(linuxConstraint)
-            && toolchain.toolchainLabel().equals(makeLabel("//toolchain:test_toolchain_2")))).isTrue();
+    assertThat(
+            value
+                .registeredToolchains()
+                .stream()
+                .anyMatch(
+                    toolchain ->
+                        (toolchain.toolchainType().equals(testToolchainType))
+                            && toolchain.execConstraints().contains(macConstraint)
+                            && toolchain.targetConstraints().contains(linuxConstraint)
+                            && toolchain
+                                .toolchainLabel()
+                                .equals(makeLabel("//toolchain:toolchain_2_impl"))))
+        .isTrue();
   }
 
   @Test
@@ -85,7 +101,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // Verify that the target registered with the extra_toolchains flag is first in the list.
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAllOf(
-            makeLabel("//extra:extra_toolchain_impl"), makeLabel("//toolchain:test_toolchain_1"))
+            makeLabel("//extra:extra_toolchain_impl"), makeLabel("//toolchain:toolchain_1_impl"))
         .inOrder();
   }
 
@@ -116,7 +132,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
-        .contains(makeLabel("//toolchain:test_toolchain_1"));
+        .contains(makeLabel("//toolchain:toolchain_1_impl"));
 
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_2')");
@@ -125,7 +141,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     result = requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
-        .contains(makeLabel("//toolchain:test_toolchain_2"));
+        .contains(makeLabel("//toolchain:toolchain_2_impl"));
   }
 
   @Test
