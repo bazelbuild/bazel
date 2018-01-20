@@ -114,7 +114,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

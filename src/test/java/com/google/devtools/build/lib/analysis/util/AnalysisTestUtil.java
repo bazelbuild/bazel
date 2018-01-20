@@ -393,7 +393,7 @@ public final class AnalysisTestUtil {
 
     @Override
     public ArtifactOwner getOwner() {
-      return ArtifactOwner.NULL_OWNER;
+      return ArtifactOwner.NullArtifactOwner.INSTANCE;
     }
 
     @Override

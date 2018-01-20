@@ -677,7 +677,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         path,
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
         execPath,
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

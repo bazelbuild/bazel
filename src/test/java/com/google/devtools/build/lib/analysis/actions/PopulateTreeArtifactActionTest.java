@@ -349,7 +349,7 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
         root.getRoot().getRelative(relpath),
         root,
         root.getExecPath().getRelative(relpath),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

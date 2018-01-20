@@ -924,7 +924,7 @@ public class CustomCommandLineTest {
         rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

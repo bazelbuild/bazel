@@ -155,7 +155,7 @@ public class ArtifactFactory implements ArtifactResolver {
 
   @Override
   public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root) {
-    return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
+    return getSourceArtifact(execPath, root, ArtifactOwner.NullArtifactOwner.INSTANCE);
   }
 
   private void validatePath(PathFragment rootRelativePath, ArtifactRoot root) {
@@ -424,7 +424,7 @@ public class ArtifactFactory implements ArtifactResolver {
       sourceArtifactCache.markEntryAsValid(execPath);
     } else {
       // Must be a new artifact or artifact in the cache is stale, so create a new one.
-      artifact = getSourceArtifact(execPath, sourceRoot, ArtifactOwner.NULL_OWNER); 
+      artifact = getSourceArtifact(execPath, sourceRoot, ArtifactOwner.NullArtifactOwner.INSTANCE);
     }
     return artifact;
   }

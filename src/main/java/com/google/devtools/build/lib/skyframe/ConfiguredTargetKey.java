@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -33,11 +32,11 @@ import javax.annotation.Nullable;
  */
 public class ConfiguredTargetKey extends ActionLookupKey {
   private final Label label;
-  @Nullable private final SkyKey configurationKey;
+  @Nullable private final BuildConfigurationValue.Key configurationKey;
 
   private transient int hashCode;
 
-  private ConfiguredTargetKey(Label label, @Nullable SkyKey configurationKey) {
+  private ConfiguredTargetKey(Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
     this.label = Preconditions.checkNotNull(label);
     this.configurationKey = configurationKey;
   }
@@ -58,11 +57,11 @@ public class ConfiguredTargetKey extends ActionLookupKey {
       BlazeInterners.newWeakInterner();
 
   public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
-    SkyKey configurationKey =
+    BuildConfigurationValue.Key configurationKey =
         configuration == null
             ? null
             : BuildConfigurationValue.key(
-            configuration.fragmentClasses(), configuration.getOptions());
+                configuration.fragmentClasses(), configuration.getOptions());
     return of(
         label,
         configurationKey,
@@ -70,7 +69,9 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   }
 
   static ConfiguredTargetKey of(
-      Label label, @Nullable SkyKey configurationKey, boolean isHostConfiguration) {
+      Label label,
+      @Nullable BuildConfigurationValue.Key configurationKey,
+      boolean isHostConfiguration) {
     if (isHostConfiguration) {
       return hostInterner.intern(new HostConfiguredTargetKey(label, configurationKey));
     } else {
@@ -89,7 +90,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   }
 
   @Nullable
-  SkyKey getConfigurationKey() {
+  BuildConfigurationValue.Key getConfigurationKey() {
     return configurationKey;
   }
 
@@ -163,7 +164,8 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   }
 
   private static class HostConfiguredTargetKey extends ConfiguredTargetKey {
-    private HostConfiguredTargetKey(Label label, @Nullable SkyKey configurationKey) {
+    private HostConfiguredTargetKey(
+        Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
       super(label, configurationKey);
     }
 

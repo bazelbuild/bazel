@@ -623,7 +623,7 @@ public class FilesystemValueCheckerTest {
         outputPath,
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

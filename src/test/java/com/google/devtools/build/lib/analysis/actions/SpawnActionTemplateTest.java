@@ -147,9 +147,10 @@ public class SpawnActionTemplateTest {
     Iterable<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
-    List<SpawnAction> expandedActions = ImmutableList.copyOf(
-        actionTemplate.generateActionForInputArtifacts(
-            inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER));
+    List<SpawnAction> expandedActions =
+        ImmutableList.copyOf(
+            actionTemplate.generateActionForInputArtifacts(
+                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
 
     assertThat(expandedActions).hasSize(3);
 
@@ -185,9 +186,10 @@ public class SpawnActionTemplateTest {
 
     Iterable<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
-    List<SpawnAction> expandedActions = ImmutableList.copyOf(
-        actionTemplate.generateActionForInputArtifacts(
-            inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER));
+    List<SpawnAction> expandedActions =
+        ImmutableList.copyOf(
+            actionTemplate.generateActionForInputArtifacts(
+                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
 
     for (int i = 0; i < expandedActions.size(); ++i) {
       assertThat(expandedActions.get(i).getInputs()).containsAllOf(
@@ -205,9 +207,10 @@ public class SpawnActionTemplateTest {
     Iterable<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
-    List<SpawnAction> expandedActions = ImmutableList.copyOf(
-        actionTemplate.generateActionForInputArtifacts(
-            inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER));
+    List<SpawnAction> expandedActions =
+        ImmutableList.copyOf(
+            actionTemplate.generateActionForInputArtifacts(
+                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
 
     assertThat(expandedActions).hasSize(3);
 
@@ -229,9 +232,10 @@ public class SpawnActionTemplateTest {
     Iterable<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
-    List<SpawnAction> expandedActions = ImmutableList.copyOf(
-        actionTemplate.generateActionForInputArtifacts(
-            inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER));
+    List<SpawnAction> expandedActions =
+        ImmutableList.copyOf(
+            actionTemplate.generateActionForInputArtifacts(
+                inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE));
 
     assertThat(expandedActions).hasSize(3);
 
@@ -265,7 +269,7 @@ public class SpawnActionTemplateTest {
 
     try {
       actionTemplate.generateActionForInputArtifacts(
-          inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER);
+          inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE);
       fail("Absolute output paths not allowed, expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       // expected
@@ -283,7 +287,7 @@ public class SpawnActionTemplateTest {
 
     try {
       actionTemplate.generateActionForInputArtifacts(
-          inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER);
+          inputTreeFileArtifacts, ArtifactOwner.NullArtifactOwner.INSTANCE);
       fail("Output paths containing '..' not allowed, expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       // expected
@@ -324,7 +328,7 @@ public class SpawnActionTemplateTest {
         root.getRoot().getRelative(relpath),
         root,
         root.getExecPath().getRelative(relpath),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

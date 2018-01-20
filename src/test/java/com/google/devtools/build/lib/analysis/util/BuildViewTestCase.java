@@ -503,7 +503,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return new CachingAnalysisEnvironment(
         view.getArtifactFactory(),
         actionKeyContext,
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         /*isSystemEnv=*/ true, /*extendedSanityChecks*/
         false,
         reporter,

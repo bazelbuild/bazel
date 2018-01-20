@@ -22,11 +22,17 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
@@ -59,8 +65,8 @@ public class BuildConfigurationValue implements SkyValue {
    * @param buildOptions the build options the fragments should be built from
    */
   @ThreadSafe
-  public static SkyKey key(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-      BuildOptions buildOptions) {
+  public static Key key(
+      Set<Class<? extends BuildConfiguration.Fragment>> fragments, BuildOptions buildOptions) {
     return keyInterner.intern(
         new Key(
             ImmutableSortedSet.copyOf(BuildConfiguration.lexicalFragmentSorter, fragments),
@@ -68,12 +74,15 @@ public class BuildConfigurationValue implements SkyValue {
   }
 
   static final class Key implements SkyKey, Serializable {
+    static final ObjectCodec<Key> CODEC = new Codec();
+
     private final ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments;
     private final BuildOptions buildOptions;
     // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.
     private volatile int hashCode = -1;
 
-    Key(ImmutableSortedSet<Class<? extends Fragment>> fragments, BuildOptions buildOptions) {
+    private Key(
+        ImmutableSortedSet<Class<? extends Fragment>> fragments, BuildOptions buildOptions) {
       this.fragments = fragments;
       this.buildOptions = Preconditions.checkNotNull(buildOptions);
     }
@@ -110,6 +119,43 @@ public class BuildConfigurationValue implements SkyValue {
         hashCode = Objects.hash(fragments, buildOptions);
       }
       return hashCode;
+    }
+
+    private static class Codec implements ObjectCodec<Key> {
+      @Override
+      public Class<Key> getEncodedClass() {
+        return Key.class;
+      }
+
+      @Override
+      public void serialize(Key obj, CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        BuildOptions.CODEC.serialize(obj.buildOptions, codedOut);
+        codedOut.writeInt32NoTag(obj.fragments.size());
+        for (Class<? extends BuildConfiguration.Fragment> fragment : obj.fragments) {
+          StringCodecs.asciiOptimized().serialize(fragment.getName(), codedOut);
+        }
+      }
+
+      @Override
+      @SuppressWarnings("unchecked") // Class<? extends...> cast
+      public Key deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+        BuildOptions buildOptions = BuildOptions.CODEC.deserialize(codedIn);
+        int fragmentsSize = codedIn.readInt32();
+        ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+            ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
+        for (int i = 0; i < fragmentsSize; i++) {
+          try {
+            fragmentsBuilder.add(
+                (Class<? extends BuildConfiguration.Fragment>)
+                    Class.forName(StringCodecs.asciiOptimized().deserialize(codedIn)));
+          } catch (ClassNotFoundException e) {
+            throw new SerializationException(
+                "Couldn't deserialize BuildConfigurationValue$Key fragment class", e);
+          }
+        }
+        return key(fragmentsBuilder.build(), buildOptions);
+      }
     }
   }
 }

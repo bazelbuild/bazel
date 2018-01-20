@@ -212,7 +212,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         fullPath,
         ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
         execPath,
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

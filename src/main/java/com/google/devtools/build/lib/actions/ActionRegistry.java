@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
-
 /**
  * An interface for registering actions.
  */
@@ -30,18 +28,4 @@ public interface ActionRegistry {
    * these actions.
    */
   ArtifactOwner getOwner();
-
-  /**
-   * An action registry that does exactly nothing.
-   */
-  @VisibleForTesting
-  public static final ActionRegistry NOP = new ActionRegistry() {
-    @Override
-    public void registerAction(ActionAnalysisMetadata... actions) {}
-
-    @Override
-    public ArtifactOwner getOwner() {
-      return ArtifactOwner.NULL_OWNER;
-    }
-  };
 }

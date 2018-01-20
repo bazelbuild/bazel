@@ -902,7 +902,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     return ImmutableList.<CommandAction>builder()
         .addAll(
             template.generateActionForInputArtifacts(
-                ImmutableList.of(treeFileArtifact), ArtifactOwner.NULL_OWNER))
+                ImmutableList.of(treeFileArtifact), ArtifactOwner.NullArtifactOwner.INSTANCE))
         .build();
   }
 
