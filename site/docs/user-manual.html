@@ -649,8 +649,8 @@ $ bazel fetch //...
 <p>
   You do not need to run bazel fetch at all if you have all of the tools you are
   using (from library jars to the JDK itself) under your workspace root.
-  However, if you're using anything outside of the workspace directory then you
-  will need to run <code>bazel fetch</code> before running
+  However, if you're using anything outside of the workspace directory then Bazel
+  will automatically run <code>bazel fetch</code> before running
   <code>bazel build</code>.
 </p>
 
