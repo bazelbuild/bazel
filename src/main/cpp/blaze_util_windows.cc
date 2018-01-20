@@ -727,11 +727,6 @@ string ConvertPath(const string& path) {
                     .get());
 }
 
-// Convert a Unix path list to Windows path list
-string ConvertPathList(const string& path_list) {
-  return path_list;
-}
-
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   wstring name;
   wstring target;
