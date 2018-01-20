@@ -110,36 +110,36 @@ string GetBinaryPathWithExtension(const string& binary) {
 }
 
 string GetEscapedArgument(const string& argument, bool escape_backslash) {
-  ostringstream escaped_arg;
+  string escaped_arg;
+  // escaped_arg will be at least this long
+  escaped_arg.reserve(argument.size());
   bool has_space = argument.find_first_of(' ') != string::npos;
 
   if (has_space) {
-    escaped_arg << '\"';
+    escaped_arg += '\"';
   }
 
-  string::const_iterator it = argument.begin();
-  while (it != argument.end()) {
-    char ch = *it++;
+  for (const char ch : argument) {
     switch (ch) {
       case '"':
         // Escape double quotes
-        escaped_arg << "\\\"";
+        escaped_arg += "\\\"";
         break;
 
       case '\\':
         // Escape back slashes if escape_backslash is true
-        escaped_arg << (escape_backslash ? "\\\\" : "\\");
+        escaped_arg += (escape_backslash ? "\\\\" : "\\");
         break;
 
       default:
-        escaped_arg << ch;
+        escaped_arg += ch;
     }
   }
 
   if (has_space) {
-    escaped_arg << '\"';
+    escaped_arg += '\"';
   }
-  return escaped_arg.str();
+  return escaped_arg;
 }
 
 // An environment variable has a maximum size limit of 32,767 characters
