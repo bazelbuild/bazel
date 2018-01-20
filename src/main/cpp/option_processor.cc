@@ -30,7 +30,9 @@
 #include "src/main/cpp/workspace_layout.h"
 
 // On OSX, there apparently is no header that defines this.
+#ifndef environ
 extern char **environ;
+#endif
 
 namespace blaze {
 
