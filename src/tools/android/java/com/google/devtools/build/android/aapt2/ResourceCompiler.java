@@ -48,8 +48,10 @@ import java.util.logging.Logger;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
+import javax.xml.stream.events.XMLEvent;
 
 /** Invokes aapt2 to compile resources. */
 public class ResourceCompiler {
@@ -122,7 +124,28 @@ public class ResourceCompiler {
               XMLInputFactory.newInstance()
                   .createXMLEventReader(new FileInputStream(file.toString()));
 
-          StartElement rootElement = xmlEventReader.nextTag().asStartElement();
+          // Iterate through the XML until we find a start element.
+          // This should mimic xmlEventReader.nextTag() except that it also skips DTD elements.
+          StartElement rootElement = null;
+          while (xmlEventReader.hasNext()) {
+            XMLEvent event = xmlEventReader.nextEvent();
+            if (event.getEventType() != XMLStreamConstants.COMMENT
+                && event.getEventType() != XMLStreamConstants.DTD
+                && event.getEventType() != XMLStreamConstants.PROCESSING_INSTRUCTION
+                && event.getEventType() != XMLStreamConstants.SPACE
+                && event.getEventType() != XMLStreamConstants.START_DOCUMENT) {
+
+              // If the event should not be skipped, try parsing it as a start element here.
+              // If the event is not a start element, an appropriate exception will be thrown.
+              rootElement = event.asStartElement();
+              break;
+            }
+          }
+
+          if (rootElement == null) {
+            throw new Exception("No start element found in resource XML file: " + file.toString());
+          }
+
           Iterator<Attribute> attributeIterator =
               XmlResourceValues.iterateAttributesFrom(rootElement);
 
