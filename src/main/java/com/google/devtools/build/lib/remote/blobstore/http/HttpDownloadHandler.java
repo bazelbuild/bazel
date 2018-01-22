@@ -35,7 +35,7 @@ import io.netty.util.internal.StringUtil;
 import java.io.IOException;
 import java.io.OutputStream;
 
-class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
+final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
   private OutputStream out;
   private boolean keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
@@ -101,7 +101,7 @@ class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
             constructPath(request.uri(), request.hash(), request.casDownload()));
     httpRequest.headers().set(HttpHeaderNames.HOST, constructHost(request.uri()));
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, "*/*");
+    httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     return httpRequest;
   }
 

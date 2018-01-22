@@ -31,7 +31,7 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.stream.ChunkedStream;
 import io.netty.util.internal.StringUtil;
 
-class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
+final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
 
   public HttpUploadHandler(Credentials credentials) {
     super(credentials);

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore.http;
 
+import com.google.common.base.Preconditions;
 import java.io.InputStream;
 import java.net.URI;
 
@@ -26,10 +27,10 @@ class UploadCommand {
 
   protected UploadCommand(
       URI uri, boolean casUpload, String hash, InputStream data, long contentLength) {
-    this.uri = uri;
+    this.uri = Preconditions.checkNotNull(uri);
     this.casUpload = casUpload;
-    this.hash = hash;
-    this.data = data;
+    this.hash = Preconditions.checkNotNull(hash);
+    this.data = Preconditions.checkNotNull(data);
     this.contentLength = contentLength;
   }
 

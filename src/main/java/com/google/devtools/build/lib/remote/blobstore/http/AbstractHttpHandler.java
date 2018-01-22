@@ -71,11 +71,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     if (!uri.getPath().endsWith("/")) {
       builder.append("/");
     }
-    if (isCas) {
-      builder.append("cas/");
-    } else {
-      builder.append("ac/");
-    }
+    builder.append(isCas ? "cas/" : "ac/");
     builder.append(hash);
     return builder.toString();
   }

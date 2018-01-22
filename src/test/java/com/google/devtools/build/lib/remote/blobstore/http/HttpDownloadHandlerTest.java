@@ -43,12 +43,12 @@ public class HttpDownloadHandlerTest {
 
   private static final URI CACHE_URI = URI.create("http://storage.googleapis.com:80/cache-bucket");
 
+  /**
+   * Test that downloading blobs works from both the Action Cache and the CAS. Also test that the
+   * handler is reusable.
+   */
   @Test
   public void downloadShouldWork() throws IOException {
-
-    // Test that downloading blobs works from both the Action Cache and the CAS. Also test
-    // that the handler is reusable.
-
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
     downloadShouldWork(true, ch);
     downloadShouldWork(false, ch);
@@ -86,11 +86,9 @@ public class HttpDownloadHandlerTest {
     assertThat(ch.isActive()).isTrue();
   }
 
+  /** Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND). */
   @Test
   public void httpErrorsAreSupported() throws IOException {
-
-    // Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND).
-
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null));
     ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
     DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, "abcdef", out);

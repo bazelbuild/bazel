@@ -26,12 +26,12 @@ public class HttpUploadHandlerTest {
 
   private static final URI CACHE_URI = URI.create("http://storage.googleapis.com:80/cache-bucket");
 
+  /**
+   * Test that uploading blobs works to both the Action Cache and the CAS. Also test that the
+   * handler is reusable.
+   */
   @Test
   public void uploadsShouldWork() throws Exception {
-
-    // Test that uploading blobs works to both the Action Cache and the CAS. Also test
-    // that the handler is reusable.
-
     EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
     uploadsShouldWork(true, ch);
     uploadsShouldWork(false, ch);
@@ -60,11 +60,9 @@ public class HttpUploadHandlerTest {
     assertThat(ch.isOpen()).isTrue();
   }
 
+  /** Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND). */
   @Test
   public void httpErrorsAreSupported() throws Exception {
-
-    // Test that the handler correctly supports http error codes i.e. 404 (NOT FOUND).
-
     EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null));
     ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
     ChannelPromise writePromise = ch.newPromise();

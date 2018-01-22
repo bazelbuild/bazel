@@ -70,7 +70,7 @@ import javax.net.ssl.SSLEngine;
  */
 public class HttpBlobStore implements SimpleBlobStore {
 
-  private final NioEventLoopGroup eventLoop = new NioEventLoopGroup(8);
+  private final NioEventLoopGroup eventLoop = new NioEventLoopGroup(2 /* number of threads */);
   private final SimpleChannelPool downloadChannels;
   private final SimpleChannelPool uploadChannels;
   private final URI uri;

@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore.http;
 
+import com.google.common.base.Preconditions;
 import java.io.OutputStream;
 import java.net.URI;
 
-class DownloadCommand {
+final class DownloadCommand {
 
   private final URI uri;
   private final boolean casDownload;
@@ -24,10 +25,10 @@ class DownloadCommand {
   private final OutputStream out;
 
   protected DownloadCommand(URI uri, boolean casDownload, String hash, OutputStream out) {
-    this.uri = uri;
+    this.uri = Preconditions.checkNotNull(uri);
     this.casDownload = casDownload;
-    this.hash = hash;
-    this.out = out;
+    this.hash = Preconditions.checkNotNull(hash);
+    this.out = Preconditions.checkNotNull(out);
   }
 
   public URI uri() {
