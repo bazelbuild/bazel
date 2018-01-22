@@ -176,6 +176,22 @@ public class ConfiguredTargetQueryEnvironment
     return value == null ? null : value.getConfiguredTarget();
   }
 
+  private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {
+    // Try with host configuration.
+    ConfiguredTarget configuredTarget =
+        getConfiguredTarget(ConfiguredTargetValue.key(label, hostConfiguration));
+    if (configuredTarget != null) {
+      return configuredTarget;
+    }
+    configuredTarget =
+        getConfiguredTarget(ConfiguredTargetValue.key(label, defaultTargetConfiguration));
+    if (configuredTarget != null) {
+      return configuredTarget;
+    }
+    // Last chance: source file.
+    return getConfiguredTarget(ConfiguredTargetValue.key(label, null));
+  }
+
   @Override
   public void close() {}
 
@@ -313,7 +329,7 @@ public class ConfiguredTargetQueryEnvironment
                   dep ->
                       !implicitDeps.contains(
                           ConfiguredTargetKey.of(
-                              dep.getTarget().getLabel(), dep.getConfiguration())))
+                              dep.getLabel(), dep.getConfiguration())))
               .collect(Collectors.toList());
     }
     return deps;
@@ -417,22 +433,6 @@ public class ConfiguredTargetQueryEnvironment
       throws TargetNotFoundException, QueryException, InterruptedException {
     ConfiguredTarget configuredTarget = getConfiguredTarget(label);
     return configuredTarget == null ? null : configuredTarget.getTarget();
-  }
-
-  private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {
-    // Try with host configuration.
-    ConfiguredTarget configuredTarget =
-        getConfiguredTarget(ConfiguredTargetValue.key(label, hostConfiguration));
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-    configuredTarget =
-        getConfiguredTarget(ConfiguredTargetValue.key(label, defaultTargetConfiguration));
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-    // Last chance: source file.
-    return getConfiguredTarget(ConfiguredTargetValue.key(label, null));
   }
 
   @Override

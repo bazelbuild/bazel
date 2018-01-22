@@ -457,7 +457,7 @@ public final class BuildTool {
             String.format(
                 "Top level targets %s and %s have different configurations (top level "
                     + "targets with different configurations is not supported)",
-                sampleTAndC.getTarget().getLabel(), targAndConfig.getTarget().getLabel()));
+                sampleTAndC.getLabel(), targAndConfig.getLabel()));
       }
     }
 

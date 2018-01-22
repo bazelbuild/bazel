@@ -62,7 +62,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
 
   @Override
   public String toString() {
-    return "InputFileConfiguredTarget(" + getTarget().getLabel() + ")";
+    return "InputFileConfiguredTarget(" + getLabel() + ")";
   }
 
   @Override
@@ -82,6 +82,6 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    printer.append("<input file target " + getTarget().getLabel() + ">");
+    printer.append("<input file target " + getLabel() + ">");
   }
 }
