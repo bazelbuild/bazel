@@ -428,46 +428,6 @@ public final class JavaCompileAction extends SpawnAction {
     }
   }
 
-  /** Creates an ArgvFragment containing the common initial command line arguments */
-  private static CustomMultiArgv spawnCommandLineBase(
-      final PathFragment javaExecutable,
-      final Artifact javaBuilderJar,
-      final ImmutableList<Artifact> instrumentationJars,
-      final ImmutableList<String> javaBuilderJvmFlags,
-      final String javaBuilderMainClass,
-      final String pathDelimiter) {
-    return new CustomMultiArgv() {
-      @Override
-      public Iterable<String> argv() {
-        checkNotNull(javaBuilderJar);
-
-        if (!javaBuilderJar.getExtension().equals("jar")) {
-          // JavaBuilder is a non-deploy.jar executable.
-          return ImmutableList.of(javaBuilderJar.getExecPathString());
-        }
-
-        CustomCommandLine.Builder builder =
-            CustomCommandLine.builder().addPath(javaExecutable).addAll(javaBuilderJvmFlags);
-        if (!instrumentationJars.isEmpty()) {
-          builder
-              .addExecPaths(
-                  "-cp",
-                  VectorArg.join(pathDelimiter)
-                      .each(
-                          ImmutableList.<Artifact>builder()
-                              .addAll(instrumentationJars)
-                              .add(javaBuilderJar)
-                              .build()))
-              .addDynamicString(javaBuilderMainClass);
-        } else {
-          // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
-          builder.addExecPath("-jar", javaBuilderJar);
-        }
-        return builder.build().arguments();
-      }
-    };
-  }
-
   /**
    * Tells {@link Builder} how to create new artifacts. Is there so that {@link Builder} can be
    * exercised in tests without creating a full {@link RuleContext}.
@@ -618,26 +578,37 @@ public final class JavaCompileAction extends SpawnAction {
           paramFileContents, ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1);
       analysisEnvironment.registerAction(parameterFileWriteAction);
 
-      CustomMultiArgv spawnCommandLineBase =
-          spawnCommandLineBase(
-              javaExecutable,
-              javaBuilder.getExecutable(),
-              instrumentationJars,
-              javacJvmOpts,
-              semantics.getJavaBuilderMainClass(),
-              pathSeparator);
+      // The actual params-file-based command line executed for a compile action.
+      CustomCommandLine.Builder javaBuilderCommandLine = CustomCommandLine.builder();
+      Artifact javaBuilderJar = checkNotNull(javaBuilder.getExecutable());
+      if (!javaBuilderJar.getExtension().equals("jar")) {
+        // JavaBuilder is a non-deploy.jar executable.
+        javaBuilderCommandLine.addExecPath(javaBuilderJar);
+      } else {
+        javaBuilderCommandLine.addPath(javaExecutable).addAll(javacJvmOpts);
+        if (!instrumentationJars.isEmpty()) {
+          javaBuilderCommandLine
+              .addExecPaths(
+                  "-cp",
+                  VectorArg.join(pathSeparator)
+                      .each(
+                          ImmutableList.<Artifact>builder()
+                              .addAll(instrumentationJars)
+                              .add(javaBuilderJar)
+                              .build()))
+              .addDynamicString(semantics.getJavaBuilderMainClass());
+        } else {
+          // If there are no instrumentation jars, use simpler '-jar' option to launch JavaBuilder.
+          javaBuilderCommandLine.addExecPath("-jar", javaBuilderJar);
+        }
+      }
+      javaBuilderCommandLine.addFormatted("@%s", paramFile.getExecPath());
 
       if (artifactForExperimentalCoverage != null) {
         analysisEnvironment.registerAction(new LazyWritePathsFileAction(
             owner, artifactForExperimentalCoverage, sourceFiles, false));
       }
 
-      // The actual params-file-based command line executed for a compile action.
-      CommandLine javaBuilderCommandLine =
-          CustomCommandLine.builder()
-              .addCustomMultiArgv(spawnCommandLineBase)
-              .addFormatted("@%s", paramFile.getExecPath())
-              .build();
 
       NestedSet<Artifact> tools =
           NestedSetBuilder.<Artifact>stableOrder()
@@ -671,7 +642,7 @@ public final class JavaCompileAction extends SpawnAction {
           inputs,
           outputs,
           paramFileContents,
-          javaBuilderCommandLine,
+          javaBuilderCommandLine.build(),
           classDirectory,
           outputJar,
           classpathEntries,
