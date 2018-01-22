@@ -199,7 +199,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleSet> requires() {
-          return null;
+          return ImmutableList.of();
         }
       };
 

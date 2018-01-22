@@ -935,6 +935,7 @@ java_library(
         ["rules/core/*.java"],
     ),
     deps = [
+        ":packages-internal",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//third_party:guava",
     ],
