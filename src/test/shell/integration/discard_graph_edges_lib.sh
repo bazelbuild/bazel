@@ -36,17 +36,23 @@ function run_test_actions_deleted_after_execution() {
   readonly local extra_build_arg="$4"
   rm -rf histodump
   mkdir -p histodump || fail "Couldn't create directory"
-  readonly local wait_fifo="$TEST_TMPDIR/wait_fifo"
-  readonly local exec_fifo="$TEST_TMPDIR/exec_fifo"
   readonly local server_pid_file="$TEST_TMPDIR/server_pid.txt"
+  # Use fifo objects to block the execution phase of the dummy build.
+  readonly local exec_has_started_fifo="$TEST_TMPDIR/exec_fifo"
+  readonly local unblock_exec_fifo="$TEST_TMPDIR/wait_fifo"
+
+  # Create the chain of four genrules, using fifos to block execution
   cat > histodump/BUILD <<EOF || fail "Couldn't create BUILD file"
 genrule(name = 'action0',
         outs = ['wait.out'],
         local = 1,
-        cmd = 'echo "" > $exec_fifo; cat $wait_fifo > /dev/null; touch \$@'
+        cmd = 'echo "" > $exec_has_started_fifo; ' +
+              'cat $unblock_exec_fifo > /dev/null; ' +
+              'touch \$@'
         )
 EOF
   for i in $(seq 1 3); do
+    # Outputs a histogram of the server's memory, logging failures.
     iminus=$((i-1))
     cat >> histodump/BUILD <<EOF || fail "Couldn't append"
 genrule(name = 'action${i}',
@@ -63,7 +69,8 @@ genrule(name = 'action${i}',
        )
 EOF
   done
-  mkfifo "$wait_fifo" "$exec_fifo"
+
+  mkfifo "$unblock_exec_fifo" "$exec_has_started_fifo"
   local readonly histo_root="$("$product" info \
       "${PRODUCT_NAME:-$product}-genfiles" 2> /dev/null)/histodump/histo."
   "$product" clean >& "$TEST_log" || fail "Couldn't clean"
@@ -72,7 +79,10 @@ EOF
   "$product" $STARTUP_FLAGS build --show_timestamps $BUILD_FLAGS \
       $extra_build_arg //histodump:action3 >> "$TEST_log" 2>&1 &
   subshell_pid="$!"
-  cat "$exec_fifo" > /dev/null
+  # We will only get past the following line once execution has started,
+  # at which point we can look for the pid.
+  cat "$exec_has_started_fifo" > /dev/null
+
   # We plan to remove batch mode from the relevant flags for discarding
   # incrementality state. In the interim, tests that are not in batch mode
   # explicitly pass --nobatch, so we can use it as a signal.
@@ -89,9 +99,12 @@ EOF
   echo "$server_pid" > "$server_pid_file"
   echo "Finished writing pid to fifo at " >> "$TEST_log"
   date >> "$TEST_log"
-  echo "" > "$wait_fifo"
-  # Wait for previous command to finish.
+
+  # Now that all of the above is finished, unblock the execution of action0
+  echo "" > "$unblock_exec_fifo"
+  # Wait for the build to finish.
   wait "$subshell_pid" || fail "Bazel command failed"
+
   local genrule_action_count=100
   for i in $(seq 1 3); do
     local histo_file="$histo_root$i"

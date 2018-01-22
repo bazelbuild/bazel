@@ -230,6 +230,16 @@ sh_test(
 )
 
 sh_test(
+    name = "nonincremental_builds_test",
+    size = "medium",
+    srcs = ["nonincremental_builds_test.sh"],
+    data = [
+        ":discard_graph_edges_lib.sh",
+        ":test-deps",
+    ],
+)
+
+sh_test(
     name = "build_event_stream_test",
     size = "medium",
     srcs = ["build_event_stream_test.sh"],

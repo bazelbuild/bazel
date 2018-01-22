@@ -402,6 +402,17 @@ public class BuildRequestOptions extends OptionsBase {
   )
   public boolean trackIncrementalState;
 
+  @Option(
+    name = "keep_state_after_build",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+    help =
+        "If false, Blaze will discard the inmemory state from this build when the build finishes. "
+            + "Subsequent builds will not have any incrementality with respect to this one."
+  )
+  public boolean keepStateAfterBuild;
+
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */
   public static class JobsConverter extends RangeConverter {
     /**

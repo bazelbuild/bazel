@@ -523,7 +523,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Preconditions.checkState(!active);
     BuildView.Options viewOptions = options.getOptions(BuildView.Options.class);
     BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
-    boolean oldState = trackIncrementalState;
+    boolean oldValueOfTrackIncrementalState = trackIncrementalState;
 
     // First check if the incrementality state should be kept around during the build.
     boolean explicitlyRequestedNoIncrementalData =
@@ -532,6 +532,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         batch && viewOptions != null && viewOptions.discardAnalysisCache;
     trackIncrementalState =
         !explicitlyRequestedNoIncrementalData && !implicitlyRequestedNoIncrementalData;
+    boolean keepStateAfterBuild = requestOptions != null && requestOptions.keepStateAfterBuild;
     if (explicitlyRequestedNoIncrementalData != implicitlyRequestedNoIncrementalData) {
       if (requestOptions != null && !explicitlyRequestedNoIncrementalData) {
         eventHandler.handle(
@@ -541,17 +542,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                     + " to specify --notrack_incremental_state in the future if you want to "
                     + "maximize memory savings."));
       }
-      if (!batch) {
+      if (!batch && keepStateAfterBuild) {
         eventHandler.handle(
             Event.warn(
-                "--batch not specified with --notrack_incremental_state: the server will "
-                    + "remain running, but the next build will not be incremental on this one."));
+                "--notrack_incremental_state was specified, but without "
+                    + "--nokeep_state_after_build. Inmemory state from this build will not be "
+                    + "reusable, but it will not get fully wiped until the beginning of the next "
+                    + "build. Use --nokeep_state_after_build to clean up eagerly."));
       }
     }
 
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
-    if (oldState != trackIncrementalState) {
+    if (oldValueOfTrackIncrementalState != trackIncrementalState) {
       logger.info("Set incremental state to " + trackIncrementalState);
       evaluatorNeedsReset = true;
       removeActionsAfterEvaluation.set(!trackIncrementalState);

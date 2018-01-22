@@ -434,7 +434,7 @@ function test_warns_on_unexpected_combos() {
   expect_log "--batch and --discard_analysis_cache specified, but --notrack_incremental_state not specified"
   bazel build --nobuild --discard_analysis_cache --notrack_incremental_state \
       >& "$TEST_log" || fail "Expected success"
-  expect_log "--batch not specified with --notrack_incremental_state"
+  expect_log "--notrack_incremental_state was specified, but without --nokeep_state_after_build."
 }
 
 run_suite "test for --discard_graph_edges"
