@@ -180,8 +180,8 @@ public class BazelLibrary {
     returnType = SkylarkNestedSet.class,
     doc =
         "<i>(Deprecated)</i> Returns a new <a href=\"depset.html\">depset</a> that is the merge "
-            + "of the given depset and <code>new_elements</code>. This is the same as the <code>+"
-            + "</code> operator.",
+            + "of the given depset and <code>new_elements</code>. Use the <code>transitive</code> "
+            + "constructor argument instead.",
     parameters = {
       @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
       @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
