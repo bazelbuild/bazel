@@ -238,7 +238,10 @@ public class BazelLibrary {
    */
   @SkylarkSignature(
     name = "select",
-    doc = "Creates a select from the dict parameter, usable for setting configurable attributes.",
+    doc =
+        "<code>select()</code> is the helper function that makes a rule attribute "
+            + "<a href=\"$BE_ROOT/common-definitions.html#configurable-attributes\">configurable</a>. "
+            + "See <a href=\"$BE_ROOT/functions.html#select\">build encyclopedia</a> for details.",
     parameters = {
       @Param(name = "x", type = SkylarkDict.class, doc = "The parameter to convert."),
       @Param(
