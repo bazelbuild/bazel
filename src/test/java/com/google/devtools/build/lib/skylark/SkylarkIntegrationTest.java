@@ -1567,6 +1567,36 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         + "parameter to the DefaultInfo it returns.");
   }
 
+  @Test
+  public void testExecutableFromDifferentRuleIsForbidden() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "sh_binary(name = 'tryme',",
+        "          srcs = [':tryme.sh'],",
+        "          visibility = ['//visibility:public'],",
+        ")");
+
+    scratch.file(
+        "src/rulez.bzl",
+        "def  _impl(ctx):",
+        "   return [DefaultInfo(executable = ctx.executable.runme,",
+        "                       files = depset([ctx.executable.runme]),",
+        "          )]",
+        "r = rule(_impl,",
+        "         executable = True,",
+        "         attrs = {",
+        "            'runme' : attr.label(executable = True, mandatory = True, cfg = 'host'),",
+        "         }",
+        ")");
+
+    scratch.file(
+        "src/BUILD", "load(':rulez.bzl', 'r')", "r(name = 'r_tools', runme = '//pkg:tryme')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//src:r_tools");
+    assertContainsEvent(
+        "/workspace/src/rulez.bzl:2:12: 'executable' provided by an executable"
+            + " rule 'r' should be created by the same rule.");
+  }
 
   /**
    * Skylark integration test that forces inlining.

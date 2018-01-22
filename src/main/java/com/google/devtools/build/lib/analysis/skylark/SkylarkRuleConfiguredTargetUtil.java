@@ -387,6 +387,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
         defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
       } else if (field.equals("executable")) {
         executable = cast("executable", provider, Artifact.class, loc);
+        if (!executable.getArtifactOwner().equals(context.getRuleContext().getOwner())) {
+          throw new EvalException(
+              loc,
+              String.format(
+                  "'executable' provided by an executable rule '%s' should be created "
+                      + "by the same rule.",
+                  context.getRuleContext().getRule().getRuleClass()));
+        }
       } else if (provider
           .getProvider()
           .getKey()
