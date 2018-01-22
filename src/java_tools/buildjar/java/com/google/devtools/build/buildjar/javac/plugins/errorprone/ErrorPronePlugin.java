@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.errorprone.BaseErrorProneJavaCompiler;
 import com.google.errorprone.ErrorProneAnalyzer;
 import com.google.errorprone.ErrorProneError;
 import com.google.errorprone.ErrorProneOptions;
@@ -30,7 +31,6 @@ import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
 import java.util.Arrays;
 import java.util.List;
@@ -66,7 +66,7 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
   /** Registers our message bundle. */
   public static void setupMessageBundle(Context context) {
-    JavacMessages.instance(context).add("com.google.errorprone.errors");
+    BaseErrorProneJavaCompiler.setupMessageBundle(context);
   }
 
   private static final String COMPILING_TEST_ONLY_CODE_ARG = "-XepCompilingTestOnlyCode";
