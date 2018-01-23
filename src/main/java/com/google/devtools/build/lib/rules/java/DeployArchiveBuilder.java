@@ -375,7 +375,7 @@ public class DeployArchiveBuilder {
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .addTransitiveInputs(inputs.build())
-              .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
+              .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman())
               .addOutput(outputJar)
               .setResources(DEPLOY_ACTION_RESOURCE_SET)
               .setJarExecutable(JavaCommon.getHostJavaExecutable(ruleContext), singlejar, jvmArgs)

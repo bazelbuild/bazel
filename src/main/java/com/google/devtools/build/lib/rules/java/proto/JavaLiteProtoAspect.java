@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -269,14 +268,15 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         }
       }
 
-      JavaCompilationArtifacts artifacts = helper.build(
-          javaSemantics,
-          JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-          JavaHelper.getHostJavaRuntime(ruleContext),
-          JavaCompilationHelper.getInstrumentationJars(ruleContext),
-          JavaRuleOutputJarsProvider.builder(),
-          /*createOutputSourceJar*/false,
-          /*outputSourceJar=*/ null);
+      JavaCompilationArtifacts artifacts =
+          helper.build(
+              javaSemantics,
+              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+              JavaRuntimeInfo.forHost(ruleContext),
+              JavaCompilationHelper.getInstrumentationJars(ruleContext),
+              JavaRuleOutputJarsProvider.builder(),
+              /*createOutputSourceJar*/ false,
+              /*outputSourceJar=*/ null);
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
     }
 

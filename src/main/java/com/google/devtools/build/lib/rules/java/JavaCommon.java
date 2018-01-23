@@ -480,11 +480,11 @@ public class JavaCommon {
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
-    return JavaHelper.getHostJavaRuntime(ruleContext).javaBinaryExecPath();
+    return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPath();
   }
 
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    return JavaHelper.getJavaRuntime(ruleContext).javaBinaryExecPath();
+    return JavaRuntimeInfo.from(ruleContext).javaBinaryExecPath();
   }
 
   /**
@@ -496,7 +496,7 @@ public class JavaCommon {
       RuleContext ruleContext, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
     PathFragment javaExecutable;
-    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
-import static com.google.devtools.build.lib.rules.java.JavaHelper.getHostJavabaseInputs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -112,7 +111,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         getJavaToolchainProvider(ruleContext),
-        JavaHelper.getHostJavaRuntime(ruleContext),
+        JavaRuntimeInfo.forHost(ruleContext),
         getInstrumentationJars(ruleContext));
   }
 
@@ -125,7 +124,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         getJavaToolchainProvider(ruleContext),
-        JavaHelper.getHostJavaRuntime(ruleContext),
+        JavaRuntimeInfo.forHost(ruleContext),
         getInstrumentationJars(ruleContext),
         additionalJavaBaseInputs,
         disableStrictDeps);
@@ -489,7 +488,8 @@ public final class JavaCompilationHelper {
                 .addInput(manifestProto)
                 .addInput(classJar)
                 .addOutput(genClassJar)
-                .addTransitiveInputs(getHostJavabaseInputs(getRuleContext()))
+                .addTransitiveInputs(
+                    JavaRuntimeInfo.forHost(getRuleContext()).javaBaseInputsMiddleman())
                 .setJarExecutable(
                     JavaCommon.getHostJavaExecutable(ruleContext),
                     getGenClassJar(ruleContext),

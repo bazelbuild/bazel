@@ -57,7 +57,6 @@ final class JavaInfoBuildHelper {
     return INSTANCE;
   }
 
-
   /**
    * Creates JavaInfo instance from outputJar.
    *
@@ -287,7 +286,9 @@ final class JavaInfoBuildHelper {
           null, "source_jars, sources and exports cannot be simultaneous empty");
     }
 
-    if (hostJavabase.get(JavaRuntimeInfo.PROVIDER) == null) {
+    JavaRuntimeInfo javaRuntimeInfo =
+        JavaRuntimeInfo.from(hostJavabase, skylarkRuleContext.getRuleContext());
+    if (javaRuntimeInfo == null) {
       throw new EvalException(null, "'host_javabase' must point to a Java runtime");
     }
 
@@ -323,7 +324,7 @@ final class JavaInfoBuildHelper {
         helper.build(
             javaSemantics,
             getJavaToolchainProvider(javaToolchain),
-            hostJavabase.get(JavaRuntimeInfo.PROVIDER),
+            javaRuntimeInfo,
             SkylarkList.createImmutable(ImmutableList.of()),
             outputJarsBuilder,
             /*createOutputSourceJar*/ generateMergedSourceJar,

@@ -71,8 +71,9 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             .addTransitiveArtifacts(filesToBuild)
             .build();
 
-    JavaRuntimeInfo javaRuntime = new JavaRuntimeInfo(
-        filesToBuild, middleman, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
+    JavaRuntimeInfo javaRuntime =
+        JavaRuntimeInfo.create(
+            filesToBuild, middleman, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
 
     TemplateVariableInfo templateVariableInfo = new TemplateVariableInfo(ImmutableMap.of(
         "JAVA", javaBinaryExecPath.getPathString(),

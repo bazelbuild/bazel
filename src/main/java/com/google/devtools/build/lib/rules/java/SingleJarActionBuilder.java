@@ -79,9 +79,13 @@ public final class SingleJarActionBuilder {
       NestedSet<Artifact> resourceJars,
       Artifact outputJar) {
     createSourceJarAction(
-        ruleContext, semantics, resources, resourceJars, outputJar,
+        ruleContext,
+        semantics,
+        resources,
+        resourceJars,
+        outputJar,
         JavaToolchainProvider.from(ruleContext),
-        JavaHelper.getHostJavaRuntime(ruleContext));
+        JavaRuntimeInfo.forHost(ruleContext));
   }
 
   /**
@@ -133,15 +137,15 @@ public final class SingleJarActionBuilder {
     requireNonNull(output);
     SpawnAction.Builder builder =
         singleJarActionBuilder(
-            JavaToolchainProvider.from(ruleContext), JavaHelper.getHostJavaRuntime(ruleContext))
-        .addOutput(output)
-        .addInputs(jars)
-        .addCommandLine(
-            sourceJarCommandLine(
-                output, /* semantics= */ null, /* resources= */ ImmutableList.of(), jars),
-            ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-        .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
-        .setMnemonic("JavaSingleJar");
+                JavaToolchainProvider.from(ruleContext), JavaRuntimeInfo.forHost(ruleContext))
+            .addOutput(output)
+            .addInputs(jars)
+            .addCommandLine(
+                sourceJarCommandLine(
+                    output, /* semantics= */ null, /* resources= */ ImmutableList.of(), jars),
+                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
+            .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
+            .setMnemonic("JavaSingleJar");
     ruleContext.registerAction(builder.build(ruleContext));
   }
 
