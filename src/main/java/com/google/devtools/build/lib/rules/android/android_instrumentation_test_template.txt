@@ -44,7 +44,7 @@ test_entry_point="%test_entry_point%"
 log_levels="%log_levels%"
 WORKSPACE_DIR="${TEST_SRCDIR}/%workspace%"
 adb="${WORKSPACE_DIR}/%adb%"
-aapt="${WORKSPACE_DIR}/../../external/androidsdk/aapt_binary"
+aapt="${WORKSPACE_DIR}/%aapt%"
 device_script="${WORKSPACE_DIR}/%device_script%"
 
 data_deps="%data_deps%"

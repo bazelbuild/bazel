@@ -85,7 +85,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
             .addTargets(runfilesDeps, RunfilesProvider.DEFAULT_RUNFILES)
             .addTransitiveArtifacts(AndroidCommon.getSupportApks(ruleContext))
             .addTransitiveArtifacts(getAdb(ruleContext).getFilesToRun())
-            .addTransitiveArtifacts(getAapt(ruleContext).getFilesToRun())
+            .merge(getAapt(ruleContext).getRunfilesSupport())
             .addArtifacts(getDataDeps(ruleContext))
             .build();
 
@@ -121,6 +121,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
         .add(Substitution.of("%workspace%", ruleContext.getWorkspaceName()))
         .add(Substitution.of("%test_label%", ruleContext.getLabel().getCanonicalForm()))
         .add(executableSubstitution("%adb%", getAdb(ruleContext)))
+        .add(executableSubstitution("%aapt%", getAapt(ruleContext)))
         .add(executableSubstitution("%device_script%", getTargetDevice(ruleContext)))
         .add(executableSubstitution("%test_entry_point%", getTestEntryPoint(ruleContext)))
         .add(artifactSubstitution("%target_apk%", getTargetApk(ruleContext)))

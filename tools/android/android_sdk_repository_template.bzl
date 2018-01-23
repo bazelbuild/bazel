@@ -168,6 +168,13 @@ def create_android_sdk_rules(
             # there's no runfiles support so Bazel just creates a junction to
             # {SDK}/build-tools.
             "SDK=$${0}.runfiles/%s" % name,
+            # If $${SDK} is not a directory, it means that this tool is running
+            # from a runfiles directory, in the case of
+            # android_instrumentation_test. Hence, use the androidsdk
+            # that's already present in the runfiles of the current context.
+            "if [[ ! -d $${SDK} ]] ; then",
+            "  SDK=$$(pwd)/../%s" % name,
+            "fi",
             "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
             "EOF\n"]),
     )
