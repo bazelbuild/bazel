@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
@@ -122,13 +123,17 @@ public final class FetchCommand implements BlazeCommand {
                 env.getCommandId().toString()));
 
     // 2. Evaluate expression:
+    QueryEvalResult queryEvalResult = null;
     try {
-      queryEnv.evaluateQuery(expr, new ThreadSafeOutputFormatterCallback<Target>() {
-        @Override
-        public void processOutput(Iterable<Target> partialResult) {
-          // Throw away the result.
-        }
-      });
+      queryEvalResult =
+          queryEnv.evaluateQuery(
+              expr,
+              new ThreadSafeOutputFormatterCallback<Target>() {
+                @Override
+                public void processOutput(Iterable<Target> partialResult) {
+                  // Throw away the result.
+                }
+              });
     } catch (InterruptedException e) {
       env.getReporter()
           .post(
@@ -148,12 +153,15 @@ public final class FetchCommand implements BlazeCommand {
       throw new IllegalStateException(e);
     }
 
-    env.getReporter().handle(
-        Event.progress("All external dependencies fetched successfully."));
+    if (queryEvalResult.getSuccess()) {
+      env.getReporter().handle(Event.progress("All external dependencies fetched successfully."));
+    }
+    ExitCode exitCode =
+        queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.COMMAND_LINE_ERROR;
     env.getReporter()
         .post(
             new NoBuildRequestFinishedEvent(
-                ExitCode.SUCCESS, env.getRuntime().getClock().currentTimeMillis()));
-    return ExitCode.SUCCESS;
+                exitCode, env.getRuntime().getClock().currentTimeMillis()));
+    return exitCode;
   }
 }
