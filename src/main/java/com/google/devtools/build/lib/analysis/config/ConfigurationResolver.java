@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
@@ -122,7 +123,7 @@ public final class ConfigurationResolver {
     Map<FragmentsAndTransition, List<BuildOptions>> transitionsMap = new LinkedHashMap<>();
 
     // The fragments used by the current target's configuration.
-    Set<Class<? extends BuildConfiguration.Fragment>> ctgFragments =
+    ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> ctgFragments =
         ctgValue.getConfiguration().fragmentClasses();
     BuildOptions ctgOptions = ctgValue.getConfiguration().getOptions();
 
@@ -232,7 +233,9 @@ public final class ConfigurationResolver {
 
       // If we get here, we have to get the configuration from Skyframe.
       for (BuildOptions options : toOptions) {
-        keysToEntries.put(BuildConfigurationValue.key(depFragments, options), depsEntry);
+        keysToEntries.put(
+            BuildConfigurationValue.key(sameFragments ? ctgFragments : depFragments, options),
+            depsEntry);
       }
     }
 

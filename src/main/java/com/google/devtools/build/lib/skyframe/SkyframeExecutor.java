@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -1280,13 +1281,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  // TODO(bazel-team): rename this and below methods to something that discourages general use
-  public ImmutableList<ConfiguredTargetAndTarget> getConfiguredTargets(
+  public ImmutableList<ConfiguredTargetAndTarget> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys) {
-    return getConfiguredTargetMap(
-        eventHandler, originalConfig, keys).values().asList();
+    return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
   /**
@@ -1299,7 +1298,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  public ImmutableMultimap<Dependency, ConfiguredTargetAndTarget> getConfiguredTargetMap(
+  public ImmutableMultimap<Dependency, ConfiguredTargetAndTarget> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys) {
@@ -1434,11 +1433,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     // Prepare the Skyframe inputs.
     // TODO(gregce): support trimmed configs.
-    Set<Class<? extends BuildConfiguration.Fragment>> allFragments =
-        configurationFragments.get()
+    ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> allFragments =
+        configurationFragments
+            .get()
             .stream()
             .map(factory -> factory.creates())
-            .collect(ImmutableSet.toImmutableSet());
+            .collect(
+                ImmutableSortedSet.toImmutableSortedSet(BuildConfiguration.lexicalFragmentSorter));
     final ImmutableList<SkyKey> configSkyKeys =
         optionsList
             .stream()
@@ -1487,14 +1488,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         ArrayListMultimap.<Dependency, BuildConfiguration>create();
     Set<Dependency> depsToEvaluate = new HashSet<>();
 
-    Set<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
+    ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
     if (useUntrimmedConfigs(fromOptions)) {
       allFragments = ((ConfiguredRuleClassProvider) ruleClassProvider).getAllFragments();
     }
 
     // Get the fragments needed for dynamic configuration nodes.
     final List<SkyKey> transitiveFragmentSkyKeys = new ArrayList<>();
-    Map<Label, Set<Class<? extends BuildConfiguration.Fragment>>> fragmentsMap = new HashMap<>();
+    Map<Label, ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>>> fragmentsMap =
+        new HashMap<>();
     Set<Label> labelsWithErrors = new HashSet<>();
     for (Dependency key : keys) {
       if (key.hasExplicitConfiguration()) {
@@ -1519,7 +1521,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       } else {
         TransitiveTargetValue ttv =
             (TransitiveTargetValue) fragmentsResult.get(TransitiveTargetKey.of(key.getLabel()));
-        fragmentsMap.put(key.getLabel(), ttv.getTransitiveConfigFragments().toSet());
+        fragmentsMap.put(
+            key.getLabel(),
+            ImmutableSortedSet.copyOf(
+                BuildConfiguration.lexicalFragmentSorter,
+                ttv.getTransitiveConfigFragments().toSet()));
       }
     }
 
@@ -1529,7 +1535,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }
-      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+      ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
@@ -1544,7 +1550,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }
-      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+      ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
       if (depFragments != null) {
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
@@ -1617,7 +1623,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
       ExtendedEventHandler eventHandler,
-      Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+      ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments,
       BuildOptions options)
       throws InterruptedException {
     SkyKey key = BuildConfigurationValue.key(fragments, options);
@@ -1648,7 +1654,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Transition transition) {
     ConfiguredTargetAndTarget configuredTargetAndTarget =
         Iterables.getFirst(
-            getConfiguredTargets(
+            getConfiguredTargetsForTesting(
                 eventHandler,
                 configuration,
                 ImmutableList.of(

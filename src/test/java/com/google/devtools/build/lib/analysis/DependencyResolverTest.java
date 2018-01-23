@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,42 +59,44 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Before
   public final void createResolver() throws Exception {
-    dependencyResolver = new DependencyResolver(ruleClassProvider.getDynamicTransitionMapper()) {
+    dependencyResolver =
+        new DependencyResolver(ruleClassProvider.getDynamicTransitionMapper()) {
 
-      @Override
-      protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-        throw new IllegalStateException();
-      }
+          @Override
+          protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
+            throw new IllegalStateException();
+          }
 
-      @Override
-      protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-        throw new IllegalStateException();
-      }
+          @Override
+          protected void invalidPackageGroupReferenceHook(
+              TargetAndConfiguration node, Label label) {
+            throw new IllegalStateException();
+          }
 
-      @Override
-      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
-        throw new IllegalStateException(e);
-      }
+          @Override
+          protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+            throw new IllegalStateException(e);
+          }
 
-      @Nullable
-      @Override
-      protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
-        try {
-          return packageManager.getTarget(reporter, label);
-        } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-          throw new IllegalStateException(e);
-        }
-      }
+          @Nullable
+          @Override
+          protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
+            try {
+              return packageManager.getTarget(reporter, label);
+            } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+              throw new IllegalStateException(e);
+            }
+          }
 
-      @Nullable
-      @Override
-      protected List<BuildConfiguration> getConfigurations(
-          Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-          Iterable<BuildOptions> buildOptions) {
-        throw new UnsupportedOperationException(
-            "this functionality is covered by analysis-phase integration tests");
-      }
-    };
+          @Nullable
+          @Override
+          protected List<BuildConfiguration> getConfigurations(
+              ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments,
+              Iterable<BuildOptions> buildOptions) {
+            throw new UnsupportedOperationException(
+                "this functionality is covered by analysis-phase integration tests");
+          }
+        };
   }
 
   private void pkg(String name, String... contents) throws Exception {

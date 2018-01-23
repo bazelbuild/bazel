@@ -25,7 +25,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -70,7 +70,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -808,12 +807,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return configurationFragmentMap;
   }
 
-  /**
-   * Returns all registered {@link BuildConfiguration.Fragment} classes.
-   */
-  public Set<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
-    ImmutableSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
-        ImmutableSet.builder();
+  /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
+  public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
+    ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+        ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
     for (ConfigurationFragmentFactory factory : getConfigurationFragments()) {
       fragmentsBuilder.add(factory.creates());
     }
