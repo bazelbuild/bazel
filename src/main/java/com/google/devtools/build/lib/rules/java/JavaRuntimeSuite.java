@@ -43,8 +43,10 @@ public class JavaRuntimeSuite implements RuleConfiguredTargetFactory {
     TemplateVariableInfo templateVariableInfo =
         runtime.get(TemplateVariableInfo.PROVIDER);
 
+    JavaRuntimeInfo javaRuntime = runtime.get(JavaRuntimeInfo.PROVIDER);
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(runtime.get(JavaRuntimeInfo.PROVIDER))
+        .addNativeDeclaredProvider(javaRuntime)
+        .addNativeDeclaredProvider(new JavaRuntimeToolchainInfo(javaRuntime))
         .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
         .addNativeDeclaredProvider(templateVariableInfo)
         .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild())

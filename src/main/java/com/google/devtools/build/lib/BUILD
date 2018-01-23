@@ -881,6 +881,7 @@ java_library(
         "rules/java/JavaRuleOutputJarsProvider.java",
         "rules/java/JavaRunfilesProvider.java",
         "rules/java/JavaRuntimeInfo.java",
+        "rules/java/JavaRuntimeToolchainInfo.java",
         "rules/java/JavaSemantics.java",
         "rules/java/JavaSkylarkApiProvider.java",
         "rules/java/JavaSkylarkCommon.java",

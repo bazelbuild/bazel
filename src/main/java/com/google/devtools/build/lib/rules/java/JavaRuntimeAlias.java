@@ -42,8 +42,10 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
     TransitiveInfoCollection runtime = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
     // Sadly, we can't use an AliasConfiguredTarget here because we need to be prepared for the case
     // when --javabase is not a label. For the time being.
+    JavaRuntimeInfo javaRuntime = runtime.get(JavaRuntimeInfo.PROVIDER);
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(runtime.get(JavaRuntimeInfo.PROVIDER))
+        .addNativeDeclaredProvider(javaRuntime)
+        .addNativeDeclaredProvider(new JavaRuntimeToolchainInfo(javaRuntime))
         .addNativeDeclaredProvider(runtime.get(TemplateVariableInfo.PROVIDER))
         .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
         .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild())
