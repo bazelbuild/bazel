@@ -134,4 +134,32 @@ public abstract class FoundationTestCase {
   protected void assertContainsEventsInOrder(String... expectedMessages) {
     MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
   }
+
+  protected void writeBuildFileForJavaToolchain() throws Exception  {
+    scratch.file("java/com/google/test/turbine_canary_deploy.jar");
+    scratch.file("java/com/google/test/tzdata.jar");
+    scratch.overwriteFile(
+        "java/com/google/test/BUILD",
+        "java_toolchain(name = 'toolchain',",
+        "    source_version = '6',",
+        "    target_version = '6',",
+        "    bootclasspath = ['rt.jar'],",
+        "    extclasspath = ['ext/lib.jar'],",
+        "    encoding = 'ISO-8859-1',",
+        "    xlint = ['toto'],",
+        "    misc = ['-Xmaxerrs 500'],",
+        "    compatible_javacopts = {",
+        "        'appengine': ['-XDappengineCompatible'],",
+        "        'android': ['-XDandroidCompatible'],",
+        "    },",
+        "    javac = [':javac_canary.jar'],",
+        "    javabuilder = [':JavaBuilderCanary_deploy.jar'],",
+        "    header_compiler = [':turbine_canary_deploy.jar'],",
+        "    singlejar = ['SingleJar_deploy.jar'],",
+        "    ijar = ['ijar'],",
+        "    genclass = ['GenClass_deploy.jar'],",
+        "    timezone_data = 'tzdata.jar',",
+        ")"
+    );
+  }
 }

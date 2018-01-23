@@ -77,7 +77,6 @@ final class JavaInfoBuildHelper {
    * @return new created JavaInfo instance
    * @throws EvalException if some mandatory parameter are missing
    */
-  // TODO(b/69780248): only populates JavaInfo with JavaCompilationArgsProvider. See #3769
   public JavaInfo createJavaInfo(
       Artifact outputJar,
       SkylarkList<Artifact> sourceFiles,
@@ -97,19 +96,25 @@ final class JavaInfoBuildHelper {
 
     JavaCompilationArgs.Builder javaCompilationArgsBuilder = JavaCompilationArgs.builder();
 
-    if (useIjar) {
-      SkylarkActionFactory skylarkActionFactory = checkActionType(action, location);
-      ConfiguredTarget configuredTarget = checkConfiguredTargetType(javaToolchain, location);
-      Artifact iJar = buildIjar(outputJar, skylarkActionFactory, configuredTarget);
-      javaCompilationArgsBuilder.addCompileTimeJar(iJar);
-    } else {
-      javaCompilationArgsBuilder.addCompileTimeJar(outputJar);
-    }
-
     javaCompilationArgsBuilder.addFullCompileTimeJar(outputJar);
+
     if (!neverlink) {
       javaCompilationArgsBuilder.addRuntimeJar(outputJar);
     }
+
+    Artifact iJar = outputJar;
+    if (useIjar) {
+      SkylarkActionFactory skylarkActionFactory = checkActionType(action, location);
+      ConfiguredTarget configuredTarget = checkConfiguredTargetType(javaToolchain, location);
+      iJar = buildIjar(outputJar, skylarkActionFactory, configuredTarget);
+    }
+    javaCompilationArgsBuilder.addCompileTimeJar(iJar);
+
+    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
+        JavaRuleOutputJarsProvider.builder()
+            .addOutputJar(outputJar, iJar, ImmutableList.copyOf(sourceJars))
+            .build();
+    javaInfoBuilder.addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider);
 
     JavaCompilationArgs.Builder recursiveJavaCompilationArgsBuilder =
         JavaCompilationArgs.Builder.copyOf(javaCompilationArgsBuilder);
