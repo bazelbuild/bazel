@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -41,15 +42,17 @@ public class RunUnderConverter implements Converter<RunUnder> {
       throw new OptionsParsingException("Empty command");
     }
     final String runUnderCommand = runUnderList.get(0);
+    ImmutableList<String> runUnderSuffix =
+        ImmutableList.copyOf(runUnderList.subList(1, runUnderList.size()));
     if (runUnderCommand.startsWith("//")) {
       try {
         final Label runUnderLabel = Label.parseAbsolute(runUnderCommand);
-        return new RunUnderLabel(input, runUnderLabel, runUnderList);
+        return new RunUnderLabel(input, runUnderLabel, runUnderSuffix);
       } catch (LabelSyntaxException e) {
         throw new OptionsParsingException("Not a valid label " + e.getMessage());
       }
     } else {
-      return new RunUnderCommand(input, runUnderCommand, runUnderList);
+      return new RunUnderCommand(input, runUnderCommand, runUnderSuffix);
     }
   }
 
@@ -60,30 +63,38 @@ public class RunUnderConverter implements Converter<RunUnder> {
 
     private final String input;
     private final Label runUnderLabel;
-    private final List<String> runUnderList;
+    private final ImmutableList<String> runUnderList;
 
-    public RunUnderLabel(String input, Label runUnderLabel, List<String> runUnderList) {
+    @AutoCodec.Constructor
+    RunUnderLabel(String input, Label runUnderLabel, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderLabel = runUnderLabel;
-      this.runUnderList = new ArrayList<>(runUnderList.subList(1, runUnderList.size()));
+      this.runUnderList = runUnderList;
     }
 
-    @Override public String getValue() { return input; }
-    @Override public Label getLabel() { return runUnderLabel; }
-    @Override public String getCommand() { return null; }
-    @Override public List<String> getOptions() { return runUnderList; }
-    @Override public String toString() { return input; }
-
-    String getInput() {
+    @Override
+    public String getValue() {
       return input;
     }
 
-    Label getRunUnderLabel() {
+    @Override
+    public Label getLabel() {
       return runUnderLabel;
     }
 
-    List<String> getRunUnderList() {
+    @Override
+    public String getCommand() {
+      return null;
+    }
+
+    @Override
+    public ImmutableList<String> getOptions() {
       return runUnderList;
+    }
+
+    @Override
+    public String toString() {
+      return input;
     }
 
     @Override
@@ -113,30 +124,38 @@ public class RunUnderConverter implements Converter<RunUnder> {
 
     private final String input;
     private final String runUnderCommand;
-    private final List<String> runUnderList;
+    private final ImmutableList<String> runUnderList;
 
-    public RunUnderCommand(String input, String runUnderCommand, List<String> runUnderList) {
+    @AutoCodec.Constructor
+    RunUnderCommand(String input, String runUnderCommand, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderCommand = runUnderCommand;
-      this.runUnderList = new ArrayList<>(runUnderList.subList(1, runUnderList.size()));
+      this.runUnderList = runUnderList;
     }
 
-    @Override public String getValue() { return input; }
-    @Override public Label getLabel() { return null; }
-    @Override public String getCommand() { return runUnderCommand; }
-    @Override public List<String> getOptions() { return runUnderList; }
-    @Override public String toString() { return input; }
-
-    String getInput() {
+    @Override
+    public String getValue() {
       return input;
     }
 
-    String getRunUnderCommand() {
+    @Override
+    public Label getLabel() {
+      return null;
+    }
+
+    @Override
+    public String getCommand() {
       return runUnderCommand;
     }
 
-    List<String> getRunUnderList() {
+    @Override
+    public ImmutableList<String> getOptions() {
       return runUnderList;
+    }
+
+    @Override
+    public String toString() {
+      return input;
     }
 
     @Override
