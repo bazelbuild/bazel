@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
@@ -287,8 +286,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ruleContext, javaCommon, filesToBuild, manifest, resourcesClassJar, resourcesZip);
 
     RunfilesSupport runfilesSupport =
-        RunfilesSupport.withExecutable(
-            ruleContext, defaultRunfiles, executable, CustomCommandLine.EMPTY);
+        RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable);
 
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     NestedSet<Artifact> transitiveSourceJars = sourceJarsProvider.getTransitiveSourceJars();
