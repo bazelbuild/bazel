@@ -336,7 +336,6 @@ filegroup(
         "//src/objc_tools/bundlemerge:srcs",
         "//src/objc_tools/plmerge:srcs",
         "//src/test/cpp:srcs",
-        "//src/test/docker:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",
         "//src/test/skylark:srcs",

@@ -42,7 +42,6 @@ filegroup(
     name = "workspace-file",
     srcs = [":WORKSPACE"],
     visibility = [
-        "//src/test/docker:__pkg__",
         "//src/test/shell/bazel:__subpackages__",
     ],
 )

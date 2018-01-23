@@ -161,16 +161,7 @@ fi
 
 
 function use_bazel_workspace_file() {
-  mkdir -p src/test/{shell/bazel,docker}
-  cat >src/test/docker/docker_repository.bzl <<EOF
-def docker_repository():
-  pass
-EOF
-  cat >src/test/docker/flavours.bzl <<EOF
-def pull_images_for_docker_tests():
-  pass
-EOF
-  touch src/test/docker/BUILD
+  mkdir -p src/test/shell/bazel
   cat >src/test/shell/bazel/list_source_repository.bzl <<EOF
 def list_source_repository(name):
   pass
