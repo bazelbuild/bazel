@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,61 +37,6 @@ import java.util.Set;
  * interface.
  */
 public final class TestTargetUtils {
-  /**
-   * Returns a predicate to be used for test size filtering, i.e., that only accepts tests of the
-   * given size.
-   */
-  public static Predicate<Target> testSizeFilter(final Set<TestSize> allowedSizes) {
-    return target -> {
-      if (!(target instanceof Rule)) {
-        return false;
-      }
-      return allowedSizes.contains(TestSize.getTestSize((Rule) target));
-    };
-  }
-
-  /**
-   * Returns a predicate to be used for test timeout filtering, i.e., that only accepts tests of
-   * the given timeout.
-   **/
-  public static Predicate<Target> testTimeoutFilter(final Set<TestTimeout> allowedTimeouts) {
-    return target -> {
-      if (!(target instanceof Rule)) {
-        return false;
-      }
-      return allowedTimeouts.contains(TestTimeout.getTestTimeout((Rule) target));
-    };
-  }
-
-  /**
-   * Returns a predicate to be used for test language filtering, i.e., that only accepts tests of
-   * the specified languages. The reporter and the list of rule names are only used to warn about
-   * unknown languages.
-   */
-  public static Predicate<Target> testLangFilter(
-      List<String> langFilterList, ExtendedEventHandler reporter, Set<String> allRuleNames) {
-    final Set<String> requiredLangs = new HashSet<>();
-    final Set<String> excludedLangs = new HashSet<>();
-
-    for (String lang : langFilterList) {
-      if (lang.startsWith("-")) {
-        lang = lang.substring(1);
-        excludedLangs.add(lang);
-      } else {
-        requiredLangs.add(lang);
-      }
-      if (!allRuleNames.contains(lang + "_test")) {
-        reporter.handle(
-            Event.warn("Unknown language '" + lang + "' in --test_lang_filters option"));
-      }
-    }
-
-    return rule -> {
-      String ruleLang = TargetUtils.getRuleLanguage(rule);
-      return (requiredLangs.isEmpty() || requiredLangs.contains(ruleLang))
-          && !excludedLangs.contains(ruleLang);
-    };
-  }
 
   /**
    * Returns whether a test with the specified tags matches a filter (as specified by the set

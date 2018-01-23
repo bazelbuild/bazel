@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -27,11 +26,13 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
+import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.function.Predicate;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,14 +82,14 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   @Test
   public void testFilterBySize() throws Exception {
     Predicate<Target> sizeFilter =
-        TestTargetUtils.testSizeFilter(EnumSet.of(TestSize.SMALL, TestSize.LARGE));
-    assertThat(sizeFilter.apply(test1)).isTrue();
-    assertThat(sizeFilter.apply(test2)).isTrue();
-    assertThat(sizeFilter.apply(test1b)).isTrue();
-    sizeFilter = TestTargetUtils.testSizeFilter(EnumSet.of(TestSize.SMALL));
-    assertThat(sizeFilter.apply(test1)).isTrue();
-    assertThat(sizeFilter.apply(test2)).isTrue();
-    assertThat(sizeFilter.apply(test1b)).isFalse();
+        TestFilter.testSizeFilter(EnumSet.of(TestSize.SMALL, TestSize.LARGE));
+    assertThat(sizeFilter.test(test1)).isTrue();
+    assertThat(sizeFilter.test(test2)).isTrue();
+    assertThat(sizeFilter.test(test1b)).isTrue();
+    sizeFilter = TestFilter.testSizeFilter(EnumSet.of(TestSize.SMALL));
+    assertThat(sizeFilter.test(test1)).isTrue();
+    assertThat(sizeFilter.test(test2)).isTrue();
+    assertThat(sizeFilter.test(test1b)).isFalse();
   }
 
   @Test
@@ -111,10 +112,10 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     Target moderateTest = getTarget("//timeouts:moderate_timeout");
 
     Predicate<Target> timeoutFilter =
-        TestTargetUtils.testTimeoutFilter(EnumSet.of(TestTimeout.SHORT, TestTimeout.LONG));
-    assertThat(timeoutFilter.apply(longTest)).isTrue();
-    assertThat(timeoutFilter.apply(shortTest)).isTrue();
-    assertThat(timeoutFilter.apply(moderateTest)).isFalse();
+        TestFilter.testTimeoutFilter(EnumSet.of(TestTimeout.SHORT, TestTimeout.LONG));
+    assertThat(timeoutFilter.test(longTest)).isTrue();
+    assertThat(timeoutFilter.test(shortTest)).isTrue();
+    assertThat(timeoutFilter.test(moderateTest)).isFalse();
   }
 
   @Test
