@@ -8,7 +8,7 @@ title: Repository Rules
   announce them.
 
 An [external repository](../external.md) is a rule that can be used only
-in the `WORKSPACE` file and enable non-hermetic operation at the loading phase
+in the `WORKSPACE` file and enables non-hermetic operation at the loading phase
 of Bazel. Each external repository rule creates its own workspace, with its
 own BUILD files and artifacts. They can be used to depend on third-party
 libraries (such as Maven packaged libraries) but also to generate BUILD files
