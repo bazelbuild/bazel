@@ -57,7 +57,7 @@ def _http_archive_impl(ctx):
   if ctx.attr.build_file:
     print("ctx.attr.build_file %s" % str(ctx.attr.build_file))
     ctx.symlink(ctx.attr.build_file, "BUILD")
-  else:
+  elif ctx.attr.build_file_content:
     ctx.file("BUILD", ctx.attr.build_file_content)
 
 

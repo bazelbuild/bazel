@@ -953,6 +953,7 @@ function test_missing_build() {
   mkdir ext
   echo foo> ext/foo
   EXTREPODIR=`pwd`
+  rm -f ext.zip
   zip ext.zip ext/*
   rm -rf ext
 
@@ -996,6 +997,38 @@ EOF
   bazel build //:localfoo || fail 'Expected success'
   rm -f "${EXTREPODIR}/ext.zip"
   bazel build //:localfoo || fail 'Expected success'
+}
+
+
+function test_inherit_build() {
+  # Verify that http_archive can use a BUILD file shiped with the
+  # external archive.
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="hello",
+  outs=["hello.txt"],
+  cmd="echo Hello World > $@",
+)
+EOF
+  EXTREPODIR=`pwd`
+  rm -f ext.zip
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+)
+EOF
+
+  bazel build '@ext//:hello' || fail "expected success"
 }
 
 run_suite "external tests"
