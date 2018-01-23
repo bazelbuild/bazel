@@ -116,6 +116,8 @@ public interface JavaSemantics {
   public static final String ANDROID_JAVACOPTS_KEY = "android";
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
   public static final String PROTO_JAVACOPTS_KEY = "proto";
+  /** The java_toolchain.compatible_javacopts key for testonly compilations. */
+  public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
   LateBoundDefault<?, Label> JAVA_TOOLCHAIN =
       LateBoundDefault.fromTargetConfiguration(
