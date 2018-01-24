@@ -224,9 +224,9 @@ public final class AspectFunction implements SkyFunction {
     ConfiguredTargetValue configuredTargetValue;
     try {
       configuredTargetValue =
-          (ConfiguredTargetValue) env.getValueOrThrow(
-              ConfiguredTargetValue.key(key.getLabel(), key.getBaseConfiguration()),
-              ConfiguredValueCreationException.class);
+          (ConfiguredTargetValue)
+              env.getValueOrThrow(
+                  key.getConfiguredTargetKey(), ConfiguredValueCreationException.class);
     } catch (ConfiguredValueCreationException e) {
       throw new AspectFunctionException(new AspectCreationException(e.getRootCauses()));
     }
