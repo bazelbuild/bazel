@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -244,7 +244,7 @@ public final class IntermediateArtifacts {
   }
 
   private Artifact scopedArtifact(PathFragment scopeRelative, boolean inGenfiles) {
-    Root root =
+    ArtifactRoot root =
         inGenfiles
             ? buildConfiguration.getGenfilesDirectory(ruleContext.getRule().getRepository())
             : buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository());

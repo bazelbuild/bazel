@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
@@ -26,6 +25,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -37,10 +38,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Command-line options for building Java targets
- */
+/** Command-line options for building Java targets */
+@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class JavaOptions extends FragmentOptions {
+  public static final ObjectCodec<JavaOptions> CODEC = new JavaOptions_AutoCodec();
 
   /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
@@ -58,7 +59,7 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
-  /** Converter for the --java_optimization_mode option. */
+  /** Converter for the --experimental_one_version_enforcement option */
   public static class OneVersionEnforcementLevelConverter
       extends EnumConverter<OneVersionEnforcementLevel> {
     public OneVersionEnforcementLevelConverter() {
@@ -431,15 +432,6 @@ public class JavaOptions extends FragmentOptions {
   public List<String> checkedConstraints;
 
   @Option(
-    name = "experimental_disable_jvm",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Disables the Jvm configuration entirely."
-  )
-  public boolean disableJvm;
-
-  @Option(
     name = "java_optimization_mode",
     defaultValue = "legacy",
     converter = JavaOptimizationModeConverter.class,
@@ -581,7 +573,7 @@ public class JavaOptions extends FragmentOptions {
   }
 
   @Override
-  public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+  public Map<String, Set<Label>> getDefaultsLabels() {
     Map<String, Set<Label>> result = new HashMap<>();
     result.put("JDK", ImmutableSet.of(javaBase, hostJavaBase));
     result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));

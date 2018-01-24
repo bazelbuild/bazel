@@ -24,11 +24,12 @@ import java.util.Objects;
 /**
  * Represents a conflict of two DataResources or DataAssets.
  *
- * For resources, the dataKey is the FullyQualifiedName; Assets use the RelativeAssetPath.
+ * <p>For resources, the dataKey is the FullyQualifiedName; Assets use the RelativeAssetPath.
  */
 @Immutable
 public class MergeConflict {
-  private static final String CONFLICT_MESSAGE = "\n\u001B[31mCONFLICT:\u001B[0m"
+  private static final String CONFLICT_MESSAGE =
+      "\n\u001B[31mCONFLICT:\u001B[0m"
           + " %s is provided with ambiguous priority from:\n\t%s\n\t%s";
 
   private final DataKey dataKey;

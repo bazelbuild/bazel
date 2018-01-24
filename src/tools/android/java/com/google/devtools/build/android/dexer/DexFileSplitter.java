@@ -23,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -34,7 +33,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.io.BufferedOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,11 +44,9 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 /**
  * Shuffles .class.dex files from input archives into 1 or more archives each to be merged into a
@@ -185,13 +181,6 @@ class DexFileSplitter implements Closeable {
               .stream()
               .sorted(Comparator.comparing(e -> e.getKey(), ZipEntryComparator::compareClassNames))
               .collect(ImmutableList.toImmutableList());
-      if (expected != null) {
-        ImmutableSet<String> actual =
-            files.stream().map(e -> e.getKey()).collect(ImmutableSet.toImmutableSet());
-        Set<String> difference = Sets.difference(expected, actual);
-        checkState(difference.isEmpty(),
-            "--inclusion_filter_jar given but didn't find: %s", difference);
-      }
 
       // 2. Process each class in desired order, rolling from shard to shard as needed.
       if (classesInMainDex == null || classesInMainDex.isEmpty()) {
@@ -224,9 +213,12 @@ class DexFileSplitter implements Closeable {
 
   private final int maxNumberOfIdxPerDex;
   private final Path outputDirectory;
+  /** Collect written zip files so we can conveniently wait for all of them to close when done. */
+  private final Closer closer = Closer.create();
 
   private int curShard = 0;
-  private ZipOutputStream out;
+  /** Currently written file. */
+  private AsyncZipOut curOut;
   private DexLimitTracker tracker;
 
   private DexFileSplitter(Path outputDirectory, int maxNumberOfIdxPerDex) throws IOException {
@@ -237,20 +229,21 @@ class DexFileSplitter implements Closeable {
   }
 
   private void nextShard() throws IOException {
-    out.close();  // will NPE if called after close()
+    // Eagerly tell the last shard that it's done so it can finish writing the zip file and release
+    // resources as soon as possible, without blocking the start of the next shard.
+    curOut.finishAsync();  // will NPE if called after close()
     ++curShard;
     startShard();
   }
 
   private void startShard() throws IOException {
     tracker = new DexLimitTracker(maxNumberOfIdxPerDex);
-    out =
-        new ZipOutputStream(
-            new BufferedOutputStream(
-                Files.newOutputStream(
-                    outputDirectory.resolve((curShard + 1) + ".shard.zip"),
-                    StandardOpenOption.CREATE_NEW,
-                    StandardOpenOption.WRITE)));
+    curOut =
+        closer.register(
+            new AsyncZipOut(
+                outputDirectory.resolve((curShard + 1) + ".shard.zip"),
+                StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE));
   }
 
   private int shardsWritten() {
@@ -259,11 +252,14 @@ class DexFileSplitter implements Closeable {
 
   @Override
   public void close() throws IOException {
-    if (out != null) {
-      out.close();
-      out = null;
+    if (curOut != null) {
+      curOut.finishAsync();
+      curOut = null;
       ++curShard;
     }
+    // Wait for all shards to finish writing.  We told them to finish already but need to wait for
+    // any pending writes so we're sure all output was successfully written.
+    closer.close();
   }
 
   private void processDexFiles(
@@ -298,9 +294,7 @@ class DexFileSplitter implements Closeable {
         nextShard();
         tracker.track(dexFile);
       }
-      out.putNextEntry(entry);
-      out.write(content);
-      out.closeEntry();
+      curOut.writeAsync(entry, content);
     }
   }
 }

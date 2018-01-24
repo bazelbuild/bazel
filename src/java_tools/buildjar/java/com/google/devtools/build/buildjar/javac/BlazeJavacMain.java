@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar.javac;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -170,9 +172,35 @@ public class BlazeJavacMain {
   private static void setLocations(JavacFileManager fileManager, BlazeJavacArguments arguments) {
     try {
       fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, arguments.classPath());
+      // modular dependencies must be on the module path, not the classpath
+      fileManager.setLocationFromPaths(
+          StandardLocation.locationFor("MODULE_PATH"), arguments.classPath());
+
       fileManager.setLocationFromPaths(
           StandardLocation.CLASS_OUTPUT, ImmutableList.of(arguments.classOutput()));
-      fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, arguments.sourcePath());
+      if (arguments.nativeHeaderOutput() != null) {
+        fileManager.setLocationFromPaths(
+            StandardLocation.NATIVE_HEADER_OUTPUT,
+            ImmutableList.of(arguments.nativeHeaderOutput()));
+      }
+
+      ImmutableList<Path> sourcePath = arguments.sourcePath();
+      if (sourcePath.isEmpty()) {
+        // javac expects a module-info-relative source path to be set when compiling modules,
+        // otherwise it reports an error:
+        // "file should be on source path, or on patch path for module"
+        ImmutableList<Path> moduleInfos =
+            arguments
+                .sourceFiles()
+                .stream()
+                .filter(f -> f.getFileName().toString().equals("module-info.java"))
+                .collect(toImmutableList());
+        if (moduleInfos.size() == 1) {
+          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).getParent());
+        }
+      }
+      fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
+
       // TODO(cushon): require an explicit bootclasspath
       Collection<Path> bootClassPath = arguments.bootClassPath();
       if (!bootClassPath.isEmpty()) {

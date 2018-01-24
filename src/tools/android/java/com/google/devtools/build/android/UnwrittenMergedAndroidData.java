@@ -21,9 +21,7 @@ import java.nio.file.Path;
 import java.util.Map.Entry;
 import java.util.Objects;
 
-/**
- * Merged Android Data that has yet to written into a {@link MergedAndroidData}.
- */
+/** Merged Android Data that has yet to written into a {@link MergedAndroidData}. */
 public class UnwrittenMergedAndroidData {
 
   private final Path manifest;

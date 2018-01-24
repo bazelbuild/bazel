@@ -13,33 +13,41 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
+import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
@@ -633,7 +641,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(actualArgs).contains(flag);
     String actualFlagValue = actualArgs.get(actualArgs.indexOf(flag) + 1);
     ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
-    for (String resourceDependency : actualFlagValue.split(",")) {
+    for (String resourceDependency : Splitter.on(',').split(actualFlagValue)) {
       assertThat(actualFlagValue).matches("[^;]*;[^;]*;[^;]*;.*");
       actualPaths.add(resourceDependency.split(";")[1].split("#"));
     }
@@ -1113,26 +1121,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
     final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
-    assertThat(provider.getAssetDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(), PathFragment.create("java/android/assets")),
-                SourceDirectory.fromRoot(
-                    targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                    PathFragment.create("java/android/assets"))));
-    assertThat(provider.getResourceDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(), PathFragment.create("java/android/res"))));
-
-    assertThat(provider.getIdlImports())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(), PathFragment.create("java/android"))));
-
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1162,33 +1150,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget(
         "//research/handwriting/java/com/google/research/handwriting:r");
     final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
-    assertThat(provider.getAssetDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting/assets")),
-                SourceDirectory.fromRoot(
-                    targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting/assets"))));
-    assertThat(provider.getResourceDirs())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting/res"))));
-
-    assertThat(provider.getIdlImports())
-        .isEqualTo(
-            ImmutableList.of(
-                SourceDirectory.fromSourceRoot(
-                    rootDirectory.asFragment(),
-                    PathFragment.create(
-                        "research/handwriting/java/com/google/research/handwriting"))));
-
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1221,23 +1182,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
     final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
-    assertThat(provider.getAssetDirs()).containsExactly(
-        SourceDirectory.fromSourceRoot(
-            rootDirectory.asFragment(), PathFragment.create("java/android/assets")),
-        SourceDirectory.fromRoot(
-            targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-            PathFragment.create("java/android/assets")));
-    assertThat(provider.getResourceDirs()).containsExactly(
-        SourceDirectory.fromSourceRoot(
-            rootDirectory.asFragment(), PathFragment.create("java/android/res")));
-
-    assertThat(provider.getIdlImports()).containsExactly(
-        SourceDirectory.fromSourceRoot(
-            rootDirectory.asFragment(), PathFragment.create("java/android")),
-        SourceDirectory.fromRoot(
-            targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-            PathFragment.create("java/android")));
-
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1542,6 +1486,51 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void compileDataBindingOutputWhenDataBindingEnabled() throws Exception {
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    annotations_jar = 'annotations_jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign')");
+    scratch.file(
+        "java/a/BUILD",
+        "android_library(",
+        "  name = 'a', ",
+        "  srcs = ['A.java'],",
+        "  enable_data_binding = 1,",
+        "  manifest = 'a/AndroidManifest.xml',",
+        "  resource_files = [ 'res/values/a.xml' ]",
+        ")");
+    useConfiguration("--android_sdk=//sdk:sdk");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+
+    SpawnAction compileAction =
+        getGeneratingSpawnAction(
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+    assertThat(compileAction).isNotNull();
+
+    ParameterFileWriteAction paramsFileAction = findParamsFileAction(compileAction);
+    if (paramsFileAction == null) {
+      assertThat(compileAction.getArguments()).contains("--dataBindingInfoOut");
+    } else {
+      assertThat(paramsFileAction.getContents()).contains("--dataBindingInfoOut");
+    }
+  }
+
+  @Test
   public void testUseManifestFromResourceApk() throws Exception {
     scratch.file(
         "java/a/BUILD",
@@ -1633,7 +1622,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             .getActionForArtifactEndingWith(
                 getOutputGroup(
                     getConfiguredTarget("//java/com/google/android/hello:l2"),
-                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                    OutputGroupInfo.HIDDEN_TOP_LEVEL),
                 "library_spec.cfg_valid");
     assertWithMessage("Proguard validate action was not spawned.").that(action).isNotNull();
     assertWithMessage("Proguard validate action was spawned without correct input.")
@@ -1644,7 +1633,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             .getActionForArtifactEndingWith(
                 getOutputGroup(
                     getConfiguredTarget("//java/com/google/android/hello:l3"),
-                    OutputGroupProvider.HIDDEN_TOP_LEVEL),
+                    OutputGroupInfo.HIDDEN_TOP_LEVEL),
                 "library_spec.cfg_valid");
     assertWithMessage("Proguard validate action was not spawned.")
         .that(transitiveAction)
@@ -1652,5 +1641,216 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertWithMessage("Proguard validate action was spawned without correct input.")
         .that(ActionsTestUtil.prettyArtifactNames(transitiveAction.getInputs()))
         .contains("java/com/google/android/hello/library_spec.cfg");
+  }
+
+  @Test
+  public void testForwardedDeps() throws Exception {
+    scratch.file("java/fwdeps/BUILD",
+        "android_library(name = 'a', srcs = ['a.java'])",
+        "android_library(name = 'b1', exports = [':a'])",
+        "android_library(name = 'b2', srcs = [], exports = [':a'])",
+        "android_library(name = 'c1', srcs = ['c1.java'], deps = [':b1'])",
+        "android_library(name = 'c2', srcs = ['c2.java'], deps = [':b2'])");
+    ConfiguredTarget c1Target = getConfiguredTarget("//java/fwdeps:c1");
+    ConfiguredTarget c2Target = getConfiguredTarget("//java/fwdeps:c2");
+
+    Iterable<String> c1Jars =
+        ActionsTestUtil.baseArtifactNames(
+            c1Target.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+
+    Iterable<String> c2Jars =
+        ActionsTestUtil.baseArtifactNames(
+            c2Target.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+
+    assertThat(c1Jars).containsExactly("liba-hjar.jar");
+    assertThat(c2Jars).containsExactly("liba-hjar.jar");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testExportsAreIndirectNotDirect() throws Exception {
+    scratch.file("java/exports/BUILD",
+        "android_library(name = 'a', srcs = ['a.java'])",
+        "android_library(name = 'b', srcs = ['b.java'], exports = ['a'])",
+        "android_library(name = 'c', srcs = ['c.java'], deps = [':b'])");
+
+    ConfiguredTarget aTarget = getConfiguredTarget("//java/exports:a");
+    ConfiguredTarget bTarget = getConfiguredTarget("//java/exports:b");
+    ConfiguredTarget cTarget = getConfiguredTarget("//java/exports:c");
+
+    ImmutableList<Artifact> bClasspath =
+        ImmutableList.copyOf(
+            bTarget.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+    ImmutableList<Artifact> cClasspath =
+        ImmutableList.copyOf(
+            cTarget.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+
+    assertThat(bClasspath).isEmpty();
+    assertThat(cClasspath)
+        .containsAllIn(
+            JavaInfo
+                .getProvider(JavaCompilationArgsProvider.class, aTarget)
+                .getJavaCompilationArgs()
+                .getCompileTimeJars());
+    assertThat(cClasspath)
+        .containsAllIn(
+            JavaInfo
+                .getProvider(JavaCompilationArgsProvider.class, bTarget)
+                .getJavaCompilationArgs()
+                .getCompileTimeJars());
+    assertNoEvents();
+  }
+
+  @Test
+  public void testAndroidJavacoptsCanBeOverridden() throws Exception {
+    scratch.file("java/android/BUILD",
+        "android_library(name = 'a',",
+        "                srcs = ['A.java'],",
+        "                javacopts = ['-g:lines,source'],",
+        "               )");
+
+    JavaCompileAction javacAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/android:liba.jar");
+
+    String commandLine = Iterables.toString(javacAction.buildCommandLine());
+    assertThat(commandLine).contains("-g:lines,source");
+  }
+
+  @Test
+  public void testAarGeneration_LocalResources() throws Exception {
+    scratch.file("java/android/aartest/BUILD",
+        "android_library(name = 'aartest',",
+        "                deps = ['dep'],",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = ['res/values/strings.xml'],",
+        "                assets = ['assets/some/random/file'],",
+        "                assets_dir = 'assets')",
+        "android_library(name = 'dep',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = ['dep/res/values/strings.xml'])");
+    ConfiguredTarget target = getConfiguredTarget("//java/android/aartest:aartest");
+    Artifact aar = getBinArtifact("aartest.aar", target);
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        actionsTestUtil().artifactClosureOf(aar), "aartest.aar");
+    assertThat(action).isNotNull();
+    assertThat(ActionsTestUtil.prettyArtifactNames(getNonToolInputs(action)))
+        .containsAllOf(
+            "java/android/aartest/aartest_processed_manifest/AndroidManifest.xml",
+            "java/android/aartest/aartest_symbols/R.txt",
+            "java/android/aartest/res/values/strings.xml",
+            "java/android/aartest/assets/some/random/file",
+            "java/android/aartest/libaartest.jar");
+  }
+
+  @Test
+  public void testAarGeneration_NoResources() throws Exception {
+    scratch.file("java/android/aartest/BUILD",
+        "android_library(name = 'aartest',",
+        "                exports = ['dep'])",
+        "android_library(name = 'dep',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = ['dep/res/values/strings.xml'])");
+    ConfiguredTarget target = getConfiguredTarget("//java/android/aartest:aartest");
+    Artifact aar = getBinArtifact("aartest.aar", target);
+    SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
+        actionsTestUtil().artifactClosureOf(aar), "aartest.aar");
+    assertThat(action).isNotNull();
+    assertThat(ActionsTestUtil.prettyArtifactNames(getNonToolInputs(action)))
+        .containsAllOf(
+            "java/android/aartest/aartest_processed_manifest/AndroidManifest.xml",
+            "java/android/aartest/aartest_symbols/R.txt",
+            "java/android/aartest/libaartest.jar");
+  }
+
+  @Test
+  public void testAarProvider_localResources() throws Exception {
+    scratch.file("java/android/BUILD",
+        "android_library(name = 'test',",
+        "                inline_constants = 0,",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = ['res/values/strings.xml'],",
+        "                deps = [':t1', ':t2'])",
+        "android_library(name = 't1',",
+        "                inline_constants = 0,",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = ['res/values/strings.xml'])",
+        "android_library(name = 't2',",
+        "                inline_constants = 0,",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = ['res/values/strings.xml'])");
+    ConfiguredTarget target = getConfiguredTarget("//java/android:test");
+    final AndroidLibraryAarProvider provider = target.getProvider(AndroidLibraryAarProvider.class);
+
+    final Aar test =
+        Aar.create(
+            getBinArtifact("test.aar", target),
+            getBinArtifact("test_processed_manifest/AndroidManifest.xml", target));
+    final Aar t1 =
+        Aar.create(
+            getBinArtifact("t1.aar", target),
+            getBinArtifact("t1_processed_manifest/AndroidManifest.xml", target));
+    final Aar t2 =
+        Aar.create(
+            getBinArtifact("t2.aar", target),
+            getBinArtifact("t2_processed_manifest/AndroidManifest.xml", target));
+
+    assertThat(provider.getAar()).isEqualTo(test);
+    assertThat(provider.getTransitiveAars()).containsExactly(test, t1, t2);
+  }
+
+  @Test
+  public void testAarProvider_noResources() throws Exception {
+    scratch.file("java/android/BUILD",
+        "android_library(name = 'test',",
+        "                exports = [':transitive'])",
+        "android_library(name = 'transitive',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = ['res/values/strings.xml'])");
+    ConfiguredTarget target = getConfiguredTarget("//java/android:test");
+    final AndroidLibraryAarProvider provider = target.getProvider(AndroidLibraryAarProvider.class);
+
+    final Aar transitive =
+        Aar.create(
+            getBinArtifact("transitive.aar", target),
+            getBinArtifact("transitive_processed_manifest/AndroidManifest.xml", target));
+
+    assertThat(provider.getAar()).isNull();
+    assertThat(provider.getTransitiveAars()).containsExactly(transitive);
+  }
+
+  @Test
+  public void nativeHeaderOutputs() throws Exception {
+    scratch.file(
+        "java/com/google/jni/BUILD", //
+        "android_library(",
+        "    name = 'jni',",
+        "    srcs = ['Foo.java', 'Bar.java'],",
+        ")");
+
+    FileConfiguredTarget target = getFileConfiguredTarget("//java/com/google/jni:libjni.jar");
+    SpawnAction action = (SpawnAction) getGeneratingAction(target.getArtifact());
+    String outputPath = outputPath(action, "java/com/google/jni/libjni-native-header.jar");
+    assertThat(action.getArguments())
+        .contains("@" + getBinArtifact("libjni.jar-2.params", target).getExecPathString());
+    assertThat(Joiner.on(' ').join(getParamFileContents(action)))
+        .contains(Joiner.on(' ').join("--native_header_output", outputPath));
+
+    Artifact nativeHeaderOutput =
+        JavaInfo.getProvider(
+                JavaRuleOutputJarsProvider.class, getConfiguredTarget("//java/com/google/jni"))
+            .getNativeHeaders();
+    assertThat(nativeHeaderOutput.getExecPathString()).isEqualTo(outputPath);
+  }
+
+  private static String outputPath(Action action, String suffix) {
+    System.err.println(action.getOutputs());
+    Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(action.getOutputs(), suffix);
+    return verifyNotNull(artifact, suffix).getExecPath().getPathString();
+  }
+
+  private Iterable<String> getParamFileContents(Action action)
+      throws CommandLineExpansionException {
+    Artifact paramFile = getFirstArtifactEndingWith(action.getInputs(), "-2.params");
+    return ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents();
   }
 }

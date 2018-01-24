@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -105,16 +106,16 @@ public abstract class GlobFunctionTest {
   @Before
   public final void setUp() throws Exception  {
     fs = new CustomInMemoryFs(new ManualClock());
-    root = fs.getRootDirectory().getRelative("root/workspace");
-    writableRoot = fs.getRootDirectory().getRelative("writableRoot/workspace");
-    outputBase = fs.getRootDirectory().getRelative("output_base");
+    root = fs.getPath("/root/workspace");
+    writableRoot = fs.getPath("/writableRoot/workspace");
+    outputBase = fs.getPath("/output_base");
     pkgPath = root.getRelative(PKG_ID.getPackageFragment());
 
     pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.of(writableRoot, root),
+                ImmutableList.of(Root.fromPath(writableRoot), Root.fromPath(root)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
 
     differencer = new SequencedRecordingDifferencer();
@@ -411,7 +412,9 @@ public abstract class GlobFunctionTest {
   }
 
   private GlobValue runGlob(boolean excludeDirs, String pattern) throws Exception {
-    SkyKey skyKey = GlobValue.key(PKG_ID, root, pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
+    SkyKey skyKey =
+        GlobValue.key(
+            PKG_ID, Root.fromPath(root), pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(skyKey),
@@ -438,28 +441,32 @@ public abstract class GlobFunctionTest {
       differencer.invalidate(
           ImmutableList.of(
               FileStateValue.key(
-                  RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz/file")))));
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
       // The result should not rely on the FileStateValue, so it's still a cache hit.
       assertGlobMatches(pattern, "foo/bar/wiz/file");
 
       differencer.invalidate(
           ImmutableList.of(
               DirectoryListingStateValue.key(
-                  RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz")))));
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
       // This should have invalidated the glob result.
       assertGlobMatches(pattern /* => nothing */);
     } else {
       differencer.invalidate(
           ImmutableList.of(
               DirectoryListingStateValue.key(
-                  RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz")))));
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
       // The result should not rely on the DirectoryListingValue, so it's still a cache hit.
       assertGlobMatches(pattern, "foo/bar/wiz/file");
 
       differencer.invalidate(
           ImmutableList.of(
               FileStateValue.key(
-                  RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz/file")))));
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
       // This should have invalidated the glob result.
       assertGlobMatches(pattern /* => nothing */);
     }
@@ -492,7 +499,7 @@ public abstract class GlobFunctionTest {
 
   private void assertIllegalPattern(String pattern) {
     try {
-      GlobValue.key(PKG_ID, root, pattern, false, PathFragment.EMPTY_FRAGMENT);
+      GlobValue.key(PKG_ID, Root.fromPath(root), pattern, false, PathFragment.EMPTY_FRAGMENT);
       fail("invalid pattern not detected: " + pattern);
     } catch (InvalidGlobPatternException e) {
       // Expected.
@@ -630,13 +637,14 @@ public abstract class GlobFunctionTest {
   public void testResilienceToFilesystemInconsistencies_DirectoryExistence() throws Exception {
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
     fs.stubStat(pkgPath, null);
-    RootedPath pkgRootedPath = RootedPath.toRootedPath(root, pkgPath);
+    RootedPath pkgRootedPath = RootedPath.toRootedPath(Root.fromPath(root), pkgPath);
     FileStateValue pkgDirFileStateValue = FileStateValue.create(pkgRootedPath, null);
     FileValue pkgDirValue =
         FileValue.value(pkgRootedPath, pkgDirFileStateValue, pkgRootedPath, pkgDirFileStateValue);
     differencer.inject(ImmutableMap.of(FileValue.key(pkgRootedPath), pkgDirValue));
     String expectedMessage = "/root/workspace/pkg is no longer an existing directory";
-    SkyKey skyKey = GlobValue.key(PKG_ID, root, "*/foo", false, PathFragment.EMPTY_FRAGMENT);
+    SkyKey skyKey =
+        GlobValue.key(PKG_ID, Root.fromPath(root), "*/foo", false, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<GlobValue> result =
         driver.evaluate(
             ImmutableList.of(skyKey),
@@ -655,7 +663,7 @@ public abstract class GlobFunctionTest {
     // direct stat on "pkgPath/foo/bar/wiz" says it does not exist.
     Path fooBarDir = pkgPath.getRelative("foo/bar");
     fs.stubStat(fooBarDir.getRelative("wiz"), null);
-    RootedPath fooBarDirRootedPath = RootedPath.toRootedPath(root, fooBarDir);
+    RootedPath fooBarDirRootedPath = RootedPath.toRootedPath(Root.fromPath(root), fooBarDir);
     SkyValue fooBarDirListingValue =
         DirectoryListingStateValue.create(
             ImmutableList.of(new Dirent("wiz", Dirent.Type.DIRECTORY)));
@@ -663,7 +671,8 @@ public abstract class GlobFunctionTest {
         ImmutableMap.of(
             DirectoryListingStateValue.key(fooBarDirRootedPath), fooBarDirListingValue));
     String expectedMessage = "/root/workspace/pkg/foo/bar/wiz is no longer an existing directory.";
-    SkyKey skyKey = GlobValue.key(PKG_ID, root, "**/wiz", false, PathFragment.EMPTY_FRAGMENT);
+    SkyKey skyKey =
+        GlobValue.key(PKG_ID, Root.fromPath(root), "**/wiz", false, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<GlobValue> result =
         driver.evaluate(
             ImmutableList.of(skyKey),
@@ -678,9 +687,10 @@ public abstract class GlobFunctionTest {
 
   @Test
   public void testResilienceToFilesystemInconsistencies_SymlinkType() throws Exception {
-    RootedPath wizRootedPath = RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz"));
+    RootedPath wizRootedPath =
+        RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz"));
     RootedPath fileRootedPath =
-        RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz/file"));
+        RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file"));
     final FileStatus realStat = fileRootedPath.asPath().stat();
     fs.stubStat(
         fileRootedPath.asPath(),
@@ -735,8 +745,9 @@ public abstract class GlobFunctionTest {
         ImmutableMap.of(DirectoryListingStateValue.key(wizRootedPath), wizDirListingValue));
     String expectedMessage =
         "readdir and stat disagree about whether " + fileRootedPath.asPath() + " is a symlink";
-    SkyKey skyKey = GlobValue.key(PKG_ID, root, "foo/bar/wiz/*", false,
-        PathFragment.EMPTY_FRAGMENT);
+    SkyKey skyKey =
+        GlobValue.key(
+            PKG_ID, Root.fromPath(root), "foo/bar/wiz/*", false, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<GlobValue> result =
         driver.evaluate(
             ImmutableList.of(skyKey),

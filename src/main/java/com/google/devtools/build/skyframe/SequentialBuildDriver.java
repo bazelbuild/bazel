@@ -42,10 +42,10 @@ public class SequentialBuildDriver implements BuildDriver {
     }
   }
 
- @Override
- public String meta(Iterable<SkyKey> of, OptionsClassProvider options) {
-   return "";
- }
+  @Override
+  public String meta(Iterable<SkyKey> of, OptionsClassProvider options) {
+    return "";
+  }
 
   @Override
   public boolean alreadyEvaluated(Iterable<SkyKey> roots) {

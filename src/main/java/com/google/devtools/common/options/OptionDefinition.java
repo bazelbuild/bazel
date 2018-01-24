@@ -156,11 +156,6 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     return optionAnnotation.oldName();
   }
 
-  /** {@link Option#wrapperOption()} ()} ()} */
-  public boolean isWrapperOption() {
-    return optionAnnotation.wrapperOption();
-  }
-
   /** Returns whether an option --foo has a negative equivalent --nofoo. */
   public boolean hasNegativeOption() {
     return getType().equals(boolean.class) || getType().equals(TriState.class);

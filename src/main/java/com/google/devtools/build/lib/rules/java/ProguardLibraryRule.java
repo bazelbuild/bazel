@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -45,7 +45,7 @@ public final class ProguardLibraryRule implements RuleDefinition {
         <code>android_binary</code>'s proguard_specs, to ensure non-tautological merges.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
-        .add(attr("$proguard_whitelister", LABEL).cfg(HOST).exec().value(
+        .add(attr("$proguard_whitelister", LABEL).cfg(HostTransition.INSTANCE).exec().value(
             new Attribute.ComputedDefault() {
               @Override
               public Object getDefault(AttributeMap rule) {

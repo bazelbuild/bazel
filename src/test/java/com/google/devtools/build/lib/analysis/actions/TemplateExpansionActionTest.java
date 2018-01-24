@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.Before;
@@ -52,7 +53,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private static final String TEMPLATE = Joiner.on('\n').join("key=%key%", "value=%value%");
   private static final String SPECIAL_CHARS = "Š©±½_strøget";
 
-  private Root outputRoot;
+  private ArtifactRoot outputRoot;
   private Artifact inputArtifact;
   private Artifact outputArtifact;
   private Path output;
@@ -77,8 +78,9 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   private void createArtifacts(String template) throws Exception {
-    Root workspace = Root.asSourceRoot(scratch.dir("/workspace"));
-    outputRoot = Root.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
+    ArtifactRoot workspace = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
+    outputRoot =
+        ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
     Path input = scratch.overwriteFile("/workspace/input.txt", StandardCharsets.UTF_8, template);
     inputArtifact = new Artifact(input, workspace);
     output = scratch.resolve("/workspace/out/destination.txt");

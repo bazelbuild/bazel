@@ -28,15 +28,16 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -49,13 +50,14 @@ import org.junit.runners.JUnit4;
 /** Tests for ParamFileWriteAction. */
 @RunWith(JUnit4.class)
 public class ParamFileWriteActionTest extends BuildViewTestCase {
-  private Root rootDir;
+  private ArtifactRoot rootDir;
   private Artifact outputArtifact;
   private Artifact treeArtifact;
 
   @Before
   public void createArtifacts() throws Exception  {
-    rootDir = Root.asDerivedRoot(scratch.dir("/exec/root"));
+    Path execRoot = scratch.getFileSystem().getPath("/exec");
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     FileSystemUtils.createDirectoryAndParents(outputArtifact.getPath().getParentDirectory());
     treeArtifact = createTreeArtifact("artifact/myTreeFileArtifact");
@@ -75,8 +77,8 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     Action action = createParameterFileWriteAction(
         ImmutableList.of(treeArtifact),
         createTreeArtifactExpansionCommandLine());
-    assertThat(Artifact.toExecPaths(action.getInputs())).containsExactly(
-        "artifact/myTreeFileArtifact");
+    assertThat(Artifact.toExecPaths(action.getInputs()))
+        .containsExactly("out/artifact/myTreeFileArtifact");
   }
 
   @Test
@@ -102,17 +104,17 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     assertThat(content.trim())
         .isEqualTo(
             "--flag1\n"
-                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact1\n"
-                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
+                + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact1\n"
+                + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        rootDir.getPath().getRelative(relpath),
+        rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

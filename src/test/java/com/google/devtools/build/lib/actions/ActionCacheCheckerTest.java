@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -274,15 +275,16 @@ public class ActionCacheCheckerTest {
 
   @Test
   public void testMiddleman_DifferentFiles() throws Exception {
-    Action action = new NullMiddlemanAction() {
-      @Override
-      public synchronized Iterable<Artifact> getInputs() {
-        FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
-        Path path = fileSystem.getPath("/input");
-        Root root = Root.asSourceRoot(fileSystem.getPath("/"));
-        return ImmutableList.of(new Artifact(path, root));
-      }
-    };
+    Action action =
+        new NullMiddlemanAction() {
+          @Override
+          public synchronized Iterable<Artifact> getInputs() {
+            FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
+            Path path = fileSystem.getPath("/input");
+            ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
+            return ImmutableList.of(new Artifact(path, root));
+          }
+        };
     runAction(action);  // Not cached so recorded as different deps.
     FileSystemUtils.writeContentAsLatin1(action.getPrimaryInput().getPath(), "modified");
     runAction(action);  // Cache miss because input files were modified.

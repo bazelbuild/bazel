@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
@@ -130,14 +131,6 @@ public class ObjcCppSemantics implements CppSemantics {
         ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration())) {
       contextBuilder.addQuoteIncludeDir(iquotePath);
     }
-
-    // ProtoSupport creates multiple compilation contexts for a single rule, potentially multiple
-    // archives per build configuration. This covers that worst case.
-    contextBuilder.setPurpose(
-        "ObjcCppSemantics_build_arch_"
-            + buildConfiguration.getMnemonic()
-            + "_with_suffix_"
-            + intermediateArtifacts.archiveFileNameSuffix());
   }
 
   @Override
@@ -174,5 +167,19 @@ public class ObjcCppSemantics implements CppSemantics {
   @Override
   public boolean needsIncludeValidation() {
     return false;
+  }
+
+  /**
+   * Gets the purpose for the compilation context.
+   *
+   * @see CppCompilationContext.Builder#setPurpose
+   */
+  public String getPurpose() {
+    // ProtoSupport creates multiple compilation contexts for a single rule, potentially multiple
+    // archives per build configuration. This covers that worst case.
+    return "ObjcCppSemantics_build_arch_"
+        + buildConfiguration.getMnemonic()
+        + "_with_suffix_"
+        + intermediateArtifacts.archiveFileNameSuffix();
   }
 }

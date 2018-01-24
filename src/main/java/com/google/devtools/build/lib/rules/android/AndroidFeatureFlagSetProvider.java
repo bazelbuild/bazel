@@ -88,8 +88,7 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
           FEATURE_FLAG_ATTR,
           String.format(
               "the %s attribute is not available in package '%s'",
-              FEATURE_FLAG_ATTR,
-              ruleContext.getLabel().getPackageIdentifier()));
+              FEATURE_FLAG_ATTR, ruleContext.getLabel().getPackageIdentifier()));
       throw new RuleErrorException();
     }
 

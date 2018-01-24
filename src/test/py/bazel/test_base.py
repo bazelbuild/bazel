@@ -17,7 +17,6 @@ import locale
 import os
 import stat
 import subprocess
-import sys
 import tempfile
 import unittest
 
@@ -180,15 +179,15 @@ class TestBase(unittest.TestCase):
 
     Args:
       args: [string]; flags to pass to bazel (e.g. ['--batch', 'build', '//x'])
-      env_remove: set(string); optional; environment variables to NOT pass to
-        Bazel
-      env_add: set(string); optional; environment variables to pass to
+      env_remove: iterable(string); optional; environment variables to NOT pass
+        to Bazel
+      env_add: {string: string}; optional; environment variables to pass to
         Bazel, won't be removed by env_remove.
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
     return self.RunProgram([
-        self.Rlocation('io_bazel/src/bazel'),
+        self.Rlocation('io_bazel/src/bazel_with_jdk'),
         '--bazelrc=/dev/null',
         '--nomaster_bazelrc',
     ] + args, env_remove, env_add)
@@ -198,9 +197,9 @@ class TestBase(unittest.TestCase):
 
     Args:
       args: [string]; the args to run; args[0] should be the program itself
-      env_remove: set(string); optional; environment variables to NOT pass to
-        the program
-      env_add: set(string); optional; environment variables to pass to
+      env_remove: iterable(string); optional; environment variables to NOT pass
+        to the program
+      env_add: {string: string}; optional; environment variables to pass to
         the program, won't be removed by env_remove.
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
@@ -232,31 +231,18 @@ class TestBase(unittest.TestCase):
   def _EnvMap(self, env_remove=None, env_add=None):
     """Returns the environment variable map to run Bazel or other programs."""
     if TestBase.IsWindows():
-      result = []
-      if sys.version_info.major == 3:
-        # Python 3.2 has os.listdir
-        result = [
-            n for n in os.listdir('c:\\program files\\java')
-            if n.startswith('jdk')
-        ]
-      else:
-        # Python 2.7 has os.path.walk
-        def _Visit(result, _, names):
-          result.extend(n for n in names if n.startswith('jdk'))
-          while names:
-            names.pop()
-
-        os.path.walk('c:\\program files\\java\\', _Visit, result)
-
       env = {
-          'SYSTEMROOT': TestBase.GetEnv('SYSTEMROOT'),
-          # TODO(laszlocsomor): Let Bazel pass BAZEL_SH and JAVA_HOME to tests
-          # and use those here instead of hardcoding paths.
-          'JAVA_HOME': 'c:\\program files\\java\\' + sorted(result)[-1],
-          'BAZEL_SH': 'c:\\tools\\msys64\\usr\\bin\\bash.exe',
+          'SYSTEMROOT':
+              TestBase.GetEnv('SYSTEMROOT'),
+          # TODO(laszlocsomor): Let Bazel pass BAZEL_SH to tests and use that
+          # here instead of hardcoding paths.
+          'BAZEL_SH':
+              TestBase.GetEnv('BAZEL_SH',
+                              'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
           # TODO(pcloudy): Remove this after no longer need to debug
           # https://github.com/bazelbuild/bazel/issues/3273
-          'CC_CONFIGURE_DEBUG': '1'
+          'CC_CONFIGURE_DEBUG':
+              '1'
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
@@ -269,7 +255,8 @@ class TestBase(unittest.TestCase):
     env['TMP'] = self._temp
     if env_remove:
       for e in env_remove:
-        del env[e]
+        if e in env:
+          del env[e]
     if env_add:
       for e in env_add:
         env[e] = env_add[e]

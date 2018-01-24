@@ -19,7 +19,6 @@ filegroup(
             ":zip-bazel-exe",
             ":zip-bazel-exe_with_jdk",
         ],
-        "//src/conditions:windows_msvc": [],
         "//src/conditions:freebsd": [],
         "//src/conditions:darwin": [
             ":with-jdk/install.sh",

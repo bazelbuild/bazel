@@ -638,4 +638,19 @@ EOF
   [ ! -d $outputs_manifest_dir ] || fail "$outputs_manifest_dir was present after test"
 }
 
+function test_test_with_nobuild_runfile_manifests() {
+  mkdir -p dir
+
+  touch dir/test.sh
+  chmod u+x dir/test.sh
+  cat <<'EOF' > dir/BUILD
+sh_test(
+    name = 'test',
+    srcs = ['test.sh'],
+)
+EOF
+  bazel test --nobuild_runfile_manifests //dir:test >& $TEST_log && fail "should have failed"
+  expect_log "cannot run local tests with --nobuild_runfile_manifests"
+}
+
 run_suite "bazel test tests"

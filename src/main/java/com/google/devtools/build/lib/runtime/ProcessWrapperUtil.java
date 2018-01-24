@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,8 +43,9 @@ public final class ProcessWrapperUtil {
   }
 
   /** Returns a new {@link CommandLineBuilder} for the process wrapper tool. */
-  public static CommandLineBuilder commandLineBuilder() {
-    return new CommandLineBuilder();
+  public static CommandLineBuilder commandLineBuilder(
+      String processWrapperPath, List<String> commandArguments) {
+    return new CommandLineBuilder(processWrapperPath, commandArguments);
   }
 
   /**
@@ -53,22 +53,17 @@ public final class ProcessWrapperUtil {
    * process-wrapper tool.
    */
   public static class CommandLineBuilder {
-    private Optional<String> stdoutPath;
-    private Optional<String> stderrPath;
-    private Optional<Duration> timeout;
-    private Optional<Duration> killDelay;
-    private Optional<String> statisticsPath;
-    private Optional<List<String>> commandArguments;
-    private Optional<String> processWrapperPath;
+    private final String processWrapperPath;
+    private final List<String> commandArguments;
+    private Optional<String> stdoutPath = Optional.empty();
+    private Optional<String> stderrPath = Optional.empty();
+    private Optional<Duration> timeout = Optional.empty();
+    private Optional<Duration> killDelay = Optional.empty();
+    private Optional<String> statisticsPath = Optional.empty();
 
-    private CommandLineBuilder() {
-      this.stdoutPath = Optional.empty();
-      this.stderrPath = Optional.empty();
-      this.timeout = Optional.empty();
-      this.killDelay = Optional.empty();
-      this.statisticsPath = Optional.empty();
-      this.commandArguments = Optional.empty();
-      this.processWrapperPath = Optional.empty();
+    private CommandLineBuilder(String processWrapperPath, List<String> commandArguments) {
+      this.processWrapperPath = processWrapperPath;
+      this.commandArguments = commandArguments;
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
@@ -104,26 +99,10 @@ public final class ProcessWrapperUtil {
       return this;
     }
 
-    /** Sets the command (and its arguments) to run using the process wrapper tool. */
-    public CommandLineBuilder setCommandArguments(List<String> commandArguments) {
-      this.commandArguments = Optional.of(commandArguments);
-      return this;
-    }
-
-    /** Sets the path of the process wrapper tool. */
-    public CommandLineBuilder setProcessWrapperPath(String processWrapperPath) {
-      this.processWrapperPath = Optional.of(processWrapperPath);
-      return this;
-    }
-
     /** Build the command line to invoke a specific command using the process wrapper tool. */
     public List<String> build() {
-      Preconditions.checkState(
-          this.processWrapperPath.isPresent(), "processWrapperPath is required");
-      Preconditions.checkState(this.commandArguments.isPresent(), "commandArguments are required");
-
       List<String> fullCommandLine = new ArrayList<>();
-      fullCommandLine.add(processWrapperPath.get());
+      fullCommandLine.add(processWrapperPath);
 
       if (timeout.isPresent()) {
         fullCommandLine.add("--timeout=" + timeout.get().getSeconds());
@@ -141,7 +120,7 @@ public final class ProcessWrapperUtil {
         fullCommandLine.add("--stats=" + statisticsPath.get());
       }
 
-      fullCommandLine.addAll(commandArguments.get());
+      fullCommandLine.addAll(commandArguments);
 
       return fullCommandLine;
     }

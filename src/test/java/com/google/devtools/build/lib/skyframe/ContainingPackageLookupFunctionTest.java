@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -77,7 +78,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new AtomicReference<>(
             new PathPackageLocator(
                 outputBase,
-                ImmutableList.of(rootDirectory),
+                ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
@@ -178,7 +179,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     ContainingPackageLookupValue value = lookupContainingPackage("a/b");
     assertThat(value.hasContainingPackage()).isTrue();
     assertThat(value.getContainingPackageName()).isEqualTo(PackageIdentifier.createInMainRepo("a"));
-    assertThat(value.getContainingPackageRoot()).isEqualTo(rootDirectory);
+    assertThat(value.getContainingPackageRoot()).isEqualTo(Root.fromPath(rootDirectory));
   }
 
   @Test
@@ -188,7 +189,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     assertThat(value.hasContainingPackage()).isTrue();
     assertThat(value.getContainingPackageName())
         .isEqualTo(PackageIdentifier.createInMainRepo("a/b"));
-    assertThat(value.getContainingPackageRoot()).isEqualTo(rootDirectory);
+    assertThat(value.getContainingPackageRoot()).isEqualTo(Root.fromPath(rootDirectory));
   }
 
   @Test
@@ -227,18 +228,18 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     ContainingPackageLookupValue valueA2 = ContainingPackageLookupValue.NONE;
     ContainingPackageLookupValue valueB1 =
         ContainingPackageLookupValue.withContainingPackage(
-            PackageIdentifier.createInMainRepo("b"), rootDirectory);
+            PackageIdentifier.createInMainRepo("b"), Root.fromPath(rootDirectory));
     ContainingPackageLookupValue valueB2 =
         ContainingPackageLookupValue.withContainingPackage(
-            PackageIdentifier.createInMainRepo("b"), rootDirectory);
+            PackageIdentifier.createInMainRepo("b"), Root.fromPath(rootDirectory));
     PackageIdentifier cFrag = PackageIdentifier.createInMainRepo("c");
     ContainingPackageLookupValue valueC1 =
-        ContainingPackageLookupValue.withContainingPackage(cFrag, rootDirectory);
+        ContainingPackageLookupValue.withContainingPackage(cFrag, Root.fromPath(rootDirectory));
     ContainingPackageLookupValue valueC2 =
-        ContainingPackageLookupValue.withContainingPackage(cFrag, rootDirectory);
+        ContainingPackageLookupValue.withContainingPackage(cFrag, Root.fromPath(rootDirectory));
     ContainingPackageLookupValue valueCOther =
         ContainingPackageLookupValue.withContainingPackage(
-            cFrag, rootDirectory.getRelative("other_root"));
+            cFrag, Root.fromPath(rootDirectory.getRelative("other_root")));
     new EqualsTester()
         .addEqualityGroup(valueA1, valueA2)
         .addEqualityGroup(valueB1, valueB2)

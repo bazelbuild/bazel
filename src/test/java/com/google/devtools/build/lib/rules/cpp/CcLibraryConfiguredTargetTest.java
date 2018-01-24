@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -388,7 +388,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     // ArtifactsToAlwaysBuild should apply both for static libraries.
     ConfiguredTarget helloStatic = getConfiguredTarget("//hello:hello_static");
     assertThat(
-        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .containsExactly("bin hello/_objs/hello_static/hello/hello.pic.o");
     Artifact implSharedObject = getBinArtifact("libhello_static.so", helloStatic);
     assertThat(getFilesToBuild(helloStatic)).doesNotContain(implSharedObject);
@@ -396,7 +396,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     // And for shared libraries.
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     assertThat(
-        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .containsExactly("bin hello/_objs/hello_static/hello/hello.pic.o");
     implSharedObject = getBinArtifact("libhello.so", hello);
     assertThat(getFilesToBuild(hello)).contains(implSharedObject);
@@ -410,7 +410,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'], linkstatic = 1)",
         "cc_library(name = 'y', srcs = ['y.cc'], deps = [':z'])",
         "cc_library(name = 'z', srcs = ['z.cc'])");
-    assertThat(artifactsToStrings(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+    assertThat(artifactsToStrings(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .containsExactly(
             "bin foo/_objs/x/foo/x.pic.o",
             "bin foo/_objs/y/foo/y.pic.o",
@@ -432,7 +432,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "cc_library(name = 'y', hdrs = ['y.h'])");
     assertThat(
             ActionsTestUtil.baseNamesOf(
-                getOutputGroup(x, OutputGroupProvider.COMPILATION_PREREQUISITES)))
+                getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
         .isEqualTo("y.h y.cppmap stl.cppmap crosstool.cppmap x.cppmap y.pic.pcm x.cc");
   }
 
@@ -866,7 +866,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "x",
             "cc_library(name = 'x', deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .isEqualTo("y.h.processed");
   }
 
@@ -884,7 +884,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "cc_library(name = 'y', hdrs = ['y.h'])",
             "cc_library(name = 'z', srcs = ['z.cc'])");
     String hiddenTopLevel =
-        ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL));
+        ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL));
     assertThat(hiddenTopLevel).contains("y.h.processed");
     assertThat(hiddenTopLevel).doesNotContain("z.pic.o");
   }
@@ -901,7 +901,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "x",
             "cc_library(name = 'x', deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .isEmpty();
   }
 
@@ -917,7 +917,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "y",
             "cc_library(name = 'x', deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(y, OutputGroupProvider.FILES_TO_COMPILE)))
+    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(y, OutputGroupInfo.FILES_TO_COMPILE)))
         .isEqualTo("y.h.processed");
   }
 

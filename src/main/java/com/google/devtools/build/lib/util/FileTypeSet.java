@@ -17,11 +17,9 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -38,23 +36,26 @@ public class FileTypeSet implements Predicate<String> {
         public String toString() {
           return "any files";
         }
+
         @Override
         public boolean matches(String filename) {
           return true;
         }
+
         @Override
         public List<String> getExtensions() {
-          return ImmutableList.<String>of();
+          return ImmutableList.of();
         }
       };
 
   /** A predicate that matches no files. */
   public static final FileTypeSet NO_FILE =
-      new FileTypeSet(ImmutableList.<FileType>of()) {
+      new FileTypeSet(ImmutableList.of()) {
         @Override
         public String toString() {
           return "no files";
         }
+
         @Override
         public boolean matches(String filename) {
           return false;
@@ -105,13 +106,9 @@ public class FileTypeSet implements Predicate<String> {
   }
 
   /** Returns true if the filename can be matched by any FileType in this set. */
-  public boolean matches(String filename) {
-    int slashIndex = filename.lastIndexOf('/');
-    if (slashIndex != -1) {
-      filename = filename.substring(slashIndex + 1);
-    }
+  public boolean matches(String path) {
     for (FileType type : types) {
-      if (type.apply(filename)) {
+      if (type.apply(path)) {
         return true;
       }
     }
@@ -124,8 +121,8 @@ public class FileTypeSet implements Predicate<String> {
   }
 
   @Override
-  public boolean apply(String filename) {
-    return matches(filename);
+  public boolean apply(String path) {
+    return matches(path);
   }
 
   /** Returns the list of possible file extensions for this file type. Can be empty. */

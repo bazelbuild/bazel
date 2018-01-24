@@ -102,9 +102,9 @@ public final class NativeLibs {
       // The native deps name file must be the only file in its directory because ApkBuilder does
       // not have an option to add a particular file to the .apk, only one to add every file in a
       // particular directory.
-      Artifact nativeDepsName = ruleContext.getUniqueDirectoryArtifact(
-          "nativedeps_filename", nativeDepsFileName,
-          ruleContext.getBinOrGenfilesDirectory());
+      Artifact nativeDepsName =
+          ruleContext.getUniqueDirectoryArtifact(
+              "nativedeps_filename", nativeDepsFileName, ruleContext.getBinOrGenfilesDirectory());
       ruleContext.registerAction(
           FileWriteAction.create(ruleContext, nativeDepsName, nativeDepsLibraryBasename, false));
 
@@ -154,9 +154,13 @@ public final class NativeLibs {
     }
 
     Artifact inputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks.manifest");
-    SourceManifestAction sourceManifestAction = new SourceManifestAction.Builder(
-        ruleContext.getWorkspaceName(), ManifestType.SOURCE_SYMLINKS, ruleContext.getActionOwner(),
-        inputManifest, ruleContext.getConfiguration().legacyExternalRunfiles())
+    SourceManifestAction sourceManifestAction =
+        new SourceManifestAction.Builder(
+                ruleContext.getWorkspaceName(),
+                ManifestType.SOURCE_SYMLINKS,
+                ruleContext.getActionOwner(),
+                inputManifest,
+                ruleContext.getConfiguration().legacyExternalRunfiles())
             .addRootSymlinks(symlinks)
             .build();
     ruleContext.registerAction(sourceManifestAction);

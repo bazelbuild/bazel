@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
@@ -32,8 +31,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -151,27 +151,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         .containsExactly(Pair.of(input1, create(input1)), Pair.of(input2, create(input2)));
   }
 
-  @Test
-  public void testIOException() throws Exception {
-    fastDigest = false;
-    final IOException exception = new IOException("beep");
-    setupRoot(
-        new CustomInMemoryFs() {
-          @Override
-          public byte[] getDigest(Path path, HashFunction hf) throws IOException {
-            throw exception;
-          }
-        });
-    Artifact artifact = createDerivedArtifact("no-read");
-    writeFile(artifact.getPath(), "content");
-    try {
-      create(createDerivedArtifact("no-read"));
-      fail();
-    } catch (IOException e) {
-      assertThat(e).isSameAs(exception);
-    }
-  }
-
   /**
    * Tests that ArtifactFunction rethrows transitive {@link IOException}s as
    * {@link MissingInputFileException}s.
@@ -195,95 +174,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     } catch (MissingInputFileException e) {
       assertThat(e).hasMessageThat().contains(exception.getMessage());
     }
-  }
-
-  @Test
-  public void testNoMtimeIfNonemptyFile() throws Exception {
-    Artifact artifact = createDerivedArtifact("no-digest");
-    Path path = artifact.getPath();
-    writeFile(path, "hello"); //Non-empty file.
-    FileArtifactValue value = create(artifact);
-    assertThat(value.getDigest()).isEqualTo(path.getDigest());
-    try {
-      value.getModifiedTime();
-      fail("mtime for non-empty file should not be stored.");
-    } catch (UnsupportedOperationException e) {
-      // Expected.
-    }
-  }
-
-  @Test
-  public void testDirectory() throws Exception {
-    Artifact artifact = createDerivedArtifact("dir");
-    Path path = artifact.getPath();
-    FileSystemUtils.createDirectoryAndParents(path);
-    path.setLastModifiedTime(1L);
-    FileArtifactValue value = create(artifact);
-    assertThat(value.getDigest()).isNull();
-    assertThat(value.getModifiedTime()).isEqualTo(1L);
-  }
-
-  // Empty files are the same as normal files -- mtime is not stored.
-  @Test
-  public void testEmptyFile() throws Exception {
-    Artifact artifact = createDerivedArtifact("empty");
-    Path path = artifact.getPath();
-    writeFile(path, "");
-    path.setLastModifiedTime(1L);
-    FileArtifactValue value = create(artifact);
-    assertThat(value.getDigest()).isEqualTo(path.getDigest());
-    assertThat(value.getSize()).isEqualTo(0L);
-  }
-
-  @Test
-  public void testEquality() throws Exception {
-    Artifact artifact1 = createDerivedArtifact("artifact1");
-    Artifact artifact2 = createDerivedArtifact("artifact2");
-    Artifact diffDigest = createDerivedArtifact("diffDigest");
-    Artifact diffMtime = createDerivedArtifact("diffMtime");
-    Artifact empty1 = createDerivedArtifact("empty1");
-    Artifact empty2 = createDerivedArtifact("empty2");
-    Artifact empty3 = createDerivedArtifact("empty3");
-    Artifact dir1 = createDerivedArtifact("dir1");
-    Artifact dir2 = createDerivedArtifact("dir2");
-    Artifact dir3 = createDerivedArtifact("dir3");
-    Path path1 = artifact1.getPath();
-    Path path2 = artifact2.getPath();
-    Path digestPath = diffDigest.getPath();
-    Path mtimePath = diffMtime.getPath();
-    writeFile(artifact1.getPath(), "content");
-    writeFile(artifact2.getPath(), "content");
-    path1.setLastModifiedTime(0);
-    path2.setLastModifiedTime(0);
-    writeFile(diffDigest.getPath(), "1234567"); // Same size as artifact1.
-    digestPath.setLastModifiedTime(0);
-    writeFile(mtimePath, "content");
-    mtimePath.setLastModifiedTime(1);
-    Path emptyPath1 = empty1.getPath();
-    Path emptyPath2 = empty2.getPath();
-    Path emptyPath3 = empty3.getPath();
-    writeFile(emptyPath1, "");
-    writeFile(emptyPath2, "");
-    writeFile(emptyPath3, "");
-    emptyPath1.setLastModifiedTime(0L);
-    emptyPath2.setLastModifiedTime(1L);
-    emptyPath3.setLastModifiedTime(1L);
-    Path dirPath1 = dir1.getPath();
-    Path dirPath2 = dir2.getPath();
-    Path dirPath3 = dir3.getPath();
-    FileSystemUtils.createDirectoryAndParents(dirPath1);
-    FileSystemUtils.createDirectoryAndParents(dirPath2);
-    FileSystemUtils.createDirectoryAndParents(dirPath3);
-    dirPath1.setLastModifiedTime(0L);
-    dirPath2.setLastModifiedTime(1L);
-    dirPath3.setLastModifiedTime(1L);
-    EqualsTester equalsTester = new EqualsTester();
-    equalsTester
-        .addEqualityGroup(create(artifact1), create(artifact2), create(diffMtime))
-        .addEqualityGroup(create(empty1), create(empty2), create(empty3))
-        .addEqualityGroup(create(dir1))
-        .addEqualityGroup(create(dir2), create(dir3))
-        .testEquals();
   }
 
   @Test
@@ -356,7 +246,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private Artifact createSourceArtifact(String path) {
-    return new Artifact(PathFragment.create(path), Root.asSourceRoot(root));
+    return new Artifact(PathFragment.create(path), ArtifactRoot.asSourceRoot(Root.fromPath(root)));
   }
 
   private Artifact createDerivedArtifact(String path) {
@@ -364,16 +254,20 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Path fullPath = root.getRelative(execPath);
     Artifact output =
         new Artifact(
-            fullPath, Root.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
+            fullPath,
+            ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
+            execPath,
+            ALL_OWNER);
     actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
     return output;
   }
 
   private Artifact createMiddlemanArtifact(String path) {
-    Root middlemanRoot = Root.middlemanRoot(middlemanPath, middlemanPath.getRelative("out"));
-    Path fullPath = middlemanRoot.getPath().getRelative(path);
+    ArtifactRoot middlemanRoot =
+        ArtifactRoot.middlemanRoot(middlemanPath, middlemanPath.getRelative("out"));
+    Path fullPath = middlemanRoot.getRoot().getRelative(path);
     return new Artifact(
-        fullPath, middlemanRoot, fullPath.relativeTo(middlemanRoot.getExecRoot()), ALL_OWNER);
+        fullPath, middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
   }
 
   private Artifact createDerivedTreeArtifactWithAction(String path) {
@@ -387,7 +281,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Path fullPath = root.getRelative(execPath);
     return new SpecialArtifact(
         fullPath,
-        Root.asDerivedRoot(root, root.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
         execPath,
         ALL_OWNER,
         SpecialArtifactType.TREE);
@@ -432,10 +326,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private void setGeneratingActions() throws InterruptedException {
-    if (evaluator.getExistingValue(OWNER_KEY) == null) {
+    if (evaluator.getExistingValue(ALL_OWNER) == null) {
       differencer.inject(
           ImmutableMap.of(
-              OWNER_KEY,
+              ALL_OWNER,
               new ActionLookupValue(
                   actionKeyContext, ImmutableList.<ActionAnalysisMetadata>copyOf(actions), false)));
     }

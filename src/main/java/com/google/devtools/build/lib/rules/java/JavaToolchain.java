@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,7 +37,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.java.JavaToolchainData.SupportsWorkers;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import java.util.Map;
@@ -45,15 +48,11 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
-    String source = ruleContext.attributes().get("source_version", Type.STRING);
-    String target = ruleContext.attributes().get("target_version", Type.STRING);
+    ImmutableList<String> javacopts = getJavacOpts(ruleContext);
     NestedSet<Artifact> bootclasspath = PrerequisiteArtifacts.nestedSet(
         ruleContext, "bootclasspath", Mode.HOST);
     NestedSet<Artifact> extclasspath = PrerequisiteArtifacts.nestedSet(
         ruleContext, "extclasspath", Mode.HOST);
-    String encoding = ruleContext.attributes().get("encoding", Type.STRING);
-    List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
-    List<String> misc = ruleContext.getExpander().withDataLocations().tokenized("misc");
     boolean javacSupportsWorkers =
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     Artifact javac = ruleContext.getPrerequisiteArtifact("javac", Mode.HOST);
@@ -76,33 +75,24 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools", Mode.HOST);
 
     TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac", Mode.HOST);
-    List<String> jvmOpts =
+    ImmutableList<String> jvmOpts =
         getJvmOpts(
             ruleContext,
             ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
                 AliasProvider.getDependencyLabel(javacDep), ImmutableList.of(javac)));
 
-    ImmutableList<JavaPluginConfigurationProvider> pluginConfiguration =
+    ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
-                "plugin_configuration", Mode.HOST, JavaPluginConfigurationProvider.class));
+                "package_configuration", Mode.HOST, JavaPackageConfigurationProvider.class));
 
-    JavaToolchainData toolchainData =
-        new JavaToolchainData(
-            source,
-            target,
-            Artifact.toExecPaths(bootclasspath),
-            Artifact.toExecPaths(extclasspath),
-            encoding,
-            xlint,
-            misc,
-            jvmOpts,
-            javacSupportsWorkers ? SupportsWorkers.YES : SupportsWorkers.NO);
     JavaConfiguration configuration = ruleContext.getFragment(JavaConfiguration.class);
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
             ruleContext.getLabel(),
-            toolchainData,
+            javacopts,
+            jvmOpts,
+            javacSupportsWorkers,
             bootclasspath,
             extclasspath,
             configuration.getDefaultJavacFlags(),
@@ -119,7 +109,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             timezoneData,
             ijar,
             compatibleJavacOptions,
-            pluginConfiguration);
+            packageConfiguration);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addSkylarkTransitiveInfo(
@@ -129,6 +119,29 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build());
 
     return builder.build();
+  }
+
+  private ImmutableList<String> getJavacOpts(RuleContext ruleContext) {
+    Builder<String> javacopts = ImmutableList.builder();
+    String source = ruleContext.attributes().get("source_version", Type.STRING);
+    if (!isNullOrEmpty(source)) {
+      javacopts.add("-source").add(source);
+    }
+    String target = ruleContext.attributes().get("target_version", Type.STRING);
+    if (!isNullOrEmpty(target)) {
+      javacopts.add("-target").add(target);
+    }
+    String encoding = ruleContext.attributes().get("encoding", Type.STRING);
+    if (!isNullOrEmpty(encoding)) {
+      javacopts.add("-encoding", encoding);
+    }
+    List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
+    if (!xlint.isEmpty()) {
+      javacopts.add("-Xlint:" + Joiner.on(",").join(xlint));
+    }
+    javacopts.addAll(ruleContext.getExpander().withDataLocations().tokenized("misc"));
+    javacopts.addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"));
+    return javacopts.build();
   }
 
   private static ImmutableListMultimap<String, String> getCompatibleJavacOptions(

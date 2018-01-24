@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Option;
@@ -100,7 +101,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     PathPackageLocator pkgLocator =
         new PathPackageLocator(
             outputBase,
-            ImmutableList.of(rootDirectory),
+            ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     final PackageFactory pkgFactory;
     BlazeDirectories directories =
@@ -201,7 +202,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public void assertConfigurationsHaveUniqueOutputDirectories(
       BuildConfigurationCollection configCollection) throws Exception {
-    Map<Root, BuildConfiguration> outputPaths = new HashMap<>();
+    Map<ArtifactRoot, BuildConfiguration> outputPaths = new HashMap<>();
     for (BuildConfiguration config : configCollection.getTargetConfigurations()) {
       if (config.isActionsEnabled()) {
         BuildConfiguration otherConfig = outputPaths.get(

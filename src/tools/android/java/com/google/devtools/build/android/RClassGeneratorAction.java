@@ -56,14 +56,11 @@ import java.util.logging.Logger;
  */
 public class RClassGeneratorAction {
 
-  private static final StdLogger STD_LOGGER =
-      new StdLogger(StdLogger.Level.WARNING);
+  private static final StdLogger STD_LOGGER = new StdLogger(StdLogger.Level.WARNING);
 
   private static final Logger logger = Logger.getLogger(RClassGeneratorAction.class.getName());
 
-  /**
-   * Flag specifications for this action.
-   */
+  /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
 
     @Option(
@@ -164,8 +161,8 @@ public class RClassGeneratorAction {
       if (options.primaryRTxt != null) {
         String appPackageName = options.packageForR;
         if (appPackageName == null) {
-          appPackageName = VariantConfiguration
-              .getManifestPackage(options.primaryManifest.toFile());
+          appPackageName =
+              VariantConfiguration.getManifestPackage(options.primaryManifest.toFile());
         }
         Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
         ResourceSymbols fullSymbolValues =

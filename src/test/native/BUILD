@@ -16,28 +16,10 @@ cc_test(
             "windows/util_test.cc",
             "windows/file_test.cc",
         ],
-        "//src/conditions:windows_msys": [
-            "windows/util_test.cc",
-            "windows/file_test.cc",
-        ],
-        "//src/conditions:windows_msvc": [
-            "windows/util_test.cc",
-            "windows/file_test.cc",
-        ],
         "//conditions:default": ["dummy_test.cc"],
     }),
     deps = select({
         "//src/conditions:windows": [
-            "//src/main/native/windows:lib-file",
-            "//src/test/cpp/util:windows_test_util",
-            "//third_party:gtest",
-        ],
-        "//src/conditions:windows_msys": [
-            "//src/main/native/windows:lib-file",
-            "//src/test/cpp/util:windows_test_util",
-            "//third_party:gtest",
-        ],
-        "//src/conditions:windows_msvc": [
             "//src/main/native/windows:lib-file",
             "//src/test/cpp/util:windows_test_util",
             "//third_party:gtest",

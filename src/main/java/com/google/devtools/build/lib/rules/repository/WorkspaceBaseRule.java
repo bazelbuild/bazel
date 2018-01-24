@@ -32,9 +32,18 @@ public class WorkspaceBaseRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .exemptFromConstraintChecking("workspace rules aren't built for target environments")
-        .add(attr("generator_name", STRING).undocumented("internal"))
-        .add(attr("generator_function", STRING).undocumented("internal"))
-        .add(attr("generator_location", STRING).undocumented("internal"))
+        .add(
+            attr("generator_name", STRING)
+                .undocumented("internal")
+                .nonconfigurable("internal attributes are non-configurable"))
+        .add(
+            attr("generator_function", STRING)
+                .undocumented("internal")
+                .nonconfigurable("internal attributes are non-configurable"))
+        .add(
+            attr("generator_location", STRING)
+                .undocumented("internal")
+                .nonconfigurable("internal attributes are non-configurable"))
         .build();
   }
 

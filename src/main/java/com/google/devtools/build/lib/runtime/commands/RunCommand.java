@@ -110,8 +110,10 @@ public class RunCommand implements BlazeCommand  {
   }
 
   @VisibleForTesting
-  public static final String SINGLE_TARGET_MESSAGE = "Blaze can only run a single target. "
-      + "Do not use wildcards that match more than one target";
+  public static final String SINGLE_TARGET_MESSAGE =
+      "Only a single target can be run. "
+          + "Do not use wildcards that match more than one target";
+
   @VisibleForTesting
   public static final String NO_TARGET_MESSAGE = "No targets found to run";
 
@@ -223,6 +225,12 @@ public class RunCommand implements BlazeCommand  {
       configuration = result.getBuildConfigurationCollection().getTargetConfigurations().get(0);
     }
     Path workingDir;
+    if (!configuration.buildRunfilesManifests()) {
+      env.getReporter()
+          .handle(
+              Event.error("--nobuild_runfile_manifests is incompatible with the \"run\" command"));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
     try {
       workingDir = ensureRunfilesBuilt(env, targetToRun);
     } catch (CommandException e) {
@@ -363,7 +371,7 @@ public class RunCommand implements BlazeCommand  {
       return env.getWorkingDirectory();
     }
 
-    Artifact manifest = runfilesSupport.getRunfilesManifest();
+    Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
     // On Windows, runfiles tree is disabled.

@@ -39,7 +39,7 @@ def main(input_file, changelog_file, output_file):
     if lines[0] == "Cherry picks:":
       # Skip cherry picks list
       i = 1
-      while lines[i].strip():
+      while i < len(lines) and lines[i].strip():
         i += 1
       lines = lines[i + 1:]
 

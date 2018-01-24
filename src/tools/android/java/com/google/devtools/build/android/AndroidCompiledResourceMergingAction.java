@@ -34,10 +34,9 @@ import java.util.logging.Logger;
 /**
  * Provides an entry point for the compiled resource merging action.
  *
- * <p>This action merges compiled intermediate resource files from aapt2
- * and reports merge conflicts. It also provides a merged manifest file
- * to {@link ValidateAndLinkResourcesAction} and builds the resource class
- * jar for the lib jar
+ * <p>This action merges compiled intermediate resource files from aapt2 and reports merge
+ * conflicts. It also provides a merged manifest file to {@link ValidateAndLinkResourcesAction} and
+ * builds the resource class jar for the lib jar
  */
 public class AndroidCompiledResourceMergingAction {
 
@@ -92,14 +91,15 @@ public class AndroidCompiledResourceMergingAction {
 
       AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
       logger.fine(
-          String.format(
-              "Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+          String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       // Until enough users with manifest placeholders migrate to the new manifest merger,
       // we need to replace ${applicationId} and ${packageName} with options.packageForR to make
       // the manifests compatible with the old manifest merger.
-      processedManifest = AndroidManifestProcessor.with(stdLogger)
-          .processLibraryManifest(options.packageForR, options.primaryManifest, processedManifest);
+      processedManifest =
+          AndroidManifestProcessor.with(stdLogger)
+              .processLibraryManifest(
+                  options.packageForR, options.primaryManifest, processedManifest);
 
       Files.createDirectories(options.manifestOutput.getParent());
       Files.copy(processedManifest, options.manifestOutput);
@@ -117,5 +117,4 @@ public class AndroidCompiledResourceMergingAction {
     }
     logger.fine(String.format("Resources merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
   }
-
 }

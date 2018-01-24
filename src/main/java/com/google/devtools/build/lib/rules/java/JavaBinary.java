@@ -24,7 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
@@ -133,9 +134,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     CppConfiguration cppConfiguration = ruleContext.getConfiguration().getFragment(
         CppConfiguration.class);
+    CcToolchainProvider ccToolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     // TODO(b/64384912): Remove in favor of CcToolchainProvider
     boolean stripAsDefault =
-        cppConfiguration.useFission()
+        CppHelper.useFission(cppConfiguration, ccToolchain)
             && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
     Artifact launcher = semantics.getLauncher(ruleContext, common, deployArchiveBuilder,
         runfilesBuilder, jvmFlags, attributesBuilder, stripAsDefault);
@@ -228,7 +231,12 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     }
 
     helper.createCompileAction(
-        classJar, manifestProtoOutput, genSourceJar, outputDepsProto, instrumentationMetadata);
+        classJar,
+        manifestProtoOutput,
+        genSourceJar,
+        outputDepsProto,
+        instrumentationMetadata,
+        /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     common.setClassPathFragment(
@@ -313,7 +321,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       // of safety.)
       if (javaConfig.enforceOneVersionOnJavaTests() || !isJavaTestRule(ruleContext)) {
         builder.addOutputGroup(
-            OutputGroupProvider.HIDDEN_TOP_LEVEL,
+            OutputGroupInfo.HIDDEN_TOP_LEVEL,
             OneVersionCheckActionBuilder.newBuilder()
                 .withEnforcementLevel(javaConfig.oneVersionEnforcementLevel())
                 .outputArtifact(
@@ -542,10 +550,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     builder.addArtifacts((Iterable<Artifact>) common.getRuntimeClasspath());
 
     // Add the JDK files if it comes from the source repository (see java_stub_template.txt).
-    TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
-    JavaRuntimeInfo javaRuntime = null;
-    if (javabaseTarget != null) {
-      javaRuntime = javabaseTarget.get(JavaRuntimeInfo.PROVIDER);
+    JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
+    if (javaRuntime != null) {
       builder.addTransitiveArtifacts(javaRuntime.javaBaseInputs());
 
       if (!javaRuntime.javaHome().isAbsolute()) {

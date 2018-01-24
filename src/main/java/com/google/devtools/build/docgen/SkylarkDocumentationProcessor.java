@@ -243,7 +243,10 @@ public final class SkylarkDocumentationProcessor {
   private static void parseOptions(String... args) {
     for (String arg : args) {
       if (arg.startsWith("--be_root=")) {
-        DocgenConsts.BEDocsRoot = arg.split("--be_root=", 2)[1];
+        DocgenConsts.BeDocsRoot = arg.split("--be_root=", 2)[1];
+      }
+      if (arg.startsWith("--doc_extension=")) {
+        DocgenConsts.documentationExtension = arg.split("--doc_extension=", 2)[1];
       }
     }
   }

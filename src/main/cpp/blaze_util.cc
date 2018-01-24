@@ -103,25 +103,23 @@ const char* SearchUnaryOption(const vector<string>& args,
   return GetUnaryOption(args[i].c_str(), NULL, key);
 }
 
-static bool SearchNullaryOption(const vector<string>& args,
-                                const char *key,
-                                const bool include_positional_params) {
+bool SearchNullaryOption(const vector<string>& args,
+                         const string& flag_name,
+                         const bool default_value) {
+  const string positive_flag = "--" + flag_name;
+  const string negative_flag = "--no" + flag_name;
+  bool result = default_value;
   for (vector<string>::size_type i = 0; i < args.size(); i++) {
     if (args[i] == "--") {
-      if (!include_positional_params) {
-        return false;
-      }
-      continue;
+      break;
     }
-    if (GetNullaryOption(args[i].c_str(), key)) {
-      return true;
+    if (GetNullaryOption(args[i].c_str(), positive_flag.c_str())) {
+      result = true;
+    } else if (GetNullaryOption(args[i].c_str(), negative_flag.c_str())) {
+      result = false;
     }
   }
-  return false;
-}
-
-bool SearchNullaryOption(const vector<string>& args, const char *key) {
-  return SearchNullaryOption(args, key, false);
+  return result;
 }
 
 bool VerboseLogging() { return !GetEnv("VERBOSE_BLAZE_CLIENT").empty(); }

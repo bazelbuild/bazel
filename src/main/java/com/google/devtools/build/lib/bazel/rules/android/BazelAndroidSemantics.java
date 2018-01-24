@@ -18,14 +18,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.android.AndroidBinary;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
-import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
-import com.google.devtools.build.lib.rules.android.ResourceApk;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes.Builder;
+import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 
 /**
  * Implementation of Bazel-specific behavior in Android rules.
@@ -35,12 +36,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   private BazelAndroidSemantics() {
   }
-
-  @Override
-  public void addNonLocalResources(
-      RuleContext ruleContext,
-      ResourceApk resourceApk,
-      AndroidIdeInfoProvider.Builder ideInfoProviderBuilder) {}
 
   @Override
   public String getNativeDepsFileName() {
@@ -85,5 +80,21 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       default:
         throw new UnsupportedOperationException("Only supported for top-level binaries");
     }
+  }
+
+  @Override
+  public Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException {
+    return ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
+  }
+
+  /** Bazel does not currently support any dex postprocessing. */
+  @Override
+  public AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
+      RuleContext ruleContext,
+      NestedSetBuilder<Artifact> filesBuilder,
+      Artifact classesDexZip,
+      ProguardOutput proguardOutput)
+      throws InterruptedException {
+    return AndroidBinary.DexPostprocessingOutput.create(classesDexZip, proguardOutput.getMapping());
   }
 }

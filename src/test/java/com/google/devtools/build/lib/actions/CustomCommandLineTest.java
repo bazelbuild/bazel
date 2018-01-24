@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,14 +45,14 @@ import org.junit.runners.JUnit4;
 public class CustomCommandLineTest {
 
   private Scratch scratch;
-  private Root rootDir;
+  private ArtifactRoot rootDir;
   private Artifact artifact1;
   private Artifact artifact2;
 
   @Before
   public void createArtifacts() throws Exception  {
     scratch = new Scratch();
-    rootDir = Root.asDerivedRoot(scratch.dir("/exec/root"));
+    rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/exec/root")));
     artifact1 = new Artifact(scratch.file("/exec/root/dir/file1.txt"), rootDir);
     artifact2 = new Artifact(scratch.file("/exec/root/dir/file2.txt"), rootDir);
   }
@@ -920,10 +921,10 @@ public class CustomCommandLineTest {
   private Artifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        rootDir.getPath().getRelative(relpath),
+        rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

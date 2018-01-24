@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.rules.test.TestAttempt;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.Collection;
 import java.util.Collections;
@@ -61,8 +61,8 @@ public class AggregatingTestListener {
 
   // summaryLock guards concurrent access to these two collections, which should be kept
   // synchronized with each other.
-  private final Map<LabelAndConfiguration, TestSummary.Builder> summaries;
-  private final Multimap<LabelAndConfiguration, Artifact> remainingRuns;
+  private final Map<ConfiguredTargetKey, TestSummary.Builder> summaries;
+  private final Multimap<ConfiguredTargetKey, Artifact> remainingRuns;
   private final Object summaryLock = new Object();
 
   public AggregatingTestListener(TestResultAnalyzer analyzer, EventBus eventBus) {
@@ -122,8 +122,8 @@ public class AggregatingTestListener {
         "Duplicate result reported for an individual test shard");
 
     ActionOwner testOwner = result.getTestAction().getOwner();
-    LabelAndConfiguration targetLabel = LabelAndConfiguration.of(
-        testOwner.getLabel(), result.getTestAction().getConfiguration());
+    ConfiguredTargetKey targetLabel =
+        ConfiguredTargetKey.of(testOwner.getLabel(), result.getTestAction().getConfiguration());
 
     // If a test result was cached, then no attempts for that test were actually
     // executed. Hence report that fact as a cached attempt.
@@ -155,17 +155,17 @@ public class AggregatingTestListener {
     }
   }
 
-  private void targetFailure(LabelAndConfiguration label) {
+  private void targetFailure(ConfiguredTargetKey configuredTargetKey) {
     TestSummary finalSummary;
     synchronized (summaryLock) {
-      if (!remainingRuns.containsKey(label)) {
+      if (!remainingRuns.containsKey(configuredTargetKey)) {
         // Blaze does not guarantee that BuildResult.getSuccessfulTargets() and posted TestResult
         // events are in sync. Thus, it is possible that a test event was posted, but the target is
         // not present in the set of successful targets.
         return;
       }
 
-      TestSummary.Builder summary = summaries.get(label);
+      TestSummary.Builder summary = summaries.get(configuredTargetKey);
       if (summary == null) {
         // Not a test target; nothing to do.
         return;
@@ -176,7 +176,7 @@ public class AggregatingTestListener {
               .build();
 
       // These are never going to run; removing them marks the target complete.
-      remainingRuns.removeAll(label);
+      remainingRuns.removeAll(configuredTargetKey);
     }
     eventBus.post(finalSummary);
   }
@@ -222,7 +222,7 @@ public class AggregatingTestListener {
   @AllowConcurrentEvents
   public void targetComplete(TargetCompleteEvent event) {
     if (event.failed()) {
-      targetFailure(LabelAndConfiguration.of(event.getTarget()));
+      targetFailure(ConfiguredTargetKey.of(event.getTarget()));
     }
   }
 
@@ -261,8 +261,8 @@ public class AggregatingTestListener {
     return analyzer;
   }
 
-  private LabelAndConfiguration asKey(ConfiguredTarget target) {
-    return LabelAndConfiguration.of(
+  private ConfiguredTargetKey asKey(ConfiguredTarget target) {
+    return ConfiguredTargetKey.of(
         AliasProvider.getDependencyLabel(target), target.getConfiguration());
   }
 }

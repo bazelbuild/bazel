@@ -81,28 +81,28 @@ static jstring NewStringLatin1(JNIEnv *env, const char *str) {
  * are replaced by '?'.  Must be followed by a call to
  * ReleaseStringLatin1Chars.
  */
-static const char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
-    jint len = env->GetStringLength(jstr);
-    const jchar *str = env->GetStringCritical(jstr, NULL);
-    if (str == NULL) {
-      return NULL;
-    }
+static char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
+  jint len = env->GetStringLength(jstr);
+  const jchar *str = env->GetStringCritical(jstr, NULL);
+  if (str == NULL) {
+    return NULL;
+  }
 
-    char *result = reinterpret_cast<char *>(malloc(len + 1));
-    if (result == NULL) {
-      env->ReleaseStringCritical(jstr, str);
-      ::PostException(env, ENOMEM, "Out of memory in GetStringLatin1Chars");
-      return NULL;
-    }
-
-    for (int i = 0; i < len; i++) {
-      jchar unicode = str[i];  // (unsigned)
-      result[i] = unicode <= 0x00ff ? unicode : '?';
-    }
-
-    result[len] = 0;
+  char *result = reinterpret_cast<char *>(malloc(len + 1));
+  if (result == NULL) {
     env->ReleaseStringCritical(jstr, str);
-    return result;
+    ::PostException(env, ENOMEM, "Out of memory in GetStringLatin1Chars");
+    return NULL;
+  }
+
+  for (int i = 0; i < len; i++) {
+    jchar unicode = str[i];  // (unsigned)
+    result[i] = unicode <= 0x00ff ? unicode : '?';
+  }
+
+  result[len] = 0;
+  env->ReleaseStringCritical(jstr, str);
+  return result;
 }
 
 /**
@@ -350,7 +350,7 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
   }
 
   if (saved_errno != 0) {
-    return env->NewObject(errno_file_status_class, errorno_ctor, errno);
+    return env->NewObject(errno_file_status_class, errorno_ctor, saved_errno);
   }
   return env->NewObject(
       errno_file_status_class, no_error_ctor, stat_ref.st_mode,
@@ -392,19 +392,20 @@ static jobject StatCommon(JNIEnv *env,
   int saved_errno = 0;
   while ((r = stat_function(path_chars, &statbuf)) == -1 && errno == EINTR) { }
   if (r == -1) {
+    // Save errno immediately, before we do any other syscalls
+    saved_errno = errno;
+
     // EACCES ENOENT ENOTDIR ELOOP -> IOException
     // ENAMETOOLONGEFAULT          -> RuntimeException
     // ENOMEM                      -> OutOfMemoryError
 
-    if (PostRuntimeException(env, errno, path_chars)) {
+    if (PostRuntimeException(env, saved_errno, path_chars)) {
       ::ReleaseStringLatin1Chars(path_chars);
       return NULL;
     } else if (should_throw) {
-      ::PostFileException(env, errno, path_chars);
+      ::PostFileException(env, saved_errno, path_chars);
       ::ReleaseStringLatin1Chars(path_chars);
       return NULL;
-    } else {
-      saved_errno = errno;
     }
   }
   ::ReleaseStringLatin1Chars(path_chars);
@@ -534,6 +535,88 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
   }
   ReleaseStringLatin1Chars(path_chars);
   return result;
+}
+
+/*
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
+ * Method:    mkdirs
+ * Signature: (Ljava/lang/String;I)V
+ * Throws:    java.io.IOException
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirs(JNIEnv *env,
+                                                                jclass clazz,
+                                                                jstring path,
+                                                                int mode) {
+  char *path_chars = GetStringLatin1Chars(env, path);
+  portable_stat_struct statbuf;
+  int len;
+  char *p;
+
+  // First, check if the directory already exists and early-out.
+  if (portable_stat(path_chars, &statbuf) == 0) {
+    if (!S_ISDIR(statbuf.st_mode)) {
+      // Exists but is not a directory.
+      ::PostFileException(env, ENOTDIR, path_chars);
+    }
+    goto cleanup;
+  } else if (errno != ENOENT) {
+    ::PostFileException(env, errno, path_chars);
+    goto cleanup;
+  }
+
+  // Find the first directory that already exists and leave a pointer just past
+  // it.
+  len = strlen(path_chars);
+  p = path_chars + len - 1;
+  for (; p > path_chars; --p) {
+    if (*p == '/') {
+      *p = 0;
+      int res = portable_stat(path_chars, &statbuf);
+      *p = '/';
+      if (res == 0) {
+        // Exists and must be a directory, or the initial stat would have failed
+        // with ENOTDIR.
+        break;
+      } else if (errno != ENOENT) {
+        ::PostFileException(env, errno, path_chars);
+        goto cleanup;
+      }
+    }
+  }
+  // p now points at the '/' after the last directory that exists.
+  // Successively create each directory
+  for (const char *end = path_chars + len; p < end; ++p) {
+    if (*p == '/') {
+      *p = 0;
+      int res = ::mkdir(path_chars, mode);
+      *p = '/';
+      // EEXIST is fine, just means we're racing to create the directory.
+      // Note that somebody could have raced to create a file here, but that
+      // will get handled by a ENOTDIR by a subsequent mkdir call.
+      if (res != 0 && errno != EEXIST) {
+        ::PostFileException(env, errno, path_chars);
+        goto cleanup;
+      }
+    }
+  }
+  if (::mkdir(path_chars, mode) != 0) {
+    if (errno != EEXIST) {
+      ::PostFileException(env, errno, path_chars);
+      goto cleanup;
+    }
+    if (portable_stat(path_chars, &statbuf) != 0) {
+      ::PostFileException(env, errno, path_chars);
+      goto cleanup;
+    }
+    if (!S_ISDIR(statbuf.st_mode)) {
+      // Exists but is not a directory.
+      ::PostFileException(env, ENOTDIR, path_chars);
+      goto cleanup;
+    }
+  }
+cleanup:
+  ReleaseStringLatin1Chars(path_chars);
 }
 
 static jobject NewDirents(JNIEnv *env,

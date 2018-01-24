@@ -232,8 +232,7 @@ class AndroidDataMerger {
    *     the ultimate source of truth, provided it doesn't conflict with itself.
    * @return An UnwrittenMergedAndroidData, containing DataResource objects that can be written to
    *     disk for aapt processing or serialized for future merge passes.
-   * @throws MergingException if there are issues with parsing resources from
-   *     primaryData.
+   * @throws MergingException if there are issues with parsing resources from primaryData.
    * @throws MergeConflictException if there are merge conflicts
    */
   UnwrittenMergedAndroidData merge(

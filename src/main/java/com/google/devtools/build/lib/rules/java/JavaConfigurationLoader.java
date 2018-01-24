@@ -20,8 +20,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 
 /**
  * A loader that creates JavaConfiguration instances based on JavaBuilder configurations and
@@ -33,23 +31,14 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
     return ImmutableSet.<Class<? extends FragmentOptions>>of(JavaOptions.class);
   }
 
-
   @Override
   public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException, InterruptedException {
-    JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-    return create(javaOptions, javaOptions.javaToolchain);
+    throws InvalidConfigurationException {
+    return new JavaConfiguration(buildOptions.get(JavaOptions.class));
   }
 
   @Override
   public Class<? extends Fragment> creates() {
     return JavaConfiguration.class;
-  }
-  
-  private JavaConfiguration create(JavaOptions javaOptions, Label javaToolchain)
-      throws InvalidConfigurationException {
-    boolean generateJavaDeps =
-        javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
-    return new JavaConfiguration(generateJavaDeps, javaOptions.jvmOpts, javaOptions, javaToolchain);
   }
 }

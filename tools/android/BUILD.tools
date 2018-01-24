@@ -67,7 +67,6 @@ java_import(
     name = "singlejar_deploy",
     jars = select({
         "//src/conditions:windows": ["@bazel_tools//tools/jdk:singlejar"],
-        "//src/conditions:windows_msvc": ["@bazel_tools//tools/jdk:singlejar"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
@@ -78,7 +77,6 @@ java_binary(
     main_class = "com.google.devtools.build.singlejar.SingleJar",
     runtime_deps = select({
         "//src/conditions:windows": [":singlejar_deploy"],
-        "//src/conditions:windows_msvc": [":singlejar_deploy"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
@@ -108,13 +106,11 @@ genrule(
     ],
     tools = select({
         "//src/conditions:windows": [":singlejar_javabin"],
-        "//src/conditions:windows_msvc": [":singlejar_javabin"],
         "//conditions:default": ["@bazel_tools//tools/jdk:singlejar"],
     }),
     outs = ["java_lang_extras.jar"],
     cmd = select({
         "//src/conditions:windows": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
-        "//src/conditions:windows_msvc": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
         "//conditions:default": gen_java_lang_extras_jar_cmd % "@bazel_tools//tools/jdk:singlejar",
     }),
     visibility = ["//visibility:private"],
@@ -123,6 +119,12 @@ genrule(
 alias(
     name = "IdlClass",
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
+)
+
+py_binary(
+    name = "instrumentation_test_check",
+    srcs = ["instrumentation_test_check.py"],
+    deps = ["//third_party/py/gflags"],
 )
 
 py_binary(
@@ -184,11 +186,6 @@ py_binary(
     deps = [
         "//third_party/py/gflags",
     ],
-)
-
-sh_binary(
-    name = "rex_wrapper",
-    srcs = ["fail.sh"],
 )
 
 py_binary(
@@ -259,6 +256,11 @@ filegroup(name = "empty")
 alias(
     name = "jarjar_bin",
     actual = "//third_party/java/jarjar:jarjar_bin",
+)
+
+alias(
+    name = "instrumentation_test_entry_point",
+    actual = "@android_test_support//:instrumentation_test_runner",
 )
 
 # This is the default binding of //external:android/sdk. If someone attempts to

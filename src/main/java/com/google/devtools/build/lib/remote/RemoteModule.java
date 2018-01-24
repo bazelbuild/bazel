@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GrpcUtils;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
-import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -109,7 +108,6 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
-
     try {
       boolean remoteOrLocalCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
       boolean grpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
@@ -117,31 +115,40 @@ public final class RemoteModule extends BlazeModule {
       RemoteRetrier retrier =
           new RemoteRetrier(
               remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
-      CallCredentials creds = GrpcUtils.newCallCredentials(authAndTlsOptions);
       // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
       // meaning.
-      final RemoteActionCache cache;
+      final AbstractRemoteActionCache cache;
       if (remoteOrLocalCache) {
         cache =
             new SimpleBlobStoreActionCache(
-                SimpleBlobStoreFactory.create(remoteOptions, env.getWorkingDirectory()),
+                SimpleBlobStoreFactory.create(
+                    remoteOptions,
+                    GoogleAuthUtils.newCredentials(authAndTlsOptions),
+                    env.getWorkingDirectory()),
                 digestUtil);
       } else if (grpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
-        Channel ch = GrpcUtils.newChannel(target, authAndTlsOptions);
-        cache = new GrpcRemoteCache(ch, creds, remoteOptions, retrier, digestUtil);
+        Channel ch = GoogleAuthUtils.newChannel(target, authAndTlsOptions);
+        cache =
+            new GrpcRemoteCache(
+                ch,
+                GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
+                remoteOptions,
+                retrier,
+                digestUtil);
       } else {
         cache = null;
       }
 
       final GrpcRemoteExecutor executor;
       if (remoteOptions.remoteExecutor != null) {
-        executor = new GrpcRemoteExecutor(
-            GrpcUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions),
-            creds,
-            remoteOptions.remoteTimeout,
-            retrier);
+        executor =
+            new GrpcRemoteExecutor(
+                GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions),
+                GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
+                remoteOptions.remoteTimeout,
+                retrier);
       } else {
         executor = null;
       }

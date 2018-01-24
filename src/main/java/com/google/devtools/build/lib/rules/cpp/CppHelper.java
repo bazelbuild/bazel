@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -80,6 +82,7 @@ import javax.annotation.Nullable;
 public class CppHelper {
 
   static final PathFragment OBJS = PathFragment.create("_objs");
+  static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
 
   private static final String GREPPED_INCLUDES_SUFFIX = ".includes";
 
@@ -235,6 +238,56 @@ public class CppHelper {
       }
     }
     return result;
+  }
+
+  /**
+   * Returns the default options to use for compiling C, C++, and assembler. This is just the
+   * options that should be used for all three languages. There may be additional C-specific or
+   * C++-specific options that should be used, in addition to the ones returned by this method.
+   */
+  //TODO(b/70784100): Figure out if these methods can be moved to CcToolchainProvider.
+  public static ImmutableList<String> getCompilerOptions(
+      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+    ImmutableList.Builder<String> coptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(toolchain.getToolchainCompilerFlags())
+            .addAll(toolchain.getCFlagsByCompilationMode().get(config.getCompilationMode()))
+            .addAll(toolchain.getLipoCFlags().get(config.getLipoMode()));
+
+    if (config.isOmitfp()) {
+      coptsBuilder.add("-fomit-frame-pointer");
+      coptsBuilder.add("-fasynchronous-unwind-tables");
+      coptsBuilder.add("-DNO_FRAME_POINTER");
+    }
+
+    FlagList compilerFlags =
+        new FlagList(
+            coptsBuilder.build(),
+            FlagList.convertOptionalOptions(toolchain.getOptionalCompilerFlags()),
+            ImmutableList.copyOf(config.getCopts()));
+
+    return compilerFlags.evaluate(features);
+  }
+
+  /**
+   * Returns the list of additional C++-specific options to use for compiling C++. These should be
+   * go on the command line after the common options returned by {@link #getCompilerOptions}.
+   */
+  public static ImmutableList<String> getCxxOptions(
+      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+    ImmutableList.Builder<String> cxxOptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(toolchain.getToolchainCxxFlags())
+            .addAll(toolchain.getCxxFlagsByCompilationMode().get(config.getCompilationMode()))
+            .addAll(toolchain.getLipoCxxFlags().get(config.getLipoMode()));
+
+    FlagList cxxFlags =
+        new FlagList(
+            cxxOptsBuilder.build(),
+            FlagList.convertOptionalOptions(toolchain.getOptionalCxxFlags()),
+            ImmutableList.copyOf(config.getCxxopts()));
+
+    return cxxFlags.evaluate(features);
   }
 
   /**
@@ -498,11 +551,18 @@ public class CppHelper {
     return (CcToolchainProvider) dep.get(ToolchainInfo.PROVIDER);
   }
 
-  /**
-   * Returns the directory where object files are created.
-   */
+  /** Returns the directory where object files are created. */
+  public static PathFragment getObjDirectory(Label ruleLabel, boolean usePic) {
+    if (usePic) {
+      return AnalysisUtils.getUniqueDirectory(ruleLabel, PIC_OBJS);
+    } else {
+      return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS);
+    }
+  }
+
+  /** Returns the directory where object files are created. */
   public static PathFragment getObjDirectory(Label ruleLabel) {
-    return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS);
+    return getObjDirectory(ruleLabel, false);
   }
 
   /**
@@ -901,25 +961,41 @@ public class CppHelper {
         config.getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
-  /**
-   * Returns the corresponding compiled TreeArtifact given the source TreeArtifact.
-   */
+  /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
   public static Artifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact) {
-    PathFragment objectDir = getObjDirectory(ruleContext.getLabel());
+      RuleContext ruleContext, Artifact sourceTreeArtifact, boolean usePic) {
+    PathFragment objectDir = getObjDirectory(ruleContext.getLabel(), usePic);
     PathFragment rootRelativePath = sourceTreeArtifact.getRootRelativePath();
     return ruleContext.getTreeArtifact(
         objectDir.getRelative(rootRelativePath), sourceTreeArtifact.getRoot());
   }
 
-  static String getArtifactNameForCategory(RuleContext ruleContext, CcToolchainProvider toolchain,
-      ArtifactCategory category, String outputName) {
-    return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
+  /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
+  public static Artifact getCompileOutputTreeArtifact(
+      RuleContext ruleContext, Artifact sourceTreeArtifact) {
+    return getCompileOutputTreeArtifact(ruleContext, sourceTreeArtifact, false);
+  }
+
+  static String getArtifactNameForCategory(
+      RuleContext ruleContext,
+      CcToolchainProvider toolchain,
+      ArtifactCategory category,
+      String outputName)
+      throws RuleErrorException {
+    try {
+      return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
+    } catch (InvalidConfigurationException e) {
+      ruleContext.throwWithRuleError(e.getMessage());
+      throw new IllegalStateException("Should not be reached");
+    }
   }
 
   static String getDotdFileName(
-      RuleContext ruleContext, CcToolchainProvider toolchain, ArtifactCategory outputCategory,
-      String outputName) {
+      RuleContext ruleContext,
+      CcToolchainProvider toolchain,
+      ArtifactCategory outputCategory,
+      String outputName)
+      throws RuleErrorException {
     String baseName = outputCategory == ArtifactCategory.OBJECT_FILE
         || outputCategory == ArtifactCategory.PROCESSED_HEADER
         ? outputName

@@ -32,15 +32,14 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
@@ -360,19 +359,16 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       releaseFilePath = directory.getRelative("RELEASE.TXT");
     }
 
-    SkyKey releaseFileKey = FileValue.key(RootedPath.toRootedPath(directory, releaseFilePath));
+    SkyKey releaseFileKey =
+        FileValue.key(RootedPath.toRootedPath(Root.fromPath(directory), releaseFilePath));
 
     String releaseFileContent = "";
     try {
-      env.getValueOrThrow(
-          releaseFileKey,
-          IOException.class,
-          FileSymlinkException.class,
-          InconsistentFilesystemException.class);
+      env.getValueOrThrow(releaseFileKey, IOException.class);
 
       releaseFileContent =
           new String(FileSystemUtils.readContent(releaseFilePath), StandardCharsets.UTF_8);
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+    } catch (IOException e) {
       throwInvalidPathException(
           directory,
           new IOException(

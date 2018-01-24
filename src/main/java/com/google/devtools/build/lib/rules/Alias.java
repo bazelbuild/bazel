@@ -63,11 +63,16 @@ public class Alias implements RuleConfiguredTargetFactory {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .removeAttribute("licenses")
           .removeAttribute("distribs")
-          .add(attr("actual", LABEL)
-              .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .allowedRuleClasses(ANY_RULE)
-              .mandatory())
+          .add(
+              attr("actual", LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .allowedRuleClasses(ANY_RULE)
+                  .mandatory())
           .canHaveAnyProvider()
+          // Aliases themselves do not need toolchains or an execution platform, so this is fine.
+          // The actual target
+          // will resolve platforms and toolchains with no issues regardless of this setting.
+          .supportsPlatforms(false)
           .build();
     }
 

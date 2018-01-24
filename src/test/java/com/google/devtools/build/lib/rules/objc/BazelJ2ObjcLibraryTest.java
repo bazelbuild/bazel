@@ -89,7 +89,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     String execPath = j2objcLibraryTarget.getConfiguration().getBinDirectory(RepositoryName.MAIN)
         .getExecPath() + "/";
-    assertThat(PathFragment.safePathStrings(provider.get(ObjcProvider.INCLUDE)))
+    assertThat(
+            Iterables.transform(
+                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
   }
 
@@ -124,9 +126,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     String execPath = target.getConfiguration().getBinDirectory(RepositoryName.MAIN)
         .getExecPath() + "/";
-    assertThat(PathFragment.safePathStrings(provider.get(ObjcProvider.INCLUDE))).containsExactly(
-        execPath + "java/com/google/test/_j2objc/test/" + genfilesFragment,
-        execPath + "java/com/google/test/_j2objc/test");
+    assertThat(
+            Iterables.transform(
+                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
+        .containsExactly(
+            execPath + "java/com/google/test/_j2objc/test/" + genfilesFragment,
+            execPath + "java/com/google/test/_j2objc/test");
   }
 
   @Test
@@ -526,7 +531,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     String execPath =
         objcTarget.getConfiguration().getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
-    assertThat(PathFragment.safePathStrings(provider.get(ObjcProvider.INCLUDE)))
+    assertThat(
+            Iterables.transform(
+                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
   }
 
@@ -569,7 +576,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     String execPath =
         objcTarget.getConfiguration().getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
-    assertThat(PathFragment.safePathStrings(provider.get(ObjcProvider.INCLUDE)))
+    assertThat(
+            Iterables.transform(
+                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
         .containsExactly(execPath + "app/_j2objc/dummyOne", execPath + "app/_j2objc/dummyTwo");
   }
 
@@ -863,7 +872,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("--dummy_archive")
             .add(execPath + "tools/objc/libdummy_lib.a")
             .add("--xcrunwrapper")
-            .add("tools/objc/xcrunwrapper")
+            .add(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH)
             .add("--dependency_mapping_files")
             .add(dependencyMappingFile.getExecPathString())
             .add("--header_mapping_files")
@@ -893,7 +902,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     return ImmutableList.<CommandAction>builder()
         .addAll(
             template.generateActionForInputArtifacts(
-                ImmutableList.of(treeFileArtifact), ArtifactOwner.NULL_OWNER))
+                ImmutableList.of(treeFileArtifact), ArtifactOwner.NullArtifactOwner.INSTANCE))
         .build();
   }
 

@@ -517,7 +517,7 @@ function assert_one_of() {
       [ "$expected_item" = "$actual" ] && return 0
     done;
 
-    fail "Expected one of '${args[@]}', was '$actual'"
+    fail "Expected one of '${args[*]}', was '$actual'"
     return 1
 }
 
@@ -531,7 +531,7 @@ function assert_not_one_of() {
     unset args[last_arg_index]
     for expected_item in "${args[@]}"; do
       if [ "$expected_item" = "$actual" ]; then
-        fail "'${args[@]}' contains '$actual'"
+        fail "'${args[*]}' contains '$actual'"
         return 1
       fi
     done;

@@ -138,6 +138,30 @@ public final class Scratch {
         DEFAULT_CHARSET);
   }
 
+  /** Like {@code scratch.file}, but the lines are added to the end if the file already exists. */
+  public Path appendFile(String pathName, Collection<String> lines) throws IOException {
+    return appendFile(pathName, lines.toArray(new String[lines.size()]));
+  }
+
+  /** Like {@code scratch.file}, but the lines are added to the end if the file already exists. */
+  public Path appendFile(String pathName, String... lines) throws IOException {
+    return appendFile(pathName, DEFAULT_CHARSET, lines);
+  }
+
+  /** Like {@code scratch.file}, but the lines are added to the end if the file already exists. */
+  public Path appendFile(String pathName, Charset charset, String... lines) throws IOException {
+    Path path = resolve(pathName);
+
+    StringBuilder content = new StringBuilder();
+    if (path.exists()) {
+      content.append(readFile(pathName));
+      content.append("\n");
+    }
+    content.append(linesAsString(lines));
+
+    return overwriteFile(pathName, content.toString());
+  }
+
   /**
    * Like {@code scratch.file}, but the file is first deleted if it already
    * exists.

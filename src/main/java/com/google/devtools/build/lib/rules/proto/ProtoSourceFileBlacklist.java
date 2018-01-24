@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
@@ -25,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -123,7 +123,9 @@ public class ProtoSourceFileBlacklist {
    */
   public static Attribute.Builder<List<Label>> blacklistFilegroupAttribute(
       String attributeName, List<Label> blacklistFileGroups) {
-    return attr(attributeName, LABEL_LIST).cfg(HOST).value(blacklistFileGroups);
+    return attr(attributeName, LABEL_LIST)
+        .cfg(HostTransition.INSTANCE)
+        .value(blacklistFileGroups);
   }
 
   @VisibleForTesting

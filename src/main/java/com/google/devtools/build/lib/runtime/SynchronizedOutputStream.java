@@ -38,7 +38,7 @@ public class SynchronizedOutputStream extends OutputStream {
   // so the actual size we store in this buffer can be the maximum (not the sum)
   // of this value and the amount of bytes written in a single call to the
   // {@link write(byte[] buffer, int offset, int count)} method.
-  private static final long MAX_BUFFERED_LENGTH = 10 * 1024;
+  private final long maxBufferedLength;
 
   private byte[] buf;
   private long count;
@@ -47,10 +47,11 @@ public class SynchronizedOutputStream extends OutputStream {
   // The event streamer that is supposed to flush stdout/stderr.
   private BuildEventStreamer streamer;
 
-  public SynchronizedOutputStream() {
+  public SynchronizedOutputStream(long maxBufferedLength) {
     buf = new byte[64];
     count = 0;
     discardAll = false;
+    this.maxBufferedLength = maxBufferedLength;
   }
 
   public void registerStreamer(BuildEventStreamer streamer) {
@@ -100,7 +101,7 @@ public class SynchronizedOutputStream extends OutputStream {
     boolean didWrite = false;
     while (!didWrite) {
       synchronized (this) {
-        if (this.count + (long) count < MAX_BUFFERED_LENGTH || this.count == 0) {
+        if (this.count + (long) count < maxBufferedLength || this.count == 0) {
           if (this.count + (long) count >= (long) buf.length) {
             // We need to increase the buffer; if within the permissible range range for array
             // sizes, we at least double it, otherwise we only increase as far as needed.
@@ -120,7 +121,7 @@ public class SynchronizedOutputStream extends OutputStream {
         } else {
           shouldFlush = true;
         }
-        if (this.count >= MAX_BUFFERED_LENGTH) {
+        if (this.count >= maxBufferedLength) {
           shouldFlush = true;
         }
       }

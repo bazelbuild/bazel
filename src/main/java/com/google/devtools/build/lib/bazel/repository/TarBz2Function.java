@@ -15,18 +15,18 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
-
-import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
-
+import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 
 /**
  * Creates a repository by unarchiving a .tar.bz2 file.
  */
 public class TarBz2Function extends CompressedTarFunction {
   public static final Decompressor INSTANCE = new TarBz2Function();
+  private static final int BUFFER_SIZE = 32 * 1024;
 
   private TarBz2Function() {
   }
@@ -35,6 +35,7 @@ public class TarBz2Function extends CompressedTarFunction {
   protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException {
     return new BZip2CompressorInputStream(
-        new FileInputStream(descriptor.archivePath().getPathFile()));
+        new BufferedInputStream(
+            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE));
   }
 }

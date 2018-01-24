@@ -21,7 +21,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.BuildView;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
@@ -74,7 +76,9 @@ public class BuildRequest implements OptionsClassProvider {
           SkylarkSemanticsOptions.class,
           LoadingOptions.class,
           BuildView.Options.class,
-          ExecutionOptions.class);
+          ExecutionOptions.class,
+          KeepGoingOption.class,
+          LoadingPhaseThreadsOption.class);
 
   private BuildRequest(String commandName,
                        final OptionsProvider options,
@@ -202,6 +206,15 @@ public class BuildRequest implements OptionsClassProvider {
     return getOptions(BuildView.Options.class);
   }
 
+  /** Returns the value of the --keep_going option. */
+  boolean getKeepGoing() {
+    return getOptions(KeepGoingOption.class).keepGoing;
+  }
+
+  /** Returns the value of the --loading_phase_threads option. */
+  int getLoadingPhaseThreadCount() {
+    return getOptions(LoadingPhaseThreadsOption.class).threads;
+  }
   /**
    * Returns the set of execution options specified for this request.
    */
@@ -269,7 +282,7 @@ public class BuildRequest implements OptionsClassProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        OutputGroupProvider.determineOutputGroups(getBuildOptions().outputGroups));
+        OutputGroupInfo.determineOutputGroups(getBuildOptions().outputGroups));
   }
 
   public ImmutableSortedSet<String> getMultiCpus() {

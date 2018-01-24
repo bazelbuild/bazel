@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.SPLIT;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -27,9 +25,10 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.syntax.Type;
@@ -96,7 +95,9 @@ public class AttributeTest {
 
   @Test
   public void testDoublePropertySet() {
-    Attribute.Builder<String> builder = attr("x", STRING).mandatory().cfg(HOST).undocumented("")
+    Attribute.Builder<String> builder = attr("x", STRING).mandatory()
+        .cfg(HostTransition.INSTANCE)
+        .undocumented("")
         .value("y");
     try {
       builder.mandatory();
@@ -105,7 +106,7 @@ public class AttributeTest {
       // expected
     }
     try {
-      builder.cfg(HOST);
+      builder.cfg(HostTransition.INSTANCE);
       fail();
     } catch (IllegalStateException expected) {
       // expected
@@ -271,7 +272,6 @@ public class AttributeTest {
   public void testSplitTransition() throws Exception {
     TestSplitTransition splitTransition = new TestSplitTransition();
     Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition()).isEqualTo(SPLIT);
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
     assertThat(attr.getSplitTransition(null)).isEqualTo(splitTransition);
   }
@@ -281,19 +281,18 @@ public class AttributeTest {
     TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
     Attribute attr =
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition()).isEqualTo(SPLIT);
     assertThat(attr.hasSplitConfigurationTransition()).isTrue();
     assertThat(attr.getSplitTransition(null) instanceof TestSplitTransition).isTrue();
   }
 
   @Test
   public void testHostTransition() throws Exception {
-    Attribute attr = attr("foo", LABEL).cfg(HOST).allowedFileTypes().build();
-    assertThat(attr.getConfigurationTransition()).isEqualTo(HOST);
+    Attribute attr = attr("foo", LABEL).cfg(HostTransition.INSTANCE).allowedFileTypes().build();
+    assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
     assertThat(attr.hasSplitConfigurationTransition()).isFalse();
   }
 
-  private static class TestSplitTransition implements SplitTransition<BuildOptions> {
+  private static class TestSplitTransition implements SplitTransition {
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
       return ImmutableList.of(buildOptions.clone(), buildOptions.clone());
@@ -302,7 +301,7 @@ public class AttributeTest {
 
   private static class TestSplitTransitionProvider implements SplitTransitionProvider {
     @Override
-    public SplitTransition<?> apply(AttributeMap attrMapper) {
+    public SplitTransition apply(AttributeMap attrMapper) {
       return new TestSplitTransition();
     }
   }

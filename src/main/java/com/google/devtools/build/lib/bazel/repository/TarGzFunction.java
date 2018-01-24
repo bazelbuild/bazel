@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
-
+import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +26,7 @@ import java.util.zip.GZIPInputStream;
  */
 public class TarGzFunction extends CompressedTarFunction {
   public static final Decompressor INSTANCE = new TarGzFunction();
+  private static final int BUFFER_SIZE = 32 * 1024;
 
   private TarGzFunction() {
   }
@@ -33,6 +34,8 @@ public class TarGzFunction extends CompressedTarFunction {
   @Override
   protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException {
-    return new GZIPInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
+    return new GZIPInputStream(
+        new BufferedInputStream(
+            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE));
   }
 }

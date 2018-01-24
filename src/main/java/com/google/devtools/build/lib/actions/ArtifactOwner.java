@@ -15,17 +15,32 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
- * An interface for {@code LabelAndConfiguration}, or at least for a {@link Label}. Only tests and
- * internal {@link Artifact}-generators should implement this interface -- otherwise,
- * {@code LabelAndConfiguration} should be the only implementation.
+ * An interface for {@code ActionLookupKey}, or at least for a {@link Label}. Only tests and
+ * internal {@link Artifact}-generators should implement this interface -- otherwise, {@code
+ * ActionLookupKey} and its subclasses should be the only implementation.
  */
+@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface ArtifactOwner {
+  ObjectCodec<ArtifactOwner> CODEC = new ArtifactOwner_AutoCodec();
+
   Label getLabel();
 
-  @VisibleForTesting
-  public static final ArtifactOwner NULL_OWNER = new ArtifactOwner() {
+  /**
+   * An {@link ArtifactOwner} that just returns null for its label. Only for use with resolved
+   * source artifacts and tests.
+   */
+  class NullArtifactOwner implements ArtifactOwner {
+    @VisibleForTesting public static final NullArtifactOwner INSTANCE = new NullArtifactOwner();
+
+    static final ObjectCodec<NullArtifactOwner> CODEC = SingletonCodec.of(INSTANCE, "NULL_OWNER");
+
+    private NullArtifactOwner() {}
+
     @Override
     public Label getLabel() {
       return null;
@@ -35,5 +50,5 @@ public interface ArtifactOwner {
     public String toString() {
       return "NULL_OWNER";
     }
-  };
+  }
 }

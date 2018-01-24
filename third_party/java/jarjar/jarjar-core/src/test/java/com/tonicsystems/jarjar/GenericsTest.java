@@ -19,14 +19,14 @@ import com.tonicsystems.jarjar.transform.asm.PackageRemapper;
 import com.tonicsystems.jarjar.transform.config.ClassRename;
 import org.junit.Test;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.commons.RemappingClassAdapter;
+import org.objectweb.asm.commons.ClassRemapper;
 
 public class GenericsTest {
 
     @Test
     public void testTransform() throws Exception {
         ClassRename rule = new ClassRename("java.lang.String", "com.tonicsystems.String");
-        RemappingClassAdapter t = new RemappingClassAdapter(null, new PackageRemapper(rule));
+        ClassRemapper t = new ClassRemapper(null, new PackageRemapper(rule));
         ClassReader reader = new ClassReader(getClass().getResourceAsStream("/Generics.class"));
         reader.accept(t, 0);
     }

@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -71,37 +71,46 @@ public final class ConfigurationFragmentPolicyTest {
         .containsExactly(Integer.class, String.class, Long.class);
   }
 
+  private static final Transition TEST_HOST_TRANSITION = new Transition() {
+    @Override
+    public boolean isHostTransition() {
+      return true;
+    }
+  };
+
   @Test
   public void testRequiresConfigurationFragments_RequiredAndLegalForSpecifiedConfiguration()
       throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(ImmutableSet.<Class<?>>of(Integer.class))
-            .requiresHostConfigurationFragments(ImmutableSet.<Class<?>>of(Long.class))
+            .requiresConfigurationFragments(TEST_HOST_TRANSITION,
+                ImmutableSet.<Class<?>>of(Long.class))
             .build();
 
     assertThat(policy.getRequiredConfigurationFragments()).containsAllOf(Integer.class, Long.class);
 
     assertThat(policy.isLegalConfigurationFragment(Integer.class)).isTrue();
-    assertThat(policy.isLegalConfigurationFragment(Integer.class, ConfigurationTransition.NONE))
+    assertThat(
+            policy.isLegalConfigurationFragment(Integer.class, NoTransition.INSTANCE))
         .isTrue();
     // TODO(mstaib): .isFalse() when dynamic configurations care which configuration a fragment was
     // specified for
-    assertThat(policy.isLegalConfigurationFragment(Integer.class, ConfigurationTransition.HOST))
+    assertThat(policy.isLegalConfigurationFragment(Integer.class, TEST_HOST_TRANSITION))
         .isTrue();
 
     assertThat(policy.isLegalConfigurationFragment(Long.class)).isTrue();
     // TODO(mstaib): .isFalse() when dynamic configurations care which configuration a fragment was
     // specified for
-    assertThat(policy.isLegalConfigurationFragment(Long.class, ConfigurationTransition.NONE))
+    assertThat(policy.isLegalConfigurationFragment(Long.class, NoTransition.INSTANCE))
         .isTrue();
-    assertThat(policy.isLegalConfigurationFragment(Long.class, ConfigurationTransition.HOST))
+    assertThat(policy.isLegalConfigurationFragment(Long.class, TEST_HOST_TRANSITION))
         .isTrue();
 
     assertThat(policy.isLegalConfigurationFragment(String.class)).isFalse();
-    assertThat(policy.isLegalConfigurationFragment(String.class, ConfigurationTransition.NONE))
+    assertThat(policy.isLegalConfigurationFragment(String.class, NoTransition.INSTANCE))
         .isFalse();
-    assertThat(policy.isLegalConfigurationFragment(String.class, ConfigurationTransition.HOST))
+    assertThat(policy.isLegalConfigurationFragment(String.class, TEST_HOST_TRANSITION))
         .isFalse();
   }
 
@@ -111,7 +120,7 @@ public final class ConfigurationFragmentPolicyTest {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableSet.of("test_fragment"))
-            .requiresHostConfigurationFragmentsBySkylarkModuleName(
+            .requiresConfigurationFragmentsBySkylarkModuleName(TEST_HOST_TRANSITION,
                 ImmutableSet.of("other_fragment"))
             .build();
 
@@ -119,28 +128,27 @@ public final class ConfigurationFragmentPolicyTest {
 
     assertThat(policy.isLegalConfigurationFragment(TestFragment.class)).isTrue();
     assertThat(
-            policy.isLegalConfigurationFragment(TestFragment.class, ConfigurationTransition.NONE))
+            policy.isLegalConfigurationFragment(TestFragment.class, NoTransition.INSTANCE))
         .isTrue();
     assertThat(
-            policy.isLegalConfigurationFragment(TestFragment.class, ConfigurationTransition.HOST))
+            policy.isLegalConfigurationFragment(TestFragment.class, TEST_HOST_TRANSITION))
         .isFalse();
 
     assertThat(policy.isLegalConfigurationFragment(OtherFragment.class)).isTrue();
     assertThat(
-            policy.isLegalConfigurationFragment(OtherFragment.class, ConfigurationTransition.NONE))
+            policy.isLegalConfigurationFragment(OtherFragment.class, NoTransition.INSTANCE))
         .isFalse();
     assertThat(
-            policy.isLegalConfigurationFragment(OtherFragment.class, ConfigurationTransition.HOST))
+            policy.isLegalConfigurationFragment(OtherFragment.class, TEST_HOST_TRANSITION))
         .isTrue();
 
     assertThat(policy.isLegalConfigurationFragment(UnknownFragment.class)).isFalse();
     assertThat(
-            policy.isLegalConfigurationFragment(
-                UnknownFragment.class, ConfigurationTransition.NONE))
+            policy.isLegalConfigurationFragment(UnknownFragment.class, NoTransition.INSTANCE))
         .isFalse();
     assertThat(
             policy.isLegalConfigurationFragment(
-                UnknownFragment.class, ConfigurationTransition.HOST))
+                UnknownFragment.class, TEST_HOST_TRANSITION))
         .isFalse();
   }
 
@@ -155,10 +163,11 @@ public final class ConfigurationFragmentPolicyTest {
     ConfigurationFragmentPolicy addedPolicy =
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableSet.of("other_fragment"))
-            .requiresHostConfigurationFragmentsBySkylarkModuleName(
+            .requiresConfigurationFragmentsBySkylarkModuleName(TEST_HOST_TRANSITION,
                 ImmutableSet.of("other_fragment"))
             .requiresConfigurationFragments(ImmutableSet.<Class<?>>of(Boolean.class))
-            .requiresHostConfigurationFragments(ImmutableSet.<Class<?>>of(Character.class))
+            .requiresConfigurationFragments(TEST_HOST_TRANSITION,
+                ImmutableSet.<Class<?>>of(Character.class))
             .build();
     ConfigurationFragmentPolicy combinedPolicy =
         new ConfigurationFragmentPolicy.Builder()

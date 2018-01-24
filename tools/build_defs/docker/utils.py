@@ -16,6 +16,8 @@
 import json
 import tarfile
 
+from six import raise_from
+
 
 def ExtractValue(value):
   """Return the contents of a file point to by value if it starts with an @.
@@ -45,12 +47,16 @@ def GetTarFile(f, name):
   Returns:
     The content of the file, or None if not found.
   """
-  with tarfile.open(f, 'r') as tar:
-    members = [tarinfo.name for tarinfo in tar.getmembers()]
-    for i in ['', './', '/']:
-      if i + name in members:
-        return tar.extractfile(i + name).read()
-    return None
+  with open(f, 'rb') as fobj:
+    try:
+      with tarfile.open(fileobj=fobj) as tar:
+        members = [tarinfo.name for tarinfo in tar.getmembers()]
+        for i in ['', './', '/']:
+          if i + name in members:
+            return tar.extractfile(i + name).read()
+    except tarfile.ReadError as error:
+      raise_from(IOError('Error when reading %s' % f), error)
+  return None
 
 
 def GetManifestFromTar(f=None):

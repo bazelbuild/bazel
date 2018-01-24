@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -40,14 +41,16 @@ class SymlinkForest {
   private static final Logger logger = Logger.getLogger(SymlinkForest.class.getName());
   private static final boolean LOG_FINER = logger.isLoggable(Level.FINER);
 
-  private final ImmutableMap<PackageIdentifier, Path> packageRoots;
+  private final ImmutableMap<PackageIdentifier, Root> packageRoots;
   private final Path execroot;
   private final String workspaceName;
   private final String productName;
   private final String[] prefixes;
 
   SymlinkForest(
-      ImmutableMap<PackageIdentifier, Path> packageRoots, Path execroot, String productName,
+      ImmutableMap<PackageIdentifier, Root> packageRoots,
+      Path execroot,
+      String productName,
       String workspaceName) {
     this.packageRoots = packageRoots;
     this.execroot = execroot;
@@ -112,22 +115,23 @@ class SymlinkForest {
     // Create a sorted map of all dirs (packages and their ancestors) to sets of their roots.
     // Packages come from exactly one root, but their shared ancestors may come from more.
     // The map is maintained sorted lexicographically, so parents are before their children.
-    Map<PackageIdentifier, Set<Path>> dirRootsMap = Maps.newTreeMap();
-    for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
+    Map<PackageIdentifier, Set<Root>> dirRootsMap = Maps.newTreeMap();
+    for (Map.Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
-      Path pkgRoot = entry.getValue();
-      for (int i = 1; i <= pkgId.getPackageFragment().segmentCount(); i++) {
-        if (pkgId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
-          // This isn't a "real" package, don't add it to the symlink tree.
-          continue;
-        }
+      if (pkgId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+        // This isn't a "real" package, don't add it to the symlink tree.
+        continue;
+      }
+      Root pkgRoot = entry.getValue();
+      int segmentCount = pkgId.getPackageFragment().segmentCount();
+      for (int i = 1; i <= segmentCount; i++) {
         PackageIdentifier dir = createInRepo(pkgId, pkgId.getPackageFragment().subFragment(0, i));
-        Set<Path> roots = dirRootsMap.computeIfAbsent(dir, k -> Sets.newHashSet());
+        Set<Root> roots = dirRootsMap.computeIfAbsent(dir, k -> Sets.newHashSet());
         roots.add(pkgRoot);
       }
     }
     // Now add in roots for all non-pkg dirs that are in between two packages, and missed above.
-    for (Map.Entry<PackageIdentifier, Set<Path>> entry : dirRootsMap.entrySet()) {
+    for (Map.Entry<PackageIdentifier, Set<Root>> entry : dirRootsMap.entrySet()) {
       PackageIdentifier dir = entry.getKey();
       if (!packageRoots.containsKey(dir)) {
         PackageIdentifier pkgId = longestPathPrefix(dir, packageRoots.keySet());
@@ -137,7 +141,7 @@ class SymlinkForest {
       }
     }
     // Create output dirs for all dirs that have more than one root and need to be split.
-    for (Map.Entry<PackageIdentifier, Set<Path>> entry : dirRootsMap.entrySet()) {
+    for (Map.Entry<PackageIdentifier, Set<Root>> entry : dirRootsMap.entrySet()) {
       PackageIdentifier dir = entry.getKey();
       if (!dir.getRepository().isMain()) {
         FileSystemUtils.createDirectoryAndParents(
@@ -153,9 +157,9 @@ class SymlinkForest {
     }
 
     // Make dir links for single rooted dirs.
-    for (Map.Entry<PackageIdentifier, Set<Path>> entry : dirRootsMap.entrySet()) {
+    for (Map.Entry<PackageIdentifier, Set<Root>> entry : dirRootsMap.entrySet()) {
       PackageIdentifier dir = entry.getKey();
-      Set<Path> roots = entry.getValue();
+      Set<Root> roots = entry.getValue();
       // Simple case of one root for this dir.
       if (roots.size() == 1) {
         if (dir.getPackageFragment().segmentCount() > 1
@@ -163,7 +167,7 @@ class SymlinkForest {
           continue;  // skip--an ancestor will link this one in from above
         }
         // This is the top-most dir that can be linked to a single root. Make it so.
-        Path root = roots.iterator().next();  // lone root in set
+        Root root = roots.iterator().next(); // lone root in set
         if (LOG_FINER) {
           logger.finer(
               "ln -s "
@@ -176,13 +180,13 @@ class SymlinkForest {
       }
     }
     // Make links for dirs within packages, skip parent-only dirs.
-    for (Map.Entry<PackageIdentifier, Set<Path>> entry : dirRootsMap.entrySet()) {
+    for (Map.Entry<PackageIdentifier, Set<Root>> entry : dirRootsMap.entrySet()) {
       PackageIdentifier dir = entry.getKey();
       if (entry.getValue().size() > 1) {
         // If this dir is at or below a package dir, link in its contents.
         PackageIdentifier pkgId = longestPathPrefix(dir, packageRoots.keySet());
         if (pkgId != null) {
-          Path root = packageRoots.get(pkgId);
+          Root root = packageRoots.get(pkgId);
           try {
             Path absdir = root.getRelative(dir.getSourceRoot());
             if (absdir.isDirectory()) {
@@ -191,7 +195,7 @@ class SymlinkForest {
                     "ln -s " + absdir + "/* " + execroot.getRelative(dir.getSourceRoot()) + "/");
               }
               for (Path target : absdir.getDirectoryEntries()) {
-                PathFragment p = target.relativeTo(root);
+                PathFragment p = root.relativize(target);
                 if (!dirRootsMap.containsKey(createInRepo(pkgId, p))) {
                   //LOG.finest("ln -s " + target + " " + linkRoot.getRelative(p));
                   execroot.getRelative(p).createSymbolicLink(target);
@@ -208,7 +212,7 @@ class SymlinkForest {
       }
     }
 
-    for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
+    for (Map.Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;

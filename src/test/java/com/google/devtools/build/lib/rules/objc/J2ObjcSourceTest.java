@@ -17,9 +17,10 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,12 +32,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class J2ObjcSourceTest {
-  private Root rootDir;
+  private ArtifactRoot rootDir;
 
   @Before
   public final void setRootDir() throws Exception  {
     Scratch scratch = new Scratch();
-    rootDir = Root.asDerivedRoot(scratch.dir("/exec/root"));
+    Path execRoot = scratch.getFileSystem().getPath("/exec");
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/root"));
   }
 
   @Test

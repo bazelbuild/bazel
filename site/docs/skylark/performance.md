@@ -179,6 +179,17 @@ ctx.actions.run(
 )
 ```
 
+## Performance profiling
+
+To profile your code and analyze the performance, use the `--profile` flag:
+
+```
+$ bazel build --nobuild --profile=/tmp/prof //path/to:target
+$ bazel analyze-profile /tmp/prof --html --html_details
+```
+
+Then, open the generated HTML file (`/tmp/prof.html` in the example).
+
 ## Memory Profiling
 
 Bazel comes with a built-in memory profiler that can help you check your rule's

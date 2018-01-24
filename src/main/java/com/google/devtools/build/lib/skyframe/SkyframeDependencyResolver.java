@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -35,7 +36,6 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -126,8 +126,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Nullable
   @Override
   protected List<BuildConfiguration> getConfigurations(
-      Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-      Iterable<BuildOptions> buildOptions)
+      FragmentClassSet fragments, Iterable<BuildOptions> buildOptions)
       throws InvalidConfigurationException, InterruptedException {
     List<SkyKey> keys = new ArrayList<>();
     for (BuildOptions options : buildOptions) {

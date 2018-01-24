@@ -17,8 +17,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -61,7 +61,7 @@ public abstract class PackageLookupValue implements SkyValue {
   protected PackageLookupValue() {
   }
 
-  public static PackageLookupValue success(Path root, BuildFileName buildFileName) {
+  public static PackageLookupValue success(Root root, BuildFileName buildFileName) {
     return new SuccessfulPackageLookupValue(root, buildFileName);
   }
 
@@ -75,10 +75,10 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /**
-   * For a successful package lookup, returns the root (package path entry) that the package
-   * resides in.
+   * For a successful package lookup, returns the root (package path entry) that the package resides
+   * in.
    */
-  public abstract Path getRoot();
+  public abstract Root getRoot();
 
   /** For a successful package lookup, returns the build file name that the package uses. */
   public abstract BuildFileName getBuildFileName();
@@ -120,10 +120,10 @@ public abstract class PackageLookupValue implements SkyValue {
   /** Successful lookup value. */
   public static class SuccessfulPackageLookupValue extends PackageLookupValue {
 
-    private final Path root;
+    private final Root root;
     private final BuildFileName buildFileName;
 
-    private SuccessfulPackageLookupValue(Path root, BuildFileName buildFileName) {
+    private SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
       this.root = root;
       this.buildFileName = buildFileName;
     }
@@ -134,7 +134,7 @@ public abstract class PackageLookupValue implements SkyValue {
     }
 
     @Override
-    public Path getRoot() {
+    public Root getRoot() {
       return root;
     }
 
@@ -176,7 +176,7 @@ public abstract class PackageLookupValue implements SkyValue {
     }
 
     @Override
-    public Path getRoot() {
+    public Root getRoot() {
       throw new IllegalStateException();
     }
 

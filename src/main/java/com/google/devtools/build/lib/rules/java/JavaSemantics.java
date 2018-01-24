@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -116,6 +116,8 @@ public interface JavaSemantics {
   public static final String ANDROID_JAVACOPTS_KEY = "android";
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
   public static final String PROTO_JAVACOPTS_KEY = "proto";
+  /** The java_toolchain.compatible_javacopts key for testonly compilations. */
+  public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
   LateBoundDefault<?, Label> JAVA_TOOLCHAIN =
       LateBoundDefault.fromTargetConfiguration(
@@ -127,29 +129,29 @@ public interface JavaSemantics {
    * Name of the output group used for source jars.
    */
   String SOURCE_JARS_OUTPUT_GROUP =
-      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
+      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
   /**
    * Name of the output group used for gen jars (the jars containing the class files for sources
    * generated from annotation processors).
    */
   String GENERATED_JARS_OUTPUT_GROUP =
-      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
+      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /** Implementation for the :jvm attribute. */
   static LateBoundDefault<?, Label> jvmAttribute(RuleDefinitionEnvironment env) {
     return LateBoundDefault.fromTargetConfiguration(
-        Jvm.class,
+        JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
-        (rule, attributes, jvm) -> jvm.getJvmLabel());
+        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /** Implementation for the :host_jdk attribute. */
   static LateBoundDefault<?, Label> hostJdkAttribute(RuleDefinitionEnvironment env) {
     return LateBoundDefault.fromHostConfiguration(
-        Jvm.class,
+        JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (rule, attributes, jvm) -> jvm.getJvmLabel());
+        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /**

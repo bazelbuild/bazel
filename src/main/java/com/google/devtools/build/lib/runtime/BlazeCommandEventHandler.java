@@ -27,6 +27,7 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
@@ -359,6 +360,6 @@ public class BlazeCommandEventHandler implements EventHandler {
    * @return a string representing the current time, eg "04-26 13:47:32.124".
    */
   protected String timestamp() {
-    return TIMESTAMP_FORMAT.format(ZonedDateTime.now());
+    return TIMESTAMP_FORMAT.format(ZonedDateTime.now(ZoneId.systemDefault()));
   }
 }

@@ -24,9 +24,12 @@ public final class AndroidManifestMergeHelper {
 
   private AndroidManifestMergeHelper() {}
 
-  public static void createMergeManifestAction(RuleContext ruleContext,
-      Artifact merger, Iterable<Artifact> mergees,
-      Collection<String> excludePermissions, Artifact mergedManifest) {
+  public static void createMergeManifestAction(
+      RuleContext ruleContext,
+      Artifact merger,
+      Iterable<Artifact> mergees,
+      Collection<String> excludePermissions,
+      Artifact mergedManifest) {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
     commandLine.addPrefixedExecPath("--merger=", merger);
     for (Artifact mergee : mergees) {
@@ -51,4 +54,3 @@ public final class AndroidManifestMergeHelper {
             .build(ruleContext));
   }
 }
-

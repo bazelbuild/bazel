@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -158,8 +158,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             try {
               // Check the file cache for input TreeFileArtifacts.
               ActionInputFileCache fileCache = actionExecutionContext.getActionInputFileCache();
-              assertThat(fileCache.getMetadata(outOneFileOne).isFile()).isTrue();
-              assertThat(fileCache.getMetadata(outOneFileTwo).isFile()).isTrue();
+              assertThat(fileCache.getMetadata(outOneFileOne).getType().isFile()).isTrue();
+              assertThat(fileCache.getMetadata(outOneFileTwo).getType().isFile()).isTrue();
 
               // Touch the action output.
               touchFile(normalOutput);
@@ -1182,7 +1182,10 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     Path path = execRoot.getRelative(execPath);
     return new SpecialArtifact(
-        path, Root.asDerivedRoot(execRoot, execRoot.getRelative("out")), execPath, ALL_OWNER,
+        path,
+        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
+        execPath,
+        ACTION_LOOKUP_KEY,
         SpecialArtifactType.TREE);
   }
 

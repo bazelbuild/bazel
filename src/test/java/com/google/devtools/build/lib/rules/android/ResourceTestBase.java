@@ -21,13 +21,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -156,13 +157,13 @@ public abstract class ResourceTestBase {
 
   public FakeRuleErrorConsumer errorConsumer;
   public FileSystem fileSystem;
-  public Root root;
+  public ArtifactRoot root;
 
   @Before
   public void setup() {
     errorConsumer = new FakeRuleErrorConsumer();
     fileSystem = new InMemoryFileSystem();
-    root = Root.asDerivedRoot(fileSystem.getRootDirectory());
+    root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
   }
 
   @After
@@ -182,6 +183,6 @@ public abstract class ResourceTestBase {
   public Artifact getResource(String pathString) {
     Path path = fileSystem.getPath("/" + RESOURCE_ROOT + "/" + pathString);
     return new Artifact(
-        path, root, root.getExecPath().getRelative(path.relativeTo(root.getPath())), OWNER);
+        path, root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
   }
 }

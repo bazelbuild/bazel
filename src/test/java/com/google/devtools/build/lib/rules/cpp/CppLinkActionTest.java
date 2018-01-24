@@ -23,9 +23,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -44,11 +50,15 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,7 +82,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root) {
+          public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
           }
@@ -93,15 +103,13 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 /* supportsInterfaceSharedLibraries= */ false),
             CppActionConfigs.getFeaturesToAppearLastInToolchain(ImmutableSet.of()))
         .getFeatureConfiguration(
-            FeatureSpecification.create(
-                ImmutableSet.of(
-                    Link.LinkTargetType.EXECUTABLE.getActionName(),
-                    Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-                    Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
-                    Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
-                    Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
-                    Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName()),
-                ImmutableSet.<String>of()));
+            ImmutableSet.of(
+                Link.LinkTargetType.EXECUTABLE.getActionName(),
+                Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
+                Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
+                Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
+                Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
+                Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName()));
   }
 
   @Test
@@ -117,9 +125,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "   }",
                 "}")
             .getFeatureConfiguration(
-                FeatureSpecification.create(
-                    ImmutableSet.of("a", Link.LinkTargetType.EXECUTABLE.getActionName()),
-                    ImmutableSet.<String>of()));
+                ImmutableSet.of("a", Link.LinkTargetType.EXECUTABLE.getActionName()));
 
     CppLinkAction linkAction =
         createLinkBuilder(
@@ -144,9 +150,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "      execution_requirement: 'dummy-exec-requirement'",
                 "   }",
                 "}")
-            .getFeatureConfiguration(
-                FeatureSpecification.create(
-                    ImmutableSet.of(LinkTargetType.EXECUTABLE.getActionName()), ImmutableSet.of()));
+            .getFeatureConfiguration(ImmutableSet.of(LinkTargetType.EXECUTABLE.getActionName()));
 
     CppLinkAction linkAction =
         createLinkBuilder(
@@ -266,9 +270,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "   }",
                 "}")
             .getFeatureConfiguration(
-                FeatureSpecification.create(
-                    ImmutableSet.of(Link.LinkTargetType.EXECUTABLE.getActionName(), "a"),
-                    ImmutableSet.<String>of()));
+                ImmutableSet.of(Link.LinkTargetType.EXECUTABLE.getActionName(), "a"));
 
     CppLinkAction linkAction =
         createLinkBuilder(
@@ -522,17 +524,20 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   public Artifact getOutputArtifact(String relpath) {
     return new Artifact(
-        getTargetConfiguration().getBinDirectory(RepositoryName.MAIN).getPath()
+        getTargetConfiguration()
+            .getBinDirectory(RepositoryName.MAIN)
+            .getRoot()
             .getRelative(relpath),
         getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
         getTargetConfiguration().getBinFragment().getRelative(relpath));
   }
 
   private Artifact scratchArtifact(String s) {
+    Path execRoot = outputBase.getRelative("exec");
+    Path outputRoot = execRoot.getRelative("out");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
     try {
-      return new Artifact(
-          scratch.overwriteFile(outputBase.getRelative("WORKSPACE").getRelative(s).toString()),
-          Root.asDerivedRoot(scratch.dir(outputBase.getRelative("WORKSPACE").toString())));
+      return new Artifact(scratch.overwriteFile(outputRoot.getRelative(s).toString()), root);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -596,12 +601,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "   implies: 'dynamic_library_linker_tool'",
                 "}")
             .getFeatureConfiguration(
-                FeatureSpecification.create(
-                    ImmutableSet.of(
-                        "build_interface_libraries",
-                        "dynamic_library_linker_tool",
-                        LinkTargetType.DYNAMIC_LIBRARY.getActionName()),
-                    ImmutableSet.<String>of()));
+                ImmutableSet.of(
+                    "build_interface_libraries",
+                    "dynamic_library_linker_tool",
+                    LinkTargetType.DYNAMIC_LIBRARY.getActionName()));
     CppLinkActionBuilder builder =
         createLinkBuilder(
                 LinkTargetType.DYNAMIC_LIBRARY,
@@ -612,13 +615,13 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput.ifso"));
 
-    List<String> commandLine = builder.build().getCommandLine();
+    List<String> commandLine = builder.build().getCommandLine(null);
     assertThat(commandLine).hasSize(6);
     assertThat(commandLine.get(0)).endsWith("custom/crosstool/scripts/link_dynamic_library.sh");
     assertThat(commandLine.get(1)).isEqualTo("yes");
     assertThat(commandLine.get(2)).endsWith("tools/cpp/build_interface_so");
     assertThat(commandLine.get(3)).endsWith("foo.so");
-    assertThat(commandLine.get(4)).isEqualTo("FakeInterfaceOutput.ifso");
+    assertThat(commandLine.get(4)).isEqualTo("out/FakeInterfaceOutput.ifso");
     assertThat(commandLine.get(5)).isEqualTo("dynamic_library_linker_tool");
   }
 
@@ -663,5 +666,66 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setWholeArchive(true);
 
     assertError("the need whole archive flag must be false for static links", builder);
+  }
+
+  private Artifact createTreeArtifact(String name) {
+    FileSystem fs = scratch.getFileSystem();
+    Path execRoot = fs.getPath(TestUtils.tmpDir());
+    PathFragment execPath = PathFragment.create("out").getRelative(name);
+    Path path = execRoot.getRelative(execPath);
+    return new SpecialArtifact(
+        path,
+        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
+        execPath,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
+        SpecialArtifactType.TREE);
+  }
+
+  private void verifyArguments(
+      Iterable<String> arguments,
+      Iterable<String> allowedArguments,
+      Iterable<String> disallowedArguments) {
+    assertThat(arguments).containsAllIn(allowedArguments);
+    assertThat(arguments).containsNoneIn(disallowedArguments);
+  }
+
+  @Test
+  public void testLinksTreeArtifactLibraries() throws Exception {
+    Artifact testTreeArtifact = createTreeArtifact("library_directory");
+
+    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+
+    ArtifactExpander expander =
+        new ArtifactExpander() {
+          @Override
+          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+            if (artifact.equals(testTreeArtifact)) {
+              output.add(library0);
+              output.add(library1);
+            }
+          };
+        };
+
+    CppLinkActionBuilder builder =
+        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+            .setLibraryIdentifier("foo")
+            .addObjectFiles(ImmutableList.of(testTreeArtifact))
+            // Makes sure this doesn't use a params file.
+            .setFake(true);
+
+    CppLinkAction linkAction = builder.build();
+
+    Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
+    Iterable<String> treeFileArtifactsPaths =
+        ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
+
+    // Should only reference the tree artifact.
+    verifyArguments(linkAction.getCommandLine(null), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(linkAction.getArguments(), treeArtifactsPaths, treeFileArtifactsPaths);
+
+    // Should only reference tree file artifacts.
+    verifyArguments(
+        linkAction.getCommandLine(expander), treeFileArtifactsPaths, treeArtifactsPaths);
   }
 }

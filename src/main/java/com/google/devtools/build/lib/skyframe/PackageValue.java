@@ -19,18 +19,22 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageCodecDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A Skyframe value representing a package.
- */
+/** A Skyframe value representing a package. */
+@AutoCodec(dependency = PackageCodecDependencies.class)
 @Immutable
 @ThreadSafe
 public class PackageValue implements NotComparableSkyValue {
+  public static final InjectingObjectCodec<PackageValue, PackageCodecDependencies> CODEC =
+      new PackageValue_AutoCodec();
 
   private final Package pkg;
 
@@ -65,5 +69,4 @@ public class PackageValue implements NotComparableSkyValue {
     }
     return keys;
   }
-
 }

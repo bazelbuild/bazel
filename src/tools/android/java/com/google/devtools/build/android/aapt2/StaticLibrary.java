@@ -57,13 +57,8 @@ public class StaticLibrary {
     return new StaticLibrary(library, rTxt, assets, sourceJar);
   }
 
-  public static StaticLibrary from(
-      Path library, Path rTxt, ImmutableList<Path> assetDirs) {
-    return of(
-        library,
-        Optional.ofNullable(rTxt),
-        Optional.ofNullable(assetDirs),
-        Optional.empty());
+  public static StaticLibrary from(Path library, Path rTxt, ImmutableList<Path> assetDirs) {
+    return of(library, Optional.ofNullable(rTxt), Optional.ofNullable(assetDirs), Optional.empty());
   }
 
   public static StaticLibrary from(

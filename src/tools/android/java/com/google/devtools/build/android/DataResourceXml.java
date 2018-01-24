@@ -58,9 +58,8 @@ import javax.xml.stream.events.StartElement;
 /**
  * Represents an Android Resource defined in the xml and value folder.
  *
- * <p>
- * Basically, if the resource is defined inside a &lt;resources&gt; tag, this class will handle it.
- * Layouts are treated separately as they don't declare anything besides ids.
+ * <p>Basically, if the resource is defined inside a &lt;resources&gt; tag, this class will handle
+ * it. Layouts are treated separately as they don't declare anything besides ids.
  */
 public class DataResourceXml implements DataResource {
 
@@ -88,8 +87,7 @@ public class DataResourceXml implements DataResource {
       throws XMLStreamException, FactoryConfigurationError, IOException {
     XMLEventReader eventReader =
         xmlInputFactory.createXMLEventReader(
-            new BufferedInputStream(Files.newInputStream(path)),
-              StandardCharsets.UTF_8.toString());
+            new BufferedInputStream(Files.newInputStream(path)), StandardCharsets.UTF_8.toString());
     try {
       // TODO(corysmith): Make the xml parsing more readable.
       for (StartElement resources = XmlResourceValues.moveToResources(eventReader);
@@ -104,15 +102,12 @@ public class DataResourceXml implements DataResource {
               attribute.getName().getNamespaceURI().isEmpty()
                   ? attribute.getName().getLocalPart()
                   : attribute.getName().getPrefix() + ":" + attribute.getName().getLocalPart();
-          FullyQualifiedName fqn = fqnFactory.create(
-                VirtualType.RESOURCES_ATTRIBUTE,
-                attribute.getName().toString());
+          FullyQualifiedName fqn =
+              fqnFactory.create(VirtualType.RESOURCES_ATTRIBUTE, attribute.getName().toString());
           ResourcesAttribute resourceAttribute =
               ResourcesAttribute.of(fqn, attributeName, attribute.getValue());
-          DataResourceXml resource = DataResourceXml.createWithNamespaces(
-                path,
-                resourceAttribute,
-                namespaces);
+          DataResourceXml resource =
+              DataResourceXml.createWithNamespaces(path, resourceAttribute, namespaces);
           if (resourceAttribute.isCombining()) {
             combiningConsumer.accept(fqn, resource);
           } else {
@@ -172,9 +167,21 @@ public class DataResourceXml implements DataResource {
       throws InvalidProtocolBufferException {
     DataValueXml xmlValue = protoValue.getXmlValue();
     return createWithNamespaces(
-        source,
-        valueFromProto(xmlValue),
-        Namespaces.from(xmlValue.getNamespace()));
+        source, valueFromProto(xmlValue), Namespaces.from(xmlValue.getNamespace()));
+  }
+
+  public static DataResourceXml from(
+      Value protoValue,
+      DataSource source,
+      ResourceType resourceType,
+      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      throws InvalidProtocolBufferException {
+    DataResourceXml dataResourceXml =
+        createWithNamespaces(
+            source,
+            valueFromProto(protoValue, resourceType, fullyQualifiedNames),
+            Namespaces.empty());
+    return dataResourceXml;
   }
 
   private static XmlResourceValue valueFromProto(SerializeFormat.DataValueXml proto)
@@ -204,19 +211,6 @@ public class DataResourceXml implements DataResource {
     }
   }
 
-  public static DataResourceXml from(
-      Value protoValue,
-      DataSource source,
-      ResourceType resourceType,
-      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
-      throws InvalidProtocolBufferException {
-    DataResourceXml dataResourceXml = createWithNamespaces(
-        source,
-        valueFromProto(protoValue, resourceType, fullyQualifiedNames),
-        Namespaces.empty());
-    return dataResourceXml;
-  }
-
   private static XmlResourceValue valueFromProto(
       Value proto,
       ResourceType resourceType,
@@ -231,8 +225,6 @@ public class DataResourceXml implements DataResource {
         return PluralXmlResourceValue.from(proto);
       case ATTR:
         return AttrXmlResourceValue.from(proto);
-      case PUBLIC:
-        throw new RuntimeException();
       case STYLEABLE:
         return StyleableXmlResourceValue.from(proto, fullyQualifiedNames);
       case ID:
@@ -258,6 +250,13 @@ public class DataResourceXml implements DataResource {
       default:
         throw new IllegalArgumentException();
     }
+  }
+
+  public static DataResourceXml fromPublic(DataSource source, ResourceType resourceType, int id) {
+    DataResourceXml dataResourceXml =
+        createWithNamespaces(
+            source, PublicXmlResourceValue.from(resourceType, id), Namespaces.empty());
+    return dataResourceXml;
   }
 
   private static XmlResourceValue parseXmlElements(
@@ -331,15 +330,14 @@ public class DataResourceXml implements DataResource {
     return createWithNamespaces(sourcePath, xml, ImmutableMap.<String, String>of());
   }
 
-  public static DataResourceXml createWithNamespaces(
-      Path sourcePath, XmlResourceValue xml, ImmutableMap<String, String> prefixToUri) {
-    return createWithNamespaces(sourcePath, xml, Namespaces.from(prefixToUri));
-  }
-  
   public static DataResourceXml createWithNoNamespace(DataSource source, XmlResourceValue xml) {
     return new DataResourceXml(source, xml, Namespaces.empty());
   }
 
+  public static DataResourceXml createWithNamespaces(
+      Path sourcePath, XmlResourceValue xml, ImmutableMap<String, String> prefixToUri) {
+    return createWithNamespaces(sourcePath, xml, Namespaces.from(prefixToUri));
+  }
 
   public static DataResourceXml createWithNamespaces(
       DataSource source, XmlResourceValue xml, Namespaces namespaces) {
@@ -418,7 +416,7 @@ public class DataResourceXml implements DataResource {
     }
     return createWithNamespaces(source.overwrite(resource.source()), xml, namespaces);
   }
-  
+
   @Override
   public DataValue update(DataSource source) {
     return createWithNamespaces(source, xml, namespaces);

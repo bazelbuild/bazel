@@ -118,7 +118,7 @@ public final class HelpCommand implements BlazeCommand {
 
     @Option(
       name = "use_new_category_enum",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL}

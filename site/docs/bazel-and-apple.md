@@ -13,7 +13,7 @@ using Bazel to build and test for those platforms.
 
 - [Working with Bazel](#working-with-bazel)
 - [Migrating to Bazel](#migrating-to-bazel)
-- [Apple apps and Skylark](#apple-apps-and-skylark)
+- [Apple apps and new rules](#apple-apps-and-new-rules)
 
 ## Working with Bazel
 
@@ -31,14 +31,14 @@ in the migration guide to start building them with Bazel:
 
 *  [Migrating from Xcode to Bazel](migrate-xcode.html)
 
-## Apple apps and Skylark
+## Apple apps and new rules
 
-**Note**: Extending Bazel with Skylark is for advanced build and test scenarios.
-You do not need to use Skylark when getting started with Bazel.
+**Note**: Creating new rules is for advanced build and test scenarios.
+You do not need it when getting started with Bazel.
 
-The following [Skylark](https://docs.bazel.build/versions/master/skylark/concepts.html)
-modules, configuration fragments, and providers will help you extend Bazel's
-capabilities when building your macOS and iOS projects:
+The following modules, configuration fragments, and providers will help you
+[extend Bazel's capabilities](https://docs.bazel.build/versions/master/skylark/concepts.html)
+when building your macOS and iOS projects:
 
 *  Modules:
 

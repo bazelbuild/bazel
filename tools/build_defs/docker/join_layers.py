@@ -53,10 +53,10 @@ def _add_top(tar, repositories):
   # Walk the single-item dictionary, and if there is a single tag
   # for the single repository, then emit a 'top' file pointing to
   # the single image in this bundle.
-  for (unused_x, tags) in repositories.iteritems():
+  for (unused_x, tags) in repositories.items():
     if len(tags) != 1:
       continue
-    for (unused_y, layer_id) in tags.iteritems():
+    for (unused_y, layer_id) in tags.items():
       tar.add_file('top', content=layer_id)
 
 

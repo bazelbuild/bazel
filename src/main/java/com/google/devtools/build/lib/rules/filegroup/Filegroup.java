@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.rules.filegroup;
 
-import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -128,9 +128,9 @@ public class Filegroup implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
 
     for (TransitiveInfoCollection dep : deps) {
-      OutputGroupProvider outputGroupProvider = OutputGroupProvider.get(dep);
-      if (outputGroupProvider != null) {
-        result.addTransitive(outputGroupProvider.getOutputGroup(outputGroupName));
+      OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(dep);
+      if (outputGroupInfo != null) {
+        result.addTransitive(outputGroupInfo.getOutputGroup(outputGroupName));
       }
     }
 

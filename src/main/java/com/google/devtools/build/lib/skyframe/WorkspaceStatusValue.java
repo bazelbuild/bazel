@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * Value that stores the workspace status artifacts and their generating action. There should be
@@ -33,8 +30,7 @@ public class WorkspaceStatusValue extends ActionLookupValue {
   private final Artifact volatileArtifact;
 
   // There should only ever be one BuildInfo value in the graph.
-  static final ArtifactOwner ARTIFACT_OWNER = new BuildInfoKey();
-  public static final SkyKey SKY_KEY = LegacySkyKey.create(SkyFunctions.BUILD_INFO, ARTIFACT_OWNER);
+  public static final BuildInfoKey BUILD_INFO_KEY = new BuildInfoKey();
 
   WorkspaceStatusValue(
       ActionKeyContext actionKeyContext,
@@ -55,15 +51,13 @@ public class WorkspaceStatusValue extends ActionLookupValue {
     return volatileArtifact;
   }
 
-  private static class BuildInfoKey extends ActionLookupKey {
-    @Override
-    protected SkyFunctionName getType() {
-      throw new UnsupportedOperationException();
-    }
+  static class BuildInfoKey extends ActionLookupKey {
+    private BuildInfoKey() {}
 
     @Override
-    protected SkyKey getSkyKeyInternal() {
-      return SKY_KEY;
+    public SkyFunctionName functionName() {
+      return SkyFunctions.BUILD_INFO;
     }
+
   }
 }

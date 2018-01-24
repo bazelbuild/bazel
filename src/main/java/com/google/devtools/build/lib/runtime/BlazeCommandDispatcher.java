@@ -277,7 +277,8 @@ public class BlazeCommandDispatcher {
         new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
-    CommandEnvironment env = workspace.initCommand(commandAnnotation, options);
+    List<String> commandEnvWarnings = new ArrayList<>();
+    CommandEnvironment env = workspace.initCommand(commandAnnotation, options, commandEnvWarnings);
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
 
@@ -419,6 +420,9 @@ public class BlazeCommandDispatcher {
         module.checkEnvironment(env);
       }
 
+      for (String warning : commandEnvWarnings) {
+        reporter.handle(Event.warn(warning));
+      }
       if (commonOptions.announceRcOptions) {
         if (startupOptionsTaggedWithBazelRc.isPresent()) {
           String lastBlazerc = "";

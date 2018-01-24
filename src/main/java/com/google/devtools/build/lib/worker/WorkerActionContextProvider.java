@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 
@@ -45,7 +47,8 @@ final class WorkerActionContextProvider extends ActionContextProvider {
             env.getReporter(),
             createFallbackRunner(env));
 
-    WorkerSpawnStrategy workerSpawnStrategy = new WorkerSpawnStrategy(spawnRunner);
+    WorkerSpawnStrategy workerSpawnStrategy =
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner);
     TestActionContext workerTestStrategy =
         new WorkerTestStrategy(env, env.getOptions(), workers, extraFlags);
     this.strategies = ImmutableList.of(workerSpawnStrategy, workerTestStrategy);
@@ -56,10 +59,10 @@ final class WorkerActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider()
+            ? new XCodeLocalEnvProvider(env.getClientEnv())
             : (OS.getCurrent() == OS.WINDOWS
-                ? LocalEnvProvider.ADD_TEMP_WINDOWS
-                : LocalEnvProvider.ADD_TEMP_POSIX);
+                ? new WindowsLocalEnvProvider(env.getClientEnv())
+                : new PosixLocalEnvProvider(env.getClientEnv()));
     return new LocalSpawnRunner(
         env.getExecRoot(),
         localExecutionOptions,

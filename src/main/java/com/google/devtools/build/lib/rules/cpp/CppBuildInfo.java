@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -69,7 +68,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
       BuildConfiguration config, PathFragment headerName,
       Collection<Artifact> inputs,
       boolean writeVolatileInfo, boolean writeNonVolatileInfo, RepositoryName repositoryName) {
-    Root outputPath = config.getIncludeDirectory(repositoryName);
+    ArtifactRoot outputPath = config.getIncludeDirectory(repositoryName);
     final Artifact header =
         buildInfoContext.getBuildInfoArtifact(headerName, outputPath,
             writeVolatileInfo && !inputs.isEmpty()

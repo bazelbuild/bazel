@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -57,7 +58,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
             .modify(PathFragment.create("eval/BUILD"))
             .modify(PathFragment.create("eval/eval.bzl"))
             .build(),
-        rootDirectory);
+        Root.fromPath(rootDirectory));
 
     ConfiguredTarget target = getConfiguredTarget("//eval");
     return target.get("result");
@@ -83,7 +84,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
             .modify(PathFragment.create("eval/BUILD"))
             .modify(PathFragment.create("eval/eval.bzl"))
             .build(),
-        rootDirectory);
+        Root.fromPath(rootDirectory));
 
     ConfiguredTarget target = getConfiguredTarget("//eval");
     return target.get("result");

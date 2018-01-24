@@ -72,6 +72,7 @@ public final class ActionInputHelper {
 
     public BasicActionInput(String path) {
       this.path = Preconditions.checkNotNull(path);
+      Preconditions.checkArgument(!path.isEmpty());
     }
 
     @Override

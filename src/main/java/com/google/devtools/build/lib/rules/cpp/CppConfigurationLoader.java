@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
@@ -57,14 +56,13 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     return ImmutableSet.<Class<? extends FragmentOptions>>of(CppOptions.class);
   }
 
-  private final Function<String, String> cpuTransformer;
+  private final CpuTransformer cpuTransformer;
 
   /**
-   * Creates a new CrosstoolConfigurationLoader instance with the given
-   * configuration provider. The configuration provider is used to perform
-   * caller-specific configuration file lookup.
+   * Creates a new CrosstoolConfigurationLoader instance with the given configuration provider. The
+   * configuration provider is used to perform caller-specific configuration file lookup.
    */
-  public CppConfigurationLoader(Function<String, String> cpuTransformer) {
+  public CppConfigurationLoader(CpuTransformer cpuTransformer) {
     this.cpuTransformer = cpuTransformer;
   }
 
@@ -75,7 +73,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     if (params == null) {
       return null;
     }
-    return new CppConfiguration(params);
+    return CppConfiguration.create(params);
   }
 
   /**
@@ -92,7 +90,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final Label stlLabel;
     protected final Path fdoZip;
     protected final Label sysrootLabel;
-    protected final Function<String, String> cpuTransformer;
+    protected final CpuTransformer cpuTransformer;
 
     CppConfigurationParameters(
         CrosstoolConfig.CToolchain toolchain,
@@ -104,7 +102,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         Label ccToolchainLabel,
         Label stlLabel,
         Label sysrootLabel,
-        Function<String, String> cpuTransformer) {
+        CpuTransformer cpuTransformer) {
       this.toolchain = toolchain;
       this.crosstoolFile = crosstoolFile;
       this.cacheKeySuffix = cacheKeySuffix;
@@ -148,7 +146,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       return null;
     }
     CrosstoolConfig.CToolchain toolchain =
-        CrosstoolConfigurationLoader.selectToolchain(file.getProto(), options, cpuTransformer);
+        CrosstoolConfigurationLoader.selectToolchain(
+            file.getProto(), options, cpuTransformer.getTransformer());
 
     // FDO
     // TODO(bazel-team): move this to CppConfiguration.prepareHook

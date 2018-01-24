@@ -157,7 +157,7 @@ public final class JavaUtil {
   public static PathFragment getJavaPath(PathFragment path) {
     int index = javaSegmentIndex(path);
     if (index >= 0) {
-      return path.subFragment(index + 1, path.segmentCount());
+      return path.subFragment(index + 1);
     }
     return null;
   }

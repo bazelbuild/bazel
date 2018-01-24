@@ -5,7 +5,6 @@
 #include <iostream>
 #include <string>
 
-#include "src/main/cpp/util/file_platform.h"
 #include "third_party/def_parser/def_parser.h"
 
 static const char* ws = " \t\n\r\f\v";
@@ -38,8 +37,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  std::wstring filenameW;
-  blaze_util::AsAbsoluteWindowsPath(argv[1], &filenameW);
+  std::wstring filenameW = AsAbsoluteWindowsPath(argv[1]);
   FILE* fout = _wfopen(filenameW.c_str(), L"w+");
   if (!fout) {
     std::cerr << "Could not open output .def file: " << argv[1] << "\n";
@@ -53,7 +51,7 @@ int main(int argc, char* argv[]) {
   for (int i = 3; i < argc; i++) {
     // If the argument starts with @, then treat it as a parameter file.
     if (argv[i][0] == '@') {
-      blaze_util::AsAbsoluteWindowsPath(argv[i] + 1, &filenameW);
+      filenameW = AsAbsoluteWindowsPath(argv[i] + 1);
       std::ifstream paramfile(filenameW.c_str(), std::ios::in | std::ios::binary);
       if (!paramfile) {
         std::cerr << "Could not open parameter file: " << argv[i] << "\n";

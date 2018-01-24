@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.cpp.transitions;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LipoConfigurationState;
 
@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions.LipoConfigurationState
  * <p>The context collector creates C++ output artifacts but doesn't create the actions that
  * generate those artifacts (this is what {@link BuildConfiguration#isActionsEnabled()} means).
  * Those actions are the responsibility of the target configuration. This transition produces that
- * config so artifacts created by the context collector can be associated with the the right
- * "owner". Also see {@link BuildConfiguration#getArtifactOwnerTransition()}.
+ * config so artifacts created by the context collector can be associated with the right "owner".
+ * Also see {@link BuildConfiguration#getArtifactOwnerTransition()}.
  *
  * <p>This is a no-op for all configurations but the context collector.
  */

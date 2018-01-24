@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -186,6 +187,7 @@ public class CppCompileAction extends AbstractAction
   @VisibleForTesting public final CompileCommandLine compileCommandLine;
   private final ImmutableMap<String, String> executionInfo;
   private final ImmutableMap<String, String> environment;
+  private final String actionName;
 
   @VisibleForTesting final CppConfiguration cppConfiguration;
   private final FeatureConfiguration featureConfiguration;
@@ -330,6 +332,7 @@ public class CppCompileAction extends AbstractAction
     this.actionClassId = actionClassId;
     this.executionInfo = executionInfo;
     this.environment = environment;
+    this.actionName = actionName;
 
     // We do not need to include the middleman artifact since it is a generated
     // artifact and will definitely exist prior to this action execution.
@@ -381,7 +384,7 @@ public class CppCompileAction extends AbstractAction
     // discarded as orphans.
     // This is strictly better than marking all transitive modules as inputs, which would also
     // effectively disable orphan detection for .pcm files.
-    if (CppFileTypes.CPP_MODULE.matches(outputFile.getFilename())) {
+    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       return ImmutableSet.of(outputFile);
     }
     return super.getMandatoryOutputs();
@@ -447,7 +450,7 @@ public class CppCompileAction extends AbstractAction
 
     if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
-      if (CppFileTypes.CPP_MODULE.matches(sourceFile.getFilename())) {
+      if (sourceFile.isFileType(CppFileTypes.CPP_MODULE)) {
         usedModules = ImmutableSet.of(sourceFile);
         initialResultSet.add(sourceFile);
       } else {
@@ -474,7 +477,7 @@ public class CppCompileAction extends AbstractAction
     }
     Map<Artifact, SkyKey> skyKeys = new HashMap<>();
     for (Artifact artifact : this.usedModules) {
-      skyKeys.put(artifact, ActionLookupValue.key((ActionLookupKey) artifact.getArtifactOwner()));
+      skyKeys.put(artifact, (ActionLookupKey) artifact.getArtifactOwner());
     }
     Map<SkyKey, SkyValue> skyValues = env.getValues(skyKeys.values());
     Set<Artifact> additionalModules = Sets.newLinkedHashSet();
@@ -485,7 +488,7 @@ public class CppCompileAction extends AbstractAction
           value, "Owner %s of %s not in graph %s", artifact.getArtifactOwner(), artifact, skyKey);
       // We can get the generating action here because #canRemoveAfterExecution is overridden.
       Preconditions.checkState(
-          CppFileTypes.CPP_MODULE.matches(artifact.getFilename()),
+          artifact.isFileType(CppFileTypes.CPP_MODULE),
           "Non-module? %s (%s %s)",
           artifact,
           this,
@@ -493,7 +496,7 @@ public class CppCompileAction extends AbstractAction
       CppCompileAction action =
           (CppCompileAction) value.getGeneratingActionDangerousReadJavadoc(artifact);
       for (Artifact input : action.getInputs()) {
-        if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+        if (input.isFileType(CppFileTypes.CPP_MODULE)) {
           additionalModules.add(input);
         }
       }
@@ -631,7 +634,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Artifact getMainIncludeScannerSource() {
-    return CppFileTypes.CPP_MODULE_MAP.matches(getSourceFile().getPath())
+    return getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)
         ? Iterables.getFirst(context.getHeaderModuleSrcs(), null)
         : getSourceFile();
   }
@@ -639,7 +642,7 @@ public class CppCompileAction extends AbstractAction
   @Override
   public Collection<Artifact> getIncludeScannerSources() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (CppFileTypes.CPP_MODULE_MAP.matches(getSourceFile().getPath())) {
+    if (getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)) {
       // If this is an action that compiles the header module itself, the source we build is the
       // module map, and we need to include-scan all headers that are referenced in the module map.
       // We need to do include scanning as long as we want to support building code bases that are
@@ -702,7 +705,7 @@ public class CppCompileAction extends AbstractAction
   public boolean canRemoveAfterExecution() {
     // Module-generating actions are needed because the action may be retrieved in
     // #discoverInputsStage2.
-    return !CppFileTypes.CPP_MODULE.matches(getPrimaryOutput().getFilename());
+    return !getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE);
   }
 
   @Override
@@ -890,7 +893,7 @@ public class CppCompileAction extends AbstractAction
     }
     // Need to do dir/package matching: first try a quick exact lookup.
     PathFragment includeDir = input.getRootRelativePath().getParentDirectory();
-    if (includeDir.segmentCount() == 0 || declaredIncludeDirs.contains(includeDir)) {
+    if (includeDir.isEmpty() || declaredIncludeDirs.contains(includeDir)) {
       return true;  // OK: quick exact match.
     }
     // Not found in the quick lookup: try the wildcards.
@@ -902,16 +905,16 @@ public class CppCompileAction extends AbstractAction
       }
     }
     // Still not found: see if it is in a subdir of a declared package.
-    Path root = input.getRoot().getPath();
+    Root root = input.getRoot().getRoot();
     for (Path dir = input.getPath().getParentDirectory();;) {
       if (dir.getRelative(BUILD_PATH_FRAGMENT).exists()) {
         return false;  // Bad: this is a sub-package, not a subdir of a declared package.
       }
       dir = dir.getParentDirectory();
-      if (dir.equals(root)) {
+      if (dir.equals(root.asPath())) {
         return false;  // Bad: at the top, give up.
       }
-      if (declaredIncludeDirs.contains(dir.relativeTo(root))) {
+      if (declaredIncludeDirs.contains(root.relativize(dir))) {
         return true;  // OK: found under a declared dir.
       }
     }
@@ -962,7 +965,7 @@ public class CppCompileAction extends AbstractAction
       Iterable<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
     for (Artifact input : potentialModules) {
-      if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+      if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         usedModulePaths.add(input.getExecPathString());
       }
     }
@@ -1242,7 +1245,7 @@ public class CppCompileAction extends AbstractAction
    */
   private void ensureCoverageNotesFilesExist() throws ActionExecutionException {
     for (Artifact output : getOutputs()) {
-      if (CppFileTypes.COVERAGE_NOTES.matches(output.getFilename()) // ".gcno"
+      if (output.isFileType(CppFileTypes.COVERAGE_NOTES) // ".gcno"
           && !output.getPath().exists()) {
         try {
           FileSystemUtils.createEmptyFile(output.getPath());
@@ -1281,11 +1284,23 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    if (CppFileTypes.OBJC_SOURCE.matches(sourceFile.getExecPath())
-        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFile.getExecPath())) {
-      return "ObjcCompile";
-    } else {
-      return "CppCompile";
+    switch (actionName) {
+      case OBJC_COMPILE:
+      case OBJCPP_COMPILE:
+        return "ObjcCompile";
+
+      case LINKSTAMP_COMPILE:
+        // When compiling shared native deps, e.g. when two java_binary rules have the same set of
+        // native dependencies, the CppCompileAction for link stamp data is shared also. This means
+        // that out of two CppCompileAction instances, only one is actually executed, which means
+        // that if extra actions are attached to both, one of the extra actions will find a
+        // CppCompileAction for which discoverInputs() hasn't been called and thus trigger an
+        // assertion. As a band-aid, change the mnemonic of said actions so that one can attach
+        // extra actions to regular CppCompileActions without tickling this bug.
+        return "CppLinkstampCompile";
+
+      default:
+        return "CppCompile";
     }
   }
 

@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -107,17 +108,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private boolean lastAnalysisDiscarded = false;
 
-  private enum IncrementalState {
-    NORMAL,
-    CLEAR_EDGES_AND_ACTIONS
-  }
-
   /**
-   * If {@link IncrementalState#CLEAR_EDGES_AND_ACTIONS}, the graph will not store edges, saving
-   * memory but making subsequent builds not incremental. Also, each action will be dereferenced
-   * once it is executed, saving memory.
+   * If false, the graph will not store state useful for incremental builds, saving memory but
+   * leaving the graph un-reusable. Subsequent builds will therefore not be incremental.
+   *
+   * <p>Avoids storing edges entirely and dereferences each action after execution.
    */
-  private IncrementalState incrementalState = IncrementalState.NORMAL;
+  private boolean trackIncrementalState = true;
 
   private boolean evaluatorNeedsReset = false;
 
@@ -316,11 +313,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles = 0;
-    Map<Path, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
+    Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
         Maps.newHashMap();
-    Set<Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet>>
+    Set<Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet>>
         pathEntriesWithoutDiffInformation = Sets.newHashSet();
-    for (Path pathEntry : pkgLocator.get().getPathEntries()) {
+    for (Root pathEntry : pkgLocator.get().getPathEntries()) {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
           diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
@@ -363,10 +360,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * diff. Removes entries from the given map as they are processed. All of the files need to be
    * invalidated, so the map should be empty upon completion of this function.
    */
-  private void handleDiffsWithCompleteDiffInformation(TimestampGranularityMonitor tsgm,
-      Map<Path, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry)
-          throws InterruptedException {
-    for (Path pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
+  private void handleDiffsWithCompleteDiffInformation(
+      TimestampGranularityMonitor tsgm,
+      Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry)
+      throws InterruptedException {
+    for (Root pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
       DiffAwarenessManager.ProcessableModifiedFileSet processableModifiedFileSet =
           modifiedFilesByPathEntry.get(pathEntry);
       ModifiedFileSet modifiedFileSet = processableModifiedFileSet.getModifiedFileSet();
@@ -384,7 +382,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private void handleDiffsWithMissingDiffInformation(
       ExtendedEventHandler eventHandler,
       TimestampGranularityMonitor tsgm,
-      Set<Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet>>
+      Set<Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet>>
           pathEntriesWithoutDiffInformation,
       boolean checkOutputFiles)
       throws InterruptedException {
@@ -410,8 +408,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // system values under package roots for which we don't have diff information. If at least
     // one path entry doesn't have diff information, then we're going to have to iterate over
     // the skyframe values at least once no matter what.
-    Set<Path> diffPackageRootsUnderWhichToCheck = new HashSet<>();
-    for (Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
+    Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
+    for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
       diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
     }
@@ -442,7 +440,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                         new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
     handleChangedFiles(diffPackageRootsUnderWhichToCheck, diff);
 
-    for (Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
+    for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
       pair.getSecond().markProcessed();
     }
@@ -454,7 +452,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   private void handleChangedFiles(
-      Collection<Path> diffPackageRootsUnderWhichToCheck, Differencer.Diff diff) {
+      Collection<Root> diffPackageRootsUnderWhichToCheck, Differencer.Diff diff) {
     Collection<SkyKey> changedKeysWithoutNewValues = diff.changedKeysWithoutNewValues();
     Map<SkyKey, SkyValue> changedKeysWithNewValues = diff.changedKeysWithNewValues();
 
@@ -469,9 +467,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
   }
 
-  private static void logDiffInfo(Iterable<Path> pathEntries,
-                                  Collection<SkyKey> changedWithoutNewValue,
-                                  Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
+  private static final int MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG = 10;
+
+  private static void logDiffInfo(
+      Iterable<Root> pathEntries,
+      Collection<SkyKey> changedWithoutNewValue,
+      Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
     int numModified = changedWithNewValue.size() + changedWithoutNewValue.size();
     StringBuilder result = new StringBuilder("DiffAwareness found ")
         .append(numModified)
@@ -484,12 +485,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     if (numModified > 0) {
       Iterable<SkyKey> allModifiedKeys = Iterables.concat(changedWithoutNewValue,
           changedWithNewValue.keySet());
-      Iterable<SkyKey> trimmed = Iterables.limit(allModifiedKeys, 5);
+      Iterable<SkyKey> trimmed =
+          Iterables.limit(allModifiedKeys, MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG);
 
       result.append(": ")
           .append(Joiner.on(", ").join(trimmed));
 
-      if (numModified > 5) {
+      if (numModified > MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG) {
         result.append(", ...");
       }
     }
@@ -504,57 +506,71 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Necessary conditions to not store graph edges are either
+   *
+   * <ol>
+   *   <li>batch (since incremental builds are not possible) and discard_analysis_cache (since
+   *       otherwise user isn't concerned about saving memory this way).
+   *   <li>track_incremental_state set to false.
+   * </ol>
+   */
   @Override
   public void decideKeepIncrementalState(
       boolean batch, OptionsProvider options, EventHandler eventHandler) {
     Preconditions.checkState(!active);
     BuildView.Options viewOptions = options.getOptions(BuildView.Options.class);
     BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
+    boolean oldValueOfTrackIncrementalState = trackIncrementalState;
+
+    // First check if the incrementality state should be kept around during the build.
     boolean explicitlyRequestedNoIncrementalData =
-        requestOptions != null && !requestOptions.keepIncrementalityData;
+        requestOptions != null && !requestOptions.trackIncrementalState;
     boolean implicitlyRequestedNoIncrementalData =
         batch && viewOptions != null && viewOptions.discardAnalysisCache;
-    boolean discardingEdges =
-        explicitlyRequestedNoIncrementalData || implicitlyRequestedNoIncrementalData;
+    trackIncrementalState =
+        !explicitlyRequestedNoIncrementalData && !implicitlyRequestedNoIncrementalData;
+    boolean keepStateAfterBuild = requestOptions != null && requestOptions.keepStateAfterBuild;
     if (explicitlyRequestedNoIncrementalData != implicitlyRequestedNoIncrementalData) {
       if (requestOptions != null && !explicitlyRequestedNoIncrementalData) {
         eventHandler.handle(
             Event.warn(
-                "--batch and --discard_analysis_cache specified, but --nokeep_incrementality_data "
+                "--batch and --discard_analysis_cache specified, but --notrack_incremental_state "
                     + "not specified: incrementality data is implicitly discarded, but you may need"
-                    + " to specify --nokeep_incrementality_data in the future if you want to "
+                    + " to specify --notrack_incremental_state in the future if you want to "
                     + "maximize memory savings."));
       }
-      if (!batch) {
+      if (!batch && keepStateAfterBuild) {
         eventHandler.handle(
             Event.warn(
-                "--batch not specified with --nokeep_incrementality_data: the server will "
-                    + "remain running, but the next build will not be incremental on this one."));
+                "--notrack_incremental_state was specified, but without "
+                    + "--nokeep_state_after_build. Inmemory state from this build will not be "
+                    + "reusable, but it will not get fully wiped until the beginning of the next "
+                    + "build. Use --nokeep_state_after_build to clean up eagerly."));
       }
     }
-    IncrementalState oldState = incrementalState;
-    incrementalState =
-        discardingEdges ? IncrementalState.CLEAR_EDGES_AND_ACTIONS : IncrementalState.NORMAL;
-    if (oldState != incrementalState) {
-      logger.info("Set incremental state to " + incrementalState);
+
+    // Now check if it is necessary to wipe the previous state. We do this if either the previous
+    // or current incrementalStateRetentionStrategy requires the build to have been isolated.
+    if (oldValueOfTrackIncrementalState != trackIncrementalState) {
+      logger.info("Set incremental state to " + trackIncrementalState);
       evaluatorNeedsReset = true;
-      removeActionsAfterEvaluation.set(
-          incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS);
-    } else if (incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS) {
+      removeActionsAfterEvaluation.set(!trackIncrementalState);
+    } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
     }
   }
 
   @Override
-  public boolean hasIncrementalState() {
-    // TODO(bazel-team): Combine this method with clearSkyframeRelevantCaches() once legacy
-    // execution is removed [skyframe-execution].
-    return incrementalState == IncrementalState.NORMAL;
+  public boolean tracksStateForIncrementality() {
+    return trackIncrementalState;
   }
 
   @Override
   public void invalidateFilesUnderPathForTesting(
-      ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Path pathEntry)
+      ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
       throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
@@ -618,7 +634,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * phase. Instead, their analysis-time data is cleared while preserving the generating action info
    * needed for execution. The next build will delete the nodes (and recreate them if necessary).
    *
-   * <p>If {@link #hasIncrementalState} is false, then also delete loading-phase nodes (as
+   * <p>If {@link #tracksStateForIncrementality} is false, then also delete loading-phase nodes (as
    * determined by {@link #LOADING_TYPES}) from the graph, since there will be no future builds to
    * use them for.
    */
@@ -638,7 +654,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         }
         SkyKey key = keyAndEntry.getKey();
         SkyFunctionName functionName = key.functionName();
-        if (!hasIncrementalState() && LOADING_TYPES.contains(functionName)) {
+        if (!tracksStateForIncrementality() && LOADING_TYPES.contains(functionName)) {
           it.remove();
           continue;
         }
@@ -733,7 +749,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         // well as ActionExecutionValues, since they do not depend on ActionLookupValues.
         SkyFunctionName.functionIsIn(ImmutableSet.of(
             SkyFunctions.CONFIGURED_TARGET,
-            SkyFunctions.ACTION_LOOKUP,
             SkyFunctions.BUILD_INFO,
             SkyFunctions.TARGET_COMPLETION,
             SkyFunctions.BUILD_INFO_COLLECTION,

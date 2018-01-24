@@ -219,7 +219,7 @@ def _DuplicatedFiles(archive_source_file_mapping):
   duplicated_files = []
   dict_with_duplicates = dict()
 
-  for archive, source_files in archive_source_file_mapping.iteritems():
+  for source_files in archive_source_file_mapping.values():
     for source_file in source_files:
       file_basename = os.path.basename(source_file)
       file_without_ext = os.path.splitext(source_file)[0]

@@ -14,14 +14,16 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.cmdline.Label;
-
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.List;
 
-/**
- * Components of --run_under option.
- */
+/** Components of --run_under option. */
+@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface RunUnder extends Serializable {
+  public static final ObjectCodec<RunUnder> CODEC = new RunUnder_AutoCodec();
+
   /**
    * @return the whole value passed to --run_under option.
    */

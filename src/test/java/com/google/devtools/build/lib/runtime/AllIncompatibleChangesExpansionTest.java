@@ -438,25 +438,4 @@ public class AllIncompatibleChangesExpansionTest {
   public void badOldName() {
     assertBadness(BadOldNameOptions.class, "must not use the oldName field");
   }
-
-  /** Dummy comment (linter suppression) */
-  public static class BadWrapperOptionOptions extends OptionsBase {
-    @Option(
-      name = "incompatible_bad",
-      category = "incompatible changes",
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false",
-      help = "nohelp",
-      deprecationWarning = "wrapper options are deprecated, including this one.",
-      wrapperOption = true
-    )
-    public boolean bad;
-  }
-
-  @Test
-  public void badWrapperOption() {
-    assertBadness(BadWrapperOptionOptions.class, "must not use the wrapperOption field");
-  }
 }

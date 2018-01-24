@@ -28,11 +28,12 @@ java_test(
 )
 
 java_test(
-    name = "AndroidSkylarkSplitTransitionTest",
-    srcs = ["AndroidSkylarkSplitTransitionTest.java"],
+    name = "AndroidSkylarkTest",
+    srcs = ["AndroidSkylarkTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//third_party:guava",
@@ -253,6 +254,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
@@ -288,6 +290,41 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "AbstractAndroidLocalTestTestBase",
+    srcs = ["AbstractAndroidLocalTestTestBase.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "AndroidLocalTestTest",
+    srcs = ["AndroidLocalTestTest.java"],
+    deps = [
+        ":AbstractAndroidLocalTestTestBase",
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

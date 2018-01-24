@@ -51,6 +51,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -170,12 +171,22 @@ static void SpawnPid1() {
 
 static int WaitForPid1() {
   int err, status;
-  do {
-    err = waitpid(global_child_pid, &status, 0);
-  } while (err < 0 && errno == EINTR);
-
-  if (err < 0) {
-    DIE("waitpid");
+  if (!opt.stats_path.empty()) {
+    struct rusage child_rusage;
+    do {
+      err = wait4(global_child_pid, &status, 0, &child_rusage);
+    } while (err < 0 && errno == EINTR);
+    if (err < 0) {
+      DIE("wait4");
+    }
+    WriteStatsToFile(&child_rusage, opt.stats_path);
+  } else {
+    do {
+      err = waitpid(global_child_pid, &status, 0);
+    } while (err < 0 && errno == EINTR);
+    if (err < 0) {
+      DIE("waitpid");
+    }
   }
 
   if (global_signal > 0) {

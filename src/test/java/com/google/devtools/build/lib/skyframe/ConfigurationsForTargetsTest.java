@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -110,8 +111,9 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
      * deps of given target.
      */
     static class Value implements SkyValue {
-      OrderedSetMultimap<Attribute, ConfiguredTarget> depMap;
-      Value(OrderedSetMultimap<Attribute, ConfiguredTarget> depMap) {
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depMap;
+
+      Value(OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depMap) {
         this.depMap = depMap;
       }
     }
@@ -120,11 +122,13 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws EvalException, InterruptedException {
       try {
-        OrderedSetMultimap<Attribute, ConfiguredTarget> depMap =
+        OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depMap =
             ConfiguredTargetFunction.computeDependencies(
                 env,
-                new SkyframeDependencyResolver(env, ((ConfiguredRuleClassProvider) stateProvider
-                    .lateBoundRuleClassProvider()).getDynamicTransitionMapper()),
+                new SkyframeDependencyResolver(
+                    env,
+                    ((ConfiguredRuleClassProvider) stateProvider.lateBoundRuleClassProvider())
+                        .getDynamicTransitionMapper()),
                 (TargetAndConfiguration) skyKey.argument(),
                 ImmutableList.<Aspect>of(),
                 ImmutableMap.<Label, ConfigMatchingProvider>of(),
@@ -134,6 +138,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 NestedSetBuilder.<Package>stableOrder(),
                 NestedSetBuilder.<Label>stableOrder());
         return env.valuesMissing() ? null : new Value(depMap);
+      } catch (RuntimeException e) {
+        throw e;
       } catch (Exception e) {
         throw new EvalException(e);
       }
@@ -198,7 +204,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    * Returns the configured deps for a given target, assuming the target uses the target
    * configuration.
    */
-  private Multimap<Attribute, ConfiguredTarget> getConfiguredDeps(String targetLabel)
+  private Multimap<Attribute, ConfiguredTargetAndTarget> getConfiguredDeps(String targetLabel)
       throws Exception {
     update(targetLabel);
     SkyKey key = ComputeDependenciesFunction.key(getTarget(targetLabel), getTargetConfiguration());
@@ -219,10 +225,12 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   protected List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
-    Multimap<Attribute, ConfiguredTarget> allDeps = getConfiguredDeps(targetLabel);
+    Multimap<Attribute, ConfiguredTargetAndTarget> allDeps = getConfiguredDeps(targetLabel);
     for (Attribute attribute : allDeps.keySet()) {
       if (attribute.getName().equals(attrName)) {
-        return ImmutableList.copyOf(allDeps.get(attribute));
+        return ImmutableList.copyOf(
+            Collections2.transform(
+                allDeps.get(attribute), ConfiguredTargetAndTarget::getConfiguredTarget));
       }
     }
     throw new AssertionError(

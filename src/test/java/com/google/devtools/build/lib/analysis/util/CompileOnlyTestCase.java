@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis.util;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 
 /**
  * Common code for unit tests that validate --compile_only behavior.
@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 public abstract class CompileOnlyTestCase extends BuildViewTestCase {
 
   protected Artifact getArtifactByExecPathSuffix(ConfiguredTarget target, String path) {
-    for (Artifact artifact : getOutputGroup(target, OutputGroupProvider.FILES_TO_COMPILE)) {
+    for (Artifact artifact : getOutputGroup(target, OutputGroupInfo.FILES_TO_COMPILE)) {
       if (artifact.getExecPathString().endsWith(path)) {
         return artifact;
       }

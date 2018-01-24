@@ -33,22 +33,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Support logic for Bazel's
- * <a href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a>
+ * Support logic for Bazel's <a
+ * href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a>
  * integration.
  *
  * <p>In short, data binding in Bazel works as follows:
+ *
  * <ol>
  *   <li>If a rule enables data binding and has layout resources with data binding expressions,
- *     resource processing invokes the data binding library to preprocess these expressions, then
- *     strips them out before feeding the resources into aapt. A separate "layout info" XML file
- *     gets produced that contains the bindings.</li>
+ *       resource processing invokes the data binding library to preprocess these expressions, then
+ *       strips them out before feeding the resources into aapt. A separate "layout info" XML file
+ *       gets produced that contains the bindings.
  *   <li>The data binding annotation processor gets activated on Java compilation. This processor
- *     reads a custom-generated <code>DataBindingInfo.java</code> which specifies the path to the
- *     layout info file (as an annotation). The processor reads that file and produces the
- *     corresponding Java classes that end-user code uses to access the resources.</li>
+ *       reads a custom-generated <code>DataBindingInfo.java</code> which specifies the path to the
+ *       layout info file (as an annotation). The processor reads that file and produces the
+ *       corresponding Java classes that end-user code uses to access the resources.
  *   <li>The data binding compile-time and runtime support libraries get linked into the binary's
- *     deploy jar.</li>
+ *       deploy jar.
  * </ol>
  *
  * <p>For data binding to work, the corresponding support libraries must be checked into the depot
@@ -56,12 +57,9 @@ import java.util.List;
  *
  * <p>Unless otherwise specified, all methods in this class assume the current rule applies data
  * binding. Callers can intelligently trigger this logic by checking {@link #isEnabled}.
- *
  */
 public final class DataBinding {
-  /**
-   * The rule attribute supplying data binding's annotation processor.
-   */
+  /** The rule attribute supplying data binding's annotation processor. */
   public static final String DATABINDING_ANNOTATION_PROCESSOR_ATTR =
       "$databinding_annotation_processor";
 
@@ -69,81 +67,74 @@ public final class DataBinding {
    * Annotation processing creates the following metadata files that describe how data binding is
    * applied. The full file paths include prefixes as implemented in {@link #getMetadataOutputs}.
    */
-  private static final ImmutableList<String> METADATA_OUTPUT_SUFFIXES = ImmutableList.<String>of(
-      "setter_store.bin", "layoutinfo.bin", "br.bin");
+  private static final ImmutableList<String> METADATA_OUTPUT_SUFFIXES =
+      ImmutableList.<String>of("setter_store.bin", "layoutinfo.bin", "br.bin");
 
-  /**
-   * The directory where the annotation processor looks for dep metadata.
-   */
+  /** The directory where the annotation processor looks for dep metadata. */
   private static final String DEP_METADATA_INPUT_DIR = "dependent-lib-artifacts";
 
-  /**
-   * The directory where the annotation processor write metadata output for the current rule.
-   */
+  /** The directory where the annotation processor write metadata output for the current rule. */
   private static final String METADATA_OUTPUT_DIR = "bin-files";
 
   /**
    * Should data binding support be enabled for this rule?
    *
    * <p>Data binding incurs additional resource processing and compilation work as well as
-   * additional compile/runtime dependencies. But rules with data binding disabled will fail if
-   * data binding expressions appear in their layout resources.
+   * additional compile/runtime dependencies. But rules with data binding disabled will fail if data
+   * binding expressions appear in their layout resources.
    */
   public static boolean isEnabled(RuleContext ruleContext) {
     return ruleContext.attributes().has("enable_data_binding", Type.BOOLEAN)
         && ruleContext.attributes().get("enable_data_binding", Type.BOOLEAN);
   }
 
-  /**
-   * Returns this rule's data binding base output dir (as an execroot-relative path).
-   */
+  /** Returns this rule's data binding base output dir (as an execroot-relative path). */
   private static PathFragment getDataBindingExecPath(RuleContext ruleContext) {
-    return ruleContext.getBinOrGenfilesDirectory().getExecPath().getRelative(
-        ruleContext.getUniqueDirectory("databinding"));
+    return ruleContext
+        .getBinOrGenfilesDirectory()
+        .getExecPath()
+        .getRelative(ruleContext.getUniqueDirectory("databinding"));
   }
 
-  /**
-   * Returns an artifact for the specified output under a standardized data binding base dir.
-   */
+  /** Returns an artifact for the specified output under a standardized data binding base dir. */
   private static Artifact getDataBindingArtifact(RuleContext ruleContext, String relativePath) {
-    PathFragment binRelativeBasePath = getDataBindingExecPath(ruleContext)
-        .relativeTo(ruleContext.getBinOrGenfilesDirectory().getExecPath());
-    return ruleContext.getDerivedArtifact(binRelativeBasePath.getRelative(relativePath),
-        ruleContext.getBinOrGenfilesDirectory());
+    PathFragment binRelativeBasePath =
+        getDataBindingExecPath(ruleContext)
+            .relativeTo(ruleContext.getBinOrGenfilesDirectory().getExecPath());
+    return ruleContext.getDerivedArtifact(
+        binRelativeBasePath.getRelative(relativePath), ruleContext.getBinOrGenfilesDirectory());
   }
 
   /**
-   * Returns the file where data binding's resource processing produces binding xml. For
-   * example, given:
+   * Returns the file where data binding's resource processing produces binding xml. For example,
+   * given:
    *
    * <pre>{@code
-   *   <layout>
-   *     <data>
-   *       <variable name="foo" type="String" />
-   *     </data>
-   *   </layout>
-   *   <LinearLayout>
-   *     ...
-   *   </LinearLayout>
-   * }
-   * </pre>
+   * <layout>
+   *   <data>
+   *     <variable name="foo" type="String" />
+   *   </data>
+   * </layout>
+   * <LinearLayout>
+   *   ...
+   * </LinearLayout>
+   * }</pre>
    *
    * <p>data binding strips out and processes this part:
    *
    * <pre>{@code
-   *     <data>
-   *       <variable name="foo" type="String" />
-   *     </data>
-   * }
-   * </pre>
+   * <data>
+   *   <variable name="foo" type="String" />
+   * </data>
+   * }</pre>
    *
-   * for each layout file with data binding expressions. Since this may produce multiple
-   * files, outputs are zipped up into a single container.
+   * for each layout file with data binding expressions. Since this may produce multiple files,
+   * outputs are zipped up into a single container.
    */
   static Artifact getLayoutInfoFile(RuleContext ruleContext) {
     // The data binding library expects this to be called "layout-info.zip".
-    return ruleContext.getUniqueDirectoryArtifact("databinding", "layout-info.zip",
-        ruleContext.getBinOrGenfilesDirectory());
+    return ruleContext.getUniqueDirectoryArtifact(
+        "databinding", "layout-info.zip", ruleContext.getBinOrGenfilesDirectory());
   }
 
   /**
@@ -173,9 +164,7 @@ public final class DataBinding {
     attributes.addAdditionalOutputs(getMetadataOutputs(ruleContext));
   }
 
-  /**
-   * The javac flags that are needed to configure data binding's annotation processor.
-   */
+  /** The javac flags that are needed to configure data binding's annotation processor. */
   static ImmutableList<String> getJavacopts(RuleContext ruleContext, boolean isBinary) {
     ImmutableList.Builder<String> flags = ImmutableList.builder();
     String metadataOutputDir = getDataBindingExecPath(ruleContext).getPathString();
@@ -211,26 +200,24 @@ public final class DataBinding {
     return flags.build();
   }
 
-  /**
-   * Turns a key/value pair into a javac annotation processor flag received by data binding.
-   */
+  /** Turns a key/value pair into a javac annotation processor flag received by data binding. */
   private static String createProcessorFlag(String flag, String value) {
     return String.format("-Aandroid.databinding.%s=%s", flag, value);
   }
 
   /**
-   * Creates and returns the generated Java source that data binding's annotation processor
-   * reads to translate layout info xml (from {@link #getLayoutInfoFile} into the classes that
-   * end user code consumes.
+   * Creates and returns the generated Java source that data binding's annotation processor reads to
+   * translate layout info xml (from {@link #getLayoutInfoFile} into the classes that end user code
+   * consumes.
    *
-   * <p>This mostly just triggers the annotation processor. Annotation processor settings
-   * are configured separately in {@link #getJavacopts}.
+   * <p>This mostly just triggers the annotation processor. Annotation processor settings are
+   * configured separately in {@link #getJavacopts}.
    */
   static Artifact createAnnotationFile(RuleContext ruleContext) {
     String contents;
     try {
-      contents = ResourceFileLoader.loadResource(DataBinding.class,
-          "databinding_annotation_template.txt");
+      contents =
+          ResourceFileLoader.loadResource(DataBinding.class, "databinding_annotation_template.txt");
     } catch (IOException e) {
       ruleContext.ruleError("Cannot load annotation processor template: " + e.getMessage());
       return null;
@@ -243,11 +230,11 @@ public final class DataBinding {
   /**
    * Adds the appropriate {@link UsesDataBindingProvider} for a rule if it should expose one.
    *
-   * <p>A rule exposes {@link UsesDataBindingProvider} if either it or its deps set
-   * {@code enable_data_binding = 1}.
+   * <p>A rule exposes {@link UsesDataBindingProvider} if either it or its deps set {@code
+   * enable_data_binding = 1}.
    */
-  public static void maybeAddProvider(RuleConfiguredTargetBuilder builder,
-      RuleContext ruleContext) {
+  public static void maybeAddProvider(
+      RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
     // Expose the data binding provider if this rule either applies data binding or exports a dep
     // that applies it.
     List<Artifact> dataBindingMetadataOutputs = new ArrayList<>();
@@ -262,19 +249,18 @@ public final class DataBinding {
       dataBindingMetadataOutputs.addAll(getTransitiveMetadata(ruleContext, "deps"));
     }
     if (!dataBindingMetadataOutputs.isEmpty()) {
-      builder.addProvider(UsesDataBindingProvider.class,
-          new UsesDataBindingProvider(dataBindingMetadataOutputs));
+      builder.addProvider(
+          UsesDataBindingProvider.class, new UsesDataBindingProvider(dataBindingMetadataOutputs));
     }
   }
 
-  /**
-   * Returns the data binding resource processing output from deps under the given attribute.
-   */
+  /** Returns the data binding resource processing output from deps under the given attribute. */
   private static List<Artifact> getTransitiveMetadata(RuleContext ruleContext, String attr) {
     ImmutableList.Builder<Artifact> dataBindingMetadataOutputs = ImmutableList.builder();
     if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
-      for (UsesDataBindingProvider provider : ruleContext.getPrerequisites(attr,
-          RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.class)) {
+      for (UsesDataBindingProvider provider :
+          ruleContext.getPrerequisites(
+              attr, RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.class)) {
         dataBindingMetadataOutputs.addAll(provider.getMetadataOutputs());
       }
     }
@@ -285,13 +271,12 @@ public final class DataBinding {
    * Returns metadata outputs from this rule's annotation processing that describe what it did with
    * data binding. This is used by parent rules to ensure consistent binding patterns.
    *
-   * <p>>For example, if {@code foo.AndroidBinary} depends on {@code foo.lib.AndroidLibrary} and
-   * the library defines data binding expression {@code Bar}, compiling the library produces Java
-   * class {@code foo.lib.Bar}. But since the binary applies data binding over the merged resources
-   * of its deps, that means the binary also sees {@code Bar}, so it compiles it into
-   * {@code foo.Bar}. This would be a class redefinition conflict. But by feeding the library's
-   * metadata outputs into the binary's compilation, enough information is available to only use the
-   * first version.
+   * <p>>For example, if {@code foo.AndroidBinary} depends on {@code foo.lib.AndroidLibrary} and the
+   * library defines data binding expression {@code Bar}, compiling the library produces Java class
+   * {@code foo.lib.Bar}. But since the binary applies data binding over the merged resources of its
+   * deps, that means the binary also sees {@code Bar}, so it compiles it into {@code foo.Bar}. This
+   * would be a class redefinition conflict. But by feeding the library's metadata outputs into the
+   * binary's compilation, enough information is available to only use the first version.
    */
   private static List<Artifact> getMetadataOutputs(RuleContext ruleContext) {
     if (!LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
@@ -304,8 +289,10 @@ public final class DataBinding {
     for (String suffix : METADATA_OUTPUT_SUFFIXES) {
       // The annotation processor automatically creates files with this naming pattern under the
       // {@code -Aandroid.databinding.generationalFileOutDir} base directory.
-      outputs.add(getDataBindingArtifact(ruleContext, String.format("%s/%s-%s-%s",
-          METADATA_OUTPUT_DIR, javaPackage, javaPackage, suffix)));
+      outputs.add(
+          getDataBindingArtifact(
+              ruleContext,
+              String.format("%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, suffix)));
     }
     return outputs.build();
   }
@@ -330,24 +317,28 @@ public final class DataBinding {
   }
 
   /**
-   *
    * Data binding's annotation processor reads the transitive metadata outputs of the target's deps
-   * (see {@link #getMetadataOutputs(RuleContext)}) in the directory specified by the processor
-   * flag {@code -Aandroid.databinding.bindingBuildFolder}. Since dependencies don't generate
-   * their outputs under a common directory, we symlink them into a common place here.
+   * (see {@link #getMetadataOutputs(RuleContext)}) in the directory specified by the processor flag
+   * {@code -Aandroid.databinding.bindingBuildFolder}. Since dependencies don't generate their
+   * outputs under a common directory, we symlink them into a common place here.
    *
    * @return the symlink paths of the transitive dep metadata outputs for this rule
    */
-  private static Artifact symlinkDepsMetadataIntoOutputTree(RuleContext ruleContext,
-      Artifact depMetadata) {
+  private static Artifact symlinkDepsMetadataIntoOutputTree(
+      RuleContext ruleContext, Artifact depMetadata) {
     Label ruleLabel = ruleContext.getRule().getLabel();
-    Artifact symlink = getDataBindingArtifact(ruleContext,
-        String.format("%s/%s", DEP_METADATA_INPUT_DIR, depMetadata.getRootRelativePathString()));
+    Artifact symlink =
+        getDataBindingArtifact(
+            ruleContext,
+            String.format(
+                "%s/%s", DEP_METADATA_INPUT_DIR, depMetadata.getRootRelativePathString()));
     ruleContext.registerAction(
-        new SymlinkAction(ruleContext.getActionOwner(), depMetadata, symlink,
-            String.format("Symlinking dep metadata output %s for %s",
-                depMetadata.getFilename(), ruleLabel)));
+        new SymlinkAction(
+            ruleContext.getActionOwner(),
+            depMetadata,
+            symlink,
+            String.format(
+                "Symlinking dep metadata output %s for %s", depMetadata.getFilename(), ruleLabel)));
     return symlink;
   }
 }
-

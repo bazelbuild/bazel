@@ -169,7 +169,7 @@ public final class TopLevelArtifactHelper {
   public static ArtifactsToBuild getAllArtifactsToBuild(TransitiveInfoCollection target,
       TopLevelArtifactContext context) {
     return getAllArtifactsToBuild(
-        OutputGroupProvider.get(target),
+        OutputGroupInfo.get(target),
         target.getProvider(FileProvider.class),
         context
     );
@@ -179,13 +179,13 @@ public final class TopLevelArtifactHelper {
       AspectValue aspectValue, TopLevelArtifactContext context) {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     return getAllArtifactsToBuild(
-        OutputGroupProvider.get(configuredAspect),
+        OutputGroupInfo.get(configuredAspect),
         configuredAspect.getProvider(FileProvider.class),
         context);
   }
 
   public static ArtifactsToBuild getAllArtifactsToBuild(
-      @Nullable OutputGroupProvider outputGroupProvider,
+      @Nullable OutputGroupInfo outputGroupInfo,
       @Nullable FileProvider fileProvider,
       TopLevelArtifactContext context) {
     NestedSetBuilder<ArtifactsInOutputGroup> allBuilder = NestedSetBuilder.stableOrder();
@@ -193,12 +193,12 @@ public final class TopLevelArtifactHelper {
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
 
-      if (outputGroup.equals(OutputGroupProvider.DEFAULT) && fileProvider != null) {
+      if (outputGroup.equals(OutputGroupInfo.DEFAULT) && fileProvider != null) {
         results.addTransitive(fileProvider.getFilesToBuild());
       }
 
-      if (outputGroupProvider != null) {
-        results.addTransitive(outputGroupProvider.getOutputGroup(outputGroup));
+      if (outputGroupInfo != null) {
+        results.addTransitive(outputGroupInfo.getOutputGroup(outputGroup));
       }
 
       // Ignore output groups that have no artifacts.
@@ -207,7 +207,7 @@ public final class TopLevelArtifactHelper {
       }
 
       boolean isImportantGroup =
-          !outputGroup.startsWith(OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX);
+          !outputGroup.startsWith(OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX);
 
       ArtifactsInOutputGroup artifacts =
           new ArtifactsInOutputGroup(outputGroup, isImportantGroup, results.build());

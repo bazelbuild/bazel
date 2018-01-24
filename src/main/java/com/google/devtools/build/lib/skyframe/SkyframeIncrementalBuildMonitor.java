@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.HashSet;
 import java.util.Set;
 
@@ -40,7 +39,7 @@ class SkyframeIncrementalBuildMonitor {
     for (SkyKey skyKey : invalidatedValues) {
       if (skyKey.functionName().equals(SkyFunctions.FILE_STATE)) {
         RootedPath file = (RootedPath) skyKey.argument();
-        maybeAddFile(file.getRelativePath());
+        maybeAddFile(file.getRootRelativePath());
       }
     }
   }

@@ -29,6 +29,21 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
+def _patch(ctx):
+  """Implementation of patching an already extracted repository"""
+  bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+  for patchfile in ctx.attr.patches:
+    command = "{patchtool} -p0 < {patchfile}".format(
+      patchtool=ctx.attr.patch_tool,
+      patchfile=ctx.path(patchfile))
+    st = ctx.execute([bash_exe, "-c", command])
+    if st.return_code:
+      fail("Error applying patch %s:\n%s" % (str(patchfile), st.stderr))
+  for cmd in ctx.attr.patch_cmds:
+    st = ctx.execute([bash_exe, "-c", cmd])
+    if st.return_code:
+      fail("Error applying patch command %s:\n%s%s"
+           % (cmd, st.stdout, st.stderr))
 
 def _http_archive_impl(ctx):
   """Implementation of the http_archive rule."""
@@ -37,11 +52,12 @@ def _http_archive_impl(ctx):
 
   ctx.download_and_extract(ctx.attr.urls, "", ctx.attr.sha256, ctx.attr.type,
                            ctx.attr.strip_prefix)
+  _patch(ctx)
   ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name=ctx.name))
   if ctx.attr.build_file:
     print("ctx.attr.build_file %s" % str(ctx.attr.build_file))
     ctx.symlink(ctx.attr.build_file, "BUILD")
-  else:
+  elif ctx.attr.build_file_content:
     ctx.file("BUILD", ctx.attr.build_file_content)
 
 
@@ -69,6 +85,9 @@ _http_archive_attrs = {
     "type": attr.string(),
     "build_file": attr.label(),
     "build_file_content": attr.string(),
+    "patches": attr.label_list(default=[]),
+    "patch_tool": attr.string(default="patch"),
+    "patch_cmds": attr.string_list(default=[]),
 }
 
 
@@ -171,6 +190,10 @@ Args:
 
     This must be an file, http or https URL. Redirections are followed.
     Authentication is not supported.
+  patches: A list of files that are to be applied as patches after extracting
+    the archive.
+  patch_tool: the patch(1) utility to use.
+  patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
 

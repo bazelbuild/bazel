@@ -25,12 +25,12 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.AspectFunction;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException2;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -50,9 +50,9 @@ public final class AspectResolver {
   @Nullable
   public static OrderedSetMultimap<Dependency, ConfiguredAspect> resolveAspectDependencies(
       SkyFunction.Environment env,
-      Map<SkyKey, ConfiguredTarget> configuredTargetMap,
+      Map<SkyKey, ConfiguredTargetAndTarget> configuredTargetMap,
       Iterable<Dependency> deps,
-      NestedSetBuilder<Package> transitivePackages)
+      @Nullable NestedSetBuilder<Package> transitivePackages)
       throws AspectFunction.AspectCreationException, InterruptedException {
     OrderedSetMultimap<Dependency, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> allAspectKeys = new HashSet<>();
@@ -90,14 +90,18 @@ public final class AspectResolver {
         }
 
         // Validate that aspect is applicable to "bare" configured target.
-        ConfiguredTarget associatedTarget = configuredTargetMap
-            .get(ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration()));
+        ConfiguredTargetAndTarget associatedTarget =
+            configuredTargetMap.get(
+                ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration()));
         if (!aspectMatchesConfiguredTarget(associatedTarget, aspectValue.getAspect())) {
           continue;
         }
 
         result.put(dep, aspectValue.getConfiguredAspect());
-        transitivePackages.addTransitive(aspectValue.getTransitivePackages());
+        if (transitivePackages != null) {
+          transitivePackages.addTransitive(
+              aspectValue.getTransitivePackagesForPackageRootResolution());
+        }
       }
     }
     return result;
@@ -111,20 +115,23 @@ public final class AspectResolver {
    * combinations of aspects for a particular configured target, so it would result in a
    * combinatorial explosion of Skyframe nodes.
    */
-  public static OrderedSetMultimap<Attribute, ConfiguredTarget> mergeAspects(
+  public static OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> mergeAspects(
       OrderedSetMultimap<Attribute, Dependency> depValueNames,
-      Map<SkyKey, ConfiguredTarget> depConfiguredTargetMap,
+      Map<SkyKey, ConfiguredTargetAndTarget> depConfiguredTargetMap,
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspectMap)
       throws MergedConfiguredTarget.DuplicateException {
-    OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> result = OrderedSetMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
       SkyKey depKey = ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration());
-      ConfiguredTarget depConfiguredTarget = depConfiguredTargetMap.get(depKey);
+      ConfiguredTargetAndTarget depConfiguredTarget = depConfiguredTargetMap.get(depKey);
 
-      result.put(entry.getKey(),
-          MergedConfiguredTarget.of(depConfiguredTarget, depAspectMap.get(dep)));
+      result.put(
+          entry.getKey(),
+          depConfiguredTarget.fromConfiguredTarget(
+              MergedConfiguredTarget.of(
+                  depConfiguredTarget.getConfiguredTarget(), depAspectMap.get(dep))));
     }
 
     return result;
@@ -154,11 +161,12 @@ public final class AspectResolver {
         dependentAspects.build(),
         aspectDeps.getAspect(),
         dep.getAspectConfiguration(aspectDeps.getAspect()));
-    result.put(aspectKey.getAspectDescriptor(), aspectKey.getSkyKey());
+    result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }
 
-  public static boolean aspectMatchesConfiguredTarget(final ConfiguredTarget dep, Aspect aspect) {
+  public static boolean aspectMatchesConfiguredTarget(
+      ConfiguredTargetAndTarget dep, Aspect aspect) {
     if (!aspect.getDefinition().applyToFiles() && !(dep.getTarget() instanceof Rule)) {
       return false;
     }
@@ -166,6 +174,6 @@ public final class AspectResolver {
       // even aspects that 'apply to files' cannot apply to input files.
       return false;
     }
-    return dep.satisfies(aspect.getDefinition().getRequiredProviders());
+    return dep.getConfiguredTarget().satisfies(aspect.getDefinition().getRequiredProviders());
   }
 }

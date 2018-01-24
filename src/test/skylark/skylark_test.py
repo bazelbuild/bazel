@@ -38,8 +38,9 @@ class SkylarkTest(unittest.TestCase):
   def chunks(self, path):
     code = []
     expected_errors = []
-    with open(path) as f:
+    with open(path, mode="rb") as f:
       for line in f:
+        line = line.decode("utf-8")
         if line.strip() == self.CHUNK_SEP:
           yield code, expected_errors
           expected_errors = []
@@ -91,9 +92,12 @@ def assert_(cond, msg="assertion failed"):
     print("===", t, "===")
     f = os.path.join(testenv.SKYLARK_TESTDATA_PATH, t)
     for chunk, expected in self.chunks(f):
-      with tempfile.NamedTemporaryFile(suffix=".sky", delete=False) as tmp:
-        tmp.writelines([self.PRELUDE] + chunk)
-      output = self.evaluate(tmp.name)
+      with tempfile.NamedTemporaryFile(
+          mode="wb", suffix=".sky", delete=False) as tmp:
+        lines = [line.encode("utf-8") for line in
+                 [self.PRELUDE] + chunk]
+        tmp.writelines(lines)
+      output = self.evaluate(tmp.name).decode("utf-8")
       os.unlink(tmp.name)
       self.check_output(output, expected)
 

@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+
 /**
  * An event that is fired when a non-empty {@link ActionResult} is returned by the execution of an
  * {@link Action}.
  */
-public final class ActionResultReceivedEvent {
+public final class ActionResultReceivedEvent implements ProgressLike {
   private final Action action;
   private final ActionResult actionResult;
 

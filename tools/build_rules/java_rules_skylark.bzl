@@ -211,14 +211,14 @@ bootstrap_java_library = rule(
     fragments = ['java'],
 )
 
-java_binary_attrs_common = java_library_attrs + {
+java_binary_attrs_common = dict(java_library_attrs)
+java_binary_attrs_common.update({
     "jvm_flags": attr.string_list(),
     "jvm": attr.label(default=Label("//tools/jdk:jdk"), allow_files=True),
-}
+})
 
-java_binary_attrs = java_binary_attrs_common + {
-    "main_class": attr.string(mandatory=True),
-}
+java_binary_attrs = dict(java_binary_attrs_common)
+java_binary_attrs["main_class"] = attr.string(mandatory=True)
 
 java_binary_outputs = {
     "class_jar": "lib%{name}.jar",
@@ -243,12 +243,12 @@ bootstrap_java_binary = rule(java_binary_impl,
 
 java_test = rule(java_binary_impl,
    executable = True,
-   attrs = java_binary_attrs_common + {
-       "main_class": attr.string(default="org.junit.runner.JUnitCore"),
+   attrs = dict(java_binary_attrs_common.items() + [
+       ("main_class", attr.string(default="org.junit.runner.JUnitCore")),
        # TODO(bazel-team): it would be better if we could offer a
        # test_class attribute, but the "args" attribute is hard
        # coded in the bazel infrastructure.
-   },
+   ]),
    outputs = java_binary_outputs,
    test = True,
    fragments = ['java', 'cpp'],

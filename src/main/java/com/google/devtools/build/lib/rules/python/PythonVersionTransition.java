@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 
 /**
  * A configuration transition that sets the Python version by setting

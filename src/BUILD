@@ -11,8 +11,6 @@ filegroup(
         "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
         "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
         "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//src/conditions:windows_msys": ["//src/main/native/windows:windows_jni.dll"],
-        "//src/conditions:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [
@@ -153,7 +151,7 @@ py_binary(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/launcher:srcs",
-        "//src/tools/runfiles:srcs",
+        "//src/tools/runfiles:embedded_tools",
         "//src/tools/singlejar:embedded_tools",
         "//src/main/cpp/util:embedded_tools",
         "//src/main/native:embedded_tools",
@@ -189,16 +187,6 @@ py_binary(
             "//src/tools/launcher:launcher",
             "//third_party/def_parser:def_parser",
         ],
-        "//src/conditions:windows_msys": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-            "//src/tools/launcher:launcher",
-            "//third_party/def_parser:def_parser",
-        ],
-        "//src/conditions:windows_msvc": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-            "//src/tools/launcher:launcher",
-            "//third_party/def_parser:def_parser",
-        ],
         "//src/conditions:arm": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
@@ -211,12 +199,6 @@ py_binary(
         ],
         "//src/conditions:darwin_x86_64": [
             "@openjdk_macos//file",
-        ],
-        "//src/conditions:windows_msys": [
-            "@openjdk_win//file",
-        ],
-        "//src/conditions:windows_msvc": [
-            "@openjdk_win//file",
         ],
         "//src/conditions:windows": [
             "@openjdk_win//file",
@@ -354,13 +336,13 @@ filegroup(
         "//src/objc_tools/bundlemerge:srcs",
         "//src/objc_tools/plmerge:srcs",
         "//src/test/cpp:srcs",
-        "//src/test/docker:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",
         "//src/test/skylark:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
+        "//src/test/java/com/google/devtools/build/lib/shell:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
         "//src/test/py/bazel:srcs",
@@ -435,12 +417,5 @@ test_suite(
 alias(
     name = "windows",
     actual = "//src/conditions:windows",
-    visibility = ["//visibility:public"],
-)
-
-# config_setting alias left here because bazel-only third_party code is pointing to it
-alias(
-    name = "windows_msvc",
-    actual = "//src/conditions:windows_msvc",
     visibility = ["//visibility:public"],
 )

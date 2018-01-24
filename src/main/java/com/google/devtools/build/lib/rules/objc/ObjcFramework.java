@@ -61,8 +61,8 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
     ObjcProvider objcProvider = commonBuilder.build().getObjcProvider();
     Iterable<PathFragment> frameworkDirs =
         ObjcCommon.uniqueContainers(frameworkImports, ObjcCommon.FRAMEWORK_CONTAINER_TYPE);
-    AppleDynamicFrameworkProvider frameworkProvider =
-        new AppleDynamicFrameworkProvider((Artifact) null, objcProvider,
+    AppleDynamicFrameworkInfo frameworkProvider =
+        new AppleDynamicFrameworkInfo((Artifact) null, objcProvider,
             NestedSetBuilder.<PathFragment>linkOrder().addAll(frameworkDirs).build(),
             NestedSetBuilder.<Artifact>linkOrder().addAll(frameworkImports).build());
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(STABLE_ORDER);

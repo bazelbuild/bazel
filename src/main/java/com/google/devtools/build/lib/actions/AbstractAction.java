@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
@@ -399,13 +400,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       if (output.getRoot() == null) {
         throw e;
       }
-      String outputRootDir = output.getRoot().getPath().getPathString();
-      if (!path.getPathString().startsWith(outputRootDir)) {
+      Root outputRoot = output.getRoot().getRoot();
+      if (!outputRoot.contains(path)) {
         throw e;
       }
 
       Path parentDir = path.getParentDirectory();
-      if (!parentDir.isWritable() && parentDir.getPathString().startsWith(outputRootDir)) {
+      if (!parentDir.isWritable() && outputRoot.contains(parentDir)) {
         // Retry deleting after making the parent writable.
         parentDir.setWritable(true);
         deleteOutput(fileSystem, output);
@@ -428,10 +429,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
       try {
-        if (input.isSourceArtifact() && !metadataProvider.getMetadata(input).isFile()) {
-          eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
-              + input.prettyPrint() + "' to " + getOwner().getLabel()
-              + " is a directory; dependency checking of directories is unsound"));
+        if (input.isSourceArtifact()
+            && metadataProvider.getMetadata(input).getType().isDirectory()) {
+          // TODO(ulfjack): What about dependency checking of special files?
+          eventHandler.handle(Event.warn(getOwner().getLocation(),
+              String.format(
+                  "input '%s' to %s is a directory; dependency checking of directories is unsound",
+                  input.prettyPrint(), getOwner().getLabel())));
         }
       } catch (IOException e) {
         throw new UserExecException(e);
@@ -603,9 +607,9 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     return null;
   }
 
-  @Nullable
   @Override
+  @Nullable
   public PlatformInfo getExecutionPlatform() {
-    return null;
+    return getOwner().getExecutionPlatform();
   }
 }

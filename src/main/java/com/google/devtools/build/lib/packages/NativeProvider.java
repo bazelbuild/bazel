@@ -40,16 +40,16 @@ import javax.annotation.Nullable;
  * #createInstanceFromSkylark(Object[], Location)} (see {@link #STRUCT} for an example.
  */
 @Immutable
-public abstract class NativeProvider<VALUE extends Info> extends Provider {
+public abstract class NativeProvider<V extends Info> extends Provider {
   private final NativeKey key;
-  private final String errorMessageForInstances;
+  private final String errorMessageFormatForUnknownField;
 
   /** "struct" function. */
-  public static final StructConstructor STRUCT = new StructConstructor();
+  public static final StructProvider STRUCT = new StructProvider();
 
-  private final Class<VALUE> valueClass;
+  private final Class<V> valueClass;
 
-  public Class<VALUE> getValueClass() {
+  public Class<V> getValueClass() {
     return valueClass;
   }
 
@@ -61,17 +61,17 @@ public abstract class NativeProvider<VALUE extends Info> extends Provider {
    * Skylark code.
    */
   @Deprecated
-  public static interface WithLegacySkylarkName {
+  public interface WithLegacySkylarkName {
     String getSkylarkName();
   }
 
   /**
-   * A constructor for default {@code struct}s.
+   * The provider for the built-in type {@code struct}.
    *
-   * <p>Singleton, instance is {@link #STRUCT}.
+   * <p>Its singleton instance is {@link #STRUCT}.
    */
-  public static final class StructConstructor extends NativeProvider<Info> {
-    private StructConstructor() {
+  public static final class StructProvider extends NativeProvider<Info> {
+    private StructProvider() {
       super(Info.class, "struct");
     }
 
@@ -79,33 +79,43 @@ public abstract class NativeProvider<VALUE extends Info> extends Provider {
     protected Info createInstanceFromSkylark(Object[] args, Location loc) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
-      return SkylarkInfo.fromMap(this, kwargs, loc);
+      return SkylarkInfo.createSchemaless(this, kwargs, loc);
     }
 
-    public Info create(Map<String, Object> values, String message) {
-      return new SkylarkInfo.MapBackedSkylarkInfo(this, values, message);
+    /**
+     * Creates a struct with the he given field values and message format for unknown fields.
+     *
+     * <p>The custom message is useful for objects that have fields but aren't exactly used as
+     * providers, such as the {@code native} object, and the struct fields of {@code ctx} like
+     * {@code ctx.attr}.
+     * */
+    public SkylarkInfo create(
+        Map<String, Object> values, String errorMessageFormatForUnknownField) {
+      return SkylarkInfo.createSchemalessWithCustomMessage(
+          this, values, errorMessageFormatForUnknownField);
     }
 
-    public Info create(Location loc) {
-      return SkylarkInfo.fromMap(this, ImmutableMap.of(), loc);
+    /** Creates an empty struct with the given location. */
+    public SkylarkInfo createEmpty(Location loc) {
+      return SkylarkInfo.createSchemaless(this, ImmutableMap.of(), loc);
     }
   }
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
 
-  protected NativeProvider(Class<VALUE> clazz, String name) {
+  protected NativeProvider(Class<V> clazz, String name) {
     this(clazz, name, SIGNATURE);
   }
 
   protected NativeProvider(
-      Class<VALUE> valueClass,
+      Class<V> valueClass,
       String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature) {
     super(name, signature, Location.BUILTIN);
     key = new NativeKey(name, getClass());
     this.valueClass = valueClass;
-    errorMessageForInstances = String.format("'%s' object has no attribute '%%s'", name);
+    errorMessageFormatForUnknownField = String.format("'%s' object has no attribute '%%s'", name);
   }
 
   /**
@@ -136,8 +146,8 @@ public abstract class NativeProvider<VALUE extends Info> extends Provider {
   }
 
   @Override
-  public String getErrorMessageFormatForInstances() {
-    return errorMessageForInstances;
+  public String getErrorMessageFormatForUnknownField() {
+    return errorMessageFormatForUnknownField;
   }
 
   @Override

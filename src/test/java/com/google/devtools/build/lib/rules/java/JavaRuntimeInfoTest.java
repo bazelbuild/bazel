@@ -29,18 +29,20 @@ import org.junit.runners.JUnit4;
 public class JavaRuntimeInfoTest {
   @Test
   public void equalityIsObjectIdentity() {
-    JavaRuntimeInfo a = new JavaRuntimeInfo(
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        PathFragment.create(""),
-        PathFragment.create(""),
-        PathFragment.create(""));
-    JavaRuntimeInfo b = new JavaRuntimeInfo(
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        PathFragment.create(""),
-        PathFragment.create(""),
-        PathFragment.create(""));
+    JavaRuntimeInfo a =
+        JavaRuntimeInfo.create(
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            PathFragment.create(""),
+            PathFragment.create(""),
+            PathFragment.create(""));
+    JavaRuntimeInfo b =
+        JavaRuntimeInfo.create(
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            PathFragment.create(""),
+            PathFragment.create(""),
+            PathFragment.create(""));
 
     new EqualsTester()
         .addEqualityGroup(a)

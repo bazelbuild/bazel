@@ -10,7 +10,7 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.package com.google.devtools.build.lib.rules.android;
+// limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
@@ -65,6 +64,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** A base implementation for the "android_local_test" rule. */
 public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactory {
@@ -82,11 +82,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // Use the regular Java javacopts. Enforcing android-compatible Java
     // (-source 7 -target 7 and no TWR) is unnecessary for robolectric tests
     // since they run on a JVM, not an android device.
-    JavaTargetAttributes.Builder attributesBuilder =
-        getJavaTargetAttributes(ruleContext, javaCommon);
+    JavaTargetAttributes.Builder attributesBuilder = javaCommon.initCommon();
 
     // Create the final merged manifest
-    ResourceDependencies resourceDependencies = getResourceDependencies(ruleContext);
+    ResourceDependencies resourceDependencies =
+        ResourceDependencies.fromRuleDeps(ruleContext, false /* neverlink */);
     ApplicationManifest applicationManifest =
         getApplicationManifest(ruleContext, androidSemantics, resourceDependencies);
     Artifact manifest = applicationManifest.getManifest();
@@ -234,7 +234,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         manifestProtoOutput,
         genSourceJar,
         outputDepsProtoArtifact,
-        instrumentationMetadata);
+        instrumentationMetadata,
+        /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build());
@@ -285,8 +286,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ruleContext, javaCommon, filesToBuild, manifest, resourcesClassJar, resourcesZip);
 
     RunfilesSupport runfilesSupport =
-        RunfilesSupport.withExecutable(
-            ruleContext, defaultRunfiles, executable, CustomCommandLine.EMPTY);
+        RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable);
 
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     NestedSet<Artifact> transitiveSourceJars = sourceJarsProvider.getTransitiveSourceJars();
@@ -309,13 +309,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);
 
     if (oneVersionOutputArtifact != null) {
-      builder.addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, oneVersionOutputArtifact);
+      builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, oneVersionOutputArtifact);
     }
 
     NestedSet<Artifact> extraFilesToRun =
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman());
 
-    JavaInfo javaInfo = javaInfoBuilder
+    JavaInfo javaInfo =
+        javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             .build();
@@ -349,7 +350,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   private void compileResourceJar(
       RuleContext ruleContext, ResourceApk resourceApk, Artifact resourceClassJar)
       throws InterruptedException, RuleErrorException {
-
     if (resourceApk.getResourceJavaClassJar() == null) {
       new RClassGeneratorActionBuilder(ruleContext)
           .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
@@ -366,6 +366,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
    * Returns a merged {@link ApplicationManifest} for the rule. The final merged manifest will be
    * merged into the manifest provided on the rule, or into a placeholder manifest if one is not
    * provided
+   *
    * @throws InterruptedException
    * @throws RuleErrorException
    */
@@ -386,14 +387,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       applicationManifest = dummyManifest.mergeWith(ruleContext, resourceDependencies, false);
     }
     return applicationManifest;
-  }
-
-  /** Returns the transitive closure of resource dependencies, including those specified on the rule
-   * if present. */
-  private ResourceDependencies getResourceDependencies(RuleContext ruleContext) {
-    return LocalResourceContainer.definesAndroidResources(ruleContext.attributes())
-        ? ResourceDependencies.fromRuleDeps(ruleContext, false /* neverlink */)
-        : ResourceDependencies.fromRuleResourceAndDeps(ruleContext, false /* neverlink */);
   }
 
   private static void setUpJavaCommon(
@@ -440,6 +433,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     if (ruleContext.isAttrDefined("$robolectric", LABEL_LIST)) {
       depsForRunfiles.addAll(ruleContext.getPrerequisites("$robolectric", Mode.TARGET));
     }
+
+    Artifact androidAllJarsPropertiesFile = getAndroidAllJarsPropertiesFile(ruleContext);
+    if (androidAllJarsPropertiesFile != null) {
+      builder.addArtifact(androidAllJarsPropertiesFile);
+    }
+
     depsForRunfiles.addAll(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
 
     builder.addArtifacts(getRuntimeJarsForTargets(getAndCheckTestSupport(ruleContext)));
@@ -525,12 +524,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   /** Get AndroidSemantics */
   protected abstract AndroidSemantics createAndroidSemantics();
 
-  /** Get JavaTargetAttributes Builder */
-  protected abstract JavaTargetAttributes.Builder getJavaTargetAttributes(
-      RuleContext ruleContext, JavaCommon javaCommon);
-
   /** Set test and robolectric specific jvm flags */
-  protected abstract ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass);
+  protected abstract ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass)
+      throws RuleErrorException;
 
   /** Return the testrunner main class */
   protected abstract String getMainClass(
@@ -541,10 +537,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       JavaTargetAttributes.Builder attributesBuilder)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Add compilation dependencies to the java compilation helper.
+   *
    * @throws RuleErrorException
    */
   protected abstract JavaCompilationHelper getJavaCompilationHelperWithDependencies(
@@ -556,5 +553,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
   /** Get the testrunner from the rule */
   protected abstract TransitiveInfoCollection getAndCheckTestSupport(RuleContext ruleContext)
+      throws RuleErrorException;
+
+  /** Get the android-all jars properties file from the deps */
+  @Nullable
+  protected abstract Artifact getAndroidAllJarsPropertiesFile(RuleContext ruleContext)
       throws RuleErrorException;
 }

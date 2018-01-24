@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.FileStateValue.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
@@ -48,9 +48,10 @@ import javax.annotation.Nullable;
 public abstract class FileValue implements SkyValue {
 
   public boolean exists() {
-    return realFileStateValue().getType() != Type.NONEXISTENT;
+    return realFileStateValue().getType() != FileStateType.NONEXISTENT;
   }
 
+  /** Returns true if the original path is a symlink; the target path can never be a symlink. */
   public boolean isSymlink() {
     return false;
   }
@@ -60,8 +61,8 @@ public abstract class FileValue implements SkyValue {
    * file. If so, its parent directory is guaranteed to exist.
    */
   public boolean isFile() {
-    return realFileStateValue().getType() == Type.REGULAR_FILE
-        || realFileStateValue().getType() == Type.SPECIAL_FILE;
+    return realFileStateValue().getType() == FileStateType.REGULAR_FILE
+        || realFileStateValue().getType() == FileStateType.SPECIAL_FILE;
   }
 
   /**
@@ -69,7 +70,7 @@ public abstract class FileValue implements SkyValue {
    * its parent directory is guaranteed to exist.
    */
   public boolean isSpecialFile() {
-    return realFileStateValue().getType() == Type.SPECIAL_FILE;
+    return realFileStateValue().getType() == FileStateType.SPECIAL_FILE;
   }
 
   /**
@@ -77,7 +78,7 @@ public abstract class FileValue implements SkyValue {
    * parent directory is guaranteed to exist.
    */
   public boolean isDirectory() {
-    return realFileStateValue().getType() == Type.DIRECTORY;
+    return realFileStateValue().getType() == FileStateType.DIRECTORY;
   }
 
   /**
@@ -125,12 +126,12 @@ public abstract class FileValue implements SkyValue {
   static FileValue value(RootedPath rootedPath, FileStateValue fileStateValue,
                          RootedPath realRootedPath, FileStateValue realFileStateValue) {
     if (rootedPath.equals(realRootedPath)) {
-      Preconditions.checkState(fileStateValue.getType() != FileStateValue.Type.SYMLINK,
+      Preconditions.checkState(fileStateValue.getType() != FileStateType.SYMLINK,
           "rootedPath: %s, fileStateValue: %s, realRootedPath: %s, realFileStateValue: %s",
           rootedPath, fileStateValue, realRootedPath, realFileStateValue);
       return new RegularFileValue(rootedPath, fileStateValue);
     } else {
-      if (fileStateValue.getType() == FileStateValue.Type.SYMLINK) {
+      if (fileStateValue.getType() == FileStateType.SYMLINK) {
         return new SymlinkFileValue(realRootedPath, realFileStateValue,
             fileStateValue.getSymlinkTarget());
       } else {

@@ -15,6 +15,8 @@
 
 """Merges two android manifest xml files."""
 
+from __future__ import print_function
+
 import re
 import sys
 import xml.dom.minidom
@@ -377,7 +379,7 @@ class MergeManifests(object):
       self._MergeTopLevelNamespaces(mergee_dom)
 
       for destination, values in sorted(
-          self._NODES_TO_COPY_FROM_MERGEE.iteritems()):
+          self._NODES_TO_COPY_FROM_MERGEE.items()):
         for node_to_copy in values:
           for node in mergee_dom.getElementsByTagName(node_to_copy):
             if self._IsDuplicate(node_to_copy, node):
@@ -449,7 +451,7 @@ def main():
   if FLAGS.exclude_permission:
     warning = _ValidateAndWarnPermissions(FLAGS.exclude_permission)
     if warning:
-      print warning
+      print(warning)
 
   merged_manifests = MergeManifests(_ReadFile(FLAGS.merger),
                                     _ReadFiles(FLAGS.mergee),

@@ -141,6 +141,6 @@ public final class SimpleSpawn implements Spawn {
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
-    return null;
+    return owner.getExecutionPlatform();
   }
 }

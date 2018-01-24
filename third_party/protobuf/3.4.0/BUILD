@@ -153,7 +153,6 @@ WIN_COPTS = [
 
 COPTS = select({
     ":windows": WIN_COPTS,
-    ":windows_msvc": WIN_COPTS,
     "//conditions:default": [
         "-DHAVE_PTHREAD",
         "-Wall",
@@ -167,11 +166,6 @@ COPTS = select({
 config_setting(
     name = "windows",
     values = {"cpu": "x64_windows"},
-)
-
-config_setting(
-    name = "windows_msvc",
-    values = {"cpu": "x64_windows_msvc"},
 )
 
 config_setting(

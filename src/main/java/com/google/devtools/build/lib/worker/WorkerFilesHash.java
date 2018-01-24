@@ -74,7 +74,7 @@ class WorkerFilesHash {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
           Metadata metadata = actionInputFileCache.getMetadata(localArtifact);
-          if (metadata.isFile()) {
+          if (metadata.getType().isFile()) {
             workerFilesMap.put(
                 root.getRelative(mapping.getKey()),
                 HashCode.fromBytes(metadata.getDigest()));

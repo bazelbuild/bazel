@@ -34,13 +34,13 @@ import javax.annotation.Nullable;
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private final RemoteActionCache cache;
+  private final AbstractRemoteActionCache cache;
   private final GrpcRemoteExecutor executor;
   private final DigestUtil digestUtil;
 
   RemoteActionContextProvider(
       CommandEnvironment env,
-      @Nullable RemoteActionCache cache,
+      @Nullable AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
       DigestUtil digestUtil) {
     this.env = env;
@@ -82,16 +82,17 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               cache,
               executor,
               digestUtil);
-      return ImmutableList.of(new RemoteSpawnStrategy(spawnRunner));
+      return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }
 
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
-    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
-        ? new XCodeLocalEnvProvider()
-        : LocalEnvProvider.UNMODIFIED;
+    LocalEnvProvider localEnvProvider =
+        OS.getCurrent() == OS.DARWIN
+            ? new XCodeLocalEnvProvider(env.getClientEnv())
+            : LocalEnvProvider.UNMODIFIED;
     return
         new LocalSpawnRunner(
             env.getExecRoot(),

@@ -361,7 +361,7 @@ int ExecuteDaemon(const string& exe,
     close(fds[1]);  // parent keeps one side...
     int unused_status;
     waitpid(child, &unused_status, 0);  // child double-forks
-    pid_t server_pid;
+    pid_t server_pid = 0;
     ReadFromFdWithRetryEintr(fds[0], &server_pid, sizeof server_pid,
                         "cannot read server PID from server");
     string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);

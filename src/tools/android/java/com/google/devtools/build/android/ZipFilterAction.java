@@ -53,9 +53,12 @@ import java.util.regex.Pattern;
  * extension of '.*' was specified.
  *
  * <p>Assuming each Zip as a set of entries, the result is:
+ *
  * <pre> outputZip = inputZip - union[x intersect filterTypes for x in filterZips]</pre>
  *
- * <p><pre>
+ * <p>
+ *
+ * <pre>
  * Example Usage:
  *   java/com/google/build/android/ZipFilterAction\
  *      --inputZip path/to/inputZip

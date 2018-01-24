@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -42,9 +42,9 @@ import java.util.Map;
  */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
-  private final SkylarkAspect skylarkAspect;
+  private final SkylarkDefinedAspect skylarkAspect;
 
-  public SkylarkAspectFactory(SkylarkAspect skylarkAspect) {
+  public SkylarkAspectFactory(SkylarkDefinedAspect skylarkAspect) {
     this.skylarkAspect = skylarkAspect;
   }
 
@@ -116,11 +116,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     } else {
       Info struct = (Info) aspectSkylarkObject;
       Location loc = struct.getCreationLoc();
-      for (String key : struct.getKeys()) {
-        if (key.equals("output_groups")) {
-          addOutputGroups(struct.getValue(key), loc, builder);
-        } else if (key.equals("providers")) {
-          Object value = struct.getValue(key);
+      for (String field : struct.getFieldNames()) {
+        if (field.equals("output_groups")) {
+          addOutputGroups(struct.getValue(field), loc, builder);
+        } else if (field.equals("providers")) {
+          Object value = struct.getValue(field);
           Iterable providers =
               SkylarkType.cast(
                   value,
@@ -131,7 +131,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                   EvalUtils.getDataTypeName(value, false));
           addDeclaredProviders(builder, providers);
         } else {
-          builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
+          builder.addSkylarkTransitiveInfo(field, struct.getValue(field), loc);
         }
       }
     }
@@ -155,8 +155,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                   + "a sequence of declared providers, instead got a %s at index %d",
               o.getClass(),
               i);
-      Location creationLoc = declaredProvider.getCreationLocOrNull();
-      builder.addSkylarkDeclaredProvider(declaredProvider, creationLoc != null ? creationLoc : loc);
+      builder.addSkylarkDeclaredProvider(declaredProvider);
       i++;
     }
   }

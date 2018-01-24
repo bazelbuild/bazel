@@ -27,8 +27,8 @@ public final class DeviceBrokerTypeProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns the type of device broker that is appropriate to use to interact with
-   * devices obtained by this artifact.
+   * Returns the type of device broker that is appropriate to use to interact with devices obtained
+   * by this artifact.
    */
   public String getDeviceBrokerType() {
     return deviceBrokerType;

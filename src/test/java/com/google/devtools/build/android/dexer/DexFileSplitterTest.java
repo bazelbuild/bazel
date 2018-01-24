@@ -23,8 +23,8 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -91,6 +91,41 @@ public class DexFileSplitterTest {
     expectedEntries.addAll(dexEntries(dexArchive));
     expectedEntries.addAll(dexEntries(dexArchive2));
     assertExpectedEntries(outputArchives, expectedEntries);
+  }
+
+  /**
+   * Tests that the same input creates identical output in 2 runs.  Flakiness here would indicate
+   * race conditions or other concurrency issues.
+   */
+  @Test
+  public void testDeterminism() throws Exception {
+    Path dexArchive = buildDexArchive();
+    Path dexArchive2 = buildDexArchive(INPUT_JAR2, "jar2.dex.zip");
+    ImmutableList<Path> outputArchives = runDexSplitter(200, "det1", dexArchive, dexArchive2);
+    assertThat(outputArchives.size()).isGreaterThan(1); // test sanity
+    ImmutableList<Path> outputArchives2 = runDexSplitter(200, "det2", dexArchive, dexArchive2);
+    assertThat(outputArchives2).hasSize(outputArchives.size()); // paths differ though
+
+    Path outputRoot2 = outputArchives2.get(0).getParent();
+    for (Path outputArchive : outputArchives) {
+      ImmutableList<ZipEntry> expectedEntries;
+      try (ZipFile zip = new ZipFile(outputArchive.toFile())) {
+        expectedEntries = zip.stream().collect(ImmutableList.toImmutableList());
+      }
+      ImmutableList<ZipEntry> actualEntries;
+      try (ZipFile zip2 = new ZipFile(outputRoot2.resolve(outputArchive.getFileName()).toFile())) {
+        actualEntries = zip2.stream().collect(ImmutableList.toImmutableList());
+      }
+      int len = expectedEntries.size();
+      assertThat(actualEntries).hasSize(len);
+      for (int i = 0; i < len; ++i) {
+        ZipEntry expected = expectedEntries.get(i);
+        ZipEntry actual = actualEntries.get(i);
+        assertThat(actual.getName()).named(actual.getName()).isEqualTo(expected.getName());
+        assertThat(actual.getSize()).named(actual.getName()).isEqualTo(expected.getSize());
+        assertThat(actual.getCrc()).named(actual.getName()).isEqualTo(expected.getCrc());
+      }
+    }
   }
 
   @Test
@@ -192,9 +227,12 @@ public class DexFileSplitterTest {
 
   private ImmutableSet<String> dexEntries(Path dexArchive) throws IOException {
     try (ZipFile input = new ZipFile(dexArchive.toFile())) {
-      ImmutableSet<String> result = ImmutableSet.copyOf(Iterators.filter(
-          Iterators.transform(Iterators.forEnumeration(input.entries()), ZipEntryName.INSTANCE),
-          Predicates.containsPattern(".*\\.class.dex$")));
+      ImmutableSet<String> result =
+          input
+              .stream()
+              .map(ZipEntryName.INSTANCE)
+              .filter(Predicates.containsPattern(".*\\.class.dex$"))
+              .collect(ImmutableSet.toImmutableSet());
       assertThat(result).isNotEmpty(); // test sanity
       return result;
     }
@@ -229,8 +267,8 @@ public class DexFileSplitterTest {
     options.inclusionFilterJar = inclusionFilterJar;
     DexFileSplitter.splitIntoShards(options);
     assertThat(options.outputDirectory.toFile().exists()).isTrue();
-    ImmutableSet<Path> files =
-        ImmutableSet.copyOf(Files.newDirectoryStream(options.outputDirectory, "*.zip"));
+    ImmutableSet<Path> files = readFiles(options.outputDirectory, "*.zip");
+
     ImmutableList.Builder<Path> result = ImmutableList.builder();
     for (int i = 1; i <= files.size(); ++i) {
       Path path = options.outputDirectory.resolve(i + ".shard.zip");
@@ -238,6 +276,12 @@ public class DexFileSplitterTest {
       result.add(path);
     }
     return result.build(); // return expected files in sorted order
+  }
+
+  private static ImmutableSet<Path> readFiles(Path directory, String glob) throws IOException {
+    try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, glob)) {
+      return ImmutableSet.copyOf(stream);
+    }
   }
 
   private Path buildDexArchive() throws Exception {

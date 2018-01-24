@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -32,19 +33,19 @@ public interface PackageRoots {
    * this build are present in the map. Should only be needed for planting the symlink forest. If it
    * is absent, planting the symlink forest is not necessary.
    */
-  Optional<ImmutableMap<PackageIdentifier, Path>> getPackageRootsMap();
+  Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap();
 
   PackageRootLookup getPackageRootLookup();
 
   /** Interface for getting the source root of a package, given its {@link PackageIdentifier}. */
   interface PackageRootLookup {
     /**
-     * Returns the {@link Root} of a package, given its {@link PackageIdentifier}. May be null if
-     * the given {@code packageIdentifier} does not correspond to a package in this build. However,
-     * if there is a unique source root for all packages, this may return that root even if the
-     * {@code packageIdentifier} given does not correspond to any packages.
+     * Returns the {@link ArtifactRoot} of a package, given its {@link PackageIdentifier}. May be
+     * null if the given {@code packageIdentifier} does not correspond to a package in this build.
+     * However, if there is a unique source root for all packages, this may return that root even if
+     * the {@code packageIdentifier} given does not correspond to any packages.
      */
     @Nullable
-    Root getRootForPackage(PackageIdentifier packageIdentifier);
+    ArtifactRoot getRootForPackage(PackageIdentifier packageIdentifier);
   }
 }

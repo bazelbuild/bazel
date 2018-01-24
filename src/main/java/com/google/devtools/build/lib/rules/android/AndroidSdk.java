@@ -28,9 +28,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 
-/**
- * Implementation of the {@code android_sdk} rule.
- */
+/** Implementation of the {@code android_sdk} rule. */
 public class AndroidSdk implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -42,19 +40,19 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
             ? ruleContext.getExecutablePrerequisite("proguard", Mode.HOST)
             : ruleContext.getExecutablePrerequisite(":proguard", Mode.HOST);
 
-    String buildToolsVersion = AggregatingAttributeMapper.of(ruleContext.getRule())
-        .get("build_tools_version", Type.STRING);
+    String buildToolsVersion =
+        AggregatingAttributeMapper.of(ruleContext.getRule())
+            .get("build_tools_version", Type.STRING);
     FilesToRunProvider aidl = ruleContext.getExecutablePrerequisite("aidl", Mode.HOST);
     FilesToRunProvider aapt = ruleContext.getExecutablePrerequisite("aapt", Mode.HOST);
     FilesToRunProvider aapt2 = ruleContext.getExecutablePrerequisite("aapt2", Mode.HOST);
-    FilesToRunProvider apkBuilder = ruleContext.getExecutablePrerequisite(
-        "apkbuilder", Mode.HOST);
+    FilesToRunProvider apkBuilder = ruleContext.getExecutablePrerequisite("apkbuilder", Mode.HOST);
     FilesToRunProvider apkSigner = ruleContext.getExecutablePrerequisite("apksigner", Mode.HOST);
 
     FilesToRunProvider adb = ruleContext.getExecutablePrerequisite("adb", Mode.HOST);
     FilesToRunProvider dx = ruleContext.getExecutablePrerequisite("dx", Mode.HOST);
-    FilesToRunProvider mainDexListCreator = ruleContext.getExecutablePrerequisite(
-        "main_dex_list_creator", Mode.HOST);
+    FilesToRunProvider mainDexListCreator =
+        ruleContext.getExecutablePrerequisite("main_dex_list_creator", Mode.HOST);
     FilesToRunProvider zipalign = ruleContext.getExecutablePrerequisite("zipalign", Mode.HOST);
     Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl", Mode.HOST);
     TransitiveInfoCollection aidlLib = ruleContext.getPrerequisite("aidl_lib", Mode.TARGET);

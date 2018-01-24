@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -26,7 +27,9 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -37,38 +40,33 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
-  private static final String LINUX_SANDBOX = "linux-sandbox";
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
     if (OS.getCurrent() != OS.LINUX) {
       return false;
     }
-    Path embeddedTool = getLinuxSandbox(cmdEnv);
-    if (embeddedTool == null) {
-      // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
-      // bootstrapping).
+    if (!LinuxSandboxUtil.isSupported(cmdEnv)) {
       return false;
     }
 
-    Path execRoot = cmdEnv.getExecRoot();
-
-    List<String> args = new ArrayList<>();
-    args.add(embeddedTool.getPathString());
-    args.add("--");
-    args.add("/bin/true");
-
+    List<String> linuxSandboxArgv =
+        LinuxSandboxUtil.commandLineBuilder(
+                LinuxSandboxUtil.getLinuxSandbox(cmdEnv).getPathString(),
+                ImmutableList.of("/bin/true"))
+            .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
+    Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
 
-    Command cmd = new Command(args.toArray(new String[0]), env, cwd);
+    Command cmd = new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd);
     try {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
@@ -76,11 +74,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     return true;
-  }
-
-  private static Path getLinuxSandbox(CommandEnvironment cmdEnv) {
-    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
-    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
   private final FileSystem fileSystem;
@@ -91,27 +84,90 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path inaccessibleHelperFile;
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
-  private final int timeoutGraceSeconds;
+  private final Optional<Duration> timeoutKillDelay;
   private final String productName;
 
+  /**
+   * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool. If a spawn exceeds
+   * its timeout, then it will be killed instantly.
+   *
+   * @param cmdEnv the command environment to use
+   * @param sandboxBase path to the sandbox base directory
+   * @param productName the product name to use
+   * @param inaccessibleHelperFile path to a file that is (already) inaccessible
+   * @param inaccessibleHelperDir path to a directory that is (already) inaccessible
+   */
+  LinuxSandboxedSpawnRunner(
+      CommandEnvironment cmdEnv,
+      Path sandboxBase,
+      String productName,
+      Path inaccessibleHelperFile,
+      Path inaccessibleHelperDir) {
+    this(
+        cmdEnv,
+        sandboxBase,
+        productName,
+        inaccessibleHelperFile,
+        inaccessibleHelperDir,
+        Optional.empty());
+  }
+
+  /**
+   * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool. If a spawn exceeds
+   * its timeout, then it will be killed after the specified delay.
+   *
+   * @param cmdEnv the command environment to use
+   * @param sandboxBase path to the sandbox base directory
+   * @param productName the product name to use
+   * @param inaccessibleHelperFile path to a file that is (already) inaccessible
+   * @param inaccessibleHelperDir path to a directory that is (already) inaccessible
+   * @param timeoutKillDelay an additional grace period before killing timing out commands
+   */
   LinuxSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       String productName,
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
-      int timeoutGraceSeconds) {
+      Duration timeoutKillDelay) {
+    this(
+        cmdEnv,
+        sandboxBase,
+        productName,
+        inaccessibleHelperFile,
+        inaccessibleHelperDir,
+        Optional.of(timeoutKillDelay));
+  }
+
+  /**
+   * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
+   *
+   * @param cmdEnv the command environment to use
+   * @param sandboxBase path to the sandbox base directory
+   * @param productName the product name to use
+   * @param inaccessibleHelperFile path to a file that is (already) inaccessible
+   * @param inaccessibleHelperDir path to a directory that is (already) inaccessible
+   * @param timeoutKillDelay an optional, additional grace period before killing timing out
+   *     commands. If not present, then no grace period is used and commands are killed instantly.
+   */
+  LinuxSandboxedSpawnRunner(
+      CommandEnvironment cmdEnv,
+      Path sandboxBase,
+      String productName,
+      Path inaccessibleHelperFile,
+      Path inaccessibleHelperDir,
+      Optional<Duration> timeoutKillDelay) {
     super(cmdEnv, sandboxBase);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
     this.productName = productName;
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
-    this.linuxSandbox = getLinuxSandbox(cmdEnv);
+    this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
-    this.timeoutGraceSeconds = timeoutGraceSeconds;
-    this.localEnvProvider = LocalEnvProvider.ADD_TEMP_POSIX;
+    this.timeoutKillDelay = timeoutKillDelay;
+    this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
   }
 
   @Override
@@ -125,104 +181,52 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // name unique (like we have to with standalone execution strategy).
     Path tmpDir = sandboxExecRoot.getRelative("tmp");
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), tmpDir);
+    Map<String, String> environment =
+        localEnvProvider.rewriteLocalEnv(
+            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
+
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     Duration timeout = policy.getTimeout();
-    List<String> arguments =
-        computeCommandLine(
-            spawn,
-            timeout,
-            linuxSandbox,
-            writableDirs,
-            getTmpfsPaths(),
-            getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
-            allowNetwork || Spawns.requiresNetwork(spawn),
-            spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT));
-    Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir, productName);
+
+    LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
+        LinuxSandboxUtil.commandLineBuilder(linuxSandbox.getPathString(), spawn.getArguments())
+            .setWritableFilesAndDirectories(writableDirs)
+            .setTmpfsDirectories(getTmpfsPaths())
+            .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
+            .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
+            .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
+            .setUseDebugMode(getSandboxOptions().sandboxDebug);
+
+    if (!timeout.isZero()) {
+      commandLineBuilder.setTimeout(timeout);
+    }
+    if (timeoutKillDelay.isPresent()) {
+      commandLineBuilder.setKillDelay(timeoutKillDelay.get());
+    }
+    if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT)) {
+      commandLineBuilder.setUseFakeRoot(true);
+    } else if (getSandboxOptions().sandboxFakeUsername) {
+      commandLineBuilder.setUseFakeUsername(true);
+    }
+
+    Optional<String> statisticsPath = Optional.empty();
+    if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
+      statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
+      commandLineBuilder.setStatisticsPath(statisticsPath.get());
+    }
 
     SandboxedSpawn sandbox =
         new SymlinkedSandboxedSpawn(
             sandboxPath,
             sandboxExecRoot,
-            arguments,
+            commandLineBuilder.build(),
             environment,
             SandboxHelpers.getInputFiles(spawn, policy, execRoot),
             outputs,
             writableDirs);
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout);
-  }
 
-  private List<String> computeCommandLine(
-      Spawn spawn,
-      Duration timeout,
-      Path linuxSandbox,
-      Set<Path> writableDirs,
-      Set<Path> tmpfsPaths,
-      Map<Path, Path> bindMounts,
-      boolean allowNetwork,
-      boolean requiresFakeRoot) {
-    List<String> commandLineArgs = new ArrayList<>();
-    commandLineArgs.add(linuxSandbox.getPathString());
-
-    if (getSandboxOptions().sandboxDebug) {
-      commandLineArgs.add("-D");
-    }
-
-    // Kill the process after a timeout.
-    if (!timeout.isZero()) {
-      commandLineArgs.add("-T");
-      commandLineArgs.add(Long.toString(timeout.getSeconds()));
-    }
-
-    if (timeoutGraceSeconds != -1) {
-      commandLineArgs.add("-t");
-      commandLineArgs.add(Integer.toString(timeoutGraceSeconds));
-    }
-
-    // Create all needed directories.
-    for (Path writablePath : writableDirs) {
-      commandLineArgs.add("-w");
-      commandLineArgs.add(writablePath.getPathString());
-    }
-
-    for (Path tmpfsPath : tmpfsPaths) {
-      commandLineArgs.add("-e");
-      commandLineArgs.add(tmpfsPath.getPathString());
-    }
-
-    for (ImmutableMap.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      commandLineArgs.add("-M");
-      commandLineArgs.add(bindMount.getValue().getPathString());
-
-      // The file is mounted in a custom location inside the sandbox.
-      if (!bindMount.getKey().equals(bindMount.getValue())) {
-        commandLineArgs.add("-m");
-        commandLineArgs.add(bindMount.getKey().getPathString());
-      }
-    }
-
-    if (!allowNetwork) {
-      // Block network access out of the namespace.
-      commandLineArgs.add("-N");
-    }
-
-    if (getSandboxOptions().sandboxFakeHostname) {
-      // Use a fake hostname ("localhost") inside the sandbox.
-      commandLineArgs.add("-H");
-    }
-
-    if (requiresFakeRoot) {
-      // Use fake root.
-      commandLineArgs.add("-R");
-    } else if (getSandboxOptions().sandboxFakeUsername) {
-      // Use a fake username ("nobody") inside the sandbox.
-      commandLineArgs.add("-U");
-    }
-
-    commandLineArgs.add("--");
-    commandLineArgs.addAll(spawn.getArguments());
-    return commandLineArgs;
+    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
   }
 
   @Override
@@ -231,10 +235,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected ImmutableSet<Path> getWritableDirs(
-      Path sandboxExecRoot, Map<String, String> env, Path tmpDir) throws IOException {
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
+      throws IOException {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
-    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env, tmpDir));
+    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
 
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());

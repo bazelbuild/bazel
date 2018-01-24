@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -152,7 +155,12 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   /** The configuration needed to run the target pattern evaluation phase. */
   @ThreadSafe
-  static final class TargetPatternPhaseKey implements SkyKey, Serializable {
+  @VisibleForSerialization
+  @AutoCodec
+  public static final class TargetPatternPhaseKey implements SkyKey, Serializable {
+    public static final ObjectCodec<TargetPatternPhaseKey> CODEC =
+        new TargetPatternPhaseValue_TargetPatternPhaseKey_AutoCodec();
+
     private final ImmutableList<String> targetPatterns;
     private final String offset;
     private final boolean compileOneDependency;
@@ -163,7 +171,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean expandTestSuites;
     @Nullable private final TestFilter testFilter;
 
-    public TargetPatternPhaseKey(
+    TargetPatternPhaseKey(
         ImmutableList<String> targetPatterns,
         String offset,
         boolean compileOneDependency,

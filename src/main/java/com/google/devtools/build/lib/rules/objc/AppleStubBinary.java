@@ -136,7 +136,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
     targetBuilder.addNativeDeclaredProvider(objcProvider);
 
     targetBuilder.addNativeDeclaredProvider(
-        new AppleExecutableBinaryProvider(outputArtifact, objcProvider));
+        new AppleExecutableBinaryInfo(outputArtifact, objcProvider));
 
     return targetBuilder.build();
   }

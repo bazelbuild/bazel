@@ -15,8 +15,7 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -38,8 +37,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -69,6 +70,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttribut
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -183,19 +185,19 @@ public class SkylarkRuleClassFunctions {
         // Input files for every test action
         .add(
             attr("$test_runtime", LABEL_LIST)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(
                     ImmutableList.of(
                         labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
         // Input files for test actions collecting code coverage
         .add(
             attr("$coverage_support", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(labelCache.getUnchecked("//tools/defaults:coverage_support")))
         // Used in the one-per-build coverage report generation action.
         .add(
             attr("$coverage_report_generator", LABEL)
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(labelCache.getUnchecked("//tools/defaults:coverage_report_generator"))
                 .singleArtifact())
         .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
@@ -247,9 +249,10 @@ public class SkylarkRuleClassFunctions {
             + "Instantiate this provider with <br>"
             + "<pre class=language-python>"
             + "OutputGroupInfo(group1 = &lt;files&gt;, group2 = &lt;files&gt;...)</pre>"
-            + "See <a href=\"../rules.html#output-groups\">Output Groups</a> for more information"
+            + "See <a href=\"../rules.$DOC_EXT#output-groups\">Output Groups</a> "
+            + "for more information."
   )
-  private static final Provider outputGroupInfo = OutputGroupProvider.SKYLARK_CONSTRUCTOR;
+  private static final Provider outputGroupInfo = OutputGroupInfo.SKYLARK_CONSTRUCTOR;
 
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
@@ -333,10 +336,7 @@ public class SkylarkRuleClassFunctions {
                 "Expected list of strings or dictionary of string -> string for 'fields'");
             fieldNames = dict.keySet();
           }
-          return new SkylarkProvider(
-              "<no name>", // name is set on export.
-              fieldNames,
-              location);
+          return SkylarkProvider.createUnexportedSchemaful(fieldNames, location);
         }
       };
 
@@ -544,8 +544,9 @@ public class SkylarkRuleClassFunctions {
 
           builder.requiresConfigurationFragmentsBySkylarkModuleName(
               fragments.getContents(String.class, "fragments"));
-          builder.requiresHostConfigurationFragmentsBySkylarkModuleName(
-              hostFragments.getContents(String.class, "host_fragments"));
+          ConfigAwareRuleClassBuilder.of(builder)
+              .requiresHostConfigurationFragmentsBySkylarkModuleName(
+                  hostFragments.getContents(String.class, "host_fragments"));
           builder.setConfiguredTargetFunction(implementation);
           builder.setRuleDefinitionEnvironment(funcallEnv);
           builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
@@ -753,7 +754,7 @@ public class SkylarkRuleClassFunctions {
                 && ((String) attribute.getDefaultValue(null)).isEmpty()) {
               hasDefault = false; // isValueSet() is always true for attr.string.
             }
-            if (!Attribute.isImplicit(nativeName)) {
+            if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
               if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
                 throw new EvalException(
                     ast.getLocation(),
@@ -775,7 +776,7 @@ public class SkylarkRuleClassFunctions {
                           nativeName, allowed.getErrorReason(defaultVal)));
                 }
               }
-            } else if (!hasDefault) { // Implicit attribute
+            } else if (!hasDefault) { // Implicit or late bound attribute
               String skylarkName = "_" + nativeName.substring(1);
               throw new EvalException(
                   ast.getLocation(),
@@ -794,8 +795,7 @@ public class SkylarkRuleClassFunctions {
                       EvalUtils.getDataTypeName(o, true)));
             }
           }
-
-          return new SkylarkAspect(
+          return new SkylarkDefinedAspect(
               implementation,
               attrAspects.build(),
               attributes.build(),
@@ -804,6 +804,7 @@ public class SkylarkRuleClassFunctions {
               SkylarkAttr.getSkylarkProviderIdentifiers(providesArg, ast.getLocation()),
               requiredParams.build(),
               ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
+              HostTransition.INSTANCE,
               ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
               collectToolchainLabels(toolchains, ast),
               funcallEnv);
@@ -925,11 +926,12 @@ public class SkylarkRuleClassFunctions {
    * All classes of values that need special processing after they are exported from an extension
    * file.
    *
-   * <p>Order in list is significant: all {@link SkylarkAspect}s need to be exported before {@link
-   * SkylarkRuleFunction}s etc.
+   * <p>Order in list is significant: all {@link SkylarkDefinedAspect}s need to be exported before
+   * {@link SkylarkRuleFunction}s etc.
    */
   private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
-      ImmutableList.of(SkylarkProvider.class, SkylarkAspect.class, SkylarkRuleFunction.class);
+      ImmutableList.of(
+          SkylarkProvider.class, SkylarkDefinedAspect.class, SkylarkRuleFunction.class);
 
   @SkylarkSignature(
     name = "Label",
@@ -1060,11 +1062,11 @@ public class SkylarkRuleClassFunctions {
 
         private void printProtoTextMessage(
             ClassObject object, StringBuilder sb, int indent, Location loc) throws EvalException {
-          // For determinism sort the keys alphabetically
-          List<String> keys = new ArrayList<>(object.getKeys());
-          Collections.sort(keys);
-          for (String key : keys) {
-            printProtoTextMessage(key, object.getValue(key), sb, indent, loc);
+          // For determinism sort the fields alphabetically.
+          List<String> fields = new ArrayList<>(object.getFieldNames());
+          Collections.sort(fields);
+          for (String field : fields) {
+            printProtoTextMessage(field, object.getValue(field), sb, indent, loc);
           }
         }
 
@@ -1173,13 +1175,13 @@ public class SkylarkRuleClassFunctions {
             sb.append("{");
 
             String join = "";
-            for (String subKey : ((ClassObject) value).getKeys()) {
+            for (String field : ((ClassObject) value).getFieldNames()) {
               sb.append(join);
               join = ",";
               sb.append("\"");
-              sb.append(subKey);
+              sb.append(field);
               sb.append("\":");
-              printJson(((ClassObject) value).getValue(subKey), sb, loc, "struct field", subKey);
+              printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
             }
             sb.append("}");
           } else if (value instanceof List) {
@@ -1233,7 +1235,7 @@ public class SkylarkRuleClassFunctions {
   )
   private static final BuiltinFunction output_group = new BuiltinFunction("output_group") {
     public SkylarkNestedSet invoke(TransitiveInfoCollection self, String group) {
-      OutputGroupProvider provider = OutputGroupProvider.get(self);
+      OutputGroupInfo provider = OutputGroupInfo.get(self);
       NestedSet<Artifact> result = provider != null
           ? provider.getOutputGroup(group)
           : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);

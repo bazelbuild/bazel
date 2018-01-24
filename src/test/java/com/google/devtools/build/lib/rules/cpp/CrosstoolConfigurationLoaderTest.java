@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,7 +61,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
   private CppConfigurationLoader loader(String crosstoolFileContents) throws IOException {
     getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstoolFileContents);
-    return new CppConfigurationLoader(Functions.<String>identity());
+    return new CppConfigurationLoader(CpuTransformer.IDENTITY);
   }
 
   @Before
@@ -203,11 +202,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .containsExactly(getToolPath("/system-include-dir"));
     assertThat(ccProvider.getSysroot()).isNull();
 
-    assertThat(toolchain.getCompilerOptions(NO_FEATURES))
+    assertThat(CppHelper.getCompilerOptions(toolchain, ccProvider, NO_FEATURES))
         .containsExactly("c", "fastbuild")
         .inOrder();
     assertThat(toolchain.getCOptions()).isEmpty();
-    assertThat(toolchain.getCxxOptions(NO_FEATURES))
+    assertThat(CppHelper.getCxxOptions(toolchain, ccProvider, NO_FEATURES))
         .containsExactly("cxx", "cxx-fastbuild")
         .inOrder();
     assertThat(ccProvider.getUnfilteredCompilerOptions(NO_FEATURES))
@@ -526,11 +525,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderA.supportsEmbeddedRuntimes()).isTrue();
     assertThat(ccProviderA.toolchainNeedsPic()).isTrue();
 
-    assertThat(toolchainA.getCompilerOptions(NO_FEATURES))
+    assertThat(CppHelper.getCompilerOptions(toolchainA, ccProviderA, NO_FEATURES))
         .containsExactly(
             "compiler-flag-A-1", "compiler-flag-A-2", "fastbuild-flag-A-1", "fastbuild-flag-A-2")
         .inOrder();
-    assertThat(toolchainA.getCxxOptions(NO_FEATURES))
+    assertThat(CppHelper.getCxxOptions(toolchainA, ccProviderA, NO_FEATURES))
         .containsExactly(
             "cxx-flag-A-1", "cxx-flag-A-2", "cxx-fastbuild-flag-A-1", "cxx-fastbuild-flag-A-2")
         .inOrder();
@@ -553,8 +552,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             ccProviderA.configureLinkerOptions(
                 CompilationMode.FASTBUILD,
                 LipoMode.OFF,
-                LinkingMode.FULLY_STATIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1",
             "linker-flag-A-2",
@@ -567,8 +565,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             ccProviderA.configureLinkerOptions(
                 CompilationMode.DBG,
                 LipoMode.OFF,
-                LinkingMode.DYNAMIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.DYNAMIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "linker-dbg-flag-A-1", "linker-dbg-flag-A-2")
         .inOrder();
@@ -576,8 +573,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             ccProviderA.configureLinkerOptions(
                 CompilationMode.OPT,
                 LipoMode.OFF,
-                LinkingMode.FULLY_STATIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
@@ -586,8 +582,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             ccProviderA.configureLinkerOptions(
                 CompilationMode.OPT,
                 LipoMode.BINARY,
-                LinkingMode.FULLY_STATIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.FULLY_STATIC))
         .containsExactly(
             "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
         .inOrder();
@@ -649,9 +644,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderC.toolchainNeedsPic()).isFalse();
     assertThat(ccProviderC.supportsFission()).isFalse();
 
-    assertThat(toolchainC.getCompilerOptions(NO_FEATURES)).isEmpty();
+    assertThat(CppHelper.getCompilerOptions(toolchainC, ccProviderC, NO_FEATURES)).isEmpty();
     assertThat(toolchainC.getCOptions()).isEmpty();
-    assertThat(toolchainC.getCxxOptions(NO_FEATURES)).isEmpty();
+    assertThat(CppHelper.getCxxOptions(toolchainC, ccProviderC, NO_FEATURES)).isEmpty();
     assertThat(ccProviderC.getUnfilteredCompilerOptions(NO_FEATURES)).isEmpty();
     assertThat(CppHelper.getDynamicLinkOptions(toolchainC, ccProviderC, NO_FEATURES, true))
         .isEmpty();
@@ -659,22 +654,19 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             ccProviderC.configureLinkerOptions(
                 CompilationMode.FASTBUILD,
                 LipoMode.OFF,
-                LinkingMode.FULLY_STATIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.FULLY_STATIC))
         .isEmpty();
     assertThat(
             ccProviderC.configureLinkerOptions(
                 CompilationMode.DBG,
                 LipoMode.OFF,
-                LinkingMode.DYNAMIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.DYNAMIC))
         .isEmpty();
     assertThat(
             ccProviderC.configureLinkerOptions(
                 CompilationMode.OPT,
                 LipoMode.OFF,
-                LinkingMode.FULLY_STATIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.FULLY_STATIC))
         .isEmpty();
     assertThat(ccProviderC.getObjCopyOptionsForEmbedding()).isEmpty();
     assertThat(ccProviderC.getLdOptionsForEmbedding()).isEmpty();
@@ -706,8 +698,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             ccProviderB.configureLinkerOptions(
                 CompilationMode.DBG,
                 lipoMode,
-                LinkingMode.DYNAMIC,
-                PathFragment.create("hello-world/ld")))
+                LinkingMode.DYNAMIC))
         .containsExactly(
             "linker-flag-B-1",
             "linker-flag-B-2",
@@ -715,12 +706,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "linker-dbg-flag-B-2",
             "linker-lipo_" + lipoSuffix)
         .inOrder();
-    assertThat(toolchainB.getCompilerOptions(ImmutableList.of("crosstool_fig")))
-        .containsAllOf(
-            "compiler-flag-B-1",
-            "compiler-flag-B-2",
-            "lipo_" + lipoSuffix,
-            "-Wfig")
+    assertThat(
+            CppHelper.getCompilerOptions(
+                toolchainB, ccProviderB, ImmutableList.of("crosstool_fig")))
+        .containsAllOf("compiler-flag-B-1", "compiler-flag-B-2", "lipo_" + lipoSuffix, "-Wfig")
         .inOrder();
   }
 

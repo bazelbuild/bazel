@@ -111,7 +111,7 @@ public class GlobCacheTest {
 
   @After
   public final void deleteFiles() throws Exception  {
-    FileSystemUtils.deleteTreesBelow(scratch.getFileSystem().getRootDirectory());
+    FileSystemUtils.deleteTreesBelow(scratch.getFileSystem().getPath("/"));
   }
 
   @Test

@@ -29,6 +29,7 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -384,16 +385,19 @@ public class RClassGeneratorTest {
 
   private static void checkFilesInPackage(Path packageDir, String... expectedFiles)
       throws IOException {
-    ImmutableList<String> filesInPackage = ImmutableList
-        .copyOf(Iterables.transform(Files.newDirectoryStream(packageDir),
-            new Function<Path, String>() {
-              @Override
-              public String apply(Path path) {
-                return path.getFileName().toString();
-              }
-            }
-        ));
-    assertThat(filesInPackage).containsExactly((Object[]) expectedFiles);
+    try (DirectoryStream<Path> stream = Files.newDirectoryStream(packageDir)) {
+      ImmutableList<String> filesInPackage =
+          ImmutableList.copyOf(
+              Iterables.transform(
+                  stream,
+                  new Function<Path, String>() {
+                    @Override
+                    public String apply(Path path) {
+                      return path.getFileName().toString();
+                    }
+                  }));
+      assertThat(filesInPackage).containsExactly((Object[]) expectedFiles);
+    }
   }
 
   private static Class<?> checkTopLevelClass(

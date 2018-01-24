@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -172,14 +173,13 @@ public class FdoSupport {
   private final Path fdoProfile;
 
   /**
-   * Temporary directory to which the coverage ZIP file is extracted to
-   * (relative to the exec root), or {@code null} if FDO optimization is
-   * disabled. This is used to create artifacts for the extracted files.
+   * Temporary directory to which the coverage ZIP file is extracted to (relative to the exec root),
+   * or {@code null} if FDO optimization is disabled. This is used to create artifacts for the
+   * extracted files.
    *
-   * <p>Note that this root is intentionally not registered with the artifact
-   * factory.
+   * <p>Note that this root is intentionally not registered with the artifact factory.
    */
-  private final Root fdoRoot;
+  private final ArtifactRoot fdoRoot;
 
   /**
    * The relative path of the FDO root to the exec root.
@@ -227,8 +227,14 @@ public class FdoSupport {
    * @param fdoProfile path to the profile file passed to --fdo_optimize option
    * @param lipoMode value of the --lipo_mode option
    */
-  private FdoSupport(FdoMode fdoMode, LipoMode lipoMode, Root fdoRoot, PathFragment fdoRootExecPath,
-      PathFragment fdoInstrument, Path fdoProfile, FdoZipContents fdoZipContents) {
+  private FdoSupport(
+      FdoMode fdoMode,
+      LipoMode lipoMode,
+      ArtifactRoot fdoRoot,
+      PathFragment fdoRootExecPath,
+      PathFragment fdoInstrument,
+      Path fdoProfile,
+      FdoZipContents fdoZipContents) {
     this.fdoInstrument = fdoInstrument;
     this.fdoProfile = fdoProfile;
     this.fdoRoot = fdoRoot;
@@ -248,7 +254,7 @@ public class FdoSupport {
     }
   }
 
-  public Root getFdoRoot() {
+  public ArtifactRoot getFdoRoot() {
     return fdoRoot;
   }
 
@@ -281,10 +287,10 @@ public class FdoSupport {
       lipoMode = LipoMode.OFF;
     }
 
-    Root fdoRoot =
+    ArtifactRoot fdoRoot =
         (fdoProfile == null)
             ? null
-            : Root.asDerivedRoot(execRoot, execRoot.getRelative(productName + "-fdo"), true);
+            : ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative(productName + "-fdo"));
 
     PathFragment fdoRootExecPath = fdoProfile == null
         ? null
@@ -299,8 +305,10 @@ public class FdoSupport {
         PrecomputedValue.dependOnBuildId(env);
       } else {
         Path path = fdoMode == FdoMode.AUTO_FDO ? getAutoFdoImportsPath(fdoProfile) : fdoProfile;
-        env.getValue(FileValue.key(RootedPath.toRootedPathMaybeUnderRoot(path,
-            ImmutableList.of(execRoot))));
+        env.getValue(
+            FileValue.key(
+                RootedPath.toRootedPathMaybeUnderRoot(
+                    path, ImmutableList.of(Root.fromPath(execRoot)))));
       }
     }
 

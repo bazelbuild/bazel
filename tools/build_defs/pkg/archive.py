@@ -15,11 +15,8 @@
 
 # pylint: disable=g-import-not-at-top
 import gzip
+import io
 import os
-try:
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 import subprocess
 import tarfile
 
@@ -35,7 +32,7 @@ class SimpleArFile(object):
   with SimpleArFile(filename) as ar:
     nextFile = ar.next()
     while nextFile:
-      print nextFile.filename
+      print(nextFile.filename)
       nextFile = ar.next()
 
   Upon error, this class will raise a ArError exception.
@@ -60,7 +57,7 @@ class SimpleArFile(object):
     """
 
     def __init__(self, f):
-      self.filename = f.read(16).strip()
+      self.filename = f.read(16).decode('utf-8').strip()
       if self.filename.endswith('/'):  # SysV variant
         self.filename = self.filename[:-1]
       self.timestamp = int(f.read(12).strip())
@@ -69,11 +66,11 @@ class SimpleArFile(object):
       self.mode = int(f.read(8).strip(), 8)
       self.size = int(f.read(10).strip())
       pad = f.read(2)
-      if pad != '\x60\x0a':
+      if pad != b'\x60\x0a':
         raise SimpleArFile.ArError('Invalid AR file header')
       self.data = f.read(self.size)
 
-  MAGIC_STRING = '!<arch>\n'
+  MAGIC_STRING = b'!<arch>\n'
 
   def __init__(self, filename):
     self.filename = filename
@@ -273,8 +270,9 @@ class TarFileWriter(object):
     if link:
       tarinfo.linkname = link
     if content:
-      tarinfo.size = len(content)
-      self._addfile(tarinfo, StringIO(content))
+      content_bytes = content.encode('utf-8')
+      tarinfo.size = len(content_bytes)
+      self._addfile(tarinfo, io.BytesIO(content_bytes))
     elif file_content:
       with open(file_content, 'rb') as f:
         tarinfo.size = os.fstat(f.fileno()).st_size
@@ -334,7 +332,7 @@ class TarFileWriter(object):
       p = subprocess.Popen('cat %s | xzcat' % tar,
                            shell=True,
                            stdout=subprocess.PIPE)
-      f = StringIO(p.stdout.read())
+      f = io.BytesIO(p.stdout.read())
       p.wait()
       intar = tarfile.open(fileobj=f, mode='r:')
     else:

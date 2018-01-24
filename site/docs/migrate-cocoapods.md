@@ -6,7 +6,7 @@ title: Converting CocoaPods dependencies
 # Converting CocoaPods dependencies
 
 This document provides high-level guidelines for converting [CocoaPods](https://www.cocoapods.org/)
-dependencies to Bazel packages that are compatible with [Tulsi](http://http://tulsi.bazel.build/).
+dependencies to Bazel packages that are compatible with [Tulsi](https://tulsi.bazel.build/).
 CocoaPods is a third-party dependency management system for Apple application
 development.
 

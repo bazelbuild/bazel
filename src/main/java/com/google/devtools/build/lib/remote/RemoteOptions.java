@@ -20,23 +20,21 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.remoteexecution.v1test.Platform;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
   @Option(
-    name = "remote_rest_cache",
+    name = "remote_http_cache",
+    oldName = "remote_rest_cache",
     defaultValue = "null",
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "A base URL for a RESTful cache server for storing build artifacts. "
-            + "It has to support PUT, GET, and HEAD requests."
+        "A base URL of a HTTP caching service. Both http:// and https:// are supported. BLOBs are "
+            + "stored with PUT and retrieved with GET. See remote/README.md for more information."
   )
-  public String remoteRestCache;
+  public String remoteHttpCache;
 
   @Option(
     name = "remote_rest_cache_pool_size",
@@ -44,7 +42,10 @@ public final class RemoteOptions extends OptionsBase {
     category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Size of the HTTP pool for making requests to the REST cache."
+    help = "Size of the HTTP pool for making requests to the REST cache.",
+    deprecationWarning =
+        "The value will be ignored and the option will be removed in the next "
+            + "release. Bazel selects the ideal pool size automatically."
   )
   public int restCachePoolSize;
 
@@ -107,16 +108,6 @@ public final class RemoteOptions extends OptionsBase {
     help = "Whether to upload locally executed action results to the remote cache."
   )
   public boolean remoteUploadLocalResults;
-
-  @Option(
-    name = "experimental_remote_platform_override",
-    defaultValue = "null",
-    category = "remote",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Temporary, for testing only. Manually set a Platform to pass to remote execution."
-  )
-  public String experimentalRemotePlatformOverride;
 
   @Option(
     name = "remote_instance_name",
@@ -221,18 +212,15 @@ public final class RemoteOptions extends OptionsBase {
   )
   public PathFragment experimentalLocalDiskCachePath;
 
-  public Platform parseRemotePlatformOverride() {
-    if (experimentalRemotePlatformOverride != null) {
-      Platform.Builder platformBuilder = Platform.newBuilder();
-      try {
-        TextFormat.getParser().merge(experimentalRemotePlatformOverride, platformBuilder);
-      } catch (ParseException e) {
-        throw new IllegalArgumentException(
-            "Failed to parse --experimental_remote_platform_override", e);
-      }
-      return platformBuilder.build();
-    } else {
-      return null;
-    }
-  }
+  @Option(
+    name = "experimental_guard_against_concurrent_changes",
+    defaultValue = "false",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Turn this off to disable checking the ctime of input files of an action before "
+        + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
+        + "writing of files, which could cause false positives."
+  )
+  public boolean experimentalGuardAgainstConcurrentChanges;
 }

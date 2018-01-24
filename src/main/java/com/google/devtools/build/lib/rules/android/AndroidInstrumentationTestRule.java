@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -22,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -43,14 +43,13 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
             attr("target_device", LABEL)
                 .mandatory()
                 .exec()
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .allowedRuleClasses("android_device"))
         .add(
             attr("support_apks", LABEL_LIST)
                 .allowedFileTypes(AndroidRuleClasses.APK)
                 .allowedRuleClasses("android_binary"))
-        .add(attr("test_args", STRING_DICT))
         .add(
             attr("fixtures", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
@@ -61,7 +60,7 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
         .add(
             attr("$test_entry_point", LABEL)
                 .exec()
-                .cfg(HOST)
+                .cfg(HostTransition.INSTANCE)
                 .value(
                     environment.getToolsLabel("//tools/android:instrumentation_test_entry_point")))
         .removeAttribute("deps")

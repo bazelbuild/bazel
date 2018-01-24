@@ -40,12 +40,6 @@ http_archive(
     strip_prefix = "j2objc-2.0.3",
 )
 
-# For src/test/docker/...
-load("//src/test/docker:docker_repository.bzl", "docker_repository")
-docker_repository()
-load("//src/test/docker:flavours.bzl", "pull_images_for_docker_tests")
-pull_images_for_docker_tests()
-
 # For src/test/shell/bazel:test_srcs
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 list_source_repository(name = "local_bazel_source_list")
@@ -130,11 +124,11 @@ http_file(
 http_archive(
     name = "bazel_toolchains",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/b49ba3689f46ac50e9277dafd8ff32b26951f82e.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/b49ba3689f46ac50e9277dafd8ff32b26951f82e.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/f3b09700fae5d7b6e659d7cefe0dcc6e8498504c.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/f3b09700fae5d7b6e659d7cefe0dcc6e8498504c.tar.gz",
     ],
-    strip_prefix = "bazel-toolchains-b49ba3689f46ac50e9277dafd8ff32b26951f82e",
-    sha256 = "1266f1e27b4363c83222f1a776397c7a069fbfd6aacc9559afa61cdd73e1b429",
+    strip_prefix = "bazel-toolchains-f3b09700fae5d7b6e659d7cefe0dcc6e8498504c",
+    sha256 = "ed829b5eea8af1f405f4cc3d6ecfc3b1365bb7843171036030a31b5127002311",
 )
 
 http_archive(

@@ -19,13 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -64,9 +65,9 @@ import javax.annotation.Nullable;
 /**
  * A helper class to provide Attr module in Skylark.
  *
- * <p>It exposes functions (e.g. 'attr.string', 'attr.label_list', etc.) to Skylark users. The
- * functions are executed through reflection. As everywhere in Skylark, arguments are type-checked
- * with the signature and cannot be null.
+ * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Skylark users.
+ * The functions are executed through reflection. As everywhere in Skylark, arguments are
+ * type-checked with the signature and cannot be null.
  */
 @SkylarkModule(
   name = "attr",
@@ -75,7 +76,9 @@ import javax.annotation.Nullable;
   doc =
       "Module for creating new attributes. "
           + "They are only for use with <a href=\"globals.html#rule\">rule</a> or "
-          + "<a href=\"globals.html#aspect\">aspect</a>."
+          + "<a href=\"globals.html#aspect\">aspect</a>. "
+          + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+          + "attributes/printer.bzl\">See example of use</a>."
 )
 public final class SkylarkAttr implements SkylarkValue {
 
@@ -83,53 +86,54 @@ public final class SkylarkAttr implements SkylarkValue {
 
   private static final String ALLOW_FILES_ARG = "allow_files";
   private static final String ALLOW_FILES_DOC =
-      "whether File targets are allowed. Can be True, False (default), or a list of file "
-      + "extensions that are allowed (e.g. <code>[\".cc\", \".cpp\"]</code>).";
+      "Whether File targets are allowed. Can be True, False (default), or a list of file "
+      + "extensions that are allowed (for example, <code>[\".cc\", \".cpp\"]</code>).";
 
   private static final String ALLOW_RULES_ARG = "allow_rules";
   private static final String ALLOW_RULES_DOC =
-      "which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
+      "Which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
           + "compatibility), use providers instead.";
 
   private static final String ASPECTS_ARG = "aspects";
   private static final String ASPECTS_ARG_DOC =
-      "aspects that should be applied to the dependency or dependencies specified by this "
-          + "attribute";
+      "Aspects that should be applied to the dependency or dependencies specified by this "
+          + "attribute.";
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
-      "configuration of the attribute. It can be either \"data\", \"host\", or \"target\". "
-          + "This parameter is required if <code>executable</code> is True.";
+      "<a href=\"../rules.$DOC_EXT#configurations\">Configuration</a> of the attribute. It can be "
+          + "either <code>\"data\"</code>, <code>\"host\"</code>, or <code>\"target\"</code>.";
 
   private static final String DEFAULT_ARG = "default";
-  private static final String DEFAULT_DOC = "the default value of the attribute.";
+  // A trailing space is required because it's often prepended to other sentences
+  private static final String DEFAULT_DOC = "The default value of the attribute. ";
 
   private static final String DOC_ARG = "doc";
   private static final String DOC_DOC =
-      "a description of the attribute that can be extracted by documentation generating tools.";
+      "A description of the attribute that can be extracted by documentation generating tools.";
 
   private static final String EXECUTABLE_ARG = "executable";
   private static final String EXECUTABLE_DOC =
-      "True if the labels have to be executable. This means the label must refer to an "
-          + "executable file, or to a rule that outputs an executable file. Access the labels "
+      "True if the label has to be executable. This means the label must refer to an "
+          + "executable file, or to a rule that outputs an executable file. Access the label "
           + "with <code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
   private static final String FLAGS_ARG = "flags";
-  private static final String FLAGS_DOC = "deprecated, will be removed";
+  private static final String FLAGS_DOC = "Deprecated, will be removed.";
 
   private static final String MANDATORY_ARG = "mandatory";
-  private static final String MANDATORY_DOC = "True if the value must be explicitly specified";
+  private static final String MANDATORY_DOC = "True if the value must be explicitly specified.";
 
   private static final String NON_EMPTY_ARG = "non_empty";
   private static final String NON_EMPTY_DOC =
       "True if the attribute must not be empty. Deprecated: Use allow_empty instead.";
 
   private static final String ALLOW_EMPTY_ARG = "allow_empty";
-  private static final String ALLOW_EMPTY_DOC = "True if the attribute can be empty";
+  private static final String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
 
   private static final String PROVIDERS_ARG = "providers";
   private static final String PROVIDERS_DOC =
-      "mandatory providers list. It should be either a list of providers, or a "
+      "Mandatory providers list. It should be either a list of providers, or a "
           + "list of lists of providers. Every dependency should provide ALL providers "
           + "from at least ONE of these lists. A single list of providers will be "
           + "automatically converted to a list containing one list of providers.";
@@ -139,7 +143,7 @@ public final class SkylarkAttr implements SkylarkValue {
 
   private static final String VALUES_ARG = "values";
   private static final String VALUES_DOC =
-      "the list of allowed values for the attribute. An error is raised if any other "
+      "The list of allowed values for the attribute. An error is raised if any other "
           + "value is given.";
 
   private static boolean containsNonNoneKey(SkylarkDict<String, Object> arguments, String key) {
@@ -291,11 +295,11 @@ public final class SkylarkAttr implements SkylarkValue {
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
       if (trans.equals("data")) {
-        builder.cfg(ConfigurationTransition.DATA);
+        builder.cfg(ConfigurationTransitionProxy.DATA);
       } else if (trans.equals("host")) {
-        builder.cfg(ConfigurationTransition.HOST);
-      } else if (trans instanceof SplitTransition<?>) {
-        builder.cfg((SplitTransition<?>) trans);
+        builder.cfg(HostTransition.INSTANCE);
+      } else if (trans instanceof SplitTransition) {
+        builder.cfg((SplitTransition) trans);
       } else if (trans instanceof SplitTransitionProvider) {
         builder.cfg((SplitTransitionProvider) trans);
       } else if (!trans.equals("target")) {
@@ -311,12 +315,7 @@ public final class SkylarkAttr implements SkylarkValue {
       List<SkylarkAspect> aspects =
           ((SkylarkList<?>) obj).getContents(SkylarkAspect.class, "aspects");
       for (SkylarkAspect aspect : aspects) {
-        if (!aspect.isExported()) {
-          throw new EvalException(
-              ast.getLocation(),
-              "Aspects should be top-level values in extension files that define them.");
-        }
-        builder.aspect(aspect, ast.getLocation());
+        aspect.attachToAttribute(builder, ast.getLocation());
       }
     }
 
@@ -636,7 +635,7 @@ public final class SkylarkAttr implements SkylarkValue {
             + "referred to by the label. "
             + "It is the only way to specify a dependency to another target. "
             + "If you need a dependency that the user cannot overwrite, "
-            + "<a href=\"../rules.html#private-attributes\">make the attribute private</a>.",
+            + "<a href=\"../rules.$DOC_EXT#private-attributes\">make the attribute private</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     parameters = {
@@ -655,8 +654,8 @@ public final class SkylarkAttr implements SkylarkValue {
         doc =
             DEFAULT_DOC
                 + "Use a string or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                + "function to specify a default value ex: "
-                + "<code>attr.label(default = \"//a:b\")</code>"
+                + "function to specify a default value, for example, "
+                + "<code>attr.label(default = \"//a:b\")</code>."
       ),
       @Param(
         name = DOC_ARG,
@@ -735,7 +734,7 @@ public final class SkylarkAttr implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = CONFIGURATION_DOC
+        doc = CONFIGURATION_DOC + " This parameter is required if <code>executable</code> is True."
       ),
       @Param(
         name = ASPECTS_ARG,
@@ -745,7 +744,7 @@ public final class SkylarkAttr implements SkylarkValue {
         named = true,
         positional = false,
         doc = ASPECTS_ARG_DOC
-      )
+      ),
     },
     useAst = true,
     useEnvironment = true
@@ -972,8 +971,8 @@ public final class SkylarkAttr implements SkylarkValue {
         doc =
             DEFAULT_DOC
                 + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                + "function to specify default values ex: "
-                + "<code>attr.label_list(default = [\"//a:b\", \"//a:c\"])</code>"
+                + "function to specify default values, for example, "
+                + "<code>attr.label_list(default = [\"//a:b\", \"//a:c\"])</code>."
       ),
       @Param(
         name = DOC_ARG,
@@ -1056,7 +1055,7 @@ public final class SkylarkAttr implements SkylarkValue {
         named = true,
         positional = false,
         doc = ASPECTS_ARG_DOC
-      )
+      ),
     },
     useAst = true,
     useEnvironment = true
@@ -1132,9 +1131,9 @@ public final class SkylarkAttr implements SkylarkValue {
         doc =
             DEFAULT_DOC
                 + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                + "function to specify default values ex: "
+                + "function to specify default values, for example, "
                 + "<code>attr.label_keyed_string_dict(default = "
-                + "{\"//a:b\": \"value\", \"//a:c\": \"string\"})</code>"
+                + "{\"//a:b\": \"value\", \"//a:c\": \"string\"})</code>."
       ),
       @Param(
         name = DOC_ARG,
@@ -1677,9 +1676,9 @@ public final class SkylarkAttr implements SkylarkValue {
     name = "Attribute",
     category = SkylarkModuleCategory.NONE,
     doc =
-        "Representation of a definition of an attribute. Use the <a href=\"attr\"> module to "
-            + "create an Attribute. They are only for use with "
-            + "<a href=\"globals.html#rule\">rule</a> or "
+        "Representation of a definition of an attribute. Use the <a href=\"attr.html\">attr</a> "
+            + "module to create an Attribute. They are only for use with a "
+            + "<a href=\"globals.html#rule\">rule</a> or an "
             + "<a href=\"globals.html#aspect\">aspect</a>."
   )
   public static final class Descriptor implements SkylarkValue {

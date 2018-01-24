@@ -3,6 +3,18 @@ package(default_visibility = ["//visibility:public"])
 # TODO(lberki): Remove this once java_toolchain_alias and java_runtime_alias are
 # in a Bazel release
 load("//tools/jdk:alias_rules.bzl", "java_host_runtime_alias")
+load(
+    "//tools/jdk:default_java_toolchain.bzl",
+    "default_java_toolchain",
+    "JDK8_JVM_OPTS",
+    "JDK9_JVM_OPTS",
+)
+
+# Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
+toolchain_type(name = "toolchain_type")
+
+# Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
+toolchain_type(name = "runtime_toolchain_type")
 
 java_runtime_alias(name = "current_java_runtime")
 
@@ -132,6 +144,7 @@ BOOTCLASS_JARS = [
     "charsets.jar",
 ]
 
+# TODO(cushon): this isn't compatible with JDK 9
 alias(
     name = "bootclasspath",
     actual = "@local_jdk//:bootclasspath",
@@ -174,48 +187,52 @@ alias(
     actual = "@local_jdk//:jdk",
 )
 
-java_toolchain(
+genrule(
+    name = "gen_platformclasspath",
+    srcs = ["DumpPlatformClassPath.java"],
+    outs = ["platformclasspath-impl.jar"],
+    cmd = """
+set -eu
+TMPDIR=$$(mktemp -d)
+$(JAVABASE)/bin/javac $< -d $$TMPDIR
+$(JAVA) -cp $$TMPDIR DumpPlatformClassPath 8 $@
+rm -rf $$TMPDIR
+""",
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+)
+
+# run ijar separately so we can skip it for bootstrapping
+genrule(
+    name = "platformclasspath",
+    srcs = ["platformclasspath-impl.jar"],
+    outs = ["platformclasspath.jar"],
+    cmd = "$(location @bazel_tools//tools/jdk:ijar) $< $@",
+    tools = ["@bazel_tools//tools/jdk:ijar"],
+)
+
+default_java_toolchain(
+    name = "toolchain_jdk8",
+    jvm_opts = JDK8_JVM_OPTS,
+)
+
+default_java_toolchain(
+    name = "toolchain_jdk9",
+    jvm_opts = JDK9_JVM_OPTS,
+)
+
+alias(
     name = "toolchain",
-    bootclasspath = [":bootclasspath"],
-    compatible_javacopts = {
-        # Restrict protos to Java 7 so that they are compatible with Android.
-        "proto": [
-            "-source",
-            "7",
-            "-target",
-            "7",
-            "-XDallowBetterNullChecks=false",
-        ],
-    },
-    encoding = "UTF-8",
-    extclasspath = [":extclasspath"],
-    forcibly_disable_header_compilation = 0,
-    genclass = ["@bazel_tools//tools/jdk:genclass"],
-    header_compiler = ["@bazel_tools//tools/jdk:turbine"],
-    ijar = ["@bazel_tools//tools/jdk:ijar"],
-    javabuilder = ["@bazel_tools//tools/jdk:javabuilder"],
-    javac = ["//third_party/java/jdk/langtools:javac_jar"],
-    javac_supports_workers = 1,
-    jvm_opts = [
-        "-XX:+TieredCompilation",
-        "-XX:TieredStopAtLevel=1",
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
-    ],
-    misc = [
-        "-XDskipDuplicateBridges=true",
-        "-g",
-        "-parameters",
-    ],
-    singlejar = ["@bazel_tools//tools/jdk:singlejar"],
-    source_version = "8",
-    target_version = "8",
+    actual = "//external:java_toolchain",
 )
 
 filegroup(
     name = "srcs",
     srcs = [
         "BUILD-jdk",  # Tools are build from the workspace for tests.
+        "DumpPlatformClassPath.java",
         "alias_rules.bzl",
+        "default_java_toolchain.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",

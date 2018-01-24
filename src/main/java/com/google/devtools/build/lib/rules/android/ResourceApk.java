@@ -27,15 +27,14 @@ public final class ResourceApk {
   // TODO(bazel-team): The only fields that are legitimately nullable are javaSrcJar and
   // mainDexProguardConfig. The rest are marked as such due to .fromTransitiveResources().
   // It seems like there should be a better way to do this.
-  @Nullable private final Artifact resourceApk;  // The .ap_ file
-  @Nullable private final Artifact resourceJavaSrcJar;  // Source jar containing R.java and friends
-  @Nullable private final Artifact resourceJavaClassJar;  // Class jar containing R.class files
+  @Nullable private final Artifact resourceApk; // The .ap_ file
+  @Nullable private final Artifact resourceJavaSrcJar; // Source jar containing R.java and friends
+  @Nullable private final Artifact resourceJavaClassJar; // Class jar containing R.class files
   private final ResourceDependencies resourceDeps;
   @Nullable private final ResourceContainer primaryResource;
-  @Nullable private final Artifact manifest;  // The non-binary XML version of AndroidManifest.xml
+  @Nullable private final Artifact manifest; // The non-binary XML version of AndroidManifest.xml
   @Nullable private final Artifact resourceProguardConfig;
   @Nullable private final Artifact mainDexProguardConfig;
-  private final boolean legacy;
 
   public ResourceApk(
       @Nullable Artifact resourceApk,
@@ -45,8 +44,7 @@ public final class ResourceApk {
       @Nullable ResourceContainer primaryResource,
       @Nullable Artifact manifest,
       @Nullable Artifact resourceProguardConfig,
-      @Nullable Artifact mainDexProguardConfig,
-      boolean legacy) {
+      @Nullable Artifact mainDexProguardConfig) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -55,7 +53,6 @@ public final class ResourceApk {
     this.manifest = manifest;
     this.resourceProguardConfig = resourceProguardConfig;
     this.mainDexProguardConfig = mainDexProguardConfig;
-    this.legacy = legacy;
   }
 
   public Artifact getArtifact() {
@@ -78,13 +75,8 @@ public final class ResourceApk {
     return resourceJavaClassJar;
   }
 
-  public boolean isLegacy() {
-    return legacy;
-  }
-
-  public static ResourceApk fromTransitiveResources(
-      ResourceDependencies resourceDeps) {
-    return new ResourceApk(null, null, null, resourceDeps, null, null, null, null, false);
+  public static ResourceApk fromTransitiveResources(ResourceDependencies resourceDeps) {
+    return new ResourceApk(null, null, null, resourceDeps, null, null, null, null);
   }
 
   public Artifact getResourceProguardConfig() {
@@ -106,16 +98,13 @@ public final class ResourceApk {
    * contain the "forwarded" resources: The merged transitive and merged direct dependencies of this
    * library.
    *
-   * <p>If the ResourceApk was generated from a "resources" attribute, it will contain the
-   * "resources" container in the direct dependencies and the rest as transitive.
-   *
-   * <p>If the ResourceApk was generated from local resources, that will be the direct dependencies and
-   * the rest will be transitive.
+   * <p>If the ResourceApk was generated from local resources, that will be the direct dependencies
+   * and the rest will be transitive.
    */
-  public AndroidResourcesProvider toResourceProvider(Label label, boolean isResourcesOnly) {
+  public AndroidResourcesProvider toResourceProvider(Label label) {
     if (primaryResource == null) {
-      return resourceDeps.toProvider(label, isResourcesOnly);
+      return resourceDeps.toProvider(label);
     }
-    return resourceDeps.toProvider(label, primaryResource, isResourcesOnly);
+    return resourceDeps.toProvider(label, primaryResource);
   }
 }

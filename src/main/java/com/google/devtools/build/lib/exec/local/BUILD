@@ -11,6 +11,8 @@ java_library(
     srcs = [
         "LocalEnvProvider.java",
         "LocalSpawnRunner.java",
+        "PosixLocalEnvProvider.java",
+        "WindowsLocalEnvProvider.java",
     ],
     data = [
         "//src/main/tools:process-wrapper",

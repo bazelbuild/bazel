@@ -274,6 +274,7 @@ public class WorkspaceFactory {
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
     }
+    builder.addRegisteredExecutionPlatformLabels(aPackage.getRegisteredExecutionPlatformLabels());
     builder.addRegisteredToolchainLabels(aPackage.getRegisteredToolchainLabels());
     for (Rule rule : aPackage.getTargets(Rule.class)) {
       try {
@@ -388,6 +389,57 @@ public class WorkspaceFactory {
   }
 
   @SkylarkSignature(
+    name = "register_execution_platforms",
+    objectType = Object.class,
+    returnType = NoneType.class,
+    doc = "Registers a platform so that it is available to execute actions.",
+    extraPositionals =
+        @Param(
+          name = "platform_labels",
+          type = SkylarkList.class,
+          generic1 = String.class,
+          doc = "The labels of the platforms to register."
+        ),
+    useAst = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction.Factory newRegisterExecutionPlatformsFunction =
+      new BuiltinFunction.Factory("register_execution_platforms") {
+        public BuiltinFunction create(final RuleFactory ruleFactory) {
+          return new BuiltinFunction(
+              "register_execution_platforms",
+              FunctionSignature.POSITIONALS,
+              BuiltinFunction.USE_AST_ENV) {
+            public Object invoke(
+                SkylarkList<String> platformLabels, FuncallExpression ast, Environment env)
+                throws EvalException, InterruptedException {
+
+              // Collect the platform labels.
+              List<Label> platforms = new ArrayList<>();
+              for (String rawLabel : platformLabels.getContents(String.class, "platform_labels")) {
+                try {
+                  platforms.add(Label.parseAbsolute(rawLabel));
+                } catch (LabelSyntaxException e) {
+                  throw new EvalException(
+                      ast.getLocation(),
+                      String.format(
+                          "In register_execution_platforms: unable to parse platform label %s: %s",
+                          rawLabel, e.getMessage()),
+                      e);
+                }
+              }
+
+              // Add to the package definition for later.
+              Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+              builder.addRegisteredExecutionPlatformLabels(platforms);
+
+              return NONE;
+            }
+          };
+        }
+      };
+
+  @SkylarkSignature(
     name = "register_toolchains",
     objectType = Object.class,
     returnType = NoneType.class,
@@ -484,6 +536,8 @@ public class WorkspaceFactory {
       boolean allowOverride, RuleFactory ruleFactory) {
     Map<String, BaseFunction> map = new HashMap<>();
     map.put("bind", newBindFunction(ruleFactory));
+    map.put(
+        "register_execution_platforms", newRegisterExecutionPlatformsFunction.apply(ruleFactory));
     map.put("register_toolchains", newRegisterToolchainsFunction.apply(ruleFactory));
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       if (!map.containsKey(ruleClass)) {
@@ -506,8 +560,11 @@ public class WorkspaceFactory {
       if (workspaceDir != null) {
         workspaceEnv.update("__workspace_dir__", workspaceDir.getPathString());
       }
-      File jreDirectory = new File(System.getProperty("java.home"));
-      workspaceEnv.update("DEFAULT_SERVER_JAVABASE", jreDirectory.getParentFile().toString());
+      File javaHome = new File(System.getProperty("java.home"));
+      if (javaHome.getName().equalsIgnoreCase("jre")) {
+        javaHome = javaHome.getParentFile();
+      }
+      workspaceEnv.update("DEFAULT_SERVER_JAVABASE", javaHome.toString());
 
       for (EnvironmentExtension extension : environmentExtensions) {
         extension.updateWorkspace(workspaceEnv);

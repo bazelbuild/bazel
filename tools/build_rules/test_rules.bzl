@@ -206,7 +206,7 @@ def _rule_test_impl(ctx):
     # the same file.
     generates = sorted(ctx.attr.generates)
     generated = sorted([strip_prefix(prefix, f.short_path)
-                        for f in rule_.files])
+                        for f in rule_.files.to_list()])
     if generates != generated:
       fail("rule %s generates %s not %s"
            % (rule_name, repr(generated), repr(generates)))

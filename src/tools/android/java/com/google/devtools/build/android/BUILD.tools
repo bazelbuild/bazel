@@ -9,7 +9,6 @@ java_binary(
     name = "ResourceProcessorBusyBox",
     data = select({
         "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//src/conditions:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": [],
     }),
     main_class = "com.google.devtools.build.android.ResourceProcessorBusyBox",

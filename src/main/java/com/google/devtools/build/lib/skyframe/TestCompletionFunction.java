@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,14 +32,13 @@ public final class TestCompletionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     TestCompletionValue.TestCompletionKey key =
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
-    LabelAndConfiguration lac = key.labelAndConfiguration();
+    ConfiguredTargetKey ctKey = key.configuredTargetKey();
     TopLevelArtifactContext ctx = key.topLevelArtifactContext();
-    if (env.getValue(TargetCompletionValue.key(lac, ctx)) == null) {
+    if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /*willTest=*/ true)) == null) {
       return null;
     }
 
-    ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
-        env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
+    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(ctKey);
     if (ctValue == null) {
       return null;
     }
@@ -64,6 +62,6 @@ public final class TestCompletionFunction implements SkyFunction {
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((LabelAndConfiguration) skyKey.argument()).getLabel());
+    return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
   }
 }

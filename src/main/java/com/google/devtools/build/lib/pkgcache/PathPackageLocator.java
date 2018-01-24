@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
@@ -47,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class PathPackageLocator implements Serializable {
   private static final String WORKSPACE_WILDCARD = "%workspace%";
 
-  private final ImmutableList<Path> pathEntries;
+  private final ImmutableList<Root> pathEntries;
   // Transient because this is an injected value in Skyframe, and as such, its serialized
   // representation is used as a key. We want a change to output base not to invalidate things.
   private final transient Path outputBase;
@@ -56,7 +57,7 @@ public class PathPackageLocator implements Serializable {
 
   @VisibleForTesting
   public PathPackageLocator(
-      Path outputBase, List<Path> pathEntries, List<BuildFileName> buildFilesByPriority) {
+      Path outputBase, List<Root> pathEntries, List<BuildFileName> buildFilesByPriority) {
     this.outputBase = outputBase;
     this.pathEntries = ImmutableList.copyOf(pathEntries);
     this.buildFilesByPriority = ImmutableList.copyOf(buildFilesByPriority);
@@ -133,11 +134,8 @@ public class PathPackageLocator implements Serializable {
     return null;
   }
 
-
-  /**
-   * Returns an immutable ordered list of the directories on the package path.
-   */
-  public ImmutableList<Path> getPathEntries() {
+  /** Returns an immutable ordered list of the directories on the package path. */
+  public ImmutableList<Root> getPathEntries() {
     return pathEntries;
   }
 
@@ -187,38 +185,18 @@ public class PathPackageLocator implements Serializable {
   }
 
   /**
-   * A factory of PathPackageLocators from a list of path elements. Elements may contain
-   * "%workspace%", indicating the workspace.
+   * A factory of PathPackageLocators from a list of path elements.
    *
    * @param outputBase the output base. Can be null if remote repositories are not in use.
-   * @param pathElements Each element must be an absolute path, relative path, or some string
-   *     "%workspace%" + relative, where relative is itself a relative path. The special symbol
-   *     "%workspace%" means to interpret the path relative to the nearest enclosing workspace.
-   *     Relative paths are interpreted relative to the client's working directory, which may be
-   *     below the workspace.
-   * @param eventHandler The eventHandler.
-   * @param workspace The nearest enclosing package root directory.
-   * @param clientWorkingDirectory The client's working directory.
+   * @param pathElements Each element must be a {@link Root} object.
    * @param buildFilesByPriority The ordered collection of {@link BuildFileName}s to check in each
    *     potential package directory.
    * @return a {@link PathPackageLocator} that uses the {@code outputBase} and {@code pathElements}
    *     provided.
    */
   public static PathPackageLocator createWithoutExistenceCheck(
-      Path outputBase,
-      List<String> pathElements,
-      EventHandler eventHandler,
-      Path workspace,
-      Path clientWorkingDirectory,
-      List<BuildFileName> buildFilesByPriority) {
-    return createInternal(
-        outputBase,
-        pathElements,
-        eventHandler,
-        workspace,
-        clientWorkingDirectory,
-        buildFilesByPriority,
-        false);
+      Path outputBase, List<Root> pathElements, List<BuildFileName> buildFilesByPriority) {
+    return new PathPackageLocator(outputBase, pathElements, buildFilesByPriority);
   }
 
   private static PathPackageLocator createInternal(
@@ -229,7 +207,7 @@ public class PathPackageLocator implements Serializable {
       Path clientWorkingDirectory,
       List<BuildFileName> buildFilesByPriority,
       boolean checkExistence) {
-    List<Path> resolvedPaths = new ArrayList<>();
+    List<Root> resolvedPaths = new ArrayList<>();
 
     for (String pathElement : pathElements) {
       // Replace "%workspace%" with the path of the enclosing workspace directory.
@@ -254,7 +232,7 @@ public class PathPackageLocator implements Serializable {
       }
 
       if (!checkExistence || rootPath.exists()) {
-        resolvedPaths.add(rootPath);
+        resolvedPaths.add(Root.fromPath(rootPath));
       }
     }
 
@@ -276,7 +254,7 @@ public class PathPackageLocator implements Serializable {
 
   private Path getFilePath(PathFragment suffix,
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
-    for (Path pathEntry : pathEntries) {
+    for (Root pathEntry : pathEntries) {
       Path buildFile = pathEntry.getRelative(suffix);
       try {
         FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);

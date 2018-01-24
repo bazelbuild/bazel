@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.jar.JarFile;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -66,6 +65,9 @@ public class DefaultJarEntryFilter implements ZipEntryFilter {
   // Merge all protobuf extension registries.
   private static final String PROTOBUF_META = "protobuf.meta";
 
+  // Merge all reference config files.
+  private static final String REFERENCE_CONF = "reference.conf";
+
   protected final Date date;
   protected final Date classDate;
   protected PathFilter allowedPaths;
@@ -91,6 +93,8 @@ public class DefaultJarEntryFilter implements ZipEntryFilter {
     } else if (filename.equals(SPRING_HANDLERS)) {
       callback.customMerge(date, new ConcatenateStrategy());
     } else if (filename.equals(SPRING_SCHEMAS)) {
+      callback.customMerge(date, new ConcatenateStrategy());
+    } else if (filename.equals(REFERENCE_CONF)) {
       callback.customMerge(date, new ConcatenateStrategy());
     } else if (filename.startsWith(SERVICES_DIR)) {
       // Merge all services files.

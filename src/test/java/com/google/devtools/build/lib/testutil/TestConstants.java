@@ -59,13 +59,17 @@ public class TestConstants {
    */
   public static final String JAVATESTS_ROOT = "io_bazel/src/test/java/";
 
-  /** Relative path to the process-wrapper tool. */
-  public static final String PROCESS_WRAPPER_PATH
-      = "io_bazel/src/main/tools/process-wrapper";
+  /** Relative path to the {@code process-wrapper} tool. */
+  public static final String PROCESS_WRAPPER_PATH =
+      "io_bazel/src/main/tools/process-wrapper";
 
-  /** Relative path to the spend_cpu_time testing tool. */
-  public static final String CPU_TIME_SPENDER_PATH
-      = "io_bazel/src/test/shell/integration/spend_cpu_time";
+  /** Relative path to the {@code linux-sandbox} tool. */
+  public static final String LINUX_SANDBOX_PATH =
+      "io_bazel/src/main/tools/linux-sandbox";
+
+  /** Relative path to the {@code spend_cpu_time} testing tool. */
+  public static final String CPU_TIME_SPENDER_PATH =
+      "io_bazel/src/test/shell/integration/spend_cpu_time";
 
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";

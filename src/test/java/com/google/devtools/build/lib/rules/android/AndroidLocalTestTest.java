@@ -10,7 +10,7 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.package com.google.devtools.build.lib.rules.android;
+// limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -24,14 +24,16 @@ import org.junit.runners.JUnit4;
 
 /** A test for android_local_test. */
 @RunWith(JUnit4.class)
-public class AndroidLocalTestTest extends AbstractAndroidLocalTestTest {
+public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestBase {
 
   @Test
   public void testSimpleTestNotNull() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     assertThat(target).isNotNull();
   }
@@ -40,8 +42,10 @@ public class AndroidLocalTestTest extends AbstractAndroidLocalTestTest {
   public void testResourceFilesZipCalledResourceFilesZip() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
 
     Artifact resourcesZip =
@@ -53,8 +57,10 @@ public class AndroidLocalTestTest extends AbstractAndroidLocalTestTest {
   public void testManifestInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
@@ -67,8 +73,10 @@ public class AndroidLocalTestTest extends AbstractAndroidLocalTestTest {
   public void testResourcesClassJarInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceClassJar =
@@ -80,8 +88,10 @@ public class AndroidLocalTestTest extends AbstractAndroidLocalTestTest {
   public void testResourcesZipFileInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'])");
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourcesZip =
@@ -93,8 +103,10 @@ public class AndroidLocalTestTest extends AbstractAndroidLocalTestTest {
   public void testCanHaveManifestNotNamedAndroidManifestXml() throws Exception {
     scratch.file(
         "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
+        "    deps = extra_deps",
         "    manifest = 'NotAndroidManifest.xml')");
     assertNoEvents();
   }

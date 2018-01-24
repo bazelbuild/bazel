@@ -15,7 +15,8 @@
 def _java_host_runtime_alias_impl(ctx):
   vars = ctx.attr._host_java_runtime[platform_common.TemplateVariableInfo]
   runtime_info = ctx.attr._host_java_runtime[java_common.JavaRuntimeInfo]
-  return struct(providers=[vars, runtime_info])
+  runtime_toolchain = ctx.attr._host_java_runtime[platform_common.ToolchainInfo]
+  return struct(providers=[vars, runtime_info, runtime_toolchain])
 
 java_host_runtime_alias = rule(
     attrs = {

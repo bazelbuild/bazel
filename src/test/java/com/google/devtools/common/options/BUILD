@@ -1,6 +1,9 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/common/options/testing:srcs"],
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/common/options/testing:srcs",
+        "//src/test/java/com/google/devtools/common/options/processor:srcs",
+    ],
     visibility = ["//src:__pkg__"],
 )
 
@@ -66,6 +69,7 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+        "//src/test/java/com/google/devtools/common/options/processor:all_windows_tests",
         "//src/test/java/com/google/devtools/common/options/testing:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],

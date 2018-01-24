@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
@@ -108,6 +108,7 @@ import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
@@ -118,7 +119,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
-import com.google.devtools.build.lib.rules.java.JavaPluginConfigurationRule;
+import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAlias;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
@@ -127,7 +128,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAlias;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
-import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoSkylarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleBinaryRule;
@@ -199,7 +199,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleSet> requires() {
-          return null;
+          return ImmutableList.of();
         }
       };
 
@@ -265,7 +265,16 @@ public class BazelRuleClassProvider {
 
           try {
             builder.addWorkspaceFilePrefix(
-                ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE"));
+                ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE")
+                    // Hackily select the java_toolchain based on the host JDK version. JDK 8 and
+                    // 9 host_javabases require different toolchains, e.g. to use --patch-module
+                    // instead of -Xbootclasspath/p:.
+                    .replace(
+                        "%java_toolchain%",
+                        isJdk8OrEarlier()
+                            ? "@bazel_tools//tools/jdk:toolchain_jdk8"
+                            : "@bazel_tools//tools/jdk:toolchain_jdk9"));
+
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
@@ -276,6 +285,10 @@ public class BazelRuleClassProvider {
           return ImmutableList.of(CoreRules.INSTANCE);
         }
       };
+
+  private static boolean isJdk8OrEarlier() {
+    return Double.parseDouble(System.getProperty("java.class.version")) <= 52.0;
+  }
 
   public static final RuleSet PROTO_RULES =
       new RuleSet() {
@@ -328,14 +341,12 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           builder.addSkylarkAccessibleTopLevels("cc_common", CcModule.INSTANCE);
 
-          builder.addConfig(
-              CppOptions.class, new CppConfigurationLoader(Functions.<String>identity()));
+          builder.addConfig(CppOptions.class, new CppConfigurationLoader(CpuTransformer.IDENTITY));
 
           builder.addBuildInfoFactory(new CppBuildInfo());
           builder.addDynamicTransitionMaps(CppRuleClasses.DYNAMIC_TRANSITIONS_MAP);
 
-          builder.addRuleDefinition(
-              new CcToolchainRule("@bazel_tools//tools/def_parser:def_parser"));
+          builder.addRuleDefinition(new CcToolchainRule());
           builder.addRuleDefinition(new CcToolchainSuiteRule());
           builder.addRuleDefinition(new CcToolchainAlias.CcToolchainAliasRule());
           builder.addRuleDefinition(new CcIncLibraryRule());
@@ -344,7 +355,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
+          builder.addRuleDefinition(
+              new BazelCppRuleClasses.CcRule(TOOLS_REPOSITORY + "//tools/def_parser:def_parser"));
           builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
           builder.addRuleDefinition(new BazelCcBinaryRule());
           builder.addRuleDefinition(new BazelCcTestRule());
@@ -380,7 +392,6 @@ public class BazelRuleClassProvider {
         @Override
         public void init(Builder builder) {
           builder.addConfigurationOptions(JavaOptions.class);
-          builder.addConfigurationFragment(new JvmConfigurationLoader());
           builder.addConfigurationFragment(new JavaConfigurationLoader());
 
           builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
@@ -397,7 +408,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelJavaTestRule());
           builder.addRuleDefinition(new BazelJavaPluginRule());
           builder.addRuleDefinition(new JavaToolchainRule());
-          builder.addRuleDefinition(new JavaPluginConfigurationRule());
+          builder.addRuleDefinition(new JavaPackageConfigurationRule());
           builder.addRuleDefinition(new JavaRuntimeRule());
           builder.addRuleDefinition(new JavaRuntimeSuiteRule());
           builder.addRuleDefinition(new JavaRuntimeAlias.JavaRuntimeAliasRule());
@@ -405,6 +416,11 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new ExtraActionRule());
           builder.addRuleDefinition(new ActionListenerRule());
+
+          builder.addSkylarkAccessibleTopLevels("java_common",
+              new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
+          builder.addSkylarkAccessibleTopLevels("JavaInfo", JavaInfo.PROVIDER);
+          builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
 
           try {
             builder.addWorkspaceFilePrefix(
@@ -467,12 +483,9 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelAarImportRule());
           builder.addRuleDefinition(new AndroidDeviceRule());
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
+          builder.addRuleDefinition(new BazelAndroidLocalTestRule());
 
           builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
-          builder.addSkylarkAccessibleTopLevels("java_common",
-              new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
-          builder.addSkylarkAccessibleTopLevels("JavaInfo", JavaInfo.PROVIDER);
-          builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
 
           try {
             builder.addWorkspaceFilePrefix(
@@ -516,8 +529,13 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
+          // objc_proto_library should go into a separate RuleSet!
+          // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
+          ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
+
           builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
-          builder.addSkylarkAccessibleTopLevels("apple_common", new AppleSkylarkCommon());
+          builder.addSkylarkAccessibleTopLevels(
+              "apple_common", new AppleSkylarkCommon(objcProtoAspect));
 
           builder.addConfig(ObjcCommandLineOptions.class, new ObjcConfigurationLoader());
           builder.addConfig(AppleCommandLineOptions.class, new AppleConfiguration.Loader());
@@ -525,9 +543,6 @@ public class BazelRuleClassProvider {
           // j2objc shouldn't be here!
           builder.addConfig(J2ObjcCommandLineOptions.class, new J2ObjcConfiguration.Loader());
 
-          // objc_proto_library should go into a separate RuleSet!
-          // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
-          ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
           builder.addNativeAspectClass(objcProtoAspect);
           builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));
           builder.addRuleDefinition(new AppleStaticLibraryRule(objcProtoAspect));

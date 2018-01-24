@@ -14,22 +14,39 @@
 
 package com.google.devtools.skylark.skylint;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.syntax.ASTNode;
+import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.AugmentedAssignmentStatement;
 import com.google.devtools.build.lib.syntax.BinaryOperatorExpression;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DictComprehension;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral;
+import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Operator;
-import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
+import com.google.devtools.skylark.skylint.Environment.NameInfo;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /** Checks for operations that are deprecated */
-public class BadOperationChecker extends SyntaxTreeVisitor {
+public class BadOperationChecker extends AstVisitorWithNameResolution {
+  private static final String DEPRECATED_PLUS_DEPSET_CATEGORY = "deprecated-plus-depset";
   private static final String DEPRECATED_PLUS_DICT_CATEGORY = "deprecated-plus-dict";
   private static final String DEPRECATED_PIPE_CATEGORY = "deprecated-pipe-dict";
 
   private final List<Issue> issues = new ArrayList<>();
+
+  /**
+   * Set of variables that (we assume) are depsets.
+   * We consider x a depset variable if it appears in a statement of form `x = expr`, where
+   * expr is either a call to `depset()` or else is itself a depset variable.
+   */
+  private final Set<Integer> depsetVariables = Sets.newHashSet();
 
   private BadOperationChecker() {}
 
@@ -37,6 +54,21 @@ public class BadOperationChecker extends SyntaxTreeVisitor {
     BadOperationChecker checker = new BadOperationChecker();
     checker.visit(ast);
     return checker.issues;
+  }
+
+  /** Use heuristic to guess if a node is an expression of type depset. */
+  private boolean isDepset(ASTNode node) {
+    if (node instanceof Identifier) {
+      NameInfo name = env.resolveName(((Identifier) node).getName());
+      return name != null && depsetVariables.contains(name.id);
+    }
+
+    if (node instanceof FuncallExpression) {
+      Expression function = ((FuncallExpression) node).getFunction();
+      return function instanceof Identifier && ((Identifier) function).getName().equals("depset");
+    }
+
+    return false;
   }
 
   @Override
@@ -53,6 +85,15 @@ public class BadOperationChecker extends SyntaxTreeVisitor {
                 "'+' operator is deprecated and should not be used on dictionaries",
                 node.getLocation()));
       }
+
+      if (isDepset(node.getLhs()) || isDepset(node.getRhs())) {
+        issues.add(
+            Issue.create(
+                DEPRECATED_PLUS_DEPSET_CATEGORY,
+                "'+' operator is deprecated and should not be used on depsets",
+                node.getLocation()));
+      }
+
     } else if (node.getOperator() == Operator.PIPE) {
       issues.add(
           Issue.create(
@@ -74,6 +115,28 @@ public class BadOperationChecker extends SyntaxTreeVisitor {
               DEPRECATED_PLUS_DICT_CATEGORY,
               "'+=' operator is deprecated and should not be used on dictionaries",
               node.getLocation()));
+    }
+
+    Identifier ident = Iterables.getOnlyElement(node.getLValue().boundIdentifiers());
+    if (isDepset(ident) || isDepset(node.getExpression())) {
+      issues.add(
+          Issue.create(
+              DEPRECATED_PLUS_DEPSET_CATEGORY,
+              "'+' operator is deprecated and should not be used on depsets",
+              node.getLocation()));
+    }
+  }
+
+  @Override
+  public void visit(AssignmentStatement node) {
+    super.visit(node);
+    ImmutableSet<Identifier> lvalues = node.getLValue().boundIdentifiers();
+    if (lvalues.size() != 1) {
+      return;
+    }
+    Identifier ident = Iterables.getOnlyElement(lvalues);
+    if (isDepset(node.getExpression())) {
+      depsetVariables.add(env.resolveName(ident.getName()).id);
     }
   }
 }

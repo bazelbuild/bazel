@@ -38,7 +38,7 @@ function fail() {
     exitCode=1
   fi
   echo >&2
-  echo "ERROR: $@" >&2
+  echo "ERROR: $*" >&2
   exit $exitCode
 }
 

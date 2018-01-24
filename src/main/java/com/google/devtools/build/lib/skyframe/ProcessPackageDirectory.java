@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -25,12 +27,12 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException4;
+import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,19 +75,13 @@ public class ProcessPackageDirectory {
       SkyFunction.Environment env,
       Set<PathFragment> excludedPaths)
       throws InterruptedException {
-    PathFragment rootRelativePath = rootedPath.getRelativePath();
+    PathFragment rootRelativePath = rootedPath.getRootRelativePath();
 
     SkyKey fileKey = FileValue.key(rootedPath);
     FileValue fileValue;
     try {
-      fileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  fileKey,
-                  InconsistentFilesystemException.class,
-                  FileSymlinkException.class,
-                  IOException.class);
-    } catch (InconsistentFilesystemException | FileSymlinkException | IOException e) {
+      fileValue = (FileValue) env.getValueOrThrow(fileKey, IOException.class);
+    } catch (IOException e) {
       return reportErrorAndReturn(
           "Failed to get information about path", e, rootRelativePath, env.getListener());
     }
@@ -116,15 +112,12 @@ public class ProcessPackageDirectory {
     SkyKey dirListingKey = DirectoryListingValue.key(rootedPath);
     Map<
             SkyKey,
-            ValueOrException4<
-                NoSuchPackageException, InconsistentFilesystemException, FileSymlinkException,
-                IOException>>
+            ValueOrException2<
+                NoSuchPackageException, IOException>>
         pkgLookupAndDirectoryListingDeps =
             env.getValuesOrThrow(
                 ImmutableList.of(pkgLookupKey, dirListingKey),
                 NoSuchPackageException.class,
-                InconsistentFilesystemException.class,
-                FileSymlinkException.class,
                 IOException.class);
     if (env.valuesMissing()) {
       return null;
@@ -141,7 +134,7 @@ public class ProcessPackageDirectory {
                   pkgLookupKey);
     } catch (NoSuchPackageException | InconsistentFilesystemException e) {
       return reportErrorAndReturn("Failed to load package", e, rootRelativePath, env.getListener());
-    } catch (IOException | FileSymlinkException e) {
+    } catch (IOException e) {
       throw new IllegalStateException(e);
     }
     DirectoryListingValue dirListingValue;
@@ -154,15 +147,15 @@ public class ProcessPackageDirectory {
                   rootedPath,
                   repositoryName,
                   dirListingKey);
-    } catch (InconsistentFilesystemException | IOException e) {
-      return reportErrorAndReturn(
-          "Failed to list directory contents", e, rootRelativePath, env.getListener());
     } catch (FileSymlinkException e) {
       // DirectoryListingFunction only throws FileSymlinkCycleException when FileFunction throws it,
       // but FileFunction was evaluated for rootedPath above, and didn't throw there. It shouldn't
       // be able to avoid throwing there but throw here.
       throw new IllegalStateException(
           "Symlink cycle found after not being found for \"" + rootedPath + "\"");
+    } catch (IOException e) {
+      return reportErrorAndReturn(
+          "Failed to list directory contents", e, rootRelativePath, env.getListener());
     } catch (NoSuchPackageException e) {
       throw new IllegalStateException(e);
     }
@@ -176,8 +169,8 @@ public class ProcessPackageDirectory {
       RootedPath rootedPath,
       RepositoryName repositoryName,
       Set<PathFragment> excludedPaths) {
-    Path root = rootedPath.getRoot();
-    PathFragment rootRelativePath = rootedPath.getRelativePath();
+    Root root = rootedPath.getRoot();
+    PathFragment rootRelativePath = rootedPath.getRootRelativePath();
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
     List<SkyKey> childDeps = new ArrayList<>();
     for (Dirent dirent : dirListingValue.getDirents()) {
@@ -218,7 +211,10 @@ public class ProcessPackageDirectory {
       // TODO(bazel-team): Replace the excludedPaths set with a trie or a SortedSet for better
       // efficiency.
       ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-          PathFragment.filterPathsStartingWith(excludedPaths, subdirectory);
+          excludedPaths
+              .stream()
+              .filter(pathFragment -> pathFragment.startsWith(subdirectory))
+              .collect(toImmutableSet());
       RootedPath subdirectoryRootedPath = RootedPath.toRootedPath(root, subdirectory);
       childDeps.add(
           skyKeyTransformer.makeSkyKey(

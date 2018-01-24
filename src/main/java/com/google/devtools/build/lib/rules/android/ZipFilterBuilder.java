@@ -21,13 +21,9 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 
-/**
- * Builder for creating a zip filter action.
- */
+/** Builder for creating a zip filter action. */
 public class ZipFilterBuilder {
-  /**
-   * Type of compression to apply to output archive.
-   */
+  /** Type of compression to apply to output archive. */
   public enum Compression {
     /** Output should be compressed. */
     COMPRESSED,

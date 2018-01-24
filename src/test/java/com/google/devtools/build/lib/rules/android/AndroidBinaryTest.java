@@ -635,7 +635,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testIncrementalDexing_attributeIncompatibleWithProguard() throws Exception {
+  public void testIncrementalDexing_incompatibleWithProguardWhenDisabled() throws Exception {
+    useConfiguration("--experimental_incremental_dexing_after_proguard=0"); // disable with Proguard
     checkError("java/com/google/android", "top", "target cannot be incrementally dexed",
         "android_binary(",
         "  name = 'top',",
@@ -1198,8 +1199,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFilteredResourcesInvalidFilter() throws Exception {
     String badQualifier = "invalid-qualifier";
 
-    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
-
     checkError(
         "java/r/android",
         "r",
@@ -1267,10 +1266,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     mockAndroidSdkWithAapt2();
 
-    useConfiguration(
-        "--android_sdk=//sdk:sdk",
-        "--experimental_android_resource_filtering_method",
-        "filter_in_analysis");
+    useConfiguration("--android_sdk=//sdk:sdk");
 
     ConfiguredTarget binary =
         scratchConfiguredTarget(
@@ -1294,32 +1290,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // This includes trimming whitespace and ignoring empty filters.
     assertThat(resourceArguments(directResources)).contains("en,es");
     assertThat(resourceArguments(directResources)).contains("hdpi,xhdpi");
-  }
-
-  @Test
-  public void testFilteredResourcesFilteringNotSpecified() throws Exception {
-    // TODO(asteinb): Once prefiltering is run by default, remove this test and remove the
-    // prefilter_resources flag from tests that currently explicitly specify to filter
-    List<String> resources =
-        ImmutableList.of("res/values/foo.xml", "res/values-en/foo.xml", "res/values-fr/foo.xml");
-    String dir = "java/r/android";
-
-    ConfiguredTarget binary =
-        scratchConfiguredTarget(
-            dir,
-            "r",
-            "android_binary(name = 'r',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_configuration_filters = ['en'],",
-            "  resource_files = ['" + Joiner.on("', '").join(resources) + "'])");
-
-    ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
-
-    // Validate that the AndroidResourceProvider for this binary contains all values.
-    assertThat(resourceContentsPaths(dir, directResources)).containsExactlyElementsIn(resources);
-
-    // Validate that the input to resource processing contains all values.
-    assertThat(resourceInputPaths(dir, directResources)).containsAllIn(resources);
   }
 
   @Test
@@ -1640,8 +1610,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     String dir = "java/r/android";
 
-    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
-
     ConfiguredTarget binary =
         scratchConfiguredTarget(
             dir,
@@ -1694,8 +1662,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     String dir = "java/r/android";
 
-    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
-
     ConfiguredTarget binary =
         scratchConfiguredTarget(
             dir,
@@ -1731,8 +1697,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFilteredTransitiveResourcesDifferentDensities() throws Exception {
     String dir = "java/r/android";
-
-    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
 
     ConfiguredTarget binary =
         scratchConfiguredTarget(
@@ -1779,8 +1743,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFilteredResourcesAllFilteredOut() throws Exception {
     String dir = "java/r/android";
-
-    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
 
     final String keptBaseDir = "partly_filtered_dir";
     String removedLibraryDir = "fully_filtered_library_dir";
@@ -4074,6 +4036,40 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget b1 = getConfiguredTarget("//java/com/google/android/instr:b1");
     AndroidInstrumentationInfo provider = b1.get(AndroidInstrumentationInfo.PROVIDER);
     assertThat(provider).isNull();
+  }
+
+  @Test
+  public void testFilterActionWithInstrumentedBinary() throws Exception {
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "android_binary(name = 'b1',",
+        "               srcs = ['b1.java'],",
+        "               instruments = ':b2',",
+        "               manifest = 'AndroidManifest.xml')",
+        "android_binary(name = 'b2',",
+        "               srcs = ['b2.java'],",
+        "               manifest = 'AndroidManifest.xml')");
+    ConfiguredTarget b1 = getConfiguredTarget("//java/com/google/android/instr:b1");
+    SpawnAction action =
+        (SpawnAction)
+            actionsTestUtil().getActionForArtifactEndingWith(getFilesToBuild(b1), "_filtered.jar");
+    assertThat(action.getArguments())
+        .containsAllOf(
+            "--inputZip",
+            getFirstArtifactEndingWith(action.getInputs(), "b1_deploy.jar").getExecPathString(),
+            "--filterZips",
+            getFirstArtifactEndingWith(action.getInputs(), "b2_deploy.jar").getExecPathString(),
+            "--outputZip",
+            getFirstArtifactEndingWith(action.getOutputs(), "b1_filtered.jar").getExecPathString(),
+            "--filterTypes",
+            ".class",
+            "--checkHashMismatch",
+            "IGNORE",
+            "--explicitFilters",
+            "R\\.class,R\\$.*\\.class,/BR\\.class$,/databinding/[^/]+Binding\\.class$,"
+                + "com/google/protobuf/BlazeGeneratedExtensionRegistryLiteLoader\\.class",
+            "--outputMode",
+            "DONT_CARE");
   }
 
   /**

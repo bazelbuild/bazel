@@ -80,6 +80,7 @@ public class XmlResourceValues {
   private static final XMLOutputFactory XML_OUTPUT_FACTORY = XMLOutputFactory.newInstance();
 
   private static XMLInputFactory inputFactoryInstance = null;
+
   public static XMLInputFactory getXmlInputFactory() {
     if (inputFactoryInstance == null) {
       inputFactoryInstance = XMLInputFactory.newInstance();
@@ -130,8 +131,7 @@ public class XmlResourceValues {
     //   <Parent>
     // And, in the resource name <parent>.<resource name>
     // Here, we take a garbage in, garbage out approach and just read the xml value raw.
-    return StyleXmlResourceValue.of(getElementAttributeByName(start, ATTR_PARENT),
-        values);
+    return StyleXmlResourceValue.of(getElementAttributeByName(start, ATTR_PARENT), values);
   }
 
   static void parseDeclareStyleable(
@@ -281,7 +281,7 @@ public class XmlResourceValues {
   }
 
   // TODO(corysmith): Replace this with real escaping system, preferably a performant high level xml
-  //writing library. See AndroidDataWritingVisitor TODO.
+  // writing library. See AndroidDataWritingVisitor TODO.
   private static String escapeXmlValues(String data) {
     return data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
   }

@@ -162,6 +162,18 @@ py_test(
     deps = [":resource_extractor"],
 )
 
+py_binary(
+    name = "instrumentation_test_check",
+    srcs = ["instrumentation_test_check.py"],
+    deps = ["//third_party/py/gflags"],
+)
+
+py_test(
+    name = "instrumentation_test_check_test",
+    srcs = ["instrumentation_test_check_test.py"],
+    deps = [":instrumentation_test_check"],
+)
+
 py_library(
     name = "junction_lib",
     srcs = ["junction.py"],
@@ -172,12 +184,10 @@ py_test(
     name = "junction_test",
     srcs = select({
         "//src/conditions:windows": ["junction_test.py"],
-        "//src/conditions:windows_msvc": ["junction_test.py"],
         "//conditions:default": ["dummy_test.py"],
     }),
     main = select({
         "//src/conditions:windows": "junction_test.py",
-        "//src/conditions:windows_msvc": "junction_test.py",
         "//conditions:default": "dummy_test.py",
     }),
     deps = [

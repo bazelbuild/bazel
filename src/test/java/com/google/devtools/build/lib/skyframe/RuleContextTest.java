@@ -37,7 +37,7 @@ public class RuleContextTest extends ToolchainTestCase {
         "--platforms=//platforms:mac");
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//x"));
     assertThat(ruleContext.getToolchainContext().getResolvedToolchainLabels())
-        .contains(Label.parseAbsolute("//toolchain:test_toolchain_1"));
+        .contains(Label.parseAbsolute("//toolchain:toolchain_1_impl"));
 
     ResolvedToolchainProviders resolvedToolchainProviders =
         (ResolvedToolchainProviders)

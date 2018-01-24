@@ -54,10 +54,10 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return "action from: " + arg;
     } else if (arg instanceof TargetCompletionKey
         && skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
-      return "configured target: " + ((TargetCompletionKey) arg).labelAndConfiguration().getLabel();
+      return "configured target: " + ((TargetCompletionKey) arg).configuredTargetKey().getLabel();
     } else if (arg instanceof TestCompletionKey
         && skyFunctionName.equals(SkyFunctions.TEST_COMPLETION)) {
-      return  "test target: " + ((TestCompletionKey) arg).labelAndConfiguration().getLabel();
+      return "test target: " + ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
         "Argument is not Action, TargetCompletion, TestCompletion or OwnedArtifact: " + arg);
@@ -72,10 +72,10 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return ((ActionLookupData) arg).getLabelForErrors();
     } else if (arg instanceof TargetCompletionKey
         && key.functionName().equals(SkyFunctions.TARGET_COMPLETION)) {
-      return ((TargetCompletionKey) arg).labelAndConfiguration().getLabel();
+      return ((TargetCompletionKey) arg).configuredTargetKey().getLabel();
     } else if (arg instanceof TestCompletionKey
         && key.functionName().equals(SkyFunctions.TEST_COMPLETION)) {
-      return  ((TestCompletionKey) arg).labelAndConfiguration().getLabel();
+      return ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
         "Argument is not Action, TargetCompletion, TestCompletion or OwnedArtifact: " + arg);

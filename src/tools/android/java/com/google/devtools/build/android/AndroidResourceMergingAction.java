@@ -184,12 +184,14 @@ public class AndroidResourceMergingAction {
     )
     public Path dataBindingInfoOut;
 
-    @Option(name = "throwOnResourceConflict",
-        defaultValue = "false",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    @Option(
+      name = "throwOnResourceConflict",
+      defaultValue = "false",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
+    )
     public boolean throwOnResourceConflict;
   }
 
@@ -328,8 +330,6 @@ public class AndroidResourceMergingAction {
     }
 
     @Override
-    public void end(int key) {
-    }
-
+    public void end(int key) {}
   }
 }

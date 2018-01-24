@@ -28,7 +28,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -37,7 +38,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters;
@@ -50,6 +52,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
+@AutoCodec
 @SkylarkModule(
   name = "android",
   doc = "A configuration fragment for Android.",
@@ -57,6 +60,8 @@ import javax.annotation.Nullable;
 )
 @Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<AndroidConfiguration> CODEC =
+      new AndroidConfiguration_AutoCodec();
 
   /**
    * Converter for {@link
@@ -227,7 +232,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Android configuration options. */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
+    public static final ObjectCodec<Options> CODEC = new AndroidConfiguration_Options_AutoCodec();
+
     @Option(
       name = "Android configuration distinguisher",
       defaultValue = "MAIN",
@@ -247,9 +255,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       // mobile-install v1 is going away, and this flag does not apply to v2
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.EXECUTION,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL
     )
@@ -262,10 +270,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The location of the C++ compiler used for Android builds."
     )
@@ -277,9 +285,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The Android target CPU."
     )
@@ -291,9 +299,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The Android target compiler."
     )
@@ -306,9 +314,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The Android target grte_top."
     )
@@ -320,8 +328,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = DynamicModeConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
           "Determines whether C++ deps of Android rules will be linked dynamically when a "
@@ -341,9 +349,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "Specifies Android SDK/platform that is used to build Android applications."
     )
@@ -357,9 +365,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help =
           "Setting this option enables fat APKs, which contain native binaries for all "
@@ -378,9 +386,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "Whether to desugar Java 8 bytecode before dexing."
     )
@@ -392,8 +400,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "Whether to double-check correct desugaring at Android binary level."
@@ -406,9 +414,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "Does most of the work for dexing separately for each Jar file."
     )
@@ -416,7 +424,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "experimental_incremental_dexing_after_proguard",
-      defaultValue = "0",
+      defaultValue = "1",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
@@ -424,39 +432,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
               + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards."
     )
     public int incrementalDexingShardsAfterProguard;
-
-    /** Whether to look for incrementally dex protos built with java_lite_proto_library. */
-    // TODO(b/31711689): remove this flag from config files and here
-    @Option(
-      name = "experimental_incremental_dexing_for_lite_protos",
-      defaultValue = "true",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help = "Do not use."
-    )
-    public boolean incrementalDexingForLiteProtos;
-
-    /**
-     * Whether to error out when we find Jar files when building binaries that weren't converted to
-     * a dex archive. This option will soon be removed from Bazel.
-     */
-    @Option(
-      name = "experimental_incremental_dexing_error_on_missed_jars",
-      defaultValue = "true",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help = "Do not use."
-    )
-    public boolean incrementalDexingErrorOnMissedJars;
 
     /** Whether to use a separate tool to shard classes before merging them into final dex files. */
     @Option(
@@ -476,8 +451,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
           "When enabled, the minSdkVersion is parsed from the merged AndroidManifest and used to "
@@ -508,8 +483,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help =
           "dx flags that that prevent incremental dexing for binary targets that list any of "
@@ -529,8 +504,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "--no-optimize,--no-locals",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "dx flags supported when converting Jars to dex archives incrementally."
     )
@@ -544,8 +519,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "--minimal-main-dex,--set-max-idx-number",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "dx flags supported in tool that merges dex archives into final classes.dex files."
     )
@@ -565,9 +540,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "use rex tool to rewrite dex files"
@@ -579,8 +554,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
           "Flag to help transition from allowing to disallowing srcs-less android_library"
@@ -593,8 +568,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Enables resource shrinking for android_binary APKs that use ProGuard."
     )
@@ -606,8 +581,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Enables resource shrinking for android_binary APKs that use ProGuard."
     )
@@ -619,8 +594,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help =
@@ -636,9 +611,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       converter = AndroidManifestMergerConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help =
           "Selects the manifest merger to use for android_binary rules. Flag to help the"
@@ -652,9 +627,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       converter = AndroidAaptConverter.class,
       help =
@@ -669,9 +644,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "v1_v2",
       documentationCategory = OptionDocumentationCategory.SIGNING,
       effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "Implementation to use to sign APKs"
     )
@@ -689,24 +664,23 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(
       name = "experimental_android_resource_filtering_method",
       converter = ResourceFilterFactory.Converter.class,
-      defaultValue = "filter_in_execution",
+      defaultValue = "filter_in_analysis",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Determines when resource filtering attributes, such as the android_binary "
               + "'resource_configuration_filters' and 'densities' attributes, are applied. "
-              + "By default, bazel will 'filter_in_execution'. The experimental "
-              + "'filter_in_analysis' option instead applies these filters earlier in the build "
-              + "process, with corresponding gains in speed. The experimental "
+              + "By default, bazel will 'filter_in_analysis'. The experimental "
               + "'filter_in_analysis_with_dynamic_configuration' option also passes these options "
               + "to the android_binary's dependencies, which also filter their internal resources "
               + "in analysis, possibly making the build even faster (especially in systems that "
-              + "do not cache the results of those dependencies)."
+              + "do not cache the results of those dependencies). When using aapt2, filtering is "
+              + "only performed in execution, and this setting does nothing."
     )
     // The ResourceFilterFactory object holds the filtering behavior as well as settings for which
     // resources should be filtered. The filtering behavior is set from the command line, but the
@@ -718,8 +692,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "Compress Java resources in APKs"
@@ -731,9 +705,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
       },
       help = "The default value of the exports_manifest attribute on android_library."
     )
@@ -744,8 +718,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, robolectric resources will be packaged using aapt2 if available."
@@ -757,34 +731,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
     )
     public boolean throwOnResourceConflict;
-
-    @Option(
-      name = "experimental_android_allow_android_resources",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "For use in testing before migrating away from android_resources. If false, will"
-              + " fail when non-whitelisted android_resources rules are encountered."
-    )
-    public boolean allowAndroidResources;
-
-    @Option(
-      name = "experimental_android_allow_resources_attr",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "For use in testing before migrating away from android_resources. If false, will"
-              + " fail when non-whitelisted instances of the 'resources' attribute are encountered."
-    )
-    public boolean allowResourcesAttr;
 
     @Option(
       name = "experimental_skip_parsing_action",
@@ -798,13 +750,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean skipParsingAction;
 
     @Option(
-        name = "android_fixed_resource_neverlinking",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "If true, resources will properly not get propagated through neverlinked libraries."
-            + " Otherwise, the old behavior of propagating those resources if no resource-related"
-            + " attributes are specified in the neverlink library will be preserved."
+      name = "android_fixed_resource_neverlinking",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, resources will properly not get propagated through neverlinked libraries."
+              + " Otherwise, the old behavior of propagating those resources if no resource-related"
+              + " attributes are specified in the neverlink library will be preserved."
     )
     public boolean fixedResourceNeverlinking;
 
@@ -819,8 +772,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.checkDesugarDeps = checkDesugarDeps;
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
-      host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
-      host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
       host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
@@ -860,12 +811,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   private final Label sdk;
   private final String cpu;
-  private final boolean incrementalNativeLibs;
+  private final boolean useIncrementalNativeLibs;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
-  private final boolean incrementalDexingForLiteProtos;
-  private final boolean incrementalDexingErrorOnMissedJars;
   private final boolean incrementalDexingUseDexSharder;
   private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
@@ -888,20 +837,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useAapt2ForRobolectric;
   private final boolean throwOnResourceConflict;
   private final boolean useParallelDex2Oat;
-  private final boolean allowAndroidResources;
-  private final boolean allowResourcesAttr;
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
-    this.incrementalNativeLibs = options.incrementalNativeLibs;
+    this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
-    this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
-    this.incrementalDexingErrorOnMissedJars = options.incrementalDexingErrorOnMissedJars;
     this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
@@ -927,8 +872,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
     this.throwOnResourceConflict = options.throwOnResourceConflict;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.allowAndroidResources = options.allowAndroidResources;
-    this.allowResourcesAttr = options.allowResourcesAttr;
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
 
@@ -944,17 +887,86 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  @AutoCodec.Constructor
+  AndroidConfiguration(
+      Label sdk,
+      String cpu,
+      boolean useIncrementalNativeLibs,
+      ConfigurationDistinguisher configurationDistinguisher,
+      boolean incrementalDexing,
+      int incrementalDexingShardsAfterProguard,
+      boolean incrementalDexingUseDexSharder,
+      boolean assumeMinSdkVersion,
+      ImmutableList<String> dexoptsSupportedInIncrementalDexing,
+      ImmutableList<String> targetDexoptsThatPreventIncrementalDexing,
+      ImmutableList<String> dexoptsSupportedInDexMerger,
+      boolean useWorkersWithDexbuilder,
+      boolean desugarJava8,
+      boolean checkDesugarDeps,
+      boolean useRexToCompressDexFiles,
+      boolean allowAndroidLibraryDepsWithoutSrcs,
+      boolean useAndroidResourceShrinking,
+      boolean useAndroidResourceCycleShrinking,
+      AndroidManifestMerger manifestMerger,
+      ApkSigningMethod apkSigningMethod,
+      boolean useSingleJarApkBuilder,
+      ResourceFilterFactory resourceFilterFactory,
+      boolean compressJavaResources,
+      boolean exportsManifestDefault,
+      AndroidAaptVersion androidAaptVersion,
+      boolean useAapt2ForRobolectric,
+      boolean throwOnResourceConflict,
+      boolean useParallelDex2Oat,
+      boolean skipParsingAction,
+      boolean fixedResourceNeverlinking) {
+    this.sdk = sdk;
+    this.cpu = cpu;
+    this.useIncrementalNativeLibs = useIncrementalNativeLibs;
+    this.configurationDistinguisher = configurationDistinguisher;
+    this.incrementalDexing = incrementalDexing;
+    this.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
+    this.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+    this.assumeMinSdkVersion = assumeMinSdkVersion;
+    this.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+    this.targetDexoptsThatPreventIncrementalDexing = targetDexoptsThatPreventIncrementalDexing;
+    this.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
+    this.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
+    this.desugarJava8 = desugarJava8;
+    this.checkDesugarDeps = checkDesugarDeps;
+    this.useRexToCompressDexFiles = useRexToCompressDexFiles;
+    this.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
+    this.useAndroidResourceShrinking = useAndroidResourceShrinking;
+    this.useAndroidResourceCycleShrinking = useAndroidResourceCycleShrinking;
+    this.manifestMerger = manifestMerger;
+    this.apkSigningMethod = apkSigningMethod;
+    this.useSingleJarApkBuilder = useSingleJarApkBuilder;
+    this.resourceFilterFactory = resourceFilterFactory;
+    this.compressJavaResources = compressJavaResources;
+    this.exportsManifestDefault = exportsManifestDefault;
+    this.androidAaptVersion = androidAaptVersion;
+    this.useAapt2ForRobolectric = useAapt2ForRobolectric;
+    this.throwOnResourceConflict = throwOnResourceConflict;
+    this.useParallelDex2Oat = useParallelDex2Oat;
+    this.skipParsingAction = skipParsingAction;
+    this.fixedResourceNeverlinking = fixedResourceNeverlinking;
+  }
+
   public String getCpu() {
     return cpu;
   }
 
-  @SkylarkCallable(name = "sdk", structField = true, doc = "Android SDK")
+  @SkylarkConfigurationField(
+    name = "android_sdk_label",
+    doc = "Returns the target denoted by the value of the --android_sdk flag",
+    defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
+    defaultInToolRepository = true
+  )
   public Label getSdk() {
     return sdk;
   }
 
   public boolean useIncrementalNativeLibs() {
-    return incrementalNativeLibs;
+    return useIncrementalNativeLibs;
   }
 
   /** Returns whether to use incremental dexing. */
@@ -965,19 +977,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   /** Returns whether to process proguarded Android binaries with incremental dexing tools. */
   public int incrementalDexingShardsAfterProguard() {
     return incrementalDexingShardsAfterProguard;
-  }
-
-  /** Returns whether to look for Jars produced by {@code JavaLiteProtoAspect}. */
-  public boolean incrementalDexingForLiteProtos() {
-    return incrementalDexingForLiteProtos;
-  }
-
-  /**
-   * Returns whether to report an error when Jars that weren't converted to dex archives are part of
-   * an android binary.
-   */
-  public boolean incrementalDexingErrorOnMissedJars() {
-    return incrementalDexingErrorOnMissedJars;
   }
 
   /** Whether to use a separate tool to shard classes before merging them into final dex files. */
@@ -1078,14 +1077,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean throwOnResourceConflict() {
     return throwOnResourceConflict;
-  }
-
-  public boolean allowAndroidResources() {
-    return this.allowAndroidResources;
-  }
-
-  public boolean allowResourcesAttr() {
-    return this.allowResourcesAttr;
   }
 
   public boolean skipParsingAction() {

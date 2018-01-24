@@ -532,12 +532,12 @@ class MergeManifestsTest(unittest.TestCase):
         ['android.permission.READ_LOGS'])
     result = merger.Merge()
     expected = xml.dom.minidom.parseString(MANUALLY_MERGED).toprettyxml()
-    self.assertEquals(Reformat(expected), Reformat(result))
+    self.assertEqual(Reformat(expected), Reformat(result))
 
   def testReformat(self):
     text = '  a\n  b\n\n\n \t c'
     expected = 'a\nb\nc'
-    self.assertEquals(expected, Reformat(text))
+    self.assertEqual(expected, Reformat(text))
 
   def testValidateAndWarnPermissions(self):
     permissions = ['android.permission.VIBRATE', 'android.permission.LAUGH']
@@ -589,7 +589,7 @@ class MergeManifestsTest(unittest.TestCase):
         ['all'])
     result = merger.Merge()
     expected = xml.dom.minidom.parseString(VALID_MANIFEST).toprettyxml()
-    self.assertEquals(Reformat(expected), Reformat(result))
+    self.assertEqual(Reformat(expected), Reformat(result))
 
   def testMergeWithNoApplication(self):
     merger = merge_manifests.MergeManifests(
@@ -609,7 +609,7 @@ class MergeManifestsTest(unittest.TestCase):
         MERGED_MANIFEST_WITH_EXTRA_NAMESPACE).toprettyxml()
     # Make sure the result is valid xml (not missing xmlns declarations)
     result_reparsed = xml.dom.minidom.parseString(result).toprettyxml()
-    self.assertEquals(Reformat(expected), Reformat(result_reparsed))
+    self.assertEqual(Reformat(expected), Reformat(result_reparsed))
 
   def testMergeConflictingNamespaces(self):
     self.maxDiff = None
@@ -625,4 +625,3 @@ class MergeManifestsTest(unittest.TestCase):
 
 if __name__ == '__main__':
   unittest.main()
-

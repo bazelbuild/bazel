@@ -60,6 +60,10 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
     public ActionTemplateExpansionException(String cause) {
       super(cause);
     }
+
+    public ActionTemplateExpansionException(Throwable cause) {
+      super(cause);
+    }
   }
 
   /**

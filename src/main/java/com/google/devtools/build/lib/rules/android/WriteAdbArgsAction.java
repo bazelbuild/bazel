@@ -40,9 +40,7 @@ import java.util.List;
 public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   private static final String GUID = "16720416-3c01-4b0a-a543-ead7e563a1ca";
 
-  /**
-   * Options of the {@code mobile-install} command pertaining to the way {@code adb} is invoked.
-   */
+  /** Options of the {@code mobile-install} command pertaining to the way {@code adb} is invoked. */
   public static final class Options extends OptionsBase {
     @Option(
       name = "adb",
@@ -149,7 +147,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
           ps.printf("--adb=%s\n", adb);
         }
 
-        if (!device.isEmpty()){
+        if (!device.isEmpty()) {
           args.add("-s");
           args.add(device);
         }
@@ -189,9 +187,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
 
   @Override
   protected String computeKey(ActionKeyContext actionKeyContext) {
-    return new Fingerprint()
-        .addString(GUID)
-        .hexDigestAndReset();
+    return new Fingerprint().addString(GUID).hexDigestAndReset();
   }
 
   /** Specifies how the app should be started/stopped. */

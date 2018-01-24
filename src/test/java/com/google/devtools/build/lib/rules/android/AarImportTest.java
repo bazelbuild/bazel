@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -47,14 +47,20 @@ public class AarImportTest extends BuildViewTestCase {
         "    aar = 'foo.aar',",
         ")",
         "aar_import(",
+        "    name = 'baz',",
+        "    aar = 'baz.aar',",
+        ")",
+        "aar_import(",
         "    name = 'bar',",
         "    aar = 'bar.aar',",
+        "    deps = [':baz'],",
         "    exports = [':foo', '//java:baz'],",
         ")");
     scratch.file("java/BUILD",
         "android_binary(",
         "    name = 'app',",
         "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['App.java'],",
         "    deps = ['//a:bar'],",
         ")",
         "android_library(",
@@ -80,24 +86,26 @@ public class AarImportTest extends BuildViewTestCase {
     ResourceContainer resourceContainer = directResources.iterator().next();
     assertThat(resourceContainer.getManifest()).isNotNull();
 
-    Iterable<Artifact> resourceArtifacts = resourceContainer.getArtifacts();
-    assertThat(resourceArtifacts).hasSize(1);
-
-    Artifact resourceTreeArtifact = resourceArtifacts.iterator().next();
+    Artifact resourceTreeArtifact = Iterables.getOnlyElement(resourceContainer.getResources());
     assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
     assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/resources/foo");
+
+    Artifact assetsTreeArtifact = Iterables.getOnlyElement(resourceContainer.getAssets());
+    assertThat(assetsTreeArtifact.isTreeArtifact()).isTrue();
+    assertThat(assetsTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/assets/foo");
   }
 
   @Test
   public void testResourcesExtractor() throws Exception {
-    AndroidResourcesProvider resourcesProvider =
-        getConfiguredTarget("//a:foo").getProvider(AndroidResourcesProvider.class);
+    ResourceContainer resourceContainer =
+        getConfiguredTarget("//a:foo")
+            .getProvider(AndroidResourcesProvider.class)
+            .getDirectAndroidResources()
+            .toList()
+            .get(0);
 
-    Artifact resourceTreeArtifact =
-        stream(resourcesProvider.getDirectAndroidResources())
-            .flatMap(resourceContainer -> resourceContainer.getResources().stream())
-            .findFirst()
-            .get();
+    Artifact resourceTreeArtifact = resourceContainer.getResources().get(0);
+    Artifact assetsTreeArtifact = resourceContainer.getAssets().get(0);
     Artifact aarResourcesExtractor =
         getHostConfiguredTarget(
             ruleClassProvider.getToolsRepository() + "//tools/android:aar_resources_extractor")
@@ -110,7 +118,9 @@ public class AarImportTest extends BuildViewTestCase {
             "--input_aar",
             "a/foo.aar",
             "--output_res_dir",
-            resourceTreeArtifact.getExecPathString());
+            resourceTreeArtifact.getExecPathString(),
+            "--output_assets_dir",
+            assetsTreeArtifact.getExecPathString());
   }
 
   @Test
@@ -121,7 +131,8 @@ public class AarImportTest extends BuildViewTestCase {
         androidLibraryTarget.getProvider(NativeLibsZipsProvider.class).getAarNativeLibs();
     assertThat(nativeLibs).containsExactly(
         ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
-        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"));
+        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"),
+        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "baz/native_libs.zip"));
   }
 
   @Test
@@ -174,6 +185,22 @@ public class AarImportTest extends BuildViewTestCase {
     // aar_import should not set a custom java package. Instead aapt will read the
     // java package from the manifest.
     assertThat(resourceContainer.getJavaPackage()).isNull();
+  }
+
+  @Test
+  public void testDepsPropagatesMergedAarJars() throws Exception {
+    Action appCompileAction =
+        getGeneratingAction(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(
+                    getFileConfiguredTarget("//java:app.apk").getArtifact()),
+                "libapp.jar"));
+    assertThat(appCompileAction).isNotNull();
+    assertThat(ActionsTestUtil.prettyArtifactNames(appCompileAction.getInputs()))
+        .containsAllOf(
+            "a/_aar/foo/classes_and_libs_merged.jar",
+            "a/_aar/bar/classes_and_libs_merged.jar",
+            "a/_aar/baz/classes_and_libs_merged.jar");
   }
 
   @Test

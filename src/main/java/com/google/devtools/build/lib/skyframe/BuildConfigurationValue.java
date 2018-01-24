@@ -14,23 +14,40 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * A Skyframe value representing a {@link BuildConfiguration}.
- */
+/** A Skyframe value representing a {@link BuildConfiguration}. */
 // TODO(bazel-team): mark this immutable when BuildConfiguration is immutable.
 // @Immutable
+@AutoCodec(dependency = FileSystemProvider.class)
 @ThreadSafe
 public class BuildConfigurationValue implements SkyValue {
+  public static final InjectingObjectCodec<BuildConfigurationValue, FileSystemProvider> CODEC =
+      new BuildConfigurationValue_AutoCodec();
+
+  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
   private final BuildConfiguration configuration;
 
@@ -49,29 +66,35 @@ public class BuildConfigurationValue implements SkyValue {
    * @param buildOptions the build options the fragments should be built from
    */
   @ThreadSafe
-  public static SkyKey key(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-      BuildOptions buildOptions) {
-    return LegacySkyKey.create(
-        SkyFunctions.BUILD_CONFIGURATION, new Key(fragments, buildOptions));
+  public static Key key(
+      Set<Class<? extends BuildConfiguration.Fragment>> fragments, BuildOptions buildOptions) {
+    return key(
+        FragmentClassSet.of(
+            ImmutableSortedSet.copyOf(BuildConfiguration.lexicalFragmentSorter, fragments)),
+        buildOptions);
   }
 
-  static final class Key implements Serializable {
-    private final Set<Class<? extends BuildConfiguration.Fragment>> fragments;
-    private final BuildOptions buildOptions;
-    private final boolean enableActions;
+  public static Key key(FragmentClassSet fragmentClassSet, BuildOptions buildOptions) {
+    return keyInterner.intern(new Key(fragmentClassSet, buildOptions));
+  }
 
-    Key(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-        BuildOptions buildOptions) {
+  /** {@link SkyKey} for {@link BuildConfigurationValue}. */
+  @VisibleForSerialization
+  public static final class Key implements SkyKey, Serializable {
+    public static final ObjectCodec<Key> CODEC = new Codec();
+
+    private final FragmentClassSet fragments;
+    private final BuildOptions buildOptions;
+    // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.
+    private volatile int hashCode = -1;
+
+    private Key(FragmentClassSet fragments, BuildOptions buildOptions) {
       this.fragments = fragments;
       this.buildOptions = Preconditions.checkNotNull(buildOptions);
-      // Cache this value for quicker access on .equals() / .hashCode(). We don't cache it inside
-      // BuildOptions because BuildOptions is mutable, so a cached value there could fall out of
-      // date while the BuildOptions is being prepared for this key.
-      this.enableActions = buildOptions.enableActions();
     }
 
-    Set<Class<? extends BuildConfiguration.Fragment>> getFragments() {
-      return fragments;
+    ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getFragments() {
+      return fragments.fragmentClasses();
     }
 
     BuildOptions getBuildOptions() {
@@ -79,19 +102,67 @@ public class BuildConfigurationValue implements SkyValue {
     }
 
     @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.BUILD_CONFIGURATION;
+    }
+
+    @Override
     public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
       if (!(o instanceof Key)) {
         return false;
       }
       Key otherConfig = (Key) o;
-      return Objects.equals(fragments, otherConfig.fragments)
-          && Objects.equals(buildOptions, otherConfig.buildOptions)
-          && enableActions == otherConfig.enableActions;
+      return buildOptions.equals(otherConfig.buildOptions)
+          && Objects.equals(fragments, otherConfig.fragments);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(fragments, buildOptions, enableActions);
+      if (hashCode == -1) {
+        hashCode = Objects.hash(fragments, buildOptions);
+      }
+      return hashCode;
+    }
+
+    private static class Codec implements ObjectCodec<Key> {
+      @Override
+      public Class<Key> getEncodedClass() {
+        return Key.class;
+      }
+
+      @Override
+      public void serialize(Key obj, CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        BuildOptions.CODEC.serialize(obj.buildOptions, codedOut);
+        codedOut.writeInt32NoTag(obj.fragments.fragmentClasses().size());
+        for (Class<? extends BuildConfiguration.Fragment> fragment :
+            obj.fragments.fragmentClasses()) {
+          StringCodecs.asciiOptimized().serialize(fragment.getName(), codedOut);
+        }
+      }
+
+      @Override
+      @SuppressWarnings("unchecked") // Class<? extends...> cast
+      public Key deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+        BuildOptions buildOptions = BuildOptions.CODEC.deserialize(codedIn);
+        int fragmentsSize = codedIn.readInt32();
+        ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+            ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
+        for (int i = 0; i < fragmentsSize; i++) {
+          try {
+            fragmentsBuilder.add(
+                (Class<? extends BuildConfiguration.Fragment>)
+                    Class.forName(StringCodecs.asciiOptimized().deserialize(codedIn)));
+          } catch (ClassNotFoundException e) {
+            throw new SerializationException(
+                "Couldn't deserialize BuildConfigurationValue$Key fragment class", e);
+          }
+        }
+        return key(fragmentsBuilder.build(), buildOptions);
+      }
     }
   }
 }

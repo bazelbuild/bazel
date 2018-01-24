@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
@@ -20,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.File;
@@ -76,7 +78,7 @@ public class PathFragmentTest {
         .addEqualityGroup(PathFragment.create("/something/else"))
         .addEqualityGroup(PathFragment.create("/"), PathFragment.create("//////"))
         .addEqualityGroup(PathFragment.create(""), PathFragment.EMPTY_FRAGMENT)
-        .addEqualityGroup(filesystem.getRootDirectory()) // A Path object.
+        .addEqualityGroup(filesystem.getPath("/")) // A Path object.
         .testEquals();
   }
 
@@ -338,6 +340,8 @@ public class PathFragmentTest {
     assertPath("/", PathFragment.create("/foo/bar/baz").subFragment(0, 0));
     assertPath("", PathFragment.create("foo/bar/baz").subFragment(0, 0));
     assertPath("", PathFragment.create("foo/bar/baz").subFragment(1, 1));
+    assertPath("/foo/bar/baz", PathFragment.create("/foo/bar/baz").subFragment(0));
+    assertPath("bar/baz", PathFragment.create("/foo/bar/baz").subFragment(1));
     try {
       fail("unexpectedly succeeded: " + PathFragment.create("foo/bar/baz").subFragment(3, 2));
     } catch (IndexOutOfBoundsException e) { /* Expected. */ }
@@ -383,34 +387,6 @@ public class PathFragmentTest {
     assertThat(foodotbar.startsWith(PathFragment.create("foo/./"))).isTrue();
     assertThat(foodotbar.startsWith(PathFragment.create("foo/./bar"))).isTrue();
     assertThat(foodotbar.startsWith(PathFragment.create("foo/bar"))).isFalse();
-  }
-
-  @Test
-  public void testFilterPathsStartingWith() {
-    // Retains everything:
-    ImmutableSet<PathFragment> allUnderA = toPathsSet("a/b", "a/c", "a/d");
-    assertThat(PathFragment.filterPathsStartingWith(allUnderA, PathFragment.create("a")))
-        .containsExactlyElementsIn(allUnderA);
-
-    // Retains some but not others:
-    ImmutableSet<PathFragment> mixed = toPathsSet("a/b", "a/c", "b/c");
-    assertThat(PathFragment.filterPathsStartingWith(mixed,
-        PathFragment.create("a"))).containsExactlyElementsIn(toPathsSet("a/b", "a/c"));
-
-    // Retains none:
-    assertThat(PathFragment.filterPathsStartingWith(allUnderA, PathFragment.create("b"))).isEmpty();
-
-    // Retains paths equal to the startingWithPath:
-    assertThat(PathFragment.filterPathsStartingWith(toPathsSet("a"),
-        PathFragment.create("a"))).containsExactlyElementsIn(toPathsSet("a"));
-
-    // Retains everything when startingWithPath is the empty fragment:
-    assertThat(PathFragment.filterPathsStartingWith(mixed, PathFragment.EMPTY_FRAGMENT))
-        .containsExactlyElementsIn(mixed);
-
-    // Supports multi-segment startingWithPaths:
-    assertThat(PathFragment.filterPathsStartingWith(toPathsSet("a/b/c", "a/b/d", "a/c/d"),
-        PathFragment.create("a/b"))).containsExactlyElementsIn(toPathsSet("a/b/c", "a/b/d"));
   }
 
   @Test
@@ -547,6 +523,17 @@ public class PathFragmentTest {
     assertThat(PathFragment.create("a/../b").normalize()).isEqualTo(PathFragment.create("b"));
     assertThat(PathFragment.create("a/b/../b").normalize()).isEqualTo(PathFragment.create("a/b"));
     assertThat(PathFragment.create("/..").normalize()).isEqualTo(PathFragment.create("/.."));
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    ObjectCodecTester.newBuilder(PathFragment.CODEC)
+        .addSubjects(
+            ImmutableList.of("", "a", "/foo", "foo/bar/baz", "/a/path/fragment/with/lots/of/parts")
+                .stream()
+                .map(PathFragment::create)
+                .collect(toImmutableList()))
+        .buildAndRunTests();
   }
 
   @Test

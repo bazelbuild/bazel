@@ -16,7 +16,7 @@ Java projects with Bazel.
 - [Best practices](#best-practices)
    - [Directory structure](#directory-structure)
    - [BUILD files](#build-files)
-- [Java and Skylark](#java-and-skylark)
+- [Java and new rules](#java-and-new-rules)
 
 ## Working with Bazel
 
@@ -66,14 +66,14 @@ Follow these guidelines when creating your BUILD files:
 *  Tests should be in a matching directory under `src/test` and depend on this
    library.
 
-## Java and Skylark
+## Java and new rules
 
-**Note**: Extending Bazel with Skylark is for advanced build and test scenarios.
-You do not need to use Skylark when getting started with Bazel.
+**Note**: Creating new rules is for advanced build and test scenarios.
+You do not need it when getting started with Bazel.
 
-The following [Skylark](https://docs.bazel.build/versions/master/skylark/concepts.html)
-modules, configuration fragments, and providers will help you extend Bazel's
-capabilities when building your Java projects:
+The following modules, configuration fragments, and providers will help you
+[extend Bazel's capabilities](https://docs.bazel.build/versions/master/skylark/concepts.html)
+when building your Java projects:
 
 *  Modules:
 

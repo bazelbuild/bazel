@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -35,16 +35,19 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RunfilesSupplierImplTest {
 
-  private Root rootDir;
-  private Root middlemanRoot;
+  private Path execRoot;
+  private ArtifactRoot rootDir;
+  private ArtifactRoot middlemanRoot;
 
   @Before
   public final void setRoot() throws IOException {
     Scratch scratch = new Scratch();
-    rootDir = Root.asDerivedRoot(scratch.dir("/fake/root/dont/matter"));
+    execRoot = scratch.getFileSystem().getPath("/");
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/fake/root/dont/matter"));
 
     Path middlemanExecPath = scratch.dir("/still/fake/root/dont/matter");
-    middlemanRoot = Root.middlemanRoot(middlemanExecPath, middlemanExecPath.getChild("subdir"));
+    middlemanRoot =
+        ArtifactRoot.middlemanRoot(middlemanExecPath, middlemanExecPath.getChild("subdir"));
   }
 
   @Test
@@ -88,7 +91,7 @@ public class RunfilesSupplierImplTest {
     return new Runfiles.Builder("TESTING", false).addArtifacts(artifacts).build();
   }
 
-  private static List<Artifact> mkArtifacts(Root rootDir, String... paths) {
+  private static List<Artifact> mkArtifacts(ArtifactRoot rootDir, String... paths) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (String path : paths) {
       builder.add(new Artifact(PathFragment.create(path), rootDir));

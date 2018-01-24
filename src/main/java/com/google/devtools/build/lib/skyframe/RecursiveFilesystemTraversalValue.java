@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileType;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -167,9 +167,9 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * <p>This method can be used when a package is found out to be under a different root path than
      * originally assumed.
      */
-    TraversalRequest forChangedRootPath(Path newRoot) {
-      return duplicate(RootedPath.toRootedPath(newRoot, path.getRelativePath()),
-          skipTestingForSubpackage);
+    TraversalRequest forChangedRootPath(Root newRoot) {
+      return duplicate(
+          RootedPath.toRootedPath(newRoot, path.getRootRelativePath()), skipTestingForSubpackage);
     }
 
     @Override
@@ -214,7 +214,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     PathFragment getNameInSymlinkTree() {
-      return linkName.getRelativePath();
+      return linkName.getRootRelativePath();
     }
 
     @Override
@@ -301,7 +301,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     public PathFragment getNameInSymlinkTree() {
-      return path.getRelativePath();
+      return path.getRootRelativePath();
     }
 
     @Override
@@ -360,7 +360,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     public PathFragment getNameInSymlinkTree() {
-      return path.getRelativePath();
+      return path.getRootRelativePath();
     }
 
     @Override

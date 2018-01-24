@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -37,7 +39,8 @@ import javax.annotation.Nullable;
 public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
 
   public static final JavaRuleOutputJarsProvider EMPTY =
-      new JavaRuleOutputJarsProvider(ImmutableList.<OutputJar>of(), null);
+      new JavaRuleOutputJarsProvider(
+          ImmutableList.<OutputJar>of(), /* jdeps= */ null, /* nativeHeaders= */ null);
 
   /** A collection of artifacts associated with a jar output. */
   @SkylarkModule(
@@ -113,11 +116,16 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
 
   final ImmutableList<OutputJar> outputJars;
   @Nullable final Artifact jdeps;
+  /** An archive of native header files. */
+  @Nullable final Artifact nativeHeaders;
 
-  private JavaRuleOutputJarsProvider(ImmutableList<OutputJar> outputJars,
-      @Nullable Artifact jdeps) {
+  private JavaRuleOutputJarsProvider(
+      ImmutableList<OutputJar> outputJars,
+      @Nullable Artifact jdeps,
+      @Nullable Artifact nativeHeaders) {
     this.outputJars = outputJars;
     this.jdeps = jdeps;
+    this.nativeHeaders = nativeHeaders;
   }
 
   @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
@@ -153,6 +161,17 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     return jdeps;
   }
 
+  @Nullable
+  @SkylarkCallable(
+    name = "native_headers",
+    doc = "An archive of native header files.",
+    structField = true,
+    allowReturnNones = true
+  )
+  public Artifact getNativeHeaders() {
+    return nativeHeaders;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -161,8 +180,9 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
    * Builder for {@link JavaRuleOutputJarsProvider}.
    */
   public static class Builder {
-    ImmutableList.Builder<OutputJar> outputJars = ImmutableList.builder();
-    Artifact jdeps;
+    private final ImmutableList.Builder<OutputJar> outputJars = ImmutableList.builder();
+    private Artifact jdeps;
+    private Artifact nativeHeaders;
 
     public Builder addOutputJar(
         @Nullable Artifact classJar,
@@ -188,8 +208,13 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
       return this;
     }
 
+    public Builder setNativeHeaders(Artifact nativeHeaders) {
+      this.nativeHeaders = requireNonNull(nativeHeaders);
+      return this;
+    }
+
     public JavaRuleOutputJarsProvider build() {
-      return new JavaRuleOutputJarsProvider(outputJars.build(), jdeps);
+      return new JavaRuleOutputJarsProvider(outputJars.build(), jdeps, nativeHeaders);
     }
   }
 }

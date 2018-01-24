@@ -29,8 +29,6 @@ filegroup(
     name = "java",
     srcs = select({
        ":windows" : ["bin/java.exe"],
-       ":windows_msys" : ["bin/java.exe"],
-       ":windows_msvc" : ["bin/java.exe"],
        "//conditions:default" : ["bin/java"],
     }),
     data = [":jdk"],
@@ -40,8 +38,6 @@ filegroup(
     name = "jar",
     srcs = select({
        ":windows" : ["bin/jar.exe"],
-       ":windows_msys" : ["bin/jar.exe"],
-       ":windows_msvc" : ["bin/jar.exe"],
        "//conditions:default" : ["bin/jar"],
     }),
     data = [":jdk"],
@@ -51,8 +47,6 @@ filegroup(
     name = "javac",
     srcs = select({
         ":windows" : ["bin/javac.exe"],
-        ":windows_msys" : ["bin/javac.exe"],
-        ":windows_msvc" : ["bin/javac.exe"],
         "//conditions:default" : ["bin/javac"],
     }),
     data = [":jdk"],
@@ -77,6 +71,7 @@ BOOTCLASS_JARS = [
     "charsets.jar",
 ]
 
+# TODO(cushon): this isn't compatible with JDK 9
 filegroup(
     name = "bootclasspath",
     srcs = ["jre/lib/%s" % jar for jar in BOOTCLASS_JARS],
@@ -100,8 +95,6 @@ filegroup(
         # common antivirus software blocks access to npjp2.dll interfering with Bazel,
         # so do not include it in JRE on Windows.
         ":windows" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
-        ":windows_msys" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
-        ":windows_msvc" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
         "//conditions:default" : glob(["jre/bin/**"])
     }),
 )
@@ -181,14 +174,3 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
-config_setting(
-    name = "windows_msys",
-    values = {"cpu": "x64_windows_msys"},
-    visibility = ["//visibility:private"],
-)
-
-config_setting(
-    name = "windows_msvc",
-    values = {"cpu": "x64_windows_msvc"},
-    visibility = ["//visibility:private"],
-)

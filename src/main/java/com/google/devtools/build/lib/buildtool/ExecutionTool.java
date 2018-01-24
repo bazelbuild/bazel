@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -223,15 +224,10 @@ public class ExecutionTool {
           }
         });
 
-    ActionInputFileCache cache = builder.getActionInputFileCache();
-    if (cache == null) {
-      // Unfortunately, the exec root cache is not shared with caches in the remote execution
-      // client.
-      cache =
-          new SingleBuildFileCache(
-              env.getExecRoot().getPathString(), env.getRuntime().getFileSystem());
-    }
-    this.fileCache = cache;
+    // Unfortunately, the exec root cache is not shared with caches in the remote execution client.
+    this.fileCache =
+        new SingleBuildFileCache(
+            env.getExecRoot().getPathString(), env.getRuntime().getFileSystem());
     this.prefetcher = builder.getActionInputPrefetcher();
         
     this.actionContextProviders = builder.getActionContextProviders();
@@ -438,7 +434,7 @@ public class ExecutionTool {
       skyframeExecutor.drainChangedFiles();
 
       if (request.getViewOptions().discardAnalysisCache
-          || !request.getBuildOptions().keepIncrementalityData) {
+          || !skyframeExecutor.tracksStateForIncrementality()) {
         // Free memory by removing cache entries that aren't going to be needed.
         env.getSkyframeBuildView()
             .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
@@ -523,7 +519,7 @@ public class ExecutionTool {
   }
 
   private void prepare(PackageRoots packageRoots) throws ExecutorInitException {
-    Optional<ImmutableMap<PackageIdentifier, Path>> packageRootMap =
+    Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
     if (!packageRootMap.isPresent()) {
       return;
@@ -666,7 +662,7 @@ public class ExecutionTool {
     return successfulTargets;
   }
 
-
+  /** Get action cache if present or reload it from the on-disk cache. */
   private ActionCache getActionCache() throws LocalEnvironmentException {
     try {
       return env.getPersistentActionCache();
@@ -685,7 +681,7 @@ public class ExecutionTool {
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
-    boolean keepGoing = request.getViewOptions().keepGoing;
+    boolean keepGoing = request.getKeepGoing();
 
     Path actionOutputRoot = env.getActionConsoleOutputDirectory();
     Predicate<Action> executionFilter = CheckUpToDateFilter.fromOptions(

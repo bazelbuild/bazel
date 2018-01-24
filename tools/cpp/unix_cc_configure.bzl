@@ -23,6 +23,25 @@ load(
     "tpl",
 )
 
+def _prepare_include_path(repo_ctx, path):
+  """Resolve and sanitize include path before outputting it into the crosstool.
+
+  Args:
+    repo_ctx: repository_ctx object.
+    path: an include path to be sanitized.
+
+  Returns:
+    Sanitized include path that can be written to the crosstoot. Resulting path
+    is absolute if it is outside the repository and relative otherwise.
+  """
+
+  repo_root = str(repo_ctx.path("."))
+  # We're on UNIX, so the path delimiter is '/'.
+  repo_root += "/"
+  path = str(repo_ctx.path(path))
+  if path.startswith(repo_root):
+    return escape_string(path[len(repo_root):])
+  return escape_string(path)
 
 def _get_value(it):
   """Convert `it` in serialized protobuf format."""
@@ -46,29 +65,6 @@ def _build_crosstool(d, prefix="  "):
   return "\n".join(lines)
 
 
-def _build_link_content():
-  # `-static-libstdc++` is only supported when invoking GCC as `g++`, and
-  # `-lstdc++` forces dynamic linking of libstdc++. To get desired
-  # mostly-static behavior, invoke the link by explicitly naming a static
-  # library archive.
-  #
-  # https://github.com/bazelbuild/bazel/issues/2840
-  return """
-  linking_mode_flags {
-    mode: DYNAMIC
-    linker_flag: "-lstdc++"
-  }
-  linking_mode_flags {
-    mode: FULLY_STATIC
-    linker_flag: "-lstdc++"
-  }
-  linking_mode_flags {
-    mode: MOSTLY_STATIC
-    linker_flag: "-l:libstdc++.a"
-  }
-  """
-
-
 def _build_tool_path(d):
   """Build the list of %-escaped tool_path for the CROSSTOOL file."""
   lines = []
@@ -76,10 +72,15 @@ def _build_tool_path(d):
     lines.append("  tool_path {name: \"%s\" path: \"%s\" }" % (k, escape_string(d[k])))
   return "\n".join(lines)
 
+def _find_tool(repository_ctx, tool, overriden_tools):
+  """Find a tool for repository, taking overriden tools into account."""
+  if tool in overriden_tools:
+    return overriden_tools[tool]
+  return which(repository_ctx, tool, "/usr/bin/" + tool)
 
-def _get_tool_paths(repository_ctx, darwin, cc):
+def _get_tool_paths(repository_ctx, darwin, cc, overriden_tools):
   """Compute the path to the various tools. Doesn't %-escape the result!"""
-  return {k: which(repository_ctx, k, "/usr/bin/" + k)
+  return dict({k: _find_tool(repository_ctx, k, overriden_tools)
           for k in [
               "ld",
               "cpp",
@@ -89,11 +90,11 @@ def _get_tool_paths(repository_ctx, darwin, cc):
               "objcopy",
               "objdump",
               "strip",
-          ]} + {
+          ]}.items() + {
               "gcc": cc,
               "ar": "/usr/bin/libtool"
                     if darwin else which(repository_ctx, "ar", "/usr/bin/ar")
-          }
+          }.items())
 
 
 def _escaped_cplus_include_paths(repository_ctx):
@@ -140,7 +141,7 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc):
   else:
     inc_dirs = result.stderr[index1 + 1:index2].strip()
 
-  return [escape_string(repository_ctx.path(_cxx_inc_convert(p)))
+  return [_prepare_include_path(repository_ctx, _cxx_inc_convert(p))
           for p in inc_dirs.split("\n")]
 
 
@@ -173,10 +174,31 @@ def _is_gold_supported(repository_ctx, cc):
   ])
   return result.return_code == 0
 
+def _get_no_canonical_prefixes_opt(repository_ctx, cc):
+  # If the compiler sometimes rewrites paths in the .d files without symlinks
+  # (ie when they're shorter), it confuses Bazel's logic for verifying all
+  # #included header files are listed as inputs to the action.
+
+  # The '-fno-canonical-system-headers' should be enough, but clang does not
+  # support it, so we also try '-no-canonical-prefixes' if first option does
+  # not work.
+  opt = _add_option_if_supported(repository_ctx, cc,
+                                 "-fno-canonical-system-headers")
+  if len(opt) == 0:
+    return _add_option_if_supported(repository_ctx, cc,
+                                    "-no-canonical-prefixes")
+  return opt
 
 def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   supports_gold_linker = _is_gold_supported(repository_ctx, cc)
+  cc_path = repository_ctx.path(cc)
+  if not str(cc_path).startswith(str(repository_ctx.path(".")) + '/'):
+    # cc is outside the repository, set -B
+    bin_search_flag = ["-B" + escape_string(str(cc_path.dirname))]
+  else:
+    # cc is inside the repository, don't set -B.
+    bin_search_flag = []
   return {
       "abi_version": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
       "abi_libc_version": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
@@ -197,6 +219,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-std=c++0x",
       ] + _escaped_cplus_include_paths(repository_ctx),
       "linker_flag": [
+          "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
           # Anticipated future default.
       ] + (
@@ -209,8 +232,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-undefined",
           "dynamic_lookup",
           "-headerpad_max_install_names",
-          ] if darwin else [
-              "-B" + str(repository_ctx.path(cc).dirname),
+          ] if darwin else bin_search_flag + [
               # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
               "-B/usr/bin",
               # Gold linker only? Can we enable this by default?
@@ -223,10 +245,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "cxx_builtin_include_directory": get_escaped_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
-          # If the compiler sometimes rewrites paths in the .d files without symlinks
-          # (ie when they're shorter), it confuses Bazel's logic for verifying all
-          # #included header files are listed as inputs to the action.
-          _add_option_if_supported(repository_ctx, cc, "-fno-canonical-system-headers") + [
+          _get_no_canonical_prefixes_opt(repository_ctx, cc) + [
               # Make C++ compilation deterministic. Use linkstamping instead of these
               # compiler symbols.
               "-Wno-builtin-macro-redefined",
@@ -242,8 +261,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           # All warnings are enabled. Maybe enable -Werror as well?
           "-Wall",
           # Enable a few more warnings that aren't part of -Wall.
-      ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
-          "-B" + escape_string(str(repository_ctx.path(cc).dirname)),
+      ] + (["-Wthread-safety", "-Wself-assign"] if darwin else bin_search_flag + [
           # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
           "-B/usr/bin",
       ]) + (
@@ -351,9 +369,12 @@ def _coverage_feature(darwin):
     }
   """
 
-
-def find_cc(repository_ctx):
+def find_cc(repository_ctx, overriden_tools):
   """Find the C++ compiler. Doesn't %-escape the result."""
+
+  if "gcc" in overriden_tools:
+    return overriden_tools["gcc"]
+
   cc_name = "gcc"
   cc_environ = repository_ctx.os.environ.get("CC")
   cc_paren = ""
@@ -372,14 +393,14 @@ def find_cc(repository_ctx):
          + " environment variable") % cc_paren)
   return cc
 
-
-def configure_unix_toolchain(repository_ctx, cpu_value):
+def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
   """Configure C++ toolchain on Unix platforms."""
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   darwin = cpu_value == "darwin"
-  cc = find_cc(repository_ctx)
+  cc = find_cc(repository_ctx, overriden_tools)
   tool_paths = _get_tool_paths(repository_ctx, darwin,
-                               "cc_wrapper.sh" if darwin else str(cc))
+                               "cc_wrapper.sh" if darwin else str(cc),
+                               overriden_tools)
   crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
@@ -407,7 +428,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value):
                     _build_tool_path(tool_paths),
       "%{opt_content}": _build_crosstool(opt_content, "    "),
       "%{dbg_content}": _build_crosstool(dbg_content, "    "),
-      "%{link_content}": _build_link_content(),
       "%{cxx_builtin_include_directory}": "",
       "%{coverage}": _coverage_feature(darwin),
       "%{msvc_env_tmp}": "",
@@ -418,6 +438,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value):
       "%{msvc_ml_path}": "",
       "%{msvc_link_path}": "",
       "%{msvc_lib_path}": "",
+      "%{msys_x64_mingw_content}": "",
       "%{dbg_mode_debug}": "",
       "%{fastbuild_mode_debug}": "",
       "%{compilation_mode_content}": "",

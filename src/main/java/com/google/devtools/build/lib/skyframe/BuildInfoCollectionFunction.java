@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -58,7 +58,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     final BuildInfoKeyAndConfig keyAndConfig = (BuildInfoKeyAndConfig) skyKey.argument();
     WorkspaceStatusValue infoArtifactValue =
-        (WorkspaceStatusValue) env.getValue(WorkspaceStatusValue.SKY_KEY);
+        (WorkspaceStatusValue) env.getValue(WorkspaceStatusValue.BUILD_INFO_KEY);
     if (infoArtifactValue == null) {
       return null;
     }
@@ -70,15 +70,16 @@ public class BuildInfoCollectionFunction implements SkyFunction {
         nameValue.getName());
 
     final ArtifactFactory factory = artifactFactory.get();
-    BuildInfoContext context = new BuildInfoContext() {
-      @Override
-      public Artifact getBuildInfoArtifact(PathFragment rootRelativePath, Root root,
-          BuildInfoType type) {
-        return type == BuildInfoType.NO_REBUILD
-            ? factory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
-            : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
-      }
-    };
+    BuildInfoContext context =
+        new BuildInfoContext() {
+          @Override
+          public Artifact getBuildInfoArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type) {
+            return type == BuildInfoType.NO_REBUILD
+                ? factory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
+                : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
+          }
+        };
 
     return new BuildInfoCollectionValue(
         actionKeyContext,

@@ -25,7 +25,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -67,7 +70,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -84,14 +86,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public interface PrerequisiteValidator {
     /**
-     * Checks whether the rule in {@code contextBuilder} is allowed to depend on
-     * {@code prerequisite} through the attribute {@code attribute}.
+     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
+     * prerequisite} through the attribute {@code attribute}.
      *
      * <p>Can be used for enforcing any organization-specific policies about the layout of the
      * workspace.
      */
     void validate(
-        RuleContext.Builder contextBuilder, ConfiguredTarget prerequisite, Attribute attribute);
+        RuleContext.Builder contextBuilder,
+        ConfiguredTargetAndTarget prerequisite,
+        Attribute attribute);
   }
 
   /** Validator to check for and warn on the deprecation of dependencies. */
@@ -99,7 +103,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     /** Checks if the given prerequisite is deprecated and prints a warning if so. */
     @Override
     public void validate(
-        RuleContext.Builder contextBuilder, ConfiguredTarget prerequisite, Attribute attribute) {
+        RuleContext.Builder contextBuilder,
+        ConfiguredTargetAndTarget prerequisite,
+        Attribute attribute) {
       validateDirectPrerequisiteForDeprecation(
           contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
     }
@@ -147,7 +153,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     /** Checks if the given prerequisite is deprecated and prints a warning if so. */
     public static void validateDirectPrerequisiteForDeprecation(
-        RuleErrorConsumer errors, Rule rule, ConfiguredTarget prerequisite, boolean forAspect) {
+        RuleErrorConsumer errors,
+        Rule rule,
+        ConfiguredTargetAndTarget prerequisite,
+        boolean forAspect) {
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
       PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();
@@ -156,9 +165,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       if (prerequisiteTarget instanceof Rule) {
         Rule prerequisiteRule = (Rule) prerequisiteTarget;
         String thisDeprecation =
-            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING);
+            NonconfigurableAttributeMapper.of(rule).has("deprecation", Type.STRING)
+                ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
+                : null;
         String thatDeprecation =
-            NonconfigurableAttributeMapper.of(prerequisiteRule).get("deprecation", Type.STRING);
+            NonconfigurableAttributeMapper.of(prerequisiteRule).has("deprecation", Type.STRING)
+                ? NonconfigurableAttributeMapper.of(prerequisiteRule)
+                    .get("deprecation", Type.STRING)
+                : null;
         if (shouldEmitDeprecationWarningFor(
             thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
           errors.ruleWarning("target '" + rule.getLabel() +  "' depends on deprecated target '"
@@ -186,7 +200,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
-  public static interface RuleSet {
+  public interface RuleSet {
     /** Add stuff to the configured rule class provider builder. */
     void init(ConfiguredRuleClassProvider.Builder builder);
 
@@ -213,7 +227,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private ImmutableMap.Builder<Attribute.Transition, Attribute.Transition> dynamicTransitionMaps
+    private ImmutableMap.Builder<Transition, Transition> dynamicTransitionMaps
         = ImmutableMap.builder();
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
@@ -221,6 +235,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         ImmutableMap.builder();
     private ImmutableList.Builder<Class<?>> skylarkModules =
         ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
+    private ImmutableList.Builder<NativeProvider> nativeProviders = ImmutableList.builder();
     private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
         registeredSkylarkProviders = ImmutableBiMap.builder();
     private Map<String, String> platformRegexps = new TreeMap<>();
@@ -330,7 +345,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder addDynamicTransitionMaps(Map<Attribute.Transition, Attribute.Transition> maps) {
+    public Builder addDynamicTransitionMaps(Map<Transition, Transition> maps) {
       dynamicTransitionMaps.putAll(maps);
       return this;
     }
@@ -348,6 +363,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addSkylarkModule(Class<?>... modules) {
       this.skylarkModules.add(modules);
+      return this;
+    }
+
+    public Builder addNativeProvider(NativeProvider provider) {
+      this.nativeProviders.add(provider);
       return this;
     }
 
@@ -448,7 +468,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           universalFragment,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
-          skylarkModules.build());
+          skylarkModules.build(),
+          nativeProviders.build());
     }
 
     @Override
@@ -562,6 +583,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final Environment.Frame globals;
 
+  private final ImmutableList<NativeProvider> nativeProviders;
+
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
   private ConfiguredRuleClassProvider(
@@ -580,7 +603,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Class<?>> skylarkModules) {
+      ImmutableList<Class<?>> skylarkModules,
+      ImmutableList<NativeProvider> nativeProviders) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -596,6 +620,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
+    this.nativeProviders = nativeProviders;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
   }
 
@@ -782,16 +807,22 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return configurationFragmentMap;
   }
 
-  /**
-   * Returns all registered {@link BuildConfiguration.Fragment} classes.
-   */
-  public Set<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
-    ImmutableSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
-        ImmutableSet.builder();
+  /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
+  public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
+    ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+        ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
     for (ConfigurationFragmentFactory factory : getConfigurationFragments()) {
       fragmentsBuilder.add(factory.creates());
     }
     fragmentsBuilder.add(getUniversalFragment());
     return fragmentsBuilder.build();
+  }
+
+  /**
+   * Returns all registered {@link NativeProvider} instances, i.e. all built-in provider types that
+   * are based on {@link Provider} rather than {@link TransitiveInfoProvider}.
+   */
+  public ImmutableList<NativeProvider> getNativeProviders() {
+    return nativeProviders;
   }
 }

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -63,6 +63,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -316,14 +317,13 @@ public class JavaCommon {
   public static void checkRuntimeDeps(
       RuleContext ruleContext, List<TransitiveInfoCollection> runtimeDepInfo) {
     for (TransitiveInfoCollection c : runtimeDepInfo) {
-      JavaNeverlinkInfoProvider neverLinkedness =
-          c.getProvider(JavaNeverlinkInfoProvider.class);
-      if (neverLinkedness == null) {
+          JavaInfo javaInfo = (JavaInfo) c.get(JavaInfo.PROVIDER.getKey());
+      if (javaInfo == null) {
         continue;
       }
       boolean reportError =
           !ruleContext.getFragment(JavaConfiguration.class).getAllowRuntimeDepsOnNeverLink();
-      if (neverLinkedness.isNeverlink()) {
+      if (javaInfo.isNeverlink()) {
         String msg = String.format("neverlink dep %s not allowed in runtime deps", c.getLabel());
         if (reportError) {
           ruleContext.attributeError("runtime_deps", msg);
@@ -460,42 +460,31 @@ public class JavaCommon {
 
   private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
     return Streams.concat(
-            JavaToolchainProvider.from(ruleContext).getJavacOptions().stream(),
+            toolchainJavacOpts(ruleContext),
             Streams.stream(extraJavacOpts),
             ruleContext.getExpander().withDataLocations().tokenized("javacopts").stream())
         .collect(toImmutableList());
   }
 
-  public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeInfo javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
-    return javaRuntime != null
-        ? javaRuntime.javaBinaryExecPath()
-        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
+  private Stream<String> toolchainJavacOpts(RuleContext ruleContext) {
+    JavaToolchainProvider toolchain = JavaToolchainProvider.from(ruleContext);
+    return Stream.concat(
+        toolchain.getJavacOptions().stream(),
+        // Enable any javacopts from java_toolchain.packages that are configured for the current
+        // package.
+        toolchain
+            .packageConfiguration()
+            .stream()
+            .filter(p -> p.matches(ruleContext.getLabel()))
+            .flatMap(p -> p.javacopts().stream()));
   }
 
-  /**
-   * Returns the host java executable.
-   *
-   * <p>The method looks for the executable in the following
-   * locations (in the specified order) and returns it immediately after it's found:
-   * <ol>
-   * <li> The JavaRuntimeInfo in the given hostJavabase target
-   * <li> The JVM fragment of the host configuration, retrieved from the given rule context
-   * </ol>
-   */
-  public static PathFragment getHostJavaExecutable(
-      RuleContext ruleContext, TransitiveInfoCollection hostJavabase) {
-    JavaRuntimeInfo javaRuntime = hostJavabase.get(JavaRuntimeInfo.PROVIDER);
-    return javaRuntime != null
-        ? javaRuntime.javaBinaryExecPath()
-        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
+  public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
+    return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPath();
   }
 
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
-    return javaRuntime != null
-        ? javaRuntime.javaBinaryExecPath()
-        : ruleContext.getFragment(Jvm.class).getJavaExecutable();
+    return JavaRuntimeInfo.from(ruleContext).javaBinaryExecPath();
   }
 
   /**
@@ -505,16 +494,14 @@ public class JavaCommon {
    */
   public static String getJavaExecutableForStub(
       RuleContext ruleContext, @Nullable Artifact launcher) {
-    Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
+    Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
     PathFragment javaExecutable;
-    JavaRuntimeInfo javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
-    } else if (javaRuntime != null) {
-      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
     } else {
-      javaExecutable = ruleContext.getFragment(Jvm.class).getJavaExecutable();
+      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
     }
 
     if (!javaExecutable.isAbsolute()) {
@@ -724,7 +711,7 @@ public class JavaCommon {
             InstrumentedFilesProvider.class,
             getInstrumentationFilesProvider(ruleContext, filesToBuild, instrumentationSpec))
         .add(JavaExportsProvider.class, exportsProvider)
-        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar))
+        .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar))
         .add(JavaCompilationInfoProvider.class, compilationInfoProvider);
 
     javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
@@ -825,13 +812,6 @@ public class JavaCommon {
         getPluginInfoProvidersForAttribute(ruleContext, ":java_plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "deps", Mode.TARGET));
-    // Enable any plugins from java_toolchain.plugins that are configured for the current package.
-    JavaToolchainProvider.from(ruleContext)
-        .pluginConfiguration()
-        .stream()
-        .filter(p -> p.matches(ruleContext.getLabel()))
-        .map(JavaPluginConfigurationProvider::plugin)
-        .forEachOrdered(result::add);
     return ImmutableList.copyOf(result);
   }
 

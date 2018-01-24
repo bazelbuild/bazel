@@ -20,6 +20,8 @@ are converted from the AAR directory structure of /jni/<cpu>/foo.so to the APK
 directory structure of /lib/<cpu>/foo.so.
 """
 
+from __future__ import print_function
+
 import os
 import re
 import sys

@@ -873,4 +873,224 @@ EOF
   shutdown_server
 }
 
+function test_sha256_weird() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  touch WORKSPACE BUILD foo
+  zip -r repo.zip *
+  startup_server $PWD
+  cd -
+
+  cat > WORKSPACE <<EOF
+http_archive(
+    name = "repo",
+    sha256 = "a random string",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... &> $TEST_log && fail "Expected to fail"
+  expect_log "Invalid SHA256 checksum"
+  shutdown_server
+}
+
+function test_sha256_incorrect() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  touch WORKSPACE BUILD foo
+  zip -r repo.zip *
+  startup_server $PWD
+  cd -
+
+  cat > WORKSPACE <<EOF
+http_archive(
+    name = "repo",
+    sha256 = "61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/repo.zip\\] to"
+  expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
+  shutdown_server
+}
+
+
+
+function test_same_name() {
+  mkdir ext
+  echo foo> ext/foo
+  EXTREPODIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+new_http_archive(
+  name="ext",
+  strip_prefix="ext",
+  url="file://${EXTREPODIR}/ext.zip",
+  build_file_content="exports_files([\"foo\"])",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "localfoo",
+  srcs = ["@ext//:foo"],
+  outs = ["foo"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:localfoo \
+    || fail 'Expected @ext//:foo and //:foo not to conflict'
+}
+
+function test_missing_build() {
+  mkdir ext
+  echo foo> ext/foo
+  EXTREPODIR=`pwd`
+  rm -f ext.zip
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+  build_file="@//:ext.BUILD",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "localfoo",
+  srcs = ["@ext//:foo"],
+  outs = ["foo"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:localfoo && fail 'Expected failure' || :
+
+  cat > ext.BUILD <<'EOF'
+exports_files(["foo"])
+EOF
+
+  bazel build //:localfoo || fail 'Expected success'
+
+  # Changes to the BUILD file in the external repository should be tracked
+  rm -f ext.BUILD && touch ext.BUILD
+
+  bazel build //:localfoo && fail 'Expected failure' || :
+
+  # Verify that we don't call out unconditionally
+  cat > ext.BUILD <<'EOF'
+exports_files(["foo"])
+EOF
+  bazel build //:localfoo || fail 'Expected success'
+  rm -f "${EXTREPODIR}/ext.zip"
+  bazel build //:localfoo || fail 'Expected success'
+}
+
+
+function test_inherit_build() {
+  # Verify that http_archive can use a BUILD file shiped with the
+  # external archive.
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="hello",
+  outs=["hello.txt"],
+  cmd="echo Hello World > $@",
+)
+EOF
+  EXTREPODIR=`pwd`
+  rm -f ext.zip
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+)
+EOF
+
+  bazel build '@ext//:hello' || fail "expected success"
+}
+
+function test_failing_fetch_with_keep_going() {
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = ["@fake//:fake"],
+)
+EOF
+  touch hello-world.cc
+
+  bazel fetch --keep_going //... >& $TEST_log && fail "Expected to fail" || true
+}
+
+
+function test_query_cached() {
+  # Verify that external repositories are cached after being used once.
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+)
+genrule(
+  name="bar",
+  outs=["bar.txt"],
+  srcs=[":foo"],
+  cmd="cp $< $@",
+)
+EOF
+  EXTREPODIR=`pwd`
+  rm -f ext.zip
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+)
+EOF
+  bazel build '@ext//:bar' || fail "expected sucess"
+
+  # Simulate going offline by removing the external archive
+  rm -f "${EXTREPODIR}/ext.zip"
+  bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
+    || fail "expected success"
+  expect_log '@ext//:foo'
+  bazel shutdown
+  bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
+    || fail "expected success"
+  expect_log '@ext//:foo'
+}
+
 run_suite "external tests"

@@ -19,26 +19,41 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import javax.annotation.Nullable;
 
 /**
  * Stores the command-line options from a set of configuration fragments.
  */
 public final class BuildOptions implements Cloneable, Serializable {
+  public static final ObjectCodec<BuildOptions> CODEC = new BuildOptionsCodec();
+
+  private static final Comparator<Class<? extends FragmentOptions>>
+      lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
+
   /**
    * Creates a BuildOptions object with all options set to their default values, processed by the
    * given {@code invocationPolicy}.
@@ -78,7 +93,9 @@ public final class BuildOptions implements Cloneable, Serializable {
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
       if (optionsClasses.contains(options.getClass())
-          || options instanceof BuildConfiguration.Options) {
+          // TODO(bazel-team): make this non-hacky while not requiring BuildConfiguration access
+          // to BuildOptions.
+          || options.toString().contains("BuildConfiguration$Options")) {
         builder.add(options);
       }
     }
@@ -133,10 +150,9 @@ public final class BuildOptions implements Cloneable, Serializable {
   // It would be very convenient to use a Multimap here, but we cannot do that because we need to
   // support defaults labels that have zero elements.
   ImmutableMap<String, ImmutableSet<Label>> getDefaultsLabels() {
-    BuildConfiguration.Options opts = get(BuildConfiguration.Options.class);
     Map<String, Set<Label>> collector  = new TreeMap<>();
     for (FragmentOptions fragment : fragmentOptionsMap.values()) {
-      for (Map.Entry<String, Set<Label>> entry : fragment.getDefaultsLabels(opts).entrySet()) {
+      for (Map.Entry<String, Set<Label>> entry : fragment.getDefaultsLabels().entrySet()) {
         if (!collector.containsKey(entry.getKey())) {
           collector.put(entry.getKey(), new TreeSet<Label>());
         }
@@ -219,6 +235,35 @@ public final class BuildOptions implements Cloneable, Serializable {
     return new BuildOptions(builder.build());
   }
 
+  /**
+   * Lazily initialize {@link #fingerprint} and {@link #hashCode}. Keeps computation off critical
+   * path of build, while still avoiding expensive computation for equality and hash code each time.
+   *
+   * <p>We check for nullity of {@link #fingerprint} to see if this method has already been called.
+   * Using {@link #hashCode} after this method is called is safe because it is set here before
+   * {@link #fingerprint} is set, so if {@link #fingerprint} is non-null then {@link #hashCode} is
+   * definitely set.
+   */
+  private void maybeInitializeFingerprintAndHashCode() {
+    if (fingerprint != null) {
+      return;
+    }
+    synchronized (this) {
+      if (fingerprint != null) {
+        return;
+      }
+      Fingerprint fingerprint = new Fingerprint();
+      for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> entry :
+          fragmentOptionsMap.entrySet()) {
+        fingerprint.addString(entry.getKey().getName());
+        fingerprint.addString(entry.getValue().cacheKey());
+      }
+      byte[] computedFingerprint = fingerprint.digestAndReset();
+      hashCode = Arrays.hashCode(computedFingerprint);
+      this.fingerprint = computedFingerprint;
+    }
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
@@ -226,15 +271,22 @@ public final class BuildOptions implements Cloneable, Serializable {
     } else if (!(other instanceof BuildOptions)) {
       return false;
     } else {
+      maybeInitializeFingerprintAndHashCode();
       BuildOptions otherOptions = (BuildOptions) other;
-      return fragmentOptionsMap.equals(otherOptions.fragmentOptionsMap);
+      otherOptions.maybeInitializeFingerprintAndHashCode();
+      return Arrays.equals(this.fingerprint, otherOptions.fingerprint);
     }
   }
 
   @Override
   public int hashCode() {
-    return fragmentOptionsMap.hashCode();
+    maybeInitializeFingerprintAndHashCode();
+    return hashCode;
   }
+
+  // Lazily initialized.
+  @Nullable private volatile byte[] fingerprint;
+  private volatile int hashCode;
 
   /**
    * Maps options class definitions to FragmentOptions objects.
@@ -267,13 +319,42 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     public BuildOptions build() {
-      return new BuildOptions(ImmutableMap.copyOf(builderMap));
+      return new BuildOptions(
+          ImmutableSortedMap.copyOf(builderMap, lexicalFragmentOptionsComparator));
     }
 
     private Map<Class<? extends FragmentOptions>, FragmentOptions> builderMap;
 
     private Builder() {
       builderMap = new HashMap<>();
+    }
+  }
+
+  private static class BuildOptionsCodec implements ObjectCodec<BuildOptions> {
+    @Override
+    public Class<BuildOptions> getEncodedClass() {
+      return BuildOptions.class;
+    }
+
+    @Override
+    public void serialize(BuildOptions buildOptions, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      Collection<FragmentOptions> fragmentOptions = buildOptions.getOptions();
+      codedOut.writeInt32NoTag(fragmentOptions.size());
+      for (FragmentOptions options : buildOptions.getOptions()) {
+        FragmentOptions.CODEC.serialize(options, codedOut);
+      }
+    }
+
+    @Override
+    public BuildOptions deserialize(CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      BuildOptions.Builder builder = BuildOptions.builder();
+      int length = codedIn.readInt32();
+      for (int i = 0; i < length; ++i) {
+        builder.add(FragmentOptions.CODEC.deserialize(codedIn));
+      }
+      return builder.build();
     }
   }
 }

@@ -21,7 +21,6 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -104,14 +103,11 @@ public class ConfiguredTargetQueryEnvironment
 
   private static final Function<ConfiguredTarget, SkyKey> CT_TO_SKYKEY =
       target -> ConfiguredTargetValue.key(target.getLabel(), target.getConfiguration());
-  private static final Function<SkyKey, LabelAndConfiguration> SKYKEY_TO_LANDC =
-      skyKey -> {
-        ConfiguredTargetKey key = (ConfiguredTargetKey) skyKey.argument();
-        return LabelAndConfiguration.of(key.getLabel(), key.getConfiguration());
-      };
+  private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
+      skyKey -> (ConfiguredTargetKey) skyKey.argument();
   private static final ImmutableList<TargetPatternKey> ALL_PATTERNS;
-  private static final KeyExtractor<ConfiguredTarget, LabelAndConfiguration>
-      CONFIGURED_TARGET_KEY_EXTRACTOR = LabelAndConfiguration::of;
+  private static final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey>
+      CONFIGURED_TARGET_KEY_EXTRACTOR = ConfiguredTargetKey::of;
 
   static {
     TargetPattern targetPattern;
@@ -178,6 +174,22 @@ public class ConfiguredTargetQueryEnvironment
     ConfiguredTargetValue value =
         ((ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key));
     return value == null ? null : value.getConfiguredTarget();
+  }
+
+  private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {
+    // Try with host configuration.
+    ConfiguredTarget configuredTarget =
+        getConfiguredTarget(ConfiguredTargetValue.key(label, hostConfiguration));
+    if (configuredTarget != null) {
+      return configuredTarget;
+    }
+    configuredTarget =
+        getConfiguredTarget(ConfiguredTargetValue.key(label, defaultTargetConfiguration));
+    if (configuredTarget != null) {
+      return configuredTarget;
+    }
+    // Last chance: source file.
+    return getConfiguredTarget(ConfiguredTargetValue.key(label, null));
   }
 
   @Override
@@ -310,14 +322,14 @@ public class ConfiguredTargetQueryEnvironment
       }
     }
     if (settings.contains(Setting.NO_IMPLICIT_DEPS) && target instanceof RuleConfiguredTarget) {
-      Set<LabelAndConfiguration> implicitDeps = ((RuleConfiguredTarget) target).getImplicitDeps();
+      Set<ConfiguredTargetKey> implicitDeps = ((RuleConfiguredTarget) target).getImplicitDeps();
       deps =
           deps.stream()
               .filter(
                   dep ->
                       !implicitDeps.contains(
-                          LabelAndConfiguration.of(
-                              dep.getTarget().getLabel(), dep.getConfiguration())))
+                          ConfiguredTargetKey.of(
+                              dep.getLabel(), dep.getConfiguration())))
               .collect(Collectors.toList());
     }
     return deps;
@@ -333,10 +345,10 @@ public class ConfiguredTargetQueryEnvironment
     Map<SkyKey, Collection<ConfiguredTarget>> directDeps =
         targetifyValues(graph.getDirectDeps(targetsByKey.keySet()));
     if (targetsByKey.keySet().size() != directDeps.keySet().size()) {
-      Iterable<LabelAndConfiguration> missingTargets =
+      Iterable<ConfiguredTargetKey> missingTargets =
           Sets.difference(targetsByKey.keySet(), directDeps.keySet())
               .stream()
-              .map(SKYKEY_TO_LANDC)
+              .map(SKYKEY_TO_CTKEY)
               .collect(Collectors.toList());
       eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
     }
@@ -376,10 +388,10 @@ public class ConfiguredTargetQueryEnvironment
     Map<SkyKey, Collection<ConfiguredTarget>> reverseDepsByKey =
         targetifyValues(graph.getReverseDeps(targetsByKey.keySet()));
     if (targetsByKey.size() != reverseDepsByKey.size()) {
-      Iterable<LabelAndConfiguration> missingTargets =
+      Iterable<ConfiguredTargetKey> missingTargets =
           Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet())
               .stream()
-              .map(SKYKEY_TO_LANDC)
+              .map(SKYKEY_TO_CTKEY)
               .collect(Collectors.toList());
       eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
     }
@@ -407,7 +419,7 @@ public class ConfiguredTargetQueryEnvironment
   @Override
   public ImmutableList<ConfiguredTarget> getNodesOnPath(ConfiguredTarget from, ConfiguredTarget to)
       throws InterruptedException {
-    return SkyQueryUtils.getNodesOnPath(from, to, this::getFwdDeps, LabelAndConfiguration::of);
+    return SkyQueryUtils.getNodesOnPath(from, to, this::getFwdDeps, ConfiguredTargetKey::of);
   }
 
   @Override
@@ -421,22 +433,6 @@ public class ConfiguredTargetQueryEnvironment
       throws TargetNotFoundException, QueryException, InterruptedException {
     ConfiguredTarget configuredTarget = getConfiguredTarget(label);
     return configuredTarget == null ? null : configuredTarget.getTarget();
-  }
-
-  private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {
-    // Try with host configuration.
-    ConfiguredTarget configuredTarget =
-        getConfiguredTarget(ConfiguredTargetValue.key(label, hostConfiguration));
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-    configuredTarget =
-        getConfiguredTarget(ConfiguredTargetValue.key(label, defaultTargetConfiguration));
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-    // Last chance: source file.
-    return getConfiguredTarget(ConfiguredTargetValue.key(label, null));
   }
 
   @Override

@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -233,7 +233,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root) {
+  public Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return trackArtifactAndOrigin(
         artifactFactory.getDerivedArtifact(rootRelativePath, root, getOwner()),
@@ -241,7 +241,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getTreeArtifact(PathFragment rootRelativePath, Root root) {
+  public Artifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return trackArtifactAndOrigin(
         artifactFactory.getTreeArtifact(rootRelativePath, root, getOwner()),
@@ -249,7 +249,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getFilesetArtifact(PathFragment rootRelativePath, Root root) {
+  public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return trackArtifactAndOrigin(
         artifactFactory.getFilesetArtifact(rootRelativePath, root, getOwner()),
@@ -257,7 +257,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, Root root) {
+  public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     return artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, getOwner());
   }
 
@@ -297,14 +297,14 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public Artifact getStableWorkspaceStatusArtifact() throws InterruptedException {
-    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
-            .getStableArtifact();
+    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.BUILD_INFO_KEY))
+        .getStableArtifact();
   }
 
   @Override
   public Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException {
-    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
-            .getVolatileArtifact();
+    return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.BUILD_INFO_KEY))
+        .getVolatileArtifact();
   }
 
   // See SkyframeBuildView#getWorkspaceStatusValues for the code that this method is attempting to
@@ -327,8 +327,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       throws InterruptedException {
     boolean stamp = AnalysisUtils.isStampingEnabled(ruleContext, config);
     BuildInfoCollectionValue collectionValue =
-        (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(
-            new BuildInfoCollectionValue.BuildInfoKeyAndConfig(key, config)));
+        (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(key, config));
     if (collectionValue == null) {
       throw collectDebugInfoAndCrash(key, config);
     }

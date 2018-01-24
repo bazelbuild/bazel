@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import android.aapt.pb.internal.ResourcesInternal.CompiledFile;
 import com.android.SdkConstants;
 import com.android.aapt.Resources;
 import com.android.aapt.Resources.ConfigValue;
@@ -20,18 +21,22 @@ import com.android.aapt.Resources.Package;
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Type;
 import com.android.aapt.Resources.Value;
+import com.android.aapt.Resources.Visibility.Level;
 import com.android.resources.ResourceType;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
-import com.google.devtools.build.android.proto.Format.CompiledFile;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.Header;
+import com.google.devtools.build.android.xml.ResourcesAttribute.AttributeType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,7 +54,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /** Deserializes {@link DataKey}, {@link DataValue} entries from compiled resource files. */
-public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
+public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer {
   private static final Logger logger =
       Logger.getLogger(AndroidCompiledDataDeserializer.class.getName());
 
@@ -73,10 +78,15 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
   }
 
   private void readResourceTable(
-      InputStream resourceTableStream,
+      LittleEndianDataInputStream resourceTableStream,
       KeyValueConsumers consumers,
       Factory fqnFactory) throws IOException {
-    ResourceTable resourceTable = ResourceTable.parseFrom(resourceTableStream);
+    long alignedSize = resourceTableStream.readLong();
+    Preconditions.checkArgument(alignedSize <= Integer.MAX_VALUE);
+
+    byte[] tableBytes = new byte[(int) alignedSize];
+    resourceTableStream.read(tableBytes, 0, (int) alignedSize);
+    ResourceTable resourceTable = ResourceTable.parseFrom(tableBytes);
 
     List<String> sourcePool =
         decodeSourcePool(resourceTable.getSourcePool().getData().toByteArray());
@@ -95,30 +105,41 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
         ResourceType resourceType = ResourceType.getEnum(resourceFormatType.getName());
 
         for (Resources.Entry resource : resourceFormatType.getEntryList()) {
-          Value resourceValue = resource.getConfigValue(0).getValue();
           String resourceName = packageName + resource.getName();
-          List<ConfigValue> configValues = resource.getConfigValueList();
 
-          Preconditions.checkArgument(configValues.size() == 1);
-          int sourceIndex =
-              configValues.get(0)
-                  .getValue()
-                  .getSource()
-                  .getPathIdx();
-
-          String source = sourcePool.get(sourceIndex);
-
-          DataSource dataSource = DataSource.of(Paths.get(source));
           FullyQualifiedName fqn = fqnFactory.create(resourceType, resourceName);
           fullyQualifiedNames.put(
-              packageName + resourceType + "/" + resource.getName(),
+              String.format("%s%s/%s", packageName, resourceType, resource.getName()),
               new SimpleEntry<FullyQualifiedName, Boolean>(fqn, packageName.isEmpty()));
 
-          if (packageName.isEmpty()) {
+          List<ConfigValue> configValues = resource.getConfigValueList();
+          if (configValues.isEmpty()
+              && resource.getVisibility().getLevel() == Level.PUBLIC) {
+            int sourceIndex = resource.getVisibility().getSource().getPathIdx();
+
+            String source = sourcePool.get(sourceIndex);
+            DataSource dataSource = DataSource.of(Paths.get(source));
+
             DataResourceXml dataResourceXml = DataResourceXml
-                .from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
+                .fromPublic(dataSource, resourceType, resource.getEntryId().getId());
+            consumers.combiningConsumer.accept(fqn, dataResourceXml);
+          } else if (packageName.isEmpty()) {// This means this resource is not in the android sdk
+            Preconditions.checkArgument(configValues.size() == 1);
+            int sourceIndex =
+                configValues.get(0)
+                    .getValue()
+                    .getSource()
+                    .getPathIdx();
+
+            String source = sourcePool.get(sourceIndex);
+            DataSource dataSource = DataSource.of(Paths.get(source));
+
+            Value resourceValue = resource.getConfigValue(0).getValue();
+            DataResourceXml dataResourceXml =
+                DataResourceXml
+                    .from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
+
             if (resourceType == ResourceType.ID
-                || resourceType == ResourceType.PUBLIC
                 || resourceType == ResourceType.STYLEABLE) {
               consumers.combiningConsumer.accept(fqn, dataResourceXml);
             } else {
@@ -132,30 +153,29 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
 
   /**
    * Reads compiled resource data files and adds them to consumers
-   * @param compiledFileStream First byte is number of compiled files represented in this file.
-   *    Next 8 bytes is a long indicating the length of the metadata describing the compiled file.
-   *    Next N bytes is the metadata describing the compiled file.
-   *    The remaining bytes are the actual original file.
+   *
+   * @param compiledFileStream First byte is number of compiled files represented in this file. Next
+   *     8 bytes is a long indicating the length of the metadata describing the compiled file. Next
+   *     N bytes is the metadata describing the compiled file. The remaining bytes are the actual
+   *     original file.
    * @param consumers
    * @param fqnFactory
    * @throws IOException
    */
   private void readCompiledFile(
-      InputStream compiledFileStream,
+      LittleEndianDataInputStream compiledFileStream,
       KeyValueConsumers consumers,
       Factory fqnFactory) throws IOException {
-    LittleEndianDataInputStream dataInputStream =
-        new LittleEndianDataInputStream(compiledFileStream);
+    //Skip aligned size. We don't need it here.
+    Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
 
-    int numberOfCompiledFiles = dataInputStream.readInt();
-    if (numberOfCompiledFiles != 1) {
-      logger.warning("Compiled resource file has "
-          + numberOfCompiledFiles + " files. Expected 1 compiled file.");
-    }
+    int resFileHeaderSize = compiledFileStream.readInt();
 
-    long length = dataInputStream.readLong();
-    byte[] file = new byte[(int) length];
-    dataInputStream.read(file, 0, (int) length);
+    //Skip data payload size. We don't need it here.
+    Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
+
+    byte[] file = new byte[resFileHeaderSize];
+    compiledFileStream.read(file, 0, resFileHeaderSize);
     CompiledFile compiledFile = CompiledFile.parseFrom(file);
 
     Path sourcePath = Paths.get(compiledFile.getSourcePath());
@@ -166,33 +186,69 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
       consumers.overwritingConsumer.accept(fqn, DataValueFile.of(dataSource));
     }
 
-    for (CompiledFile.Symbol exportedSymbol : compiledFile.getExportedSymbolsList()) {
-      FullyQualifiedName symbolFqn =
-          fqnFactory.create(
-              ResourceType.ID, exportedSymbol.getResourceName().replaceFirst("id/", ""));
+    for (CompiledFile.Symbol exportedSymbol : compiledFile.getExportedSymbolList()) {
+      if (!exportedSymbol.getResourceName().startsWith("android:")) {
+        // Skip writing resource xml's for resources in the sdk
+        FullyQualifiedName symbolFqn =
+            fqnFactory.create(
+                ResourceType.ID, exportedSymbol.getResourceName().replaceFirst("id/", ""));
 
+        DataResourceXml dataResourceXml =
+            DataResourceXml.from(null, dataSource, ResourceType.ID, null);
+        consumers.combiningConsumer.accept(symbolFqn, dataResourceXml);
+      }
+    }
+  }
+
+  private void readAttributesFile(
+      InputStream resourceFileStream,
+      FileSystem fileSystem,
+      KeyValueConsumers consumers) throws IOException {
+
+    Header header = Header.parseDelimitedFrom(resourceFileStream);
+    List<DataKey> fullyQualifiedNames = new ArrayList<>();
+    for (int i = 0; i < header.getEntryCount(); i++) {
+      SerializeFormat.DataKey protoKey =
+          SerializeFormat.DataKey.parseDelimitedFrom(resourceFileStream);
+      fullyQualifiedNames.add(FullyQualifiedName.fromProto(protoKey));
+    }
+
+    DataSourceTable sourceTable = DataSourceTable.read(resourceFileStream, fileSystem, header);
+
+    for (DataKey fullyQualifiedName : fullyQualifiedNames) {
+      SerializeFormat.DataValue protoValue =
+          SerializeFormat.DataValue.parseDelimitedFrom(resourceFileStream);
+      DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
       DataResourceXml dataResourceXml =
-          DataResourceXml.from(null, dataSource, ResourceType.ID, null);
-      consumers.combiningConsumer.accept(symbolFqn, dataResourceXml);
+          (DataResourceXml) DataResourceXml.from(protoValue, source);
+      AttributeType attributeType =
+          AttributeType.valueOf(protoValue.getXmlValue().getValueType());
+
+      if (attributeType.isCombining()) {
+        consumers.combiningConsumer.accept(fullyQualifiedName, dataResourceXml);
+      } else {
+        consumers.overwritingConsumer.accept(fullyQualifiedName, dataResourceXml);
+      }
     }
   }
 
   @Override
-  public void read(Path inPath, KeyValueConsumers consumers){
+  public void read(Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
     try (ZipFile zipFile = new ZipFile(inPath.toFile())) {
       Enumeration<? extends ZipEntry> resourceFiles = zipFile.entries();
 
       while (resourceFiles.hasMoreElements()) {
         ZipEntry resourceFile = resourceFiles.nextElement();
-        InputStream resourceFileStream = zipFile.getInputStream(resourceFile);
-
         String fileZipPath = resourceFile.getName();
         int resourceSubdirectoryIndex = fileZipPath.indexOf('_', fileZipPath.lastIndexOf('/'));
-        Path filePath = Paths.get(String.format("%s%c%s",
-            fileZipPath.substring(0, resourceSubdirectoryIndex),
-            '/',
-            fileZipPath.substring(resourceSubdirectoryIndex + 1)));
+        Path filePath =
+            Paths.get(
+                String.format(
+                    "%s%c%s",
+                    fileZipPath.substring(0, resourceSubdirectoryIndex),
+                    '/',
+                    fileZipPath.substring(resourceSubdirectoryIndex + 1)));
 
         String shortPath = filePath.getParent().getFileName() + "/" + filePath.getFileName();
 
@@ -203,14 +259,31 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
           continue;
         }
 
-        final String[] dirNameAndQualifiers = filePath.getParent().getFileName().toString()
-            .split(SdkConstants.RES_QUALIFIER_SEP);
-        Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
+        try (InputStream resourceFileStream = zipFile.getInputStream(resourceFile)) {
+          final String[] dirNameAndQualifiers =
+              filePath.getParent().getFileName().toString().split(SdkConstants.RES_QUALIFIER_SEP);
+          Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
 
-        if (fileZipPath.endsWith(".arsc.flat")) {
-          readResourceTable(resourceFileStream, consumers, fqnFactory);
-        } else {
-          readCompiledFile(resourceFileStream, consumers, fqnFactory);
+          if (fileZipPath.endsWith(".attributes")) {
+            readAttributesFile(resourceFileStream, inPath.getFileSystem(), consumers);
+          } else {
+            LittleEndianDataInputStream dataInputStream =
+                new LittleEndianDataInputStream(resourceFileStream);
+
+            // Magic number (4 bytes), Format version (4 bytes), Number of entries (4 bytes).
+            Preconditions.checkArgument(dataInputStream.skipBytes(12) == 12);
+
+            int resourceType = dataInputStream.readInt();
+            if (resourceType == 0) { // 0 is a resource table
+              readResourceTable(dataInputStream, consumers, fqnFactory);
+            } else if (resourceType == 1) { // 1 is a resource file
+              readCompiledFile(dataInputStream, consumers, fqnFactory);
+            } else {
+              throw new RuntimeException(
+                  String.format(
+                      "Invalid resource type enum: %s from %s", resourceType, fileZipPath));
+            }
+          }
         }
       }
     } catch (IOException e) {
@@ -228,7 +301,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
     int stringCount = byteBuffer.getInt(8);
     boolean isUtf8 = (byteBuffer.getInt(16) & (1 << 8)) != 0;
     int stringsStart = byteBuffer.getInt(20);
-    //Position the ByteBuffer after the metadata
+    // Position the ByteBuffer after the metadata
     byteBuffer.position(28);
 
     List<String> strings = new ArrayList<>();
@@ -275,5 +348,4 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer{
 
     return strings;
   }
-
 }

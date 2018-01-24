@@ -37,8 +37,8 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.BatchCallback.NullCallback;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -246,7 +246,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(), excludedSubdirectories);
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
-      List<Path> roots = new ArrayList<>();
+      List<Root> roots = new ArrayList<>();
       if (repository.isMain()) {
         roots.addAll(pkgPath.getPathEntries());
       } else {
@@ -261,10 +261,10 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           // already checked for its existence.
           throw new IllegalStateException(String.format("No such repository '%s'", repository));
         }
-        roots.add(repositoryValue.getPath());
+        roots.add(Root.fromPath(repositoryValue.getPath()));
       }
 
-      for (Path root : roots) {
+      for (Root root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
         env.getValues(
             ImmutableList.of(

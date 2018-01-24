@@ -58,6 +58,10 @@ public abstract class GraphTest {
 
   protected abstract Version getNextVersion(Version version);
 
+  protected boolean checkRdeps() {
+    return true;
+  }
+
   @Before
   public void init() throws Exception {
     makeGraph();
@@ -194,7 +198,9 @@ public abstract class GraphTest {
                 for (int k = chunkSize; k <= numIterations; k++) {
                   entry.removeReverseDep(key("rdep" + j));
                   entry.addReverseDepAndCheckIfDone(key("rdep" + j));
-                  entry.getReverseDepsForDoneEntry();
+                  if (checkRdeps()) {
+                    entry.getReverseDepsForDoneEntry();
+                  }
                 }
               } catch (InterruptedException e) {
                 fail("Test failed: " + e.toString());
@@ -210,8 +216,10 @@ public abstract class GraphTest {
     wrapper.waitForTasksAndMaybeThrow();
     assertThat(ExecutorUtil.interruptibleShutdown(pool)).isFalse();
     assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo1"));
-    assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
-        .hasSize(numKeys + 1);
+    if (checkRdeps()) {
+      assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
+          .hasSize(numKeys + 1);
+    }
 
     graph = getGraph(getNextVersion(startingVersion));
     NodeEntry sameEntry = Preconditions.checkNotNull(graph.get(null, Reason.OTHER, key));
@@ -221,8 +229,10 @@ public abstract class GraphTest {
     sameEntry.markRebuilding();
     sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
     assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo2"));
-    assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
-        .hasSize(numKeys + 1);
+    if (checkRdeps()) {
+      assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
+          .hasSize(numKeys + 1);
+    }
   }
 
   // Tests adding inflight nodes with a given key while an existing node with the same key
@@ -450,8 +460,10 @@ public abstract class GraphTest {
       NodeEntry entry = graph.get(null, Reason.OTHER, key("foo" + i));
       assertThat(entry.getValue()).isEqualTo(new StringValue("bar" + i));
       assertThat(entry.getVersion()).isEqualTo(getNextVersion(startingVersion));
-      for (SkyKey key : entry.getReverseDepsForDoneEntry()) {
-        assertThat(key).isEqualTo(key("rdep"));
+      if (checkRdeps()) {
+        for (SkyKey key : entry.getReverseDepsForDoneEntry()) {
+          assertThat(key).isEqualTo(key("rdep"));
+        }
       }
       for (SkyKey key : entry.getDirectDeps()) {
         assertThat(key).isEqualTo(key("dep"));

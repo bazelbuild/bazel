@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -112,6 +113,17 @@ public final class CleanCommand implements BlazeCommand {
     }
   }
 
+  private final OS os;
+
+  public CleanCommand() {
+    this(OS.getCurrent());
+  }
+
+  @VisibleForTesting
+  public CleanCommand(OS os) {
+    this.os = os;
+  }
+
   private static final Logger logger = Logger.getLogger(CleanCommand.class.getName());
 
   @Override
@@ -126,7 +138,8 @@ public final class CleanCommand implements BlazeCommand {
     // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
     // support --expunge_async on these platforms, we'd have to write a wrapper that calls setsid(2)
     // and exec(2).
-    if (async && OS.getCurrent() != OS.LINUX) {
+    boolean asyncSupport = os == OS.LINUX;
+    if (async && !asyncSupport) {
       String fallbackName = cleanOptions.expunge ? "--expunge" : "synchronous clean";
       env.getReporter()
           .handle(
@@ -138,7 +151,7 @@ public final class CleanCommand implements BlazeCommand {
     }
 
     String cleanBanner =
-        async
+        (async || !asyncSupport)
             ? "Starting clean."
             : "Starting clean (this may take a while). "
                 + "Consider using --async if the clean takes more than several minutes.";

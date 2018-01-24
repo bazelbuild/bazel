@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
@@ -33,7 +32,6 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -43,8 +41,9 @@ import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -73,9 +72,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * Aspect to {@link DexArchiveProvider build .dex Archives} from Jars.
- */
+/** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
 public final class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "DexArchiveAspect";
   /**
@@ -104,13 +101,17 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static final String ASPECT_DEXBUILDER_PREREQ = "$dex_archive_dexbuilder";
   /** Aspect-only label for desugaring executable, to avoid name clashes with labels on rules. */
   private static final String ASPECT_DESUGAR_PREREQ = "$aspect_desugar";
-  private static final ImmutableList<String> TRANSITIVE_ATTRIBUTES_EXCEPT_FOR_PROTOS =
-      ImmutableList.of("deps", "exports", "runtime_deps",
-          ":android_sdk", "aidl_lib"); // for the aidl runtime in the android_sdk rule
+
   private static final ImmutableList<String> TRANSITIVE_ATTRIBUTES =
-      ImmutableList.<String>builder().addAll(TRANSITIVE_ATTRIBUTES_EXCEPT_FOR_PROTOS)
+      ImmutableList.of(
+          "deps",
+          "exports",
+          "runtime_deps",
+          ":android_sdk",
+          "aidl_lib", // for the aidl runtime in the android_sdk rule
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
-          .add(JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR, "runtime").build();
+          JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR, "runtime");
+
   private static final FlagMatcher DEXOPTS_SUPPORTED_IN_DEXBUILDER =
       new FlagMatcher(
           ImmutableList.of("--no-locals", "--no-optimize", "--no-warnings", "--positions"));
@@ -125,8 +126,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   public AspectDefinition getDefinition(AspectParameters params) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
-            // We care about JavaRuntimeJarProvider, but rules don't advertise that
-            // provider.
+            // We care about JavaRuntimeJarProvider, but rules don't advertise that provider.
             .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
@@ -139,7 +139,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
-                    .cfg(HOST)
+                    .cfg(HostTransition.INSTANCE)
                     .exec()
                     .value(
                         Label.parseAbsoluteUnchecked(
@@ -156,8 +156,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
-      result.add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
-          .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
+      result.add(
+          attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
+              .cfg(HostTransition.INSTANCE)
+              .exec()
+              .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       result.propagateAlongAttribute(attr);
@@ -166,11 +169,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   @Override
-  public ConfiguredAspect create(ConfiguredTarget base, RuleContext ruleContext,
-      AspectParameters params) throws InterruptedException {
+  public ConfiguredAspect create(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters params)
+      throws InterruptedException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
-    Function<Artifact, Artifact> desugaredJars =
-        desugarJarsIfRequested(base, ruleContext, result);
+    Function<Artifact, Artifact> desugaredJars = desugarJarsIfRequested(base, ruleContext, result);
 
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
@@ -185,8 +188,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       return result.addProvider(DexArchiveProvider.NEVERLINK).build();
     }
 
-    DexArchiveProvider.Builder dexArchives = new DexArchiveProvider.Builder()
-        .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
+    DexArchiveProvider.Builder dexArchives =
+        new DexArchiveProvider.Builder()
+            .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
     Iterable<Artifact> runtimeJars = getProducedRuntimeJars(base, ruleContext);
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
@@ -199,7 +203,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           // their filenames.
           String uniqueFilename =
               (basenameClash ? jar.getRootRelativePathString() : jar.getFilename())
-              + Joiner.on("").join(incrementalDexopts) + ".dex.zip";
+                  + Joiner.on("").join(incrementalDexopts)
+                  + ".dex.zip";
           Artifact dexArchive =
               createDexArchiveAction(
                   ruleContext,
@@ -229,8 +234,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       result.addProvider(AndroidRuntimeJarProvider.NEVERLINK);
       return Functions.forMap(newlyDesugared);
     }
-    AndroidRuntimeJarProvider.Builder desugaredJars = new AndroidRuntimeJarProvider.Builder()
-        .addTransitiveProviders(collectPrerequisites(ruleContext, AndroidRuntimeJarProvider.class));
+    AndroidRuntimeJarProvider.Builder desugaredJars =
+        new AndroidRuntimeJarProvider.Builder()
+            .addTransitiveProviders(
+                collectPrerequisites(ruleContext, AndroidRuntimeJarProvider.class));
     if (isProtoLibrary(ruleContext)) {
       // TODO(b/33557068): Desugar protos if needed instead of assuming they don't need desugaring
       result.addProvider(desugaredJars.build());
@@ -249,8 +256,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
       boolean basenameClash = checkBasenameClash(jarProvider.getRuntimeJars());
       for (Artifact jar : jarProvider.getRuntimeJars()) {
-        Artifact desugared = createDesugarAction(ruleContext, basenameClash, jar, bootclasspath,
-            compileTimeClasspath);
+        Artifact desugared =
+            createDesugarAction(
+                ruleContext, basenameClash, jar, bootclasspath, compileTimeClasspath);
         newlyDesugared.put(jar, desugared);
         desugaredJars.addDesugaredJar(jar, desugared);
       }
@@ -259,10 +267,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return Functions.forMap(newlyDesugared);
   }
 
-  private static Iterable<Artifact> getProducedRuntimeJars(ConfiguredTarget base,
-      RuleContext ruleContext) {
-    if (isProtoLibrary(ruleContext)
-        && getAndroidConfig(ruleContext).incrementalDexingForLiteProtos()) {
+  private static Iterable<Artifact> getProducedRuntimeJars(
+      ConfiguredTarget base, RuleContext ruleContext) {
+    if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
         JavaCompilationArgsProvider javaCompilationArgsProvider =
             WrappingProvider.Helper.getWrappedProvider(
@@ -280,8 +287,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return null;
   }
 
-  private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(ConfiguredTarget base,
-      RuleContext ruleContext) {
+  private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(
+      ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationArgsProvider provider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
     if (provider != null) {
@@ -309,10 +316,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   private static <T extends TransitiveInfoProvider> IterablesChain<T> collectPrerequisites(
       RuleContext ruleContext, Class<T> classType) {
-    ImmutableList<String> attrs = getAndroidConfig(ruleContext).incrementalDexingForLiteProtos()
-        ? TRANSITIVE_ATTRIBUTES : TRANSITIVE_ATTRIBUTES_EXCEPT_FOR_PROTOS;
     IterablesChain.Builder<T> result = IterablesChain.builder();
-    for (String attr : attrs) {
+    for (String attr : TRANSITIVE_ATTRIBUTES) {
       if (ruleContext.attributes().getAttributeType(attr) != null) {
         result.add(ruleContext.getPrerequisites(attr, Mode.TARGET, classType));
       }
@@ -320,8 +325,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return result.build();
   }
 
-  private static ImmutableList<Artifact> getBootclasspath(ConfiguredTarget base,
-      RuleContext ruleContext) {
+  private static ImmutableList<Artifact> getBootclasspath(
+      ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationInfoProvider compilationInfo =
         base.getProvider(JavaCompilationInfoProvider.class);
     if (compilationInfo == null || compilationInfo.getBootClasspath().isEmpty()) {
@@ -346,15 +351,16 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         jar,
         bootclasspath,
         compileTimeClasspath,
-        AndroidBinary.getDxArtifact(ruleContext,
+        AndroidBinary.getDxArtifact(
+            ruleContext,
             (disambiguateBasenames ? jar.getRootRelativePathString() : jar.getFilename())
-            + "_desugared.jar"));
+                + "_desugared.jar"));
   }
 
   /**
-   * Desugars the given Jar using an executable prerequisite {@code "$desugar"}.
-   * Rules calling this method must declare the appropriate prerequisite, similar to how
-   * {@link #getDefinition} does it for {@link DexArchiveAspect} under a different name.
+   * Desugars the given Jar using an executable prerequisite {@code "$desugar"}. Rules calling this
+   * method must declare the appropriate prerequisite, similar to how {@link #getDefinition} does it
+   * for {@link DexArchiveAspect} under a different name.
    *
    * <p>It's useful to have this action separately since callers need to look up classpath and
    * bootclasspath in a different way than this aspect does it.
@@ -387,82 +393,64 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       args.add("--emit_dependency_metadata_as_needed");
     }
 
-    // Just use params file, since classpaths can get long
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(result.getRootRelativePath()), result.getRoot());
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            args.build(),
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName, Mode.HOST))
             .addInput(jar)
-            .addInput(paramFile)
             .addInputs(bootclasspath)
             .addTransitiveInputs(classpath)
             .addOutput(result)
             .setMnemonic("Desugar")
             .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
-            .addCommandLine(CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build())
+            .addCommandLine(
+                // Always use params file, so we don't need to compute command line length first
+                args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
             .build(ruleContext));
     return result;
   }
 
   /**
-   * Creates a dex archive using an executable prerequisite called {@code "$dexbuilder"}.  Rules
-   * calling this method must declare the appropriate prerequisite, similar to how
-   * {@link #getDefinition} does it for {@link DexArchiveAspect} under a different name.
+   * Creates a dex archive using an executable prerequisite called {@code "$dexbuilder"}. Rules
+   * calling this method must declare the appropriate prerequisite, similar to how {@link
+   * #getDefinition} does it for {@link DexArchiveAspect} under a different name.
    *
    * @return the artifact given as {@code result}, which can simplify calling code
    */
   // Package-private method for use in AndroidBinary
-  static Artifact createDexArchiveAction(RuleContext ruleContext, Artifact jar,
-      Set<String> tokenizedDexopts, Artifact result) {
+  static Artifact createDexArchiveAction(
+      RuleContext ruleContext, Artifact jar, Set<String> tokenizedDexopts, Artifact result) {
     return createDexArchiveAction(ruleContext, "$dexbuilder", jar, tokenizedDexopts, result);
   }
 
   /**
-   * Creates a dexbuilder action with the given input, output, and flags.  Flags must have been
+   * Creates a dexbuilder action with the given input, output, and flags. Flags must have been
    * filtered and normalized to a set that the dexbuilder tool can understand.
    */
-  private static Artifact createDexArchiveAction(RuleContext ruleContext, String dexbuilderPrereq,
-      Artifact jar, Set<String> incrementalDexopts, Artifact dexArchive) {
-    // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
+  private static Artifact createDexArchiveAction(
+      RuleContext ruleContext,
+      String dexbuilderPrereq,
+      Artifact jar,
+      Set<String> incrementalDexopts,
+      Artifact dexArchive) {
     CustomCommandLine args =
         new Builder()
             .addExecPath("--input_jar", jar)
             .addExecPath("--output_zip", dexArchive)
             .addAll(ImmutableList.copyOf(incrementalDexopts))
             .build();
-    Artifact paramFile =
-        ruleContext.getDerivedArtifact(
-            ParameterFile.derivePath(dexArchive.getRootRelativePath()), dexArchive.getRoot());
-    ruleContext.registerAction(
-        new ParameterFileWriteAction(
-            ruleContext.getActionOwner(),
-            paramFile,
-            args,
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
-            .addInput(paramFile)
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
             .setProgressMessage(
                 "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts)
-            .addCommandLine(
-                CustomCommandLine.builder().addPrefixedExecPath("@", paramFile).build());
+            // Always use params file for compatibility with WorkerSpawnStrategy
+            .addCommandLine(args, ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build());
     if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
       dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     }
@@ -477,12 +465,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   /**
    * Derives options to use in incremental dexing actions from the given context and dx flags, where
-   * the latter typically come from a {@code dexopts} attribute on a top-level target.  This method
-   * only works reliably if the given dexopts were tokenized, e.g., using
-   * {@link RuleContext#getTokenizedStringListAttr}.
+   * the latter typically come from a {@code dexopts} attribute on a top-level target. This method
+   * only works reliably if the given dexopts were tokenized, e.g., using {@link
+   * RuleContext#getTokenizedStringListAttr}.
    */
-  static ImmutableSet<String> incrementalDexopts(RuleContext ruleContext,
-      Iterable<String> tokenizedDexopts) {
+  static ImmutableSet<String> incrementalDexopts(
+      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       // TODO(b/27382165): Still needed? No longer done in AndroidCommon.createDexAction
       tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
@@ -495,11 +483,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   /**
-   * Returns the subset of the given dexopts that are blacklisted from using incremental dexing
-   * by default.
+   * Returns the subset of the given dexopts that are blacklisted from using incremental dexing by
+   * default.
    */
-  static Iterable<String> blacklistedDexopts(
-      RuleContext ruleContext, List<String> dexopts) {
+  static Iterable<String> blacklistedDexopts(RuleContext ruleContext, List<String> dexopts) {
     return Iterables.filter(
         dexopts,
         new FlagMatcher(
@@ -508,8 +495,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   /**
    * Derives options to use in DexBuilder actions from the given context and dx flags, where the
-   * latter typically come from a {@code dexopts} attribute on a top-level target.  This should be
-   * a superset of {@link #incrementalDexopts}.
+   * latter typically come from a {@code dexopts} attribute on a top-level target. This should be a
+   * superset of {@link #incrementalDexopts}.
    */
   static ImmutableSet<String> topLevelDexbuilderDexopts(
       RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
@@ -525,8 +512,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * Derives options to use in DexFileMerger actions from the given context and dx flags, where the
    * latter typically come from a {@code dexopts} attribute on a top-level target.
    */
-  static ImmutableSet<String> mergerDexopts(RuleContext ruleContext,
-      Iterable<String> tokenizedDexopts) {
+  static ImmutableSet<String> mergerDexopts(
+      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
     // We don't need an ordered set but might as well.  Note we don't need to worry about coverage
     // builds since the merger doesn't use --no-locals.
     return normalizeDexopts(

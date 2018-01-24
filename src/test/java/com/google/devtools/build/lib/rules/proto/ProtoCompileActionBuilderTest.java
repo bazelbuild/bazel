@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import javax.annotation.Nullable;
 import org.junit.Ignore;
@@ -45,9 +46,10 @@ import org.junit.runners.JUnit4;
 public class ProtoCompileActionBuilderTest {
 
   private static final InMemoryFileSystem FILE_SYSTEM = new InMemoryFileSystem();
-  private final Root root = Root.asSourceRoot(FILE_SYSTEM.getPath("/"));
-  private final Root derivedRoot =
-      Root.asDerivedRoot(FILE_SYSTEM.getPath("/"), FILE_SYSTEM.getPath("/out"));
+  private final ArtifactRoot root =
+      ArtifactRoot.asSourceRoot(Root.fromPath(FILE_SYSTEM.getPath("/")));
+  private final ArtifactRoot derivedRoot =
+      ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), FILE_SYSTEM.getPath("/out"));
 
   @Test
   public void commandLine_basic() throws Exception {
@@ -345,7 +347,7 @@ public class ProtoCompileActionBuilderTest {
 
   private Artifact artifact(String ownerLabel, String path) {
     return new Artifact(
-        root.getPath().getRelative(path),
+        root.getRoot().getRelative(path),
         root,
         root.getExecPath().getRelative(path),
         new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));
@@ -354,7 +356,7 @@ public class ProtoCompileActionBuilderTest {
   /** Creates a dummy artifact with the given path, that actually resides in /out/<path>. */
   private Artifact derivedArtifact(String ownerLabel, String path) {
     return new Artifact(
-        derivedRoot.getPath().getRelative(path),
+        derivedRoot.getRoot().getRelative(path),
         derivedRoot,
         derivedRoot.getExecPath().getRelative(path),
         new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));

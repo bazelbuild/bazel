@@ -12,8 +12,6 @@ filegroup(
     name = "launcher",
     srcs = select({
       "//src/conditions:host_windows": [":launcher_windows"],
-      "//src/conditions:host_windows_msvc": [":launcher_windows"],
-      "//src/conditions:host_windows_msys": [":launcher_windows"],
       "//conditions:default": [
         "//src/tools/launcher:launcher",
       ],

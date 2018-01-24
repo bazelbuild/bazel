@@ -17,9 +17,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import javax.annotation.Nullable;
 
-/**
- * {@link ActionContext} for {@link WriteAdbArgsAction}.
- */
+/** {@link ActionContext} for {@link WriteAdbArgsAction}. */
 @ExecutionStrategy(contextType = WriteAdbArgsActionContext.class)
 public final class WriteAdbArgsActionContext implements ActionContext {
 
@@ -31,7 +29,7 @@ public final class WriteAdbArgsActionContext implements ActionContext {
 
   /**
    * @return The user's home directory as set in the environment in which the Blaze client is called
-   *    or null if the HOME environment variable has not been set.
+   *     or null if the HOME environment variable has not been set.
    */
   @Nullable
   public String getUserHomeDirectory() {

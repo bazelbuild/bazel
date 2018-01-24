@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -98,7 +99,8 @@ public class OutputDirectoryLinksUtils {
     Set<Path> binPaths =
         targetConfigs
             .stream()
-            .map(targetConfig -> targetConfig.getBinDirectory(repositoryName).getPath())
+            .map(targetConfig -> targetConfig.getBinDirectory(repositoryName).getRoot())
+            .map(Root::asPath)
             .distinct()
             .collect(toImmutableSet());
     if (binPaths.size() == 1) {
@@ -109,7 +111,8 @@ public class OutputDirectoryLinksUtils {
     Set<Path> testLogsPaths =
         targetConfigs
             .stream()
-            .map(targetConfig -> targetConfig.getTestLogsDirectory(repositoryName).getPath())
+            .map(targetConfig -> targetConfig.getTestLogsDirectory(repositoryName).getRoot())
+            .map(Root::asPath)
             .distinct()
             .collect(toImmutableSet());
     if (testLogsPaths.size() == 1) {
@@ -124,7 +127,8 @@ public class OutputDirectoryLinksUtils {
     Set<Path> genfilesPaths =
         targetConfigs
             .stream()
-            .map(targetConfig -> targetConfig.getGenfilesDirectory(repositoryName).getPath())
+            .map(targetConfig -> targetConfig.getGenfilesDirectory(repositoryName).getRoot())
+            .map(Root::asPath)
             .distinct()
             .collect(toImmutableSet());
     if (genfilesPaths.size() == 1) {
@@ -154,6 +158,10 @@ public class OutputDirectoryLinksUtils {
    */
   public static PathFragment getPrettyPath(Path file, String workspaceName,
       Path workspaceDirectory, String symlinkPrefix, String productName) {
+    if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
+      return file.asFragment();
+    }
+
     for (String link : LINKS) {
       PathFragment result = relativize(file, workspaceDirectory, symlinkPrefix + link);
       if (result != null) {

@@ -107,7 +107,7 @@ public class SkylarkRepositoryContextTest {
         ImmutableMap.<String, Object>of("name", "test", "foo", "bar"),
         Attribute.attr("foo", Type.STRING).build());
 
-    assertThat(context.getAttr().getKeys()).contains("foo");
+    assertThat(context.getAttr().getFieldNames()).contains("foo");
     assertThat(context.getAttr().getValue("foo")).isEqualTo("bar");
   }
 

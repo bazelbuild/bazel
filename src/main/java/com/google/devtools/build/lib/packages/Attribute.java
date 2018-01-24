@@ -29,7 +29,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
@@ -112,9 +114,9 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   private static class SkylarkRuleAspect extends RuleAspect<SkylarkAspectClass> {
-    private final SkylarkAspect aspect;
+    private final SkylarkDefinedAspect aspect;
 
-    public SkylarkRuleAspect(SkylarkAspect aspect) {
+    public SkylarkRuleAspect(SkylarkDefinedAspect aspect) {
       super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor());
       this.aspect = aspect;
     }
@@ -144,54 +146,6 @@ public final class Attribute implements Comparable<Attribute> {
     public Aspect getAspect(Rule rule) {
       return aspect;
     }
-  }
-
-  /**
-   * A configuration transition.
-   */
-  public interface Transition {
-  }
-
-  /**
-   * A configuration split transition; this should be used to transition to multiple configurations
-   * simultaneously. Note that the corresponding rule implementations must have special support to
-   * handle this.
-   *
-   * <p>{@code T} must always be {@code BuildOptions}, but it can't be defined that way because
-   * the symbol isn't available here.
-   */
-  // TODO(bazel-team): Serializability constraints?
-  @ThreadSafety.Immutable
-  public interface SplitTransition<T> extends Transition {
-    /**
-     * Return the list of {@code BuildOptions} after splitting; empty if not applicable.
-     */
-    List<T> split(T buildOptions);
-  }
-
-  /**
-   * Declaration how the configuration should change when following a label or label list attribute.
-   */
-  public enum ConfigurationTransition implements Transition {
-    /** No transition, i.e., the same configuration as the current. */
-    NONE,
-
-    /** Transition to the host configuration. */
-    HOST,
-
-    /** Transition to a null configuration (applies to, e.g., input files). */
-    NULL,
-
-    /** Transition from the target configuration to the data configuration. */
-    // TODO(bazel-team): Move this elsewhere.
-    DATA,
-
-    /**
-     * Transition to one or more configurations. To obtain the actual child configurations,
-     * invoke {@link Attribute#getSplitTransition(AttributeMap)}.
-     * See {@link SplitTransition}.
-     **/
-    SPLIT
   }
 
   private enum PropertyFlag {
@@ -320,7 +274,7 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
      */
-    SplitTransition<?> apply(AttributeMap attributeMap);
+    SplitTransition apply(AttributeMap attributeMap);
   }
 
   /**
@@ -329,14 +283,14 @@ public final class Attribute implements Comparable<Attribute> {
    */
   private static class BasicSplitTransitionProvider implements SplitTransitionProvider {
 
-    private final SplitTransition<?> splitTransition;
+    private final SplitTransition splitTransition;
 
-    BasicSplitTransitionProvider(SplitTransition<?> splitTransition) {
+    BasicSplitTransitionProvider(SplitTransition splitTransition) {
       this.splitTransition = splitTransition;
     }
 
     @Override
-    public SplitTransition<?> apply(AttributeMap attributeMap) {
+    public SplitTransition apply(AttributeMap attributeMap) {
       return splitTransition;
     }
   }
@@ -405,7 +359,7 @@ public final class Attribute implements Comparable<Attribute> {
   public static class Builder <TYPE> {
     private final String name;
     private final Type<TYPE> type;
-    private Transition configTransition = ConfigurationTransition.NONE;
+    private Transition configTransition = NoTransition.INSTANCE;
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
     private SplitTransitionProvider splitTransitionProvider;
@@ -525,11 +479,10 @@ public final class Attribute implements Comparable<Attribute> {
      * Defines the configuration transition for this attribute.
      */
     public Builder<TYPE> cfg(SplitTransitionProvider splitTransitionProvider) {
-      Preconditions.checkState(this.configTransition == ConfigurationTransition.NONE,
+      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
 
       this.splitTransitionProvider = Preconditions.checkNotNull(splitTransitionProvider);
-      this.configTransition = ConfigurationTransition.SPLIT;
       return this;
     }
 
@@ -537,7 +490,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Defines the configuration transition for this attribute. Defaults to
      * {@code NONE}.
      */
-    public Builder<TYPE> cfg(SplitTransition<?> configTransition) {
+    public Builder<TYPE> cfg(SplitTransition configTransition) {
       return cfg(new BasicSplitTransitionProvider(Preconditions.checkNotNull(configTransition)));
     }
 
@@ -546,12 +499,10 @@ public final class Attribute implements Comparable<Attribute> {
      * {@code NONE}.
      */
     public Builder<TYPE> cfg(Transition configTransition) {
-      Preconditions.checkState(this.configTransition == ConfigurationTransition.NONE,
+      Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
-      Preconditions.checkArgument(configTransition != ConfigurationTransition.SPLIT,
-          "split transitions must be defined using the SplitTransition object");
       if (configTransition instanceof SplitTransition) {
-        return cfg((SplitTransition<?>) configTransition);
+        return cfg((SplitTransition) configTransition);
       } else {
         this.configTransition = configTransition;
         return this;
@@ -1003,8 +954,8 @@ public final class Attribute implements Comparable<Attribute> {
       return this.aspect(aspect, input -> AspectParameters.EMPTY);
     }
 
-    public Builder<TYPE> aspect(
-        SkylarkAspect skylarkAspect, Location location) throws EvalException {
+    public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect, Location location)
+        throws EvalException {
       SkylarkRuleAspect skylarkRuleAspect = new SkylarkRuleAspect(skylarkAspect);
       RuleAspect<?> oldAspect = this.aspects.put(skylarkAspect.getName(), skylarkRuleAspect);
       if (oldAspect != null) {
@@ -1611,9 +1562,10 @@ public final class Attribute implements Comparable<Attribute> {
      * it isn't the appropriate option.
      *
      * <p>If you want a late-bound dependency which is configured in the host configuration, just
-     * use this method with {@link ConfigurationTransition#HOST}. If you also need to decide the
-     * label of the dependency with information gained from the host configuration - and it's very
-     * unlikely that you do - you can use {@link #fromHostConfiguration} as well.
+     * use this method with {@link com.google.devtools.build.lib.analysis.config.HostTransition}.
+     * If you also need to decide the label of the dependency with information gained from the host
+     * configuration - and it's very unlikely that you do - you can use
+     * {@link #fromHostConfiguration} as well.
      *
      * <p>If you want to decide an attribute's value based on the value of its other attributes,
      * use a subclass of {@link ComputedDefault}. The only time you should need
@@ -1646,11 +1598,11 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>This should only be necessary in very specialized cases. In almost all cases, you don't
      * need this method, just {@link #fromTargetConfiguration} and
-     * {@link ConfigurationTransition#HOST}.
+     * {@link com.google.devtools.build.lib.analysis.config.HostTransition}.
      *
      * <p>This method only affects the configuration fragment passed to {@link #resolve}. You must
-     * also use {@link ConfigurationTransition#HOST}, so that the dependency will be analyzed in the
-     * host configuration.
+     * also use {@link com.google.devtools.build.lib.analysis.config.HostTransition}, so that the
+     * dependency will be analyzed in the host configuration.
      *
      * @param fragmentClass The fragment to receive from the host configuration. May also be
      *     BuildConfiguration.class to receive the entire configuration (deprecated) - in this case,
@@ -1849,7 +1801,7 @@ public final class Attribute implements Comparable<Attribute> {
       ImmutableList<RuleAspect<?>> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
-        (configTransition == ConfigurationTransition.NONE)
+        (configTransition == NoTransition.INSTANCE)
         || type.getLabelClass() == LabelClass.DEPENDENCY
         || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
         "Configuration transitions can only be specified for label or label list attributes");
@@ -1860,7 +1812,7 @@ public final class Attribute implements Comparable<Attribute> {
     if (isLateBound(name)) {
       LateBoundDefault<?, ?> lateBoundDefault = (LateBoundDefault<?, ?>) defaultValue;
       Preconditions.checkArgument(!lateBoundDefault.useHostConfiguration()
-          || (configTransition == ConfigurationTransition.HOST),
+          || (configTransition.isHostTransition()),
           "a late bound default value using the host configuration must use the host transition");
     }
 
@@ -1974,7 +1926,7 @@ public final class Attribute implements Comparable<Attribute> {
    * @return a SplitTransition<BuildOptions> object
    * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
    */
-  public SplitTransition<?> getSplitTransition(AttributeMap attributeMapper) {
+  public SplitTransition getSplitTransition(AttributeMap attributeMapper) {
     Preconditions.checkState(hasSplitConfigurationTransition());
     return splitTransitionProvider.apply(attributeMapper);
   }

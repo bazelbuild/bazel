@@ -14,16 +14,19 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.TriState;
 
-/**
- * Python-related command-line options.
- */
+/** Python-related command-line options. */
+@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class PythonOptions extends FragmentOptions {
+  public static final ObjectCodec<PythonOptions> CODEC = new PythonOptions_AutoCodec();
+
   /**
    * Converter for the --force_python option.
    */

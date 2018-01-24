@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -26,7 +25,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -57,57 +55,34 @@ public final class CommandUsingProcessWrapperTest {
   public void testProcessWrappedCommand_Echo() throws Exception {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "even drones can fly away");
 
-    List<String> fullProcessWrapperCommandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(getProcessWrapperPath())
-            .setCommandArguments(commandArguments)
-            .build();
+    List<String> fullCommandLine =
+        ProcessWrapperUtil.commandLineBuilder(getProcessWrapperPath(), commandArguments).build();
 
-    Command command = new Command(fullProcessWrapperCommandLine.toArray(new String[0]));
+    Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.getTerminationStatus().success()).isTrue();
     assertThat(commandResult.getStdoutStream().toString()).contains("even drones can fly away");
   }
 
-  private void checkStatisticsAboutCpuTimeSpent(
-      Duration userTimeToSpend, Duration systemTimeToSpend) throws CommandException, IOException {
-    Duration userTimeLowerBound = userTimeToSpend;
-    Duration userTimeUpperBound = userTimeToSpend.plusSeconds(2);
-    Duration systemTimeLowerBound = systemTimeToSpend;
-    Duration systemTimeUpperBound = systemTimeToSpend.plusSeconds(2);
-
-    File outputDir = TestUtils.makeTempDir();
-    String statisticsFilePath = outputDir.getAbsolutePath() + "/" + "stats.out";
-
+  private void checkProcessWrapperStatistics(Duration userTimeToSpend, Duration systemTimeToSpend)
+      throws IOException, CommandException {
     ImmutableList<String> commandArguments =
         ImmutableList.of(
             getCpuTimeSpenderPath(),
             Long.toString(userTimeToSpend.getSeconds()),
             Long.toString(systemTimeToSpend.getSeconds()));
 
-    List<String> fullProcessWrapperCommandLine =
-        ProcessWrapperUtil.commandLineBuilder()
-            .setProcessWrapperPath(getProcessWrapperPath())
-            .setCommandArguments(commandArguments)
+    File outputDir = TestUtils.makeTempDir();
+    String statisticsFilePath = outputDir.getAbsolutePath() + "/" + "stats.out";
+
+    List<String> fullCommandLine =
+        ProcessWrapperUtil.commandLineBuilder(getProcessWrapperPath(), commandArguments)
             .setStatisticsPath(statisticsFilePath)
             .build();
 
-    Command command = new Command(fullProcessWrapperCommandLine.toArray(new String[0]));
-    CommandResult commandResult = command.execute();
-    assertThat(commandResult.getTerminationStatus().success()).isTrue();
-
-    Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
-        ExecutionStatistics.getResourceUsage(statisticsFilePath);
-    assertThat(resourceUsage).isPresent();
-
-    Duration userTime = resourceUsage.get().getUserExecutionTime();
-    assertThat(userTime).isAtLeast(userTimeLowerBound);
-    assertThat(userTime).isAtMost(userTimeUpperBound);
-
-    Duration systemTime = resourceUsage.get().getSystemExecutionTime();
-    assertThat(systemTime).isAtLeast(systemTimeLowerBound);
-    assertThat(systemTime).isAtMost(systemTimeUpperBound);
+    ExecutionStatisticsTestUtil.executeCommandAndCheckStatisticsAboutCpuTimeSpent(
+        userTimeToSpend, systemTimeToSpend, fullCommandLine, statisticsFilePath);
   }
 
   @Test
@@ -116,7 +91,7 @@ public final class CommandUsingProcessWrapperTest {
     Duration userTimeToSpend = Duration.ofSeconds(10);
     Duration systemTimeToSpend = Duration.ZERO;
 
-    checkStatisticsAboutCpuTimeSpent(userTimeToSpend, systemTimeToSpend);
+    checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
   }
 
   @Test
@@ -125,7 +100,7 @@ public final class CommandUsingProcessWrapperTest {
     Duration userTimeToSpend = Duration.ZERO;
     Duration systemTimeToSpend = Duration.ofSeconds(10);
 
-    checkStatisticsAboutCpuTimeSpent(userTimeToSpend, systemTimeToSpend);
+    checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
   }
 
   @Test
@@ -134,6 +109,6 @@ public final class CommandUsingProcessWrapperTest {
     Duration userTimeToSpend = Duration.ofSeconds(10);
     Duration systemTimeToSpend = Duration.ofSeconds(10);
 
-    checkStatisticsAboutCpuTimeSpent(userTimeToSpend, systemTimeToSpend);
+    checkProcessWrapperStatistics(userTimeToSpend, systemTimeToSpend);
   }
 }

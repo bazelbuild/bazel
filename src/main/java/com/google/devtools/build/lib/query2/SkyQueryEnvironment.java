@@ -248,6 +248,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private void beforeEvaluateQuery(QueryExpression expr)
       throws QueryException, InterruptedException {
     Set<SkyKey> roots = getGraphRootsFromExpression(expr);
+
     if (graph == null || !graphFactory.isUpToDate(roots)) {
       // If this environment is uninitialized or the graph factory needs to evaluate, do so. We
       // assume here that this environment cannot be initialized-but-stale if the factory is up
@@ -266,6 +267,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
     }
+
+
     if (executor == null) {
       executor = MoreExecutors.listeningDecorator(
           new ThreadPoolExecutor(

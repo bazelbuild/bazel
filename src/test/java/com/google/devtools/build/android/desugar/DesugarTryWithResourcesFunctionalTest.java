@@ -96,4 +96,34 @@ public class DesugarTryWithResourcesFunctionalTest {
       }
     }
   }
+
+  @Test
+  public void testInheritanceTryWithResources() {
+
+    try {
+      ClassUsingTryWithResources.inheritanceTryWithResources();
+      fail("Expected RuntimeException");
+    } catch (Exception expected) {
+      assertThat(expected.getClass()).isEqualTo(RuntimeException.class);
+
+      String expectedStrategyName = getTwrStrategyClassNameSpecifiedInSystemProperty();
+      assertThat(getStrategyClassName()).isEqualTo(expectedStrategyName);
+      if (isMimicStrategy()) {
+        assertThat(expected.getSuppressed()).isEmpty();
+        assertThat(ThrowableExtension.getSuppressed(expected)).hasLength(1);
+        assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
+            .isEqualTo(IOException.class);
+      } else if (isReuseStrategy()) {
+        assertThat(expected.getSuppressed()).hasLength(1);
+        assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
+        assertThat(ThrowableExtension.getSuppressed(expected)[0].getClass())
+            .isEqualTo(IOException.class);
+      } else if (isNullStrategy()) {
+        assertThat(expected.getSuppressed()).isEmpty();
+        assertThat(ThrowableExtension.getSuppressed(expected)).isEmpty();
+      } else {
+        fail("unexpected desugaring strategy " + getStrategyClassName());
+      }
+    }
+  }
 }

@@ -123,9 +123,7 @@ public final class FilesetTraversalParamsFactory {
       ImmutableList<FilesetTraversalParams> nested,
       PathFragment destDir,
       @Nullable Set<String> excludes) {
-    if (nested.size() == 1
-        && destDir.segmentCount() == 0
-        && (excludes == null || excludes.isEmpty())) {
+    if (nested.size() == 1 && destDir.isEmpty() && (excludes == null || excludes.isEmpty())) {
       // Wrapping the traversal here would not lead to a different result: the output location is
       // the same and there are no additional excludes.
       return Iterables.getOnlyElement(nested);

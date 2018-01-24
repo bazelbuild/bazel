@@ -17,10 +17,27 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import contextlib
 import os
 import unittest
 
 from tools.build_defs.pkg import make_rpm
+
+
+@contextlib.contextmanager
+def PrependPath(dirs):
+  with ReplacePath(dirs + [os.environ['PATH']]):
+    yield
+
+
+@contextlib.contextmanager
+def ReplacePath(dirs):
+  original_path = os.environ['PATH']
+  try:
+    os.environ['PATH'] = os.pathsep.join(dirs)
+    yield
+  finally:
+    os.environ['PATH'] = original_path
 
 
 def WriteFile(filename, *contents):
@@ -43,6 +60,12 @@ def FileContents(filename):
 
 class MakeRpmTest(unittest.TestCase):
 
+  # Python 2 alias
+  if not hasattr(unittest.TestCase, 'assertCountEqual'):
+
+    def assertCountEqual(self, *args):
+      return self.assertItemsEqual(*args)
+
   def testFindOutputFile(self):
     log = """
     Lots of data.
@@ -51,7 +74,7 @@ class MakeRpmTest(unittest.TestCase):
     """
 
     result = make_rpm.FindOutputFile(log)
-    self.assertEquals('/path/to/file/here.rpm', result)
+    self.assertEqual('/path/to/file/here.rpm', result)
 
   def testFindOutputFile_missing(self):
     log = """
@@ -60,7 +83,7 @@ class MakeRpmTest(unittest.TestCase):
     """
 
     result = make_rpm.FindOutputFile(log)
-    self.assertEquals(None, result)
+    self.assertEqual(None, result)
 
   def testCopyAndRewrite(self):
     with make_rpm.Tempdir():
@@ -71,34 +94,58 @@ class MakeRpmTest(unittest.TestCase):
       })
 
       self.assertTrue(FileExists('out.txt'))
-      self.assertItemsEqual(['Some: data1a', 'Other: data2', 'More: data3a'],
+      self.assertCountEqual(['Some: data1a', 'Other: data2', 'More: data3a'],
                             FileContents('out.txt'))
 
-  def testSetupWorkdir(self):
-    builder = make_rpm.RpmBuilder('test', '1.0', 'x86')
+  def testFindRpmbuild_present(self):
     with make_rpm.Tempdir() as outer:
-      # Create spec_file, test files.
-      WriteFile('test.spec', 'Name: test', 'Version: 0.1', 'Summary: test data')
-      WriteFile('file1.txt', 'Hello')
-      WriteFile('file2.txt', 'Goodbye')
-      builder.AddFiles(['file1.txt', 'file2.txt'])
+      dummy = os.sep.join([outer, 'rpmbuild'])
+      WriteFile(dummy, 'dummy rpmbuild')
+      os.chmod(dummy, 0o777)
+      with PrependPath([outer]):
+        path = make_rpm.FindRpmbuild()
+        self.assertEqual(dummy, path)
 
-      with make_rpm.Tempdir():
-        # Call RpmBuilder.
-        builder.SetupWorkdir('test.spec', outer)
+  def testFindRpmbuild_missing(self):
+    with make_rpm.Tempdir() as outer:
+      with ReplacePath([outer]):
+        with self.assertRaises(make_rpm.NoRpmbuildFound) as context:
+          make_rpm.FindRpmbuild()
+        self.assertIsNotNone(context)
 
-        # Make sure files exist.
-        self.assertTrue(DirExists('SOURCES'))
-        self.assertTrue(DirExists('BUILD'))
-        self.assertTrue(DirExists('TMP'))
-        self.assertTrue(FileExists('test.spec'))
-        self.assertItemsEqual(
-            ['Name: test', 'Version: 1.0', 'Summary: test data'],
-            FileContents('test.spec'))
-        self.assertTrue(FileExists('BUILD/file1.txt'))
-        self.assertItemsEqual(['Hello'], FileContents('BUILD/file1.txt'))
-        self.assertTrue(FileExists('BUILD/file2.txt'))
-        self.assertItemsEqual(['Goodbye'], FileContents('BUILD/file2.txt'))
+  def testSetupWorkdir(self):
+    with make_rpm.Tempdir() as outer:
+      dummy = os.sep.join([outer, 'rpmbuild'])
+      WriteFile(dummy, 'dummy rpmbuild')
+      os.chmod(dummy, 0o777)
+
+      with PrependPath([outer]):
+        # Create the builder and exercise it.
+        builder = make_rpm.RpmBuilder('test', '1.0', 'x86')
+
+        # Create spec_file, test files.
+        WriteFile('test.spec', 'Name: test', 'Version: 0.1',
+                  'Summary: test data')
+        WriteFile('file1.txt', 'Hello')
+        WriteFile('file2.txt', 'Goodbye')
+        builder.AddFiles(['file1.txt', 'file2.txt'])
+
+        with make_rpm.Tempdir():
+          # Call RpmBuilder.
+          builder.SetupWorkdir('test.spec', outer)
+
+          # Make sure files exist.
+          self.assertTrue(DirExists('SOURCES'))
+          self.assertTrue(DirExists('BUILD'))
+          self.assertTrue(DirExists('TMP'))
+          self.assertTrue(FileExists('test.spec'))
+          self.assertCountEqual(
+              ['Name: test', 'Version: 1.0', 'Summary: test data'],
+              FileContents('test.spec'))
+          self.assertTrue(FileExists('BUILD/file1.txt'))
+          self.assertCountEqual(['Hello'], FileContents('BUILD/file1.txt'))
+          self.assertTrue(FileExists('BUILD/file2.txt'))
+          self.assertCountEqual(['Goodbye'], FileContents('BUILD/file2.txt'))
 
 
 if __name__ == '__main__':

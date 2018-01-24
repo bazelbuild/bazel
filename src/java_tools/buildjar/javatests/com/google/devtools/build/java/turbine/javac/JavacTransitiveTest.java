@@ -23,11 +23,15 @@ import com.google.turbine.deps.AbstractTransitiveTest;
 import com.google.turbine.options.TurbineOptions;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class JavacTransitiveTest extends AbstractTransitiveTest {
+
+  private static final ImmutableList<Path> BOOTCLASSPATH =
+      ImmutableList.of(Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar"));
 
   @Override
   protected Path runTurbine(ImmutableList<Path> sources, ImmutableList<Path> classpath)

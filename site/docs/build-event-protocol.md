@@ -209,9 +209,9 @@ these flags are also used for Bazel’s Remote Execution. This implies that the
 Build Event Service and Remote Execution Endpoints need to share the same
 authentication and TLS infrastructure.
 
-*  `--auth_credentials`
-*  `--[no]auth_enabled`
-*  `--auth_scope`
+*  `--[no]google_default_credentials`
+*  `--google_credentials`
+*  `--google_auth_scopes`
 *  `--tls_certificate`
 *  `--[no]tls_enabled`
 

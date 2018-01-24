@@ -40,7 +40,7 @@ public class RequiredProvidersTest {
   private static final Provider P_NATIVE = new NativeProvider<Info>(Info.class, "p_native") {};
 
   private static final SkylarkProvider P_SKYLARK =
-      new SkylarkProvider("p_skylark", null, Location.BUILTIN);
+      SkylarkProvider.createUnexportedSchemaless(Location.BUILTIN);
 
   static {
     try {

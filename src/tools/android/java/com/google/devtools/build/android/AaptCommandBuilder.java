@@ -127,9 +127,10 @@ public class AaptCommandBuilder {
     if (values.size() > 200) {
       add(
           flag,
-          "@" + Files.write(
-              Files.createDirectories(workingDirectory).resolve("params" + flag),
-              ImmutableList.of(values.stream().collect(Collectors.joining(" ")))));
+          "@"
+              + Files.write(
+                  Files.createDirectories(workingDirectory).resolve("params" + flag),
+                  ImmutableList.of(values.stream().collect(Collectors.joining(" ")))));
     } else {
       addRepeated(flag, values);
     }

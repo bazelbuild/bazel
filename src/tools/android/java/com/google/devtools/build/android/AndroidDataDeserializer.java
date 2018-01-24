@@ -15,8 +15,9 @@ package com.google.devtools.build.android;
 
 import java.nio.file.Path;
 
-/** Represents a deserializer to deserialize {@link DataKey}
- * and {@link DataValue} from a path and feed to it consumers.
+/**
+ * Represents a deserializer to deserialize {@link DataKey} and {@link DataValue} from a path and
+ * feed to it consumers.
  */
 public interface AndroidDataDeserializer {
 

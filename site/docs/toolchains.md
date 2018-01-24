@@ -10,7 +10,7 @@ title: Toolchains
    - [Creating a toolchain rule](#creating-a-toolchain-rule)
    - [Creating a toolchain definition](#creating-a-toolchain-definition)
    - [Registering a toolchain](#registering-a-toolchain)
-- [Using a toolchain in a Skylark rule](#using-a-toolchain-in-a-skylark-rule)
+- [Using a toolchain in a new rule](#using-a-toolchain-in-a-rule)
 - [Debugging a toolchain](#debugging-a-toolchain)
 
 ## Overview
@@ -31,7 +31,7 @@ When a target requests a toolchain, Bazel checks the list of registered
 toolchains and creates a dependency from the target to the first matching
 toolchain it finds. To find a matching toolchain, Bazel does the following:
 
-1.  Looks through the registered toolchains, first from the `--experimental_extra_toolchains`
+1.  Looks through the registered toolchains, first from the `--extra_toolchains`
     flag, then from the `registered_toolchains` calls in the project's
     `WORKSPACE` file.
 
@@ -69,7 +69,7 @@ Defining a toolchain requires the following:
 
 ### Creating a toolchain rule
 
-Toolchain rules are Skylark rules that create and return providers. To define a
+Toolchain rules are rules that create and return providers. To define a
 toolchain rule, first determine the information that the new rule will require.
 
 In the example below, we are adding support for a new programming language, so
@@ -147,7 +147,7 @@ toolchain(
 
 Once the toolchain rule and definition exist, register the toolchain to make
 Bazel aware of it. You can register a toolchain either via the project's
-`WORKSPACE` file or specify it in the `--experimental_extra_toolchains` flag.
+`WORKSPACE` file or specify it in the `--extra_toolchains` flag.
 
 Below is an example toolchain registration in a `WORKSPACE` file:
 
@@ -158,9 +158,9 @@ register_toolchains(
 )
 ```
 
-## Using a toolchain in a Skylark rule
+## Using a toolchain in a rule
 
-To use a toolchain in a Skylark rule, add the toolchain type to the rule
+To use a toolchain in a rule, add the toolchain type to the rule
 definition. For example:
 
 ```python

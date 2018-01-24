@@ -13,19 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -49,7 +52,7 @@ import java.util.Set;
 @javax.annotation.concurrent.Immutable
 @ThreadSafe
 public abstract class PathFragment
-    implements Comparable<PathFragment>, Serializable, SkylarkPrintable {
+    implements Comparable<PathFragment>, Serializable, SkylarkPrintable, FileType.HasFileType {
   private static final Helper HELPER =
       OS.getCurrent() == OS.WINDOWS ? WindowsPathFragment.HELPER : UnixPathFragment.HELPER;
 
@@ -64,6 +67,8 @@ public abstract class PathFragment
 
   /** The path fragment representing the root directory. */
   public static final PathFragment ROOT_FRAGMENT = create(ROOT_DIR);
+
+  public static final ObjectCodec<PathFragment> CODEC = new PathFragmentCodec();
 
   /**
    * A helper object for manipulating the various internal {@link PathFragment} implementations.
@@ -311,23 +316,6 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns a sequence consisting of the {@link #getSafePathString()} return of each item in
-   * {@code fragments}.
-   */
-  public static Iterable<String> safePathStrings(Iterable<PathFragment> fragments) {
-    return Iterables.transform(fragments, PathFragment::getSafePathString);
-  }
-
-  /** Returns the subset of {@code paths} that start with {@code startingWithPath}. */
-  public static ImmutableSet<PathFragment> filterPathsStartingWith(
-      Set<PathFragment> paths, PathFragment startingWithPath) {
-    return paths
-        .stream()
-        .filter(pathFragment -> pathFragment.startsWith(startingWithPath))
-        .collect(toImmutableSet());
-  }
-
-  /**
   * Throws {@link IllegalArgumentException} if {@code paths} contains any paths that
   * are equal to {@code startingWithPath} or that are not beneath {@code startingWithPath}.
   */
@@ -379,6 +367,10 @@ public abstract class PathFragment
       }
     }
     return true;
+  }
+
+  public static boolean isNormalized(String path) {
+    return PathFragment.create(path).isNormalized();
   }
 
   /**
@@ -620,12 +612,30 @@ public abstract class PathFragment
   }
 
   /**
+   * Returns a new path fragment that is a sub fragment of this one. The sub fragment begins at the
+   * specified <code>beginIndex</code> segment and contains the rest of the original path fragment.
+   *
+   * @param beginIndex the beginning index, inclusive.
+   * @return the specified sub fragment, never null.
+   * @exception IndexOutOfBoundsException if the <code>beginIndex</code> is negative, or <code>
+   *     endIndex</code> is larger than the length of this <code>String</code> object, or <code>
+   *     beginIndex</code> is larger than <code>endIndex</code>.
+   */
+  public PathFragment subFragment(int beginIndex) {
+    return subFragment(beginIndex, segments.length);
+  }
+
+  /**
    * Returns true iff the path represented by this object is absolute.
    *
    * <p>True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo"). False for a
    * Windows-style volume label ("C:") which is actually a relative path.
    */
   public abstract boolean isAbsolute();
+
+  public static boolean isAbsolute(String path) {
+    return PathFragment.create(path).isAbsolute();
+  }
 
   /**
    * Returns the segments of this path fragment. This array should not be
@@ -645,6 +655,10 @@ public abstract class PathFragment
   // TODO(bazel-team): This doesn't need to pollute the PathFragment interface (ditto for
   // windowsVolume).
   public abstract char getDriveLetter();
+
+  public boolean isEmpty() {
+    return segments.length == 0;
+  }
 
   /**
    * Returns the number of segments in this path.
@@ -741,6 +755,44 @@ public abstract class PathFragment
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(getPathString());
+  }
+
+  @Override
+  public String filePathForFileTypeMatcher() {
+    return getBaseName();
+  }
+
+  private static class PathFragmentCodec implements ObjectCodec<PathFragment> {
+    private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
+
+    @Override
+    public Class<PathFragment> getEncodedClass() {
+      return PathFragment.class;
+    }
+
+    @Override
+    public void serialize(PathFragment pathFragment, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      codedOut.writeInt32NoTag(pathFragment.getDriveLetter());
+      codedOut.writeBoolNoTag(pathFragment.isAbsolute());
+      codedOut.writeInt32NoTag(pathFragment.segmentCount());
+      for (int i = 0; i < pathFragment.segmentCount(); i++) {
+        stringCodec.serialize(pathFragment.getSegment(i), codedOut);
+      }
+    }
+
+    @Override
+    public PathFragment deserialize(CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      char driveLetter = (char) codedIn.readInt32();
+      boolean isAbsolute = codedIn.readBool();
+      int segmentCount = codedIn.readInt32();
+      String[] segments = new String[segmentCount];
+      for (int i = 0; i < segmentCount; i++) {
+        segments[i] = stringCodec.deserialize(codedIn);
+      }
+      return PathFragment.create(driveLetter, isAbsolute, segments);
+    }
   }
 
   private static void checkBaseName(String baseName) {

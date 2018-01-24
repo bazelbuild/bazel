@@ -257,7 +257,7 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     printer.append(stringRepresentation);
   }
 
-  static final ObjectCodec<DottedVersion> CODEC =
+  public static final ObjectCodec<DottedVersion> CODEC =
       new ObjectCodec<DottedVersion>() {
         @Override
         public void serialize(DottedVersion obj, CodedOutputStream codedOut) throws IOException {

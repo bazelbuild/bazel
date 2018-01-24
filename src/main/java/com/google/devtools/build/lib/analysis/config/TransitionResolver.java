@@ -17,10 +17,14 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingSplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -29,7 +33,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 
 /**
- * Tool for evaluating which {@link Attribute.Transition}(s) should be applied to given targets.
+ * Tool for evaluating which {@link Transition}(s) should be applied to given targets.
  *
  * <p>For the work of turning these transitions into actual configurations, see {@link
  * ConfigurationResolver}.
@@ -61,20 +65,20 @@ public final class TransitionResolver {
    *
    * @return the child's configuration, expressed as a diff from the parent's configuration. This
    *     is usually a {@PatchTransition} but exceptions apply (e.g.
-   *     {@link Attribute.ConfigurationTransition}).
+   *     {@link ConfigurationTransitionProxy}).
    */
   public Transition evaluateTransition(BuildConfiguration fromConfig, final Rule fromRule,
       final Attribute attribute, final Target toTarget, ConfiguredAttributeMapper attributeMap) {
 
     // I. Input files and package groups have no configurations. We don't want to duplicate them.
     if (usesNullConfiguration(toTarget)) {
-      return Attribute.ConfigurationTransition.NULL;
+      return NullTransition.INSTANCE;
     }
 
     // II. Host configurations never switch to another. All prerequisites of host targets have the
     // same host configuration.
     if (fromConfig.isHostConfiguration()) {
-      return Attribute.ConfigurationTransition.NONE;
+      return NoTransition.INSTANCE;
     }
 
     // Make sure config_setting dependencies are resolved in the referencing rule's configuration,
@@ -91,13 +95,13 @@ public final class TransitionResolver {
     // TODO(bazel-team): don't require special casing here. This is far too hackish.
     if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClassObject().isConfigMatcher()) {
       // TODO(gregce): see if this actually gets called
-      return Attribute.ConfigurationTransition.NONE;
+      return NoTransition.INSTANCE;
     }
 
     // The current transition to apply. When multiple transitions are requested, this is a
     // ComposingSplitTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
-    Transition currentTransition = Attribute.ConfigurationTransition.NONE;
+    Transition currentTransition = NoTransition.INSTANCE;
 
     // Apply the parent rule's outgoing transition if it has one.
     RuleTransitionFactory transitionFactory =
@@ -112,8 +116,7 @@ public final class TransitionResolver {
     // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses).
     // The "else" is a legacy restriction from static configurations.
     if (attribute.hasSplitConfigurationTransition()) {
-      currentTransition = split(currentTransition,
-          (SplitTransition<BuildOptions>) attribute.getSplitTransition(attributeMap));
+      currentTransition = split(currentTransition, attribute.getSplitTransition(attributeMap));
     } else {
       // III. Attributes determine configurations. The configuration of a prerequisite is determined
       // by the attribute.
@@ -130,7 +133,7 @@ public final class TransitionResolver {
    * Same as evaluateTransition except does not check for transitions coming from parents and
    * enables support for rule-triggered top-level configuration hooks.
    */
-  public static Attribute.Transition evaluateTopLevelTransition(
+  public static Transition evaluateTopLevelTransition(
       TargetAndConfiguration targetAndConfig, DynamicTransitionMapper dynamicTransitionMapper) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
@@ -138,7 +141,7 @@ public final class TransitionResolver {
     // Top-level transitions (chosen by configuration fragments):
     Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
     if (topLevelTransition == null) {
-      topLevelTransition = ConfigurationTransition.NONE;
+      topLevelTransition = NoTransition.INSTANCE;
     }
 
     // Rule class transitions (chosen by rule class definitions):
@@ -163,12 +166,12 @@ public final class TransitionResolver {
   public Transition composeTransitions(Transition transition1, Transition transition2) {
     if (isFinal(transition1)) {
       return transition1;
-    } else if (transition2 == Attribute.ConfigurationTransition.NONE) {
+    } else if (transition2 == NoTransition.INSTANCE) {
       return transition1;
-    } else if (transition2 == Attribute.ConfigurationTransition.NULL) {
+    } else if (transition2 == NullTransition.INSTANCE) {
       // A NULL transition can just replace earlier transitions: no need to compose them.
-      return Attribute.ConfigurationTransition.NULL;
-    } else if (transition2 == Attribute.ConfigurationTransition.HOST) {
+      return NullTransition.INSTANCE;
+    } else if (transition2.isHostTransition()) {
       // A HOST transition can just replace earlier transitions: no need to compose them.
       // But it also improves performance: host transitions are common, and
       // ConfiguredTargetFunction has special optimized logic to handle them. If they were buried
@@ -178,7 +181,7 @@ public final class TransitionResolver {
 
     // TODO(gregce): remove the below conversion when all transitions are patch transitions.
     Transition dynamicTransition = transitionMapper.map(transition2);
-    return transition1 == Attribute.ConfigurationTransition.NONE
+    return transition1 == NoTransition.INSTANCE
         ? dynamicTransition
         : new ComposingSplitTransition(transition1, dynamicTransition);
   }
@@ -188,20 +191,19 @@ public final class TransitionResolver {
    * be composed after it.
    */
   private static boolean isFinal(Transition transition) {
-    return (transition == Attribute.ConfigurationTransition.NULL
+    return (transition == NullTransition.INSTANCE
         || transition == HostTransition.INSTANCE);
   }
 
   /**
    * Applies the given split and composes it after an existing transition.
    */
-  private static Transition split(Transition currentTransition,
-      SplitTransition<BuildOptions> split) {
-    Preconditions.checkState(currentTransition != Attribute.ConfigurationTransition.NULL,
+  private static Transition split(Transition currentTransition, SplitTransition split) {
+    Preconditions.checkState(currentTransition != NullTransition.INSTANCE,
         "cannot apply splits after null transitions (null transitions are expected to be final)");
     Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
         "cannot apply splits after host transitions (host transitions are expected to be final)");
-    return currentTransition == Attribute.ConfigurationTransition.NONE
+    return currentTransition == NoTransition.INSTANCE
         ? split
         : new ComposingSplitTransition(currentTransition, split);
   }
@@ -209,7 +211,7 @@ public final class TransitionResolver {
   /**
    * @param currentTransition a pre-existing transition to be composed with
    * @param toTarget rule to examine for transitions
-   * @param transitionMapper only needed because of Attribute.ConfigurationTransition.DATA: this is
+   * @param transitionMapper only needed because of ConfigurationTransitionProxy.DATA: this is
    *     C++-specific but non-C++ rules declare it. So they can't directly provide the C++-specific
    *     patch transition that implements it.
    */
@@ -225,7 +227,7 @@ public final class TransitionResolver {
       PatchTransition ruleClassTransition = (PatchTransition)
           transitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
       if (ruleClassTransition != null) {
-        if (currentTransition == ConfigurationTransition.NONE) {
+        if (currentTransition == NoTransition.INSTANCE) {
           return ruleClassTransition;
         } else {
           return new ComposingSplitTransition(currentTransition, ruleClassTransition);

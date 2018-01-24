@@ -35,62 +35,92 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** Represents information provided by a {@link Provider}. */
+/** An instance (in the Skylark sense, not Java) of a {@link Provider}. */
 @SkylarkModule(
   name = "struct",
   category = SkylarkModuleCategory.BUILTIN,
   doc =
-      "A special language element to support structs (i.e. simple value objects). "
-          + "See the global <a href=\"globals.html#struct\">struct</a> function "
-          + "for more details."
+      "A generic object with fields. See the global <a href=\"globals.html#struct\"><code>struct"
+          + "</code></a> function for more details."
+          + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "
+          + "equal if they have the same fields and if corresponding field values are equal."
 )
 public abstract class Info implements ClassObject, SkylarkValue, Serializable {
+
+  /** The {@link Provider} that describes the type of this instance. */
   private final Provider provider;
-  private final Location creationLoc;
-  private final String errorMessage;
 
-  /** Creates an empty struct with a given location. */
-  public Info(Provider provider, Location location) {
-    this.provider = provider;
-    this.creationLoc = location;
-    this.errorMessage = provider.getErrorMessageFormatForInstances();
-  }
+  /**
+   * The Skylark location where this provider instance was created.
+   *
+   * <p>Built-in provider instances may use {@link Location#BUILTIN}.
+   */
+  private final Location location;
 
-  /** Creates a built-in struct (i.e. without creation loc). */
-  public Info(Provider provider) {
-    this.provider = provider;
-    this.creationLoc = null;
-    this.errorMessage = provider.getErrorMessageFormatForInstances();
+  /**
+   * Constructs an {@link Info}.
+   *
+   * @param provider the provider describing the type of this instance
+   * @param location the Skylark location where this instance is created. If null, defaults to
+   *     {@link Location#BUILTIN}.
+   */
+  protected Info(Provider provider, @Nullable Location location) {
+    this.provider = Preconditions.checkNotNull(provider);
+    this.location = location == null ? Location.BUILTIN : location;
   }
 
   /**
-   * Creates a built-in struct (i.e. without creation loc).
+   * Preprocesses a map of field values to convert the field names and field values to
+   * Skylark-acceptable names and types.
    *
-   * <p>Allows to supply a specific error message. Only used in
-   * {@link com.google.devtools.build.lib.packages.NativeProvider.StructConstructor#create(Map,
-   * String)} If you need to override an error message, preferred way is to create a specific {@link
-   * NativeProvider}.
+   * <p>This preserves the order of the map entries.
    */
-  Info(Provider provider, String errorMessage) {
-    this.provider = provider;
-    this.creationLoc = null;
-    this.errorMessage = Preconditions.checkNotNull(errorMessage);
-  }
-
-  // Ensure that values are all acceptable to Skylark before to stuff them in a ClassObject
   protected static ImmutableMap<String, Object> copyValues(Map<String, Object> values) {
+    Preconditions.checkNotNull(values);
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(
-          Attribute.getSkylarkName(e.getKey()), SkylarkType.convertToSkylark(e.getValue(), null));
+          Attribute.getSkylarkName(e.getKey()),
+          SkylarkType.convertToSkylark(e.getValue(), /*env=*/ null));
     }
     return builder.build();
   }
 
-  public abstract boolean hasKey(String name);
+  /**
+   * Returns the Skylark location where this provider instance was created.
+   *
+   * <p>Builtin provider instances may return {@link Location#BUILTIN}.
+   */
+  public Location getCreationLoc() {
+    return location;
+  }
 
-  /** Returns a value and try to cast it into specified type */
-  public <TYPE> TYPE getValue(String key, Class<TYPE> type) throws EvalException {
+  public Provider getProvider() {
+    return provider;
+  }
+
+  /**
+   * Returns whether the given field name exists.
+   *
+   * <p>This conceptually extends the API for {@link ClassObject}.
+   */
+  public abstract boolean hasField(String name);
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
+   * be thrown.
+   */
+  @Nullable
+  @Override
+  public abstract Object getValue(String name);
+
+  /**
+   * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
+   * EvalException} if the cast fails.
+   */
+  public <T> T getValue(String key, Class<T> type) throws EvalException {
     Object obj = getValue(key);
     if (obj == null) {
       return null;
@@ -99,44 +129,29 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     return type.cast(obj);
   }
 
-  public Location getCreationLoc() {
-    return Preconditions.checkNotNull(creationLoc, "This struct was not created in a Skylark code");
-  }
-
-  public Provider getProvider() {
-    return provider;
-  }
-
-  @Nullable
-  public Location getCreationLocOrNull() {
-    return creationLoc;
-  }
-
   /**
-   * Returns the fields of this struct.
+   * {@inheritDoc}
    *
-   * Overrides {@link ClassObject#getKeys()}, but does not allow {@link EvalException} to
+   * <p>Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
    * be thrown.
    */
   @Override
-  public abstract ImmutableCollection<String> getKeys();
+  public abstract ImmutableCollection<String> getFieldNames();
 
   /**
-   * Returns the value associated with the name field in this struct,
-   * or null if the field does not exist.
+   * Returns the error message format to use for unknown fields.
    *
-   * Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
-   * be thrown.
+   * <p>By default, it is the one specified by the provider.
    */
-  @Nullable
-  @Override
-  public abstract Object getValue(String name);
+  protected String getErrorMessageFormatForUnknownField() {
+    return provider.getErrorMessageFormatForUnknownField();
+  }
 
   @Override
-  public String errorMessage(String name) {
-    String suffix =
-        "Available attributes: " + Joiner.on(", ").join(Ordering.natural().sortedCopy(getKeys()));
-    return String.format(errorMessage, name) + "\n" + suffix;
+  public String getErrorMessageForUnknownField(String name) {
+    String suffix = "Available attributes: "
+        + Joiner.on(", ").join(Ordering.natural().sortedCopy(getFieldNames()));
+    return String.format(getErrorMessageFormatForUnknownField(), name) + "\n" + suffix;
   }
 
   @Override
@@ -151,12 +166,12 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     if (!this.provider.equals(other.provider)) {
       return false;
     }
-    // Compare objects' keys and values
-    if (!this.getKeys().equals(other.getKeys())) {
+    // Compare objects' fields and their values
+    if (!this.getFieldNames().equals(other.getFieldNames())) {
       return false;
     }
-    for (String key : getKeys()) {
-      if (!this.getValue(key).equals(other.getValue(key))) {
+    for (String field : getFieldNames()) {
+      if (!this.getValue(field).equals(other.getValue(field))) {
         return false;
       }
     }
@@ -165,13 +180,13 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
 
   @Override
   public int hashCode() {
-    List<String> keys = new ArrayList<>(getKeys());
-    Collections.sort(keys);
+    List<String> fields = new ArrayList<>(getFieldNames());
+    Collections.sort(fields);
     List<Object> objectsToHash = new ArrayList<>();
     objectsToHash.add(provider);
-    for (String key : keys) {
-      objectsToHash.add(key);
-      objectsToHash.add(getValue(key));
+    for (String field : fields) {
+      objectsToHash.add(field);
+      objectsToHash.add(getValue(field));
     }
     return Objects.hashCode(objectsToHash.toArray());
   }
@@ -185,14 +200,14 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.
-    for (String key : Ordering.natural().sortedCopy(getKeys())) {
+    for (String fieldName : Ordering.natural().sortedCopy(getFieldNames())) {
       if (!first) {
         printer.append(", ");
       }
       first = false;
-      printer.append(key);
+      printer.append(fieldName);
       printer.append(" = ");
-      printer.repr(getValue(key));
+      printer.repr(getValue(fieldName));
     }
     printer.append(")");
   }

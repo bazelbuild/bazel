@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
@@ -102,9 +102,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     // breaking changes.
     Map<String, Metadata> digestBuilder = new HashMap<>();
     for (PathFragment child : children) {
-      Metadata subdigest = FileArtifactValue.createNormalFile(
-          tree.getPath().getRelative(child).getDigest(),
-          tree.getPath().getRelative(child).getFileSize());
+      Metadata subdigest = FileArtifactValue.create(tree.getPath().getRelative(child));
       digestBuilder.put(child.getPathString(), subdigest);
     }
     assertThat(DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe())
@@ -207,7 +205,10 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Path fullPath = root.getRelative(execPath);
     Artifact output =
         new SpecialArtifact(
-            fullPath, Root.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER,
+            fullPath,
+            ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
+            execPath,
+            ALL_OWNER,
             SpecialArtifactType.TREE);
     actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
     FileSystemUtils.createDirectoryAndParents(fullPath);
@@ -224,10 +225,10 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   private void setGeneratingActions() throws InterruptedException {
-    if (evaluator.getExistingValue(OWNER_KEY) == null) {
+    if (evaluator.getExistingValue(ALL_OWNER) == null) {
       differencer.inject(
           ImmutableMap.of(
-              OWNER_KEY,
+              ALL_OWNER,
               new ActionLookupValue(
                   actionKeyContext, ImmutableList.<ActionAnalysisMetadata>copyOf(actions), false)));
     }

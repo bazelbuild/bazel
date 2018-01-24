@@ -54,25 +54,19 @@ public class AndroidResourceParsingActionBuilder {
   private Artifact compiledSymbols;
   private Artifact dataBindingInfoZip;
 
-  /**
-   * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
-   */
+  /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
   public AndroidResourceParsingActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
   }
 
-  /**
-   * Set the resource container to parse.
-   */
+  /** Set the resource container to parse. */
   public AndroidResourceParsingActionBuilder setParse(LocalResourceContainer primary) {
     this.primary = primary;
     return this;
   }
 
-  /**
-   * Set the artifact location for the output protobuf.
-   */
+  /** Set the artifact location for the output protobuf. */
   public AndroidResourceParsingActionBuilder setOutput(Artifact output) {
     this.output = output;
     return this;
@@ -97,8 +91,7 @@ public class AndroidResourceParsingActionBuilder {
 
   private static class ResourceContainerToArg implements Function<LocalResourceContainer, String> {
 
-    public ResourceContainerToArg() {
-    }
+    public ResourceContainerToArg() {}
 
     @Override
     public String apply(LocalResourceContainer container) {
@@ -113,8 +106,7 @@ public class AndroidResourceParsingActionBuilder {
   private static class ResourceContainerToArtifacts
       implements Function<LocalResourceContainer, NestedSet<Artifact>> {
 
-    public ResourceContainerToArtifacts() {
-    }
+    public ResourceContainerToArtifacts() {}
 
     @Override
     public NestedSet<Artifact> apply(LocalResourceContainer container) {
@@ -190,7 +182,7 @@ public class AndroidResourceParsingActionBuilder {
         if (!Strings.isNullOrEmpty(resourceContainer.getJavaPackage())) {
           flatFileBuilder.add("--packagePath", resourceContainer.getJavaPackage());
         }
-        builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+        flatFileBuilder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
         outs.add(dataBindingInfoZip);
       }
       // Create the spawn action.

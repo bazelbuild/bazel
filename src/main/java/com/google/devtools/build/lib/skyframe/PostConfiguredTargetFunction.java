@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -52,12 +51,12 @@ import javax.annotation.Nullable;
 public class PostConfiguredTargetFunction implements SkyFunction {
   private static final Function<Dependency, SkyKey> TO_KEYS =
       new Function<Dependency, SkyKey>() {
-    @Override
-    public SkyKey apply(Dependency input) {
-      return PostConfiguredTargetValue.key(
-          new ConfiguredTargetKey(input.getLabel(), input.getConfiguration()));
-    }
-  };
+        @Override
+        public SkyKey apply(Dependency input) {
+          return PostConfiguredTargetValue.key(
+              ConfiguredTargetKey.of(input.getLabel(), input.getConfiguration()));
+        }
+      };
 
   private final SkyframeExecutor.BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
@@ -75,8 +74,8 @@ public class PostConfiguredTargetFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions =
         PrecomputedValue.BAD_ACTIONS.get(env);
-    ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
-        env.getValue(ConfiguredTargetValue.key((ConfiguredTargetKey) skyKey.argument()));
+    ConfiguredTargetValue ctValue =
+        (ConfiguredTargetValue) env.getValue((ConfiguredTargetKey) skyKey.argument());
     if (env.valuesMissing()) {
       return null;
     }
@@ -167,7 +166,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
   @Nullable
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((LabelAndConfiguration) skyKey.argument()).getLabel());
+    return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
   }
 
   private static class ActionConflictFunctionException extends SkyFunctionException {

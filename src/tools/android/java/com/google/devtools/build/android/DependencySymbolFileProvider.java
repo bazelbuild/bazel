@@ -21,9 +21,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/**
- * Represents the R.txt symbol file and AndroidManifest (provides Java package) of libraries.
- */
+/** Represents the R.txt symbol file and AndroidManifest (provides Java package) of libraries. */
 class DependencySymbolFileProvider implements SymbolFileProvider {
 
   private final File symbolFile;
@@ -91,5 +89,4 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
   public String toString() {
     return String.format("%s, %s", symbolFile, manifest);
   }
-
 }

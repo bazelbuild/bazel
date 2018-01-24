@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
@@ -31,25 +31,24 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
+import java.util.EnumSet;
 
-/**
- * Fetches external repositories. Which is so fetch.
- */
-@Command(name = FetchCommand.NAME,
-    options = {
-        PackageCacheOptions.class,
-        FetchOptions.class,
-    },
-    help = "resource:fetch.txt",
-    shortDescription = "Fetches external repositories that are prerequisites to the targets.",
-    allowResidue = true,
-    completion = "label")
+/** Fetches external repositories. Which is so fetch. */
+@Command(
+  name = FetchCommand.NAME,
+  options = {PackageCacheOptions.class, KeepGoingOption.class},
+  help = "resource:fetch.txt",
+  shortDescription = "Fetches external repositories that are prerequisites to the targets.",
+  allowResidue = true,
+  completion = "label"
+)
 public final class FetchCommand implements BlazeCommand {
   // TODO(kchodorow): add an option to force-fetch targets, even if they're already downloaded.
   // TODO(kchodorow): this would be a great time to check for difference and invalidate the upward
@@ -95,9 +94,14 @@ public final class FetchCommand implements BlazeCommand {
     String query = Joiner.on(" union ").join(labelsToLoad.build());
     query = "deps(" + query + ")";
 
-    AbstractBlazeQueryEnvironment<Target> queryEnv = QueryCommand.newQueryEnvironment(
-        env, options.getOptions(FetchOptions.class).keepGoing, false,
-        Lists.<String>newArrayList(), 200, Sets.<Setting>newHashSet());
+    AbstractBlazeQueryEnvironment<Target> queryEnv =
+        QueryCommand.newQueryEnvironment(
+            env,
+            options.getOptions(KeepGoingOption.class).keepGoing,
+            false,
+            Lists.<String>newArrayList(),
+            200,
+            EnumSet.noneOf(Setting.class));
 
     // 1. Parse query:
     QueryExpression expr;
@@ -119,13 +123,17 @@ public final class FetchCommand implements BlazeCommand {
                 env.getCommandId().toString()));
 
     // 2. Evaluate expression:
+    QueryEvalResult queryEvalResult = null;
     try {
-      queryEnv.evaluateQuery(expr, new ThreadSafeOutputFormatterCallback<Target>() {
-        @Override
-        public void processOutput(Iterable<Target> partialResult) {
-          // Throw away the result.
-        }
-      });
+      queryEvalResult =
+          queryEnv.evaluateQuery(
+              expr,
+              new ThreadSafeOutputFormatterCallback<Target>() {
+                @Override
+                public void processOutput(Iterable<Target> partialResult) {
+                  // Throw away the result.
+                }
+              });
     } catch (InterruptedException e) {
       env.getReporter()
           .post(
@@ -145,12 +153,15 @@ public final class FetchCommand implements BlazeCommand {
       throw new IllegalStateException(e);
     }
 
-    env.getReporter().handle(
-        Event.progress("All external dependencies fetched successfully."));
+    if (queryEvalResult.getSuccess()) {
+      env.getReporter().handle(Event.progress("All external dependencies fetched successfully."));
+    }
+    ExitCode exitCode =
+        queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.COMMAND_LINE_ERROR;
     env.getReporter()
         .post(
             new NoBuildRequestFinishedEvent(
-                ExitCode.SUCCESS, env.getRuntime().getClock().currentTimeMillis()));
-    return ExitCode.SUCCESS;
+                exitCode, env.getRuntime().getClock().currentTimeMillis()));
+    return exitCode;
   }
 }

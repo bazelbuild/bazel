@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
@@ -89,7 +91,7 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     return ImmutableList.of(
-        new StandaloneSpawnStrategy(createLocalRunner(env)),
+        new StandaloneSpawnStrategy(env.getExecRoot(), createLocalRunner(env)),
         new DummyIncludeScanningContext(),
         new SpawnGccStrategy(),
         testStrategy,
@@ -102,10 +104,10 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider()
+            ? new XCodeLocalEnvProvider(env.getClientEnv())
             : (OS.getCurrent() == OS.WINDOWS
-                ? LocalEnvProvider.ADD_TEMP_WINDOWS
-                : LocalEnvProvider.ADD_TEMP_POSIX);
+                ? new WindowsLocalEnvProvider(env.getClientEnv())
+                : new PosixLocalEnvProvider(env.getClientEnv()));
     return
         new LocalSpawnRunner(
             env.getExecRoot(),

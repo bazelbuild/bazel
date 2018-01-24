@@ -318,7 +318,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     public boolean fakeOpt;
 
     @Override
-    public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+    public Map<String, Set<Label>> getDefaultsLabels() {
       return ImmutableMap.<String, Set<Label>>of(
           "mock_target", ImmutableSet.of(Label.parseAbsoluteUnchecked("//mock:target")));
     }

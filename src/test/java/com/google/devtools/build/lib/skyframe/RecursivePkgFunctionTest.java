@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -55,7 +56,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
   private SkyKey buildRecursivePkgKey(
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
-    RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
+    RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return RecursivePkgValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths);
   }

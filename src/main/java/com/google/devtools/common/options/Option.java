@@ -186,22 +186,4 @@ public @interface Option {
    * that the old name is deprecated and the new name should be used.
    */
   String oldName() default "";
-
-  /**
-   * Indicates that this option is a wrapper for other options, and will be unwrapped when parsed.
-   * For example, if foo is a wrapper option, then "--foo=--bar=baz" will be parsed as the flag
-   * "--bar=baz" (rather than --foo taking the value "--bar=baz"). A wrapper option should have the
-   * type {@link Void} (if it is something other than Void, the parser will not assign a value to
-   * it). The {@link Option#implicitRequirements()}, {@link Option#expansion()}, {@link
-   * Option#converter()} attributes will not be processed. Wrapper options are implicitly repeatable
-   * (i.e., as though {@link Option#allowMultiple()} is true regardless of its value in the
-   * annotation).
-   *
-   * <p>Wrapper options are provided only for transitioning flags which appear as values to other
-   * flags, to top-level flags. Wrapper options should not be used in Invocation Policy, as
-   * expansion flags to other flags, or as implicit requirements to other flags. Use the inner flags
-   * instead.
-   */
-  @Deprecated
-  boolean wrapperOption() default false;
 }

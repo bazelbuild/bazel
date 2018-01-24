@@ -72,8 +72,7 @@ public class SingleBuildFileCacheTest {
         }
       };
     underTest = new SingleBuildFileCache("/", fs);
-    Path root = fs.getRootDirectory();
-    Path file = root.getChild("empty");
+    Path file = fs.getPath("/empty");
     file.getOutputStream().close();
   }
 

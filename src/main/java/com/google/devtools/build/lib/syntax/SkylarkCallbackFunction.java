@@ -64,7 +64,7 @@ public class SkylarkCallbackFunction {
       String name = names.get(pos);
       Object value = ctx.getValue(name);
       if (value == null) {
-          throw new IllegalArgumentException(ctx.errorMessage(name));
+          throw new IllegalArgumentException(ctx.getErrorMessageForUnknownField(name));
       }
       builder.add(value);
     }

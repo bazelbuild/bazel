@@ -102,8 +102,8 @@ public final class ConfiguredAspect {
   }
 
   public Object get(String legacyKey) {
-    if (OutputGroupProvider.SKYLARK_NAME.equals(legacyKey)) {
-      return get(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey());
+    if (OutputGroupInfo.SKYLARK_NAME.equals(legacyKey)) {
+      return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey());
     }
     return providers.getProvider(legacyKey);
   }
@@ -205,7 +205,7 @@ public final class ConfiguredAspect {
       return this;
     }
 
-    public Builder addSkylarkDeclaredProvider(Info declaredProvider, Location loc)
+    public Builder addSkylarkDeclaredProvider(Info declaredProvider)
         throws EvalException {
       Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
@@ -235,11 +235,11 @@ public final class ConfiguredAspect {
           outputGroups.put(entry.getKey(), entry.getValue().build());
         }
 
-        if (providers.contains(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey())) {
+        if (providers.contains(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey())) {
           throw new IllegalStateException(
-              "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
+              "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(new OutputGroupProvider(outputGroups.build()));
+        addDeclaredProvider(new OutputGroupInfo(outputGroups.build()));
       }
 
       addProvider(

@@ -32,9 +32,7 @@ import com.google.devtools.build.lib.util.OS;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Builder for creating resource shrinker actions.
- */
+/** Builder for creating resource shrinker actions. */
 public class ResourceShrinkerActionBuilder {
   private AndroidAaptVersion targetAaptVersion;
   private Artifact resourceFilesZip;
@@ -74,25 +72,19 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /**
-   * @param resourceFilesZip A zip file containing the merged assets and resources to be shrunk.
-   */
+  /** @param resourceFilesZip A zip file containing the merged assets and resources to be shrunk. */
   public ResourceShrinkerActionBuilder withResourceFiles(Artifact resourceFilesZip) {
     this.resourceFilesZip = resourceFilesZip;
     return this;
   }
 
-  /**
-   * @param shrunkJar The deploy jar of the rule after a dead code removal Proguard pass.
-   */
+  /** @param shrunkJar The deploy jar of the rule after a dead code removal Proguard pass. */
   public ResourceShrinkerActionBuilder withShrunkJar(Artifact shrunkJar) {
     this.shrunkJar = shrunkJar;
     return this;
   }
 
-  /**
-   * @param proguardMapping The Proguard mapping between obfuscated and original code.
-   */
+  /** @param proguardMapping The Proguard mapping between obfuscated and original code. */
   public ResourceShrinkerActionBuilder withProguardMapping(Artifact proguardMapping) {
     this.proguardMapping = proguardMapping;
     return this;
@@ -110,41 +102,31 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /**
-   * @param resourceDeps The full dependency tree of {@link ResourceContainer}s.
-   */
+  /** @param resourceDeps The full dependency tree of {@link ResourceContainer}s. */
   public ResourceShrinkerActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencyResources = resourceDeps;
     return this;
   }
 
-  /**
-   * @param resourceApkOut The location to write the shrunk resource ap_ package.
-   */
+  /** @param resourceApkOut The location to write the shrunk resource ap_ package. */
   public ResourceShrinkerActionBuilder setResourceApkOut(Artifact resourceApkOut) {
     this.resourceApkOut = resourceApkOut;
     return this;
   }
 
-  /**
-   * @param shrunkResourcesOut The location to write the shrunk resource files zip.
-   */
+  /** @param shrunkResourcesOut The location to write the shrunk resource files zip. */
   public ResourceShrinkerActionBuilder setShrunkResourcesOut(Artifact shrunkResourcesOut) {
     this.shrunkResourcesOut = shrunkResourcesOut;
     return this;
   }
 
-  /**
-   * @param logOut The location to write the shrinker log.
-   */
+  /** @param logOut The location to write the shrinker log. */
   public ResourceShrinkerActionBuilder setLogOut(Artifact logOut) {
     this.logOut = logOut;
     return this;
   }
 
-  /**
-   * @param androidAaptVersion The aapt version to target with this action.
-   */
+  /** @param androidAaptVersion The aapt version to target with this action. */
   public ResourceShrinkerActionBuilder setTargetAaptVersion(AndroidAaptVersion androidAaptVersion) {
     this.targetAaptVersion = androidAaptVersion;
     return this;
@@ -275,4 +257,3 @@ public class ResourceShrinkerActionBuilder {
     return resourcePackages.build();
   }
 }
-

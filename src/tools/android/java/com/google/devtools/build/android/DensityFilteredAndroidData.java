@@ -15,9 +15,7 @@ package com.google.devtools.build.android;
 
 import java.nio.file.Path;
 
-/**
- * Represents a MergedData that has been filtered for density content.
- */
+/** Represents a MergedData that has been filtered for density content. */
 public class DensityFilteredAndroidData extends MergedAndroidData {
 
   public DensityFilteredAndroidData(Path resources, Path assets, Path manifest) {

@@ -53,7 +53,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       return null;
     }
 
-    Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
+    Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());
     try {
       BuildFileAST ast = BuildFileAST.parseBuildFile(
           ParserInputSource.create(ruleClassProvider.getDefaultWorkspacePrefix(),

@@ -35,7 +35,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBu
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.NO_ASSET_CATALOG_ERROR_FORMAT;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.dd.plist.NSDictionary;
 import com.dd.plist.PropertyListParser;
@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -74,11 +74,11 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.util.MockJ2ObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -130,7 +130,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       toolsRepoExecPath("tools/objc/swiftstdlibtoolwrapper");
   protected static final String MOCK_LIBTOOL_PATH = toolsRepoExecPath("tools/objc/libtool");
   protected static final String MOCK_XCRUNWRAPPER_PATH =
-      toolsRepoExecPath("tools/objc/xcrunwrapper");
+      toolsRepoExecPath("tools/objc/xcrunwrapper.sh");
+  protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
+      toolExecutable("tools/objc/xcrunwrapper");
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
@@ -193,6 +195,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + getTargetConfiguration().getGenfilesDirectory(RepositoryName.MAIN)
             .getExecPath().getBaseName();
 
+  }
+
+  private static String toolExecutable(String toolSrcPath) {
+    return String.format("%s-out/host/bin/%s", TestConstants.PRODUCT_NAME,
+        TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
   }
 
   private String configurationDir(
@@ -342,21 +349,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    ImmutableList.Builder<String> extraArgsBuilder = ImmutableList.builder();
-    extraArgsBuilder.addAll(TestConstants.OSX_CROSSTOOL_FLAGS);
-
-    // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
-    // AppleCrosstoolTransition
-    extraArgsBuilder
-        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
-        .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-
-    // TODO(b/32411441): This flag will be flipped off by default imminently, at which point
-    // this can be removed. The flag itself is for safe rollout of a backwards incompatible change.
-    extraArgsBuilder.add("--noexperimental_objc_provider_from_linked");
-
-    ImmutableList<String> extraArgs = extraArgsBuilder.build();
+    ImmutableList<String> extraArgs = MockObjcSupport.requiredObjcCrosstoolFlags();
     args = Arrays.copyOf(args, args.length + extraArgs.size());
     for (int i = 0; i < extraArgs.size(); i++) {
       args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);
@@ -427,7 +420,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * configuration.
    */
   protected List<BuildConfiguration> getSplitConfigurations(BuildConfiguration configuration,
-      SplitTransition<BuildOptions> splitTransition) throws InterruptedException {
+      SplitTransition splitTransition) throws InterruptedException {
     ImmutableList.Builder<BuildConfiguration> splitConfigs = ImmutableList.builder();
 
     for (BuildOptions splitOptions : splitTransition.split(configuration.getOptions())) {
@@ -1053,15 +1046,20 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     if (objcProvider != null) {
       return objcProvider;
     }
-    AppleExecutableBinaryProvider executableProvider =
-        getConfiguredTarget(label).get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+    AppleExecutableBinaryInfo executableProvider =
+        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return executableProvider.getDepsObjcProvider();
     }
-    AppleDylibBinaryProvider dylibProvider =
-        getConfiguredTarget(label).get(AppleDylibBinaryProvider.SKYLARK_CONSTRUCTOR);
+    AppleDylibBinaryInfo dylibProvider =
+        getConfiguredTarget(label).get(AppleDylibBinaryInfo.SKYLARK_CONSTRUCTOR);
     if (dylibProvider != null) {
       return dylibProvider.getDepsObjcProvider();
+    }
+    AppleLoadableBundleBinaryInfo loadableBundleProvider =
+        getConfiguredTarget(label).get(AppleLoadableBundleBinaryInfo.SKYLARK_CONSTRUCTOR);
+    if (loadableBundleProvider != null) {
+      return loadableBundleProvider.getDepsObjcProvider();
     }
     return null;
   }
@@ -2190,8 +2188,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       ConfiguredTarget target,
       String platformName,
       String zipName,
-      String bundlePath,
-      String toolchain)
+      String bundlePath)
       throws Exception {
     String zipArtifactName = String.format("%s.%s.zip", target.getTarget().getName(), zipName);
     Artifact swiftLibsZip = getBinArtifact(zipArtifactName, target);
@@ -2205,10 +2202,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CustomCommandLine.Builder expectedCommandLine =
         CustomCommandLine.builder().addDynamicString(MOCK_SWIFTSTDLIBTOOLWRAPPER_PATH);
 
-    if (toolchain != null) {
-      expectedCommandLine.add("--toolchain", toolchain);
-    }
-
     expectedCommandLine
         .addExecPath("--output_zip_path", swiftLibsZip)
         .add("--bundle_path", bundlePath)
@@ -2219,45 +2212,24 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkRegisterSwiftSupportActions(
-      RuleType ruleType, String platformName, String toolchain) throws Exception {
-    checkRegisterSwiftSupportActions(createTargetWithSwift(ruleType), platformName, toolchain);
-  }
-
-  protected void checkRegisterSwiftSupportActions(
       RuleType ruleType, String platformName) throws Exception {
-    checkRegisterSwiftSupportActions(createTargetWithSwift(ruleType), platformName, null);
-  }
-
-  protected void checkRegisterSwiftSupportActions(
-      ConfiguredTarget target, String platformName, String toolchain) throws Exception {
-    assertSwiftStdlibToolAction(
-        target, platformName, "swiftsupport", "SwiftSupport/" + platformName, toolchain);
+    checkRegisterSwiftSupportActions(createTargetWithSwift(ruleType), platformName);
   }
 
   protected void checkRegisterSwiftSupportActions(
       ConfiguredTarget target, String platformName) throws Exception {
     assertSwiftStdlibToolAction(
-        target, platformName, "swiftsupport", "SwiftSupport/" + platformName, null);
-  }
-
-  protected void checkRegisterSwiftStdlibActions(
-      RuleType ruleType, String platformName, String toolchain) throws Exception {
-    checkRegisterSwiftStdlibActions(createTargetWithSwift(ruleType), platformName, toolchain);
+        target, platformName, "swiftsupport", "SwiftSupport/" + platformName);
   }
 
   protected void checkRegisterSwiftStdlibActions(
       RuleType ruleType, String platformName) throws Exception {
-    checkRegisterSwiftStdlibActions(createTargetWithSwift(ruleType), platformName, null);
-  }
-
-  protected void checkRegisterSwiftStdlibActions(
-      ConfiguredTarget target, String platformName, String toolchain) throws Exception {
-    assertSwiftStdlibToolAction(target, platformName, "swiftstdlib", "Frameworks", toolchain);
+    checkRegisterSwiftStdlibActions(createTargetWithSwift(ruleType), platformName);
   }
 
   protected void checkRegisterSwiftStdlibActions(
       ConfiguredTarget target, String platformName) throws Exception {
-    assertSwiftStdlibToolAction(target, platformName, "swiftstdlib", "Frameworks", null);
+    assertSwiftStdlibToolAction(target, platformName, "swiftstdlib", "Frameworks");
   }
 
   /**
@@ -2868,16 +2840,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "--ios_multi_cpus=i386,x86_64,armv7,arm64", "--watchos_cpus=armv7k", "--cpu=ios_armv7");
     ruleTypePair.scratchTargets(scratch);
 
-    try {
-      getConfiguredTarget("//x:x");
-      fail("Multiplatform binary should have failed");
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "--ios_multi_cpus does not currently allow values for both simulator and device "
-              + "builds.");
-    }
+    AssertionError expected =
+        expectThrows(AssertionError.class, () -> getConfiguredTarget("//x:x"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "--ios_multi_cpus does not currently allow values for both simulator and device "
+                + "builds.");
   }
 
   protected void checkMultiCpuResourceInheritance(BinaryRuleTypePair ruleTypePair)
@@ -3767,7 +3736,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     boolean isTestRule = ruleType.getRuleTypeName().endsWith("_test");
 
     ImmutableList.Builder<String> expectedSymbolStripArgs = ImmutableList.<String>builder()
-        .add(MOCK_XCRUNWRAPPER_PATH)
+        .add(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH)
         .add(STRIP);
 
     expectedSymbolStripArgs.add(extraItems);
@@ -4199,10 +4168,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH);
+        .containsExactly(i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH,
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertThat(action.getArguments())
-        .containsExactly(MOCK_XCRUNWRAPPER_PATH, LIPO,
+        .containsExactly(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO,
             "-create", i386Bin, x8664Bin,
             "-o", execPathEndingWith(action.getOutputs(), "x_lipobin"))
         .inOrder();
@@ -4489,10 +4459,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + "x/x_bin";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH);
+        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH,
+            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
-        MOCK_XCRUNWRAPPER_PATH, LIPO, "-create"));
+        MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
     assertThat(action.getArguments()).containsAllOf(armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipobin")));
@@ -4719,7 +4690,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:x");
     assertThat(
             ActionsTestUtil.baseNamesOf(
-                getOutputGroup(target, OutputGroupProvider.FILES_TO_COMPILE)))
+                getOutputGroup(target, OutputGroupInfo.FILES_TO_COMPILE)))
         .isEqualTo("a.o");
   }
 

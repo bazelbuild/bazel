@@ -80,6 +80,14 @@ public class DefaultJarEntryFilterTest {
   }
 
   @Test
+  public void testReferenceConfigs() throws IOException {
+    RecordingCallback callback = new RecordingCallback();
+    new DefaultJarEntryFilter().accept("reference.conf", callback);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("customMerge"));
+    assertThat(callback.dates).isEqualTo(Arrays.asList(DOS_EPOCH));
+  }
+
+  @Test
   public void testClassInput() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept("a.class", callback);

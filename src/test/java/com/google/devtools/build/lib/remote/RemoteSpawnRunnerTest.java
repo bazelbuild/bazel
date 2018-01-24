@@ -87,8 +87,7 @@ public class RemoteSpawnRunnerTest {
   private FakeActionInputFileCache fakeFileCache;
   private FileOutErr outErr;
 
-  @Mock
-  private RemoteActionCache cache;
+  @Mock private AbstractRemoteActionCache cache;
 
   @Mock
   private GrpcRemoteExecutor executor;
@@ -759,7 +758,7 @@ public class RemoteSpawnRunnerTest {
 
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
-      return new SpawnInputExpander(/*strict*/ false)
+      return new SpawnInputExpander(execRoot, /*strict*/ false)
           .getInputMapping(spawn, artifactExpander, fakeFileCache, "workspace");
     }
 

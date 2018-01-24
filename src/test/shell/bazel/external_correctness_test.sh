@@ -331,4 +331,9 @@ function test_top_level_dir_changes_nobatch() {
   top_level_dir_changes_helper --nobatch
 }
 
+function test_non_extsietnt_repo_in_pattern() {
+  bazel build @non_existent_repo//... &> $TEST_log && fail "Expected build to fail"
+  expect_log "ERROR: No such repository '@non_existent_repo'"
+}
+
 run_suite "//external correctness tests"

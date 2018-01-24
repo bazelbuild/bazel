@@ -32,9 +32,7 @@ import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Builder for creating aar generator action.
- */
+/** Builder for creating aar generator action. */
 public class AarGeneratorBuilder {
 
   private ResourceContainer primary;
@@ -152,22 +150,24 @@ public class AarGeneratorBuilder {
             .build(context));
   }
 
-  private void addPrimaryResourceContainer(List<Artifact> inputs, List<String> args,
-      ResourceContainer container) {
+  private void addPrimaryResourceContainer(
+      List<Artifact> inputs, List<String> args, ResourceContainer container) {
     Iterables.addAll(inputs, container.getArtifacts());
     inputs.add(container.getManifest());
 
     // no R.txt, because it will be generated from this action.
-    args.add(String.format("%s:%s:%s",
-        convertRoots(container, ResourceType.RESOURCES),
-        convertRoots(container, ResourceType.ASSETS),
-        container.getManifest().getExecPathString()
-    ));
+    args.add(
+        String.format(
+            "%s:%s:%s",
+            convertRoots(container, ResourceType.RESOURCES),
+            convertRoots(container, ResourceType.ASSETS),
+            container.getManifest().getExecPathString()));
   }
 
   private static String convertRoots(ResourceContainer container, ResourceType resourceType) {
-    return Joiner.on("#").join(
-        Iterators.transform(
-            container.getRoots(resourceType).iterator(), Functions.toStringFunction()));
+    return Joiner.on("#")
+        .join(
+            Iterators.transform(
+                container.getRoots(resourceType).iterator(), Functions.toStringFunction()));
   }
 }

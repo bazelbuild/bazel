@@ -40,11 +40,14 @@ public class JavaRuntimeSuite implements RuleConfiguredTargetFactory {
           "could not resolve runtime for cpu " + ruleContext.getConfiguration().getCpu());
     }
 
+    JavaRuntimeInfo javaRuntimeInfo = JavaRuntimeInfo.from(runtime, ruleContext);
+
     TemplateVariableInfo templateVariableInfo =
         runtime.get(TemplateVariableInfo.PROVIDER);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(runtime.get(JavaRuntimeInfo.PROVIDER))
+        .addNativeDeclaredProvider(javaRuntimeInfo)
+        .addNativeDeclaredProvider(new JavaRuntimeToolchainInfo(javaRuntimeInfo))
         .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
         .addNativeDeclaredProvider(templateVariableInfo)
         .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild())

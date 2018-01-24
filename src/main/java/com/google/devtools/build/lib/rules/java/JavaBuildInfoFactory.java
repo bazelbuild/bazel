@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -126,7 +126,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       boolean includeVolatile,
       boolean includeNonVolatile,
       RepositoryName repositoryName) {
-    Root outputPath = config.getIncludeDirectory(repositoryName);
+    ArtifactRoot outputPath = config.getIncludeDirectory(repositoryName);
     final Artifact output = context.getBuildInfoArtifact(propertyFileName, outputPath,
         includeVolatile && !inputs.isEmpty() ? BuildInfoType.NO_REBUILD
             : BuildInfoType.FORCE_REBUILD_IF_CHANGED);

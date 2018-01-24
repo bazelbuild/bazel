@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -135,7 +136,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       throw new MissingDepException();
     }
 
-    List<Path> roots = new ArrayList<>();
+    List<Root> roots = new ArrayList<>();
     if (repository.isMain()) {
       roots.addAll(packageLocator.getPathEntries());
     } else {
@@ -146,11 +147,10 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       }
 
       if (!repositoryValue.repositoryExists()) {
-        // This shouldn't be possible; we're given a repository, so we assume that the caller has
-        // already checked for its existence.
-        throw new IllegalStateException(String.format("No such repository '%s'", repository));
+        eventHandler.handle(Event.error(String.format("No such repository '%s'", repository)));
+        return ImmutableList.of();
       }
-      roots.add(repositoryValue.getPath());
+      roots.add(Root.fromPath(repositoryValue.getPath()));
     }
 
     if (blacklistedSubdirectories.contains(directory)) {
@@ -159,7 +159,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
     PathFragment.checkAllPathsAreUnder(blacklistedSubdirectories, directory);
 
     LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
-    for (Path root : roots) {
+    for (Root root : roots) {
       RecursivePkgValue lookup = (RecursivePkgValue) env.getValue(RecursivePkgValue.key(
           repository, RootedPath.toRootedPath(root, directory), blacklistedSubdirectories));
       if (lookup == null) {

@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,13 +35,17 @@ import com.google.devtools.common.options.OptionEffectTag;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Bazel-specific configuration fragment.
- */
+/** Bazel-specific configuration fragment. */
+@AutoCodec
 @Immutable
 public class BazelConfiguration extends Fragment {
+  public static final ObjectCodec<BazelConfiguration> CODEC = new BazelConfiguration_AutoCodec();
+
   /** Command-line options. */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
+    public static final ObjectCodec<Options> CODEC = new BazelConfiguration_Options_AutoCodec();
+
     @Option(
       name = "experimental_strict_action_env",
       defaultValue = "false",
@@ -114,9 +120,14 @@ public class BazelConfiguration extends Fragment {
   private final PathFragment shellExecutable;
 
   public BazelConfiguration(OS os, Options options) {
+    this(os, options.useStrictActionEnv, determineShellExecutable(os, options.shellExecutable));
+  }
+
+  @AutoCodec.Constructor
+  BazelConfiguration(OS os, boolean useStrictActionEnv, PathFragment shellExecutable) {
     this.os = os;
-    this.useStrictActionEnv = options.useStrictActionEnv;
-    this.shellExecutable = determineShellExecutable(os, options.shellExecutable);
+    this.useStrictActionEnv = useStrictActionEnv;
+    this.shellExecutable = shellExecutable;
   }
 
   @Override
@@ -133,26 +144,9 @@ public class BazelConfiguration extends Fragment {
       // TODO(ulfjack): Avoid using System.getenv; it's the wrong environment!
       builder.put("PATH", pathOrDefault(os, System.getenv("PATH"), getShellExecutable()));
 
-      // TODO(laszlocsomor): Remove setting TMP/TEMP here, and set a meaningful value just before
-      // executing the action.
-      // Setting TMP=null, TEMP=null has the effect of copying the client's TMP/TEMP to the action's
-      // environment. This is a short-term workaround to get temp-requiring actions working on
-      // Windows. Its detrimental effect is that the client's TMP/TEMP becomes part of the actions's
-      // key. Yet, we need this for now to build Android programs, because the Android BusyBox is
-      // written in Java and tries to create temp directories using
-      // java.nio.file.Files.createTempDirectory, which needs TMP or TEMP (or USERPROFILE) on
-      // Windows, otherwise they return c:\windows which is non-writable.
-      builder.put("TMP", null);
-      builder.put("TEMP", null);
-
       String ldLibraryPath = System.getenv("LD_LIBRARY_PATH");
       if (ldLibraryPath != null) {
         builder.put("LD_LIBRARY_PATH", ldLibraryPath);
-      }
-
-      String tmpdir = System.getenv("TMPDIR");
-      if (tmpdir != null) {
-        builder.put("TMPDIR", tmpdir);
       }
     }
   }

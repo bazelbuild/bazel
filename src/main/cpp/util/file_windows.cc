@@ -437,36 +437,18 @@ void MsysRoot::InitIfNecessary() {
   }
 }
 
-// Converts a UTF8-encoded `path` to a normalized, widechar Windows path.
-//
-// Returns true if conversion succeeded and sets the contents of `result` to it.
-//
-// The `path` may be absolute or relative, and may be a Windows or MSYS path.
-// In every case, the output is normalized (see NormalizeWindowsPath).
-//
-// If `path` had a "\\?\" prefix then the function assumes it's already Windows
-// style and converts it to wstring without any alterations.
-// Otherwise `path` is normalized and converted to a Windows path and the result
-// won't have a "\\?\" prefix even if it's longer than MAX_PATH (adding the
-// prefix is the caller's responsibility).
-//
-// The function recognizes the drive letter in MSYS paths, so e.g. "/c/windows"
-// becomes "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH
-// envvar) to absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
-// Recognizes current-drive-relative Windows paths ("\foo") turning them into
-// absolute paths ("c:\foo").
-bool AsWindowsPath(const string& path, wstring* result) {
+bool AsWindowsPath(const string& path, string* result) {
   if (path.empty()) {
     result->clear();
     return true;
   }
   if (IsDevNull(path.c_str())) {
-    result->assign(L"NUL");
+    result->assign("NUL");
     return true;
   }
   if (HasUncPrefix(path.c_str())) {
     // Path has "\\?\" prefix --> assume it's already Windows-style.
-    *result = CstringToWstring(path.c_str()).get();
+    *result = path.c_str();
     return true;
   }
   if (IsPathSeparator(path[0]) && path.size() > 1 && IsPathSeparator(path[1])) {
@@ -507,8 +489,35 @@ bool AsWindowsPath(const string& path, wstring* result) {
     mutable_path = string(1, GetCurrentDrive()) + ":" + path;
   }  // otherwise this is a relative path, or absolute Windows path.
 
-  result->assign(
-      CstringToWstring(NormalizeWindowsPath(mutable_path).c_str()).get());
+  result->assign(NormalizeWindowsPath(mutable_path));
+  return true;
+}
+
+// Converts a UTF8-encoded `path` to a normalized, widechar Windows path.
+//
+// Returns true if conversion succeeded and sets the contents of `result` to it.
+//
+// The `path` may be absolute or relative, and may be a Windows or MSYS path.
+// In every case, the output is normalized (see NormalizeWindowsPath).
+//
+// If `path` had a "\\?\" prefix then the function assumes it's already Windows
+// style and converts it to wstring without any alterations.
+// Otherwise `path` is normalized and converted to a Windows path and the result
+// won't have a "\\?\" prefix even if it's longer than MAX_PATH (adding the
+// prefix is the caller's responsibility).
+//
+// The function recognizes the drive letter in MSYS paths, so e.g. "/c/windows"
+// becomes "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH
+// envvar) to absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
+// Recognizes current-drive-relative Windows paths ("\foo") turning them into
+// absolute paths ("c:\foo").
+bool AsWindowsPath(const string& path, wstring* result) {
+  string normalized_win_path;
+  if (!AsWindowsPath(path, &normalized_win_path)) {
+    return false;
+  }
+
+  result->assign(CstringToWstring(normalized_win_path.c_str()).get());
   return true;
 }
 

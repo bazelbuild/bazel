@@ -33,11 +33,13 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingPatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -46,16 +48,23 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
@@ -67,6 +76,9 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -106,6 +118,19 @@ import javax.annotation.Nullable;
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
 public class BuildConfiguration implements BuildEvent {
+  public static final InjectingObjectCodec<BuildConfiguration, FileSystemProvider> CODEC =
+      new BuildConfigurationCodec();
+
+  /**
+   * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
+   * output from buildMnemonic.
+   */
+  public static final Comparator<Class<? extends Fragment>> lexicalFragmentSorter =
+      Comparator.comparing(Class::getName);
+
+  private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
+      fragmentsInterner = BlazeInterners.newWeakInterner();
+
   /**
    * An interface for language-specific configurations.
    *
@@ -113,7 +138,11 @@ public class BuildConfiguration implements BuildEvent {
    * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
    * fragment instances may be shared across configurations.
    */
+  @AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC, dependency = FileSystemProvider.class)
   public abstract static class Fragment {
+    public static final InjectingObjectCodec<Fragment, FileSystemProvider> CODEC =
+        new BuildConfiguration_Fragment_AutoCodec();
+
     /**
      * Validates the options for this Fragment. Issues warnings for the
      * use of deprecated options, and warnings or errors for any option settings
@@ -173,10 +202,9 @@ public class BuildConfiguration implements BuildEvent {
       return ImmutableMap.of();
     }
 
-    /**
-     * Return set of features enabled by this configuration.
-     */
-    public ImmutableSet<String> configurationEnabledFeatures(RuleContext ruleContext) {
+    /** Return set of features enabled by this configuration. */
+    public ImmutableSet<String> configurationEnabledFeatures(
+        RuleContext ruleContext, ImmutableSet<String> disabledFeatures) {
       return ImmutableSet.of();
     }
 
@@ -431,18 +459,21 @@ public class BuildConfiguration implements BuildEvent {
   /**
    * Options that affect the value of a BuildConfiguration instance.
    *
-   * <p>(Note: any client that creates a view will also need to declare
-   * BuildView.Options, which affect the <i>mechanism</i> of view construction,
-   * even if they don't affect the value of the BuildConfiguration instances.)
+   * <p>(Note: any client that creates a view will also need to declare BuildView.Options, which
+   * affect the <i>mechanism</i> of view construction, even if they don't affect the value of the
+   * BuildConfiguration instances.)
    *
-   * <p>IMPORTANT: when adding new options, be sure to consider whether those
-   * values should be propagated to the host configuration or not.
+   * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
+   * propagated to the host configuration or not.
    *
-   * <p>ALSO IMPORTANT: all option types MUST define a toString method that
-   * gives identical results for semantically identical option values. The
-   * simplest way to ensure that is to return the input string.
+   * <p>ALSO IMPORTANT: all option types MUST define a toString method that gives identical results
+   * for semantically identical option values. The simplest way to ensure that is to return the
+   * input string.
    */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions implements Cloneable {
+    public static final ObjectCodec<Options> CODEC = new BuildConfiguration_Options_AutoCodec();
+
     @Option(
       name = "experimental_separate_genfiles_directory",
       defaultValue = "true",
@@ -776,7 +807,7 @@ public class BuildConfiguration implements BuildEvent {
 
     @Option(
       name = "experimental_skyframe_native_filesets",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "experimental",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = { OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION },
@@ -784,8 +815,7 @@ public class BuildConfiguration implements BuildEvent {
       help =
           "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
               + " This offers improved performance in incremental builds of Filesets as well as"
-              + " correct incremental behavior, but is not yet stable. The default is false,"
-              + " meaning Blaze uses the legacy impelementation of Fileset."
+              + " correct incremental behavior."
     )
     public boolean skyframeNativeFileset;
 
@@ -1071,7 +1101,7 @@ public class BuildConfiguration implements BuildEvent {
     }
 
     @Override
-    public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+    public Map<String, Set<Label>> getDefaultsLabels() {
       return ImmutableMap.<String, Set<Label>>of(
           "coverage_support", ImmutableSet.of(coverageSupport),
           "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));
@@ -1080,8 +1110,11 @@ public class BuildConfiguration implements BuildEvent {
 
   private final String checksum;
 
-  private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
+  private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
+  private final FragmentClassSet fragmentClassSet;
+
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
+  private final String repositoryName;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
 
@@ -1152,8 +1185,10 @@ public class BuildConfiguration implements BuildEvent {
       this.middleman = false;
     }
 
-    Root getRoot(
-        RepositoryName repositoryName, String outputDirName, BlazeDirectories directories,
+    ArtifactRoot getRoot(
+        RepositoryName repositoryName,
+        String outputDirName,
+        BlazeDirectories directories,
         RepositoryName mainRepositoryName) {
       // e.g., execroot/repo1
       Path execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
@@ -1161,13 +1196,11 @@ public class BuildConfiguration implements BuildEvent {
       Path outputDir = execRoot.getRelative(directories.getRelativeOutputPath())
           .getRelative(outputDirName);
       if (middleman) {
-        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir,
-            repositoryName.equals(mainRepositoryName)));
+        return INTERNER.intern(ArtifactRoot.middlemanRoot(execRoot, outputDir));
       }
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return INTERNER.intern(
-          Root.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment),
-              repositoryName.equals(mainRepositoryName)));
+          ArtifactRoot.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment)));
     }
   }
 
@@ -1176,16 +1209,16 @@ public class BuildConfiguration implements BuildEvent {
 
   // We intern the roots for non-main repositories, so we don't keep around thousands of copies of
   // the same root.
-  private static Interner<Root> INTERNER = Interners.newWeakInterner();
+  private static Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
 
   // We precompute the roots for the main repository, since that's the common case.
-  private final Root outputDirectoryForMainRepository;
-  private final Root binDirectoryForMainRepository;
-  private final Root includeDirectoryForMainRepository;
-  private final Root genfilesDirectoryForMainRepository;
-  private final Root coverageDirectoryForMainRepository;
-  private final Root testlogsDirectoryForMainRepository;
-  private final Root middlemanDirectoryForMainRepository;
+  private final ArtifactRoot outputDirectoryForMainRepository;
+  private final ArtifactRoot binDirectoryForMainRepository;
+  private final ArtifactRoot includeDirectoryForMainRepository;
+  private final ArtifactRoot genfilesDirectoryForMainRepository;
+  private final ArtifactRoot coverageDirectoryForMainRepository;
+  private final ArtifactRoot testlogsDirectoryForMainRepository;
+  private final ArtifactRoot middlemanDirectoryForMainRepository;
 
   private final boolean separateGenfilesDirectory;
 
@@ -1255,7 +1288,7 @@ public class BuildConfiguration implements BuildEvent {
     BuildConfiguration otherConfig = (BuildConfiguration) other;
     return actionsEnabled == otherConfig.actionsEnabled
         && fragments.values().equals(otherConfig.fragments.values())
-        && buildOptions.getOptions().equals(otherConfig.buildOptions.getOptions());
+        && buildOptions.equals(otherConfig.buildOptions);
   }
 
   private int computeHashCode() {
@@ -1343,17 +1376,10 @@ public class BuildConfiguration implements BuildEvent {
     return ActionEnvironment.split(testEnv);
   }
 
-  /**
-   * Sorts fragments by class name. This produces a stable order which, e.g., facilitates
-   * consistent output from buildMneumonic.
-   */
-  private static final Comparator lexicalFragmentSorter =
-      new Comparator<Class<? extends Fragment>>() {
-        @Override
-        public int compare(Class<? extends Fragment> o1, Class<? extends Fragment> o2) {
-          return o1.getName().compareTo(o2.getName());
-        }
-      };
+  private static ImmutableSortedMap<Class<? extends Fragment>, Fragment> makeFragmentsMap(
+      Map<Class<? extends Fragment>, Fragment> fragmentsMap) {
+    return fragmentsInterner.intern(ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter));
+  }
 
   /**
    * Constructs a new BuildConfiguration instance.
@@ -1363,10 +1389,11 @@ public class BuildConfiguration implements BuildEvent {
       BuildOptions buildOptions,
       String repositoryName) {
     this.directories = directories;
-    this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
+    this.fragments = makeFragmentsMap(fragmentsMap);
+    this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
 
     this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
-
+    this.repositoryName = repositoryName;
     this.buildOptions = buildOptions.clone();
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
@@ -1449,12 +1476,11 @@ public class BuildConfiguration implements BuildEvent {
    * configuration is assumed to have).
    */
   public BuildConfiguration clone(
-      Set<Class<? extends BuildConfiguration.Fragment>> fragmentClasses,
-      RuleClassProvider ruleClassProvider) {
+      FragmentClassSet fragmentClasses, RuleClassProvider ruleClassProvider) {
 
     ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
     for (Fragment fragment : fragments.values()) {
-      if (fragmentClasses.contains(fragment.getClass())) {
+      if (fragmentClasses.fragmentClasses().contains(fragment.getClass())) {
         fragmentsMap.put(fragment.getClass(), fragment);
       }
     }
@@ -1552,22 +1578,18 @@ public class BuildConfiguration implements BuildEvent {
     return platformName;
   }
 
-  /**
-   * Returns the output directory for this build configuration.
-   */
-  public Root getOutputDirectory(RepositoryName repositoryName) {
+  /** Returns the output directory for this build configuration. */
+  public ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? outputDirectoryForMainRepository
         : OutputDirectory.OUTPUT.getRoot(
             repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
-  /**
-   * Returns the bin directory for this build configuration.
-   */
+  /** Returns the bin directory for this build configuration. */
   @SkylarkCallable(name = "bin_dir", structField = true, documented = false)
   @Deprecated
-  public Root getBinDirectory() {
+  public ArtifactRoot getBinDirectory() {
     return getBinDirectory(RepositoryName.MAIN);
   }
 
@@ -1577,7 +1599,7 @@ public class BuildConfiguration implements BuildEvent {
    * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
    * repositories (external) but will need to be fixed.
    */
-  public Root getBinDirectory(RepositoryName repositoryName) {
+  public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? binDirectoryForMainRepository
         : OutputDirectory.BIN.getRoot(
@@ -1591,26 +1613,22 @@ public class BuildConfiguration implements BuildEvent {
     return getBinDirectory().getExecPath();
   }
 
-  /**
-   * Returns the include directory for this build configuration.
-   */
-  public Root getIncludeDirectory(RepositoryName repositoryName) {
+  /** Returns the include directory for this build configuration. */
+  public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? includeDirectoryForMainRepository
         : OutputDirectory.INCLUDE.getRoot(
             repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
-  /**
-   * Returns the genfiles directory for this build configuration.
-   */
+  /** Returns the genfiles directory for this build configuration. */
   @SkylarkCallable(name = "genfiles_dir", structField = true, documented = false)
   @Deprecated
-  public Root getGenfilesDirectory() {
+  public ArtifactRoot getGenfilesDirectory() {
     return getGenfilesDirectory(RepositoryName.MAIN);
   }
 
-  public Root getGenfilesDirectory(RepositoryName repositoryName) {
+  public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
     if (!separateGenfilesDirectory) {
       return getBinDirectory(repositoryName);
     }
@@ -1622,21 +1640,19 @@ public class BuildConfiguration implements BuildEvent {
   }
 
   /**
-   * Returns the directory where coverage-related artifacts and metadata files
-   * should be stored. This includes for example uninstrumented class files
-   * needed for Jacoco's coverage reporting tools.
+   * Returns the directory where coverage-related artifacts and metadata files should be stored.
+   * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
+   * tools.
    */
-  public Root getCoverageMetadataDirectory(RepositoryName repositoryName) {
+  public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? coverageDirectoryForMainRepository
         : OutputDirectory.COVERAGE.getRoot(
             repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
-  /**
-   * Returns the testlogs directory for this build configuration.
-   */
-  public Root getTestLogsDirectory(RepositoryName repositoryName) {
+  /** Returns the testlogs directory for this build configuration. */
+  public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? testlogsDirectoryForMainRepository
         : OutputDirectory.TESTLOGS.getRoot(
@@ -1663,10 +1679,8 @@ public class BuildConfiguration implements BuildEvent {
     return OS.getCurrent() == OS.WINDOWS ? ";" : ":";
   }
 
-  /**
-   * Returns the internal directory (used for middlemen) for this build configuration.
-   */
-  public Root getMiddlemanDirectory(RepositoryName repositoryName) {
+  /** Returns the internal directory (used for middlemen) for this build configuration. */
+  public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? middlemanDirectoryForMainRepository
         : OutputDirectory.MIDDLEMAN.getRoot(
@@ -1832,11 +1846,9 @@ public class BuildConfiguration implements BuildEvent {
     return true;
   }
 
-  /**
-   * Which fragments does this configuration contain?
-   */
-  public Set<Class<? extends Fragment>> fragmentClasses() {
-    return fragments.keySet();
+  /** Which fragments does this configuration contain? */
+  public FragmentClassSet fragmentClasses() {
+    return fragmentClassSet;
   }
 
   /**
@@ -2142,5 +2154,42 @@ public class BuildConfiguration implements BuildEvent {
             .putAllMakeVariable(getMakeEnvironment())
             .setCpu(getCpu());
     return GenericBuildEvent.protoChaining(this).setConfiguration(builder.build()).build();
+  }
+
+  private static class BuildConfigurationCodec
+      implements InjectingObjectCodec<BuildConfiguration, FileSystemProvider> {
+    @Override
+    public Class<BuildConfiguration> getEncodedClass() {
+      return BuildConfiguration.class;
+    }
+
+    @Override
+    public void serialize(
+        FileSystemProvider fsProvider, BuildConfiguration obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      BlazeDirectories.CODEC.serialize(fsProvider, obj.directories, codedOut);
+      codedOut.writeInt32NoTag(obj.fragments.size());
+      for (Fragment fragment : obj.fragments.values()) {
+        Fragment.CODEC.serialize(fsProvider, fragment, codedOut);
+      }
+      BuildOptions.CODEC.serialize(obj.buildOptions, codedOut);
+      StringCodecs.asciiOptimized().serialize(obj.repositoryName, codedOut);
+    }
+
+    @Override
+    public BuildConfiguration deserialize(FileSystemProvider fsProvider, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      BlazeDirectories blazeDirectories = BlazeDirectories.CODEC.deserialize(fsProvider, codedIn);
+      int length = codedIn.readInt32();
+      ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> builder =
+          new ImmutableSortedMap.Builder<>(lexicalFragmentSorter);
+      for (int i = 0; i < length; ++i) {
+        Fragment fragment = Fragment.CODEC.deserialize(fsProvider, codedIn);
+        builder.put(fragment.getClass(), fragment);
+      }
+      BuildOptions options = BuildOptions.CODEC.deserialize(codedIn);
+      String repositoryName = StringCodecs.asciiOptimized().deserialize(codedIn);
+      return new BuildConfiguration(blazeDirectories, builder.build(), options, repositoryName);
+    }
   }
 }

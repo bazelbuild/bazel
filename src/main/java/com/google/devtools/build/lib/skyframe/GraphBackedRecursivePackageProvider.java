@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -201,7 +204,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       return ImmutableList.of();
     }
 
-    List<Path> roots = new ArrayList<>();
+    List<Root> roots = new ArrayList<>();
     if (repository.isMain()) {
       roots.addAll(pkgPath.getPathEntries());
     } else {
@@ -212,14 +215,14 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
         // "nothing".
         return ImmutableList.of();
       }
-      roots.add(repositoryValue.getPath());
+      roots.add(Root.fromPath(repositoryValue.getPath()));
     }
 
     // If we found a TargetsBelowDirectory pattern in the universe that contains this directory,
     // then we can look for packages in and under it in the graph. If we didn't find one, then the
     // directory wasn't in the universe, so return an empty list.
     ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
-    for (Path root : roots) {
+    for (Root root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       TraversalInfo info =
           new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
@@ -255,7 +258,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
           (CollectPackagesUnderDirectoryValue) val;
       if (collectPackagesValue != null) {
         if (collectPackagesValue.isDirectoryPackage()) {
-          builder.add(info.rootedDir.getRelativePath());
+          builder.add(info.rootedDir.getRootRelativePath());
         }
 
         if (collectPackagesValue.getErrorMessage() != null) {
@@ -266,13 +269,17 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
             collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
         for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
-            PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
+            PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
             ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
-                PathFragment.filterPathsStartingWith(
-                    info.blacklistedSubdirectories, subdirectoryRelativePath);
+                info.blacklistedSubdirectories
+                    .stream()
+                    .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
+                    .collect(toImmutableSet());
             ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-                PathFragment.filterPathsStartingWith(
-                    info.excludedSubdirectories, subdirectoryRelativePath);
+                info.excludedSubdirectories
+                    .stream()
+                    .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
+                    .collect(toImmutableSet());
             if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(subdirectoryRelativePath)) {
               subdirTraversalBuilder.add(
                   new TraversalInfo(

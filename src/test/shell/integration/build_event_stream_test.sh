@@ -154,6 +154,13 @@ genrule(
     srcs = ["//visibility/hidden:hello"],
     cmd = "cp $< $@",
 )
+
+genrule(
+    name = "indirect",
+    outs = ["indirect.txt"],
+    srcs = [":cannotsee"],
+    cmd = "cp $< $@",
+)
 EOF
 mkdir -p failingtool
 cat > failingtool/BUILD <<'EOF'
@@ -184,6 +191,25 @@ alias(
   actual = "//alias/actual:it",
 )
 EOF
+mkdir -p chain
+cat > chain/BUILD <<'EOF'
+genrule(
+  name = "entry0",
+  outs = ["entry0.txt"],
+  cmd = "echo Hello0; touch $@",
+)
+EOF
+for i in `seq 1 10`
+do
+    cat >> chain/BUILD <<EOF
+genrule(
+  name = "entry$i",
+  outs = ["entry$i.txt"],
+  srcs = [ "entry$(( $i - 1)).txt" ],
+  cmd = "echo Hello$i; cp \$< \$@",
+)
+EOF
+done
 }
 
 #### TESTS #############################################################
@@ -628,16 +654,31 @@ function test_visibility_failure() {
   bazel shutdown
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log_once 'reason: ANALYSIS_FAILURE'
-  expect_log_once '^aborted'
+  expect_log 'reason: ANALYSIS_FAILURE'
+  expect_log '^aborted'
 
   # The same should hold true, if the server has already analyzed the target
   (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
-  expect_log_once 'reason: ANALYSIS_FAILURE'
-  expect_log_once '^aborted'
+  expect_log 'reason: ANALYSIS_FAILURE'
+  expect_log '^aborted'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
+}
+
+function test_visibility_indirect() {
+  # verify that an indirect visibility error is reported, including the
+  # target that violates visibility constraints.
+  bazel shutdown
+  (bazel build --build_event_text_file=$TEST_log \
+         //visibility:indirect && fail "build failure expected") || true
+  expect_log 'reason: ANALYSIS_FAILURE'
+  expect_log '^aborted'
+  expect_log '//visibility:cannotsee'
+  # There should be precisely one events with target_completed as event id type
+  (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
+  [ `grep target_completed event_id_types | wc -l` -eq 1 ] \
+      || fail "not precisely one target_completed event id"
 }
 
 function test_loading_failure_keep_going() {
@@ -679,6 +720,18 @@ function test_stdout_stderr_reported() {
   sample_line=`cat stderr.log | grep 'slow' | head -n 1 | tr '[]\r' '....'`
   echo "Sample regexp of stderr: ${sample_line}"
   expect_log "stderr.*${sample_line}"
+}
+
+function test_unbuffered_stdout_stderr() {
+   # Verify that the option --bes_outerr_buffer_size ensures that messages are
+   # flushed out to the BEP immediately
+  bazel clean --expunge
+  bazel build --build_event_text_file="${TEST_log}" \
+        --bes_outerr_buffer_size=1 chain:entry10
+  progress_count=$(grep '^progress' "${TEST_log}" | wc -l )
+  # As we requested no buffereing, each action output has to be reported
+  # immediately, creating an individual progress event.
+  [ "${progress_count}" -gt 10 ] || fail "expected at least 10 progress events"
 }
 
 function test_srcfiles() {

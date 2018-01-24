@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -75,7 +76,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   protected void syncPackages() throws Exception {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
-        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
+        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
   }
 
   @Override

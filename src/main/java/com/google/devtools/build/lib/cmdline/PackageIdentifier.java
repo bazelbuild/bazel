@@ -86,10 +86,10 @@ public final class PackageIdentifier
     if (tofind.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
       // TODO(ulfjack): Remove this when kchodorow@'s exec root rearrangement has been rolled out.
       RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
-      return PackageIdentifier.create(repository, tofind.subFragment(2, tofind.segmentCount()));
+      return PackageIdentifier.create(repository, tofind.subFragment(2));
     } else if (!tofind.normalize().isNormalized()) {
       RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
-      return PackageIdentifier.create(repository, tofind.subFragment(2, tofind.segmentCount()));
+      return PackageIdentifier.create(repository, tofind.subFragment(2));
     } else {
       return PackageIdentifier.createInMainRepo(tofind);
     }

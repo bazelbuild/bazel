@@ -38,7 +38,7 @@ example is perfectly legal (please note when to use quotation marks).
 load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 ```
 
-In a `.bzl` file, symbols starting with `_` are private and cannot be loaded
+In a `.bzl` file, symbols starting with `_` are not exported and cannot be loaded
 from another file. Visibility doesn't affect loading (yet): you don't need to
 use `exports_files` to make a `.bzl` file visible.
 
@@ -92,15 +92,3 @@ Bazel tries to be clever: it uses dependency analysis to know which files must
 be loaded, which rules must be analyzed, and which actions must be executed. For
 example, if a rule generates actions that we don't need for the current build,
 they will not be executed.
-
-
-## Profiling the code
-
-To profile your code and analyze the performance, use the `--profile` flag:
-
-```
-$ bazel build --nobuild --profile=/tmp/prof //path/to:target
-$ bazel analyze-profile /tmp/prof --html --html_details
-```
-
-Then, open the generated HTML file (`/tmp/prof.html` in the example).

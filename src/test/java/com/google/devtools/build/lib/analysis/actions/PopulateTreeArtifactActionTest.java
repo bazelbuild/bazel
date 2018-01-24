@@ -31,9 +31,9 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinatio
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,17 +106,19 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     }
   };
 
-  private Root root;
+  private ArtifactRoot root;
 
   @Before
   public void setRootDir() throws Exception  {
-    root = Root.asDerivedRoot(scratch.dir("/exec/root"));
+    Path execRoot = scratch.getFileSystem().getPath("/exec");
+    root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
   }
 
   @Test
   public void testActionOutputs() throws Exception {
     Action action = createPopulateTreeArtifactAction();
-    assertThat(Artifact.toExecPaths(action.getOutputs())).containsExactly("test/archive_member");
+    assertThat(Artifact.toExecPaths(action.getOutputs()))
+        .containsExactly("out/test/archive_member");
   }
 
   @Test
@@ -132,10 +135,11 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     PopulateTreeArtifactAction action = createPopulateTreeArtifactAction();
     Spawn spawn = action.createSpawn();
     Iterable<Artifact> outputs = actionInputsToArtifacts(spawn.getOutputFiles());
-    assertThat(Artifact.toExecPaths(outputs)).containsExactly(
-        "test/archive_member/archive_members/1.class",
-        "test/archive_member/archive_members/2.class",
-        "test/archive_member/archive_members/txt/text.txt");
+    assertThat(Artifact.toExecPaths(outputs))
+        .containsExactly(
+            "out/test/archive_member/archive_members/1.class",
+            "out/test/archive_member/archive_members/2.class",
+            "out/test/archive_member/archive_members/txt/text.txt");
   }
 
   @Test
@@ -153,13 +157,15 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
   public void testSpawnArguments() throws Exception {
     PopulateTreeArtifactAction action = createPopulateTreeArtifactAction();
     BaseSpawn spawn = (BaseSpawn) action.createSpawn();
-    assertThat(spawn.getArguments()).containsExactly(
-        "unzipBinary",
-        "x",
-        "myArchive.zip",
-        "-d",
-        "test/archive_member",
-        "@archiveManifest.txt").inOrder();
+    assertThat(spawn.getArguments())
+        .containsExactly(
+            "unzipBinary",
+            "x",
+            "myArchive.zip",
+            "-d",
+            "out/test/archive_member",
+            "@archiveManifest.txt")
+        .inOrder();
   }
 
   @Test
@@ -171,10 +177,11 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
 
     assertThat(actionResult.spawnResults()).isEmpty();
 
-    assertThat(Artifact.toExecPaths(treefileArtifacts)).containsExactly(
-        "test/archive_member/archive_members/1.class",
-        "test/archive_member/archive_members/2.class",
-        "test/archive_member/archive_members/txt/text.txt");
+    assertThat(Artifact.toExecPaths(treefileArtifacts))
+        .containsExactly(
+            "out/test/archive_member/archive_members/1.class",
+            "out/test/archive_member/archive_members/2.class",
+            "out/test/archive_member/archive_members/txt/text.txt");
   }
 
   @Test
@@ -339,10 +346,10 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
   private Artifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        root.getPath().getRelative(relpath),
+        root.getRoot().getRelative(relpath),
         root,
         root.getExecPath().getRelative(relpath),
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

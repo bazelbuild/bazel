@@ -48,7 +48,9 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.LegacySkyKey;
@@ -82,8 +84,10 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     AnalysisMock analysisMock = AnalysisMock.get();
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
-            new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(Root.fromPath(rootDirectory)),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
@@ -135,6 +139,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.SKYLARK_SEMANTICS.set(differencer, SkylarkSemantics.DEFAULT_SEMANTICS);
   }
 
   @Test
@@ -182,7 +187,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     assertThatEvaluationResult(result).hasNoError();
 
     assertThat(result.get(key).registeredToolchainLabels())
-        .containsExactly(makeLabel("//toolchain:tc1"), makeLabel("//toolchain:tc2"))
+        // There are default toolchains that are always registered, so just check for the ones added
+        .containsAllOf(makeLabel("//toolchain:tc1"), makeLabel("//toolchain:tc2"))
         .inOrder();
   }
 

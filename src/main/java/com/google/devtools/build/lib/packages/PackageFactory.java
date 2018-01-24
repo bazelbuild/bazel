@@ -406,7 +406,7 @@ public final class PackageFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
-    threadPool = new ThreadPoolExecutor(100, 100, 15L, TimeUnit.SECONDS,
+    threadPool = new ThreadPoolExecutor(100, Integer.MAX_VALUE, 15L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>(),
         new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").build());
     // Do not consume threads when not in use.
@@ -430,9 +430,13 @@ public final class PackageFactory {
    */
   public void setGlobbingThreads(int globbingThreads) {
     threadPool.setCorePoolSize(globbingThreads);
-    threadPool.setMaximumPoolSize(globbingThreads);
   }
 
+  /**
+   * Sets the number of directories to eagerly traverse on the first glob for a given package, in
+   * order to warm the filesystem. -1 means do no eager traversal. See {@code
+   * PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
+   */
   public void setMaxDirectoriesToEagerlyVisitInGlobbing(
       int maxDirectoriesToEagerlyVisitInGlobbing) {
     this.maxDirectoriesToEagerlyVisitInGlobbing = maxDirectoriesToEagerlyVisitInGlobbing;
@@ -578,8 +582,11 @@ public final class PackageFactory {
       Globber.Token globToken = context.globber.runAsync(includes, excludes, excludeDirs);
       matches = context.globber.fetch(globToken);
     } catch (IOException e) {
-      String errorMessage =
-          "error globbing [" + Joiner.on(", ").join(includes) + "]: " + e.getMessage();
+      String errorMessage = String.format(
+          "error globbing [%s]%s: %s",
+          Joiner.on(", ").join(includes),
+          excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
+          e.getMessage());
       context.eventHandler.handle(Event.error(ast.getLocation(), errorMessage));
       context.pkgBuilder.setIOExceptionAndMessage(e, errorMessage);
       matches = ImmutableList.of();
@@ -601,6 +608,7 @@ public final class PackageFactory {
    * PythonPreprocessor. We annotate the package with additional dependencies. (A 'real' subinclude
    * will never be seen by the parser, because the presence of "subinclude" triggers preprocessing.)
    */
+  // TODO(b/35913039): Remove this and all references to 'mocksubinclude'.
   @SkylarkSignature(
     name = "mocksubinclude",
     returnType = Runtime.NoneType.class,
@@ -1302,13 +1310,13 @@ public final class PackageFactory {
     // show up below.
     BuildFileAST buildFileAST =
         parseBuildFile(packageId, input, preludeStatements, localReporterForParsing);
-    AstAfterPreprocessing astAfterPreprocessing =
-        new AstAfterPreprocessing(buildFileAST, localReporterForParsing);
-    return createPackageFromPreprocessingAst(
+    AstParseResult astParseResult =
+        new AstParseResult(buildFileAST, localReporterForParsing);
+    return createPackageFromAst(
         workspaceName,
         packageId,
         buildFile,
-        astAfterPreprocessing,
+        astParseResult,
         imports,
         skylarkFileDependencies,
         defaultVisibility,
@@ -1328,11 +1336,11 @@ public final class PackageFactory {
     return buildFileAST;
   }
 
-  public Package.Builder createPackageFromPreprocessingAst(
+  public Package.Builder createPackageFromAst(
       String workspaceName,
       PackageIdentifier packageId,
       Path buildFile,
-      AstAfterPreprocessing astAfterPreprocessing,
+      AstParseResult astParseResult,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
@@ -1349,11 +1357,11 @@ public final class PackageFactory {
       return evaluateBuildFile(
           workspaceName,
           packageId,
-          astAfterPreprocessing.ast,
+          astParseResult.ast,
           buildFile,
           globber,
-          astAfterPreprocessing.allEvents,
-          astAfterPreprocessing.allPosts,
+          astParseResult.allEvents,
+          astParseResult.allPosts,
           defaultVisibility,
           skylarkSemantics,
           false /* containsError */,
@@ -1606,7 +1614,7 @@ public final class PackageFactory {
   }
 
   /**
-   * Called by a caller of {@link #createPackageFromPreprocessingAst} after this caller has fully
+   * Called by a caller of {@link #createPackageFromAst} after this caller has fully
    * loaded the package.
    */
   public void afterDoneLoadingPackage(Package pkg, SkylarkSemantics skylarkSemantics) {

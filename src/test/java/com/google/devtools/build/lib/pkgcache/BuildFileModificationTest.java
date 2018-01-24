@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
 import java.nio.charset.StandardCharsets;
@@ -137,7 +138,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   private void invalidatePackages() throws InterruptedException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
-        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
+        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
   }
 
   private Package getPackage(String packageName)

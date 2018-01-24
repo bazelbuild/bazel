@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -61,12 +61,11 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -114,8 +113,8 @@ public final class SkyframeBuildView {
   private BuildConfiguration topLevelHostConfiguration;
   // Fragment-limited versions of the host configuration. It's faster to create/cache these here
   // than to store them in Skyframe.
-  private Map<Set<Class<? extends BuildConfiguration.Fragment>>, BuildConfiguration>
-      hostConfigurationCache = Maps.newConcurrentMap();
+  private Map<FragmentClassSet, BuildConfiguration> hostConfigurationCache =
+      Maps.newConcurrentMap();
 
   private BuildConfigurationCollection configurations;
 
@@ -218,15 +217,19 @@ public final class SkyframeBuildView {
         skyframeExecutor.findArtifactConflicts();
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
-    NestedSetBuilder<Package> packages = NestedSetBuilder.stableOrder();
+    Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
+    NestedSetBuilder<Package> packages =
+        singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
     for (AspectValueKey aspectKey : aspectKeys) {
-      AspectValue value = (AspectValue) result.get(aspectKey.getSkyKey());
+      AspectValue value = (AspectValue) result.get(aspectKey);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;
       }
       goodAspects.add(value);
-      packages.addTransitive(value.getTransitivePackages());
+      if (packages != null) {
+        packages.addTransitive(value.getTransitivePackagesForPackageRootResolution());
+      }
     }
 
     // Filter out all CTs that have a bad action and convert to a list of configured targets. This
@@ -234,15 +237,15 @@ public final class SkyframeBuildView {
     // list of values, i.e., that the order is deterministic.
     Collection<ConfiguredTarget> goodCts = Lists.newArrayListWithCapacity(values.size());
     for (ConfiguredTargetKey value : values) {
-      ConfiguredTargetValue ctValue =
-          (ConfiguredTargetValue) result.get(ConfiguredTargetValue.key(value));
+      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) result.get(value);
       if (ctValue == null) {
         continue;
       }
       goodCts.add(ctValue.getConfiguredTarget());
-      packages.addTransitive(ctValue.getTransitivePackages());
+      if (packages != null) {
+        packages.addTransitive(ctValue.getTransitivePackagesForPackageRootResolution());
+      }
     }
-    Path singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
     PackageRoots packageRoots =
         singleSourceRoot == null
             ? new MapAsPackageRoots(
@@ -343,8 +346,11 @@ public final class SkyframeBuildView {
           Event.warn("errors encountered while analyzing target '"
               + topLevelLabel + "': it will not be built"));
       if (analysisRootCause != null) {
-        eventBus.post(new AnalysisFailureEvent(
-            LabelAndConfiguration.of(topLevelLabel, label.getConfiguration()), analysisRootCause));
+        eventBus.post(
+            new AnalysisFailureEvent(
+                ConfiguredTargetKey.of(
+                    topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration()),
+                analysisRootCause));
       }
     }
 
@@ -444,13 +450,13 @@ public final class SkyframeBuildView {
       BuildConfiguration config,
       ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories)
       throws InterruptedException {
-    env.getValue(WorkspaceStatusValue.SKY_KEY);
+    env.getValue(WorkspaceStatusValue.BUILD_INFO_KEY);
     // These factories may each create their own build info artifacts, all depending on the basic
     // build-info.txt and build-changelist.txt.
     List<SkyKey> depKeys = Lists.newArrayList();
     for (BuildInfoKey key : buildInfoFactories.keySet()) {
       if (buildInfoFactories.get(key).isEnabled(config)) {
-        depKeys.add(BuildInfoCollectionValue.key(new BuildInfoKeyAndConfig(key, config)));
+        depKeys.add(BuildInfoCollectionValue.key(key, config));
       }
     }
     env.getValues(depKeys);
@@ -495,7 +501,7 @@ public final class SkyframeBuildView {
       Target target,
       BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
-      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException {
@@ -540,10 +546,10 @@ public final class SkyframeBuildView {
     // trims a host configuration to the same scope as a target configuration. Since their options
     // are different, the host instance may actually be able to produce the fragment. So it's
     // wrong and potentially dangerous to unilaterally exclude it.
-    Set<Class<? extends BuildConfiguration.Fragment>> fragmentClasses =
+    FragmentClassSet fragmentClasses =
         config.trimConfigurations()
             ? config.fragmentClasses()
-            : ruleClassProvider.getAllFragments();
+            : FragmentClassSet.of(ruleClassProvider.getAllFragments());
     BuildConfiguration hostConfig = hostConfigurationCache.get(fragmentClasses);
     if (hostConfig != null) {
       return hostConfig;

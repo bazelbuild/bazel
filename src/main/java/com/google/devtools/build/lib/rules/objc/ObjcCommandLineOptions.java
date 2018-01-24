@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -26,10 +28,12 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
-/**
- * Command-line options for building Objective-C targets.
- */
+/** Command-line options for building Objective-C targets. */
+@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class ObjcCommandLineOptions extends FragmentOptions {
+  public static final ObjectCodec<ObjcCommandLineOptions> CODEC =
+      new ObjcCommandLineOptions_AutoCodec();
+
   @Option(
     name = "ios_simulator_version",
     defaultValue = "9.3",

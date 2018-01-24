@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -75,7 +76,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new AtomicReference<>(
             new PathPackageLocator(
                 rootDirectory.getFileSystem().getPath("/outputbase"),
-                ImmutableList.of(rootDirectory),
+                ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
@@ -104,8 +105,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     List<Action> actions = evaluate(spawnActionTemplate);
     assertThat(actions).hasSize(3);
 
-    ArtifactOwner owner = ActionTemplateExpansionValue.createActionTemplateExpansionKey(
-        spawnActionTemplate);
+    ArtifactOwner owner = ActionTemplateExpansionValue.key(spawnActionTemplate);
     int i = 0;
     for (Action action : actions) {
       String childName = "child" + i;
@@ -210,9 +210,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     Path fullPath = rootDirectory.getRelative(execPath);
     return new SpecialArtifact(
         fullPath,
-        Root.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
         execPath,
-        ArtifactOwner.NULL_OWNER,
+        ArtifactOwner.NullArtifactOwner.INSTANCE,
         SpecialArtifactType.TREE);
   }
 

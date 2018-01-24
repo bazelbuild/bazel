@@ -44,7 +44,7 @@ public class ShowIncludesFilterTest {
     output = new ByteArrayOutputStream();
     filterOutputStream = showIncludesFilter.getFilteredOutputStream(output);
     fs = new InMemoryFileSystem();
-    fs.getRootDirectory().getChild("out").createDirectory();
+    fs.getPath("/out").createDirectory();
   }
 
   private byte[] getBytes(String str) {

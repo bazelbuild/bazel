@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -288,8 +288,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
 
     @Override
-    public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-        throws InterruptedException {
+    public Map<PathFragment, ArtifactRoot> findPackageRootsForFiles(
+        Iterable<PathFragment> execPaths) throws InterruptedException {
       Preconditions.checkState(keysRequested.isEmpty(),
           "resolver should only be called once: %s %s", keysRequested, execPaths);
       // Create SkyKeys list based on execPaths.
@@ -318,7 +318,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         return null;
       }
 
-      Map<PathFragment, Root> result = new HashMap<>();
+      Map<PathFragment, ArtifactRoot> result = new HashMap<>();
       for (PathFragment path : execPaths) {
         if (!depKeys.containsKey(path)) {
           continue;
@@ -327,8 +327,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             (ContainingPackageLookupValue) values.get(depKeys.get(path));
         if (value.hasContainingPackage()) {
           // We have found corresponding root for current execPath.
-          result.put(path,
-              Root.computeSourceRoot(
+          result.put(
+              path,
+              ArtifactRoot.computeSourceRoot(
                   value.getContainingPackageRoot(),
                   value.getContainingPackageName().getRepository()));
         } else {
@@ -341,7 +342,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     @Override
     @Nullable
-    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
+    public Map<PathFragment, ArtifactRoot> findPackageRoots(Iterable<PathFragment> execPaths)
         throws InterruptedException {
       // call sites for this implementation of PackageRootResolver shouldn't be passing in
       // directories.
@@ -359,7 +360,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
     if (!state.hasArtifactData()) {
-      return skyframeActionExecutor.executeAction(action, null, -1, null, actionLookupData);
+      return skyframeActionExecutor
+          .executeAction(env.getListener(), action, null, -1, null, actionLookupData);
     }
     // This may be recreated if we discover inputs.
     ActionMetadataHandler metadataHandler = new ActionMetadataHandler(state.inputArtifactData,
@@ -369,6 +371,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (!state.hasCheckedActionCache()) {
       state.token =
           skyframeActionExecutor.checkActionCache(
+              env.getListener(),
               action,
               metadataHandler,
               actionStartTime,
@@ -442,7 +445,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
-                action, metadataHandler, actionStartTime, actionExecutionContext, actionLookupData);
+                env.getListener(), action, metadataHandler, actionStartTime, actionExecutionContext,
+                actionLookupData);
       }
     } catch (IOException e) {
       throw new ActionExecutionException(

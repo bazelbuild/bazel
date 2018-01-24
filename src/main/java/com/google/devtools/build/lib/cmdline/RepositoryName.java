@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -144,7 +143,7 @@ public final class RepositoryName implements Serializable {
     }
     try {
       RepositoryName repoName = RepositoryName.create("@" + path.getSegment(1));
-      PathFragment subPath = path.subFragment(2, path.segmentCount());
+      PathFragment subPath = path.subFragment(2);
       return Pair.of(repoName, subPath);
     } catch (LabelSyntaxException e) {
       return null;

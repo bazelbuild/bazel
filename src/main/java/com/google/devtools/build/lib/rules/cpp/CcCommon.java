@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -86,6 +87,31 @@ public final class CcCommon {
       }
     }
   };
+
+  /** Action configs we request to enable. */
+  private static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
+      ImmutableSet.of(
+          CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
+          CppCompileAction.STRIP_ACTION_NAME,
+          CppCompileAction.C_COMPILE,
+          CppCompileAction.CPP_COMPILE,
+          CppCompileAction.CPP_HEADER_PARSING,
+          CppCompileAction.CPP_HEADER_PREPROCESSING,
+          CppCompileAction.CPP_MODULE_COMPILE,
+          CppCompileAction.CPP_MODULE_CODEGEN,
+          CppCompileAction.ASSEMBLE,
+          CppCompileAction.PREPROCESS_ASSEMBLE,
+          CppCompileAction.CLIF_MATCH,
+          CppCompileAction.LINKSTAMP_COMPILE,
+          Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
+          // We need to create pic-specific actions for link actions, as they will produce
+          // differently named outputs.
+          Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.EXECUTABLE.getActionName());
 
   /** Features we request to enable unless a rule explicitly doesn't support them. */
   private static final ImmutableSet<String> DEFAULT_FEATURES =
@@ -352,7 +378,11 @@ public final class CcCommon {
     if (!ruleContext.getRule().isAttrDefined(NO_COPTS_ATTRIBUTE, Type.STRING)) {
       return null;
     }
-    String nocoptsAttr = ruleContext.getExpander().expand(NO_COPTS_ATTRIBUTE);
+    String nocoptsValue = ruleContext.attributes().get(NO_COPTS_ATTRIBUTE, Type.STRING);
+    if (Strings.isNullOrEmpty(nocoptsValue)) {
+      return null;
+    }
+    String nocoptsAttr = ruleContext.getExpander().expand(NO_COPTS_ATTRIBUTE, nocoptsValue);
     try {
       return Pattern.compile(nocoptsAttr);
     } catch (PatternSyntaxException e) {
@@ -457,7 +487,7 @@ public final class CcCommon {
         ruleContext.attributeError("includes",
             "Path references a path above the execution root.");
       }
-      if (includesPath.segmentCount() == 0) {
+      if (includesPath.isEmpty()) {
         ruleContext.attributeError(
             "includes",
             "'"
@@ -570,20 +600,15 @@ public final class CcCommon {
   /**
    * Creates the feature configuration for a given rule.
    *
-   * @see CcCommon#configureFeatures(
-   *   RuleContext, FeatureSpecification, SourceCategory, CcToolchainProvider)
-   *
-   * @param features CcToolchainFeatures instance to use to get FeatureConfiguration
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext,
-      FeatureSpecification featureSpecification,
-      SourceCategory sourceCategory,
-      CcToolchainProvider toolchain,
-      CcToolchainFeatures features) {
+      ImmutableSet<String> requestedFeatures,
+      ImmutableSet<String> unsupportedFeatures,
+      CcToolchainProvider toolchain) {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
-    unsupportedFeaturesBuilder.addAll(featureSpecification.getUnsupportedFeatures());
+    unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
     if (!toolchain.supportsHeaderParsing()) {
       // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
@@ -593,19 +618,19 @@ public final class CcCommon {
     if (toolchain.getCppCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
-    ImmutableSet<String> unsupportedFeatures = unsupportedFeaturesBuilder.build();
-    ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
+    ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
+    ImmutableSet.Builder<String> allRequestedFeaturesBuilder = ImmutableSet.builder();
     // If STATIC_LINK_MSVCRT feature isn't specified by user, we add DYNAMIC_LINK_MSVCRT_* feature
     // according to compilation mode.
     // If STATIC_LINK_MSVCRT feature is specified, we add STATIC_LINK_MSVCRT_* feature
     // according to compilation mode.
     if (ruleContext.getFeatures().contains(CppRuleClasses.STATIC_LINK_MSVCRT)) {
-      requestedFeatures.add(
+      allRequestedFeaturesBuilder.add(
           toolchain.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.STATIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.STATIC_LINK_MSVCRT_NO_DEBUG);
     } else {
-      requestedFeatures.add(
+      allRequestedFeaturesBuilder.add(
           toolchain.getCompilationMode() == CompilationMode.DBG
               ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
@@ -617,19 +642,21 @@ public final class CcCommon {
             DEFAULT_FEATURES,
             toolchain.getFeatures().getDefaultFeaturesAndActionConfigs(),
             ruleContext.getFeatures())) {
-      if (!unsupportedFeatures.contains(feature)) {
-        requestedFeatures.add(feature);
+      if (!allUnsupportedFeatures.contains(feature)) {
+        allRequestedFeaturesBuilder.add(feature);
       }
     }
-    requestedFeatures.addAll(featureSpecification.getRequestedFeatures());
+    allRequestedFeaturesBuilder.addAll(requestedFeatures);
 
-    requestedFeatures.addAll(sourceCategory.getActionConfigSet());
+    allRequestedFeaturesBuilder.addAll(DEFAULT_ACTION_CONFIGS);
 
-    FeatureSpecification currentFeatureSpecification =
-        FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures);
+    if (CppHelper.useFission(ruleContext.getFragment(CppConfiguration.class), toolchain)) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
+    }
+
     try {
       FeatureConfiguration configuration =
-          features.getFeatureConfiguration(currentFeatureSpecification);
+          toolchain.getFeatures().getFeatureConfiguration(allRequestedFeaturesBuilder.build());
       for (String feature : unsupportedFeatures) {
         if (configuration.isEnabled(feature)) {
           ruleContext.ruleError(
@@ -650,37 +677,6 @@ public final class CcCommon {
     }
   }
 
-
-  /**
-   * Creates the feature configuration for a given rule.
-   *
-   * @see CcCommon#configureFeatures(RuleContext, CcToolchainProvider, SourceCategory)
-   *
-   * @param toolchain the current toolchain provider
-   * @return the feature configuration for the given {@code ruleContext}.
-   */
-  public static FeatureConfiguration configureFeatures(
-      RuleContext ruleContext,
-      FeatureSpecification featureSpecification,
-      SourceCategory sourceCategory,
-      CcToolchainProvider toolchain) {
-    return configureFeatures(
-        ruleContext, featureSpecification, sourceCategory, toolchain, toolchain.getFeatures());
-  }
-
-  /**
-   * Creates a feature configuration for a given rule.
-   *
-   * @see CcCommon#configureFeatures(RuleContext, CcToolchainProvider)
-   *
-   * @param sourceCategory the category of sources to be used in this build.
-   * @return the feature configuration for the given {@code ruleContext}.
-   */
-  public static FeatureConfiguration configureFeatures(
-      RuleContext ruleContext, CcToolchainProvider toolchain, SourceCategory sourceCategory) {
-    return configureFeatures(ruleContext, FeatureSpecification.EMPTY, sourceCategory, toolchain);
-  }
-
   /**
    * Creates a feature configuration for a given rule.  Assumes strictly cc sources.
    *
@@ -690,7 +686,11 @@ public final class CcCommon {
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
-    return configureFeatures(ruleContext, toolchain, SourceCategory.CC);
+    return configureFeatures(
+        ruleContext,
+        /* requestedFeatures= */ ImmutableSet.of(),
+        /* unsupportedFeatures= */ ImmutableSet.of(),
+        toolchain);
   }
 
   /**

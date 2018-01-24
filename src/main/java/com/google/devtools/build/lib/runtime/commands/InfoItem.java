@@ -224,7 +224,7 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(configurationSupplier);
-      return print(configurationSupplier.get().getBinDirectory(RepositoryName.MAIN).getPath());
+      return print(configurationSupplier.get().getBinDirectory(RepositoryName.MAIN).getRoot());
     }
   }
 
@@ -245,8 +245,7 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(configurationSupplier);
-      return print(
-          configurationSupplier.get().getGenfilesDirectory(RepositoryName.MAIN).getPath());
+      return print(configurationSupplier.get().getGenfilesDirectory(RepositoryName.MAIN).getRoot());
     }
   }
 
@@ -267,8 +266,7 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(configurationSupplier);
-      return print(
-          configurationSupplier.get().getTestLogsDirectory(RepositoryName.MAIN).getPath());
+      return print(configurationSupplier.get().getTestLogsDirectory(RepositoryName.MAIN).getRoot());
     }
   }
 

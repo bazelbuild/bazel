@@ -44,23 +44,6 @@
     },
     {
         "variation": "",
-        "node": "freebsd-12",
-        "parameters": {
-            "configure": [
-                "find -E . -type f -iregex '.*(sh|txt|_stub|stub_.*|bazel|get_workspace_status|protobuf_support|_so)' \\",
-                "-exec sed -i '' \\",
-                "-e '1s|^\\#![[:space:]]*/bin/bash\\([[:space:]]\\)|\\#!/usr/local/bin/bash\\1|' \\",
-                "-e '1s|^\\#![[:space:]]*/bin/bash$|\\#!/usr/local/bin/bash|' \\",
-                "-e '1s|^\\#![[:space:]]*/usr/bin/env bash\\([[:space:]]\\)|\\#!/usr/local/bin/bash\\1|' \\",
-                "-e '1s|^\\#![[:space:]]*/usr/bin/env bash$|\\#!/usr/local/bin/bash|' \\",
-                "{} +"
-            ],
-            "archive": {"bazel-bin/src/bazel": "bazel"}
-        },
-        "opts": ["-c opt"]
-    },
-    {
-        "variation": "",
         "node": "darwin-x86_64",
         "parameters": {
             "archive": {

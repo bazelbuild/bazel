@@ -106,7 +106,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                 label ->
                     LegacySkyKey.create(
                         SkyFunctions.CONFIGURED_TARGET,
-                        new ConfiguredTargetKey(label, configuration)))
+                        ConfiguredTargetKey.of(label, configuration)))
             .collect(ImmutableList.toImmutableList());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =

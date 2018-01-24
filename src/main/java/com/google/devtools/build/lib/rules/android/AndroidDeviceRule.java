@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -23,13 +22,12 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
-/**
- * Rule definition for android_device.
- */
+/** Rule definition for android_device. */
 public final class AndroidDeviceRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -97,38 +95,77 @@ public final class AndroidDeviceRule implements RuleDefinition {
         a specific device). The properties in this file will override read only
         properties typically set by the emulator such as ro.product.model.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("default_properties", LABEL).cfg(HOST)
+        .add(attr("default_properties", LABEL)
+            .cfg(HostTransition.INSTANCE)
             .allowedFileTypes(JavaSemantics.PROPERTIES))
         /* <!-- #BLAZE_RULE(android_device).ATTRIBUTE(platform_apks) -->
         A list of apks to be installed on the device at boot time.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("platform_apks", LABEL_LIST).legacyAllowAnyFileType())
-        .add(attr("$adb_static", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android:adb_static")))
-        .add(attr("$adb", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android:adb")))
-        .add(attr("$emulator_arm", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android/emulator:emulator_arm")))
-        .add(attr("$emulator_x86", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android/emulator:emulator_x86")))
-        .add(attr("$emulator_x86_bios", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android/emulator:emulator_x86_bios")))
-        .add(attr("$mksd", LABEL).cfg(HOST).exec().value(
-            env.getToolsLabel("//tools/android/emulator:mksd")))
-        .add(attr("$empty_snapshot_fs", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android/emulator:empty_snapshot_fs")))
-        .add(attr("$xvfb_support", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android/emulator:xvfb_support")))
-        .add(attr("$unified_launcher", LABEL).cfg(HOST).exec().value(
-            env.getToolsLabel("//tools/android/emulator:unified_launcher")))
-        .add(attr("$android_runtest", LABEL).cfg(HOST).exec().value(
-            env.getToolsLabel("//tools/android:android_runtest")))
-        .add(attr("$testing_shbase", LABEL).cfg(HOST).value(
-            env.getToolsLabel("//tools/android/emulator:shbase")))
-        .add(attr("$sdk_path", LABEL).cfg(HOST).exec().value(
-            env.getToolsLabel("//tools/android/emulator:sdk_path")))
-        .add(attr("$is_executable", BOOLEAN).value(true)
-            .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+        // This should be set to false when we globally enable the flag for cloud dex2oat.
+        // Setting it to True for now is a no-op today, but setting it to false will disable
+        // all Dex2Oat functionality. This will be changed back to false based on this release
+        // process
+        // 1. Set pregenerate_oat_files_for_tests with default to true.
+        // 2. Wait for a Blaze release. This should be a no-op.
+        // 3. Update all android_device rules and set value of cloud_dex2oat appropriately.
+        // 4. Change the default flag value to false.
+        .add(attr("pregenerate_oat_files_for_tests", BOOLEAN).value(true))
+        .add(
+            attr("$adb_static", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel("//tools/android:adb_static")))
+        .add(attr("$adb", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .value(env.getToolsLabel("//tools/android:adb")))
+        .add(
+            attr("$emulator_arm", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel("//tools/android/emulator:emulator_arm")))
+        .add(
+            attr("$emulator_x86", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel("//tools/android/emulator:emulator_x86")))
+        .add(
+            attr("$emulator_x86_bios", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel("//tools/android/emulator:emulator_x86_bios")))
+        .add(
+            attr("$mksd", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .exec()
+                .value(env.getToolsLabel("//tools/android/emulator:mksd")))
+        .add(
+            attr("$empty_snapshot_fs", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel("//tools/android/emulator:empty_snapshot_fs")))
+        .add(
+            attr("$xvfb_support", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel("//tools/android/emulator:xvfb_support")))
+        .add(
+            attr("$unified_launcher", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .exec()
+                .value(env.getToolsLabel("//tools/android/emulator:unified_launcher")))
+        .add(
+            attr("$android_runtest", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .exec()
+                .value(env.getToolsLabel("//tools/android:android_runtest")))
+        .add(
+            attr("$testing_shbase", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(env.getToolsLabel("//tools/android/emulator:shbase")))
+        .add(
+            attr("$sdk_path", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .exec()
+                .value(env.getToolsLabel("//tools/android/emulator:sdk_path")))
+        .add(
+            attr("$is_executable", BOOLEAN)
+                .value(true)
+                .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .add(
             Whitelist.getAttributeFromWhitelistName(AndroidDevice.WHITELIST_NAME)
                 .value(env.getToolsLabel("//tools/android:android_device_whitelist")))

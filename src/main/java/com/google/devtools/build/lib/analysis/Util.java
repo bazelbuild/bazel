@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Set;
@@ -77,10 +78,10 @@ public abstract class Util {
    * build file and all toolchain deps.
    * note: nodes that are depended on both implicitly and explicitly are considered explicit.
    */
-  public static ImmutableSet<LabelAndConfiguration> findImplicitDeps(RuleContext ruleContext) {
+  public static ImmutableSet<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
     // (1) Consider rule attribute dependencies.
-    Set<LabelAndConfiguration> maybeImplicitDeps = CompactHashSet.create();
-    Set<LabelAndConfiguration> explicitDeps = CompactHashSet.create();
+    Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();
+    Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
     AttributeMap attributes = ruleContext.attributes();
     ListMultimap<String, ? extends TransitiveInfoCollection> targetMap =
         ruleContext.getConfiguredTargetMap();
@@ -99,19 +100,19 @@ public abstract class Util {
     if (toolchainContext != null) {
       BuildConfiguration config = ruleContext.getConfiguration();
       for (Label toolchain : toolchainContext.getResolvedToolchainLabels()) {
-        maybeImplicitDeps.add(LabelAndConfiguration.of(toolchain, config));
+        maybeImplicitDeps.add(ConfiguredTargetKey.of(toolchain, config));
       }
       maybeImplicitDeps.add(
-          LabelAndConfiguration.of(toolchainContext.getExecutionPlatform().label(), config));
+          ConfiguredTargetKey.of(toolchainContext.getExecutionPlatform().label(), config));
       maybeImplicitDeps.add(
-          LabelAndConfiguration.of(toolchainContext.getTargetPlatform().label(), config));
+          ConfiguredTargetKey.of(toolchainContext.getTargetPlatform().label(), config));
     }
     return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));
   }
 
   private static void addLabelsAndConfigs(
-      Set<LabelAndConfiguration> set, List<? extends TransitiveInfoCollection> deps) {
+      Set<ConfiguredTargetKey> set, List<? extends TransitiveInfoCollection> deps) {
     deps.forEach(
-        target -> set.add(LabelAndConfiguration.of(target.getLabel(), target.getConfiguration())));
+        target -> set.add(ConfiguredTargetKey.of(target.getLabel(), target.getConfiguration())));
   }
 }

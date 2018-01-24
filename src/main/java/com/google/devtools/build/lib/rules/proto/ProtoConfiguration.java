@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters;
@@ -35,23 +37,24 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
-/**
- * Configuration for Protocol Buffer Libraries.
- */
+/** Configuration for Protocol Buffer Libraries. */
+@AutoCodec
 @Immutable
 // This module needs to be exported to Skylark so it can be passed as a mandatory host/target
 // configuration fragment in aspect definitions.
 @SkylarkModule(
-    name = "proto",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
-    doc = "A configuration fragment representing protocol buffers."
+  name = "proto",
+  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
+  doc = "A configuration fragment representing protocol buffers."
 )
 public class ProtoConfiguration extends Fragment {
+  public static final ObjectCodec<ProtoConfiguration> CODEC = new ProtoConfiguration_AutoCodec();
 
-  /**
-   * Command line options.
-   */
+  /** Command line options. */
+  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
+    public static final ObjectCodec<Options> CODEC = new ProtoConfiguration_Options_AutoCodec();
+
     @Option(
       name = "protocopt",
       allowMultiple = true,
@@ -222,6 +225,7 @@ public class ProtoConfiguration extends Fragment {
   private final ImmutableList<String> ccProtoLibrarySourceSuffixes;
   private final Options options;
 
+  @AutoCodec.Constructor
   public ProtoConfiguration(Options options) {
     this.protocOpts = ImmutableList.copyOf(options.protocOpts);
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);
@@ -269,5 +273,4 @@ public class ProtoConfiguration extends Fragment {
   public List<String> ccProtoLibrarySourceSuffixes() {
     return ccProtoLibrarySourceSuffixes;
   }
-
 }

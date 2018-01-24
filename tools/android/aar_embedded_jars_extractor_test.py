@@ -14,9 +14,9 @@
 
 """Tests for aar_embedded_jars_extractor."""
 
+import io
 import os
 import shutil
-import StringIO
 import unittest
 import zipfile
 
@@ -26,6 +26,12 @@ from tools.android import aar_embedded_jars_extractor
 class AarEmbeddedJarsExtractor(unittest.TestCase):
   """Unit tests for aar_embedded_jars_extractor.py."""
 
+  # Python 2 alias
+  if not hasattr(unittest.TestCase, "assertCountEqual"):
+
+    def assertCountEqual(self, *args):
+      return self.assertItemsEqual(*args)
+
   def setUp(self):
     os.chdir(os.environ["TEST_TMPDIR"])
 
@@ -33,47 +39,47 @@ class AarEmbeddedJarsExtractor(unittest.TestCase):
     shutil.rmtree("out_dir")
 
   def testNoJars(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
-    param_file = StringIO.StringIO()
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
+    param_file = io.BytesIO()
     os.makedirs("out_dir")
     aar_embedded_jars_extractor.ExtractEmbeddedJars(aar, param_file, "out_dir")
     self.assertEqual([], os.listdir("out_dir"))
     param_file.seek(0)
-    self.assertEqual("--exclude_build_data\n", param_file.read())
+    self.assertEqual(b"--exclude_build_data\n", param_file.read())
 
   def testClassesJarAndLibsJars(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
     aar.writestr("classes.jar", "")
     aar.writestr("libs/a.jar", "")
     aar.writestr("libs/b.jar", "")
-    param_file = StringIO.StringIO()
+    param_file = io.BytesIO()
     os.makedirs("out_dir")
     aar_embedded_jars_extractor.ExtractEmbeddedJars(aar, param_file, "out_dir")
-    self.assertItemsEqual(["classes.jar", "libs"], os.listdir("out_dir"))
-    self.assertItemsEqual(["a.jar", "b.jar"], os.listdir("out_dir/libs"))
+    self.assertCountEqual(["classes.jar", "libs"], os.listdir("out_dir"))
+    self.assertCountEqual(["a.jar", "b.jar"], os.listdir("out_dir/libs"))
     param_file.seek(0)
     self.assertEqual(
-        ["--exclude_build_data\n",
-         "--sources\n",
-         "out_dir/classes.jar\n",
-         "--sources\n",
-         "out_dir/libs/a.jar\n",
-         "--sources\n",
-         "out_dir/libs/b.jar\n"],
+        [b"--exclude_build_data\n",
+         b"--sources\n",
+         b"out_dir/classes.jar\n",
+         b"--sources\n",
+         b"out_dir/libs/a.jar\n",
+         b"--sources\n",
+         b"out_dir/libs/b.jar\n"],
         param_file.readlines())
 
   def testOnlyClassesJar(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
     aar.writestr("classes.jar", "")
-    param_file = StringIO.StringIO()
+    param_file = io.BytesIO()
     os.makedirs("out_dir")
     aar_embedded_jars_extractor.ExtractEmbeddedJars(aar, param_file, "out_dir")
     self.assertEqual(["classes.jar"], os.listdir("out_dir"))
     param_file.seek(0)
     self.assertEqual(
-        ["--exclude_build_data\n",
-         "--sources\n",
-         "out_dir/classes.jar\n"],
+        [b"--exclude_build_data\n",
+         b"--sources\n",
+         b"out_dir/classes.jar\n"],
         param_file.readlines())
 
 

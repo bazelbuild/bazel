@@ -573,12 +573,14 @@ register_toolchains('//demo:invalid')
 EOF
 
   mkdir -p demo
+  cat >> demo/out.log<<EOF
+INVALID
+EOF
   cat >> demo/BUILD <<EOF
-genrule(
+filegroup(
     name = "invalid",
-    srcs = [],
-    outs = ["out.log"],
-    cmd = "echo invalid > $@")
+    srcs = ["out.log"],
+)
 
 load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
 # Use the toolchain.

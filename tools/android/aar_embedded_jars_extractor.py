@@ -45,13 +45,14 @@ def ExtractEmbeddedJars(aar,
   if not output_dir_orig:
     output_dir_orig = output_dir
   jar_pattern = re.compile("^(classes|libs/.+)\\.jar$")
-  singlejar_param_file.write("--exclude_build_data\n")
+  singlejar_param_file.write(b"--exclude_build_data\n")
   for name in aar.namelist():
     if jar_pattern.match(name):
-      singlejar_param_file.write("--sources\n")
+      singlejar_param_file.write(b"--sources\n")
       # output_dir may be a temporary junction, so write the original
       # (unshortened) path to the params file
-      singlejar_param_file.write(output_dir_orig + "/" + name + "\n")
+      singlejar_param_file.write(
+          (output_dir_orig + "/" + name + "\n").encode("utf-8"))
       aar.extract(name, output_dir)
 
 

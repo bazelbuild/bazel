@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -203,9 +204,9 @@ public final class Runtime {
       functions.get(namespace).put(function.getName(), function);
     }
 
-    /** Returns a set of all registered builtins, in a deterministic order. */
-    public ImmutableSet<Object> getBuiltins() {
-      return ImmutableSet.copyOf(allBuiltins.values());
+    /** Returns a list of all registered builtins, in a deterministic order. */
+    public ImmutableList<Object> getBuiltins() {
+      return ImmutableList.copyOf(allBuiltins.values());
     }
 
     @Nullable

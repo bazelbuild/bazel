@@ -211,7 +211,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
     checkError(
         "javatests/com/app/instr",
         "ait",
-        "The android_binary target at //javatests/com/app/instr:app "
+        "The android_binary target //javatests/com/app/instr:app "
             + "is missing an 'instruments' attribute",
         "android_binary(",
         "  name = 'app',",

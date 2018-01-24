@@ -60,7 +60,6 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
   @Test
   public void testToolchainSelectionCcDepDefault() throws Exception {
-    useConfiguration("--experimental_disable_jvm");
     ScratchAttributeWriter
         .fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "b.cc")
@@ -107,9 +106,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
   @Test
   public void testToolchainSelectionMultiArchIos() throws Exception {
-    useConfiguration(
-        "--experimental_disable_jvm",
-        "--ios_multi_cpus=armv7,arm64");
+    useConfiguration("--ios_multi_cpus=armv7,arm64");
     ScratchAttributeWriter
         .fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "a.cc")
@@ -133,7 +130,6 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   @Test
   public void testToolchainSelectionMultiArchWatchos() throws Exception {
     useConfiguration(
-        "--experimental_disable_jvm",
         "--ios_multi_cpus=armv7,arm64",
         "--watchos_cpus=armv7k");
     ScratchAttributeWriter

@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +48,7 @@ public class TargetContext {
    * exception of visibility (i.e., visibility is represented here, even though it is a rule
    * attribute in case of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
    */
-  private final List<ConfiguredTarget> directPrerequisites;
+  private final List<ConfiguredTargetAndTarget> directPrerequisites;
 
   private final NestedSet<PackageGroupContents> visibility;
 
@@ -59,12 +61,12 @@ public class TargetContext {
       AnalysisEnvironment env,
       Target target,
       BuildConfiguration configuration,
-      Iterable<ConfiguredTarget> directPrerequisites,
+      Set<ConfiguredTargetAndTarget> directPrerequisites,
       NestedSet<PackageGroupContents> visibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
-    this.directPrerequisites = ImmutableList.<ConfiguredTarget>copyOf(directPrerequisites);
+    this.directPrerequisites = ImmutableList.copyOf(directPrerequisites);
     this.visibility = visibility;
   }
 
@@ -113,10 +115,10 @@ public class TargetContext {
    */
   public TransitiveInfoCollection maybeFindDirectPrerequisite(Label label,
       BuildConfiguration config) {
-    for (ConfiguredTarget prerequisite : directPrerequisites) {
-      if (prerequisite.getLabel().equals(label)
-          && (Objects.equal(prerequisite.getConfiguration(), config))) {
-        return prerequisite;
+    for (ConfiguredTargetAndTarget prerequisite : directPrerequisites) {
+      if (prerequisite.getTarget().getLabel().equals(label)
+          && (Objects.equal(prerequisite.getConfiguredTarget().getConfiguration(), config))) {
+        return prerequisite.getConfiguredTarget();
       }
     }
     return null;

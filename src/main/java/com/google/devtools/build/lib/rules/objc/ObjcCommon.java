@@ -465,7 +465,7 @@ public final class ObjcCommon {
             Iterables.transform(
                 Interspersing.prependEach(
                     AppleToolchain.sdkDir() + "/usr/include/",
-                    PathFragment.safePathStrings(attributes.sdkIncludes())),
+                    Iterables.transform(attributes.sdkIncludes(), PathFragment::getSafePathString)),
                 PathFragment::create);
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))

@@ -244,6 +244,38 @@ TEST_F(OptionProcessorTest, NoMasterBazelrcAndBazelrcWorkTogetherCorrectly) {
       output);
 }
 
+TEST_F(OptionProcessorTest, MasterBazelrcOverridesNoMasterBazelrc) {
+  const std::string master_rc_path =
+      blaze_util::JoinPath(workspace_, "tools/bazel.rc");
+  ASSERT_TRUE(blaze_util::MakeDirectories(
+      blaze_util::Dirname(master_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("startup --max_idle_secs=123",
+                                    master_rc_path, 0755));
+
+  const std::vector<std::string> args =
+      {"bazel", "--nomaster_bazelrc", "--master_bazelrc", "build"};
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+                << error;
+  EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+
+  // Check that the startup option option provenance message prints the correct
+  // information for the master bazelrc.
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  EXPECT_PRED1(
+      [](std::string actualOutput) {
+        return RE2::FullMatch(
+            actualOutput,
+            "INFO: Reading 'startup' options from .*/tools/bazel.rc: "
+            "--max_idle_secs=123\n");
+      },
+      output);
+}
+
 TEST_F(OptionProcessorTest, MultipleStartupArgsInMasterBazelrcWorksCorrectly) {
   // Add startup flags to the master bazelrc.
   const std::string master_rc_path =

@@ -2066,7 +2066,7 @@ public class MethodLibrary {
           // Order the fields alphabetically.
           Set<String> fields = new TreeSet<>();
           if (object instanceof ClassObject) {
-            fields.addAll(((ClassObject) object).getKeys());
+            fields.addAll(((ClassObject) object).getFieldNames());
           }
           fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
           fields.addAll(FuncallExpression.getMethodNames(object.getClass()));

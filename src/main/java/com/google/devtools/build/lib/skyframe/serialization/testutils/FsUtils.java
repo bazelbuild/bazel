@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
@@ -24,15 +26,17 @@ public class FsUtils {
 
   public static final FileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
 
+  public static final FileSystemProvider TEST_FILESYSTEM_PROVIDER = () -> TEST_FILESYSTEM;
+
   public static final RootedPath TEST_ROOT =
       RootedPath.toRootedPath(
-          TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all")),
+          Root.fromPath(TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all"))),
           PathFragment.create("all/at/anywhere"));
 
   private FsUtils() {}
 
   /** Returns path relative to {@link #TEST_ROOT}. */
   public static PathFragment rootPathRelative(String path) {
-    return TEST_ROOT.getRelativePath().getRelative(path);
+    return TEST_ROOT.getRootRelativePath().getRelative(path);
   }
 }

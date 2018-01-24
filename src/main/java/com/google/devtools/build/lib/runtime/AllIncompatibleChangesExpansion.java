@@ -45,8 +45,7 @@ import java.util.Map;
  *   <li>the {@link Option#help} field must be set, and must refer the user to information about
  *       what the change does and how to migrate their code
  *   <li>the following fields may not be used: {@link Option#abbrev}, {@link Option#valueHelp},
- *       {@link Option#converter}, {@link Option#allowMultiple}, {@link Option#oldName}, and {@link
- *       Option#wrapperOption}
+ *       {@link Option#converter}, {@link Option#allowMultiple}, and {@link Option#oldName}
  * </ul>
  *
  * Example:
@@ -121,9 +120,6 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
     }
     if (!optionDefinition.getOldOptionName().equals(defaultString)) {
       throw new IllegalArgumentException(prefix + "must not use the oldName field");
-    }
-    if (optionDefinition.isWrapperOption()) {
-      throw new IllegalArgumentException(prefix + "must not use the wrapperOption field");
     }
 
     // Validate the fields that are actually allowed.

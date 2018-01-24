@@ -55,6 +55,8 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -68,6 +70,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
@@ -146,7 +149,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     pkgLocator =
         new PathPackageLocator(
             outputBase,
-            ImmutableList.of(rootDirectory),
+            ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     directories =
         new BlazeDirectories(
@@ -232,13 +235,18 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * options for unspecified ones, and recreates the build view.
    */
   protected final void useConfiguration(String... args) throws Exception {
-    optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
-        ExecutionOptions.class,
-        PackageCacheOptions.class,
-        SkylarkSemanticsOptions.class,
-        BuildRequestOptions.class,
-        BuildView.Options.class),
-        ruleClassProvider.getConfigurationOptions()));
+    optionsParser =
+        OptionsParser.newOptionsParser(
+            Iterables.concat(
+                Arrays.asList(
+                    ExecutionOptions.class,
+                    PackageCacheOptions.class,
+                    SkylarkSemanticsOptions.class,
+                    BuildRequestOptions.class,
+                    BuildView.Options.class,
+                    KeepGoingOption.class,
+                    LoadingPhaseThreadsOption.class),
+                ruleClassProvider.getConfigurationOptions()));
     optionsParser.parse(new String[] {"--default_visibility=public" });
     optionsParser.parse(args);
     if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
@@ -300,8 +308,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
-    viewOptions.keepGoing = flags.contains(Flag.KEEP_GOING);
-    viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
+    // update --keep_going option if test requested it.
+    boolean keepGoing = flags.contains(Flag.KEEP_GOING);
 
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
     PathPackageLocator pathPackageLocator =
@@ -328,8 +336,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ImmutableMap.<String, String>of(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
     LoadingResult loadingResult =
         loadingPhaseRunner.execute(
@@ -337,9 +345,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.copyOf(labels),
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
-            viewOptions.keepGoing,
-            /*determineTests=*/false,
-            /*callback=*/null);
+            keepGoing,
+            /*determineTests=*/ false,
+            /*callback=*/ null);
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
@@ -352,6 +360,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             masterConfig,
             aspects,
             viewOptions,
+            keepGoing,
+            LOADING_PHASE_THREADS,
             AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
             reporter,
             eventBus);
@@ -428,10 +438,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner)
       throws InterruptedException {
     Label label = owner.getLabel();
-    return buildView.getArtifactFactory().getDerivedArtifact(
-        label.getPackageFragment().getRelative(packageRelativePath),
-        getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
-        new ConfiguredTargetKey(owner));
+    return buildView
+        .getArtifactFactory()
+        .getDerivedArtifact(
+            label.getPackageFragment().getRelative(packageRelativePath),
+            getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
+            ConfiguredTargetKey.of(owner));
   }
 
   protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {
@@ -469,7 +481,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    *
    * Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
    */
-  protected final void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
+  protected void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
     setRulesAndAspectsAvailableInTests(
         ImmutableList.<NativeAspectClass>of(),
         ImmutableList.copyOf(rules));

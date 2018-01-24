@@ -291,17 +291,36 @@ EOF
 
 function test_android_ndk_repository_wrong_path() {
   create_new_workspace
-  mkdir "$TEST_SRCDIR/some_dir"
+  mkdir "$TEST_TMPDIR/some_dir"
   cat > WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
     api_level = 25,
-    path = "$TEST_SRCDIR/some_dir",
+    path = "$TEST_TMPDIR/some_dir",
 )
 EOF
   bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
-  expect_log "Unable to read the Android NDK at $TEST_SRCDIR/some_dir, the path may be invalid." \
+  expect_log "Unable to read the Android NDK at $TEST_TMPDIR/some_dir, the path may be invalid." \
     " Is the path in android_ndk_repository() or \$ANDROID_NDK_HOME set correctly?"
+}
+
+function test_stripped_cc_binary() {
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+)
+EOF
+  cat > foo.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build //:foo.stripped \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed"
 }
 
 run_suite "Android NDK integration tests"

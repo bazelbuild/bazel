@@ -1,28 +1,39 @@
-package(default_visibility = ["//visibility:private"])
+# This package contains sources for language-specific runfiles libraries.
+#
+# Do not depend on these rules. Depend on the ones in @bazel_tools//tools/runfiles instead, that way
+# your binary won't require the Bazel source tree to work correctly.
 
-exports_files(
-    ["runfiles.sh"],
-    visibility = ["//visibility:public"],
-)
+package(default_visibility = ["//visibility:private"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(
+        ["**"],
+        exclude = [".*"],  # .swp files and such
+    ) + [
+        "//src/tools/runfiles/java/com/google/devtools/build/runfiles:srcs",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "//src/tools/runfiles/java/com/google/devtools/build/runfiles:embedded_tools",
+    ],
     visibility = ["//src:__pkg__"],
 )
 
 sh_library(
     name = "runfiles_sh_lib",
     srcs = ["runfiles.sh"],
-    visibility = ["//visibility:public"],
 )
 
 sh_test(
     name = "runfiles_sh_test",
     srcs = select({
         "//src/conditions:windows": ["runfiles_windows_test.sh"],
-        "//src/conditions:windows_msys": ["runfiles_windows_test.sh"],
-        "//src/conditions:windows_msvc": ["runfiles_windows_test.sh"],
         "//conditions:default": ["runfiles_posix_test.sh"],
     }),
     deps = [":runfiles_sh_lib"],
@@ -34,13 +45,13 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+        "//src/tools/runfiles/java/com/google/devtools/build/runfiles:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
 )

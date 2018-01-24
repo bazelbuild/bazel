@@ -510,8 +510,13 @@ void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
-    const string &host_javabase, vector<string> *result,
+    const string &host_javabase, std::vector<string> *result,
     const vector<string> &user_options, string *error) const {
+  AddJVMLoggingArguments(result);
+  return AddJVMMemoryArguments(host_javabase, result, user_options, error);
+}
+
+void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
   // Configure logging
   const string propFile =
       blaze_util::JoinPath(output_base, "javalog.properties");
@@ -532,6 +537,11 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);
   }
+}
+
+blaze_exit_code::ExitCode StartupOptions::AddJVMMemoryArguments(
+    const string &host_javabase, std::vector<string> *result,
+    const vector<string> &user_options, string *error) const {
   return blaze_exit_code::SUCCESS;
 }
 

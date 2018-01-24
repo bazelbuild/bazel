@@ -20,9 +20,10 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
-
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,20 +31,24 @@ import java.util.List;
  * The configuration fragment containing information about the various pieces of infrastructure
  * needed to run Python compilations.
  */
+@AutoCodec
 @Immutable
 public class PythonConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<PythonConfiguration> CODEC = new PythonConfiguration_AutoCodec();
+
   private final boolean ignorePythonVersionAttribute;
   private final PythonVersion defaultPythonVersion;
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
 
+  @AutoCodec.Constructor
   PythonConfiguration(
-      PythonVersion pythonVersion,
+      PythonVersion defaultPythonVersion,
       boolean ignorePythonVersionAttribute,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees) {
     this.ignorePythonVersionAttribute = ignorePythonVersionAttribute;
-    this.defaultPythonVersion = pythonVersion;
+    this.defaultPythonVersion = defaultPythonVersion;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
   }

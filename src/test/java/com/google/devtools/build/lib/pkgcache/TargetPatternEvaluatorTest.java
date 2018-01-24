@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Arrays;
 import java.util.Set;
 import org.junit.Before;
@@ -136,12 +137,15 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   private void invalidate(String file) throws InterruptedException {
-    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.builder().modify(PathFragment.create(file)).build(), rootDirectory);
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
+        ModifiedFileSet.builder().modify(PathFragment.create(file)).build(),
+        Root.fromPath(rootDirectory));
   }
 
   private void invalidate(ModifiedFileSet modifiedFileSet) throws InterruptedException {
-    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter, modifiedFileSet, rootDirectory);
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter, modifiedFileSet, Root.fromPath(rootDirectory));
   }
 
   private void setDeletedPackages(Set<PackageIdentifier> deletedPackages) {

@@ -321,8 +321,10 @@ public final class Converters {
 
   public static <T> List<T> concatLists(
       @Nullable List<? extends T> a, @Nullable List<? extends T> b) {
-    @SuppressWarnings("unchecked") List<T> la = (List<T>) a;
-    @SuppressWarnings("unchecked") List<T> lb = (List<T>) b;
+    @SuppressWarnings("unchecked")
+    List<T> la = (List<T>) a;
+    @SuppressWarnings("unchecked")
+    List<T> lb = (List<T>) b;
     if (la == null || la.isEmpty()) {
       return (lb == null || lb.isEmpty()) ? ImmutableList.of() : lb;
     }

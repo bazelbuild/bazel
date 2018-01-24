@@ -17,7 +17,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -34,7 +33,7 @@ public class TestCompletionValue implements SkyValue {
   private TestCompletionValue() { }
 
   public static SkyKey key(
-      LabelAndConfiguration lac,
+      ConfiguredTargetKey lac,
       final TopLevelArtifactContext topLevelArtifactContext,
       final boolean exclusiveTesting) {
     return LegacySkyKey.create(
@@ -53,7 +52,7 @@ public class TestCompletionValue implements SkyValue {
             return LegacySkyKey.create(
                 SkyFunctions.TEST_COMPLETION,
                 TestCompletionKey.create(
-                    LabelAndConfiguration.of(ct), topLevelArtifactContext, exclusiveTesting));
+                    ConfiguredTargetKey.of(ct), topLevelArtifactContext, exclusiveTesting));
           }
         });
   }
@@ -62,14 +61,15 @@ public class TestCompletionValue implements SkyValue {
   abstract static class TestCompletionKey {
 
     public static TestCompletionKey create(
-        LabelAndConfiguration labelAndConfiguration,
+        ConfiguredTargetKey configuredTargetKey,
         TopLevelArtifactContext topLevelArtifactContext,
         boolean exclusiveTesting) {
       return new AutoValue_TestCompletionValue_TestCompletionKey(
-          labelAndConfiguration, topLevelArtifactContext, exclusiveTesting);
+          configuredTargetKey, topLevelArtifactContext, exclusiveTesting);
     }
 
-    public abstract LabelAndConfiguration labelAndConfiguration();
+    abstract ConfiguredTargetKey configuredTargetKey();
+
     public abstract TopLevelArtifactContext topLevelArtifactContext();
     public abstract boolean exclusiveTesting();
   }

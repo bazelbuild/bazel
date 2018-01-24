@@ -689,6 +689,91 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertContainsEvent("apple_bitcode mode 'embedded' is unsupported");
   }
 
+  // Verifies that the --xcode_config configuration value can be accessed via the
+  // configuration_field() skylark method and used in a skylark rule.
+  @Test
+  public void testConfigurationFieldForRule() throws Exception {
+    scratch.file("x/provider_grabber.bzl",
+        "def _impl(ctx):",
+        "  conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]",
+        "  return struct(",
+        "    providers = [conf],",
+        "  )",
+
+        "provider_grabber = rule(implementation = _impl,",
+        "    attrs = { '_xcode_dep': attr.label(",
+        "        default = configuration_field(",
+        "            fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")");
+
+    scratch.file("x/BUILD",
+        "load('//x:provider_grabber.bzl', 'provider_grabber')",
+        "xcode_config(name='config1', default=':version1', versions=[':version1'])",
+        "xcode_config(name='config2', default=':version2', versions=[':version2'])",
+        "xcode_version(name = 'version1', version = '1.0')",
+        "xcode_version(name = 'version2', version = '2.0')",
+        "provider_grabber(name='provider_grabber')");
+
+    useConfiguration("--xcode_version_config=//x:config1");
+    assertXcodeVersion("1.0", "//x:provider_grabber");
+
+    useConfiguration("--xcode_version_config=//x:config2");
+    assertXcodeVersion("2.0", "//x:provider_grabber");
+  }
+
+  // Verifies that the --xcode_config configuration value can be accessed via the
+  // configuration_field() skylark method and used in a skylark aspect.
+  @Test
+  public void testConfigurationFieldForAspect() throws Exception {
+    scratch.file("x/provider_grabber.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  conf = ctx.attr._xcode_dep[apple_common.XcodeVersionConfig]",
+        "  return struct(",
+        "    providers = [conf],",
+        "  )",
+        "",
+        "MyAspect = aspect(implementation = _aspect_impl,",
+        "    attrs = { '_xcode_dep': attr.label(",
+        "        default = configuration_field(",
+        "            fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
+        "    fragments = ['apple'],",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  conf = ctx.attr.dep[0][apple_common.XcodeVersionConfig]",
+        "  return struct(",
+        "    providers = [conf],",
+        "  )",
+        "",
+        "provider_grabber = rule(implementation = _rule_impl,",
+        "    attrs = { 'dep' : ",
+        "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },",
+        ")");
+
+    scratch.file("x/BUILD",
+        "load('//x:provider_grabber.bzl', 'provider_grabber')",
+        "xcode_config(name='config1', default=':version1', versions=[':version1'])",
+        "xcode_config(name='config2', default=':version2', versions=[':version2'])",
+        "xcode_version(name = 'version1', version = '1.0')",
+        "xcode_version(name = 'version2', version = '2.0')",
+        "java_library(",
+        "     name = 'fake_lib',",
+        ")",
+        "provider_grabber(",
+        "     name = 'provider_grabber',",
+        "     dep = [':fake_lib'],",
+        ")");
+
+    useConfiguration("--xcode_version_config=//x:config1");
+    assertXcodeVersion("1.0", "//x:provider_grabber");
+
+    useConfiguration("--xcode_version_config=//x:config2");
+    assertXcodeVersion("2.0", "//x:provider_grabber");
+  }
+
   private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
     XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
@@ -702,7 +787,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   private void assertXcodeVersion(String version) throws Exception {
-    ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
+    assertXcodeVersion(version, "//xcode:foo");
+  }
+
+  private void assertXcodeVersion(String version, String providerTargetLabel) throws Exception {
+    ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
     XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
     assertThat(provider.getXcodeVersion()).isEqualTo(DottedVersion.fromString(version));
   }

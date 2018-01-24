@@ -136,6 +136,13 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
           "%s should be at most %s in the version partial ordering",
           valueVersion,
           evaluatorContext.getGraphVersion());
+
+      if (value != null) {
+        ValueWithMetadata valueWithMetadata =
+            ValueWithMetadata.wrapWithMetadata(entry.getValueMaybeWithMetadata());
+        replay(valueWithMetadata);
+      }
+
       // For most nodes we do not inform the progress receiver if they were already done when we
       // retrieve them, but top-level nodes are presumably of more interest.
       // If valueVersion is not equal to graphVersion, it must be less than it (by the
@@ -491,6 +498,17 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
     return bubbleErrorInfo;
   }
 
+  private void replay(ValueWithMetadata valueWithMetadata) {
+    // TODO(bazel-team): Verify that message replay is fast and works in failure
+    // modes [skyframe-core]
+    evaluatorContext
+        .getReplayingNestedSetPostableVisitor()
+        .visit(valueWithMetadata.getTransitivePostables());
+    evaluatorContext
+        .getReplayingNestedSetEventVisitor()
+        .visit(valueWithMetadata.getTransitiveEvents());
+  }
+
   /**
    * Constructs an {@link EvaluationResult} from the {@link #graph}. Looks for cycles if there are
    * unfinished nodes but no error was already found through bubbling up (as indicated by {@code
@@ -529,17 +547,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator implements Eval
         }
         continue;
       }
+      // Replaying here is necessary for error bubbling and other cases.
+      replay(valueWithMetadata);
       SkyValue value = valueWithMetadata.getValue();
-      evaluatorContext
-          .getReplayingNestedSetPostableVisitor()
-          .visit(valueWithMetadata.getTransitivePostables());
-      // TODO(bazel-team): Verify that message replay is fast and works in failure
-      // modes [skyframe-core]
-      // Note that replaying events here is only necessary on null builds, because otherwise we
-      // would have already printed the transitive messages after building these values.
-      evaluatorContext
-          .getReplayingNestedSetEventVisitor()
-          .visit(valueWithMetadata.getTransitiveEvents());
       ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
       if (!evaluatorContext.keepGoing() && errorInfo != null) {

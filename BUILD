@@ -42,7 +42,6 @@ filegroup(
     name = "workspace-file",
     srcs = [":WORKSPACE"],
     visibility = [
-        "//src/test/docker:__pkg__",
         "//src/test/shell/bazel:__subpackages__",
     ],
 )
@@ -83,6 +82,7 @@ genrule(
     srcs = [
         ":bazel-srcs",
         "//src:derived_java_srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
     ],
     outs = ["bazel-distfile.zip"],
     cmd = "$(location :combine_distfiles) $@ $(SRCS)",
@@ -96,6 +96,7 @@ genrule(
     srcs = [
         ":bazel-srcs",
         "//src:derived_java_srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
     ],
     outs = ["bazel-distfile.tar"],
     cmd = "$(location :combine_distfiles_to_tar.sh) $@ $(SRCS)",
@@ -109,6 +110,6 @@ genrule(
 # Will be removed once toolchain fetching is supported.
 filegroup(
     name = "dummy_toolchain_reference",
-    srcs = ["@bazel_toolchains//configs/debian8_clang/0.2.0/bazel_0.8.0:empty"],
+    srcs = ["@bazel_toolchains//configs/debian8_clang/0.2.0/bazel_0.9.0:empty"],
     visibility = ["//visibility:public"],
 )

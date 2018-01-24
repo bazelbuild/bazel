@@ -91,6 +91,23 @@ public class JarDecompressorTest {
   }
 
   @Test
+  public void testTargetIsSource() throws Exception {
+    Path outputDir =
+        decompressor.decompressWithSrcjar(
+            srcjarDescriptorBuilder.build(),
+            Optional.fromNullable(srcjarDescriptorBuilder.build()));
+    assertThat(outputDir.exists()).isTrue();
+    assertThat(outputDir.getRelative("jar/foo.jar").exists()).isFalse();
+    assertThat(outputDir.getRelative("jar/foo-sources.jar").exists()).isTrue();
+    String buildContent =
+        new String(FileSystemUtils.readContentAsLatin1(outputDir.getRelative("jar/BUILD.bazel")));
+    assertThat(buildContent).contains("java_import");
+    assertThat(buildContent).contains("srcjar = 'foo-sources.jar'");
+    assertThat(buildContent).contains("filegroup");
+    assertThat(buildContent).contains("srcs = [\n        'foo-sources.jar',\n    ],");
+  }
+
+  @Test
   // Note: WORKSPACE gen is not affected by presence or absence of Optional arg to
   // decompressWithSrcjar
   public void testWorkspaceGen() throws Exception {

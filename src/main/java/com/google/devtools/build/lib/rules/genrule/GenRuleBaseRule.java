@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.genrule;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -115,7 +115,9 @@ public class GenRuleBaseRule implements RuleDefinition {
           list, not in <code>srcs</code>, to ensure they are built in the correct configuration.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("tools", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(attr("tools", LABEL_LIST)
+            .cfg(HostTransition.INSTANCE)
+            .allowedFileTypes(FileTypeSet.ANY_FILE))
         .add(
             attr("toolchains", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)

@@ -7,6 +7,8 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+load(":build_defs.bzl", "default_javacopts")
+
 # Exports the canonical javac bootclasspath artifact locations
 genrule(
     name = "javac-bootclasspath-locations",
@@ -46,30 +48,10 @@ java_library(
 )
 
 # Exports javacopts from the current java toolchain
-java_binary(
-    name = "JavaBuilderConfigGenerator",
-    srcs = ["JavaBuilderConfigGenerator.java"],
-    main_class = "com.google.devtools.build.java.bazel.JavaBuilderConfigGenerator",
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:java-toolchain-parser",
-        "//third_party:guava",
-    ],
-)
-
-# Exports javacopts from the current java toolchain
-genquery(
-    name = "java_toolchain_content",
-    expression = "kind(java_toolchain, deps(//tools/defaults:java_toolchain))",
-    opts = ["--output=proto"],
-    scope = ["//tools/defaults:java_toolchain"],
-)
-
-genrule(
-    name = "javabuilder-javacopts",
-    srcs = [":java_toolchain_content"],
-    outs = ["JavaBuilderJavacOpts.java"],
-    cmd = "$(location :JavaBuilderConfigGenerator) $< > $@",
-    tools = [":JavaBuilderConfigGenerator"],
+default_javacopts(
+    name = "gen_default_javacopts",
+    out = "JavaBuilderJavacOpts.java",
+    template = "JavaBuilderJavacOpts.java.template",
 )
 
 # Provides java-level access to the javacopts in the current java toolchain
@@ -77,7 +59,7 @@ java_library(
     name = "JavaBuilderConfig",
     srcs = [
         "JavaBuilderConfig.java",
-        ":javabuilder-javacopts",
+        "JavaBuilderJavacOpts.java",
     ],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",
@@ -120,5 +102,9 @@ filegroup(
     srcs = glob([
         "*.java",
         "*.sh",
-    ]) + ["BUILD"],
+    ]) + [
+        "BUILD",
+        "JavaBuilderJavacOpts.java.template",
+        "build_defs.bzl",
+    ],
 )

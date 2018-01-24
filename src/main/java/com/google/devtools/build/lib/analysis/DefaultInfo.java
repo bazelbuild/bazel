@@ -96,7 +96,7 @@ public final class DefaultInfo extends NativeInfo {
   }
 
   @Override
-  public ImmutableCollection<String> getKeys() {
+  public ImmutableCollection<String> getFieldNames() {
     return KEYS;
   }
 }

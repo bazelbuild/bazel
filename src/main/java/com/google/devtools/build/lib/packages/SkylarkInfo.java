@@ -11,32 +11,39 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeProvider.StructConstructor;
 import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
-/** Implementation of {@link Info} created from Skylark. */
+/**
+ * A standard implementation for provider instances.
+ *
+ * <p>Instances may be either schemaless or schemaful (corresponding to the two different concrete
+ * implementing classes). Schemaless instances are map-based, while schemaful instances have a fixed
+ * layout and array and are therefore more efficient.
+ */
 public abstract class SkylarkInfo extends Info implements Concatable {
 
-  public SkylarkInfo(Provider provider, Location loc) {
+  // Private because this should not be subclassed outside this file.
+  private SkylarkInfo(Provider provider, @Nullable Location loc) {
     super(provider, loc);
-  }
-
-  public SkylarkInfo(StructConstructor provider, String message) {
-    super(provider, message);
   }
 
   @Override
@@ -46,7 +53,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
 
   @Override
   public boolean isImmutable() {
-    // If the provider is not yet exported the hash code of the object is subject to change
+    // If the provider is not yet exported, the hash code of the object is subject to change.
     if (!getProvider().isExported()) {
       return false;
     }
@@ -58,25 +65,196 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     return true;
   }
 
-  /** Return all the values stored in the object. */
+  /**
+   * Returns all the field values stored in the object, in the canonical order.
+   *
+   * <p>{@code protected} because this is only used for {@link #isImmutable}. It saves us having to
+   * get values one-by-one.
+   */
   protected abstract Iterable<Object> getValues();
 
   /**
-   * {@link SkylarkInfo} implementation that stores its values in a map. This is mainly used for the
-   * Skylark {@code struct()} constructor.
+   * Returns the custom (i.e. per-instance, as opposed to per-provider-type) error message string
+   * format used by this provider instance, or null if not set.
    */
-  static final class MapBackedSkylarkInfo extends SkylarkInfo {
-    protected final ImmutableMap<String, Object> values;
+  @Nullable
+  public abstract String getCustomErrorMessageFormatForUnknownField();
 
-    public MapBackedSkylarkInfo(Provider provider, Map<String, Object> kwargs, Location loc) {
-      super(provider, loc);
-      this.values = copyValues(kwargs);
+  /** Returns the layout for this provider if it is schemaful, null otherwise. */
+  @Nullable
+  public abstract Layout getLayout();
+
+  /** Returns true if this provider is schemaful (array-based), false otherwise. */
+  public boolean isCompact() {
+    return getLayout() != null;
+  }
+
+  /**
+   * Creates a schemaless (map-based) provider instance with the given provider type and field
+   * values.
+   *
+   * <p>{@code loc} is the creation location for this instance. Built-in provider instances may use
+   * {@link Location#BUILTIN}, which is the default if null.
+   */
+  public static SkylarkInfo createSchemaless(
+      Provider provider, Map<String, Object> values, @Nullable Location loc) {
+    return new MapBackedSkylarkInfo(
+        provider, values, loc, /*errorMessageFormatForUnknownField=*/ null);
+  }
+
+  /**
+   * Creates a schemaless (map-based) provider instance with the given provider type, field values,
+   * and unknown-field error message.
+   *
+   * <p>This is used to create structs for special purposes, such as {@code ctx.attr} and the
+   * {@code native} module. The creation location will be {@link Location#BUILTIN}.
+   *
+   * <p>{@code errorMessageFormatForUnknownField} is a string format, as for {@link
+   * Provider#getErrorMessageFormatForUnknownField}.
+   *
+   * <p>It is preferred to not use this method. Instead, create a new subclass of {@link
+   * NativeProvider} with the desired error message format, and create a corresponding {@link
+   * NativeInfo} subclass.
+   */
+  // TODO(bazel-team): Make the special structs that need a custom error message use a different
+  // provider (subclassing NativeProvider) and a different Info implementation. Then remove this
+  // functionality, thereby saving a string pointer field for the majority of providers that don't
+  // need it.
+  public static SkylarkInfo createSchemalessWithCustomMessage(
+      Provider provider, Map<String, Object> values, String errorMessageFormatForUnknownField) {
+    Preconditions.checkNotNull(errorMessageFormatForUnknownField);
+    return new MapBackedSkylarkInfo(
+        provider, values, Location.BUILTIN, errorMessageFormatForUnknownField);
+  }
+
+  /**
+   * Creates a schemaful (array-based) provider instance with the given provider type, layout, and
+   * values.
+   *
+   * <p>The order of the values must correspond to the given layout.
+   *
+   * <p>{@code loc} is the creation location for this instance. Built-in provider instances may use
+   * {@link Location#BUILTIN}, which is the default if null.
+   */
+  public static SkylarkInfo createSchemaful(
+      Provider provider,
+      Layout layout,
+      Object[] values,
+      @Nullable Location loc) {
+    return new CompactSkylarkInfo(provider, layout, values, loc);
+  }
+
+  /**
+   * Returns the concrete implementation classes of this abstract class.
+   *
+   * <p>This is useful for code that depends on reflection.
+   */
+  public static List<Class<? extends SkylarkInfo>> getImplementationClasses() {
+    return ImmutableList.of(MapBackedSkylarkInfo.class, CompactSkylarkInfo.class);
+  }
+
+  /**
+   * A specification of what fields a provider instance has, and how they are ordered in an
+   * array-backed implementation.
+   *
+   * <p>The provider instance may only have fields that appear in its layout. Not all fields in the
+   * layout need be present on the instance.
+   */
+  @Immutable
+  public static final class Layout {
+
+    /**
+     * A map from field names to a contiguous range of integers [0, n), ordered by integer value.
+     */
+    private final ImmutableMap<String, Integer> map;
+
+    /**
+     * Constructs a {@link Layout} from the given field names.
+     *
+     * <p>The order of the field names is preserved in the layout.
+     *
+     * @throws IllegalArgumentException if any field names are given more than once
+     */
+    public Layout(Iterable<String> fields) {
+      ImmutableMap.Builder<String, Integer> layoutBuilder = ImmutableMap.builder();
+      int i = 0;
+      for (String field : fields) {
+        layoutBuilder.put(field, i++);
+      }
+      this.map = layoutBuilder.build();
     }
 
-    public MapBackedSkylarkInfo(
-        StructConstructor provider, Map<String, Object> values, String message) {
-      super(provider, message);
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof Layout)) {
+        return false;
+      }
+      if (map == other) {
+        return true;
+      }
+      return map.equals(((Layout) other).map);
+    }
+
+    @Override
+    public int hashCode() {
+      return map.hashCode();
+    }
+
+    /** Returns the number of fields in the layout. */
+    public int size() {
+      return map.size();
+    }
+
+    /** Returns whether or not a field is mentioned in the layout. */
+    public boolean hasField(String field) {
+      return map.containsKey(field);
+    }
+
+    /**
+     * Returns the index position associated with the given field, or null if the field is not
+     * mentioned by the layout.
+     */
+    public Integer getFieldIndex(String field) {
+      return map.get(field);
+    }
+
+    /** Returns the field names specified by this layout, in order. */
+    public ImmutableCollection<String> getFields() {
+      return map.keySet();
+    }
+
+    /** Returns the entry set of the underlying map, in order. */
+    public ImmutableCollection<Map.Entry<String, Integer>> entrySet() {
+      return map.entrySet();
+    }
+  }
+
+  /** A {@link SkylarkInfo} implementation that stores its values in a map. */
+  private static final class MapBackedSkylarkInfo extends SkylarkInfo {
+
+    private final ImmutableMap<String, Object> values;
+
+    /**
+     * Formattable string with one {@code '%s'} placeholder for the missing field name.
+     *
+     * <p>If null, uses the default format specified by the provider.
+     */
+    @Nullable
+    private final String errorMessageFormatForUnknownField;
+
+    MapBackedSkylarkInfo(
+        Provider provider,
+        Map<String, Object> values,
+        @Nullable Location loc,
+        @Nullable String errorMessageFormatForUnknownField) {
+      super(provider, loc);
       this.values = copyValues(values);
+      this.errorMessageFormatForUnknownField = errorMessageFormatForUnknownField;
+    }
+
+    @Override
+    public boolean hasField(String name) {
+      return values.containsKey(name);
     }
 
     @Override
@@ -85,12 +263,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
-    public boolean hasKey(String name) {
-      return values.containsKey(name);
-    }
-
-    @Override
-    public ImmutableCollection<String> getKeys() {
+    public ImmutableCollection<String> getFieldNames() {
       return values.keySet();
     }
 
@@ -98,34 +271,47 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     protected Iterable<Object> getValues() {
       return values.values();
     }
-  }
 
-  /** Create a {@link SkylarkInfo} instance from a provider and a map. */
-  public static SkylarkInfo fromMap(Provider provider, Map<String, Object> values, Location loc) {
-    return new MapBackedSkylarkInfo(provider, values, loc);
-  }
-
-  /** Implementation of {@link SkylarkInfo} that stores its values in array to save space. */
-  static final class CompactSkylarkInfo extends SkylarkInfo implements Concatable {
-    private final ImmutableMap<String, Integer> layout;
-    private final Object[] values;
-
-    public CompactSkylarkInfo(
-        Provider provider, ImmutableMap<String, Integer> layout, Object[] values, Location loc) {
-      super(provider, loc);
-      Preconditions.checkState(layout.size() == values.length);
-      this.layout = layout;
-      this.values = values;
+    @Override
+    protected String getErrorMessageFormatForUnknownField() {
+      return errorMessageFormatForUnknownField != null
+          ? errorMessageFormatForUnknownField : super.getErrorMessageFormatForUnknownField();
     }
 
     @Override
-    public Concatter getConcatter() {
-      return SkylarkInfoConcatter.INSTANCE;
+    public String getCustomErrorMessageFormatForUnknownField() {
+      return errorMessageFormatForUnknownField;
+    }
+
+    @Override
+    public Layout getLayout() {
+      return null;
+    }
+  }
+
+  /** A {@link SkylarkInfo} implementation that stores its values in array to save space. */
+  private static final class CompactSkylarkInfo extends SkylarkInfo implements Concatable {
+
+    private final Layout layout;
+    /** Treated as immutable. */
+    private final Object[] values;
+
+    CompactSkylarkInfo(
+        Provider provider,
+        Layout layout,
+        Object[] values,
+        @Nullable Location loc) {
+      super(provider, loc);
+      this.layout = Preconditions.checkNotNull(layout);
+      Preconditions.checkArgument(
+          layout.size() == values.length,
+          "Layout has length %s, but number of given values was %s", layout.size(), values.length);
+      this.values = Arrays.copyOf(values, values.length);
     }
 
     @Override
     public Object getValue(String name) {
-      Integer index = layout.get(name);
+      Integer index = layout.getFieldIndex(name);
       if (index == null) {
         return null;
       }
@@ -133,14 +319,14 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     }
 
     @Override
-    public boolean hasKey(String name) {
-      Integer index = layout.get(name);
+    public boolean hasField(String name) {
+      Integer index = layout.getFieldIndex(name);
       return index != null && values[index] != null;
     }
 
     @Override
-    public ImmutableCollection<String> getKeys() {
-      ImmutableSet.Builder<String> result = new ImmutableSet.Builder();
+    public ImmutableCollection<String> getFieldNames() {
+      ImmutableSet.Builder<String> result = ImmutableSet.builder();
       for (Map.Entry<String, Integer> entry : layout.entrySet()) {
         if (values[entry.getValue()] != null) {
           result.add(entry.getKey());
@@ -153,6 +339,16 @@ public abstract class SkylarkInfo extends Info implements Concatable {
     protected Iterable<Object> getValues() {
       return Arrays.asList(values);
     }
+
+    @Override
+    public String getCustomErrorMessageFormatForUnknownField() {
+      return null;
+    }
+
+    @Override
+    public Layout getLayout() {
+      return layout;
+    }
   }
 
   /** Concatter for concrete {@link SkylarkInfo} subclasses. */
@@ -163,48 +359,51 @@ public abstract class SkylarkInfo extends Info implements Concatable {
 
     @Override
     public Concatable concat(Concatable left, Concatable right, Location loc) throws EvalException {
-      SkylarkInfo lval = (SkylarkInfo) left;
-      SkylarkInfo rval = (SkylarkInfo) right;
-      Provider provider = lval.getProvider();
-      if (!provider.equals(rval.getProvider())) {
+      // Casts are safe because SkylarkInfoConcatter is only used by SkylarkInfo.
+      SkylarkInfo leftInfo = (SkylarkInfo) left;
+      SkylarkInfo rightInfo = (SkylarkInfo) right;
+      Provider provider = leftInfo.getProvider();
+      if (!provider.equals(rightInfo.getProvider())) {
         throw new EvalException(
             loc,
             String.format(
-                "Cannot concat %s with %s",
-                provider.getPrintableName(), rval.getProvider().getPrintableName()));
+                "Cannot use '+' operator on instances of different providers (%s and %s)",
+                provider.getPrintableName(), rightInfo.getProvider().getPrintableName()));
       }
       SetView<String> commonFields =
           Sets.intersection(
-              ImmutableSet.copyOf(lval.getKeys()), ImmutableSet.copyOf(rval.getKeys()));
+              ImmutableSet.copyOf(leftInfo.getFieldNames()),
+              ImmutableSet.copyOf(rightInfo.getFieldNames()));
       if (!commonFields.isEmpty()) {
         throw new EvalException(
             loc,
-            "Cannot concat structs with common field(s): " + Joiner.on(",").join(commonFields));
+            "Cannot use '+' operator on provider instances with overlapping field(s): "
+                + Joiner.on(",").join(commonFields));
       }
       // Keep homogeneous compact concatenations compact.
-      if (lval instanceof CompactSkylarkInfo
-          && rval instanceof CompactSkylarkInfo
-          && ((CompactSkylarkInfo) lval).layout == ((CompactSkylarkInfo) rval).layout) {
-        CompactSkylarkInfo compactLeft = (CompactSkylarkInfo) lval;
-        CompactSkylarkInfo compactRight = (CompactSkylarkInfo) rval;
-        int nvals = compactLeft.layout.size();
-        Preconditions.checkState(nvals == compactRight.layout.size());
-        Object[] newValues = new Object[nvals];
-        for (int i = 0; i < nvals; i++) {
-          newValues[i] =
-              (compactLeft.values[i] != null) ? compactLeft.values[i] : compactRight.values[i];
+      if (leftInfo instanceof CompactSkylarkInfo && rightInfo instanceof CompactSkylarkInfo) {
+        CompactSkylarkInfo compactLeft = (CompactSkylarkInfo) leftInfo;
+        CompactSkylarkInfo compactRight = (CompactSkylarkInfo) rightInfo;
+        Layout layout = compactLeft.layout;
+        if (layout.equals(compactRight.layout)) {
+          int nvals = layout.size();
+          Object[] newValues = new Object[nvals];
+          for (int i = 0; i < nvals; i++) {
+            newValues[i] =
+                (compactLeft.values[i] != null) ? compactLeft.values[i] : compactRight.values[i];
+          }
+          return createSchemaful(provider, layout, newValues, loc);
         }
-        return new CompactSkylarkInfo(
-            compactLeft.getProvider(), compactLeft.layout, newValues, loc);
       }
+      // Fall back on making a map-based instance.
       ImmutableMap.Builder<String, Object> newValues = ImmutableMap.builder();
-      for (String key : lval.getKeys()) {
-        newValues.put(key, lval.getValue(key));
+      for (String field : leftInfo.getFieldNames()) {
+        newValues.put(field, leftInfo.getValue(field));
       }
-      for (String key : rval.getKeys()) {
-        newValues.put(key, rval.getValue(key));
+      for (String field : rightInfo.getFieldNames()) {
+        newValues.put(field, rightInfo.getValue(field));
       }
-      return new MapBackedSkylarkInfo(provider, newValues.build(), loc);
+      return createSchemaless(provider, newValues.build(), loc);
     }
   }
 }

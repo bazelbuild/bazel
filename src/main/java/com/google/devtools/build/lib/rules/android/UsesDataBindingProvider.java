@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import java.util.Collection;
 
 /**
- * An Android rule that exposes this enables
- * <a href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a>
- * on its resource processing and Java compilation.
+ * An Android rule that exposes this enables <a
+ * href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a> on
+ * its resource processing and Java compilation.
  */
 public final class UsesDataBindingProvider implements TransitiveInfoProvider {
   private final ImmutableList<Artifact> metadataOutputs;

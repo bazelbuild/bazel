@@ -18,12 +18,12 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -57,16 +57,11 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path path = fs.getPath(pathFragment);
 
-    RootedPath dirPath = RootedPath.toRootedPath(fs.getRootDirectory(), path);
+    RootedPath dirPath = RootedPath.toRootedPath(Root.absoluteRoot(fs), path);
 
     try {
       FileValue dirFileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  FileValue.key(dirPath),
-                  IOException.class,
-                  FileSymlinkException.class,
-                  InconsistentFilesystemException.class);
+          (FileValue) env.getValueOrThrow(FileValue.key(dirPath), IOException.class);
       if (dirFileValue == null) {
         return null;
       }
@@ -90,10 +85,6 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-    } catch (FileSymlinkException e) {
-      throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
-    } catch (InconsistentFilesystemException e) {
-      throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
 
     // fetch() creates symlinks to each child under 'path' and DiffAwareness handles checking all

@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.Attribute;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -103,7 +103,7 @@ public abstract class Dependency {
    * Creates a new {@link Dependency} with the given transition and aspects.
    */
   public static Dependency withTransitionAndAspects(
-      Label label, Attribute.Transition transition, AspectCollection aspects) {
+      Label label, Transition transition, AspectCollection aspects) {
     return new ConfigurationTransitionDependency(label, transition, aspects);
   }
 
@@ -141,7 +141,7 @@ public abstract class Dependency {
    *
    * @throws IllegalStateException if {@link #hasExplicitConfiguration} returns true.
    */
-  public abstract Attribute.Transition getTransition();
+  public abstract Transition getTransition();
 
   /**
    * Returns the set of aspects which should be evaluated and combined with the configured target
@@ -179,7 +179,7 @@ public abstract class Dependency {
     }
 
     @Override
-    public Attribute.Transition getTransition() {
+    public Transition getTransition() {
       throw new IllegalStateException(
           "This dependency has an explicit configuration, not a transition.");
     }
@@ -243,7 +243,7 @@ public abstract class Dependency {
     }
 
     @Override
-    public Attribute.Transition getTransition() {
+    public Transition getTransition() {
       throw new IllegalStateException(
           "This dependency has an explicit configuration, not a transition.");
     }
@@ -287,11 +287,11 @@ public abstract class Dependency {
    * Implementation of a dependency with a given configuration transition.
    */
   private static final class ConfigurationTransitionDependency extends Dependency {
-    private final Attribute.Transition transition;
+    private final Transition transition;
     private final AspectCollection aspects;
 
     public ConfigurationTransitionDependency(
-        Label label, Attribute.Transition transition, AspectCollection aspects) {
+        Label label, Transition transition, AspectCollection aspects) {
       super(label);
       this.transition = Preconditions.checkNotNull(transition);
       this.aspects = Preconditions.checkNotNull(aspects);
@@ -309,7 +309,7 @@ public abstract class Dependency {
     }
 
     @Override
-    public Attribute.Transition getTransition() {
+    public Transition getTransition() {
       return transition;
     }
 

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.PathFragmentCodec;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -26,7 +25,6 @@ import java.io.IOException;
 public class PackageIdentifierCodec implements ObjectCodec<PackageIdentifier> {
 
   private final RepositoryNameCodec repoNameCodec = new RepositoryNameCodec();
-  private final PathFragmentCodec pathFragmentCodec = new PathFragmentCodec();
 
   @Override
   public Class<PackageIdentifier> getEncodedClass() {
@@ -37,14 +35,14 @@ public class PackageIdentifierCodec implements ObjectCodec<PackageIdentifier> {
   public void serialize(PackageIdentifier pkgId, CodedOutputStream codedOut)
       throws IOException, SerializationException {
     repoNameCodec.serialize(pkgId.getRepository(), codedOut);
-    pathFragmentCodec.serialize(pkgId.getPackageFragment(), codedOut);
+    PathFragment.CODEC.serialize(pkgId.getPackageFragment(), codedOut);
   }
 
   @Override
   public PackageIdentifier deserialize(CodedInputStream codedIn)
       throws IOException, SerializationException {
     RepositoryName repoName = repoNameCodec.deserialize(codedIn);
-    PathFragment pathFragment = pathFragmentCodec.deserialize(codedIn);
+    PathFragment pathFragment = PathFragment.CODEC.deserialize(codedIn);
     return PackageIdentifier.create(repoName, pathFragment);
   }
 }

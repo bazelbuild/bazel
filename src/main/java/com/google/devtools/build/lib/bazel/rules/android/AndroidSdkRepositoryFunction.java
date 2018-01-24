@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -304,20 +304,17 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     Path sourcePropertiesFilePath = directory.getRelative(
         "build-tools/" + buildToolsDirectory + "/source.properties");
 
-    SkyKey releaseFileKey = FileValue.key(
-        RootedPath.toRootedPath(directory, sourcePropertiesFilePath));
+    SkyKey releaseFileKey =
+        FileValue.key(RootedPath.toRootedPath(Root.fromPath(directory), sourcePropertiesFilePath));
 
     try {
-      env.getValueOrThrow(releaseFileKey,
-          IOException.class,
-          FileSymlinkException.class,
-          InconsistentFilesystemException.class);
+      env.getValueOrThrow(releaseFileKey, IOException.class);
 
       Properties properties = new Properties();
       properties.load(sourcePropertiesFilePath.getInputStream());
       return properties;
 
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+    } catch (IOException e) {
       String error = String.format(
           "Could not read %s in Android SDK: %s", sourcePropertiesFilePath, e.getMessage());
       throw new RepositoryFunctionException(new IOException(error), Transience.PERSISTENT);
@@ -405,7 +402,8 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
                     input ->
                         DirectoryListingValue.key(
                             RootedPath.toRootedPath(
-                                root, root.getRelative(path).getRelative(input.getName())))));
+                                Root.fromPath(root),
+                                root.getRelative(path).getRelative(input.getName())))));
 
     Map<SkyKey, ValueOrException<InconsistentFilesystemException>> values =
         env.getValuesOrThrow(
@@ -421,7 +419,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
         }
         directoryListingValues.put(pathFragment, (DirectoryListingValue) skyValue);
       } catch (InconsistentFilesystemException e) {
-        throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
     }
     return directoryListingValues.build();

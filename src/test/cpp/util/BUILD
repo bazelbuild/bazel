@@ -25,12 +25,6 @@ cc_test(
         "//src/conditions:windows": [
             "file_windows_test.cc",
         ],
-        "//src/conditions:windows_msys": [
-            "file_windows_test.cc",
-        ],
-        "//src/conditions:windows_msvc": [
-            "file_windows_test.cc",
-        ],
         "//conditions:default": [
             "file_posix_test.cc",
         ],
@@ -41,14 +35,6 @@ cc_test(
         "//third_party:gtest",
     ] + select({
         "//src/conditions:windows": [
-            ":windows_test_util",
-            "//src/main/native/windows:lib-file",
-        ],
-        "//src/conditions:windows_msys": [
-            ":windows_test_util",
-            "//src/main/native/windows:lib-file",
-        ],
-        "//src/conditions:windows_msvc": [
             ":windows_test_util",
             "//src/main/native/windows:lib-file",
         ],
@@ -91,14 +77,10 @@ cc_library(
     testonly = 1,
     srcs = select({
         "//src/conditions:windows": ["windows_test_util.cc"],
-        "//src/conditions:windows_msys": ["windows_test_util.cc"],
-        "//src/conditions:windows_msvc": ["windows_test_util.cc"],
         "//conditions:default": [],
     }),
     hdrs = select({
         "//src/conditions:windows": ["windows_test_util.h"],
-        "//src/conditions:windows_msys": ["windows_test_util.h"],
-        "//src/conditions:windows_msvc": ["windows_test_util.h"],
         "//conditions:default": [],
     }),
     visibility = [
@@ -112,20 +94,10 @@ cc_test(
     size = "small",
     srcs = select({
         "//src/conditions:windows": ["windows_test_util_test.cc"],
-        "//src/conditions:windows_msys": ["windows_test_util_test.cc"],
-        "//src/conditions:windows_msvc": ["windows_test_util_test.cc"],
         "//conditions:default": ["dummy_test.cc"],
     }),
     deps = select({
         "//src/conditions:windows": [
-            ":windows_test_util",
-            "//third_party:gtest",
-        ],
-        "//src/conditions:windows_msys": [
-            ":windows_test_util",
-            "//third_party:gtest",
-        ],
-        "//src/conditions:windows_msvc": [
             ":windows_test_util",
             "//third_party:gtest",
         ],

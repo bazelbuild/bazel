@@ -121,6 +121,13 @@ EOF
   assert_contains "pussycat" output || fail "Output is not OK."
 }
 
+function test_run_with_no_build_runfile_manifests {
+  write_cc_source_files
+
+  bazel run --nobuild_runfile_manifests //cc:kitty >& $TEST_log && fail "should have failed"
+  expect_log_once "--nobuild_runfile_manifests is incompatible with the \"run\" command"
+}
+
 function test_script_file_generation {
   mkdir -p fubar || fail "mkdir fubar failed"
   echo 'sh_binary(name = "fubar", srcs = ["fubar.sh"])' > fubar/BUILD

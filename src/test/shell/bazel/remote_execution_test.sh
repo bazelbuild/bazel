@@ -495,7 +495,7 @@ EOF
 #This will never run, because the remote side is not reachable.
 EOF
   chmod +x a/test.sh
-  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+  bazel test \
       --spawn_strategy=remote \
       --remote_executor=bazel.does.not.exist:1234 \
       --noexperimental_remote_retry \

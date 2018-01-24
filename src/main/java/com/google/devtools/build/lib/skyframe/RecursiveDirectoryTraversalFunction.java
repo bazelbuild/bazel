@@ -137,7 +137,7 @@ abstract class RecursiveDirectoryTraversalFunction<
 
     Map<SkyKey, SkyValue> subdirectorySkyValues;
     if (packageExistenceAndSubdirDeps.packageExists()) {
-      PathFragment rootRelativePath = rootedPath.getRelativePath();
+      PathFragment rootRelativePath = rootedPath.getRootRelativePath();
       SkyKey packageKey =
           PackageValue.key(
               PackageIdentifier.create(recursivePkgKey.getRepository(), rootRelativePath));

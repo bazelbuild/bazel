@@ -38,20 +38,21 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public final class ConfiguredTargetValue extends ActionLookupValue {
 
-  // These variables are only non-final because they may be clear()ed to save memory. They are null
-  // only after they are cleared.
+  // These variables are only non-final because they may be clear()ed to save memory.
+  // configuredTarget is null only after it is cleared.
   @Nullable private ConfiguredTarget configuredTarget;
 
-  @Nullable private NestedSet<Package> transitivePackages;
+  // May be null either after clearing or because transitive packages are not tracked.
+  @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
 
   ConfiguredTargetValue(
       ConfiguredTarget configuredTarget,
       GeneratingActions generatingActions,
-      NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution,
       boolean removeActionsAfterEvaluation) {
     super(generatingActions, removeActionsAfterEvaluation);
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget, generatingActions);
-    this.transitivePackages = Preconditions.checkNotNull(transitivePackages, generatingActions);
+    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
   }
 
   @VisibleForTesting
@@ -66,8 +67,14 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
     return actions;
   }
 
-  public NestedSet<Package> getTransitivePackages() {
-    return Preconditions.checkNotNull(transitivePackages);
+  /**
+   * Returns the set of packages transitively loaded by this value. Must only be used for
+   * constructing the package -> source root map needed for some builds. If the caller has not
+   * specified that this map needs to be constructed (via the constructor argument in {@link
+   * ConfiguredTargetFunction#ConfiguredTargetFunction}), calling this will crash.
+   */
+  public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
+    return Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
   }
 
   /**
@@ -79,27 +86,27 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
    * called.
    *
    * @param clearEverything if true, clear the {@link #configuredTarget}. If not, only the {@link
-   *     #transitivePackages} field is cleared. Top-level targets need their {@link
-   *     #configuredTarget} preserved, so should pass false here.
+   *     #transitivePackagesForPackageRootResolution} field is cleared. Top-level targets need their
+   *     {@link #configuredTarget} preserved, so should pass false here.
    */
   public void clear(boolean clearEverything) {
     Preconditions.checkNotNull(configuredTarget);
-    Preconditions.checkNotNull(transitivePackages);
+    Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
     if (clearEverything) {
       configuredTarget = null;
     }
-    transitivePackages = null;
+    transitivePackagesForPackageRootResolution = null;
   }
 
   @VisibleForTesting
   public static SkyKey key(Label label, BuildConfiguration configuration) {
-    return key(new ConfiguredTargetKey(label, configuration));
+    return ConfiguredTargetKey.of(label, configuration);
   }
 
   static ImmutableList<SkyKey> keys(Iterable<ConfiguredTargetKey> lacs) {
     ImmutableList.Builder<SkyKey> keys = ImmutableList.builder();
     for (ConfiguredTargetKey lac : lacs) {
-      keys.add(key(lac));
+      keys.add(lac);
     }
     return keys.build();
   }

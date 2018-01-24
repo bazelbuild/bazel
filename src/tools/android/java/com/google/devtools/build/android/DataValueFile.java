@@ -25,7 +25,7 @@ import java.util.Objects;
 /**
  * Represents a file based android resource or asset.
  *
- * These include all resource types except those found in values, as well as all assets.
+ * <p>These include all resource types except those found in values, as well as all assets.
  */
 public class DataValueFile implements DataResource, DataAsset {
 

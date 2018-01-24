@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -50,15 +50,10 @@ abstract class AndroidRepositoryFunction extends RepositoryFunction {
    */
   final DirectoryListingValue getDirectoryListing(Path root, PathFragment dirPath, Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    RootedPath rootedPath = RootedPath.toRootedPath(root, dirPath);
+    RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), dirPath);
     try {
       FileValue dirFileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  FileValue.key(rootedPath),
-                  IOException.class,
-                  FileSymlinkException.class,
-                  InconsistentFilesystemException.class);
+          (FileValue) env.getValueOrThrow(FileValue.key(rootedPath), IOException.class);
       if (dirFileValue == null) {
         return null;
       }
@@ -72,12 +67,10 @@ abstract class AndroidRepositoryFunction extends RepositoryFunction {
       }
       return (DirectoryListingValue)
           env.getValueOrThrow(
-              DirectoryListingValue.key(RootedPath.toRootedPath(root, dirPath)),
+              DirectoryListingValue.key(RootedPath.toRootedPath(Root.fromPath(root), dirPath)),
               InconsistentFilesystemException.class);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-    } catch (FileSymlinkException | InconsistentFilesystemException e) {
-      throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
   }
 

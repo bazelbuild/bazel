@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -26,6 +25,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -43,10 +44,10 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Command-line options for C++.
- */
+/** Command-line options for C++. */
+@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class CppOptions extends FragmentOptions {
+  public static final ObjectCodec<CppOptions> CODEC = new CppOptions_AutoCodec();
 
   /**
    * Converts a comma-separated list of compilation mode settings to a properly typed List.
@@ -892,7 +893,7 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Override
-  public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+  public Map<String, Set<Label>> getDefaultsLabels() {
     Set<Label> crosstoolLabels = new LinkedHashSet<>();
     crosstoolLabels.add(crosstoolTop);
     if (hostCrosstoolTop != null) {

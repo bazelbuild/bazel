@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -131,11 +131,11 @@ class BuildResultPrinter {
 
       // For failed compilation, it is still useful to examine temp artifacts,
       // (ie, preprocessed and assembler files).
-      OutputGroupProvider topLevelProvider =
-          OutputGroupProvider.get(target);
+      OutputGroupInfo topLevelProvider =
+          OutputGroupInfo.get(target);
       String productName = env.getRuntime().getProductName();
       if (topLevelProvider != null) {
-        for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupProvider.TEMP_FILES)) {
+        for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupInfo.TEMP_FILES)) {
           if (temp.getPath().exists()) {
             outErr.printErrLn("  See temp at "
                 + OutputDirectoryLinksUtils.getPrettyPath(temp.getPath(),

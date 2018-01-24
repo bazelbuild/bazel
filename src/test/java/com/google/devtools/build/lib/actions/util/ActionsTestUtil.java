@@ -42,11 +42,11 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.BuildDriver;
@@ -243,9 +244,10 @@ public final class ActionsTestUtil {
     }
   }
 
-  public static final Artifact DUMMY_ARTIFACT = new Artifact(
-      PathFragment.create("dummy"),
-      Root.asSourceRoot(new InMemoryFileSystem().getRootDirectory()));
+  public static final Artifact DUMMY_ARTIFACT =
+      new Artifact(
+          PathFragment.create("/dummy"),
+          ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())));
 
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
@@ -255,6 +257,7 @@ public final class ActionsTestUtil {
           "dummy-configuration-mnemonic",
           null,
           "dummy-configuration",
+          null,
           null,
           null);
 
@@ -652,6 +655,15 @@ public final class ActionsTestUtil {
       }
       return result;
     }
+
+    /** Counts the total number of misses registered so far regardless of their reason. */
+    public int countMisses() {
+      int total = 0;
+      for (Map.Entry<MissReason, Integer> entry : details.entrySet()) {
+        total += entry.getValue();
+      }
+      return total;
+    }
   }
 
   /**
@@ -663,12 +675,12 @@ public final class ActionsTestUtil {
   public static class FakeArtifactResolverBase implements ArtifactResolver {
     @Override
     public Artifact getSourceArtifact(
-        PathFragment execPath, Root root, ArtifactOwner owner) {
+        PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Artifact getSourceArtifact(PathFragment execPath, Root root) {
+    public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 

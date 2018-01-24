@@ -52,9 +52,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * An implementation for the "android_device" rule.
- */
+/** An implementation for the "android_device" rule. */
 public class AndroidDevice implements RuleConfiguredTargetFactory {
 
   private static final Template STUB_SCRIPT =
@@ -80,17 +78,18 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   private static final Predicate<Artifact> SOURCE_PROPERTIES_SELECTOR =
       (Artifact artifact) -> "source.properties".equals(artifact.getPath().getBaseName());
 
-  private static final Predicate<Artifact> SOURCE_PROPERTIES_FILTER = Predicates.not(
-      SOURCE_PROPERTIES_SELECTOR);
+  private static final Predicate<Artifact> SOURCE_PROPERTIES_FILTER =
+      Predicates.not(SOURCE_PROPERTIES_SELECTOR);
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     checkWhitelist(ruleContext);
     Artifact executable = ruleContext.createOutputArtifact();
-    Artifact metadata = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.ANDROID_DEVICE_EMULATOR_METADATA);
-    Artifact images = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.ANDROID_DEVICE_USERDATA_IMAGES);
+    Artifact metadata =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_DEVICE_EMULATOR_METADATA);
+    Artifact images =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_DEVICE_USERDATA_IMAGES);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.add(executable);
@@ -99,8 +98,8 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     Map<String, String> executionInfo = TargetUtils.getExecutionInfo(ruleContext.getRule());
-    AndroidDeviceRuleAttributes deviceAttributes = new AndroidDeviceRuleAttributes(
-        ruleContext, ImmutableMap.copyOf(executionInfo));
+    AndroidDeviceRuleAttributes deviceAttributes =
+        new AndroidDeviceRuleAttributes(ruleContext, ImmutableMap.copyOf(executionInfo));
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -111,19 +110,22 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
     deviceAttributes.createStubScriptAction(metadata, images, executable, ruleContext);
     deviceAttributes.createBootAction(metadata, images);
 
-    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
-        .addTransitiveArtifacts(filesToBuild)
-        .addArtifacts(commonDependencyArtifacts)
-        .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
-        .merge(
-            ruleContext
-                .getExecutablePrerequisite("$unified_launcher", Mode.HOST)
-                .getRunfilesSupport())
-        .build();
+    Runfiles runfiles =
+        new Runfiles.Builder(ruleContext.getWorkspaceName())
+            .addTransitiveArtifacts(filesToBuild)
+            .addArtifacts(commonDependencyArtifacts)
+            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+            .merge(
+                ruleContext
+                    .getExecutablePrerequisite("$unified_launcher", Mode.HOST)
+                    .getRunfilesSupport())
+            .build();
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(ruleContext, runfiles, executable);
     NestedSet<Artifact> extraFilesToRun =
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman());
+    boolean cloudDex2oatEnabled = ruleContext.attributes().get(
+        "pregenerate_oat_files_for_tests", Type.BOOLEAN);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
@@ -132,6 +134,8 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))
         .addProvider(
             DeviceBrokerTypeProvider.class, new DeviceBrokerTypeProvider(DEVICE_BROKER_TYPE))
+        .addProvider(
+            Dex2OatProvider.class, new Dex2OatProvider(cloudDex2oatEnabled))
         .build();
   }
 
@@ -189,8 +193,9 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
       cache = ruleContext.attributes().get("cache", Type.INTEGER);
       vmHeap = ruleContext.attributes().get("vm_heap", Type.INTEGER);
 
-      defaultProperties = Optional.fromNullable(
-          ruleContext.getPrerequisiteArtifact("default_properties", Mode.HOST));
+      defaultProperties =
+          Optional.fromNullable(
+              ruleContext.getPrerequisiteArtifact("default_properties", Mode.HOST));
       adb = ruleContext.getPrerequisiteArtifact("$adb", Mode.HOST);
       emulatorArm = ruleContext.getPrerequisiteArtifact("$emulator_arm", Mode.HOST);
       emulatorX86 = ruleContext.getPrerequisiteArtifact("$emulator_x86", Mode.HOST);
@@ -229,34 +234,43 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
       systemImages = Iterables.filter(files, SOURCE_PROPERTIES_FILTER);
       validateAttributes();
       if (sourcePropertiesFile == null) {
-        ruleContext.attributeError("system_image", "No source.properties files exist in this "
-            + "filegroup (" + systemImagesAndSourceProperties.getLabel() + ")");
+        ruleContext.attributeError(
+            "system_image",
+            "No source.properties files exist in this "
+                + "filegroup ("
+                + systemImagesAndSourceProperties.getLabel()
+                + ")");
       }
       int numberOfSourceProperties = Iterables.size(files) - Iterables.size(systemImages);
       if (numberOfSourceProperties > 1) {
-        ruleContext.attributeError("system_image", "Multiple source.properties files exist in "
-            + "this filegroup (" + systemImagesAndSourceProperties.getLabel() + ")");
+        ruleContext.attributeError(
+            "system_image",
+            "Multiple source.properties files exist in "
+                + "this filegroup ("
+                + systemImagesAndSourceProperties.getLabel()
+                + ")");
       }
       if (ruleContext.hasErrors()) {
         return;
       }
 
-      commonDependencies = ImmutableList.<Artifact>builder()
-          .add(adb)
-          .add(sourcePropertiesFile)
-          .addAll(systemImages)
-          .add(emulatorArm)
-          .add(emulatorX86)
-          .add(adbStatic)
-          .addAll(emulatorX86Bios)
-          .addAll(xvfbSupportFiles)
-          .add(mksdcard)
-          .add(snapshotFs)
-          .addAll(unifiedLauncher.getFilesToRun())
-          .addAll(androidRuntestDeps)
-          .addAll(testingShbaseDeps)
-          .addAll(platformApks)
-          .build();
+      commonDependencies =
+          ImmutableList.<Artifact>builder()
+              .add(adb)
+              .add(sourcePropertiesFile)
+              .addAll(systemImages)
+              .add(emulatorArm)
+              .add(emulatorX86)
+              .add(adbStatic)
+              .addAll(emulatorX86Bios)
+              .addAll(xvfbSupportFiles)
+              .add(mksdcard)
+              .add(snapshotFs)
+              .addAll(unifiedLauncher.getFilesToRun())
+              .addAll(androidRuntestDeps)
+              .addAll(testingShbaseDeps)
+              .addAll(platformApks)
+              .build();
     }
 
     /*
@@ -268,8 +282,9 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         Artifact metadata, Artifact images, Artifact executable, RuleContext ruleContext) {
       List<Substitution> arguments = new ArrayList<>();
       arguments.add(Substitution.of("%workspace%", ruleContext.getWorkspaceName()));
-      arguments.add(Substitution.of("%unified_launcher%",
-          unifiedLauncher.getExecutable().getRunfilesPathString()));
+      arguments.add(
+          Substitution.of(
+              "%unified_launcher%", unifiedLauncher.getExecutable().getRunfilesPathString()));
       arguments.add(Substitution.of("%adb%", adb.getRunfilesPathString()));
       arguments.add(Substitution.of("%adb_static%", adbStatic.getRunfilesPathString()));
       arguments.add(Substitution.of("%emulator_x86%", emulatorX86.getRunfilesPathString()));
@@ -286,16 +301,18 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
           Substitution.of(
               "%bios_files%",
               emulatorX86Bios.stream().map(Artifact::getRunfilesPathString).collect(joining(" "))));
-      arguments.add(Substitution.of("%source_properties_file%",
-          sourcePropertiesFile.getRunfilesPathString()));
+      arguments.add(
+          Substitution.of(
+              "%source_properties_file%", sourcePropertiesFile.getRunfilesPathString()));
       arguments.add(Substitution.of("%image_input_file%", images.getRunfilesPathString()));
       arguments.add(Substitution.of("%emulator_metadata_path%", metadata.getRunfilesPathString()));
       arguments.add(Substitution.of("%android_runtest%", androidRuntest.getRunfilesPathString()));
       arguments.add(Substitution.of("%testing_shbase%", testingShbase.getRunfilesPathString()));
       arguments.add(Substitution.of("%sdk_path%", sdkPath.getRunfilesPathString()));
 
-      ruleContext.registerAction(new TemplateExpansionAction(
-          ruleContext.getActionOwner(), executable, STUB_SCRIPT, arguments, true));
+      ruleContext.registerAction(
+          new TemplateExpansionAction(
+              ruleContext.getActionOwner(), executable, STUB_SCRIPT, arguments, true));
     }
 
     public void createBootAction(Artifact metadata, Artifact images) {
@@ -303,44 +320,46 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
       // strings to find all dependent artifacts (there is no nicely created runfiles
       // folder we're executing in).
 
-      SpawnAction.Builder spawnBuilder = new SpawnAction.Builder()
-          .addOutput(metadata)
-          .addOutput(images)
-          .addInputs(commonDependencies)
-          .setMnemonic("AndroidDeviceBoot")
-          .setProgressMessage("creating android images...")
-          .setExecutionInfo(constraints)
-          .setExecutable(unifiedLauncher)
-          // Boot resource estimation:
-          // CPU: 100% - the emulator will peg a single cpu during boot because it's a very
-          //   computation intensive part of the lifecycle.
-          // RAM: the emulator will use as much ram as has been requested in the device rule
-          //   (there is a slight overhead for qemu's internals, but this is miniscule).
-          // IO: 15% Process is IO light until the very end when the booted files are flushed to
-          //   disk.
-          .setResources(ResourceSet.createWithRamCpuIo(ram, 1, .0))
-          .addExecutableArguments(
-              "--action=boot",
-              "--density=" + density,
-              "--memory=" + ram,
-              "--cache=" + cache,
-              "--vm_size=" + vmHeap,
-              "--generate_output_dir=" + images.getExecPath().getParentDirectory().getPathString(),
-              "--skin=" + getScreenSize(),
-              "--source_properties_file=" + sourcePropertiesFile.getExecPathString(),
-              "--system_images=" + Artifact.joinExecPaths(" ", systemImages),
-              "--flag_configured_android_tools",
-              "--adb=" + adb.getExecPathString(),
-              "--emulator_x86=" + emulatorX86.getExecPathString(),
-              "--emulator_arm=" + emulatorArm.getExecPathString(),
-              "--adb_static=" + adbStatic.getExecPathString(),
-              "--mksdcard=" + mksdcard.getExecPathString(),
-              "--empty_snapshot_fs=" + snapshotFs.getExecPathString(),
-              "--bios_files=" + Artifact.joinExecPaths(",", emulatorX86Bios),
-              "--nocopy_system_images",
-              "--single_image_file",
-              "--android_sdk_path=" + sdkPath.getExecPathString(),
-              "--platform_apks=" + Artifact.joinExecPaths(",", platformApks));
+      SpawnAction.Builder spawnBuilder =
+          new SpawnAction.Builder()
+              .addOutput(metadata)
+              .addOutput(images)
+              .addInputs(commonDependencies)
+              .setMnemonic("AndroidDeviceBoot")
+              .setProgressMessage("creating android images...")
+              .setExecutionInfo(constraints)
+              .setExecutable(unifiedLauncher)
+              // Boot resource estimation:
+              // CPU: 100% - the emulator will peg a single cpu during boot because it's a very
+              //   computation intensive part of the lifecycle.
+              // RAM: the emulator will use as much ram as has been requested in the device rule
+              //   (there is a slight overhead for qemu's internals, but this is miniscule).
+              // IO: 15% Process is IO light until the very end when the booted files are flushed to
+              //   disk.
+              .setResources(ResourceSet.createWithRamCpuIo(ram, 1, .0))
+              .addExecutableArguments(
+                  "--action=boot",
+                  "--density=" + density,
+                  "--memory=" + ram,
+                  "--cache=" + cache,
+                  "--vm_size=" + vmHeap,
+                  "--generate_output_dir="
+                      + images.getExecPath().getParentDirectory().getPathString(),
+                  "--skin=" + getScreenSize(),
+                  "--source_properties_file=" + sourcePropertiesFile.getExecPathString(),
+                  "--system_images=" + Artifact.joinExecPaths(" ", systemImages),
+                  "--flag_configured_android_tools",
+                  "--adb=" + adb.getExecPathString(),
+                  "--emulator_x86=" + emulatorX86.getExecPathString(),
+                  "--emulator_arm=" + emulatorArm.getExecPathString(),
+                  "--adb_static=" + adbStatic.getExecPathString(),
+                  "--mksdcard=" + mksdcard.getExecPathString(),
+                  "--empty_snapshot_fs=" + snapshotFs.getExecPathString(),
+                  "--bios_files=" + Artifact.joinExecPaths(",", emulatorX86Bios),
+                  "--nocopy_system_images",
+                  "--single_image_file",
+                  "--android_sdk_path=" + sdkPath.getExecPathString(),
+                  "--platform_apks=" + Artifact.joinExecPaths(",", platformApks));
 
       CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
       if (defaultProperties.isPresent()) {

@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -439,8 +440,8 @@ public class IncrementalLoadingTest {
     private class ManualDiffAwarenessFactory implements DiffAwareness.Factory {
       @Nullable
       @Override
-      public DiffAwareness maybeCreate(Path pathEntry) {
-        return pathEntry == workspace ? new ManualDiffAwareness() : null;
+      public DiffAwareness maybeCreate(Root pathEntry) {
+        return pathEntry.asPath().equals(workspace) ? new ManualDiffAwareness() : null;
       }
     }
 
@@ -494,7 +495,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
-              ImmutableList.of(workspace),
+              ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageCacheOptions,
           Options.getDefaults(SkylarkSemanticsOptions.class),
@@ -585,7 +586,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
-              ImmutableList.of(workspace),
+              ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageCacheOptions,
           Options.getDefaults(SkylarkSemanticsOptions.class),
@@ -595,7 +596,7 @@ public class IncrementalLoadingTest {
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(
-          new Reporter(new EventBus()), modifiedFileSet, workspace);
+          new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter(new EventBus()));
 
       changes.clear();

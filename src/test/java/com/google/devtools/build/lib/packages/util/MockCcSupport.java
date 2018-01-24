@@ -344,6 +344,10 @@ public abstract class MockCcSupport {
           + "      expand_if_all_available: 'thinlto_object_suffix_replace'"
           + "      flag: 'object_suffix_replace=%{thinlto_object_suffix_replace}'"
           + "    }"
+          + "    flag_group {"
+          + "      expand_if_all_available: 'thinlto_merged_object_file'"
+          + "      flag: 'thinlto_merged_object_file=%{thinlto_merged_object_file}'"
+          + "    }"
           + "  }"
           + "  flag_set {"
           + "    action: 'lto-backend'"
@@ -357,6 +361,17 @@ public abstract class MockCcSupport {
 
   public static final String THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS_CONFIGURATION =
       "" + "feature {  name: 'thin_lto_linkstatic_tests_use_shared_nonlto_backends'}";
+
+  public static final String ENABLE_AFDO_THINLTO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'enable_afdo_thinlto'"
+          + "  requires { feature: 'autofdo_implicit_thinlto' }"
+          + "  implies: 'thin_lto'"
+          + "}";
+
+  public static final String AUTOFDO_IMPLICIT_THINLTO_CONFIGURATION =
+      "" + "feature {  name: 'autofdo_implicit_thinlto'}";
 
   public static final String AUTO_FDO_CONFIGURATION =
       ""
@@ -593,17 +608,58 @@ public abstract class MockCcSupport {
     setupCrosstool(config, toolchainBuilder.buildPartial());
   }
 
-  public void setupCrosstoolWithRelease(MockToolsConfig config, String crosstool)
-      throws IOException {
-    createCrosstoolPackage(config, false, true, null, null, crosstool);
-  }
-
   /**
    * Creates a crosstool package by merging {@code toolchain} with the default mock CROSSTOOL file.
    */
   public void setupCrosstool(MockToolsConfig config, CToolchain toolchain) throws IOException {
     createCrosstoolPackage(
         config, /* addEmbeddedRuntimes= */ false, /* addModuleMap= */ true, null, null, toolchain);
+  }
+
+  /**
+   * Create a crosstool package. For integration tests, it actually links in a working crosstool,
+   * for all other tests, it only creates a dummy package, with a working CROSSTOOL file.
+   *
+   * <p>If <code>addEmbeddedRuntimes</code> is true, it also adds filegroups for the embedded
+   * runtimes.
+   */
+  public void setupCrosstool(
+      MockToolsConfig config,
+      boolean addEmbeddedRuntimes,
+      boolean addModuleMap,
+      String staticRuntimesLabel,
+      String dynamicRuntimesLabel,
+      CToolchain toolchain)
+      throws IOException {
+    createCrosstoolPackage(
+        config,
+        addEmbeddedRuntimes,
+        addModuleMap,
+        staticRuntimesLabel,
+        dynamicRuntimesLabel,
+        toolchain);
+  }
+
+  public void setupCrosstool(
+      MockToolsConfig config,
+      boolean addEmbeddedRuntimes,
+      boolean addModuleMap,
+      String staticRuntimesLabel,
+      String dynamicRuntimesLabel,
+      String crosstool)
+      throws IOException {
+    createCrosstoolPackage(
+        config,
+        addEmbeddedRuntimes,
+        addModuleMap,
+        staticRuntimesLabel,
+        dynamicRuntimesLabel,
+        crosstool);
+  }
+
+  public void setupCrosstoolWithRelease(MockToolsConfig config, String crosstool)
+      throws IOException {
+    createCrosstoolPackage(config, false, true, null, null, crosstool);
   }
 
   /**
@@ -629,46 +685,6 @@ public abstract class MockCcSupport {
         null,
         null,
         builder.build());
-  }
-
-  /**
-   * Create a crosstool package. For integration tests, it actually links in a working crosstool,
-   * for all other tests, it only creates a dummy package, with a working CROSSTOOL file.
-   *
-   * <p>If <code>addEmbeddedRuntimes</code> is true, it also adds filegroups for the embedded
-   * runtimes.
-   */
-  public void setupCrosstool(
-      MockToolsConfig config,
-      boolean addEmbeddedRuntimes,
-      boolean addModuleMap,
-      String staticRuntimesLabel,
-      String dynamicRuntimesLabel,
-      CToolchain toolchain) throws IOException {
-    createCrosstoolPackage(
-        config,
-        addEmbeddedRuntimes,
-        addModuleMap,
-        staticRuntimesLabel,
-        dynamicRuntimesLabel,
-        toolchain);
-  }
-
-  public void setupCrosstool(
-      MockToolsConfig config,
-      boolean addEmbeddedRuntimes,
-      boolean addModuleMap,
-      String staticRuntimesLabel,
-      String dynamicRuntimesLabel,
-      String crosstool)
-      throws IOException {
-    createCrosstoolPackage(
-        config,
-        addEmbeddedRuntimes,
-        addModuleMap,
-        staticRuntimesLabel,
-        dynamicRuntimesLabel,
-        crosstool);
   }
 
   protected static void createToolsCppPackage(MockToolsConfig config) throws IOException {
@@ -701,27 +717,6 @@ public abstract class MockCcSupport {
     createCrosstoolPackage(config, addEmbeddedRuntimes, /*addModuleMap=*/ true, null, null);
   }
 
-  protected String getCrosstoolTopPathForConfig(MockToolsConfig config) {
-    if (config.isRealFileSystem()) {
-      return getRealFilesystemCrosstoolTopPath();
-    } else {
-      return getMockCrosstoolPath();
-    }
-  }
-
-  public abstract String getMockCrosstoolPath();
-
-  public static PackageIdentifier getMockCrosstoolsTop() {
-    try {
-      return PackageIdentifier.create(
-          RepositoryName.create(TestConstants.TOOLS_REPOSITORY),
-          PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
-    } catch (LabelSyntaxException e) {
-      Verify.verify(false);
-      throw new AssertionError();
-    }
-  }
-
   private void createCrosstoolPackage(
       MockToolsConfig config,
       boolean addEmbeddedRuntimes,
@@ -729,8 +724,13 @@ public abstract class MockCcSupport {
       String staticRuntimesLabel,
       String dynamicRuntimesLabel)
       throws IOException {
-    createCrosstoolPackage(config, addEmbeddedRuntimes, addModuleMap, staticRuntimesLabel,
-        dynamicRuntimesLabel, readCrosstoolFile());
+    createCrosstoolPackage(
+        config,
+        addEmbeddedRuntimes,
+        addModuleMap,
+        staticRuntimesLabel,
+        dynamicRuntimesLabel,
+        readCrosstoolFile());
   }
 
   private void createCrosstoolPackage(
@@ -742,8 +742,13 @@ public abstract class MockCcSupport {
       CToolchain toolchain)
       throws IOException {
     String crosstoolFile = mergeCrosstoolConfig(readCrosstoolFile(), toolchain);
-    createCrosstoolPackage(config, addEmbeddedRuntimes, addModuleMap, staticRuntimesLabel,
-        dynamicRuntimesLabel, crosstoolFile);
+    createCrosstoolPackage(
+        config,
+        addEmbeddedRuntimes,
+        addModuleMap,
+        staticRuntimesLabel,
+        dynamicRuntimesLabel,
+        crosstoolFile);
   }
 
   protected void createCrosstoolPackage(
@@ -765,6 +770,27 @@ public abstract class MockCcSupport {
           .setAddModuleMap(addModuleMap)
           .setSupportsHeaderParsing(true)
           .write();
+    }
+  }
+
+  protected String getCrosstoolTopPathForConfig(MockToolsConfig config) {
+    if (config.isRealFileSystem()) {
+      return getRealFilesystemCrosstoolTopPath();
+    } else {
+      return getMockCrosstoolPath();
+    }
+  }
+
+  public abstract String getMockCrosstoolPath();
+
+  public static PackageIdentifier getMockCrosstoolsTop() {
+    try {
+      return PackageIdentifier.create(
+          RepositoryName.create(TestConstants.TOOLS_REPOSITORY),
+          PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
+    } catch (LabelSyntaxException e) {
+      Verify.verify(false);
+      throw new AssertionError();
     }
   }
 

@@ -25,29 +25,36 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.List;
 
 /**
- * Handles the 'build' command on the Blaze command line, including targets
- * named by arguments passed to Blaze.
+ * Handles the 'build' command on the Blaze command line, including targets named by arguments
+ * passed to Blaze.
  */
-@Command(name = "build",
-         builds = true,
-         options = { BuildRequestOptions.class,
-                     ExecutionOptions.class,
-                     LocalExecutionOptions.class,
-                     PackageCacheOptions.class,
-                     BuildView.Options.class,
-                     LoadingOptions.class,
-                   },
-         usesConfigurationOptions = true,
-         shortDescription = "Builds the specified targets.",
-         allowResidue = true,
-         completion = "label",
-         help = "resource:build.txt")
+@Command(
+  name = "build",
+  builds = true,
+  options = {
+    BuildRequestOptions.class,
+    ExecutionOptions.class,
+    LocalExecutionOptions.class,
+    PackageCacheOptions.class,
+    BuildView.Options.class,
+    LoadingOptions.class,
+    KeepGoingOption.class,
+    LoadingPhaseThreadsOption.class
+  },
+  usesConfigurationOptions = true,
+  shortDescription = "Builds the specified targets.",
+  allowResidue = true,
+  completion = "label",
+  help = "resource:build.txt"
+)
 public final class BuildCommand implements BlazeCommand {
 
   @Override

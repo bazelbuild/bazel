@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -123,7 +124,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     Path workspacePath = scratch.overwriteFile("WORKSPACE", contents);
     fakeWorkspaceFileValue.setSize(workspacePath.getFileSize());
     return RootedPath.toRootedPath(
-        workspacePath.getParentDirectory(), PathFragment.create(workspacePath.getBaseName()));
+        Root.fromPath(workspacePath.getParentDirectory()),
+        PathFragment.create(workspacePath.getBaseName()));
   }
 
   // Dummy harmcrest matcher that match the function name of a skykey

@@ -64,7 +64,10 @@ class SimpleArFileTest(unittest.TestCase):
 
   def assertSimpleFileContent(self, names):
     datafile = os.path.join(testenv.TESTDATA_PATH, "_".join(names) + ".ar")
-    content = [{"filename": n, "size": len(n), "data": n} for n in names]
+    content = [{"filename": n,
+                "size": len(n.encode("utf-8")),
+                "data": n.encode("utf-8")}
+               for n in names]
     self.assertArFileContent(datafile, content)
 
   def testAFile(self):
@@ -140,9 +143,11 @@ class TarFileWriterTest(unittest.TestCase):
     with archive.TarFileWriter(self.tempfile) as f:
       for n in names:
         f.add_file(n, content=n)
-    content = ([{"name": "."}] + [{"name": n,
-                                    "size": len(n),
-                                    "data": n} for n in names])
+    content = ([{"name": "."}] +
+               [{"name": n,
+                 "size": len(n.encode("utf-8")),
+                 "data": n.encode("utf-8")}
+                for n in names])
     self.assertTarFileContent(self.tempfile, content)
 
   def testAddFile(self):
@@ -172,9 +177,9 @@ class TarFileWriterTest(unittest.TestCase):
     content = [
         {"name": ".", "mode": 0o755},
         {"name": "./a", "mode": 0o755},
-        {"name": "./a/b", "data": "ab", "mode": 0o644},
+        {"name": "./a/b", "data": b"ab", "mode": 0o644},
         {"name": "./a/c", "mode": 0o755},
-        {"name": "./a/c/d", "data": "acd", "mode": 0o644},
+        {"name": "./a/c/d", "data": b"acd", "mode": 0o644},
         ]
     tempdir = os.path.join(os.environ["TEST_TMPDIR"], "test_dir")
     # Iterate over the `content` array to create the directory
@@ -183,7 +188,7 @@ class TarFileWriterTest(unittest.TestCase):
       if "data" in c:
         p = os.path.join(tempdir, c["name"][2:])
         os.makedirs(os.path.dirname(p))
-        with open(p, "w") as f:
+        with open(p, "wb") as f:
           f.write(c["data"])
     with archive.TarFileWriter(self.tempfile) as f:
       f.add_dir("./", tempdir, mode=0o644)
@@ -191,8 +196,8 @@ class TarFileWriterTest(unittest.TestCase):
 
   def testMergeTar(self):
     content = [
-        {"name": "./a", "data": "a"},
-        {"name": "./ab", "data": "ab"},
+        {"name": "./a", "data": b"a"},
+        {"name": "./ab", "data": b"ab"},
         ]
     for ext in ["", ".gz", ".bz2", ".xz"]:
       with archive.TarFileWriter(self.tempfile) as f:
@@ -204,8 +209,8 @@ class TarFileWriterTest(unittest.TestCase):
     content = [
         {"name": ".", "mode": 0o755},
         {"name": "./foo", "mode": 0o755},
-        {"name": "./foo/a", "data": "a"},
-        {"name": "./foo/ab", "data": "ab"},
+        {"name": "./foo/a", "data": b"a"},
+        {"name": "./foo/ab", "data": b"ab"},
         ]
     with archive.TarFileWriter(self.tempfile) as f:
       f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"),

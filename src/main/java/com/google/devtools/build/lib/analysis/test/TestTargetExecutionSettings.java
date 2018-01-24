@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import javax.annotation.Nullable;
 
 /**
  * Container for common test execution settings shared by all
@@ -42,7 +43,7 @@ public final class TestTargetExecutionSettings {
   private final Artifact runUnderExecutable;
   private final Artifact executable;
   private final boolean runfilesSymlinksCreated;
-  private final Path runfilesDir;
+  @Nullable private final Path runfilesDir;
   private final Runfiles runfiles;
   private final Artifact runfilesInputManifest;
   private final Artifact instrumentedFileManifest;
@@ -108,7 +109,8 @@ public final class TestTargetExecutionSettings {
     return runfilesSymlinksCreated;
   }
 
-  /** @return the directory of the runfiles */
+  /** @return the directory of the runfiles. */
+  @Nullable
   public Path getRunfilesDir() {
     return runfilesDir;
   }

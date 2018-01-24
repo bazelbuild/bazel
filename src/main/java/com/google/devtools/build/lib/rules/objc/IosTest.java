@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.syntax.Type;
 
 /** Implementation for {@code ios_test} rule in Bazel. */
 public final class IosTest implements RuleConfiguredTargetFactory {
@@ -118,36 +117,30 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     ExtraLinkArgs extraLinkArgs;
     Iterable<Artifact> extraLinkInputs;
     String bundleFormat;
-    if (!isXcTest(ruleContext)) {
-      extraLinkArgs = new ExtraLinkArgs();
-      extraLinkInputs = ImmutableList.of();
-      bundleFormat = ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT;
-    } else {
-      XcTestAppProvider testApp = xcTestAppProvider(ruleContext);
-      Artifact bundleLoader = testApp.getBundleLoader();
+    XcTestAppProvider testApp = xcTestAppProvider(ruleContext);
+    Artifact bundleLoader = testApp.getBundleLoader();
 
-      // -bundle causes this binary to be linked as a bundle and not require an entry point
-      // (i.e. main())
-      // -bundle_loader causes the code in this test to have access to the symbols in the test rig,
-      // or more specifically, the flag causes ld to consider the given binary when checking for
-      // missing symbols.
-      // -rpath @loader_path/Frameworks allows test bundles to load dylibs from the app's
-      // Frameworks directory.
-      extraLinkArgs =
-          new ExtraLinkArgs(
-              "-bundle",
-              "-bundle_loader",
-              bundleLoader.getExecPathString(),
-              "-Xlinker",
-              "-rpath",
-              "-Xlinker",
-              "@loader_path/Frameworks");
+    // -bundle causes this binary to be linked as a bundle and not require an entry point
+    // (i.e. main())
+    // -bundle_loader causes the code in this test to have access to the symbols in the test rig,
+    // or more specifically, the flag causes ld to consider the given binary when checking for
+    // missing symbols.
+    // -rpath @loader_path/Frameworks allows test bundles to load dylibs from the app's
+    // Frameworks directory.
+    extraLinkArgs =
+        new ExtraLinkArgs(
+            "-bundle",
+            "-bundle_loader",
+            bundleLoader.getExecPathString(),
+            "-Xlinker",
+            "-rpath",
+            "-Xlinker",
+            "@loader_path/Frameworks");
 
-      extraLinkInputs = ImmutableList.of(bundleLoader);
-      bundleFormat = ReleaseBundlingSupport.XCTEST_BUNDLE_DIR_FORMAT;
+    extraLinkInputs = ImmutableList.of(bundleLoader);
+    bundleFormat = ReleaseBundlingSupport.XCTEST_BUNDLE_DIR_FORMAT;
 
-      filesToBuild.add(testApp.getIpa());
-    }
+    filesToBuild.add(testApp.getIpa());
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
@@ -271,11 +264,9 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
             .setHasModuleMap();
 
-    if (isXcTest(ruleContext)) {
-      builder
-          .addExtraSdkFrameworks(AUTOMATIC_SDK_FRAMEWORKS_FOR_XCTEST)
-          .addDepObjcProviders(ImmutableList.of(xcTestAppProvider(ruleContext).getObjcProvider()));
-    }
+    builder
+        .addExtraSdkFrameworks(AUTOMATIC_SDK_FRAMEWORKS_FOR_XCTEST)
+        .addDepObjcProviders(ImmutableList.of(xcTestAppProvider(ruleContext).getObjcProvider()));
 
     // Add the memleaks library if the --ios_memleaks flag is true.  The library pauses the test
     // after all tests have been executed so that leaks can be run.
@@ -287,10 +278,6 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
-  }
-
-  protected static boolean isXcTest(RuleContext ruleContext) {
-    return ruleContext.attributes().get(IS_XCTEST_ATTR, Type.BOOLEAN);
   }
 
   /** Returns the {@link XcTestAppProvider} of the {@code xctest_app} attribute. */

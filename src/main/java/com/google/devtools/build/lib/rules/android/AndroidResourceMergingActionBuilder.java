@@ -110,8 +110,9 @@ public class AndroidResourceMergingActionBuilder {
 
   /**
    * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
-   * If null, data binding processing is skipped (and data binding expressions aren't allowed in
-   * layout resources).
+   *
+   * <p>If null, data binding processing is skipped (and data binding expressions aren't allowed in
+   *  layout resources).
    */
   public AndroidResourceMergingActionBuilder setDataBindingInfoZip(Artifact zip) {
     this.dataBindingInfoZip = zip;
@@ -129,8 +130,7 @@ public class AndroidResourceMergingActionBuilder {
     return this;
   }
 
-  public AndroidResourceMergingActionBuilder setUseCompiledMerge(
-      boolean useCompiledMerge) {
+  public AndroidResourceMergingActionBuilder setUseCompiledMerge(boolean useCompiledMerge) {
     this.useCompiledMerge = useCompiledMerge;
     return this;
   }
@@ -166,14 +166,13 @@ public class AndroidResourceMergingActionBuilder {
     NestedSetBuilder<Artifact> inputs = createInputsForBuilder(builder);
 
     Preconditions.checkNotNull(primary);
-    builder.add("--primaryData",
-        RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED.apply(primary));
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED.apply(primary));
     inputs.addAll(primary.getArtifacts());
     inputs.add(primary.getCompiledSymbols());
 
     if (dependencies != null) {
-      ResourceContainerConverter.addToCommandLine(dependencies, builder,
-          RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED);
+      ResourceContainerConverter.addToCommandLine(
+          dependencies, builder, RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED);
       inputs.addTransitive(dependencies.getTransitiveResources());
       inputs.addTransitive(dependencies.getTransitiveAssets());
       inputs.addTransitive(dependencies.getTransitiveCompiledSymbols());
@@ -191,12 +190,10 @@ public class AndroidResourceMergingActionBuilder {
             .addCommandLine(builder.build(), compiledParamFileInfo.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Merging compiled Android resources for %s",
-                ruleContext.getLabel())
+            .setProgressMessage("Merging compiled Android resources for %s", ruleContext.getLabel())
             .setMnemonic("AndroidCompiledResourceMerger")
             .build(context));
   }
-
 
   private void buildParsedResourceMergingAction(
       CustomCommandLine.Builder builder,
@@ -263,13 +260,9 @@ public class AndroidResourceMergingActionBuilder {
     }
 
     CustomCommandLine.Builder jarAndManifestBuilder =
-        useCompiledMerge
-            ? compiledMergeBuilder
-            : parsedMergeBuilder;
+        useCompiledMerge ? compiledMergeBuilder : parsedMergeBuilder;
     List<Artifact> jarAndManifestOutputs =
-        useCompiledMerge
-            ? compiledMergeOutputs
-            : parsedMergeOutputs;
+        useCompiledMerge ? compiledMergeOutputs : parsedMergeOutputs;
 
     if (classJarOut != null) {
       jarAndManifestBuilder.addExecPath("--classJarOutput", classJarOut);

@@ -128,7 +128,7 @@ public final class FilesetManifest {
                     "fileset manifest line must start with '%s': '%s'", workspaceName, location));
           } else {
             // Erase "<workspaceName>/" prefix.
-            location = location.subFragment(1, location.segmentCount());
+            location = location.subFragment(1);
           }
         }
       }

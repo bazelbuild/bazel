@@ -30,14 +30,10 @@ function is_darwin() {
   [[ "${PLATFORM}" =~ darwin ]]
 }
 
-function is_linux() {
-  [[ "${PLATFORM}" =~ linux ]]
-}
-
 function _log_base() {
   prefix=$1
   shift
-  echo >&2 "${prefix}[$(basename "$0") $(date "+%H:%M:%S.%N (%z)")] $@"
+  echo >&2 "${prefix}[$(basename "$0") $(date "+%H:%M:%S.%N (%z)")] $*"
 }
 
 function log_info() {
@@ -165,16 +161,7 @@ fi
 
 
 function use_bazel_workspace_file() {
-  mkdir -p src/test/{shell/bazel,docker}
-  cat >src/test/docker/docker_repository.bzl <<EOF
-def docker_repository():
-  pass
-EOF
-  cat >src/test/docker/flavours.bzl <<EOF
-def pull_images_for_docker_tests():
-  pass
-EOF
-  touch src/test/docker/BUILD
+  mkdir -p src/test/shell/bazel
   cat >src/test/shell/bazel/list_source_repository.bzl <<EOF
 def list_source_repository(name):
   pass
@@ -413,8 +400,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-3.jar
+  [ -e third_party/java/jdk/langtools/javac-9+181-r4173-1.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
   touch WORKSPACE
 }

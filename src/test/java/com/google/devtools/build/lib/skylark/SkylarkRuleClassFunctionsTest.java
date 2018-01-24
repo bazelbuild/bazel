@@ -15,13 +15,15 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkFileType;
@@ -31,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
@@ -40,8 +41,8 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
+import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -99,33 +100,23 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testCannotOverrideBuiltInAttribute() throws Exception {
     ev.setFailFast(false);
-    try {
-      evalAndExport(
-          "def impl(ctx): return", "r = rule(impl, attrs = {'tags': attr.string_list()})");
-      fail("Expected error '"
-          + "There is already a built-in attribute 'tags' which cannot be overridden"
-          + "' but got no error");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("There is already a built-in attribute 'tags' which cannot be overridden");
-    }
+    evalAndExport(
+        "def impl(ctx):",
+        "  return",
+        "r = rule(impl, attrs = {'tags': attr.string_list()})");
+    ev.assertContainsError(
+        "There is already a built-in attribute 'tags' which cannot be overridden");
   }
 
   @Test
   public void testCannotOverrideBuiltInAttributeName() throws Exception {
     ev.setFailFast(false);
-    try {
-      evalAndExport(
-          "def impl(ctx): return", "r = rule(impl, attrs = {'name': attr.string()})");
-      fail("Expected error '"
-          + "There is already a built-in attribute 'name' which cannot be overridden"
-          + "' but got no error");
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("There is already a built-in attribute 'name' which cannot be overridden");
-    }
+    evalAndExport(
+        "def impl(ctx):",
+        "  return",
+        "r = rule(impl, attrs = {'name': attr.string()})");
+    ev.assertContainsError(
+        "There is already a built-in attribute 'name' which cannot be overridden");
   }
 
   @Test
@@ -321,7 +312,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
             "my_aspect = aspect(implementation = _impl)",
             "a = attr.label_list(aspects = [my_aspect])");
     SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) ev.lookup("a");
-            SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
   }
@@ -334,7 +325,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(implementation = _impl)",
         "a = attr.label(aspects = [my_aspect])");
     SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) ev.lookup("a");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
   }
@@ -358,7 +349,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl,",
         "   attrs = { '_extra_deps' : attr.label(default = Label('//foo/bar:baz')) }",
         ")");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
@@ -373,7 +364,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl,",
         "   attrs = { 'param' : attr.string(values=['a', 'b']) }",
         ")");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("param");
   }
@@ -411,7 +402,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   attrs = { 'param' : attr.string(values=['a', 'b']),",
         "             '_extra' : attr.label(default = Label('//foo/bar:baz')) }",
         ")");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) ev.lookup("my_aspect");
     assertThat(aspect.getAttributes()).hasSize(2);
     assertThat(aspect.getParamAttributes()).containsExactly("param");
   }
@@ -432,7 +423,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
-    SkylarkAspect a = (SkylarkAspect) lookup("a1");
+    SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a1");
     assertThat(a.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 
@@ -543,19 +534,19 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrCfg() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.getConfigurationTransition()).isEqualTo(ConfigurationTransition.HOST);
+    assertThat(attr.getConfigurationTransition().isHostTransition()).isTrue();
   }
 
   @Test
   public void testAttrCfgData() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'data', allow_files = True)");
-    assertThat(attr.getConfigurationTransition()).isEqualTo(ConfigurationTransition.DATA);
+    assertThat(attr.getConfigurationTransition()).isEqualTo(ConfigurationTransitionProxy.DATA);
   }
 
   @Test
   public void testAttrCfgTarget() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'target', allow_files = True)");
-    assertThat(attr.getConfigurationTransition()).isEqualTo(ConfigurationTransition.NONE);
+    assertThat(attr.getConfigurationTransition()).isEqualTo(NoTransition.INSTANCE);
   }
 
   @Test
@@ -1051,7 +1042,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
     Info z = (Info) lookup("z");
-    assertThat(z.getKeys()).isEqualTo(ImmutableSet.of("a", "b", "c", "d"));
+    assertThat(z.getFieldNames()).isEqualTo(ImmutableSet.of("a", "b", "c", "d"));
   }
 
   @Test
@@ -1069,7 +1060,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testStructConcatenationCommonFields() throws Exception {
-    checkErrorContains("Cannot concat structs with common field(s): a",
+    checkErrorContains("Cannot use '+' operator on provider instances with overlapping field(s): a",
         "x = struct(a = 1, b = 2)", "y = struct(c = 1, a = 2)", "z = x + y\n");
   }
 
@@ -1257,7 +1248,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "data2 = provider()"
     );
 
-    checkEvalError("Cannot concat data1 with data2",
+    checkEvalError("Cannot use '+' operator on instances of different providers (data1 and data2)",
         "d1 = data1(x = 1)",
         "d2 = data2(y = 2)",
         "d = d1 + d2"
@@ -1281,7 +1272,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void declaredProvidersWithFieldsConcatError() throws Exception {
     evalAndExport("data1 = provider(fields=['f1', 'f2'])", "data2 = provider(fields=['f3'])");
     checkEvalError(
-        "Cannot concat data1 with data2",
+        "Cannot use '+' operator on instances of different providers (data1 and data2)",
         "d1 = data1(f1=1, f2=2)",
         "d2 = data2(f3=3)",
         "d = d1 + d2");
@@ -1291,7 +1282,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void declaredProvidersWithOverlappingFieldsConcatError() throws Exception {
     evalAndExport("data = provider(fields=['f1', 'f2'])");
     checkEvalError(
-        "Cannot concat structs with common field(s): f1",
+        "Cannot use '+' operator on provider instances with overlapping field(s): f1",
         "d1 = data(f1 = 4)",
         "d2 = data(f1 = 5)",
         "d1 + d2");
@@ -1327,7 +1318,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl, attr_aspects=['*'])");
 
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong(
         Attribute.attr("foo", BuildType.LABEL).allowedFileTypes().build()
     )).isTrue();
@@ -1341,7 +1332,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "cc = provider()",
         "my_aspect = aspect(_impl, required_aspect_providers=['java', cc])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
@@ -1367,7 +1358,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "cc = provider()",
         "my_aspect = aspect(_impl, required_aspect_providers=[['java'], [cc]])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
@@ -1396,7 +1387,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl, required_aspect_providers=[])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
@@ -1410,7 +1401,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl)"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
@@ -1425,7 +1416,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "y = provider()",
         "my_aspect = aspect(_impl, provides = ['x', y])"
     );
-    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
     AdvertisedProviderSet advertisedProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getAdvertisedProviders();
     assertThat(advertisedProviders.canHaveAnyProvider()).isFalse();
@@ -1476,7 +1467,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "]"
     );
     SkylarkProvider p = (SkylarkProvider) lookup("p");
-    SkylarkAspect a = (SkylarkAspect) lookup("a");
+    SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a");
     SkylarkProvider p1 = (SkylarkProvider) lookup("p1");
     assertThat(p.getPrintableName()).isEqualTo("p");
     assertThat(p.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
@@ -1608,14 +1599,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
       "my_rule(name = 'main', exe = ':tool.sh')"
     );
 
-    try {
-      createRuleContext("//third_party/foo:main");
-      fail();
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("cfg parameter is mandatory when executable=True is " + "provided.");
-    }
+    AssertionError expected = expectThrows(
+        AssertionError.class,
+        () -> createRuleContext("//third_party/foo:main"));
+    assertThat(expected).hasMessageThat()
+        .contains("cfg parameter is mandatory when executable=True is provided.");
   }
 
   @Test

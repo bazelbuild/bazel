@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -43,6 +44,7 @@ public abstract class ActionOwner {
           "empty target kind",
           "system",
           null,
+          null,
           null);
 
   public static ActionOwner create(
@@ -53,7 +55,8 @@ public abstract class ActionOwner {
       @Nullable String targetKind,
       String configurationChecksum,
       @Nullable BuildEvent configuration,
-      @Nullable String additionalProgressInfo) {
+      @Nullable String additionalProgressInfo,
+      @Nullable PlatformInfo executionPlatform) {
     return new AutoValue_ActionOwner(
         location,
         label,
@@ -62,7 +65,8 @@ public abstract class ActionOwner {
         Preconditions.checkNotNull(configurationChecksum),
         configuration,
         targetKind,
-        additionalProgressInfo);
+        additionalProgressInfo,
+        executionPlatform);
   }
 
   /** Returns the location of this ActionOwner, if any; null otherwise. */
@@ -104,6 +108,13 @@ public abstract class ActionOwner {
    */
   @Nullable
   abstract String getAdditionalProgressInfo();
+
+  /**
+   * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
+   * platform is {@code null}, then the host platform is assumed.
+   */
+  @Nullable
+  abstract PlatformInfo getExecutionPlatform();
 
   ActionOwner() {}
 }

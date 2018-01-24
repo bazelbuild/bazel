@@ -117,10 +117,10 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   @SkylarkCallable(
-      name = "apks_under_test",
-      structField = true,
-      allowReturnNones = true,
-      doc = "Returns a collection of APKs that this target tests."
+    name = "apks_under_test",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns a collection of APKs that this target tests."
   )
   public ImmutableCollection<Artifact> getApksUnderTest() {
     return getIdeInfoProvider().getApksUnderTest();
@@ -135,11 +135,10 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     return getIdeInfoProvider().definesAndroidResources();
   }
 
-
   @SkylarkCallable(
-      name = "idl",
-      structField = true,
-      doc = "Returns information about IDL files associated with this target."
+    name = "idl",
+    structField = true,
+    doc = "Returns information about IDL files associated with this target."
   )
   public IdlInfo getIdlInfo() {
     return idlInfo;
@@ -155,10 +154,10 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   @SkylarkCallable(
-      name = "resource_jar",
-      structField = true,
-      allowReturnNones = true,
-      doc = "Returns a jar file for classes generated from resources."
+    name = "resource_jar",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns a jar file for classes generated from resources."
   )
   @Nullable
   public JavaRuleOutputJarsProvider.OutputJar getResourceJar() {
@@ -166,10 +165,10 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   @SkylarkCallable(
-      name = "aar",
-      structField = true,
-      allowReturnNones = true,
-      doc = "Returns the aar output of this target."
+    name = "aar",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns the aar output of this target."
   )
   public Artifact getAar() {
     return getIdeInfoProvider().getAar();
@@ -200,36 +199,34 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   @Immutable
   public class IdlInfo {
     @SkylarkCallable(
-        name = "import_root",
-        structField = true,
-        allowReturnNones = true,
-        doc = "Returns the root of IDL packages if not the java root."
+      name = "import_root",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns the root of IDL packages if not the java root."
     )
     public String getImportRoot() {
       return getIdeInfoProvider().getIdlImportRoot();
     }
-    @SkylarkCallable(
-        name = "sources",
-        structField = true,
-        doc = "Returns a list of IDL files."
-    )
+
+    @SkylarkCallable(name = "sources", structField = true, doc = "Returns a list of IDL files.")
     public ImmutableCollection<Artifact> getSources() {
       return getIdeInfoProvider().getIdlSrcs();
     }
+
     @SkylarkCallable(
-        name = "generated_java_files",
-        structField = true,
-        doc = "Returns a list Java files generated from IDL sources."
+      name = "generated_java_files",
+      structField = true,
+      doc = "Returns a list Java files generated from IDL sources."
     )
     public ImmutableCollection<Artifact> getIdlGeneratedJavaFiles() {
       return getIdeInfoProvider().getIdlGeneratedJavaFiles();
     }
 
     @SkylarkCallable(
-        name = "output",
-        structField = true,
-        allowReturnNones = true,
-        doc = "Returns a jar file for classes generated from IDL sources."
+      name = "output",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns a jar file for classes generated from IDL sources."
     )
     @Nullable
     public JavaRuleOutputJarsProvider.OutputJar getIdlOutput() {
@@ -241,8 +238,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
       return new OutputJar(
           getIdeInfoProvider().getIdlClassJar(),
           null,
-          idlSourceJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(idlSourceJar)
-      );
+          idlSourceJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(idlSourceJar));
     }
   }
 }

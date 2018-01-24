@@ -17,16 +17,18 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Command-line build options for a Blaze module.
- */
+/** Command-line build options for a Blaze module. */
+@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public abstract class FragmentOptions extends OptionsBase implements Cloneable, Serializable {
+  public static final ObjectCodec<FragmentOptions> CODEC = new FragmentOptions_AutoCodec();
 
   /**
    * Returns the labels contributed to the defaults package by this fragment.
@@ -35,7 +37,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
    * allowed to change depending on the value of the options.
    */
   @SuppressWarnings("unused")
-  public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+  public Map<String, Set<Label>> getDefaultsLabels() {
     return ImmutableMap.of();
   }
 

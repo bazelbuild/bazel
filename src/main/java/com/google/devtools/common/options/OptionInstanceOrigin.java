@@ -22,14 +22,14 @@ import javax.annotation.Nullable;
 public class OptionInstanceOrigin {
   private final OptionPriority priority;
   @Nullable private final String source;
-  @Nullable private final OptionDefinition implicitDependent;
-  @Nullable private final OptionDefinition expandedFrom;
+  @Nullable private final ParsedOptionDescription implicitDependent;
+  @Nullable private final ParsedOptionDescription expandedFrom;
 
   public OptionInstanceOrigin(
       OptionPriority priority,
       String source,
-      OptionDefinition implicitDependent,
-      OptionDefinition expandedFrom) {
+      ParsedOptionDescription implicitDependent,
+      ParsedOptionDescription expandedFrom) {
     this.priority = priority;
     this.source = source;
     this.implicitDependent = implicitDependent;
@@ -46,12 +46,12 @@ public class OptionInstanceOrigin {
   }
 
   @Nullable
-  public OptionDefinition getImplicitDependent() {
+  public ParsedOptionDescription getImplicitDependent() {
     return implicitDependent;
   }
 
   @Nullable
-  public OptionDefinition getExpandedFrom() {
+  public ParsedOptionDescription getExpandedFrom() {
     return expandedFrom;
   }
 }

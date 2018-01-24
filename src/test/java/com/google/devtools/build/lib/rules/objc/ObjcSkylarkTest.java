@@ -204,8 +204,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_skylark:bin");
-    AppleExecutableBinaryProvider executableProvider =
-        binaryTarget.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+    AppleExecutableBinaryInfo executableProvider =
+        binaryTarget.get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
     ObjcProvider objcProvider = executableProvider.getDepsObjcProvider();
 
     assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
@@ -244,8 +244,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_skylark:bin");
-    AppleExecutableBinaryProvider executableProvider =
-        binaryTarget.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+    AppleExecutableBinaryInfo executableProvider =
+        binaryTarget.get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
     ObjcProvider objcProvider = executableProvider.getDepsObjcProvider();
 
     assertThat(objcProvider.get(ObjcProvider.DEFINE)).contains("mock_define");
@@ -282,7 +282,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    implementation = swift_binary_impl,",
         "    fragments = ['apple'],",
         "    attrs = { '_xcode_config': ",
-        "        attr.label(default=Label('//examples/apple_skylark:current_xcode_config')) },",
+        "        attr.label(default = configuration_field(",
+        "            fragment = 'apple', name = 'xcode_config_label')),",
+        "    },",
         ")");
 
     scratch.file("examples/apple_skylark/a.m");
@@ -290,7 +292,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
-        "xcode_config_alias(name='current_xcode_config')",
         "swift_binary(",
         "   name='my_target',",
         ")");
@@ -423,7 +424,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    implementation = swift_binary_impl,",
         "    fragments = ['apple'],",
         "    attrs = { '_xcode_config': ",
-        "        attr.label(default=Label('//examples/apple_skylark:current_xcode_config')) },",
+        "        attr.label(default=configuration_field(",
+        "            fragment='apple', name='xcode_config_label')) },",
         ")");
 
     scratch.file("examples/apple_skylark/a.m");
@@ -431,7 +433,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
-        "xcode_config_alias(name='current_xcode_config')",
         "swift_binary(",
         "   name='my_target',",
         ")");

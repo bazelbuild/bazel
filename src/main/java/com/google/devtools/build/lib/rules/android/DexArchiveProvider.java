@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Provider of transitively available dex archives corresponding to Jars.  A dex archive is a zip of
+ * Provider of transitively available dex archives corresponding to Jars. A dex archive is a zip of
  * {@code .dex} files that each encode exactly one {@code .class} file in an Android-readable form.
  * The file names in a dex archive should match the file names in the originating Jar file, except
  * with {@code .dex} appended, i.e., {@code <package/for/ClassName[$Inner].class.dex}.
@@ -44,14 +44,12 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
 
   /**
    * Provider that doesn't provide any dex archives, which is what any neverlink target should use.
-   * It's not strictly necessary to handle neverlink specially, but doing so reduces the amount
-   * of processing done for targets that won't be used for dexing anyway.
+   * It's not strictly necessary to handle neverlink specially, but doing so reduces the amount of
+   * processing done for targets that won't be used for dexing anyway.
    */
   public static final DexArchiveProvider NEVERLINK = new DexArchiveProvider.Builder().build();
 
-  /**
-   * Builder for {@link DexArchiveProvider}.
-   */
+  /** Builder for {@link DexArchiveProvider}. */
   public static class Builder {
 
     private final Table<ImmutableSet<String>, Artifact, Artifact> dexArchives =
@@ -59,8 +57,7 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
     private final NestedSetBuilder<ImmutableTable<ImmutableSet<String>, Artifact, Artifact>>
         transitiveDexArchives = NestedSetBuilder.stableOrder();
 
-    public Builder() {
-    }
+    public Builder() {}
 
     /**
      * Adds all dex archives from the given providers, which is useful to aggregate providers from
@@ -75,11 +72,14 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
 
     /**
      * Adds the given dex archive as a replacement for the given Jar.
+     *
      * @param dexopts
      */
     public Builder addDexArchive(Set<String> dexopts, Artifact dexArchive, Artifact dexedJar) {
-      checkArgument(dexArchive.getFilename().endsWith(".dex.zip"),
-          "Doesn't look like a dex archive: %s", dexArchive);
+      checkArgument(
+          dexArchive.getFilename().endsWith(".dex.zip"),
+          "Doesn't look like a dex archive: %s",
+          dexArchive);
       // Adding this artifact will fail iff dexArchive already appears as the value of another jar.
       // It's ok and expected to put the same pair multiple times. Note that ImmutableBiMap fails
       // in that situation, which is why we're not using it here.
@@ -87,15 +87,17 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
       Artifact old =
           dexArchives.put(
               ImmutableSet.copyOf(dexopts), checkNotNull(dexedJar, "dexedJar"), dexArchive);
-      checkArgument(old == null || old.equals(dexArchive),
+      checkArgument(
+          old == null || old.equals(dexArchive),
           "We already had mapping %s-%s for dexopts %s, so we don't also need %s",
-          dexedJar, old, dexopts, dexArchive);
+          dexedJar,
+          old,
+          dexopts,
+          dexArchive);
       return this;
     }
 
-    /**
-     * Returns the finished {@link DexArchiveProvider}.
-     */
+    /** Returns the finished {@link DexArchiveProvider}. */
     public DexArchiveProvider build() {
       return new DexArchiveProvider(
           transitiveDexArchives.add(ImmutableTable.copyOf(dexArchives)).build());
@@ -110,9 +112,7 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
     this.dexArchives = dexArchives;
   }
 
-  /**
-   * Returns a flat map from Jars to dex archives transitively produced for the given dexopts.
-   */
+  /** Returns a flat map from Jars to dex archives transitively produced for the given dexopts. */
   public Map<Artifact, Artifact> archivesForDexopts(ImmutableSet<String> dexopts) {
     // Can't use ImmutableMap because we can encounter the same key-value pair multiple times.
     // Use LinkedHashMap in case someone tries to iterate this map (not the case as of 2/2017).

@@ -76,6 +76,11 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
+  public void createDirectoryAndParents(Path path) throws IOException {
+    throw modificationException();
+  }
+
+  @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
     throw modificationException();
   }

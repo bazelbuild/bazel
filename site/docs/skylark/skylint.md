@@ -5,7 +5,7 @@ title: Skylark Linter Documentation
 
 # Skylark Linter Documentation
 
-Style guide: https://docs.bazel.build/versions/master/skylark/bzl-style.html
+[Style guide](https://docs.bazel.build/versions/master/skylark/bzl-style.html)
 
 This document explains how to use the Skylark linter.
 
@@ -42,9 +42,7 @@ where `/path/to/Skylint` is the path of the binary from the previous section.
 This section explains which checks the linter performs and how to deal with
 false positives.
 
-### Deprecations
-
-#### Deprecating functions (docstring format) [deprecated-symbol]
+### Deprecating functions (docstring format) [deprecated-symbol]
 
 <a name="deprecated-symbol"></a>
 To deprecate a function, add a `Deprecated:` section to the docstring, similarly
@@ -66,7 +64,7 @@ def bar():
 Note that the explanation starts on the next line after `Deprecated:` and may
 occupy multiple lines, with all lines indented by two spaces.
 
-#### Using the operator + on dictionaries [deprecated-plus-dict]
+### Using the operator + on dictionaries [deprecated-plus-dict]
 
 <a name="deprecated-plus-dict"></a>
 The `+` operator (and similarly `+=`) is deprecated for dictionaries. Instead,
@@ -79,6 +77,21 @@ and use it like this:
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 dicts.add(d1, d2, d3) # instead of d1 + d2 + d3
 ```
+
+### Using the operator + on depset [deprecated-plus-depset]
+
+<a name="deprecated-plus-depset"></a>
+The `+` operator (and similarly `+=`) is deprecated for depsets. Instead,
+use the depset constructor.
+
+See [documentation on depsets](depsets.md) for background and examples of use.
+
+```
+  d1 = depset(items1)
+  d2 = depset(items2)
+  combined = depset(transitive=[d1, d2])
+```
+
 
 ### Docstrings
 

@@ -29,12 +29,12 @@ public class NativeInfo extends Info {
   }
 
   @Override
-  public boolean hasKey(String name) {
+  public boolean hasField(String name) {
     return values.containsKey(name);
   }
 
   @Override
-  public ImmutableCollection<String> getKeys() {
+  public ImmutableCollection<String> getFieldNames() {
     return values.keySet();
   }
 

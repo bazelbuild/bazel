@@ -327,31 +327,53 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     // TODO(laurentlb): Merge with the visitor above when possible (i.e. when BUILD files use it).
     SyntaxTreeVisitor checker =
         new SyntaxTreeVisitor() {
-          @Override
-          public void visit(FuncallExpression node) {
-            for (Argument.Passed arg : node.getArguments()) {
-              if (arg.isStarStar()) {
-                eventHandler.handle(
-                    Event.error(
-                        node.getLocation(), "**kwargs arguments are not allowed in BUILD files"));
-                success[0] = false;
-              } else if (arg.isStar()) {
-                eventHandler.handle(
-                    Event.error(
-                        node.getLocation(), "*args arguments are not allowed in BUILD files"));
-                success[0] = false;
-              }
-            }
+
+          private void error(ASTNode node, String message) {
+            eventHandler.handle(Event.error(node.getLocation(), message));
+            success[0] = false;
           }
 
           @Override
           public void visit(FunctionDefStatement node) {
-            eventHandler.handle(
-                Event.error(
-                    node.getLocation(),
-                    "syntax error at 'def': This is not supported in BUILD files. "
-                        + "Move the block to a .bzl file and load it"));
-            success[0] = false;
+            error(
+                node,
+                "function definitions are not allowed in BUILD files. You may move the function to "
+                    + "a .bzl file and load it.");
+          }
+
+          @Override
+          public void visit(ForStatement node) {
+            error(
+                node,
+                "for statements are not allowed in BUILD files. You may inline the loop, move it "
+                    + "to a function definition (in a .bzl file), or as a last resort use a list "
+                    + "comprehension.");
+          }
+
+          @Override
+          public void visit(IfStatement node) {
+            error(
+                node,
+                "if statements are not allowed in BUILD files. You may move conditional logic to a "
+                    + "function definition (in a .bzl file), or for simple cases use an if "
+                    + "expression.");
+          }
+
+          @Override
+          public void visit(FuncallExpression node) {
+            for (Argument.Passed arg : node.getArguments()) {
+              if (arg.isStarStar()) {
+                error(
+                    node,
+                    "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
+                        + "explicitly.");
+              } else if (arg.isStar()) {
+                error(
+                    node,
+                    "*args arguments are not allowed in BUILD files. Pass the arguments in "
+                        + "explicitly.");
+              }
+            }
           }
         };
     checker.visitAll(statements);

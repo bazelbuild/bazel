@@ -290,7 +290,8 @@ For safety, depsets with different orders cannot be merged with the `+` operator
 unless one of them uses the default order; the resulting depset’s order is the
 same as the left operand. Note that when two depsets of different order are
 merged in this way, the child may appear to have had its elements rearranged
-when it is traversed via the parent.
+when it is traversed via the parent. **The `+` operator is deprecated, anyway;
+use the `transitive` argument instead.**
 
 ## Performance
 
@@ -365,10 +366,6 @@ and/or upcoming changes.
 *   Depset elements currently must have the same type, e.g. all ints or all
     strings. This restriction will be lifted.
 
-*   Depsets used to support `+` operator. It is now deprecated in favor of a new
-    depset constructor (described in this document). This avoids confusion
-    regarding how `+` treats direct elements vs children, and improves
-    performance.
-
-*   Both the `|` operator and the `.union()` methods are defined for depsets as
-    a synonym for `+`. They will be going away.
+*   A merge operation should be done by using the `transitive` argument in the
+    depset constructor. All other methods (`|` and `+` operators, and the
+    `union` method) are deprecated and will be going away.

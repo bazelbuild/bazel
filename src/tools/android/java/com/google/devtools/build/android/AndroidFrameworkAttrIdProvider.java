@@ -13,16 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-/**
- * Provides the android.R.attr field IDs.
- */
+/** Provides the android.R.attr field IDs. */
 public interface AndroidFrameworkAttrIdProvider {
 
   int getAttrId(String attrName) throws AttrLookupException;
 
-  /**
-   * Exception thrown when lookup fails.
-   */
+  /** Exception thrown when lookup fails. */
   final class AttrLookupException extends Exception {
 
     AttrLookupException(Throwable t) {

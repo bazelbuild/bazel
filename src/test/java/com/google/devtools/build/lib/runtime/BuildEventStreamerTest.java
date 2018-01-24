@@ -26,8 +26,8 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -520,7 +521,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
   private Artifact makeArtifact(String pathString) {
     Path path = outputBase.getRelative(PathFragment.create(pathString));
-    return new Artifact(path, Root.asSourceRoot(path));
+    return new Artifact(path, ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)));
   }
 
   @Test
@@ -696,6 +697,36 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // only once per flush() for stdout and stderr.
     verify(outErr, times(2)).getOut();
     verify(outErr, times(2)).getErr();
+  }
+
+  @Test
+  public void testNoopFlush() throws Exception {
+    // Verify that the streamer ignores a flush, if neither stream produces any output.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String stdoutMsg = "Some text that was written to stdout.";
+    String stderrMsg = "The UI text that bazel wrote to stderr.";
+    when(outErr.getOut()).thenReturn(stdoutMsg).thenReturn("");
+    when(outErr.getErr()).thenReturn(stderrMsg).thenReturn("");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.buildEvent(startEvent);
+    assertThat(transport.getEvents()).hasSize(1);
+    streamer.flush(); // Output, so a new progress event has to be added
+    assertThat(transport.getEvents()).hasSize(2);
+    streamer.flush(); // No further output, so no additional event should be generated.
+    assertThat(transport.getEvents()).hasSize(2);
+
+    assertThat(transport.getEvents().get(0)).isEqualTo(startEvent);
+    assertThat(transport.getEventProtos().get(1).getProgress().getStdout()).isEqualTo(stdoutMsg);
+    assertThat(transport.getEventProtos().get(1).getProgress().getStderr()).isEqualTo(stderrMsg);
   }
 
   @Test

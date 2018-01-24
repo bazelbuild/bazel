@@ -45,10 +45,6 @@ public class DocgenConsts {
   public static final String SKYLARK_OVERVIEW_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-overview.vm";
 
-  // Build Encyclopedia documentation root
-  // Can be overridden from SkylarkDocumentationProcessor#parseOptions
-  public static String BEDocsRoot = "/versions/master/be";
-
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 
   public static final String VAR_SECTION_BINARY = "SECTION_BINARY";
@@ -172,6 +168,15 @@ public class DocgenConsts {
       .put("outs", -91)
       .put("hdrs", -90)
       .build();
+
+  // The following variables are not constants as they can be overridden from
+  // SkylarkDocumentationProcessor#parseOptions
+
+  // Build Encyclopedia documentation root
+  public static String BeDocsRoot = "/versions/master/be";
+
+  // Documentation files extension
+  public static String documentationExtension = "html";
 
   static String toCommandLineFormat(String cmdDoc) {
     // Replace html <br> tags with line breaks

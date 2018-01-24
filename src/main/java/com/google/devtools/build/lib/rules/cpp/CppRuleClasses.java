@@ -33,12 +33,12 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
@@ -71,7 +71,7 @@ public class CppRuleClasses {
    */
   public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
       ImmutableMap.of(
-          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE
+          ConfigurationTransitionProxy.DATA, DisableLipoTransition.INSTANCE
       );
 
 
@@ -286,6 +286,16 @@ public class CppRuleClasses {
    * A string constant for the ThinLTO feature.
    */
   public static final String THIN_LTO = "thin_lto";
+
+  /*
+   * A string constant for allowing implicit ThinLTO enablement for AFDO.
+   */
+  public static final java.lang.String AUTOFDO_IMPLICIT_THINLTO = "autofdo_implicit_thinlto";
+
+  /*
+   * A string constant for enabling ThinLTO for AFDO implicitly.
+   */
+  public static final java.lang.String ENABLE_AFDO_THINLTO = "enable_afdo_thinlto";
 
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building

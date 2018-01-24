@@ -100,6 +100,12 @@ public class CppLinkActionBuilder {
       "thinlto_object_suffix_replace";
 
   /**
+   * A build variable for the path to the merged object file, which is an object file that is
+   * created during the LTO indexing step and needs to be passed to the final link.
+   */
+  public static final String THINLTO_MERGED_OBJECT_FILE_VARIABLE = "thinlto_merged_object_file";
+
+  /**
    * A build variable for linker param file created by Bazel to overcome the command line length
    * limit.
    */
@@ -503,7 +509,7 @@ public class CppLinkActionBuilder {
    * Returns true if there are any LTO bitcode inputs to this link, either directly transitively via
    * library inputs.
    */
-  boolean hasLtoBitcodeInputs() {
+  public boolean hasLtoBitcodeInputs() {
     if (!ltoBitcodeFiles.isEmpty()) {
       return true;
     }
@@ -584,7 +590,7 @@ public class CppLinkActionBuilder {
   private List<String> getLtoBackendCommandLineOptions(ImmutableSet<String> features) {
     List<String> argv = new ArrayList<>();
     argv.addAll(toolchain.getLinkOptions());
-    argv.addAll(cppConfiguration.getCompilerOptions(features));
+    argv.addAll(CppHelper.getCompilerOptions(cppConfiguration, toolchain, features));
     return argv;
   }
 
@@ -806,17 +812,6 @@ public class CppLinkActionBuilder {
     }
     final Iterable<Artifact> objectArtifacts = LinkerInputs.toLibraryArtifacts(objectFileInputs);
 
-    final Iterable<LinkerInput> linkerInputs =
-        IterablesChain.<LinkerInput>builder()
-            .add(objectFileInputs)
-            .add(
-                ImmutableIterable.from(
-                    Link.mergeInputsCmdLine(
-                        uniqueLibraries,
-                        needWholeArchive,
-                        CppHelper.getArchiveType(cppConfiguration, toolchain))))
-            .build();
-
     final LibraryToLink outputLibrary =
         linkType.isExecutable()
             ? null
@@ -839,6 +834,8 @@ public class CppLinkActionBuilder {
                 /* sharedNonLtoBackends= */ null);
 
     @Nullable Artifact thinltoParamFile = null;
+    @Nullable Artifact thinltoMergedObjectFile = null;
+    PathFragment outputRootPath = output.getRootRelativePath();
     if (allowLtoIndexing && allLtoArtifacts != null) {
       // Create artifact for the file that the LTO indexing step will emit
       // object file names into for any that were included in the link as
@@ -847,10 +844,16 @@ public class CppLinkActionBuilder {
       // Note that the paths emitted into this file will have their prefixes
       // replaced with the final output directory, so they will be the paths
       // of the native object files not the input bitcode files.
-      PathFragment linkerParamFileRootPath =
-          ParameterFile.derivePath(output.getRootRelativePath(), "lto-final");
+      PathFragment linkerParamFileRootPath = ParameterFile.derivePath(outputRootPath, "lto-final");
       thinltoParamFile =
           linkArtifactFactory.create(ruleContext, configuration, linkerParamFileRootPath);
+
+      // Create artifact for the merged object file, which is an object file that is created
+      // during the LTO indexing step and needs to be passed to the final link.
+      PathFragment thinltoMergedObjectFileRootPath =
+          outputRootPath.replaceName(outputRootPath.getBaseName() + ".lto.merged.o");
+      thinltoMergedObjectFile =
+          linkArtifactFactory.create(ruleContext, configuration, thinltoMergedObjectFileRootPath);
     }
 
     final ImmutableList<Artifact> actionOutputs;
@@ -862,6 +865,10 @@ public class CppLinkActionBuilder {
       if (thinltoParamFile != null) {
         builder.add(thinltoParamFile);
       }
+      if (thinltoMergedObjectFile != null) {
+        builder.add(thinltoMergedObjectFile);
+        addObjectFile(thinltoMergedObjectFile);
+      }
       actionOutputs = builder.build();
     } else {
       actionOutputs =
@@ -872,11 +879,22 @@ public class CppLinkActionBuilder {
               symbolCounts);
     }
 
+    final Iterable<LinkerInput> linkerInputs =
+        IterablesChain.<LinkerInput>builder()
+            .add(objectFileInputs)
+            .add(
+                ImmutableIterable.from(
+                    Link.mergeInputsCmdLine(
+                        uniqueLibraries,
+                        needWholeArchive,
+                        CppHelper.getArchiveType(cppConfiguration, toolchain))))
+            .build();
+
     ImmutableList<LinkerInput> runtimeLinkerInputs =
         ImmutableList.copyOf(LinkerInputs.simpleLinkerInputs(runtimeInputs, runtimeType));
 
     PathFragment paramRootPath =
-        ParameterFile.derivePath(output.getRootRelativePath(), (isLtoIndexing) ? "lto-index" : "2");
+        ParameterFile.derivePath(outputRootPath, (isLtoIndexing) ? "lto-index" : "2");
 
     @Nullable
     final Artifact paramFile =
@@ -887,6 +905,8 @@ public class CppLinkActionBuilder {
     // Add build variables necessary to template link args into the crosstool.
     Variables.Builder buildVariablesBuilder = new Variables.Builder(toolchain.getBuildVariables());
     Preconditions.checkState(!isLtoIndexing || allowLtoIndexing);
+    Preconditions.checkState(allowLtoIndexing || thinltoParamFile == null);
+    Preconditions.checkState(allowLtoIndexing || thinltoMergedObjectFile == null);
     CppLinkVariablesExtension variablesExtension =
         isLtoIndexing
             ? new CppLinkVariablesExtension(
@@ -897,6 +917,7 @@ public class CppLinkActionBuilder {
                 /* output= */ null,
                 paramFile,
                 thinltoParamFile,
+                thinltoMergedObjectFile,
                 ltoOutputRootPrefix,
                 // If we reached here, then allowLtoIndexing must be true (checked above).
                 /* allowLtoIndexing= */ true,
@@ -909,7 +930,8 @@ public class CppLinkActionBuilder {
                 runtimeLinkerInputs,
                 output,
                 paramFile,
-                allowLtoIndexing ? thinltoParamFile : null,
+                thinltoParamFile,
+                thinltoMergedObjectFile,
                 /* ltoOutputRootPrefix= */ PathFragment.EMPTY_FRAGMENT,
                 allowLtoIndexing,
                 toolchain.getInterfaceSoBuilder(),
@@ -969,7 +991,8 @@ public class CppLinkActionBuilder {
           .setLinkopts(ImmutableList.copyOf(linkopts));
     } else {
       List<String> opts = new ArrayList<>(linkopts);
-      opts.addAll(featureConfiguration.getCommandLine("lto-indexing", buildVariables));
+      opts.addAll(
+          featureConfiguration.getCommandLine("lto-indexing", buildVariables, null /* expander */));
       opts.addAll(cppConfiguration.getLtoIndexOptions());
       linkCommandLineBuilder.setLinkopts(ImmutableList.copyOf(opts));
     }
@@ -991,7 +1014,8 @@ public class CppLinkActionBuilder {
               cppConfiguration,
               CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
               featureConfiguration,
-              linkType == LinkTargetType.DYNAMIC_LIBRARY && toolchain.toolchainNeedsPic(),
+              cppConfiguration.forcePic()
+                  || (linkType == LinkTargetType.DYNAMIC_LIBRARY && toolchain.toolchainNeedsPic()),
               Matcher.quoteReplacement(
                   isNativeDeps && cppConfiguration.shareNativeDeps()
                       ? output.getExecPathString()
@@ -1065,9 +1089,13 @@ public class CppLinkActionBuilder {
     }
     if (linkCommandLine.getParamFile() != null) {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
+      // Pass along tree artifacts, so they can be properly expanded.
+      Iterable<Artifact> expandedNonLibraryTreeArtifactInputs =
+          Iterables.filter(expandedNonLibraryInputs, a -> a.isTreeArtifact());
       Action parameterFileWriteAction =
           new ParameterFileWriteAction(
               getOwner(),
+              expandedNonLibraryTreeArtifactInputs,
               paramFile,
               linkCommandLine.paramCmdLine(),
               ParameterFile.ParameterFileType.UNQUOTED,
@@ -1260,15 +1288,6 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  private void addObjectFile(LinkerInput input) {
-    // We skip file extension checks for TreeArtifacts because they represent directory artifacts
-    // without a file extension.
-    String name = input.getArtifact().getFilename();
-    Preconditions.checkArgument(
-        input.getArtifact().isTreeArtifact() || Link.OBJECT_FILETYPES.matches(name), name);
-    this.objectFiles.add(input);
-  }
-
   public CppLinkActionBuilder addLtoBitcodeFiles(ImmutableMap<Artifact, Artifact> files) {
     Preconditions.checkState(ltoBitcodeFiles == null);
     ltoBitcodeFiles = files;
@@ -1278,6 +1297,15 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder setDefFile(Artifact defFile) {
     this.defFile = defFile;
     return this;
+  }
+
+   private void addObjectFile(LinkerInput input) {
+    // We skip file extension checks for TreeArtifacts because they represent directory artifacts
+    // without a file extension.
+    String name = input.getArtifact().getFilename();
+    Preconditions.checkArgument(
+        input.getArtifact().isTreeArtifact() || Link.OBJECT_FILETYPES.matches(name), name);
+    this.objectFiles.add(input);
   }
 
   /**
@@ -1564,6 +1592,7 @@ public class CppLinkActionBuilder {
     private final Artifact interfaceLibraryOutput;
     private final Artifact paramFile;
     private final Artifact thinltoParamFile;
+    private final Artifact thinltoMergedObjectFile;
     private final PathFragment ltoOutputRootPrefix;
     private final boolean allowLtoIndexing;
 
@@ -1577,6 +1606,7 @@ public class CppLinkActionBuilder {
         Artifact output,
         Artifact paramFile,
         Artifact thinltoParamFile,
+        Artifact thinltoMergedObjectFile,
         PathFragment ltoOutputRootPrefix,
         boolean allowLtoIndexing,
         Artifact interfaceLibraryBuilder,
@@ -1590,6 +1620,7 @@ public class CppLinkActionBuilder {
       this.interfaceLibraryOutput = interfaceLibraryOutput;
       this.paramFile = paramFile;
       this.thinltoParamFile = thinltoParamFile;
+      this.thinltoMergedObjectFile = thinltoMergedObjectFile;
       this.ltoOutputRootPrefix = ltoOutputRootPrefix;
       this.allowLtoIndexing = allowLtoIndexing;
 
@@ -1672,6 +1703,10 @@ public class CppLinkActionBuilder {
             Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
                 + ";"
                 + Iterables.getOnlyElement(CppFileTypes.OBJECT_FILE.getExtensions()));
+        if (thinltoMergedObjectFile != null) {
+          buildVariables.addStringVariable(
+              THINLTO_MERGED_OBJECT_FILE_VARIABLE, thinltoMergedObjectFile.getExecPathString());
+        }
       } else {
         if (thinltoParamFile != null) {
           // This is a normal link action and we need to use param file created by lto-indexing.
@@ -2058,10 +2093,16 @@ public class CppLinkActionBuilder {
           name = inputArtifact.getExecPathString();
         }
 
-        librariesToLink.addValue(
-            artifactCategory.equals(ArtifactCategory.OBJECT_FILE)
-                ? LibraryToLinkValue.forObjectFile(name, inputIsWholeArchive)
-                : LibraryToLinkValue.forStaticLibrary(name, inputIsWholeArchive));
+        if (artifactCategory.equals(ArtifactCategory.OBJECT_FILE)) {
+          if (inputArtifact.isTreeArtifact()) {
+            librariesToLink.addValue(
+                LibraryToLinkValue.forObjectDirectory(inputArtifact, inputIsWholeArchive));
+          } else {
+            librariesToLink.addValue(LibraryToLinkValue.forObjectFile(name, inputIsWholeArchive));
+          }
+        } else {
+          librariesToLink.addValue(LibraryToLinkValue.forStaticLibrary(name, inputIsWholeArchive));
+        }
       }
     }
   }

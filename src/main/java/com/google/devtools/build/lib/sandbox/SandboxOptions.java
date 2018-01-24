@@ -193,4 +193,15 @@ public class SandboxOptions extends OptionsBase {
     }
     return ImmutableSet.copyOf(inaccessiblePaths);
   }
+
+  @Option(
+    name = "experimental_collect_local_sandbox_action_metrics",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "When enabled, execution statistics (such as user and system time) are recorded for "
+            + "locally executed actions which use sandboxing"
+  )
+  public boolean collectLocalSandboxExecutionStatistics;
 }

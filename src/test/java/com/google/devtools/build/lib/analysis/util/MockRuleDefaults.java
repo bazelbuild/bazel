@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -60,7 +60,10 @@ public class MockRuleDefaults {
           attr("testonly", BOOLEAN).nonconfigurable("test").value(false),
           attr("deprecation", STRING).nonconfigurable("test").value((String) null),
           attr("tags", STRING_LIST).nonconfigurable("test"),
-          attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST).nonconfigurable("test"),
+          attr("visibility", NODEP_LABEL_LIST)
+              .orderIndependent()
+              .cfg(HostTransition.INSTANCE)
+              .nonconfigurable("test"),
           attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
               .allowedFileTypes(FileTypeSet.NO_FILE)
               .dontCheckConstraints(),

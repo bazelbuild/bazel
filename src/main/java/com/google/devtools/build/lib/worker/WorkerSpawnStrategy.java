@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
+import com.google.devtools.build.lib.vfs.Path;
 
 /**
  * A spawn action context that launches Spawns the first time they are used in a persistent mode and
@@ -27,8 +28,8 @@ import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 )
 public final class WorkerSpawnStrategy extends AbstractSpawnStrategy {
 
-  public WorkerSpawnStrategy(WorkerSpawnRunner spawnRunner) {
-    super(spawnRunner);
+  public WorkerSpawnStrategy(Path execRoot, WorkerSpawnRunner spawnRunner) {
+    super(execRoot, spawnRunner);
   }
 
   @Override

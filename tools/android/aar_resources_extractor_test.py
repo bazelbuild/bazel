@@ -14,9 +14,9 @@
 
 """Tests for aar_resources_extractor."""
 
+import io
 import os
 import shutil
-import StringIO
 import unittest
 import zipfile
 
@@ -29,6 +29,12 @@ def _HostPath(path):
 
 class AarResourcesExtractorTest(unittest.TestCase):
   """Unit tests for aar_resources_extractor.py."""
+
+  # Python 2 alias
+  if not hasattr(unittest.TestCase, "assertCountEqual"):
+
+    def assertCountEqual(self, *args):
+      return self.assertItemsEqual(*args)
 
   def setUp(self):
     os.chdir(os.environ["TEST_TMPDIR"])
@@ -43,7 +49,8 @@ class AarResourcesExtractorTest(unittest.TestCase):
     ]
 
   def testNoResources(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
+    aar.writestr("res/", "")
     os.makedirs("out_dir")
     aar_resources_extractor.ExtractResources(aar, "out_dir")
     self.assertEqual([_HostPath("out_dir/res/values/empty.xml")],
@@ -52,20 +59,50 @@ class AarResourcesExtractorTest(unittest.TestCase):
       self.assertEqual("<resources/>", empty_xml.read())
 
   def testContainsResources(self):
-    aar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
     aar.writestr("res/values/values.xml", "some values")
     aar.writestr("res/layouts/layout.xml", "some layout")
+    aar.writestr("assets/a", "some asset")
     os.makedirs("out_dir")
     aar_resources_extractor.ExtractResources(aar, "out_dir")
     expected_resources = [
         _HostPath("out_dir/res/values/values.xml"),
         _HostPath("out_dir/res/layouts/layout.xml")
     ]
-    self.assertItemsEqual(expected_resources, self.DirContents("out_dir"))
+    self.assertCountEqual(expected_resources, self.DirContents("out_dir"))
     with open("out_dir/res/values/values.xml", "r") as values_xml:
       self.assertEqual("some values", values_xml.read())
     with open("out_dir/res/layouts/layout.xml", "r") as layout_xml:
       self.assertEqual("some layout", layout_xml.read())
+
+  def testNoAssets(self):
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
+    aar.writestr("assets/", "")
+    os.makedirs("out_dir")
+    aar_resources_extractor.ExtractAssets(aar, "out_dir")
+    expected_assets = [
+        _HostPath("out_dir/assets/empty_asset_generated_by_bazel~")
+    ]
+    self.assertEqual(expected_assets, self.DirContents("out_dir"))
+    self.assertEqual(
+        os.stat("out_dir/assets/empty_asset_generated_by_bazel~").st_size, 0)
+
+  def testContainsAssets(self):
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
+    aar.writestr("res/values/values.xml", "some values")
+    aar.writestr("assets/a", "some asset")
+    aar.writestr("assets/b", "some other asset")
+    os.makedirs("out_dir")
+    aar_resources_extractor.ExtractAssets(aar, "out_dir")
+    expected_resources = [
+        _HostPath("out_dir/assets/a"),
+        _HostPath("out_dir/assets/b")
+    ]
+    self.assertCountEqual(expected_resources, self.DirContents("out_dir"))
+    with open("out_dir/assets/a", "r") as values_xml:
+      self.assertEqual("some asset", values_xml.read())
+    with open("out_dir/assets/b", "r") as layout_xml:
+      self.assertEqual("some other asset", layout_xml.read())
 
 
 if __name__ == "__main__":

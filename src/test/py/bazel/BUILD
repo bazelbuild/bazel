@@ -9,7 +9,7 @@ filegroup(
 filegroup(
     name = "test-deps",
     testonly = 1,
-    srcs = ["//src:bazel"],
+    srcs = ["//src:bazel_with_jdk"],
 )
 
 py_library(
@@ -65,20 +65,14 @@ py_test(
     size = "medium",
     srcs = select({
         "//src/conditions:windows": ["bazel_windows_test.py"],
-        "//src/conditions:windows_msvc": ["bazel_windows_test.py"],
-        "//src/conditions:windows_msys": ["bazel_windows_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_test.py",
-        "//src/conditions:windows_msvc": "bazel_windows_test.py",
-        "//src/conditions:windows_msys": "bazel_windows_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//src/conditions:windows_msvc": [":test_base"],
-        "//src/conditions:windows_msys": [":test_base"],
         "//conditions:default": [],
     }),
 )
@@ -101,20 +95,14 @@ py_test(
     size = "large",
     srcs = select({
         "//src/conditions:windows": ["bazel_windows_cpp_test.py"],
-        "//src/conditions:windows_msvc": ["bazel_windows_cpp_test.py"],
-        "//src/conditions:windows_msys": ["bazel_windows_cpp_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_cpp_test.py",
-        "//src/conditions:windows_msvc": "bazel_windows_cpp_test.py",
-        "//src/conditions:windows_msys": "bazel_windows_cpp_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
-        "//src/conditions:windows_msvc": [":test_base"],
-        "//src/conditions:windows_msys": [":test_base"],
         "//conditions:default": [],
     }),
 )

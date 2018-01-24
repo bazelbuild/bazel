@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -127,13 +126,9 @@ public class ObjcProviderTest {
             .build();
     ObjcProvider depender = new ObjcProvider.Builder().addTransitiveAndPropagate(provider).build();
 
-    assertThat(
-            ((SkylarkNestedSet) provider.getValue(ObjcProvider.INCLUDE.getSkylarkKeyName()))
-                .toCollection())
+    assertThat(provider.include().toCollection())
         .containsExactly(strictInclude.toString(), propagatedInclude.toString());
-    assertThat(
-            ((SkylarkNestedSet) depender.getValue(ObjcProvider.INCLUDE.getSkylarkKeyName()))
-                .toCollection())
+    assertThat(depender.include().toCollection())
         .containsExactly(propagatedInclude.toString());
   }
 

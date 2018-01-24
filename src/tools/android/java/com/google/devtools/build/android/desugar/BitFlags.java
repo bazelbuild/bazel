@@ -15,14 +15,12 @@ package com.google.devtools.build.android.desugar;
 
 import org.objectweb.asm.Opcodes;
 
-/**
- * Convenience method for working with {@code int} bitwise flags.
- */
+/** Convenience method for working with {@code int} bitwise flags. */
 class BitFlags {
 
   /**
-   * Returns {@code true} iff <b>all</b> bits in {@code bitmask} are set in {@code flags}.
-   * Trivially returns {@code true} if {@code bitmask} is 0.
+   * Returns {@code true} iff <b>all</b> bits in {@code bitmask} are set in {@code flags}. Trivially
+   * returns {@code true} if {@code bitmask} is 0.
    */
   public static boolean isSet(int flags, int bitmask) {
     return (flags & bitmask) == bitmask;

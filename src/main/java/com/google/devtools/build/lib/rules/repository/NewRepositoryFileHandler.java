@@ -19,14 +19,13 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -218,7 +217,7 @@ public class NewRepositoryFileHandler {
         }
 
         // And now for the file
-        Path packageRoot = pkgLookupValue.getRoot();
+        Root packageRoot = pkgLookupValue.getRoot();
         rootedFile = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
       } else {
         // TODO(dmarting): deprecate using a path for the workspace_file attribute.
@@ -238,9 +237,10 @@ public class NewRepositoryFileHandler {
         if (file.isAbsolute()) {
           rootedFile =
               RootedPath.toRootedPath(
-                  fileTarget.getParentDirectory(), PathFragment.create(fileTarget.getBaseName()));
+                  Root.fromPath(fileTarget.getParentDirectory()),
+                  PathFragment.create(fileTarget.getBaseName()));
         } else {
-          rootedFile = RootedPath.toRootedPath(workspacePath, file);
+          rootedFile = RootedPath.toRootedPath(Root.fromPath(workspacePath), file);
         }
       }
       SkyKey fileKey = FileValue.key(rootedFile);
@@ -252,17 +252,11 @@ public class NewRepositoryFileHandler {
         // don't write to things in the file system this FileValue depends on. In theory, the latter
         // is possible if the file referenced by workspace_file is a symlink to somewhere under the
         // external/ directory, but if you do that, you are really asking for trouble.
-        fileValue =
-            (FileValue)
-                env.getValueOrThrow(
-                    fileKey,
-                    IOException.class,
-                    FileSymlinkException.class,
-                    InconsistentFilesystemException.class);
+        fileValue = (FileValue) env.getValueOrThrow(fileKey, IOException.class);
         if (fileValue == null) {
           return null;
         }
-      } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+      } catch (IOException e) {
         throw new RepositoryFunctionException(
             new IOException("Cannot lookup " + fileAttribute + ": " + e.getMessage()),
             Transience.TRANSIENT);

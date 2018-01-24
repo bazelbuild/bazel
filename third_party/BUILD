@@ -158,7 +158,7 @@ java_import(
     jars = [
         "api_client/google-api-client-1.22.0.jar",
         "api_client/google-api-client-jackson2-1.22.0.jar",
-        "api_client/google-http-client-1.22.0.jar",
+        "api_client/google-http-client-1.22.0-SNAPSHOT.jar",
         "api_client/google-http-client-jackson2-1.22.0.jar",
     ],
     runtime_deps = [
@@ -220,7 +220,7 @@ java_plugin(
         ":apache_velocity",
         ":asm",
         ":auto_common",
-        ":auto_service",
+        ":auto_service_lib",
         ":auto_value_value",
         ":guava",
         ":jsr305",
@@ -233,9 +233,14 @@ java_import(
     jars = ["auto/auto-common-0.3.jar"],
 )
 
-java_import(
+java_library(
     name = "auto_service",
-    jars = ["auto/auto-service-1.0-rc2.jar"],
+    exported_plugins = [
+        ":auto_service_plugin",
+    ],
+    exports = [
+        ":auto_service_lib",
+    ],
 )
 
 java_plugin(
@@ -243,9 +248,14 @@ java_plugin(
     processor_class = "com.google.auto.service.processor.AutoServiceProcessor",
     deps = [
         ":auto_common",
-        ":auto_service",
+        ":auto_service_lib",
         ":guava",
     ],
+)
+
+java_import(
+    name = "auto_service_lib",
+    jars = ["auto/auto-service-1.0-rc2.jar"],
 )
 
 java_plugin(
@@ -256,7 +266,7 @@ java_plugin(
         ":apache_velocity",
         ":asm",
         ":auto_common",
-        ":auto_service",
+        ":auto_service_lib",
         ":auto_value_value",
         ":guava",
         ":tomcat_annotations_api",
@@ -323,10 +333,10 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_check_api-2.1.3.jar",
-        "error_prone/error_prone_core-2.1.3.jar",
-        "error_prone/error_prone_annotations-2.1.3.jar",
-        "error_prone/error_prone_annotation-2.1.3.jar",
+        "error_prone/error_prone_check_api-2.2.0.jar",
+        "error_prone/error_prone_core-2.2.0.jar",
+        "error_prone/error_prone_annotations-2.2.0.jar",
+        "error_prone/error_prone_annotation-2.2.0.jar",
     ],
     deps = [
         ":auto_common",
@@ -366,10 +376,10 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "auto/auto-common-0.3.jar",
-        "error_prone/error_prone_annotation-2.1.3.jar",
-        "error_prone/error_prone_annotations-2.1.3.jar",
-        "error_prone/error_prone_check_api-2.1.3.jar",
-        "error_prone/error_prone_core-2.1.3.jar",
+        "error_prone/error_prone_annotation-2.2.0.jar",
+        "error_prone/error_prone_annotations-2.2.0.jar",
+        "error_prone/error_prone_check_api-2.2.0.jar",
+        "error_prone/error_prone_core-2.2.0.jar",
         "guava/guava-23.1-jre.jar",
         "hungarian_algorithm/software-and-algorithms-1.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
@@ -383,7 +393,7 @@ filegroup(
 java_import(
     name = "guava",
     jars = [
-        "error_prone/error_prone_annotations-2.1.3.jar",
+        "error_prone/error_prone_annotations-2.2.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "guava/guava-23.1-jre.jar",
@@ -522,7 +532,7 @@ java_import(
 
 java_import(
     name = "turbine",
-    jars = ["turbine/turbine-0.1-20171205.jar"],
+    jars = ["turbine/turbine.jar"],
 )
 
 java_import(

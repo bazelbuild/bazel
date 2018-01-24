@@ -56,11 +56,6 @@ public abstract class ResourceContainer {
   public abstract String getJavaPackage();
 
   @Nullable
-  public abstract String getRenameManifestPackage();
-
-  public abstract boolean getConstantsInlined();
-
-  @Nullable
   public abstract Artifact getApk();
 
   public abstract Artifact getManifest();
@@ -87,7 +82,7 @@ public abstract class ResourceContainer {
   /**
    * Gets the directories containing the assets.
    *
-   * TODO(b/30308041): Stop using these directories, and remove this code.
+   * <p>TODO(b/30308041): Stop using these directories, and remove this code.
    *
    * @deprecated We are moving towards passing around the actual artifacts, rather than the
    *     directories that contain them. If the resources were provided with a glob() that excludes
@@ -100,7 +95,7 @@ public abstract class ResourceContainer {
   /**
    * Gets the directories containing the resources.
    *
-   * TODO(b/30308041): Stop using these directories, and remove this code.
+   * <p>TODO(b/30308041): Stop using these directories, and remove this code.
    *
    * @deprecated We are moving towards passing around the actual artifacts, rather than the
    *     directories that contain them. If the resources were provided with a glob() that excludes
@@ -113,7 +108,7 @@ public abstract class ResourceContainer {
   /**
    * Gets the directories containing the resources of a specific type.
    *
-   * TODO(b/30308041): Stop using these directories, and remove this code.
+   * <p>TODO(b/30308041): Stop using these directories, and remove this code.
    *
    * @deprecated We are moving towards passing around the actual artifacts, rather than the
    *     directories that contain them. If the resources were provided with a glob() that excludes
@@ -207,7 +202,6 @@ public abstract class ResourceContainer {
   public static Builder builder() {
     return new AutoValue_ResourceContainer.Builder()
         .setJavaPackageFrom(Builder.JavaPackageSource.MANIFEST)
-        .setConstantsInlined(false)
         .setAssets(ImmutableList.<Artifact>of())
         .setResources(ImmutableList.<Artifact>of())
         .setAssetsRoots(ImmutableList.<PathFragment>of())
@@ -233,9 +227,9 @@ public abstract class ResourceContainer {
        */
       MANIFEST,
       /**
-       * Uses the package from the path to the source jar (or, if the rule context has it set,
-       * the {@code custom_package} attribute). If the source jar is not under a valid Java root,
-       * this will result in an error being added to the rule context. This can only be used if the
+       * Uses the package from the path to the source jar (or, if the rule context has it set, the
+       * {@code custom_package} attribute). If the source jar is not under a valid Java root, this
+       * will result in an error being added to the rule context. This can only be used if the
        * builder was created by {@link ResourceContainer#builderFromRule(RuleContext)}.
        */
       SOURCE_JAR_PATH
@@ -248,7 +242,6 @@ public abstract class ResourceContainer {
       Preconditions.checkNotNull(ruleContext);
       this.ruleContext = ruleContext;
       return this.setLabel(ruleContext.getLabel())
-          .setRenameManifestPackage(getRenameManifestPackage(ruleContext))
           .setJavaSourceJar(
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
           .setJavaPackageFrom(JavaPackageSource.SOURCE_JAR_PATH)
@@ -256,13 +249,13 @@ public abstract class ResourceContainer {
     }
 
     /**
-     * Sets the Java package from the given source. Overrides earlier calls to
-     * {@link #setJavaPackageFrom(JavaPackageSource)} or {@link #setJavaPackageFromString(String)}.
+     * Sets the Java package from the given source. Overrides earlier calls to {@link
+     * #setJavaPackageFrom(JavaPackageSource)} or {@link #setJavaPackageFromString(String)}.
      *
      * <p>To set the package from {@link JavaPackageSource#SOURCE_JAR_PATH}, this instance must have
      * been created using {@link ResourceContainer#builderFromRule(RuleContext)}. Also in this case,
-     * the source jar must be set non-{@code null} when the {@link #build()} method is called.
-     * It defaults to the source jar implicit output when creating a builder out of a rule context.
+     * the source jar must be set non-{@code null} when the {@link #build()} method is called. It
+     * defaults to the source jar implicit output when creating a builder out of a rule context.
      */
     public Builder setJavaPackageFrom(JavaPackageSource javaPackageSource) {
       Preconditions.checkNotNull(javaPackageSource);
@@ -274,11 +267,11 @@ public abstract class ResourceContainer {
     }
 
     /**
-     * Sets the Java package from the given string. Overrides earlier calls to
-     * {@link #setJavaPackageFrom(JavaPackageSource)} or {@link #setJavaPackageFromString(String)}.
+     * Sets the Java package from the given string. Overrides earlier calls to {@link
+     * #setJavaPackageFrom(JavaPackageSource)} or {@link #setJavaPackageFromString(String)}.
      *
-     * <p>To make {@link ResourceContainer#getJavaPackage()} return {@code null}, call
-     * {@code setJavaPackageFrom(MANIFEST)} instead.
+     * <p>To make {@link ResourceContainer#getJavaPackage()} return {@code null}, call {@code
+     * setJavaPackageFrom(MANIFEST)} instead.
      */
     public Builder setJavaPackageFromString(String javaPackageOverride) {
       Preconditions.checkNotNull(javaPackageOverride);
@@ -302,10 +295,6 @@ public abstract class ResourceContainer {
     public abstract Builder setLabel(Label label);
 
     abstract Builder setJavaPackage(@Nullable String javaPackage);
-
-    public abstract Builder setRenameManifestPackage(@Nullable String renameManifestPackage);
-
-    public abstract Builder setConstantsInlined(boolean constantsInlined);
 
     public abstract Builder setApk(@Nullable Artifact apk);
 
@@ -388,13 +377,6 @@ public abstract class ResourceContainer {
 
     private static boolean hasCustomPackage(RuleContext ruleContext) {
       return ruleContext.attributes().isAttributeValueExplicitlySpecified("custom_package");
-    }
-
-    @Nullable
-    private static String getRenameManifestPackage(RuleContext ruleContext) {
-      return ruleContext.attributes().isAttributeValueExplicitlySpecified("rename_manifest_package")
-          ? ruleContext.attributes().get("rename_manifest_package", Type.STRING)
-          : null;
     }
   }
 }

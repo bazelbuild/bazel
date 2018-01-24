@@ -327,8 +327,8 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   }
 
   bool use_master_blazerc = true;
-  if (SearchNullaryOption(cmd_line_->startup_args, "--nomaster_blazerc") ||
-      SearchNullaryOption(cmd_line_->startup_args, "--nomaster_bazelrc")) {
+  if (!SearchNullaryOption(cmd_line_->startup_args, "master_blazerc", true) ||
+      !SearchNullaryOption(cmd_line_->startup_args, "master_bazelrc", true)) {
     use_master_blazerc = false;
   }
 

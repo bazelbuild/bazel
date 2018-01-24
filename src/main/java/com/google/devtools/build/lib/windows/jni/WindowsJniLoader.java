@@ -19,6 +19,12 @@ import java.io.IOException;
 
 /** Loads native code under Windows. */
 public class WindowsJniLoader {
+  private static final String[] SEARCH_PATHS = {
+    "io_bazel/src/main/native/windows/windows_jni.dll",
+    "io_bazel/external/bazel_tools/src/main/native/windows/windows_jni.dll",
+    "bazel_tools/src/main/native/windows/windows_jni.dll",
+  };
+
   private static boolean jniLoaded = false;
 
   public static synchronized void loadJni() {
@@ -30,15 +36,20 @@ public class WindowsJniLoader {
       System.loadLibrary("windows_jni");
     } catch (UnsatisfiedLinkError ex) {
       // Try to find the library in the runfiles.
-      if (!loadFromRunfileOrThrow("io_bazel/src/main/native/windows/windows_jni.dll", ex)) {
-        if (!loadFromRunfileOrThrow(
-            "io_bazel/external/bazel_tools/src/main/native/windows/windows_jni.dll", ex)) {
-          // We throw the UnsatisfiedLinkError if we cannot find the DLL under any known location.
-          throw ex;
-        }
-      }
+      loadFromRunfileOrThrow(ex);
     }
     jniLoaded = true;
+  }
+
+  private static void loadFromRunfileOrThrow(UnsatisfiedLinkError ex) {
+    for (String path : SEARCH_PATHS) {
+      if (loadFromRunfileOrThrow(path, ex)) {
+        return;
+      }
+    }
+
+    // We throw the UnsatisfiedLinkError if we cannot find the DLL under any known location.
+    throw ex;
   }
 
   private static boolean loadFromRunfileOrThrow(String runfile, UnsatisfiedLinkError ex) {

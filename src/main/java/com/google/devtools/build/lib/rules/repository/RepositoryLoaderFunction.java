@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -54,7 +55,8 @@ public class RepositoryLoaderFunction implements SkyFunction {
 
     SkyKey workspaceKey =
         WorkspaceFileValue.key(
-            RootedPath.toRootedPath(repository.getPath(), PathFragment.create("WORKSPACE")));
+            RootedPath.toRootedPath(
+                Root.fromPath(repository.getPath()), PathFragment.create("WORKSPACE")));
     WorkspaceFileValue workspacePackage = (WorkspaceFileValue) env.getValue(workspaceKey);
     if (workspacePackage == null) {
       return null;

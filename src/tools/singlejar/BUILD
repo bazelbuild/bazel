@@ -6,8 +6,6 @@ JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
 
 JAR_TOOL_PATH_COPTS = select({
     "//src/conditions:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
-    "//src/conditions:windows_msvc": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
-    "//src/conditions:windows_msys": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
     "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
 })
 

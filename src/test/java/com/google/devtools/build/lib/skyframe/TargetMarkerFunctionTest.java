@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -90,7 +91,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     ModifiedFileSet subpackageBuildFile =
         ModifiedFileSet.builder().modify(PathFragment.create("a/b/BUILD")).build();
     skyframeExecutor.invalidateFilesUnderPathForTesting(
-        reporter, subpackageBuildFile, rootDirectory);
+        reporter, subpackageBuildFile, Root.fromPath(rootDirectory));
 
     NoSuchTargetException exn = (NoSuchTargetException) getErrorFromTargetValue(labelName);
     // In the presence of b/12545745, the error message is different and comes from the

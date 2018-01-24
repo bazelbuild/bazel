@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
  * Implementation of {@code toolchain_type}.
@@ -42,7 +42,7 @@ public class BazelToolchainType extends ToolchainType {
           // This means that *every* toolchain_type rule depends on every configuration fragment
           // that contributes Make variables, regardless of which one it is.
           .requiresConfigurationFragments(
-              CppConfiguration.class, Jvm.class, AndroidConfiguration.class)
+              CppConfiguration.class, JavaConfiguration.class, AndroidConfiguration.class)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .build();
@@ -64,7 +64,7 @@ public class BazelToolchainType extends ToolchainType {
             .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain_type"),
                 CppConfiguration.class)
             .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain_type"),
-                Jvm.class)
+                JavaConfiguration.class)
             .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/android:toolchain_type"),
                 AndroidConfiguration.class)
             .build(),

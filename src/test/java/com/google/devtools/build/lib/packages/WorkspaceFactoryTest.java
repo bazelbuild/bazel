@@ -87,6 +87,33 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
+  public void testRegisterExecutionPlatforms() throws Exception {
+    WorkspaceFactoryHelper helper = parse("register_execution_platforms('//platform:ep1')");
+    assertThat(helper.getPackage().getRegisteredExecutionPlatformLabels())
+        .containsExactly(Label.parseAbsolute("//platform:ep1"));
+  }
+
+  @Test
+  public void testRegisterExecutionPlatforms_multipleLabels() throws Exception {
+    WorkspaceFactoryHelper helper =
+        parse("register_execution_platforms(", "  '//platform:ep1',", "  '//platform:ep2')");
+    assertThat(helper.getPackage().getRegisteredExecutionPlatformLabels())
+        .containsExactly(
+            Label.parseAbsolute("//platform:ep1"), Label.parseAbsolute("//platform:ep2"));
+  }
+
+  @Test
+  public void testRegisterExecutionPlatforms_multipleCalls() throws Exception {
+    WorkspaceFactoryHelper helper =
+        parse(
+            "register_execution_platforms('//platform:ep1')",
+            "register_execution_platforms('//platform:ep2')");
+    assertThat(helper.getPackage().getRegisteredExecutionPlatformLabels())
+        .containsExactly(
+            Label.parseAbsolute("//platform:ep1"), Label.parseAbsolute("//platform:ep2"));
+  }
+
+  @Test
   public void testRegisterToolchains() throws Exception {
     WorkspaceFactoryHelper helper = parse("register_toolchains('//toolchain:tc1')");
     assertThat(helper.getPackage().getRegisteredToolchainLabels())

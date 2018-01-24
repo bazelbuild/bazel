@@ -15,7 +15,8 @@
 
 def _clone_or_update(ctx):
   if (ctx.attr.verbose):
-    print('git.bzl: Cloning or updating repository %s' % ctx.name)
+    print('git.bzl: Cloning or updating repository %s using strip_prefix of [%s]' %
+    (ctx.name, ctx.attr.strip_prefix if ctx.attr.strip_prefix else 'None'))
   if ((not ctx.attr.tag and not ctx.attr.commit) or
       (ctx.attr.tag and ctx.attr.commit)):
     fail('Exactly one of commit and tag must be provided')
@@ -23,32 +24,45 @@ def _clone_or_update(ctx):
     ref = ctx.attr.commit
   else:
     ref = 'tags/' + ctx.attr.tag
+  directory=str(ctx.path('.'))
+  if ctx.attr.strip_prefix:
+    directory = directory + "-tmp"
 
-  st = ctx.execute(['bash', '-c', """
+  bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+  st = ctx.execute([bash_exe, '-c', """
 set -ex
 ( cd {working_dir} &&
-    if ! ( cd '{dir}' && git rev-parse --git-dir ) >/dev/null 2>&1; then
-      rm -rf '{dir}'
-      git clone '{remote}' '{dir}'
+    if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
+      rm -rf '{directory}' '{dir_link}'
+      git clone --depth=1 '{remote}' '{directory}'
     fi
-    cd '{dir}'
-    git reset --hard {ref} || (git fetch origin {ref}:{ref} && git reset --hard {ref})
+    cd '{directory}'
+    git reset --hard {ref} || (git fetch --depth=1 origin {ref}:{ref} && git reset --hard {ref})
     git clean -xdf )
   """.format(
       working_dir=ctx.path('.').dirname,
-      dir=ctx.path('.'),
+      dir_link=ctx.path('.'),
+      directory=directory,
       remote=ctx.attr.remote,
       ref=ref,
   )])
+
   if st.return_code:
     fail('error cloning %s:\n%s' % (ctx.name, st.stderr))
+
+  if ctx.attr.strip_prefix:
+    dest_link="{}/{}".format(directory, ctx.attr.strip_prefix)
+    if not ctx.path(dest_link).exists:
+      fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
+
+    ctx.symlink(dest_link, ctx.path('.'))
   if ctx.attr.init_submodules:
-    st = ctx.execute(['bash', '-c', """
+    st = ctx.execute([bash_exe, '-c', """
 set -ex
-(   cd '{dir}'
+(   cd '{directory}'
     git submodule update --init --checkout --force )
   """.format(
-      dir=ctx.path('.'),
+      directory=ctx.path('.'),
   )])
   if st.return_code:
     fail('error updating submodules %s:\n%s' % (ctx.name, st.stderr))
@@ -75,15 +89,16 @@ _common_attrs = {
     'tag': attr.string(default=''),
     'init_submodules': attr.bool(default=False),
     'verbose': attr.bool(default=False),
+    'strip_prefix': attr.string(default='')
 }
 
 
 new_git_repository = repository_rule(
-    implementation=_new_git_repository_implementation,
-    attrs=_common_attrs + {
+    implementation = _new_git_repository_implementation,
+    attrs = dict(_common_attrs.items() + {
         'build_file': attr.label(allow_single_file=True),
         'build_file_content': attr.string(),
-    }
+    }.items())
 )
 """Clone an external git repository.
 
@@ -107,6 +122,8 @@ Args:
   init_submodules: Whether to clone submodules in the repository.
 
   remote: The URI of the remote Git repository.
+
+  strip_prefix: A directory prefix to strip from the extracted files.
 """
 
 git_repository = repository_rule(
@@ -124,4 +141,6 @@ Args:
   init_submodules: Whether to clone submodules in the repository.
 
   remote: The URI of the remote Git repository.
+
+  strip_prefix: A directory prefix to strip from the extracted files.
 """

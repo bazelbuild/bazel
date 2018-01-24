@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -82,8 +82,8 @@ public final class PythonUtils {
    * subdirectory to avoid conflicts (eg. when the input file is generated).
    */
   private static Artifact get2to3OutputArtifact(RuleContext ruleContext, Artifact input) {
-    Root root = ruleContext.getConfiguration().getGenfilesDirectory(
-        ruleContext.getRule().getRepository());
+    ArtifactRoot root =
+        ruleContext.getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
     PathFragment path = PathFragment.create("python3").getRelative(input.getRootRelativePath());
     return ruleContext.getShareableArtifact(path, root);
   }

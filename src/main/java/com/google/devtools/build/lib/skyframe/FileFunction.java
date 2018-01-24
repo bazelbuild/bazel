@@ -18,8 +18,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.FileStateValue.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -55,7 +55,7 @@ public class FileFunction implements SkyFunction {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
     RootedPath realRootedPath = null;
     FileStateValue realFileStateValue = null;
-    PathFragment relativePath = rootedPath.getRelativePath();
+    PathFragment relativePath = rootedPath.getRootRelativePath();
 
     // Resolve ancestor symlinks, but only if the current file is not the filesystem root (has no
     // parent) or a package path root (treated opaquely and handled by skyframe's DiffAwareness
@@ -69,7 +69,7 @@ public class FileFunction implements SkyFunction {
       }
       realRootedPath = resolvedState.getFirst();
       realFileStateValue = resolvedState.getSecond();
-      if (realFileStateValue.getType() == Type.NONEXISTENT) {
+      if (realFileStateValue.getType() == FileStateType.NONEXISTENT) {
         return FileValue.value(
             rootedPath,
             FileStateValue.NONEXISTENT_FILE_STATE_NODE,
@@ -95,7 +95,7 @@ public class FileFunction implements SkyFunction {
 
     ArrayList<RootedPath> symlinkChain = new ArrayList<>();
     TreeSet<Path> orderedSeenPaths = Sets.newTreeSet();
-    while (realFileStateValue.getType().equals(FileStateValue.Type.SYMLINK)) {
+    while (realFileStateValue.getType().isSymlink()) {
       symlinkChain.add(realRootedPath);
       orderedSeenPaths.add(realRootedPath.asPath());
       Pair<RootedPath, FileStateValue> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
@@ -117,12 +117,12 @@ public class FileFunction implements SkyFunction {
   private static Pair<RootedPath, FileStateValue> resolveFromAncestors(
       RootedPath rootedPath, Environment env)
       throws FileFunctionException, InterruptedException {
-    PathFragment relativePath = rootedPath.getRelativePath();
+    PathFragment relativePath = rootedPath.getRootRelativePath();
     RootedPath realRootedPath = rootedPath;
     FileValue parentFileValue = null;
-    if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
-      RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
-          relativePath.getParentDirectory());
+    PathFragment parentDirectory = relativePath.getParentDirectory();
+    if (parentDirectory != null) {
+      RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(), parentDirectory);
 
       parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
       if (parentFileValue == null) {
@@ -130,8 +130,10 @@ public class FileFunction implements SkyFunction {
       }
       PathFragment baseName = PathFragment.create(relativePath.getBaseName());
       RootedPath parentRealRootedPath = parentFileValue.realRootedPath();
-      realRootedPath = RootedPath.toRootedPath(parentRealRootedPath.getRoot(),
-          parentRealRootedPath.getRelativePath().getRelative(baseName));
+      realRootedPath =
+          RootedPath.toRootedPath(
+              parentRealRootedPath.getRoot(),
+              parentRealRootedPath.getRootRelativePath().getRelative(baseName));
 
       if (!parentFileValue.exists()) {
         return Pair.<RootedPath, FileStateValue>of(
@@ -145,7 +147,7 @@ public class FileFunction implements SkyFunction {
     if (realFileStateValue == null) {
       return null;
     }
-    if (realFileStateValue.getType() != FileStateValue.Type.NONEXISTENT
+    if (realFileStateValue.getType() != FileStateType.NONEXISTENT
         && parentFileValue != null && !parentFileValue.isDirectory()) {
       String type = realFileStateValue.getType().toString().toLowerCase();
       String message = type + " " + rootedPath.asPath() + " exists but its parent "
@@ -170,8 +172,7 @@ public class FileFunction implements SkyFunction {
       throws FileFunctionException, InterruptedException {
     RootedPath symlinkTargetRootedPath;
     if (symlinkTarget.isAbsolute()) {
-      Path path = rootedPath.asPath().getFileSystem().getRootDirectory().getRelative(
-          symlinkTarget);
+      Path path = rootedPath.asPath().getFileSystem().getPath(symlinkTarget);
       symlinkTargetRootedPath =
           RootedPath.toRootedPathMaybeUnderRoot(path, pkgLocator.get().getPathEntries());
     } else {
@@ -253,7 +254,8 @@ public class FileFunction implements SkyFunction {
         // reported exactly once.
         return null;
       }
-      throw new FileFunctionException(Preconditions.checkNotNull(fse, rootedPath));
+      throw new FileFunctionException(
+          Preconditions.checkNotNull(fse, rootedPath), Transience.PERSISTENT);
     }
 
     return resolveFromAncestors(symlinkTargetRootedPath, env);
@@ -279,15 +281,6 @@ public class FileFunction implements SkyFunction {
    * {@link FileFunction#compute}.
    */
   private static final class FileFunctionException extends SkyFunctionException {
-
-    public FileFunctionException(InconsistentFilesystemException e, Transience transience) {
-      super(e, transience);
-    }
-
-    public FileFunctionException(FileSymlinkException e) {
-      super(e, Transience.PERSISTENT);
-    }
-
     public FileFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }

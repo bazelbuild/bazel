@@ -320,7 +320,7 @@ public class DigestUtils {
 
     if (md == null) {
       // Move along, nothing to see here.
-    } else if (md.isFile()) {
+    } else if (md.getDigest() != null) {
       fp.addBytes(md.getDigest());
     } else {
       // Use the timestamp if the digest is not present, but not both. Modifying a timestamp while

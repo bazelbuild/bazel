@@ -124,6 +124,6 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    printer.append("<output file target " + getTarget().getLabel() + ">");
+    printer.append("<output file target " + getLabel() + ">");
   }
 }

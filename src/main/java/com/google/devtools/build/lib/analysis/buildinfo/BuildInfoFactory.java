@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.analysis.buildinfo;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 
 /**
@@ -47,7 +46,8 @@ public interface BuildInfoFactory extends Serializable {
    * Context for the creation of build-info artifacts.
    */
   interface BuildInfoContext {
-    Artifact getBuildInfoArtifact(PathFragment rootRelativePath, Root root, BuildInfoType type);
+    Artifact getBuildInfoArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type);
   }
 
   /**

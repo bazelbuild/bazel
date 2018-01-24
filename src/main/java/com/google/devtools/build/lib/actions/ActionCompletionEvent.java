@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.MoreObjects;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+
 /**
  * An event that is fired after an action completes (either successfully or not).
  */
-public final class ActionCompletionEvent {
+public final class ActionCompletionEvent implements ProgressLike {
 
   private final long relativeActionStartTime;
   private final Action action;
@@ -42,5 +45,14 @@ public final class ActionCompletionEvent {
 
   public ActionLookupData getActionLookupData() {
     return actionLookupData;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper("ActionCompletionEvent")
+        .add("relativeActionStartTime", relativeActionStartTime)
+        .add("action", action)
+        .add("actionLookupData", actionLookupData)
+        .toString();
   }
 }

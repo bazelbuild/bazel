@@ -13,18 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-def create_config_setting_rules():
-  """Create config_setting rules for windows_msvc, windows_msys, windows.
+def create_config_setting_rule():
+  """Create config_setting rule for windows.
 
   These represent the matching --host_cpu values.
   """
-  for suffix in ["", "_msvc", "_msys"]:
-    name = "windows" + suffix
-    if not native.existing_rule(name):
-      native.config_setting(
-          name = name,
-          values = {"host_cpu": "x64_" + name},
-      )
+  name = "windows"
+  if not native.existing_rule(name):
+    native.config_setting(
+        name = name,
+        values = {"host_cpu": "x64_" + name},
+    )
 
 def create_android_sdk_rules(
     name,
@@ -45,7 +44,7 @@ def create_android_sdk_rules(
         --android_sdk is not specified on the command line.
   """
 
-  create_config_setting_rules()
+  create_config_setting_rule()
 
   windows_only_files = [
       "build-tools/%s/aapt.exe" % build_tools_directory,
@@ -81,8 +80,6 @@ def create_android_sdk_rules(
           for filename in ["android.jar", "framework.aidl"]
       ] + select({
           ":windows": windows_only_files,
-          ":windows_msvc": windows_only_files,
-          ":windows_msys": windows_only_files,
           "//conditions:default": linux_only_files,
       }),
   )
@@ -102,29 +99,21 @@ def create_android_sdk_rules(
         proguard = "@bazel_tools//third_party/java/proguard",
         aapt = select({
             ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
-            ":windows_msvc": "build-tools/%s/aapt.exe" % build_tools_directory,
-            ":windows_msys": "build-tools/%s/aapt.exe" % build_tools_directory,
             "//conditions:default": ":aapt_binary",
         }),
         aapt2 = select({
             ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
-            ":windows_msvc": "build-tools/%s/aapt2.exe" % build_tools_directory,
-            ":windows_msys": "build-tools/%s/aapt2.exe" % build_tools_directory,
             "//conditions:default": ":aapt2_binary",
         }),
         dx = ":dx_binary",
         main_dex_list_creator = ":main_dex_list_creator",
         adb = select({
             ":windows": "platform-tools/adb.exe",
-            ":windows_msvc": "platform-tools/adb.exe",
-            ":windows_msys": "platform-tools/adb.exe",
             "//conditions:default": "platform-tools/adb",
         }),
         framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
         aidl = select({
             ":windows": "build-tools/%s/aidl.exe" % build_tools_directory,
-            ":windows_msvc": "build-tools/%s/aidl.exe" % build_tools_directory,
-            ":windows_msys": "build-tools/%s/aidl.exe" % build_tools_directory,
             "//conditions:default": ":aidl_binary",
         }),
         android_jar = "platforms/android-%d/android.jar" % api_level,
@@ -134,8 +123,6 @@ def create_android_sdk_rules(
         apksigner = ":apksigner",
         zipalign = select({
             ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
-            ":windows_msvc": "build-tools/%s/zipalign.exe" % build_tools_directory,
-            ":windows_msys": "build-tools/%s/zipalign.exe" % build_tools_directory,
             "//conditions:default": ":zipalign_binary",
         }),
     )
@@ -181,6 +168,13 @@ def create_android_sdk_rules(
             # there's no runfiles support so Bazel just creates a junction to
             # {SDK}/build-tools.
             "SDK=$${0}.runfiles/%s" % name,
+            # If $${SDK} is not a directory, it means that this tool is running
+            # from a runfiles directory, in the case of
+            # android_instrumentation_test. Hence, use the androidsdk
+            # that's already present in the runfiles of the current context.
+            "if [[ ! -d $${SDK} ]] ; then",
+            "  SDK=$$(pwd)/../%s" % name,
+            "fi",
             "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
             "EOF\n"]),
     )
@@ -198,8 +192,6 @@ def create_android_sdk_rules(
       name = "fail",
       srcs = select({
           ":windows": [":generate_fail_cmd"],
-          ":windows_msvc": [":generate_fail_cmd"],
-          ":windows_msys": [":generate_fail_cmd"],
           "//conditions:default": [":generate_fail_sh"],
       }),
   )

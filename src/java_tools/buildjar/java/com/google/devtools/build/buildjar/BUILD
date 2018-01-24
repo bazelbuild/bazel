@@ -23,6 +23,7 @@ java_library(
     deps = [
         ":JarOwner",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

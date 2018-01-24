@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -118,4 +119,18 @@ public class LineNumberTableTest {
     assertThat(table.getOffsetsForLine(42)).isEqualTo(Pair.of(0, 0));
   }
 
+  @Test
+  public void testCodec() throws Exception {
+    ObjectCodecTester.newBuilder(LineNumberTable.CODEC)
+        .addSubjects(
+            create(
+                "#\n"
+                    + "#line 67 \"/foo\"\n"
+                    + "cc_binary(name='a',\n"
+                    + "          srcs=[])\n"
+                    + "#line 23 \"/ba.r\"\n"
+                    + "vardef(x,y)\n"),
+            create("\ntwo\nthree\n\nfive\n"))
+        .buildAndRunTests();
+  }
 }

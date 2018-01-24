@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
@@ -157,19 +159,21 @@ public final class Lexer {
   }
 
   Location createLocation(int start, int end) {
-    return new LexerLocation(locationInfo, start, end);
+    return new LexerLocation(locationInfo.lineNumberTable, start, end);
   }
 
   // Don't use an inner class as we don't want to close over the Lexer, only
   // the LocationInfo.
+  @AutoCodec
   @Immutable
-  private static final class LexerLocation extends Location {
+  static final class LexerLocation extends Location {
+    public static final ObjectCodec<LexerLocation> CODEC = new Lexer_LexerLocation_AutoCodec();
 
     private final LineNumberTable lineNumberTable;
 
-    LexerLocation(LocationInfo locationInfo, int start, int end) {
-      super(start, end);
-      this.lineNumberTable = locationInfo.lineNumberTable;
+    LexerLocation(LineNumberTable lineNumberTable, int startOffset, int endOffset) {
+      super(startOffset, endOffset);
+      this.lineNumberTable = lineNumberTable;
     }
 
     @Override
@@ -191,7 +195,6 @@ public final class Lexer {
       }
       return lineNumberTable.getLineAndColumn(endOffset);
     }
-
 
     @Override
     public int hashCode() {

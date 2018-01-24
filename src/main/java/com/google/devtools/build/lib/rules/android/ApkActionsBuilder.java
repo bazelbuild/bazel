@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
@@ -340,8 +340,9 @@ public class ApkActionsBuilder {
     }
 
     List<String> noCompressExtensions;
-    if (ruleContext.getRule().isAttrDefined(
-        AndroidRuleClasses.NOCOMPRESS_EXTENSIONS_ATTR, Type.STRING_LIST)) {
+    if (ruleContext
+        .getRule()
+        .isAttrDefined(AndroidRuleClasses.NOCOMPRESS_EXTENSIONS_ATTR, Type.STRING_LIST)) {
       noCompressExtensions =
           ruleContext
               .getExpander()
@@ -426,7 +427,7 @@ public class ApkActionsBuilder {
               JavaCommon.getHostJavaExecutable(ruleContext),
               singleJar,
               JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext));
+          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman());
     } else {
       builder.setExecutable(singleJar);
     }
@@ -434,8 +435,8 @@ public class ApkActionsBuilder {
 
   private Artifact getApkArtifact(RuleContext ruleContext, String baseName) {
     if (artifactLocation != null) {
-      return ruleContext.getUniqueDirectoryArtifact(artifactLocation, baseName,
-          ruleContext.getBinOrGenfilesDirectory());
+      return ruleContext.getUniqueDirectoryArtifact(
+          artifactLocation, baseName, ruleContext.getBinOrGenfilesDirectory());
     } else {
       return AndroidBinary.getDxArtifact(ruleContext, baseName);
     }

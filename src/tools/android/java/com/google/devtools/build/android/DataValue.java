@@ -19,7 +19,7 @@ import java.io.OutputStream;
 /**
  * Represents the value associated with DataKey interface for resource and asset values.
  *
- * A DataValue is either an android resource or asset derived from a Path.
+ * <p>A DataValue is either an android resource or asset derived from a Path.
  */
 public interface DataValue {
 
@@ -28,12 +28,9 @@ public interface DataValue {
    */
   DataSource source();
 
-  /**
-   * Serializes to a supplied stream and returns the number of bytes written.
-   */
-  int serializeTo(
-      DataKey key, DataSourceTable sourceTable, OutputStream output) throws IOException;
-  
+  /** Serializes to a supplied stream and returns the number of bytes written. */
+  int serializeTo(DataKey key, DataSourceTable sourceTable, OutputStream output) throws IOException;
+
   DataValue update(DataSource source);
 
   /** Provides a representation of the value suitable for a conflict message. */

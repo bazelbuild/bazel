@@ -16,16 +16,13 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathCodec;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.Objects;
 
 /**
@@ -47,8 +44,11 @@ import java.util.Objects;
  *
  * <p>Do not put shortcuts to specific files here!
  */
+@AutoCodec(dependency = FileSystemProvider.class)
 @Immutable
 public final class BlazeDirectories {
+  public static final InjectingObjectCodec<BlazeDirectories, FileSystemProvider> CODEC =
+      new BlazeDirectories_AutoCodec();
 
   // Include directory name, relative to execRoot/blaze-out/configuration.
   public static final String RELATIVE_INCLUDE_DIR = StringCanonicalizer.intern("include");
@@ -66,13 +66,15 @@ public final class BlazeDirectories {
   private final Path localOutputPath;
   private final String productName;
 
+  @AutoCodec.Constructor
   public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
     this.serverDirectories = serverDirectories;
     this.workspace = workspace;
     this.productName = productName;
     Path outputBase = serverDirectories.getOutputBase();
     Path execRootBase = outputBase.getChild("execroot");
-    boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
+    boolean useDefaultExecRootName =
+        this.workspace == null || this.workspace.getParentDirectory() == null;
     if (useDefaultExecRootName) {
       // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
       // a lot of code that depends on it being non-null.
@@ -169,8 +171,8 @@ public final class BlazeDirectories {
    * Returns the configuration-independent root where the build-data should be placed, given the
    * {@link BlazeDirectories} of this server instance. Nothing else should be placed here.
    */
-  public Root getBuildDataDirectory(String workspaceName) {
-    return Root.asDerivedRoot(getExecRoot(workspaceName), getOutputPath(workspaceName), true);
+  public ArtifactRoot getBuildDataDirectory(String workspaceName) {
+    return ArtifactRoot.asDerivedRoot(getExecRoot(workspaceName), getOutputPath(workspaceName));
   }
 
   /**
@@ -217,20 +219,5 @@ public final class BlazeDirectories {
         && this.productName.equals(that.productName)
         // execRoot is derivable from other fields, but better safe than sorry.
         && this.execRoot.equals(that.execRoot);
-  }
-
-  void serialize(CodedOutputStream codedOut, PathCodec pathCodec)
-      throws IOException, SerializationException {
-    serverDirectories.serialize(codedOut, pathCodec);
-    pathCodec.serialize(workspace, codedOut);
-    StringCodecs.asciiOptimized().serialize(productName, codedOut);
-  }
-
-  static BlazeDirectories deserialize(CodedInputStream codedIn, PathCodec pathCodec)
-      throws IOException, SerializationException {
-    return new BlazeDirectories(
-        ServerDirectories.deserialize(codedIn, pathCodec),
-        pathCodec.deserialize(codedIn),
-        StringCodecs.asciiOptimized().deserialize(codedIn));
   }
 }

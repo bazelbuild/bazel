@@ -777,33 +777,39 @@ bool OutputJar::Close() {
 
   size_t cen_size = cen_size_;  // Save it before ReserveCdh updates it.
   if (write_zip64_ecd) {
-    ECD64 *ecd64 = reinterpret_cast<ECD64 *>(ReserveCdh(sizeof(ECD64)));
-    ECD64Locator *ecd64_locator =
+    {
+      ECD64 *ecd64 = reinterpret_cast<ECD64 *>(ReserveCdh(sizeof(ECD64)));
+      ecd64->signature();
+      ecd64->remaining_size(sizeof(ECD64) - 12);
+      ecd64->version(0x031E);         // Unix, version 3.0
+      ecd64->version_to_extract(45);  // 4.5 (Zip64 support)
+      ecd64->this_disk_entries(entries_);
+      ecd64->total_entries(entries_);
+      ecd64->cen_size(cen_size);
+      ecd64->cen_offset(output_position);
+    }
+    {
+      ECD64Locator *ecd64_locator =
         reinterpret_cast<ECD64Locator *>(ReserveCdh(sizeof(ECD64Locator)));
-    ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
-    ecd64->signature();
-    ecd64->remaining_size(sizeof(ECD64) - 12);
-    ecd64->version(0x031E);         // Unix, version 3.0
-    ecd64->version_to_extract(45);  // 4.5 (Zip64 support)
-    ecd64->this_disk_entries(entries_);
-    ecd64->total_entries(entries_);
-    ecd64->cen_size(cen_size);
-    ecd64->cen_offset(output_position);
-    ecd64_locator->signature();
-    ecd64_locator->ecd64_offset(output_position + cen_size);
-    ecd64_locator->total_disks(1);
-    ecd->signature();
-    ecd->this_disk_entries16(0xFFFF);
-    ecd->total_entries16(0xFFFF);
-    // Java Compiler (javac) uses its own "optimized" Zip handler (see
-    // https://bugs.openjdk.java.net/browse/JDK-7018859) which may fail
-    // to handle 0xFFFFFFFF in the CEN size and CEN offset fields. Try
-    // to use 32-bit values here, too. Hopefully by the time we need to
-    // handle really large archives, this is fixes upstream. Note that this
-    // affects javac and javah only, 'jar' experiences no problems.
-    ecd->cen_size32(std::min(cen_size, static_cast<size_t>(0xFFFFFFFFUL)));
-    ecd->cen_offset32(
-        std::min(output_position, static_cast<off_t>(0x0FFFFFFFFL)));
+      ecd64_locator->signature();
+      ecd64_locator->ecd64_offset(output_position + cen_size);
+      ecd64_locator->total_disks(1);
+    }
+    {
+      ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
+      ecd->signature();
+      ecd->this_disk_entries16(0xFFFF);
+      ecd->total_entries16(0xFFFF);
+      // Java Compiler (javac) uses its own "optimized" Zip handler (see
+      // https://bugs.openjdk.java.net/browse/JDK-7018859) which may fail
+      // to handle 0xFFFFFFFF in the CEN size and CEN offset fields. Try
+      // to use 32-bit values here, too. Hopefully by the time we need to
+      // handle really large archives, this is fixes upstream. Note that this
+      // affects javac and javah only, 'jar' experiences no problems.
+      ecd->cen_size32(std::min(cen_size, static_cast<size_t>(0xFFFFFFFFUL)));
+      ecd->cen_offset32(
+          std::min(output_position, static_cast<off_t>(0x0FFFFFFFFL)));
+    }
   } else {
     ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
     ecd->signature();

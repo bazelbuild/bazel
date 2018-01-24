@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -32,14 +33,15 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
@@ -88,14 +90,16 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       SpawnExecutionPolicy policy,
       Path execRoot,
       Path tmpDir,
-      Duration timeout)
+      Duration timeout,
+      Optional<String> statisticsPath)
       throws IOException, InterruptedException {
     try {
       sandbox.createFileSystem();
       OutErr outErr = policy.getFileOutErr();
       policy.prefetchInputs();
 
-      SpawnResult result = run(originalSpawn, sandbox, outErr, timeout, execRoot, tmpDir);
+      SpawnResult result =
+          run(originalSpawn, sandbox, outErr, timeout, execRoot, tmpDir, statisticsPath);
 
       policy.lockOutputFiles();
       try {
@@ -118,7 +122,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       OutErr outErr,
       Duration timeout,
       Path execRoot,
-      Path tmpDir)
+      Path tmpDir,
+      Optional<String> statisticsPath)
       throws IOException, InterruptedException {
     Command cmd = new Command(
         sandbox.getArguments().toArray(new String[0]),
@@ -177,14 +182,30 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         wasTimeout
             ? Status.TIMEOUT
             : (exitCode == 0) ? Status.SUCCESS : Status.NON_ZERO_EXIT;
-    return new SpawnResult.Builder()
-        .setStatus(status)
-        .setExitCode(exitCode)
-        .setWallTime(wallTime)
-        .setUserTime(commandResult.getUserExecutionTime())
-        .setSystemTime(commandResult.getSystemExecutionTime())
-        .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "")
-        .build();
+
+    SpawnResult.Builder spawnResultBuilder =
+        new SpawnResult.Builder()
+            .setStatus(status)
+            .setExitCode(exitCode)
+            .setWallTime(wallTime)
+            .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "");
+
+    if (statisticsPath.isPresent()) {
+      Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
+          ExecutionStatistics.getResourceUsage(statisticsPath.get());
+      if (resourceUsage.isPresent()) {
+        spawnResultBuilder.setUserTime(resourceUsage.get().getUserExecutionTime());
+        spawnResultBuilder.setSystemTime(resourceUsage.get().getSystemExecutionTime());
+        spawnResultBuilder.setNumBlockOutputOperations(
+            resourceUsage.get().getBlockOutputOperations());
+        spawnResultBuilder.setNumBlockInputOperations(
+            resourceUsage.get().getBlockInputOperations());
+        spawnResultBuilder.setNumInvoluntaryContextSwitches(
+            resourceUsage.get().getInvoluntaryContextSwitches());
+      }
+    }
+
+    return spawnResultBuilder.build();
   }
 
   private boolean wasTimeout(Duration timeout, Duration wallTime) {
@@ -207,25 +228,30 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
    *
    * @throws IOException because we might resolve symlinks, which throws {@link IOException}.
    */
-  protected ImmutableSet<Path> getWritableDirs(
-      Path sandboxExecRoot, Map<String, String> env, Path tmpDir) throws IOException {
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
+      throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
     writablePaths.add(sandboxExecRoot);
-    String tmpDirString = env.get("TEST_TMPDIR");
-    if (tmpDirString != null) {
-      PathFragment testTmpDir = PathFragment.create(tmpDirString);
-      if (testTmpDir.isAbsolute()) {
-        writablePaths.add(sandboxExecRoot.getRelative(testTmpDir).resolveSymbolicLinks());
-      } else {
-        // We add this even though it is below sandboxExecRoot (and thus already writable as a
-        // subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
-        // needed directory if it doesn't exist yet.
-        writablePaths.add(sandboxExecRoot.getRelative(testTmpDir));
-      }
+    String testTmpdir = env.get("TEST_TMPDIR");
+    if (testTmpdir != null) {
+      addWritablePath(
+          sandboxExecRoot,
+          writablePaths,
+          testTmpdir,
+          "Cannot resolve symlinks in TEST_TMPDIR because it doesn't exist: \"%s\"");
     }
-
-    writablePaths.add(tmpDir);
+    addWritablePath(
+        sandboxExecRoot,
+        writablePaths,
+        // As of 2018-01-09:
+        // - every caller of `getWritableDirs` passes a LocalEnvProvider-processed environment as
+        //   `env`, and in every case that's either PosixLocalEnvProvider or XCodeLocalEnvProvider,
+        //   therefore `env` surely has an entry for TMPDIR
+        // - Bazel-on-Windows does not yet support sandboxing, so we don't need to add env[TMP] and
+        //   env[TEMP] as writable paths.
+        Preconditions.checkNotNull(env.get("TMPDIR")),
+        "Cannot resolve symlinks in TMPDIR because it doesn't exist: \"%s\"");
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();
     for (String writablePath : sandboxOptions.sandboxWritablePath) {
@@ -235,6 +261,28 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     return writablePaths.build();
+  }
+
+  private void addWritablePath(
+      Path sandboxExecRoot,
+      ImmutableSet.Builder<Path> writablePaths,
+      String pathString,
+      String pathDoesNotExistErrorTemplate)
+      throws IOException {
+    Path path = sandboxExecRoot.getRelative(pathString);
+    if (path.startsWith(sandboxExecRoot)) {
+      // We add this path even though it is below sandboxExecRoot (and thus already writable as a
+      // subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
+      // needed directory if it doesn't exist yet.
+      writablePaths.add(path);
+    } else if (path.exists()) {
+      // If `path` itself is a symlink, then adding it to `writablePaths` would result in making
+      // the symlink itself writable, not what it points to. Therefore we need to resolve symlinks
+      // in `path`, however for that we need `path` to exist.
+      writablePaths.add(path.resolveSymbolicLinks());
+    } else {
+      throw new IOException(String.format(pathDoesNotExistErrorTemplate, path.getPathString()));
+    }
   }
 
   protected ImmutableSet<Path> getInaccessiblePaths() {

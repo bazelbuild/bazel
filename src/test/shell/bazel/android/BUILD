@@ -104,3 +104,15 @@ sh_test(
     # This test builds an android_binary with Java 8 code.
     tags = ["jdk8"],
 )
+
+sh_test(
+    name = "android_instrumentation_test_integration_test",
+    size = "medium",
+    srcs = ["android_instrumentation_test_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    shard_count = 4,
+)

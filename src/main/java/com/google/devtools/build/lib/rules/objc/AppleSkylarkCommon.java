@@ -18,12 +18,17 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -31,12 +36,14 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -53,7 +60,7 @@ import javax.annotation.Nullable;
   doc = "Functions for skylark to access internals of the apple rule implementations."
 )
 public class AppleSkylarkCommon {
- 
+
   @VisibleForTesting
   public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
       + " or 'direct_dep_providers'.";
@@ -79,6 +86,12 @@ public class AppleSkylarkCommon {
 
   @Nullable private Info platformType;
   @Nullable private Info platform;
+
+  private ObjcProtoAspect objcProtoAspect;
+
+  public AppleSkylarkCommon(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
 
   @SkylarkCallable(
       name = "apple_toolchain",
@@ -182,7 +195,7 @@ public class AppleSkylarkCommon {
   }
 
   @SkylarkCallable(
-    name = AppleDynamicFrameworkProvider.SKYLARK_NAME,
+    name = AppleDynamicFrameworkInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleDynamicFramework</code> provider.<p>"
             + "If a target propagates the <code>AppleDynamicFramework</code> provider, use this "
@@ -194,11 +207,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleDynamicFrameworkConstructor() {
-    return AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR;
+    return AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleDylibBinaryProvider.SKYLARK_NAME,
+    name = AppleDylibBinaryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleDylibBinary</code> provider.<p>"
             + "If a target propagates the <code>AppleDylibBinary</code> provider, use this as the "
@@ -210,11 +223,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleDylibBinaryConstructor() {
-    return AppleDylibBinaryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleDylibBinaryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleExecutableBinaryProvider.SKYLARK_NAME,
+    name = AppleExecutableBinaryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleExecutableBinary</code> provider.<p>"
             + "If a target propagates the <code>AppleExecutableBinary</code> provider,"
@@ -226,11 +239,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleExecutableBinaryConstructor() {
-    return AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleStaticLibraryProvider.SKYLARK_NAME,
+    name = AppleStaticLibraryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleStaticLibrary</code> provider.<p>"
             + "If a target propagates the <code>AppleStaticLibrary</code> provider, use "
@@ -242,11 +255,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleStaticLibraryProvider() {
-    return AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleDebugOutputsProvider.SKYLARK_NAME,
+    name = AppleDebugOutputsInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleDebugOutputs</code> provider.<p>"
             + "If a target propagates the <code>AppleDebugOutputs</code> provider, use this as the "
@@ -258,11 +271,11 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleDebugOutputsConstructor() {
-    return AppleDebugOutputsProvider.SKYLARK_CONSTRUCTOR;
+    return AppleDebugOutputsInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
-    name = AppleLoadableBundleBinaryProvider.SKYLARK_NAME,
+    name = AppleLoadableBundleBinaryInfo.SKYLARK_NAME,
     doc =
         "The constructor/key for the <code>AppleLoadableBundleBinary</code> provider.<p>"
             + "If a target propagates the <code>AppleLoadableBundleBinary</code> provider, "
@@ -274,7 +287,7 @@ public class AppleSkylarkCommon {
     structField = true
   )
   public Provider getAppleLoadableBundleBinaryConstructor() {
-    return AppleLoadableBundleBinaryProvider.SKYLARK_CONSTRUCTOR;
+    return AppleLoadableBundleBinaryInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
@@ -436,19 +449,19 @@ public class AppleSkylarkCommon {
   @SkylarkSignature(
     name = "new_dynamic_framework_provider",
     objectType = AppleSkylarkCommon.class,
-    returnType = AppleDynamicFrameworkProvider.class,
+    returnType = AppleDynamicFrameworkInfo.class,
     doc = "Creates a new AppleDynamicFramework provider instance.",
     parameters = {
       @Param(name = "self", type = AppleSkylarkCommon.class, doc = "The apple_common instance."),
       @Param(
-        name = AppleDynamicFrameworkProvider.DYLIB_BINARY_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.DYLIB_BINARY_FIELD_NAME,
         type = Artifact.class,
         named = true,
         positional = false,
         doc = "The dylib binary artifact of the dynamic framework."
       ),
       @Param(
-        name = AppleDynamicFrameworkProvider.OBJC_PROVIDER_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.OBJC_PROVIDER_FIELD_NAME,
         type = ObjcProvider.class,
         named = true,
         positional = false,
@@ -457,7 +470,7 @@ public class AppleSkylarkCommon {
                 + "dependencies linked into the binary."
       ),
       @Param(
-        name = AppleDynamicFrameworkProvider.FRAMEWORK_DIRS_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.FRAMEWORK_DIRS_FIELD_NAME,
         type = SkylarkNestedSet.class,
         generic1 = String.class,
         named = true,
@@ -469,7 +482,7 @@ public class AppleSkylarkCommon {
                 + "framework."
       ),
       @Param(
-        name = AppleDynamicFrameworkProvider.FRAMEWORK_FILES_FIELD_NAME,
+        name = AppleDynamicFrameworkInfo.FRAMEWORK_FILES_FIELD_NAME,
         type = SkylarkNestedSet.class,
         generic1 = Artifact.class,
         named = true,
@@ -486,7 +499,7 @@ public class AppleSkylarkCommon {
       new BuiltinFunction("new_dynamic_framework_provider") {
         @SuppressWarnings("unused")
         // This method is registered statically for skylark, and never called directly.
-        public AppleDynamicFrameworkProvider invoke(
+        public AppleDynamicFrameworkInfo invoke(
             AppleSkylarkCommon self,
             Artifact dylibBinary,
             ObjcProvider depsObjcProvider,
@@ -507,10 +520,31 @@ public class AppleSkylarkCommon {
               dynamicFrameworkFiles != Runtime.NONE
                   ? ((SkylarkNestedSet) dynamicFrameworkFiles).getSet(Artifact.class)
                   : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-          return new AppleDynamicFrameworkProvider(
+          return new AppleDynamicFrameworkInfo(
               dylibBinary, depsObjcProvider, frameworkDirs, frameworkFiles);
         }
       };
+
+  @SkylarkCallable(
+      name = "link_multi_arch_binary",
+      doc = "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
+          + "method comprises a bulk of the logic of the <code>apple_binary</code> rule, and is "
+          + "exposed as an API to iterate on migration of <code>apple_binary</code> to skylark.\n"
+          + "<p>This API is <b>highly experimental</b> and subject to change at any time. Do not "
+          + "depend on the stability of this function at this time.",
+      mandatoryPositionals = 1 // The SkylarkRuleContext.
+  )
+  // TODO(b/70937317): Iterate on, improve, and solidify this API.
+  public NativeInfo linkMultiArchBinary(SkylarkRuleContext skylarkRuleContext)
+      throws EvalException, InterruptedException {
+    try {
+      RuleContext ruleContext = skylarkRuleContext.getRuleContext();
+      AppleBinaryOutput appleBinaryOutput = AppleBinary.linkMultiArchBinary(ruleContext);
+      return appleBinaryOutput.getBinaryInfoProvider();
+    } catch (RuleErrorException exception) {
+      throw new EvalException(null, exception);
+    }
+  }
 
   @SkylarkSignature(
     name = "dotted_version",
@@ -537,6 +571,17 @@ public class AppleSkylarkCommon {
           return DottedVersion.fromString(version);
         }
       };
+
+  @SkylarkCallable(
+    name = "objc_proto_aspect",
+    doc =
+        "objc_proto_aspect gathers the proto dependencies of the attached rule target,"
+            + "and propagates the proto values of its dependencies through the ObjcProto provider.",
+    structField = true
+  )
+  public SkylarkAspect getObjcProtoAspect() {
+    return objcProtoAspect;
+  }
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(AppleSkylarkCommon.class);

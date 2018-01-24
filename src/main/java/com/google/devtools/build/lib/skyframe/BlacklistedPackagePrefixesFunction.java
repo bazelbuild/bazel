@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
 import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -58,7 +58,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
         return null;
       }
 
-      for (Path packagePathEntry : pkgLocator.getPathEntries()) {
+      for (Root packagePathEntry : pkgLocator.getPathEntries()) {
         RootedPath rootedPatternFile =
             RootedPath.toRootedPath(packagePathEntry, additionalBlacklistedPackagePrefixesFile);
         FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));

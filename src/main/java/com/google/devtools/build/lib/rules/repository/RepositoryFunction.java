@@ -35,15 +35,14 @@ import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.FileStateValue.RegularFileStateValue;
-import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -214,17 +213,11 @@ public abstract class RepositoryFunction {
         Path file = rule.getPackage().getPackageDirectory().getRelative(filePathFragment);
         rootedPath =
             RootedPath.toRootedPath(
-                file.getParentDirectory(), PathFragment.create(file.getBaseName()));
+                Root.fromPath(file.getParentDirectory()), PathFragment.create(file.getBaseName()));
       }
 
       SkyKey fileSkyKey = FileValue.key(rootedPath);
-      FileValue fileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  fileSkyKey,
-                  IOException.class,
-                  FileSymlinkException.class,
-                  InconsistentFilesystemException.class);
+      FileValue fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
 
       if (fileValue == null || !fileValue.isFile() || fileValue.isSpecialFile()) {
         return false;
@@ -234,10 +227,7 @@ public abstract class RepositoryFunction {
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(
           "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
-    } catch (IOException
-        | FileSymlinkException
-        | InconsistentFilesystemException
-        | EvalException e) {
+    } catch (IOException | EvalException e) {
       // Consider those exception to be a cause for invalidation
       return false;
     }
@@ -292,7 +282,7 @@ public abstract class RepositoryFunction {
     }
 
     // And now for the file
-    Path packageRoot = pkgLookupValue.getRoot();
+    Root packageRoot = pkgLookupValue.getRoot();
     return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
   }
 
@@ -484,13 +474,14 @@ public abstract class RepositoryFunction {
   @Nullable
   protected static FileValue getRepositoryDirectory(Path repositoryDirectory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    SkyKey outputDirectoryKey = FileValue.key(RootedPath.toRootedPath(
-        repositoryDirectory, PathFragment.EMPTY_FRAGMENT));
+    SkyKey outputDirectoryKey =
+        FileValue.key(
+            RootedPath.toRootedPath(
+                Root.fromPath(repositoryDirectory), PathFragment.EMPTY_FRAGMENT));
     FileValue value;
     try {
-      value = (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
-          FileSymlinkException.class, InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+      value = (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class);
+    } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException("Could not access " + repositoryDirectory + ": " + e.getMessage()),
           Transience.PERSISTENT);
@@ -518,7 +509,7 @@ public abstract class RepositoryFunction {
       throws IOException, InterruptedException {
     Path externalRepoDir = getExternalRepositoryDirectory(directories);
     PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
-    if (repositoryPath.segmentCount() == 0) {
+    if (repositoryPath.isEmpty()) {
       // We are the top of the repository path (<outputBase>/external), not in an actual external
       // repository path.
       return;

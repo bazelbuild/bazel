@@ -113,7 +113,9 @@ public abstract class FileSystem {
   }
 
   /** Lazy-initialized on first access, always use {@link FileSystem#getRootDirectory} */
-  private Path rootPath;
+  private volatile Path rootPath;
+
+  private final Root absoluteRoot = new Root.AbsoluteRoot(this);
 
   /** Returns filesystem-specific path factory. */
   protected PathFactory getPathFactory() {
@@ -157,6 +159,10 @@ public abstract class FileSystem {
       }
     }
     return rootPath;
+  }
+
+  final Root getAbsoluteRoot() {
+    return absoluteRoot;
   }
 
   /**
@@ -255,6 +261,12 @@ public abstract class FileSystem {
    * specification.
    */
   public abstract boolean createDirectory(Path path) throws IOException;
+
+  /**
+   * Creates all directories up to the path. See {@link Path#createDirectoryAndParents} for
+   * specification.
+   */
+  public abstract void createDirectoryAndParents(Path path) throws IOException;
 
   /**
    * Returns the size in bytes of the file denoted by {@code path}. See {@link

@@ -214,13 +214,12 @@ class ArtifactFunction implements SkyFunction {
 
   private FileArtifactValue createSourceValue(Artifact artifact, boolean mandatory, Environment env)
       throws MissingInputFileException, InterruptedException {
-    SkyKey fileSkyKey = FileValue.key(RootedPath.toRootedPath(artifact.getRoot().getPath(),
-        artifact.getPath()));
+    SkyKey fileSkyKey =
+        FileValue.key(RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath()));
     FileValue fileValue;
     try {
-      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
-          InconsistentFilesystemException.class, FileSymlinkException.class);
-    } catch (IOException | InconsistentFilesystemException | FileSymlinkException e) {
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
+    } catch (IOException e) {
       throw makeMissingInputFileException(artifact, mandatory, e, env.getListener());
     }
     if (fileValue == null) {
@@ -269,7 +268,7 @@ class ArtifactFunction implements SkyFunction {
     // Directories are special-cased because their mtimes are used, so should have been constructed
     // during execution of the action (in ActionMetadataHandler#maybeStoreAdditionalData).
     Preconditions.checkState(data.isFile(), "Unexpected not file %s (%s)", artifact, data);
-    return FileArtifactValue.createNormalFile(data.getDigest(), data.getSize());
+    return FileArtifactValue.createNormalFile(data);
   }
 
   private static AggregatingArtifactValue createAggregatingValue(
@@ -315,7 +314,7 @@ class ArtifactFunction implements SkyFunction {
     ArtifactOwner artifactOwner = artifact.getArtifactOwner();
 
     Preconditions.checkState(artifactOwner instanceof ActionLookupKey, "", artifact, artifactOwner);
-    return ActionLookupValue.key((ActionLookupKey) artifactOwner);
+    return (ActionLookupKey) artifactOwner;
   }
 
   @Nullable
@@ -326,7 +325,7 @@ class ArtifactFunction implements SkyFunction {
     if (value == null) {
       ArtifactOwner artifactOwner = artifact.getArtifactOwner();
       Preconditions.checkState(
-          artifactOwner == CoverageReportValue.ARTIFACT_OWNER,
+          artifactOwner == CoverageReportValue.COVERAGE_REPORT_KEY,
           "Not-yet-present artifact owner: %s (%s %s)",
           artifactOwner,
           artifact,

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -31,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -93,9 +94,15 @@ public class BazelJavaRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":jvm", LABEL).value(JavaSemantics.jvmAttribute(env)).useOutputLicenses())
-          .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.hostJdkAttribute(env)))
-          .add(attr("$jacoco_instrumentation", LABEL).cfg(HOST))
+          .add(attr(":jvm", LABEL)
+              .value(JavaSemantics.jvmAttribute(env))
+              .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
+              .useOutputLicenses())
+          .add(attr(":host_jdk", LABEL)
+              .cfg(HostTransition.INSTANCE)
+              .value(JavaSemantics.hostJdkAttribute(env))
+              .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
+          .add(attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE))
           .build();
     }
 
@@ -246,12 +253,12 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("plugins", LABEL_LIST)
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .allowedRuleClasses("java_plugin")
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
-                  .cfg(HOST)
+                  .cfg(HostTransition.INSTANCE)
                   .allowedRuleClasses("java_plugin")
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
@@ -284,7 +291,7 @@ public class BazelJavaRuleClasses {
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
       Label launcher = env.getLauncherLabel();
       if (launcher != null) {
-        builder.add(attr("$launcher", LABEL).cfg(HOST).value(launcher));
+        builder.add(attr("$launcher", LABEL).cfg(HostTransition.INSTANCE).value(launcher));
       }
       return builder
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(classpath_resources) -->
@@ -333,7 +340,7 @@ public class BazelJavaRuleClasses {
           rule must be declared as a <code>java_binary</code>, but should
           still use the test runner as its main entry point.
 
-          The name of a test runner class can be overriden with <code>main_class</code> attribute.
+          The name of a test runner class can be overridden with <code>main_class</code> attribute.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("use_testrunner", BOOLEAN).value(false))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(main_class) -->

@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -24,11 +26,14 @@ import com.google.devtools.common.options.OptionEffectTag;
 import java.util.List;
 
 /**
- * Command-line options for J2ObjC translation of Java source code to ObjC.
- * These command line options are used by Java rules that can be transpiled
- * (specifically, J2ObjCAspects thereof).
+ * Command-line options for J2ObjC translation of Java source code to ObjC. These command line
+ * options are used by Java rules that can be transpiled (specifically, J2ObjCAspects thereof).
  */
+@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class J2ObjcCommandLineOptions extends FragmentOptions {
+  public static final ObjectCodec<J2ObjcCommandLineOptions> CODEC =
+      new J2ObjcCommandLineOptions_AutoCodec();
+
   @Option(
     name = "j2objc_translation_flags",
     converter = Converters.CommaSeparatedOptionListConverter.class,

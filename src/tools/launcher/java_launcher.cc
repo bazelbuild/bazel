@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/file_platform.h"
 #include "src/tools/launcher/java_launcher.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
@@ -115,26 +116,58 @@ vector<string> JavaBinaryLauncher::ProcessesCommandLine() {
   return args;
 }
 
+// Return an absolute normalized path for the directory of manifest jar
+static string GetManifestJarDir(const string& binary_base_path) {
+  string abs_manifest_jar_dir;
+  std::size_t slash = binary_base_path.find_last_of("/\\");
+  if (slash == string::npos) {
+    abs_manifest_jar_dir = "";
+  } else {
+    abs_manifest_jar_dir = binary_base_path.substr(0, slash);
+  }
+  if (!blaze_util::IsAbsolute(binary_base_path)) {
+    abs_manifest_jar_dir = blaze_util::GetCwd() + "\\" + abs_manifest_jar_dir;
+  }
+  string result;
+  if (!NormalizePath(abs_manifest_jar_dir, &result)) {
+    die("GetManifestJarDir Failed");
+  }
+  return result;
+}
+
 string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
-  static constexpr const char* URI_PREFIX = "file:/";
+  string binary_base_path =
+      GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]);
+  string abs_manifest_jar_dir_norm = GetManifestJarDir(binary_base_path);
+
   ostringstream manifest_classpath;
   manifest_classpath << "Class-Path:";
   stringstream classpath_ss(classpath);
-  string path;
+  string path, path_norm;
   while (getline(classpath_ss, path, ';')) {
     manifest_classpath << ' ';
-    manifest_classpath << URI_PREFIX;
-    for (const auto& x : path) {
-      if (x == ' ') {
-        manifest_classpath << "%20";
-      } else {
-        manifest_classpath << x;
+    if (blaze_util::IsAbsolute(path)) {
+      if (!NormalizePath(path, &path_norm) ||
+          !RelativeTo(path_norm, abs_manifest_jar_dir_norm, &path)) {
+        die("CreateClasspathJar failed");
       }
+    }
+    if (path.find_first_of(" \\") != string::npos) {
+      for (const auto& x : path) {
+        if (x == ' ') {
+          manifest_classpath << "%20";
+        }
+        if (x == '\\') {
+          manifest_classpath << "/";
+        } else {
+          manifest_classpath << x;
+        }
+      }
+    } else {
+      manifest_classpath << path;
     }
   }
 
-  string binary_base_path =
-      GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]);
   string rand_id = "-" + GetRandomStr(10);
   string jar_manifest_file_path = binary_base_path + rand_id + ".jar_manifest";
   ofstream jar_manifest_file(jar_manifest_file_path);

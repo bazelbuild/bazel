@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.genrule;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -42,7 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
-import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -56,13 +57,22 @@ import java.util.regex.Pattern;
  */
 public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
-  private static final Pattern CROSSTOOL_MAKE_VARIABLE =
-      Pattern.compile("\\$\\((CC|CC_FLAGS|AR|NM|OBJCOPY|STRIP|GCOVTOOL)\\)");
-  private static final Pattern JDK_MAKE_VARIABLE =
-      Pattern.compile("\\$\\((JAVABASE|JAVA)\\)");
+  private static final ImmutableList<String> CROSSTOOL_MAKE_VARIABLES = ImmutableList.of("CC",
+      "CC_FLAGS", "AR", "NM", "OBJCOPY", "STRIP", "GCOVTOOL");
+
+  private static final ImmutableList<String> JDK_MAKE_VARIABLES = ImmutableList.of("JAVABASE",
+      "JAVA");
+
+  private static Pattern matchesMakeVariables(Iterable<String> variables) {
+    return Pattern.compile("\\$\\((" + Joiner.on("|").join(variables) + ")\\)");
+  }
+
+  private static final Pattern CROSSTOOL_MAKE_VARIABLE_PATTERN =
+      matchesMakeVariables(CROSSTOOL_MAKE_VARIABLES);
+  private static final Pattern JDK_MAKE_VARIABLE = matchesMakeVariables(JDK_MAKE_VARIABLES);
 
   protected static boolean requiresCrosstool(String command) {
-    return CROSSTOOL_MAKE_VARIABLE.matcher(command).find();
+    return CROSSTOOL_MAKE_VARIABLE_PATTERN.matcher(command).find();
   }
 
   protected boolean requiresJdk(String command) {
@@ -196,7 +206,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     if (requiresJdk(baseCommand)) {
       // If javac is used, silently throw in the jdk filegroup as a dependency.
       // Note we expand Java-related variables with the *host* configuration.
-      inputs.addTransitive(JavaHelper.getHostJavabaseInputs(ruleContext));
+      inputs.addTransitive(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman());
     }
 
     if (isStampingEnabled(ruleContext)) {
@@ -341,9 +351,13 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         }
       }
 
-      String valueFromToolchains = resolveVariableFromToolchains(variableName);
-      if (valueFromToolchains != null) {
-        return valueFromToolchains;
+      // Make variables provided by the :cc_toolchain attributes should not be overridden by
+      // those provided by the toolchains attribute.
+      if (!CROSSTOOL_MAKE_VARIABLES.contains(variableName)) {
+        String valueFromToolchains = resolveVariableFromToolchains(variableName);
+        if (valueFromToolchains != null) {
+          return valueFromToolchains;
+        }
       }
 
       return super.lookupVariable(variableName);

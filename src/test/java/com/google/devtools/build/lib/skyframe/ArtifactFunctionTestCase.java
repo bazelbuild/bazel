@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
@@ -51,7 +51,6 @@ import org.junit.Before;
 
 abstract class ArtifactFunctionTestCase {
   static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
-  static final SkyKey OWNER_KEY = LegacySkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
 
   protected Set<ActionAnalysisMetadata> actions;
   protected boolean fastDigest = false;
@@ -75,7 +74,7 @@ abstract class ArtifactFunctionTestCase {
         new AtomicReference<>(
             new PathPackageLocator(
                 root.getFileSystem().getPath("/outputbase"),
-                ImmutableList.of(root),
+                ImmutableList.of(Root.fromPath(root)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     BlazeDirectories directories =
         new BlazeDirectories(new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME);
@@ -158,13 +157,8 @@ abstract class ArtifactFunctionTestCase {
 
   private static class SingletonActionLookupKey extends ActionLookupKey {
     @Override
-    protected SkyKey getSkyKeyInternal() {
-      return OWNER_KEY;
-    }
-
-    @Override
-    protected SkyFunctionName getType() {
-      throw new UnsupportedOperationException();
+    public SkyFunctionName functionName() {
+      return SkyFunctions.CONFIGURED_TARGET;
     }
   }
 

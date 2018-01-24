@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -186,13 +187,24 @@ public final class BlazeWorkspace {
   /**
    * Initializes a CommandEnvironment to execute a command in this workspace.
    *
-   * <p>This method should be called from the "main" thread on which the command will execute;
-   * that thread will receive interruptions if a module requests an early exit.
+   * <p>This method should be called from the "main" thread on which the command will execute; that
+   * thread will receive interruptions if a module requests an early exit.
+   *
+   * @param warnings a list of warnings to which the CommandEnvironment can add any warning
+   *     generated during initialization. This is needed because Blaze's output handling is not yet
+   *     fully configured at this point.
    */
-  public CommandEnvironment initCommand(Command command, OptionsProvider options) {
-    CommandEnvironment env = new CommandEnvironment(
-        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(), command,
-        options);
+  public CommandEnvironment initCommand(
+      Command command, OptionsProvider options, List<String> warnings) {
+    CommandEnvironment env =
+        new CommandEnvironment(
+            runtime,
+            this,
+            new EventBus(eventBusExceptionHandler),
+            Thread.currentThread(),
+            command,
+            options,
+            warnings);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }

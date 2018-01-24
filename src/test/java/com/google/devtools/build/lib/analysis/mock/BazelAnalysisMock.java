@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.mock;
 
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -30,8 +29,8 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
+import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
-import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -91,6 +90,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  ijar = ['ijar'],",
         ")",
         "java_runtime(name = 'jdk-default', srcs = [])",
+        "java_runtime_alias(name = 'current_java_runtime')",
+        // This isn't actually the host runtime, but will do. This way, we don't need to pull in the
+        // Skylark implementation of the java_host_runtime_alias rule.
+        "java_runtime_alias(name = 'current_host_java_runtime')",
         "java_runtime_suite(name = 'jdk', runtimes = {}, default = ':jdk-default')",
         "java_runtime_suite(name = 'host_jdk', runtimes = {}, default = ':jdk-default')",
         "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
@@ -225,7 +228,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'rex_wrapper', srcs = ['empty.sh'])")
         .add("android_library(name = 'incremental_stub_application')")
         .add("android_library(name = 'incremental_split_stub_application')")
         .add("sh_binary(name = 'stubify_manifest', srcs = ['empty.sh'])")
@@ -255,6 +257,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("java_plugin(name = 'databinding_annotation_processor',")
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
         .add("package_group(name = 'android_device_whitelist', packages = ['//...'])");
 
     return androidBuildContents.build();
@@ -271,10 +274,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
     return ImmutableList.<ConfigurationFragmentFactory>of(
         new BazelConfiguration.Loader(),
-        new CppConfigurationLoader(Functions.<String>identity()),
+        new CppConfigurationLoader(CpuTransformer.IDENTITY),
         new PythonConfigurationLoader(),
         new BazelPythonConfiguration.Loader(),
-        new JvmConfigurationLoader(),
         new JavaConfigurationLoader(),
         new ObjcConfigurationLoader(),
         new AppleConfiguration.Loader(),

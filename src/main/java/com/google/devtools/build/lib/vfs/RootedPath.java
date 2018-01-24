@@ -14,62 +14,64 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * A {@link PathFragment} relative to a root, which is an absolute {@link Path}. Typically the root
- * will be a package path entry.
+ * A {@link PathFragment} relative to a {@link Root}. Typically the root will be a package path
+ * entry.
  *
- * Two {@link RootedPath}s are considered equal iff they have equal roots and equal relative paths.
+ * <p>Two {@link RootedPath}s are considered equal iff they have equal roots and equal relative
+ * paths.
  *
- * TODO(bazel-team): refactor Artifact to use this instead of Root.
- * TODO(bazel-team): use an opaque root representation so as to not expose the absolute path to
- * clients via #asPath or #getRoot.
+ * <p>TODO(bazel-team): refactor Artifact to use this instead of Root. TODO(bazel-team): use an
+ * opaque root representation so as to not expose the absolute path to clients via #asPath or
+ * #getRoot.
  */
 public class RootedPath implements Serializable {
 
-  private final Path root;
-  private final PathFragment relativePath;
+  private final Root root;
+  private final PathFragment rootRelativePath;
   private final Path path;
 
-  /**
-   * Constructs a {@link RootedPath} from an absolute root path and a non-absolute relative path.
-   */
-  private RootedPath(Path root, PathFragment relativePath) {
-    Preconditions.checkState(!relativePath.isAbsolute(), "relativePath: %s root: %s", relativePath,
+  /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
+  private RootedPath(Root root, PathFragment rootRelativePath) {
+    Preconditions.checkState(
+        rootRelativePath.isAbsolute() == root.isAbsolute(),
+        "rootRelativePath: %s root: %s",
+        rootRelativePath,
         root);
     this.root = root;
-    this.relativePath = relativePath.normalize();
-    this.path = root.getRelative(this.relativePath);
+    this.rootRelativePath = rootRelativePath.normalize();
+    this.path = root.getRelative(this.rootRelativePath);
   }
 
-  /**
-   * Returns a rooted path representing {@code relativePath} relative to {@code root}.
-   */
-  public static RootedPath toRootedPath(Path root, PathFragment relativePath) {
-    if (relativePath.isAbsolute()) {
-      if (root.isRootDirectory()) {
-        return new RootedPath(
-            root.getRelative(relativePath.windowsVolume()), relativePath.toRelative());
+  /** Returns a rooted path representing {@code rootRelativePath} relative to {@code root}. */
+  public static RootedPath toRootedPath(Root root, PathFragment rootRelativePath) {
+    if (rootRelativePath.isAbsolute()) {
+      if (root.isAbsolute()) {
+        return new RootedPath(root, rootRelativePath);
       } else {
         Preconditions.checkArgument(
-            relativePath.startsWith(root.asFragment()),
-            "relativePath '%s' is absolute, but it's not under root '%s'",
-            relativePath,
+            root.contains(rootRelativePath),
+            "rootRelativePath '%s' is absolute, but it's not under root '%s'",
+            rootRelativePath,
             root);
-        return new RootedPath(root, relativePath.relativeTo(root.asFragment()));
+        return new RootedPath(root, root.relativize(rootRelativePath));
       }
     } else {
-      return new RootedPath(root, relativePath);
+      return new RootedPath(root, rootRelativePath);
     }
   }
 
-  /**
-   * Returns a rooted path representing {@code path} under the root {@code root}.
-   */
-  public static RootedPath toRootedPath(Path root, Path path) {
-    Preconditions.checkState(path.startsWith(root), "path: %s root: %s", path, root);
+  /** Returns a rooted path representing {@code path} under the root {@code root}. */
+  public static RootedPath toRootedPath(Root root, Path path) {
+    Preconditions.checkState(root.contains(path), "path: %s root: %s", path, root);
     return toRootedPath(root, path.asFragment());
   }
 
@@ -77,13 +79,13 @@ public class RootedPath implements Serializable {
    * Returns a rooted path representing {@code path} under one of the package roots, or under the
    * filesystem root if it's not under any package root.
    */
-  public static RootedPath toRootedPathMaybeUnderRoot(Path path, Iterable<Path> packagePathRoots) {
-    for (Path root : packagePathRoots) {
-      if (path.startsWith(root)) {
+  public static RootedPath toRootedPathMaybeUnderRoot(Path path, Iterable<Root> packagePathRoots) {
+    for (Root root : packagePathRoots) {
+      if (root.contains(path)) {
         return toRootedPath(root, path);
       }
     }
-    return toRootedPath(path.getFileSystem().getRootDirectory(), path);
+    return toRootedPath(Root.absoluteRoot(path.getFileSystem()), path);
   }
 
   public Path asPath() {
@@ -94,15 +96,13 @@ public class RootedPath implements Serializable {
     return path;
   }
 
-  public Path getRoot() {
+  public Root getRoot() {
     return root;
   }
 
-  /**
-   * Returns the (normalized) path relative to {@code #getRoot}.
-   */
-  public PathFragment getRelativePath() {
-    return relativePath;
+  /** Returns the path fragment relative to {@code #getRoot}. */
+  public PathFragment getRootRelativePath() {
+    return rootRelativePath;
   }
 
   @Override
@@ -114,16 +114,48 @@ public class RootedPath implements Serializable {
       return false;
     }
     RootedPath other = (RootedPath) obj;
-    return Objects.equals(root, other.root) && Objects.equals(relativePath, other.relativePath);
+    return Objects.equals(root, other.root)
+        && Objects.equals(rootRelativePath, other.rootRelativePath);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(root, relativePath);
+    return Objects.hash(root, rootRelativePath);
   }
 
   @Override
   public String toString() {
-    return "[" + root + "]/[" + relativePath + "]";
+    return "[" + root + "]/[" + rootRelativePath + "]";
+  }
+
+  /** Custom serialization for {@link RootedPath}s. */
+  public static class RootedPathCodec implements ObjectCodec<RootedPath> {
+
+    private final ObjectCodec<Root> rootCodec;
+
+    /** Create an instance which will deserialize RootedPaths on {@code fileSystem}. */
+    public RootedPathCodec(FileSystem fileSystem) {
+      this.rootCodec = Root.getCodec(fileSystem, new PathCodec(fileSystem));
+    }
+
+    @Override
+    public Class<RootedPath> getEncodedClass() {
+      return RootedPath.class;
+    }
+
+    @Override
+    public void serialize(RootedPath rootedPath, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      rootCodec.serialize(rootedPath.getRoot(), codedOut);
+      PathFragment.CODEC.serialize(rootedPath.getRootRelativePath(), codedOut);
+    }
+
+    @Override
+    public RootedPath deserialize(CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      Root root = rootCodec.deserialize(codedIn);
+      PathFragment rootRelativePath = PathFragment.CODEC.deserialize(codedIn);
+      return toRootedPath(root, rootRelativePath);
+    }
   }
 }

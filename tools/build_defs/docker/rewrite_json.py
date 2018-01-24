@@ -122,7 +122,7 @@ def DeepCopySkipNull(data):
   """Do a deep copy, skipping null entry."""
   if type(data) == type(dict()):
     return dict((DeepCopySkipNull(k), DeepCopySkipNull(v))
-                for k, v in data.iteritems() if v is not None)
+                for k, v in data.items() if v is not None)
   return copy.deepcopy(data)
 
 
@@ -187,14 +187,14 @@ def RewriteMetadata(data, options):
     # Build a dictionary of existing environment variables (used by Resolve).
     environ_dict = KeyValueToDict(output['config'].get('Env', []))
     # Merge in new environment variables, resolving references.
-    for k, v in options.env.iteritems():
+    for k, v in options.env.items():
       # Resolve handles scenarios like "PATH=$PATH:...".
       environ_dict[k] = Resolve(v, environ_dict)
     output['config']['Env'] = Dict2ConfigValue(environ_dict)
 
   if options.labels:
     label_dict = KeyValueToDict(output['config'].get('Label', []))
-    for k, v in options.labels.iteritems():
+    for k, v in options.labels.items():
       label_dict[k] = v
     output['config']['Label'] = Dict2ConfigValue(label_dict)
 
@@ -279,7 +279,7 @@ def main(unused_argv):
       name = f.read()
 
   labels = KeyValueToDict(FLAGS.labels)
-  for label, value in labels.iteritems():
+  for label, value in labels.items():
     if value.startswith('@'):
       with open(value[1:], 'r') as f:
         labels[label] = f.read()

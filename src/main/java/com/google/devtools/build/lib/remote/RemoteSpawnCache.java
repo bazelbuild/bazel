@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -27,12 +28,12 @@ import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command;
-import com.google.devtools.remoteexecution.v1test.Platform;
 import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
@@ -52,10 +53,8 @@ import javax.annotation.Nullable;
 final class RemoteSpawnCache implements SpawnCache {
   private final Path execRoot;
   private final RemoteOptions options;
-  // TODO(olaola): This will be set on a per-action basis instead.
-  private final Platform platform;
 
-  private final RemoteActionCache remoteCache;
+  private final AbstractRemoteActionCache remoteCache;
   private final String buildRequestId;
   private final String commandId;
   private final boolean verboseFailures;
@@ -70,7 +69,7 @@ final class RemoteSpawnCache implements SpawnCache {
   RemoteSpawnCache(
       Path execRoot,
       RemoteOptions options,
-      RemoteActionCache remoteCache,
+      AbstractRemoteActionCache remoteCache,
       String buildRequestId,
       String commandId,
       boolean verboseFailures,
@@ -78,7 +77,6 @@ final class RemoteSpawnCache implements SpawnCache {
       DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.options = options;
-    this.platform = options.parseRemotePlatformOverride();
     this.remoteCache = remoteCache;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
@@ -99,10 +97,11 @@ final class RemoteSpawnCache implements SpawnCache {
     Command command = RemoteSpawnRunner.buildCommand(spawn.getArguments(), spawn.getEnvironment());
     Action action =
         RemoteSpawnRunner.buildAction(
+            execRoot,
             spawn.getOutputFiles(),
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
-            platform,
+            spawn.getExecutionPlatform(),
             policy.getTimeout(),
             Spawns.mayBeCached(spawn));
 
@@ -160,6 +159,14 @@ final class RemoteSpawnCache implements SpawnCache {
         @Override
         public void store(SpawnResult result, Collection<Path> files)
             throws InterruptedException, IOException {
+          if (options.experimentalGuardAgainstConcurrentChanges) {
+            try {
+              checkForConcurrentModifications();
+            } catch (IOException e) {
+              report(Event.warn(e.getMessage()));
+              return;
+            }
+          }
           boolean uploadAction =
               Spawns.mayBeCached(spawn)
                   && Status.SUCCESS.equals(result.status())
@@ -182,6 +189,19 @@ final class RemoteSpawnCache implements SpawnCache {
 
         @Override
         public void close() {}
+
+        private void checkForConcurrentModifications() throws IOException {
+          for (ActionInput input : inputMap.values()) {
+            Metadata metadata = policy.getActionInputFileCache().getMetadata(input);
+            if (metadata instanceof FileArtifactValue) {
+              FileArtifactValue artifactValue = (FileArtifactValue) metadata;
+              Path path = execRoot.getRelative(input.getExecPath());
+              if (artifactValue.wasModifiedSinceDigest(path)) {
+                throw new IOException(path + " was modified during execution");
+              }
+            }
+          }
+        }
       };
     } else {
       return SpawnCache.NO_RESULT_NO_STORE;

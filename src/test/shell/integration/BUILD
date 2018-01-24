@@ -230,6 +230,16 @@ sh_test(
 )
 
 sh_test(
+    name = "nonincremental_builds_test",
+    size = "medium",
+    srcs = ["nonincremental_builds_test.sh"],
+    data = [
+        ":discard_graph_edges_lib.sh",
+        ":test-deps",
+    ],
+)
+
+sh_test(
     name = "build_event_stream_test",
     size = "medium",
     srcs = ["build_event_stream_test.sh"],
@@ -296,6 +306,7 @@ sh_test(
     size = "medium",
     srcs = ["process-wrapper_test.sh"],
     data = [
+        ":execution_statistics_utils.sh",
         ":spend_cpu_time",
         ":test-deps",
         "//src/main/protobuf:execution_statistics.proto",
@@ -308,8 +319,12 @@ sh_test(
     size = "large",
     srcs = ["linux-sandbox_test.sh"],
     data = [
+        ":execution_statistics_utils.sh",
+        ":spend_cpu_time",
         ":test-deps",
+        "//src/main/protobuf:execution_statistics.proto",
         "//src/test/shell:sandboxing_test_utils.sh",
+        "//third_party/protobuf:protoc",
     ],
 )
 
@@ -336,12 +351,18 @@ cc_binary(
     testonly = 1,
     srcs = select({
         "//src/conditions:windows": ["spend_cpu_time_windows.cc"],
-        "//src/conditions:windows_msvc": ["spend_cpu_time_windows.cc"],
         "//conditions:default": ["spend_cpu_time.cc"],
     }),
     visibility = [
         ":spend_cpu_time_users",
     ],
+)
+
+sh_test(
+    name = "prelude_test",
+    size = "medium",
+    srcs = ["prelude_test.sh"],
+    data = [":test-deps"],
 )
 
 ########################################################################

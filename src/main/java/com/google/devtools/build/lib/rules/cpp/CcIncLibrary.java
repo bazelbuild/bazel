@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
@@ -84,7 +85,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
     // is actually a symlink into the source tree.
     PathFragment includeDirectory = PathFragment.create("_")
         .getRelative(ruleContext.getTarget().getName());
-    Root configIncludeDirectory =
+    ArtifactRoot configIncludeDirectory =
         ruleContext.getConfiguration().getIncludeDirectory(ruleContext.getRule().getRepository());
     PathFragment includePath =
         configIncludeDirectory
@@ -92,7 +93,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
             .getRelative(packageFragment)
             .getRelative(includeDirectory);
     Path includeRoot =
-        configIncludeDirectory.getPath().getRelative(packageFragment).getRelative(includeDirectory);
+        configIncludeDirectory.getRoot().getRelative(packageFragment).getRelative(includeDirectory);
 
     // For every source artifact, we compute a virtual artifact that is below the include directory.
     // These are used for include checking.
@@ -129,12 +130,18 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
         new CreateIncSymlinkAction(ruleContext.getActionOwner(), virtualArtifactMap, includeRoot));
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
-    CcLibraryHelper.Info info =
+    Info.CompilationInfo compilationInfo =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
             .addIncludeDirs(Arrays.asList(includePath))
             .addPublicHeaders(virtualArtifactMap.keySet())
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            .build();
+            .compile();
+    Info.LinkingInfo linkingInfo =
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+            .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+            .link(
+                compilationInfo.getCcCompilationOutputs(),
+                compilationInfo.getCppCompilationContext());
 
     // cc_inc_library doesn't compile any file - no compilation outputs available.
     InstrumentedFilesProvider instrumentedFilesProvider =
@@ -143,9 +150,12 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
               /*withBaselineCoverage=*/true);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProviders(info.getProviders())
+        .addProviders(compilationInfo.getProviders())
+        .addProviders(linkingInfo.getProviders())
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
-        .addOutputGroups(info.getOutputGroups())
+        .addOutputGroups(
+            Info.mergeOutputGroups(
+                compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups()))
         .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();

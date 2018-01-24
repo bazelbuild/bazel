@@ -118,4 +118,30 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         target.getLabel().getCanonicalForm(),
         executable.getFilename());
   }
+
+  @Test
+  public void testLinkstampRespectsPicnessFromConfiguration() throws Exception {
+    useConfiguration("--force_pic");
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'foo',",
+        "  deps = ['a'],",
+        ")",
+        "cc_library(",
+        "  name = 'a',",
+        "  srcs = [ 'a.cc' ],",
+        "  linkstamp = 'ls.cc',",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Artifact executable = getExecutable(target);
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
+    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    assertThat(linkstampCompileAction.getArguments()).contains("-fPIC");
+  }
 }

@@ -26,25 +26,23 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
+@AutoCodec
 @SkylarkModule(
   name = "apple",
   doc = "A configuration fragment for Apple platforms.",
@@ -52,6 +50,8 @@ import javax.annotation.Nullable;
 )
 @Immutable
 public class AppleConfiguration extends BuildConfiguration.Fragment {
+  public static final ObjectCodec<AppleConfiguration> CODEC = new AppleConfiguration_AutoCodec();
+
   /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
@@ -87,12 +87,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final Label xcodeConfigLabel;
   private final boolean enableAppleCrosstool;
   private final AppleCommandLineOptions options;
-  @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
-  @VisibleForTesting
+  @AutoCodec.Constructor
   AppleConfiguration(AppleCommandLineOptions options, String iosCpu) {
     this.options = options;
     this.iosCpu = iosCpu;
@@ -116,7 +115,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.enableAppleCrosstool = options.enableAppleCrosstoolTransition;
     this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
-    this.xcodeToolchain = options.xcodeToolchain;
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
     this.objcProviderFromLinked = options.objcProviderFromLinked;
   }
@@ -470,18 +468,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     return Joiner.on('-').join(components);
   }
 
-  /** Returns the identifier for an Xcode toolchain to use with tools. */
-  @SkylarkCallable(
-    name = "xcode_toolchain",
-    doc = "Identifier for the custom Xcode toolchain to use in build, or <code>None</code> if it "
-        + "is not specified.",
-    allowReturnNones = true,
-    structField = true
-  )
-  public String getXcodeToolchain() {
-    return xcodeToolchain;
-  }
-
   /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
   public boolean isMandatoryMinimumVersion() {
     return mandatoryMinimumVersion;
@@ -515,18 +501,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Override
   public int hashCode() {
     return options.hashCode();
-  }
-
-  void serialize(CodedOutputStream out) throws IOException, SerializationException {
-    options.serialize(out);
-    out.writeStringNoTag(iosCpu);
-  }
-
-  static AppleConfiguration deserialize(CodedInputStream in)
-      throws IOException, SerializationException {
-    AppleCommandLineOptions options = AppleCommandLineOptions.deserialize(in);
-    String iosCpu = StringCodecs.asciiOptimized().deserialize(in);
-    return new AppleConfiguration(options, iosCpu);
   }
 
   @VisibleForTesting

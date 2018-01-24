@@ -87,7 +87,7 @@ public class RemoteSpawnCacheTest {
   private Path execRoot;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
-  @Mock private RemoteActionCache remoteCache;
+  @Mock private AbstractRemoteActionCache remoteCache;
   private RemoteSpawnCache cache;
   private FileOutErr outErr;
 
@@ -138,7 +138,7 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
-          return new SpawnInputExpander(/*strict*/ false)
+          return new SpawnInputExpander(execRoot, /*strict*/ false)
               .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, fakeFileCache, "workspace");
         }
 

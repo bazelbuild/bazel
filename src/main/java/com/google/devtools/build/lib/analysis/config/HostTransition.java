@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+
 /**
  * Dynamic transition to the host configuration.
  */
@@ -20,6 +22,11 @@ public final class HostTransition implements PatchTransition {
   public static final HostTransition INSTANCE = new HostTransition();
 
   private HostTransition() {}
+
+  @Override
+  public boolean isHostTransition() {
+    return true;
+  }
 
   @Override
   public BuildOptions apply(BuildOptions options) {

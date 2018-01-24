@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.syntax.Environment.Frame;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -60,6 +61,32 @@ public class TestUtils {
       assertThat(frame2.getParent()).isNull();
     } else {
       assertFramesEqual(frame1.getParent(), frame2.getParent());
+    }
+  }
+
+  /**
+   * Fake string codec that replaces all input and output string values with the constant "dummy".
+   */
+  public static class ConstantStringCodec implements ObjectCodec<String> {
+
+    private static final ObjectCodec<String> stringCodec = StringCodecs.simple();
+
+    @Override
+    public Class<String> getEncodedClass() {
+      return String.class;
+    }
+
+    @Override
+    public void serialize(String value, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      stringCodec.serialize("dummy", codedOut);
+    }
+
+    @Override
+    public String deserialize(CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      stringCodec.deserialize(codedIn);
+      return "dummy";
     }
   }
 }
