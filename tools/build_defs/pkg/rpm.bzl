@@ -54,6 +54,7 @@ def _pkg_rpm_impl(ctx):
   # TODO(katre): Generate a source RPM.
   ctx.action(
       executable = ctx.executable._make_rpm,
+      use_default_shell_env = True,
       arguments = args,
       inputs = files,
       outputs = [ctx.outputs.rpm],

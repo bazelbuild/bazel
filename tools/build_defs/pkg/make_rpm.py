@@ -26,6 +26,7 @@ import subprocess
 import sys
 from tempfile import mkdtemp
 
+# pylint: disable=g-direct-third-party-import
 from third_party.py import gflags
 
 gflags.DEFINE_string('name', '', 'The name of the software being packaged.')
@@ -126,6 +127,31 @@ def CopyAndRewrite(input_file, output_file, replacements=None):
       output.write(line)
 
 
+def Which(program):
+
+  def IsExe(fpath):
+    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+  for path in os.environ['PATH'].split(os.pathsep):
+    filename = os.path.join(path, program)
+    if IsExe(filename):
+      return filename
+
+  return None
+
+
+class NoRpmbuildFound(Exception):
+  pass
+
+
+def FindRpmbuild():
+  path = Which('rpmbuild')
+  if path:
+    return path
+  else:
+    raise NoRpmbuildFound()
+
+
 class RpmBuilder(object):
   """A helper class to manage building the RPM file."""
 
@@ -139,6 +165,7 @@ class RpmBuilder(object):
     self.version = GetFlagValue(version)
     self.arch = arch
     self.files = []
+    self.rpmbuild_path = FindRpmbuild()
     self.rpm_path = None
 
   def AddFiles(self, files):
@@ -171,7 +198,7 @@ class RpmBuilder(object):
     """Call rpmbuild with the correct arguments."""
 
     args = [
-        'rpmbuild',
+        self.rpmbuild_path,
         '--define',
         '_topdir %s' % dirname,
         '--define',
@@ -218,9 +245,13 @@ class RpmBuilder(object):
 
 
 def main(argv=()):
-  builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.arch)
-  builder.AddFiles(argv[1:])
-  return builder.Build(FLAGS.spec_file, FLAGS.out_file)
+  try:
+    builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.arch)
+    builder.AddFiles(argv[1:])
+    return builder.Build(FLAGS.spec_file, FLAGS.out_file)
+  except NoRpmbuildFound:
+    print('ERROR: rpmbuild is required but is not present in PATH')
+    return 1
 
 
 if __name__ == '__main__':
