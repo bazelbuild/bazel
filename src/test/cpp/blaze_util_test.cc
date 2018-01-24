@@ -159,7 +159,8 @@ TEST_F(BlazeUtilTest, ReadJvmVersion) {
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullaryEmptyCase) {
-  ASSERT_FALSE(SearchNullaryOption({}, "--flag"));
+  ASSERT_FALSE(SearchNullaryOption({}, "flag", false));
+  ASSERT_TRUE(SearchNullaryOption({}, "flag", true));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryEmptyCase) {
@@ -167,39 +168,51 @@ TEST_F(BlazeUtilTest, TestSearchUnaryEmptyCase) {
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullaryForEmpty) {
-  ASSERT_FALSE(SearchNullaryOption({"bazel", "build", ":target"}, ""));
+  ASSERT_TRUE(SearchNullaryOption({"bazel", "build", ":target"}, "", true));
+  ASSERT_FALSE(SearchNullaryOption({"bazel", "build", ":target"}, "", false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullaryForFlagNotPresent) {
   ASSERT_FALSE(SearchNullaryOption({"bazel", "build", ":target"},
-                                   "--flag"));
+                                   "flag", false));
+  ASSERT_TRUE(SearchNullaryOption({"bazel", "build", ":target"},
+                                   "flag", true));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullaryStartupOption) {
   ASSERT_TRUE(SearchNullaryOption({"bazel", "--flag", "build", ":target"},
-                                  "--flag"));
+                                  "flag", false));
+  ASSERT_TRUE(SearchNullaryOption({"bazel", "--flag", "build", ":target"},
+                                  "flag", true));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullaryStartupOptionWithEquals) {
   ASSERT_DEATH(SearchNullaryOption(
-      {"bazel", "--flag=value", "build", ":target"}, "--flag"),
+      {"bazel", "--flag=value", "build", ":target"}, "flag", false),
               "In argument '--flag=value': option "
               "'--flag' does not take a value");
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullaryCommandOption) {
   ASSERT_TRUE(SearchNullaryOption({"bazel", "build", ":target", "--flag"},
-                                  "--flag"));
+                                  "flag", false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullarySkipsAfterDashDash) {
   ASSERT_FALSE(SearchNullaryOption(
-      {"bazel", "build", ":target", "--", "--flag"}, "--flag"));
+      {"bazel", "build", ":target", "--", "--flag"}, "flag", false));
 }
 
 TEST_F(BlazeUtilTest, TestSearchNullarySucceedsWithEqualsAndDashDash) {
   ASSERT_FALSE(SearchNullaryOption(
-      {"bazel", "build", ":target", "--", "--flag=value"}, "--flag"));
+      {"bazel", "build", ":target", "--", "--flag=value"}, "flag", false));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryLastFlagWins) {
+  ASSERT_FALSE(SearchNullaryOption(
+      {"bazel", "--flag", "--noflag", "build"}, "flag", false));
+  ASSERT_FALSE(SearchNullaryOption(
+      {"bazel", "--flag", "--noflag", "build"}, "flag", true));
 }
 
 TEST_F(BlazeUtilTest, TestSearchUnaryForEmpty) {

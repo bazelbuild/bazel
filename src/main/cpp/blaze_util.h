@@ -57,11 +57,14 @@ bool GetNullaryOption(const char *arg, const char *key);
 const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key);
 
-// Searches for 'key' in 'args' using GetNullaryOption.
-// Arguments found after '--' are omitted from the search.
-// Returns true iff key is a flag in args.
+// Searches for '--flag_name' and '--noflag_name' in 'args' using
+// GetNullaryOption. Arguments found after '--' are omitted from the search.
+// Returns true if '--flag_name' is a flag in args and '--noflag_name' does not
+// appear after its last occurrence. If neither '--flag_name' nor
+// '--noflag_name' appear, returns 'default_value'. Otherwise, returns false.
 bool SearchNullaryOption(const std::vector<std::string>& args,
-                         const char* key);
+                         const std::string& flag_name,
+                         const bool default_value);
 
 // Enable messages mostly of interest to developers.
 bool VerboseLogging();
