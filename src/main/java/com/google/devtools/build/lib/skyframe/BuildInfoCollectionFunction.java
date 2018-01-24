@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 
 /**
  * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique
@@ -57,15 +59,18 @@ public class BuildInfoCollectionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     final BuildInfoKeyAndConfig keyAndConfig = (BuildInfoKeyAndConfig) skyKey.argument();
+    ImmutableSet<SkyKey> keysToRequest =
+        ImmutableSet.of(
+            WorkspaceStatusValue.BUILD_INFO_KEY,
+            WorkspaceNameValue.key(),
+            keyAndConfig.getConfigKey());
+    Map<SkyKey, SkyValue> result = env.getValues(keysToRequest);
+    if (env.valuesMissing()) {
+      return null;
+    }
     WorkspaceStatusValue infoArtifactValue =
-        (WorkspaceStatusValue) env.getValue(WorkspaceStatusValue.BUILD_INFO_KEY);
-    if (infoArtifactValue == null) {
-      return null;
-    }
-    WorkspaceNameValue nameValue = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
-    if (nameValue == null) {
-      return null;
-    }
+        (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
+    WorkspaceNameValue nameValue = (WorkspaceNameValue) result.get(WorkspaceNameValue.key());
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
         nameValue.getName());
 
@@ -87,7 +92,8 @@ public class BuildInfoCollectionFunction implements SkyFunction {
             .get(keyAndConfig.getInfoKey())
             .create(
                 context,
-                keyAndConfig.getConfig(),
+                ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey()))
+                    .getConfiguration(),
                 infoArtifactValue.getStableArtifact(),
                 infoArtifactValue.getVolatileArtifact(),
                 repositoryName),

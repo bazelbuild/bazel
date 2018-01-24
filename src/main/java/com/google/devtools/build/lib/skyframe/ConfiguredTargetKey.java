@@ -57,15 +57,8 @@ public class ConfiguredTargetKey extends ActionLookupKey {
       BlazeInterners.newWeakInterner();
 
   public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
-    BuildConfigurationValue.Key configurationKey =
-        configuration == null
-            ? null
-            : BuildConfigurationValue.key(
-                configuration.fragmentClasses(), configuration.getOptions());
-    return of(
-        label,
-        configurationKey,
-        configuration != null && configuration.isHostConfiguration());
+    KeyAndHost keyAndHost = keyFromConfiguration(configuration);
+    return of(label, keyAndHost.key, keyAndHost.isHost);
   }
 
   static ConfiguredTargetKey of(
@@ -77,6 +70,15 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     } else {
       return interner.intern(new ConfiguredTargetKey(label, configurationKey));
     }
+  }
+
+  static KeyAndHost keyFromConfiguration(@Nullable BuildConfiguration configuration) {
+    return configuration == null
+        ? KeyAndHost.NULL_INSTANCE
+        : new KeyAndHost(
+            BuildConfigurationValue.key(
+                configuration.fragmentClasses(), configuration.getOptions()),
+            configuration.isHostConfiguration());
   }
 
   @Override
@@ -172,6 +174,22 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     @Override
     public boolean isHostConfiguration() {
       return true;
+    }
+  }
+
+  /**
+   * Simple wrapper class for turning a {@link BuildConfiguration} into a {@link
+   * BuildConfigurationValue.Key} and boolean isHost.
+   */
+  public static class KeyAndHost {
+    private static final KeyAndHost NULL_INSTANCE = new KeyAndHost(null, false);
+
+    @Nullable public final BuildConfigurationValue.Key key;
+    private final boolean isHost;
+
+    private KeyAndHost(@Nullable BuildConfigurationValue.Key key, boolean isHost) {
+      this.key = key;
+      this.isHost = isHost;
     }
   }
 }
