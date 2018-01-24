@@ -63,17 +63,7 @@ public class DumpPlatformClassPath {
         // this configures the filemanager to use a JDK 8 bootclasspath
         compiler.getTask(
             null, fileManager, null, Arrays.asList("--release", targetRelease), null, null);
-        Iterable<Path> paths;
-        try {
-          paths =
-              (Iterable<Path>)
-                  StandardJavaFileManager.class
-                      .getMethod("getLocationAsPaths", Location.class)
-                      .invoke(fileManager, StandardLocation.PLATFORM_CLASS_PATH);
-        } catch (ReflectiveOperationException e) {
-          throw new LinkageError(e.getMessage(), e);
-        }
-        for (Path path : paths) {
+        for (Path path : getLocationAsPaths(fileManager)) {
           Files.walkFileTree(
               path,
               new SimpleFileVisitor<Path>() {
@@ -105,6 +95,18 @@ public class DumpPlatformClassPath {
               toByteArray(fileObject.openInputStream()));
         }
       }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Iterable<Path> getLocationAsPaths(StandardJavaFileManager fileManager) {
+    try {
+      return (Iterable<Path>)
+          StandardJavaFileManager.class
+              .getMethod("getLocationAsPaths", Location.class)
+              .invoke(fileManager, StandardLocation.PLATFORM_CLASS_PATH);
+    } catch (ReflectiveOperationException e) {
+      throw new LinkageError(e.getMessage(), e);
     }
   }
 
