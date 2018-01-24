@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import javax.annotation.Nullable;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
@@ -73,6 +74,16 @@ public final class RestBlobStore implements SimpleBlobStore {
     clientFactory = HttpClientBuilder.create();
     clientFactory.setConnectionManager(connMan);
     clientFactory.setConnectionManagerShared(true);
+
+    // In the case of not having any credentials provided from command line, we can support Basic
+    // auth if the cache URL contains a username:password@ before the URL.
+    if (creds == null) {
+      String userInfo = new URL(baseUrl).getUserInfo();
+      if (userInfo != null) {
+        creds = new BasicAuthCredentials(userInfo);
+      }
+    }
+
     clientFactory.setDefaultRequestConfig(RequestConfig.custom()
         // Timeout to establish a connection.
         .setConnectTimeout(timeoutMillis)
@@ -164,7 +175,7 @@ public final class RestBlobStore implements SimpleBlobStore {
       }
     }
   }
-  
+
   private void validateUrl(String url) throws IOException {
     try {
       new URI(url);
