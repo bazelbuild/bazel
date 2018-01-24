@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -77,7 +78,11 @@ public class BuildConfigurationValue implements SkyValue {
     return keyInterner.intern(new Key(fragmentClassSet, buildOptions));
   }
 
-  static final class Key implements SkyKey, Serializable {
+  /** {@link SkyKey} for {@link BuildConfigurationValue}. */
+  @VisibleForSerialization
+  public static final class Key implements SkyKey, Serializable {
+    public static final ObjectCodec<Key> CODEC = new Codec();
+
     private final FragmentClassSet fragments;
     private final BuildOptions buildOptions;
     // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.

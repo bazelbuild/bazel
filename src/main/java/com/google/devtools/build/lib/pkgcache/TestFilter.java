@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public final class TestFilter implements com.google.common.base.Predicate<Target> {
-  static final ObjectCodec<TestFilter> CODEC = new TestFilter_AutoCodec();
+  public static final ObjectCodec<TestFilter> CODEC = new TestFilter_AutoCodec();
 
   private static final Predicate<Target> ALWAYS_TRUE = (t) -> true;
 
