@@ -40,12 +40,6 @@ http_archive(
     strip_prefix = "j2objc-2.0.3",
 )
 
-# For src/test/docker/...
-load("//src/test/docker:docker_repository.bzl", "docker_repository")
-docker_repository()
-load("//src/test/docker:flavours.bzl", "pull_images_for_docker_tests")
-pull_images_for_docker_tests()
-
 # For src/test/shell/bazel:test_srcs
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 list_source_repository(name = "local_bazel_source_list")
