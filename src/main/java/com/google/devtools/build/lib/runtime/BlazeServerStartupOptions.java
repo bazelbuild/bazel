@@ -375,7 +375,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     category = "server startup",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "If true, Blaze runs as Exoblaze"
+    help = "If true, use the Exoblaze rule sets. If false, use the Blaze rule sets."
   )
   public boolean exoblaze;
 
