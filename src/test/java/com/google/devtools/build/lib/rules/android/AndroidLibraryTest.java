@@ -1368,39 +1368,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAndroidLibraryWithTestOnlySetsTestOnly() throws Exception {
-    scratch.file(
-        "java/com/google/android/foo/BUILD",
-        "android_library(",
-        "  name = 'foo',",
-        "  srcs = ['Foo.java'],",
-        "  testonly = 1,",
-        ")");
-    JavaCompileAction javacAction =
-        (JavaCompileAction)
-            getGeneratingAction(
-                getBinArtifact("libfoo.jar", getConfiguredTarget("//java/com/google/android/foo")));
-
-    assertThat(javacAction.buildCommandLine()).contains("--testonly");
-  }
-
-  @Test
-  public void testAndroidLibraryWithoutTestOnlyDoesntSetTestOnly() throws Exception {
-    scratch.file(
-        "java/com/google/android/foo/BUILD",
-        "android_library(",
-        "  name = 'foo',",
-        "  srcs = ['Foo.java'],",
-        ")");
-    JavaCompileAction javacAction =
-        (JavaCompileAction)
-            getGeneratingAction(
-                getBinArtifact("libfoo.jar", getConfiguredTarget("//java/com/google/android/foo")));
-
-    assertThat(javacAction.buildCommandLine()).doesNotContain("--testonly");
-  }
-
-  @Test
   public void aapt2ArtifactGenerationWhenSdkIsDefined() throws Exception {
     scratch.file(
         "sdk/BUILD",
