@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * Grab bag file for test configuration fragments and fragment factories.
@@ -62,8 +64,9 @@ public class TestConfigFragments {
     }
 
     @Override
-    public BuildConfiguration.Fragment create(ConfigurationEnvironment env,
-        BuildOptions buildOptions) throws InvalidConfigurationException {
+    public BuildConfiguration.Fragment create(
+        ConfigurationEnvironment env, BuildOptions buildOptions)
+        throws InvalidConfigurationException {
       return fragment;
     }
 
@@ -78,27 +81,38 @@ public class TestConfigFragments {
     }
   }
 
+  @AutoCodec
+  static class Hook1Fragment extends BuildConfiguration.Fragment {
+    public static final ObjectCodec<Hook1Fragment> CODEC =
+        new TestConfigFragments_Hook1Fragment_AutoCodec();
+
+    @Override
+    public PatchTransition topLevelConfigurationHook(Target toTarget) {
+      return new HostCpuTransition("CONFIG HOOK 1");
+    }
+  }
+
   /** Factory for a test fragment with a top-level configuration hook. */
   public static SimpleFragmentFactory FragmentWithTopLevelConfigHook1Factory =
-      new SimpleFragmentFactory(
-          new BuildConfiguration.Fragment() {
-            @Override
-            public PatchTransition topLevelConfigurationHook(Target toTarget) {
-              return new HostCpuTransition("CONFIG HOOK 1");
-            }
-          });
+      new SimpleFragmentFactory(new Hook1Fragment());
+
+  /**
+   * The class definition for the BuildConfiguration.Fragment needs to be different than the one of
+   * its peer above. This is because Bazel indexes configuration fragments by class name. So we need
+   * to make sure all fragment definitions retain distinct class names.
+   */
+  @AutoCodec
+  static class Hook2Fragment extends BuildConfiguration.Fragment {
+    public static final ObjectCodec<Hook2Fragment> CODEC =
+        new TestConfigFragments_Hook2Fragment_AutoCodec();
+
+    @Override
+    public PatchTransition topLevelConfigurationHook(Target toTarget) {
+      return new HostCpuTransition("CONFIG HOOK 2");
+    }
+  }
 
   /** Factory for a test fragment with a top-level configuration hook. */
   public static SimpleFragmentFactory FragmentWithTopLevelConfigHook2Factory =
-      // The anonymous class definition for the BuildConfiguration.Fragment needs to be different
-      // than the one of its peer above. This is because Bazel indexes configuration fragments
-      // by class name. So we need to make sure all fragment definitions retain distinct class
-      // names (i.e. "TestConfigFragments$1", "TestConfigFragments$2", etc).
-      new SimpleFragmentFactory(
-          new BuildConfiguration.Fragment() {
-            @Override
-            public PatchTransition topLevelConfigurationHook(Target toTarget) {
-              return new HostCpuTransition("CONFIG HOOK 2");
-            }
-          });
+      new SimpleFragmentFactory(new Hook2Fragment());
 }

@@ -37,7 +37,9 @@ import com.google.devtools.common.options.TriState;
 import java.util.List;
 
 /** Test-related options. */
+@AutoCodec
 public class TestConfiguration extends Fragment {
+  public static final ObjectCodec<TestConfiguration> CODEC = new TestConfiguration_AutoCodec();
 
   /** Command-line options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
