@@ -45,6 +45,8 @@ public final class OptionsParser {
   private static final Splitter SPACE_SPLITTER = Splitter.on(' ');
   private final List<String> javacOpts = new ArrayList<>();
 
+  private final Map<String, JarOwner> jarsToTargets = new HashMap<>();
+  private final Set<String> directJars = new HashSet<>();
   private final Map<String, JarOwner> directJarsToTargets = new HashMap<>();
   private final Map<String, JarOwner> indirectJarsToTargets = new HashMap<>();
 
@@ -103,24 +105,39 @@ public final class OptionsParser {
    * @throws InvalidCommandLineException on an invalid option being passed.
    */
   private void processCommandlineArgs(Deque<String> argQueue) throws InvalidCommandLineException {
+    boolean foundNewDependencyArgument = false;
+    boolean foundLegacyDependencyArgument = false;
+
     for (String arg = argQueue.pollFirst(); arg != null; arg = argQueue.pollFirst()) {
       switch (arg) {
         case "--javacopts":
           readJavacopts(javacOpts, argQueue);
           sourcePathFromJavacOpts();
           break;
+        case "--dependencies":
+          collectDependencies(classPath, jarsToTargets, argQueue, arg, "--");
+          foundNewDependencyArgument = true;
+          break;
+        case "--direct_dependencies":
+          collectFlagArguments(directJars, argQueue, "--");
+          foundNewDependencyArgument = true;
+          break;
         case "--direct_dependency":
           {
+            // TODO(b/72379900): Remove this
             String jar = getArgument(argQueue, arg);
-            JarOwner owner = parseJarOwner(getArgument(argQueue, arg));
+            JarOwner owner = parseJarOwnerLegacy(getArgument(argQueue, arg));
             directJarsToTargets.put(jar, owner);
+            foundLegacyDependencyArgument = true;
             break;
           }
         case "--indirect_dependency":
           {
+            // TODO(b/72379900): Remove this
             String jar = getArgument(argQueue, arg);
-            JarOwner owner = parseJarOwner(getArgument(argQueue, arg));
+            JarOwner owner = parseJarOwnerLegacy(getArgument(argQueue, arg));
             indirectJarsToTargets.put(jar, owner);
+            foundLegacyDependencyArgument = true;
             break;
           }
         case "--strict_java_deps":
@@ -154,7 +171,9 @@ public final class OptionsParser {
           collectFlagArguments(sourceJars, argQueue, "-");
           break;
         case "--classpath":
+          // TODO(b/72379900): Remove this
           collectFlagArguments(classPath, argQueue, "-");
+          foundLegacyDependencyArgument = true;
           break;
         case "--sourcepath":
           // TODO(#970): Consider whether we want to use --sourcepath for resolving of #970.
@@ -208,6 +227,24 @@ public final class OptionsParser {
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
       }
     }
+    // TODO(b/72379900): Remove the legacy part of this code
+    if (foundLegacyDependencyArgument && foundNewDependencyArgument) {
+      throw new InvalidCommandLineException(
+          "Found both new-style and old-style dependency arguments: "
+              + "Cannot use arguments from both "
+              + "(--dependencies, --direct_dependencies) and "
+              + "(--direct_dependency, --indirect_dependency, --classpath) "
+              + "at the same time.");
+    }
+    for (Map.Entry<String, JarOwner> entry : jarsToTargets.entrySet()) {
+      String jar = entry.getKey();
+      JarOwner jarOwner = entry.getValue();
+      if (directJars.contains(jar)) {
+        directJarsToTargets.put(jar, jarOwner);
+      } else {
+        indirectJarsToTargets.put(jar, jarOwner);
+      }
+    }
   }
 
   private void sourcePathFromJavacOpts() {
@@ -222,7 +259,47 @@ public final class OptionsParser {
     }
   }
 
-  private JarOwner parseJarOwner(String line) {
+  private static void collectDependencies(
+      Collection<String> classPath,
+      Map<String, JarOwner> jarsToTargets,
+      Deque<String> args,
+      String arg,
+      String terminatorPrefix)
+      throws InvalidCommandLineException {
+    while (true) {
+      String nextArg = args.pollFirst();
+      if (nextArg == null) {
+        break;
+      }
+      if (nextArg.startsWith(terminatorPrefix)) {
+        args.addFirst(nextArg);
+        break;
+      }
+      String jar = nextArg;
+      JarOwner jarOwner;
+      try {
+        jarOwner = parseJarOwner(args.remove());
+      } catch (NoSuchElementException e) {
+        throw new InvalidCommandLineException(arg + ": missing argument");
+      }
+      classPath.add(jar);
+      jarsToTargets.put(jar, jarOwner);
+    }
+  }
+
+  private static JarOwner parseJarOwner(String line) {
+    int separatorIndex = line.indexOf(';');
+    final JarOwner owner;
+    if (separatorIndex == -1) {
+      owner = JarOwner.create(line);
+    } else {
+      owner =
+          JarOwner.create(line.substring(0, separatorIndex), line.substring(separatorIndex + 1));
+    }
+    return owner;
+  }
+
+  private JarOwner parseJarOwnerLegacy(String line) {
     List<String> ownerStringParts = SPACE_SPLITTER.splitToList(line);
     JarOwner owner;
     Preconditions.checkState(ownerStringParts.size() == 1 || ownerStringParts.size() == 2);
