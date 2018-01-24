@@ -74,6 +74,9 @@ java_toolchain(
     javabuilder = ["bootstrap_deploy.jar"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
     jvm_opts = [
+        # Prevent "Could not reserve enough space for object heap" errors on Windows.
+        "-Xmx512m",
+        # Using tiered compilation improves performance of Javac when not using the worker mode.
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
         "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
