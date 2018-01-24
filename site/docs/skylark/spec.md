@@ -3180,7 +3180,7 @@ IfStmt = 'if' Test ':' Suite {'elif' Test ':' Suite} ['else' ':' Suite] .
 
 ForStmt = 'for' LoopVariables 'in' Expression ':' Suite .
 
-Suite = [newline indent {Statement} outdent] SimpleStmt .
+Suite = [newline indent {Statement} outdent] | SimpleStmt .
 
 SimpleStmt = SmallStmt {';' SmallStmt} [';'] '\n' .
 # NOTE: '\n' optional at EOF
