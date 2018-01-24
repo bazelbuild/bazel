@@ -17,10 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -91,8 +91,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
           @Nullable
           @Override
           protected List<BuildConfiguration> getConfigurations(
-              ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments,
-              Iterable<BuildOptions> buildOptions) {
+              FragmentClassSet fragments, Iterable<BuildOptions> buildOptions) {
             throw new UnsupportedOperationException(
                 "this functionality is covered by analysis-phase integration tests");
           }

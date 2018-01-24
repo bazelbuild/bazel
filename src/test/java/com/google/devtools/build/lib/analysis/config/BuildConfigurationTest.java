@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
@@ -283,7 +284,10 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     BuildConfiguration config = create();
     BuildConfiguration trimmedConfig =
         config.clone(
-            ImmutableSet.<Class<? extends Fragment>>of(CppConfiguration.class),
+            FragmentClassSet.of(
+                ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter)
+                    .add(CppConfiguration.class)
+                    .build()),
             analysisMock.createRuleClassProvider());
     BuildConfiguration hostConfig = createHost();
 

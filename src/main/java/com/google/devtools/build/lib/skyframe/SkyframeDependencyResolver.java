@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -126,8 +126,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Nullable
   @Override
   protected List<BuildConfiguration> getConfigurations(
-      ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments,
-      Iterable<BuildOptions> buildOptions)
+      FragmentClassSet fragments, Iterable<BuildOptions> buildOptions)
       throws InvalidConfigurationException, InterruptedException {
     List<SkyKey> keys = new ArrayList<>();
     for (BuildOptions options : buildOptions) {

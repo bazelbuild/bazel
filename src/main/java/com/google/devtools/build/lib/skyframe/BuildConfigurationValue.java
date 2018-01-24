@@ -17,8 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
@@ -67,28 +67,29 @@ public class BuildConfigurationValue implements SkyValue {
   @ThreadSafe
   public static Key key(
       Set<Class<? extends BuildConfiguration.Fragment>> fragments, BuildOptions buildOptions) {
-    return keyInterner.intern(
-        new Key(
-            ImmutableSortedSet.copyOf(BuildConfiguration.lexicalFragmentSorter, fragments),
-            buildOptions));
+    return key(
+        FragmentClassSet.of(
+            ImmutableSortedSet.copyOf(BuildConfiguration.lexicalFragmentSorter, fragments)),
+        buildOptions);
+  }
+
+  public static Key key(FragmentClassSet fragmentClassSet, BuildOptions buildOptions) {
+    return keyInterner.intern(new Key(fragmentClassSet, buildOptions));
   }
 
   static final class Key implements SkyKey, Serializable {
-    static final ObjectCodec<Key> CODEC = new Codec();
-
-    private final ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> fragments;
+    private final FragmentClassSet fragments;
     private final BuildOptions buildOptions;
     // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.
     private volatile int hashCode = -1;
 
-    private Key(
-        ImmutableSortedSet<Class<? extends Fragment>> fragments, BuildOptions buildOptions) {
+    private Key(FragmentClassSet fragments, BuildOptions buildOptions) {
       this.fragments = fragments;
       this.buildOptions = Preconditions.checkNotNull(buildOptions);
     }
 
     ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getFragments() {
-      return fragments;
+      return fragments.fragmentClasses();
     }
 
     BuildOptions getBuildOptions() {
@@ -131,8 +132,9 @@ public class BuildConfigurationValue implements SkyValue {
       public void serialize(Key obj, CodedOutputStream codedOut)
           throws SerializationException, IOException {
         BuildOptions.CODEC.serialize(obj.buildOptions, codedOut);
-        codedOut.writeInt32NoTag(obj.fragments.size());
-        for (Class<? extends BuildConfiguration.Fragment> fragment : obj.fragments) {
+        codedOut.writeInt32NoTag(obj.fragments.fragmentClasses().size());
+        for (Class<? extends BuildConfiguration.Fragment> fragment :
+            obj.fragments.fragmentClasses()) {
           StringCodecs.asciiOptimized().serialize(fragment.getName(), codedOut);
         }
       }

@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
@@ -123,8 +122,7 @@ public final class ConfigurationResolver {
     Map<FragmentsAndTransition, List<BuildOptions>> transitionsMap = new LinkedHashMap<>();
 
     // The fragments used by the current target's configuration.
-    ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> ctgFragments =
-        ctgValue.getConfiguration().fragmentClasses();
+    FragmentClassSet ctgFragments = ctgValue.getConfiguration().fragmentClasses();
     BuildOptions ctgOptions = ctgValue.getConfiguration().getOptions();
 
     // Stores the configuration-resolved versions of each dependency. This method must preserve the
@@ -183,7 +181,7 @@ public final class ConfigurationResolver {
             depFragments);
       }
 
-      boolean sameFragments = depFragments.equals(ctgFragments);
+      boolean sameFragments = depFragments.equals(ctgFragments.fragmentClasses());
       Transition transition = dep.getTransition();
 
       if (sameFragments) {
@@ -233,9 +231,12 @@ public final class ConfigurationResolver {
 
       // If we get here, we have to get the configuration from Skyframe.
       for (BuildOptions options : toOptions) {
-        keysToEntries.put(
-            BuildConfigurationValue.key(sameFragments ? ctgFragments : depFragments, options),
-            depsEntry);
+        if (sameFragments) {
+          keysToEntries.put(BuildConfigurationValue.key(ctgFragments, options), depsEntry);
+
+        } else {
+          keysToEntries.put(BuildConfigurationValue.key(depFragments, options), depsEntry);
+        }
       }
     }
 
