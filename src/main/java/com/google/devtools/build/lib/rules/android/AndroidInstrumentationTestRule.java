@@ -50,7 +50,6 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
             attr("support_apks", LABEL_LIST)
                 .allowedFileTypes(AndroidRuleClasses.APK)
                 .allowedRuleClasses("android_binary"))
-        .add(attr("test_args", STRING_DICT))
         .add(
             attr("fixtures", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)

@@ -127,7 +127,6 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
         .add(artifactSubstitution("%target_apk%", getTargetApk(ruleContext)))
         .add(artifactSubstitution("%instrumentation_apk%", getInstrumentationApk(ruleContext)))
         .add(artifactListSubstitution("%support_apks%", getAllSupportApks(ruleContext)))
-        .add(Substitution.ofSpaceSeparatedMap("%test_args%", getTestArgs(ruleContext)))
         .add(Substitution.ofSpaceSeparatedMap("%fixture_args%", getFixtureArgs(ruleContext)))
         .add(Substitution.ofSpaceSeparatedMap("%log_levels%", getLogLevels(ruleContext)))
         .add(deviceScriptFixturesSubstitution(ruleContext))
@@ -256,11 +255,6 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   /** AAPT binary from the Android SDK. */
   private static FilesToRunProvider getAapt(RuleContext ruleContext) {
     return AndroidSdkProvider.fromRuleContext(ruleContext).getAapt();
-  }
-
-  /** Map of {@code test_args} for the test runner to make available to test test code. */
-  private static ImmutableMap<String, String> getTestArgs(RuleContext ruleContext) {
-    return ImmutableMap.copyOf(ruleContext.attributes().get("test_args", Type.STRING_DICT));
   }
 
   /** Map of {@code fixture_args} for the test runner to pass to the {@code fixtures}. */

@@ -51,7 +51,6 @@ data_deps="%data_deps%"
 data_deps=$(join_paths ${WORKSPACE_DIR} "," ${data_deps})
 
 device_broker_type="%device_broker_type%"
-test_label="%test_label%"
 
 target_apk="%target_apk%"
 
@@ -82,12 +81,12 @@ argv=$(cat <<END
 --fixture_scripts="$(printf "%s," "${!device_script_fixtures[@]}")" \
 --hermetic_server_script="${host_service_fixture}" \
 --hermetic_servers="${host_service_fixture_services}" \
---data_deps="$(printf "%s," "${!device_script_fixtures[@]}")"
+--data_deps="$(printf "%s," "${!device_script_fixtures[@]}")" \
+--test_filter="${ANDROID_TESTBRIDGE_TEST_ONLY}" \
+$@
 END
 )
 
 $test_entry_point \
     --wrapper_script_flag=--jvm_flag=-D$test_suite_property_name=com.google.android.apps.common.testing.suite.AndroidDeviceTestSuite \
-    --wrapper_script_flag=--jvm_flag=-Dargv="$argv" \
-    --test_filter="${ANDROID_TESTBRIDGE_TEST_ONLY}" \
-    "$@"
+    --wrapper_script_flag=--jvm_flag=-Dargv="$argv"
