@@ -68,7 +68,6 @@ public final class CppToolchainInfo {
 
   private final ImmutableMap<String, PathFragment> toolPaths;
   private final String compiler;
-  private final PathFragment ldExecutable;
   private final String abiGlibcVersion;
 
   private final String targetCpu;
@@ -172,7 +171,6 @@ public final class CppToolchainInfo {
           toolchain.getToolchainIdentifier(),
           toolPaths,
           toolchain.getCompiler(),
-          getToolPathFragment(toolPaths, CppConfiguration.Tool.LD),
           toolchain.getAbiLibcVersion(),
           toolchain.getTargetCpu(),
           toolchain.getCcTargetOs(),
@@ -239,7 +237,6 @@ public final class CppToolchainInfo {
       String toolchainIdentifier,
       ImmutableMap<String, PathFragment> toolPaths,
       String compiler,
-      PathFragment ldExecutable,
       String abiGlibcVersion,
       String targetCpu,
       String targetOS,
@@ -285,7 +282,6 @@ public final class CppToolchainInfo {
     this.toolchainFeatures = new CcToolchainFeatures(toolchain);
     this.toolPaths = toolPaths;
     this.compiler = compiler;
-    this.ldExecutable = ldExecutable;
     this.abiGlibcVersion = abiGlibcVersion;
     this.targetCpu = targetCpu;
     this.targetOS = targetOS;
@@ -451,8 +447,7 @@ public final class CppToolchainInfo {
   ImmutableList<String> configureLinkerOptions(
       CompilationMode compilationMode,
       LipoMode lipoMode,
-      LinkingMode linkingMode,
-      PathFragment ldExecutable) {
+      LinkingMode linkingMode) {
     List<String> result = new ArrayList<>();
     result.addAll(commonLinkOptions);
 
@@ -519,9 +514,6 @@ public final class CppToolchainInfo {
   /**
    * Returns the path fragment that is either absolute or relative to the execution root that can be
    * used to execute the given tool.
-   *
-   * <p>Note that you must not use this method to get the linker location, but use {@link
-   * #getLdExecutable} instead!
    */
   public PathFragment getToolPathFragment(CppConfiguration.Tool tool) {
     return getToolPathFragment(toolPaths, tool);
@@ -681,10 +673,6 @@ public final class CppToolchainInfo {
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return additionalMakeVariables;
-  }
-
-  public PathFragment getLdExecutable() {
-    return ldExecutable;
   }
 
   public final boolean isLLVMCompiler() {

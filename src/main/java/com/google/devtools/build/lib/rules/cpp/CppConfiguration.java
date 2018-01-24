@@ -296,32 +296,28 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode,
                 cppOptions.getLipoMode(),
-                LinkingMode.FULLY_STATIC,
-                cppToolchainInfo.getLdExecutable()),
+                LinkingMode.FULLY_STATIC),
             FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
             ImmutableList.<String>of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode,
                 cppOptions.getLipoMode(),
-                LinkingMode.MOSTLY_STATIC,
-                cppToolchainInfo.getLdExecutable()),
+                LinkingMode.MOSTLY_STATIC),
             FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
             ImmutableList.<String>of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode,
                 cppOptions.getLipoMode(),
-                LinkingMode.MOSTLY_STATIC_LIBRARIES,
-                cppToolchainInfo.getLdExecutable()),
+                LinkingMode.MOSTLY_STATIC_LIBRARIES),
             FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
             ImmutableList.<String>of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode,
                 cppOptions.getLipoMode(),
-                LinkingMode.DYNAMIC,
-                cppToolchainInfo.getLdExecutable()),
+                LinkingMode.DYNAMIC),
             FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
             ImmutableList.<String>of()),
         ImmutableList.copyOf(cppOptions.coptList),

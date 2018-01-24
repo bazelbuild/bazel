@@ -715,7 +715,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   FlagList getFullyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureLinkerOptions(
-            compilationMode, lipoMode, LinkingMode.FULLY_STATIC, toolchainInfo.getLdExecutable()),
+            compilationMode, lipoMode, LinkingMode.FULLY_STATIC),
         FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
         ImmutableList.<String>of());
   }
@@ -724,7 +724,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   FlagList getMostlyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureLinkerOptions(
-            compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC, toolchainInfo.getLdExecutable()),
+            compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC),
         FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
         ImmutableList.<String>of());
   }
@@ -735,8 +735,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
         configureLinkerOptions(
             compilationMode,
             lipoMode,
-            LinkingMode.MOSTLY_STATIC_LIBRARIES,
-            toolchainInfo.getLdExecutable()),
+            LinkingMode.MOSTLY_STATIC_LIBRARIES),
         FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
         ImmutableList.<String>of());
   }
@@ -745,7 +744,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   FlagList getDynamicLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureLinkerOptions(
-            compilationMode, lipoMode, LinkingMode.DYNAMIC, toolchainInfo.getLdExecutable()),
+            compilationMode, lipoMode, LinkingMode.DYNAMIC),
         FlagList.convertOptionalOptions(toolchainInfo.getOptionalLinkerFlags()),
         ImmutableList.<String>of());
   }
@@ -753,10 +752,9 @@ public final class CcToolchainProvider extends ToolchainInfo {
   ImmutableList<String> configureLinkerOptions(
       CompilationMode compilationMode,
       LipoMode lipoMode,
-      LinkingMode linkingMode,
-      PathFragment ldExecutable) {
+      LinkingMode linkingMode) {
     return toolchainInfo.configureLinkerOptions(
-        compilationMode, lipoMode, linkingMode, ldExecutable);
+        compilationMode, lipoMode, linkingMode);
   }
 
   /** Returns the GNU System Name */
