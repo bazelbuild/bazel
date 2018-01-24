@@ -29,9 +29,12 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -87,8 +90,18 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     }
 
     ConfiguredTarget ct = ctValue.getConfiguredTarget();
-    TargetAndConfiguration ctgValue =
-        new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
+
+    Package targetPkg =
+        ((PackageValue) env.getValue(PackageValue.key(ct.getLabel().getPackageIdentifier())))
+            .getPackage();
+    Target target = null;
+    try {
+      target = targetPkg.getTarget(ct.getLabel().getName());
+    } catch (NoSuchTargetException e) {
+      throw new IllegalStateException("Name already verified", e);
+    }
+
+    TargetAndConfiguration ctgValue = new TargetAndConfiguration(target, ct.getConfiguration());
 
     ImmutableMap<Label, ConfigMatchingProvider> configConditions =
         getConfigurableAttributeConditions(ctgValue, env);
