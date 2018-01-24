@@ -1048,4 +1048,49 @@ EOF
 }
 
 
+function test_query_cached() {
+  # Verify that external repositories are cached after being used once.
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+)
+genrule(
+  name="bar",
+  outs=["bar.txt"],
+  srcs=[":foo"],
+  cmd="cp $< $@",
+)
+EOF
+  EXTREPODIR=`pwd`
+  rm -f ext.zip
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+)
+EOF
+  bazel build '@ext//:bar' || fail "expected sucess"
+
+  # Simulate going offline by removing the external archive
+  rm -f "${EXTREPODIR}/ext.zip"
+  bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
+    || fail "expected success"
+  expect_log '@ext//:foo'
+  bazel shutdown
+  bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
+    || fail "expected success"
+  expect_log '@ext//:foo'
+}
+
 run_suite "external tests"
