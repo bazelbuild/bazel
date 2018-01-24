@@ -728,4 +728,60 @@ public class CppLinkActionTest extends BuildViewTestCase {
     verifyArguments(
         linkAction.getCommandLine(expander), treeFileArtifactsPaths, treeArtifactsPaths);
   }
+
+  @Test
+  public void testStaticLinking() throws Exception {
+    ImmutableList<LinkTargetType> targetTypesToTest =
+        ImmutableList.of(
+            LinkTargetType.STATIC_LIBRARY,
+            LinkTargetType.PIC_STATIC_LIBRARY,
+            LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY,
+            LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
+
+    Artifact testTreeArtifact = createTreeArtifact("library_directory");
+
+    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+
+    ArtifactExpander expander =
+        (artifact, output) -> {
+          if (artifact.equals(testTreeArtifact)) {
+            output.add(library0);
+            output.add(library1);
+          }
+        };
+
+    Artifact objectFile = scratchArtifact("objectFile.o");
+
+    for (LinkTargetType linkType : targetTypesToTest) {
+
+      scratch.deleteFile("dummyRuleContext/BUILD");
+      Artifact staticLibrary = scratchArtifact("staticLibrary." + linkType.getExtension());
+      Artifact output = scratchArtifact("output." + linkType.getExtension());
+
+      CppLinkActionBuilder builder =
+          createLinkBuilder(
+                  linkType,
+                  output.getExecPathString(),
+                  ImmutableList.<Artifact>of(),
+                  ImmutableList.<LibraryToLink>of(),
+                  getMockFeatureConfiguration())
+              .setLibraryIdentifier("foo")
+              .addObjectFiles(ImmutableList.of(testTreeArtifact))
+              .addObjectFile(objectFile)
+              .addLibrary(
+                  LinkerInputs.precompiledLibraryToLink(staticLibrary, linkType.getLinkerOutput()))
+              // Makes sure this doesn't use a params file.
+              .setFake(true);
+
+      CppLinkAction linkAction = builder.build();
+      assertThat(linkAction.getCommandLine(expander))
+          .containsAllOf(
+              library0.getExecPathString(),
+              library1.getExecPathString(),
+              objectFile.getExecPathString(),
+              staticLibrary.getExecPathString())
+          .inOrder();
+    }
+  }
 }
