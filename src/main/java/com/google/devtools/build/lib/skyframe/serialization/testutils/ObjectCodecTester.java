@@ -24,9 +24,12 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Utility for testing {@link ObjectCodec} instances. */
 public class ObjectCodecTester<T> {
+  private static final Logger logger = Logger.getLogger(SerializerTester.class.getName());
 
   /** Interface for testing successful deserialization of an object. */
   @FunctionalInterface
@@ -75,11 +78,14 @@ public class ObjectCodecTester<T> {
 
   /** Runs serialization/deserialization tests. */
   void testSerializeDeserialize() throws Exception {
+    int totalBytes = 0;
     for (T subject : subjects) {
       byte[] serialized = toBytes(subject);
+      totalBytes += serialized.length;
       T deserialized = fromBytes(serialized);
       verificationFunction.verifyDeserialized(subject, deserialized);
     }
+    logger.log(Level.INFO, "total serialized bytes = " + totalBytes);
   }
 
   /** Runs serialized bytes stability tests. */

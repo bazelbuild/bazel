@@ -26,12 +26,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.serializers.RegistrationUtil;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.objenesis.instantiator.ObjectInstantiator;
 
 /** Utility for testing {@link Serializer} instances. */
 public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
   public static final int DEFAULT_JUNK_INPUTS = 20;
   public static final int JUNK_LENGTH_UPPER_BOUND = 20;
+
+  private static final Logger logger = Logger.getLogger(SerializerTester.class.getName());
 
   /** Interface for testing successful deserialization of an object. */
   @FunctionalInterface
@@ -78,11 +83,14 @@ public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
 
   /** Runs serialization/deserialization tests. */
   void testSerializeDeserialize() throws Exception {
+    int totalBytes = 0;
     for (SubjectT subject : subjects) {
       byte[] serialized = toBytes(subject);
+      totalBytes += serialized.length;
       SubjectT deserialized = fromBytes(serialized);
       verificationFunction.verifyDeserialized(subject, deserialized);
     }
+    logger.log(Level.INFO, "total serialized bytes = " + totalBytes);
   }
 
   /** Runs serialized bytes stability tests. */
@@ -171,6 +179,16 @@ public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
     public <X> Builder<SubjectT, SerializerT> register(
         Class<X> type, ObjectInstantiator instantiator) {
       kryo.register(type).setInstantiator(instantiator);
+      return this;
+    }
+
+    /**
+     * Hands a {@link Kryo} instance to the visitor.
+     *
+     * @param visitor usually a reference to a {@code registerSerializers} method
+     */
+    public Builder<SubjectT, SerializerT> visitKryo(Consumer<Kryo> visitor) {
+      visitor.accept(kryo);
       return this;
     }
 

@@ -26,10 +26,14 @@ java_library(
 
 java_library(
     name = "serialization",
-    srcs = ["NestedSetCodec.java"],
+    srcs = [
+        "NestedSetCodec.java",
+        "NestedSetSerializer.java",
+    ],
     deps = [
         ":nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:kryo",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
     ],

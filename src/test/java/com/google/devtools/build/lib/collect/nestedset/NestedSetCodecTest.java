@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializerTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,34 +30,47 @@ public class NestedSetCodecTest {
   private static final NestedSet<String> SHARED_NESTED_SET =
       NestedSetBuilder.<String>stableOrder().add("e").build();
 
+  private static final ImmutableList<NestedSet<String>> SUBJECTS =
+      ImmutableList.of(
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+          NestedSetBuilder.create(Order.STABLE_ORDER, "a"),
+          NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"),
+          NestedSetBuilder.<String>stableOrder()
+              .add("a")
+              .add("b")
+              .addTransitive(
+                  NestedSetBuilder.<String>stableOrder()
+                      .add("c")
+                      .addTransitive(SHARED_NESTED_SET)
+                      .build())
+              .addTransitive(
+                  NestedSetBuilder.<String>stableOrder()
+                      .add("d")
+                      .addTransitive(SHARED_NESTED_SET)
+                      .build())
+              .addTransitive(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+              .build());
+
   @Test
   public void testCodec() throws Exception {
-    ImmutableList<NestedSet<String>> subjects =
-        ImmutableList.of(
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-            NestedSetBuilder.create(Order.STABLE_ORDER, "a"),
-            NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"),
-            NestedSetBuilder.<String>stableOrder()
-                .add("a")
-                .add("b")
-                .addTransitive(
-                    NestedSetBuilder.<String>stableOrder()
-                        .add("c")
-                        .addTransitive(SHARED_NESTED_SET)
-                        .build())
-                .addTransitive(
-                    NestedSetBuilder.<String>stableOrder()
-                        .add("d")
-                        .addTransitive(SHARED_NESTED_SET)
-                        .build())
-                .addTransitive(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
-                .build());
-
     ObjectCodecTester.newBuilder(new NestedSetCodec<>(StringCodecs.simple()))
-        .addSubjects(subjects)
+        .addSubjects(SUBJECTS)
         .verificationFunction(NestedSetCodecTest::verifyDeserialization)
         .buildAndRunTests();
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  @Test
+  public void testSerializer() throws Exception {
+    SerializerTester.Builder<NestedSet, NestedSet> builder =
+        SerializerTester.newBuilder(NestedSet.class)
+            .visitKryo(NestedSetSerializer::registerSerializers)
+            .setVerificationFunction(NestedSetCodecTest::verifyDeserialization);
+    for (NestedSet<String> subject : SUBJECTS) {
+      builder.addSubjects(subject);
+    }
+    builder.buildAndRunTests();
   }
 
   private static void verifyDeserialization(
