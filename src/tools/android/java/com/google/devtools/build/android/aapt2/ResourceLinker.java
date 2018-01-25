@@ -38,6 +38,9 @@ import java.util.stream.Collectors;
 /** Performs linking of {@link CompiledResources} using aapt2. */
 public class ResourceLinker {
 
+  private String customPackage;
+  private boolean outputAsProto;
+
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
 
@@ -116,8 +119,18 @@ public class ResourceLinker {
     return this;
   }
 
+  public ResourceLinker customPackage(String customPackage) {
+    this.customPackage = customPackage;
+    return this;
+  }
+
   public ResourceLinker filterToDensity(List<String> densities) {
     this.densities = densities;
+    return this;
+  }
+
+  public ResourceLinker outputAsProto(boolean outputAsProto) {
+    this.outputAsProto = outputAsProto;
     return this;
   }
 
@@ -149,8 +162,11 @@ public class ResourceLinker {
               .add("--manifest", resources.getManifest())
               .add("--static-lib")
               .add("--no-static-lib-packages")
+              .add("--custom-package", customPackage)
               .whenVersionIsAtLeast(new Revision(23))
               .thenAdd("--no-version-vectors")
+              .when(outputAsProto)
+              .thenAdd("--proto-format")
               .add("-R", resources.getZip())
               .addRepeated("-R", compiledResourcePaths)
               .addRepeated("-I", pathsToLinkAgainst)
@@ -165,7 +181,7 @@ public class ResourceLinker {
       // working around aapt2 not producing transitive R.txt and R.java
       if (linkAgainst.size() > 1) {
         profiler.startTask("rfix");
-        logger.fine(
+        logger.info(
             new AaptCommandBuilder(aapt2)
                 .forBuildToolsVersion(buildToolsVersion)
                 .forVariantType(VariantType.LIBRARY)
@@ -174,6 +190,8 @@ public class ResourceLinker {
                 .add("--no-static-lib-packages")
                 .whenVersionIsAtLeast(new Revision(23))
                 .thenAdd("--no-version-vectors")
+                .when(outputAsProto)
+                .thenAdd("--proto-format")
                 // only link against jars
                 .addRepeated(
                     "-I",
@@ -219,11 +237,14 @@ public class ResourceLinker {
               .thenAdd("--no-version-vectors")
               // Turn off namespaced resources
               .add("--no-static-lib-packages")
+              .when(outputAsProto)
+              .thenAdd("--proto-format")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")
               .add("--manifest", compiled.getManifest())
               // Enables resource redefinition and merging
               .add("--auto-add-overlay")
+              .add("--custom-package", customPackage)
               .when(densities.size() == 1)
               .thenAddRepeated("--preferred-density", densities)
               .add("--stable-ids", compiled.getStableIds())

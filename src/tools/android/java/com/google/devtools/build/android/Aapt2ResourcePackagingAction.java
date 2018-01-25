@@ -176,6 +176,8 @@ public class Aapt2ResourcePackagingAction {
         final PackagedResources packagedResources =
             ResourceLinker.create(aaptConfigOptions.aapt2, linkedOut)
                 .profileUsing(profiler)
+                .customPackage(options.packageForR)
+                .outputAsProto(aaptConfigOptions.resourceTableAsProto)
                 .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
                 .include(compiledResourceDeps)
                 .withAssets(assetDirs)

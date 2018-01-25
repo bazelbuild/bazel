@@ -176,4 +176,14 @@ public class Aapt2ConfigOptions extends OptionsBase {
     help = "Use compiled resources for merging rather than parsed symbols binary."
   )
   public boolean useCompiledResourcesForMerge;
+
+  @Option(
+    name = "resourceTableAsProto",
+    defaultValue = "false",
+    category = "config",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Generate the resource table as a protocol buffer."
+  )
+  public boolean resourceTableAsProto;
 }
