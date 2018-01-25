@@ -87,6 +87,16 @@ $@
 END
 )
 
+# Export the default DISPLAY variable to :0 if DISPLAY is not set, which is the
+# case in sandboxing. This will allow Android emulators to show up by default.
+# The DISPLAY variable can also be set with --action_env.
+# e.g. `bazel test //... --action_env=DISPLAY=:42`
+# To disable DISPLAY, set
+# android_instrumentation_test.args = [ "--enable_display=false" ]
+if [[ -z "${DISPLAY-}" ]]; then
+  export DISPLAY=:0
+fi
+
 $test_entry_point \
     --wrapper_script_flag=--jvm_flag=-D$test_suite_property_name=com.google.android.apps.common.testing.suite.AndroidDeviceTestSuite \
     --wrapper_script_flag=--jvm_flag=-Dargv="$argv"
