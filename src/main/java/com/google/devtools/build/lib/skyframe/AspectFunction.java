@@ -290,12 +290,13 @@ public final class AspectFunction implements SkyFunction {
         associatedTarget = getBaseTarget(
             associatedTarget, key.getBaseKeys(), values);
       } catch (DuplicateException e) {
-        env.getListener().handle(
-            Event.error(associatedTarget.getTarget().getLocation(), e.getMessage()));
+        env.getListener()
+            .handle(
+                Event.error(
+                    associatedConfiguredTargetAndTarget.getTarget().getLocation(), e.getMessage()));
 
         throw new AspectFunctionException(
             new AspectCreationException(e.getMessage(), associatedTarget.getLabel()));
-
       }
     }
     associatedConfiguredTargetAndTarget =
