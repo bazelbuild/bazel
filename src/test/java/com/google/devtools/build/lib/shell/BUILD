@@ -75,7 +75,6 @@ java_test(
     name = "InterruptibleTest",
     size = "small",
     srcs = ["InterruptibleTest.java"],
-    flaky = 1,
     tags = [
         "no_windows",
         "shell",
