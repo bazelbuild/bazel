@@ -38,14 +38,6 @@ public class AndroidToolsDefaultsJar implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    if (!ruleContext.getLabel().getPackageName().equals("tools/defaults")) {
-      // Guard against extraordinarily inquisitive individuals.
-      ruleContext.ruleError(
-          "The android_tools_defaults_jar rule should not be used in BUILD files."
-              + " It is a rule internal to the build tool.");
-      return null;
-    }
-
     Artifact androidJar = AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
