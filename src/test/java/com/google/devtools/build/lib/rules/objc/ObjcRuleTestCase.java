@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS;
+import static com.google.devtools.build.lib.rules.objc.ObjcBundleLibrary.NO_ASSET_CATALOG_ERROR_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
@@ -27,15 +27,8 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingR
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.INFOPLIST_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.BUNDLE_ID_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.ENTITLEMENTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.LAUNCH_IMAGE_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.PROVISIONING_PROFILE_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
-import static com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.NO_ASSET_CATALOG_ERROR_FORMAT;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.dd.plist.NSDictionary;
 import com.dd.plist.PropertyListParser;
@@ -55,7 +48,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -69,8 +61,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -79,7 +69,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.util.MockJ2ObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
@@ -95,7 +84,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.BundleFile;
-import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Control;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.MergeZip;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos;
 import java.io.InputStream;
@@ -104,7 +92,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -156,6 +143,21 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     GCOV,
     // Code coverage in llvm-covmap format.
     LLVMCOV;
+  }
+
+  /**
+   * Returns the bin dir for artifacts built for a given Apple architecture (as set by a
+   * configuration transition) and configuration distinguisher but the global
+   * default for {@code --cpu} and the platform default for minimum OS.
+   *
+   * @param arch the given Apple architecture which artifacts are built under this configuration.
+   *     Note this will likely be different than the value of {@code --cpu}
+   * @param configurationDistinguisher the configuration distinguisher used to describe the a
+   *     configuration transition
+   */
+  protected String configurationBin(
+      String arch, ConfigurationDistinguisher configurationDistinguisher) {
+    return configurationBin(arch, configurationDistinguisher, null);
   }
 
   /**
@@ -226,21 +228,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       default:
         throw new AssertionError();
     }
-  }
-
-  /**
-   * Returns the bin dir for artifacts built for a given Apple architecture (as set by a
-   * configuration transition) and configuration distinguisher but the global default for
-   * {@code --cpu} and the platform default for minimum OS.
-   *
-   * @param arch the given Apple architecture which artifacts are built under this configuration.
-   *     Note this will likely be different than the value of {@code --cpu}
-   * @param configurationDistinguisher the configuration distinguisher used to describe the
-   *     a configuration transition
-   */
-  protected String configurationBin(
-      String arch, ConfigurationDistinguisher configurationDistinguisher) {
-    return configurationBin(arch, configurationDistinguisher, null);
   }
 
   /**
@@ -380,21 +367,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         Joiner.on(",\n").join(extraAttributes),
         ")");
     return getConfiguredTarget(String.format("//%s:%s", packageName, targetName));
-  }
-
-  /**
-   * @param extraAttributes individual strings which contain a whole attribute to be added to the
-   *     generated target, e.g. "deps = ['foo']"
-   */
-  protected ConfiguredTarget addSimpleIosTest(
-      String packageName,
-      String targetName,
-      List<String> srcs,
-      List<String> deps,
-      String... extraAttributes)
-      throws Exception {
-    return addBinaryBasedTarget(
-        "ios_test", packageName, targetName, srcs, deps, extraAttributes);
   }
 
   /**
@@ -594,19 +566,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(commandLine).contains("-std=gnu++11");
   }
 
-  protected Map<String, String> mobileProvisionProfiles(BundleMergeProtos.Control control) {
-    Map<String, String> profiles = new HashMap<>();
-    for (BundleFile bundleFile : control.getBundleFileList()) {
-      if (bundleFile.getBundlePath()
-          .endsWith(ReleaseBundlingSupport.PROVISIONING_PROFILE_BUNDLE_FILE)) {
-        assertWithMessage("Should not have multiple entries for same source file")
-            .that(profiles.put(bundleFile.getSourceFile(), bundleFile.getBundlePath()))
-            .isNull();
-      }
-    }
-    return profiles;
-  }
-
   protected void checkFilesToRun(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch);
     ConfiguredTarget target = getConfiguredTarget("//x:x");
@@ -630,11 +589,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(env).containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionNumber.toString());
   }
 
-  protected void assertAppleSdkPlatformEnv(
-      Map<String, String> env, String platformName) throws Exception {
-    assertThat(env).containsEntry("APPLE_SDK_PLATFORM", platformName);
-  }
-
   protected void assertAppleSdkVersionEnv(CommandAction action) throws Exception {
     assertAppleSdkVersionEnv(action, DEFAULT_IOS_SDK_VERSION.toString());
   }
@@ -643,6 +597,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       throws Exception {
     assertThat(action.getEnvironment())
         .containsEntry("APPLE_SDK_VERSION_OVERRIDE", versionString);
+  }
+
+  protected void assertAppleSdkPlatformEnv(Map<String, String> env, String platformName)
+      throws Exception {
+    assertThat(env).containsEntry("APPLE_SDK_PLATFORM", platformName);
   }
 
   protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName)
@@ -661,225 +620,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:x");
     FilesToRunProvider filesToRun = target.getProvider(FilesToRunProvider.class);
     assertThat(filesToRun.getRunfilesSupport()).isNull();
-  }
-
-  protected void checkGenerateRunnerScriptAction(RuleType ruleType) throws Exception {
-    useConfiguration(
-        "--cpu=ios_i386", "--ios_simulator_device=iPhone X", "--ios_simulator_version=3");
-
-    ruleType.scratchTarget(scratch);
-    ConfiguredTarget target = getConfiguredTarget("//x:x");
-    Artifact runnerScript = getBinArtifact("x_runner.sh", target);
-    TemplateExpansionAction action = (TemplateExpansionAction) getGeneratingAction(runnerScript);
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsExactly("ios_runner.sh.mac_template");
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
-        .containsExactly("x/x_runner.sh");
-    Map<String, String> substitutions =
-        action
-            .getSubstitutions()
-            .stream()
-            .collect(ImmutableMap.toImmutableMap(sub -> sub.getKey(), s -> s.getValue()));
-    ;
-    assertThat(substitutions.get("%ipa_file%")).isEqualTo("x/x.ipa");
-    assertThat(substitutions.get("%sim_device%")).isEqualTo("'iPhone X'");
-    assertThat(substitutions.get("%sdk_version%")).isEqualTo("3");
-    assertThat(substitutions.get("%app_name%")).isEqualTo("x");
-    assertThat(substitutions.get("%std_redirect_dylib_path%"))
-        .endsWith("tools/objc/StdRedirect.dylib");
-  }
-
-  protected void checkGenerateRunnerScriptAction_escaped(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_i386", "--ios_simulator_device=iPhone X'");
-
-    ruleType.scratchTarget(scratch);
-    ConfiguredTarget target = getConfiguredTarget("//x:x");
-    Artifact runnerScript = getBinArtifact("x_runner.sh", target);
-    TemplateExpansionAction action = (TemplateExpansionAction) getGeneratingAction(runnerScript);
-    assertThat(action.getSubstitutions())
-        .contains(Substitution.of("%sim_device%", "'iPhone X'\\'''"));
-  }
-
-  protected void checkDeviceSigningAction(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7");
-
-    scratch.file("x/entitlements.entitlements");
-    ruleType.scratchTarget(scratch, ENTITLEMENTS_ATTR, "'entitlements.entitlements'");
-    SpawnAction action = (SpawnAction) ipaGeneratingAction();
-    assertRequiresDarwin(action);
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsExactly("x.entitlements", "foo.mobileprovision", "x.unprocessed.ipa");
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly("x/x.ipa");
-  }
-
-  protected void checkSigningWithCertName(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--ios_signing_cert_name=Foo Bar");
-
-    scratch.file("x/entitlements.entitlements");
-    ruleType.scratchTarget(scratch, ENTITLEMENTS_ATTR, "'entitlements.entitlements'");
-    SpawnAction action = (SpawnAction) ipaGeneratingAction();
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsExactly("x.entitlements", "foo.mobileprovision", "x.unprocessed.ipa");
-    assertThat(Joiner.on(' ').join(action.getArguments())).contains("--sign \"Foo Bar\"");
-
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly("x/x.ipa");
-  }
-
-  protected void checkPostProcessingAction(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch, "ipa_post_processor", "'tool.sh'");
-
-    SpawnAction action = (SpawnAction) ipaGeneratingAction();
-    assertRequiresDarwin(action);
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsExactly("tool.sh", "x.unprocessed.ipa");
-
-    assertThat(Joiner.on(' ').join(action.getArguments())).contains("x/tool.sh ${t}");
-
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly("x/x.ipa");
-  }
-
-  protected void checkSigningAndPostProcessing(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7");
-    ruleType.scratchTarget(
-        scratch, "ipa_post_processor", "'tool.sh'", ENTITLEMENTS_ATTR,
-        "'entitlements.entitlements'");
-
-    SpawnAction action = (SpawnAction) ipaGeneratingAction();
-    assertRequiresDarwin(action);
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsExactly("tool.sh", "x.entitlements", "foo.mobileprovision", "x.unprocessed.ipa");
-
-    assertThat(normalizeBashArgs(action.getArguments()))
-        .containsAllOf("x/tool.sh", "--sign")
-        .inOrder();
-  }
-
-  protected void checkNoEntitlementsDefined(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--nodevice_debug_entitlements");
-
-    ruleType.scratchTarget(scratch);
-
-    SpawnAction ipaAction = (SpawnAction) ipaGeneratingAction();
-    Artifact entitlements = getFirstArtifactEndingWith(ipaAction.getInputs(), ".entitlements");
-    SpawnAction substitutionAction = (SpawnAction) getGeneratingAction(entitlements);
-    assertThat(Joiner.on(' ').join(substitutionAction.getArguments())).contains("sed");
-
-    Artifact prefix =
-        getFirstArtifactEndingWith(substitutionAction.getInputs(), ".team_prefix_file");
-    SpawnAction prefixAction = (SpawnAction) getGeneratingAction(prefix);
-    assertThat(baseArtifactNames(prefixAction.getInputs())).containsExactly("foo.mobileprovision");
-    assertThat(Joiner.on(' ').join(prefixAction.getArguments()))
-        .contains("Print ApplicationIdentifierPrefix:0");
-
-    Artifact extractedEntitlements =
-        getFirstArtifactEndingWith(substitutionAction.getInputs(), ".entitlements_with_variables");
-    SpawnAction extractionAction = (SpawnAction) getGeneratingAction(extractedEntitlements);
-    assertThat(baseArtifactNames(extractionAction.getInputs()))
-        .containsExactly("foo.mobileprovision");
-    assertThat(Joiner.on(' ').join(extractionAction.getArguments())).contains("Print Entitlements");
-  }
-
-  protected void checkEntitlementsDefined(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--nodevice_debug_entitlements");
-
-    ruleType.scratchTarget(scratch, ENTITLEMENTS_ATTR, "'bar.entitlements'");
-
-    SpawnAction ipaAction = (SpawnAction) ipaGeneratingAction();
-    Artifact entitlements = getFirstArtifactEndingWith(ipaAction.getInputs(), ".entitlements");
-    SpawnAction substitutionAction = (SpawnAction) getGeneratingAction(entitlements);
-
-    Artifact prefix =
-        getFirstArtifactEndingWith(substitutionAction.getInputs(), ".team_prefix_file");
-    SpawnAction prefixAction = (SpawnAction) getGeneratingAction(prefix);
-    assertThat(prefixAction).isNotNull();
-
-    assertThat(Artifact.toExecPaths(substitutionAction.getInputs())).contains("x/bar.entitlements");
-    assertThat(
-            getFirstArtifactEndingWith(
-                substitutionAction.getInputs(), ".entitlements_with_variables"))
-        .isNull();
-  }
-
-  protected void checkExtraEntitlements(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--extra_entitlements=//foo:extra.entitlements");
-
-    ruleType.scratchTarget(scratch);
-
-    scratch.file("foo/extra.entitlements");
-    scratch.file("foo/BUILD", "exports_files(['extra.entitlements'])");
-
-    SpawnAction ipaAction = (SpawnAction) ipaGeneratingAction();
-    Artifact entitlements = getFirstArtifactEndingWith(ipaAction.getInputs(), ".entitlements");
-    SpawnAction mergeAction = (SpawnAction) getGeneratingAction(entitlements);
-
-    assertThat(Artifact.toExecPaths(mergeAction.getInputs())).contains("foo/extra.entitlements");
-
-    Artifact mergeControl =
-        getFirstArtifactEndingWith(mergeAction.getInputs(), ".merge-entitlements-control");
-    BinaryFileWriteAction mergeControleAction =
-        (BinaryFileWriteAction) getGeneratingAction(mergeControl);
-
-    PlMergeProtos.Control mergeControlProto;
-    try (InputStream in = mergeControleAction.getSource().openStream()) {
-      mergeControlProto = PlMergeProtos.Control.parseFrom(in);
-    }
-
-    assertThat(mergeControlProto.getSourceFileList()).contains("foo/extra.entitlements");
-  }
-
-  protected void checkFastbuildDebugEntitlements(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7");
-    assertDebugEntitlements(ruleType);
-  }
-
-  protected void checkDebugEntitlements(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--compilation_mode=dbg");
-    assertDebugEntitlements(ruleType);
-  }
-
-  protected void checkOptNoDebugEntitlements(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--compilation_mode=opt");
-    assertNoDebugEntitlements(ruleType);
-  }
-
-  protected void checkExplicitNoDebugEntitlements(RuleType ruleType) throws Exception {
-    useConfiguration("--cpu=ios_armv7", "--nodevice_debug_entitlements");
-    assertNoDebugEntitlements(ruleType);
-  }
-
-  private void assertDebugEntitlements(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch);
-
-    SpawnAction ipaAction = (SpawnAction) ipaGeneratingAction();
-    Artifact entitlements = getFirstArtifactEndingWith(ipaAction.getInputs(), ".entitlements");
-    SpawnAction mergeAction = (SpawnAction) getGeneratingAction(entitlements);
-
-    assertThat(Artifact.toExecPaths(mergeAction.getInputs()))
-        .contains(toolsRepoExecPath("tools/objc/device_debug_entitlements.plist"));
-
-    Artifact mergeControl =
-        getFirstArtifactEndingWith(mergeAction.getInputs(), ".merge-entitlements-control");
-    BinaryFileWriteAction mergeControleAction =
-        (BinaryFileWriteAction) getGeneratingAction(mergeControl);
-
-    PlMergeProtos.Control mergeControlProto;
-    try (InputStream in = mergeControleAction.getSource().openStream()) {
-      mergeControlProto = PlMergeProtos.Control.parseFrom(in);
-    }
-
-    assertThat(mergeControlProto.getSourceFileList())
-        .contains(toolsRepoExecPath("tools/objc/device_debug_entitlements.plist"));
-  }
-
-  private void assertNoDebugEntitlements(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch);
-
-    SpawnAction ipaAction = (SpawnAction) ipaGeneratingAction();
-    Artifact entitlements = getFirstArtifactEndingWith(ipaAction.getInputs(), ".entitlements");
-    SpawnAction entitlementsAction = (SpawnAction) getGeneratingAction(entitlements);
-
-    assertThat(Artifact.toExecPaths(entitlementsAction.getInputs()))
-        .doesNotContain(toolsRepoExecPath("tools/objc/device_debug_entitlements.plist"));
   }
 
   protected void checkCompilesSources(RuleType ruleType) throws Exception {
@@ -1242,14 +982,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsAllOf(getSourceArtifact("bndl/foo.data"), bundlePlist, actoolzipOutput);
   }
 
-  protected SpawnAction bundleMergeAction(String target) throws Exception {
-    Label targetLabel = Label.parseAbsolute(target);
-    ConfiguredTarget binary = getConfiguredTarget(target);
-    return (SpawnAction)
-        getGeneratingAction(getBinArtifact(targetLabel.getName() + artifactName(".unprocessed.ipa"),
-            binary));
-  }
-
   protected void checkMergeBundleActionsWithNestedBundle(RuleType ruleType) throws Exception {
     scratch.file("bndl/BUILD",
         "objc_bundle_library(",
@@ -1262,6 +994,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "bundles", "['//bndl:bndl']");
     checkMergeBundleActionsWithNestedBundle(
         getBundlePathInsideIpa(ruleType), targetConfig);
+  }
+
+  protected SpawnAction bundleMergeAction(String target) throws Exception {
+    Label targetLabel = Label.parseAbsolute(target);
+    ConfiguredTarget binary = getConfiguredTarget(target);
+    return (SpawnAction)
+        getGeneratingAction(
+            getBinArtifact(targetLabel.getName() + artifactName(".unprocessed.ipa"), binary));
   }
 
   // This checks that the proto bundling and grouping behavior works as expected. Grouping is based
@@ -1642,23 +1382,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains("-Xlinker -rpath -Xlinker @loader_path/Frameworks");
   }
 
-  /**
-   * @param bundleConfiguration the configuration in which the bundle is expected to be executed
-   */
-  protected void checkMergeBundleActionsWithNestedBundle(BinaryRuleTypePair ruleTypePair,
-      BuildConfiguration bundleConfiguration) throws Exception {
-    scratch.file("bndl/BUILD",
-        "objc_bundle_library(",
-        "    name = 'bndl',",
-        "    resources = ['foo.data'],",
-        "    infoplist = 'bndl-Info.plist',",
-        "    asset_catalogs = ['bar.xcassets/1'],",
-        ")");
-    ruleTypePair.scratchTargets(scratch,
-        "bundles", "['//bndl:bndl']");
-    checkMergeBundleActionsWithNestedBundle(ruleTypePair.getBundleDir(), bundleConfiguration);
-  }
-
   protected Action lipoLibAction(String libLabel) throws Exception {
     return actionProducingArtifact(libLabel, "_lipo.a");
   }
@@ -1777,55 +1500,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   /**
-   * Checks that a target at {@code //x:x}, which is already created, registered an actool with
-   * correct arguments based on certain arbitrary and default values.
-   */
-  private void checkActoolZipInvocationCorrectness(DottedVersion minimumOsVersion)
-      throws Exception {
-    SpawnAction actoolZipAction = actoolZipActionForIpa("//x:x");
-    assertThat(actoolZipAction.getArguments())
-        .containsExactly(
-            MOCK_ACTOOLWRAPPER_PATH,
-            execPathEndingWith(actoolZipAction.getOutputs(), "x.actool.zip"),
-            "--platform", "iphonesimulator",
-            "--output-partial-info-plist",
-                execPathEndingWith(actoolZipAction.getOutputs(), "actool-PartialInfo.plist"),
-            "--minimum-deployment-target", minimumOsVersion.toString(),
-            "--target-device", "iphone",
-            "lib/ac.xcassets",
-            "--app-icon", "foo",
-            "--launch-image", "bar")
-        .inOrder();
-  }
-
-  protected void checkSpecifyAppIconAndLaunchImageUsingXcassetsOfDependency(RuleType ruleType)
-      throws Exception {
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("asset_catalogs", "ac.xcassets/foo")
-        .write();
-    ruleType.scratchTarget(scratch,
-        "srcs", "['src.m']",
-        "deps", "['//lib:lib']",
-        APP_ICON_ATTR, "'foo'",
-        LAUNCH_IMAGE_ATTR, "'bar'");
-    checkActoolZipInvocationCorrectness(DEFAULT_IOS_SDK_VERSION);
-  }
-
-  protected void checkSpecifyAppIconAndLaunchImageUsingXcassetsOfDependency(
-      BinaryRuleTypePair ruleTypePair, DottedVersion minimumOsVersion) throws Exception {
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("asset_catalogs", "ac.xcassets/foo")
-        .write();
-    ruleTypePair.scratchTargets(scratch,
-        "deps", "['//lib:lib']",
-        APP_ICON_ATTR, "'foo'",
-        LAUNCH_IMAGE_ATTR, "'bar'");
-    checkActoolZipInvocationCorrectness(minimumOsVersion);
-  }
-
-  /**
    * Verifies that targeted device family information is passed to actoolzip for the given targeted
    * families.
    *
@@ -1864,28 +1538,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     checkPassesFamiliesToActool(ruleType, "ipad", "['ipad']", "ipad");
     checkPassesFamiliesToActool(ruleType, "both", "['iphone', 'ipad']", "ipad", "iphone");
     checkPassesFamiliesToActool(ruleType, "both_reverse", "['ipad', 'iphone']", "ipad", "iphone");
-  }
-
-  private void checkPassesFamiliesToActool(BinaryRuleTypePair ruleTypePair, String packageName,
-      String familiesAttribute, String families, String... actoolFlags) throws Exception {
-    String buildFileContents = ruleTypePair.targets(scratch, packageName,
-        "asset_catalogs", "['foo.xcassets/1']",
-        familiesAttribute, families);
-    checkPassesFamiliesToActool(packageName, buildFileContents, actoolFlags);
-  }
-
-  protected void checkPassesFamiliesToActool(BinaryRuleTypePair ruleTypePair) throws Exception {
-    checkPassesFamiliesToActool(ruleTypePair, FAMILIES_ATTR);
-  }
-
-  protected void checkPassesFamiliesToActool(BinaryRuleTypePair ruleTypePair,
-      String familiesAttribute) throws Exception {
-    checkPassesFamiliesToActool(ruleTypePair, "iphone", familiesAttribute, "['iphone']", "iphone");
-    checkPassesFamiliesToActool(ruleTypePair, "ipad", familiesAttribute, "['ipad']", "ipad");
-    checkPassesFamiliesToActool(ruleTypePair, "both", familiesAttribute, "['iphone', 'ipad']",
-        "ipad", "iphone");
-    checkPassesFamiliesToActool(ruleTypePair, "both_reverse", familiesAttribute,
-        "['ipad', 'iphone']", "ipad", "iphone");
   }
 
   /**
@@ -1929,37 +1581,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     checkPassesFamiliesToIbtool(ruleType, "both", "['iphone', 'ipad']",
         "ipad", "iphone");
     checkPassesFamiliesToIbtool(ruleType, "both_reverse", "['ipad', 'iphone']",
-       "ipad", "iphone");
-  }
-
-  private void checkPassesFamiliesToIbtool(BinaryRuleTypePair ruleTypePair, String packageName,
-      String familyAttribute, String families, String... targetDevices) throws Exception {
-    String buildFileContents = ruleTypePair.targets(scratch, packageName,
-        familyAttribute, families,
-        "storyboards", "['foo.storyboard']");
-    checkPassesFamiliesToIbtool(packageName, buildFileContents, targetDevices);
-  }
-
-  protected void checkPassesFamiliesToIbtool(BinaryRuleTypePair ruleTypePair) throws Exception {
-    checkPassesFamiliesToIbtool(ruleTypePair, FAMILIES_ATTR);
-  }
-
-  protected void checkPassesFamiliesToIbtool(BinaryRuleTypePair ruleTypePair,
-      String familyAttribute) throws Exception {
-    checkPassesFamiliesToIbtool(ruleTypePair, "iphone", familyAttribute, "['iphone']",
-        "iphone");
-    checkPassesFamiliesToIbtool(ruleTypePair, "ipad", familyAttribute, "['ipad']",
-        "ipad");
-    checkPassesFamiliesToIbtool(ruleTypePair, "both", familyAttribute,
-        "['iphone', 'ipad']", "ipad", "iphone");
-    checkPassesFamiliesToIbtool(ruleTypePair, "both_reverse", familyAttribute,
-        "['ipad', 'iphone']", "ipad", "iphone");
+        "ipad", "iphone");
   }
 
   private void checkReportsErrorsForInvalidFamiliesAttribute(
       RuleType ruleType, String packageName, String familyAttribute, String families)
           throws Exception {
-    checkError(packageName, "x", ReleaseBundling.INVALID_FAMILIES_ERROR,
+    checkError(packageName, "x", ObjcBundleLibrary.INVALID_FAMILIES_ERROR,
         ruleType.target(scratch, packageName, "x", familyAttribute, families));
   }
 
@@ -2075,17 +1703,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return getConfiguredTarget("//x:x");
   }
 
-  private ConfiguredTarget createTargetWithStoryboards(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    scratch.file("x/1.storyboard");
-    scratch.file("x/2.storyboard");
-    scratch.file("x/subdir_for_no_reason/en.lproj/loc.storyboard");
-    scratch.file("x/ja.lproj/loc.storyboard");
-    ruleTypePair.scratchTargets(scratch, "storyboards",
-        "glob(['*.storyboard', '**/*.storyboard'])");
-    return getConfiguredTarget("//x:x");
-  }
-
   private ConfiguredTarget createTargetWithSwift(RuleType ruleType) throws Exception {
     scratch.file("x/main.m");
 
@@ -2121,14 +1738,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     assertThat(provider.get(STORYBOARD))
         .containsExactlyElementsIn(storyboardInputs);
-  }
-
-  protected void checkRegistersStoryboardCompileActions(
-      BinaryRuleTypePair ruleTypePair, DottedVersion minimumOsVersion,
-      String platformName) throws Exception {
-    checkRegistersStoryboardCompileActions(
-        createTargetWithStoryboards(ruleTypePair), minimumOsVersion,
-        ImmutableList.of(platformName));
   }
 
   protected void checkRegistersStoryboardCompileActions(RuleType ruleType,
@@ -2268,17 +1877,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     checkMergesXcdatamodelZips(getBundlePathInsideIpa(ruleType), "x/x/bar.zip");
   }
 
-  protected void checkMergesXcdatamodelZips(BinaryRuleTypePair ruleTypePair) throws Exception {
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("datamodels", "foo.xcdatamodel/1")
-        .write();
-    ruleTypePair.scratchTargets(scratch,
-        "deps", "['//lib:lib']",
-        "datamodels", "['bar.xcdatamodeld/barx.xcdatamodel/2']");
-    checkMergesXcdatamodelZips(ruleTypePair.getBundleDir(), "x/x/bar.zip");
-  }
-
   protected void checkIncludesStoryboardOutputZipsAsMergeZips(RuleType ruleType) throws Exception {
     scratch.file("lib/libsb.storyboard");
     createLibraryTargetWriter("//lib:lib")
@@ -2325,53 +1923,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     Action mergeAction = bundleMergeAction("//x:x");
     assertThat(mergeAction.getInputs())
         .containsAllOf(libsbOutputZip, xsbOutputZip, bndlsbOutputZip);
-  }
-
-  protected void checkIncludesStoryboardOutputZipsAsMergeZips(BinaryRuleTypePair ruleTypePair,
-      BuildConfiguration nestedConfiguration) throws Exception {
-    scratch.file("lib/libsb.storyboard");
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("storyboards", "libsb.storyboard")
-        .write();
-
-    scratch.file("bndl/bndlsb.storyboard");
-    scratch.file("bndl/BUILD",
-        "objc_bundle_library(",
-        "    name = 'bndl',",
-        "    storyboards = ['bndlsb.storyboard'],",
-        ")");
-
-    scratch.file("x/xsb.storyboard");
-    ruleTypePair.scratchTargets(scratch,
-        "storyboards", "['xsb.storyboard']",
-        "deps", "['//lib:lib']",
-        "bundles", "['//bndl:bndl']");
-
-    Artifact libsbOutputZip = getBinArtifact("x/libsb.storyboard.zip", "//x:x");
-    Artifact bndlsbOutputZip = getBinArtifact(
-        "bndl/bndlsb.storyboard.zip", getConfiguredTarget("//bndl:bndl", nestedConfiguration));
-    Artifact xsbOutputZip = getBinArtifact("x/xsb.storyboard.zip", "//x:x");
-
-    String bundleDir = ruleTypePair.getBundleDir();
-    Control mergeControl = bundleMergeControl("//x:x");
-    assertThat(mergeControl.getMergeZipList()).containsExactly(
-        MergeZip.newBuilder()
-            .setEntryNamePrefix(bundleDir + "/")
-            .setSourcePath(libsbOutputZip.getExecPathString())
-            .build(),
-        MergeZip.newBuilder()
-            .setEntryNamePrefix(bundleDir + "/")
-            .setSourcePath(xsbOutputZip.getExecPathString())
-            .build());
-
-    Control nestedMergeControl =
-        Iterables.getOnlyElement(mergeControl.getNestedBundleList());
-    assertThat(nestedMergeControl.getMergeZipList()).containsExactly(
-        MergeZip.newBuilder()
-            .setEntryNamePrefix(bundleDir + "/bndl.bundle/")
-            .setSourcePath(bndlsbOutputZip.getExecPathString())
-            .build());
   }
 
   protected List<String> rootedIncludePaths(
@@ -2565,38 +2116,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             actoolPartial.getExecPathString()));
   }
 
-  protected void checkMergesPartialInfoplists(BinaryRuleTypePair ruleTypePair) throws Exception {
-    scratch.file("x/primary-Info.plist");
-    ruleTypePair.scratchTargets(scratch,
-        "asset_catalogs", "['foo.xcassets/bar']",
-        INFOPLIST_ATTR, "'primary-Info.plist'");
-
-    String targetName = "//x:x";
-    ConfiguredTarget target = getConfiguredTarget(targetName);
-    PlMergeProtos.Control control = plMergeControl(targetName);
-
-
-    Artifact merged = getBinArtifact("x-MergedInfo.plist", target);
-    Artifact actoolPartial = getBinArtifact("x.actool-PartialInfo.plist", "//x:x");
-
-    Artifact versionInfoplist = getBinArtifact("plists/x-version.plist", target);
-    Artifact environmentInfoplist = getBinArtifact("plists/x-environment.plist", target);
-    Artifact automaticInfoplist = getBinArtifact("plists/x-automatic.plist", target);
-
-    assertPlistMergeControlUsesSourceFiles(
-        control,
-        ImmutableList.<String>of(
-            "x/primary-Info.plist",
-            versionInfoplist.getExecPathString(),
-            environmentInfoplist.getExecPathString(),
-            automaticInfoplist.getExecPathString(),
-            actoolPartial.getExecPathString()));
-    assertThat(control.getOutFile()).isEqualTo(merged.getExecPathString());
-    assertThat(control.getVariableSubstitutionMapMap())
-        .containsExactlyEntriesIn(getVariableSubstitutionArguments(ruleTypePair));
-    assertThat(control.getFallbackBundleId()).isEqualTo("example.x");
-  }
-
   private void addTransitiveDefinesUsage(RuleType topLevelRuleType) throws Exception {
     createLibraryTargetWriter("//lib1:lib1")
         .setAndCreateFiles("srcs", "a.m")
@@ -2695,13 +2214,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/bar/baz");
   }
 
-  protected void checkCompileXibActions(
-      BinaryRuleTypePair ruleTypePair, DottedVersion minimumOsVersion,
-      String platformType) throws Exception {
-    ruleTypePair.scratchTargets(scratch, "xibs", "['foo.xib', 'es.lproj/bar.xib']");
-    checkCompileXibActions(minimumOsVersion, platformType);
-  }
-
   protected void checkCompileXibActions(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch, "xibs", "['foo.xib', 'es.lproj/bar.xib']");
     checkCompileXibActions(DEFAULT_IOS_SDK_VERSION, "iphone");
@@ -2777,92 +2289,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsAllIn(mergeZips);
   }
 
-  protected void checkNibZipsMergedIntoBundle(BinaryRuleTypePair ruleTypePair) throws Exception {
-    scratch.file("lib/a.m");
-    scratch.file("lib/lib.xib");
-    scratch.file("lib/BUILD",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        "    xibs = ['lib.xib'],",
-        ")");
-    scratch.file("x/foo.xib");
-    scratch.file("x/es.lproj/bar.xib");
-    ruleTypePair.scratchTargets(scratch,
-        "xibs", "['foo.xib', 'es.lproj/bar.xib']",
-        "deps", "['//lib:lib']");
-
-    ConfiguredTarget bundlingTarget = getConfiguredTarget("//x:x");
-    List<Artifact> nibZips = ImmutableList.of(
-        getBinArtifact("x/lib/lib.nib.zip", bundlingTarget),
-        getBinArtifact("x/x/foo.nib.zip", bundlingTarget),
-        getBinArtifact("x/x/es.lproj/bar.nib.zip", bundlingTarget));
-    List<BundleMergeProtos.MergeZip> mergeZips = new ArrayList<>();
-    for (Artifact nibZip : nibZips) {
-      mergeZips.add(BundleMergeProtos.MergeZip.newBuilder()
-          .setEntryNamePrefix(ruleTypePair.getBundleDir() + "/")
-          .setSourcePath(nibZip.getExecPathString())
-          .build());
-    }
-
-    assertThat(bundleMergeAction("//x:x").getInputs()).containsAllIn(nibZips);
-    assertThat(bundleMergeControl("//x:x").getMergeZipList())
-        .containsAllIn(mergeZips);
-  }
-
-  protected void checkBinaryLipoActionMultiCpu(
-      BinaryRuleTypePair ruleTypePair, ConfigurationDistinguisher configurationDistinguisher)
-      throws Exception {
-    useConfiguration("--ios_multi_cpus=i386,x86_64", "--cpu=ios_armv7");
-    ruleTypePair.scratchTargets(scratch);
-
-    CommandAction action = (CommandAction) getGeneratingAction(
-        getBinArtifact("x_lipobin", getConfiguredTarget("//x:x")));
-
-    String i386Prefix = configurationBin("i386", configurationDistinguisher);
-    String x8664Prefix = configurationBin("x86_64", configurationDistinguisher);
-    assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(
-            i386Prefix + "x/bin_bin",
-            x8664Prefix + "x/bin_bin",
-            MOCK_XCRUNWRAPPER_PATH);
-
-    assertThat(action.getArguments())
-        .containsExactly(MOCK_XCRUNWRAPPER_PATH, LIPO,
-            "-create", i386Prefix + "x/bin_bin", x8664Prefix + "x/bin_bin",
-            "-o", execPathEndingWith(action.getOutputs(), "x_lipobin"))
-        .inOrder();
-  }
-
-  protected void checkBinaryActionMultiPlatform_fails(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    useConfiguration(
-        "--ios_multi_cpus=i386,x86_64,armv7,arm64", "--watchos_cpus=armv7k", "--cpu=ios_armv7");
-    ruleTypePair.scratchTargets(scratch);
-
-    AssertionError expected =
-        expectThrows(AssertionError.class, () -> getConfiguredTarget("//x:x"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "--ios_multi_cpus does not currently allow values for both simulator and device "
-                + "builds.");
-  }
-
-  protected void checkMultiCpuResourceInheritance(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    useConfiguration("--ios_multi_cpus=i386,x86_64");
-    ruleTypePair.scratchTargets(scratch, "resources", "['foo.png']");
-
-    assertThat(Artifact.toRootRelativePaths(bundleMergeAction("//x:x").getInputs()))
-        .containsExactly(
-            "x/foo.png",
-            "x/x_lipobin",
-            toolsRepoExecPath("tools/objc/bundlemerge"),
-            "x/x.ipa-control",
-            "x/x-MergedInfo.plist");
-  }
-
   public void checkAllowVariousNonBlacklistedTypesInHeaders(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch, "hdrs", "['foo.foo', 'NoExtension', 'bar.inc', 'baz.hpp']");
     assertThat(view.hasErrors(getConfiguredTarget("//x:x"))).isFalse();
@@ -2913,39 +2339,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(control.getFallbackBundleIdentifier()).isEqualTo("example.x");
   }
 
-  public void checkBundleIdPassedAsPrimaryId(RuleType ruleType) throws Exception {
-    scratch.file("bin/a.m");
-    scratch.file("bin/Info.plist");
-
-    ruleType.scratchTarget(scratch,
-        INFOPLIST_ATTR, "'Info.plist'",
-        BUNDLE_ID_ATTR, "'com.bundle.id'");
-
-    BundleMergeProtos.Control control = bundleMergeControl("//x:x");
-
-    assertThat(control.getPrimaryBundleIdentifier()).isEqualTo("com.bundle.id");
-    assertThat(control.hasFallbackBundleIdentifier()).isFalse();
-  }
-
-  protected void checkPrimaryBundleIdInMergedPlist(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        INFOPLIST_ATTR, "'Info.plist'",
-        BUNDLE_ID_ATTR, "'com.bundle.id'");
-    scratch.file("bin/Info.plist");
-    checkBundleIdFlagsInPlistMergeAction(
-        Optional.of("com.bundle.id"), getVariableSubstitutionArgumentsDefaultFormat(ruleType));
-  }
-
-  protected void checkPrimaryBundleIdInMergedPlist(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    ruleTypePair.scratchTargets(scratch,
-        INFOPLIST_ATTR, "'Info.plist'",
-        BUNDLE_ID_ATTR, "'com.bundle.id'");
-    scratch.file("bin/Info.plist");
-    checkBundleIdFlagsInPlistMergeAction(
-        Optional.of("com.bundle.id"), getVariableSubstitutionArguments(ruleTypePair));
-  }
-
   protected void checkFallbackBundleIdInMergedPlist(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch,
         INFOPLIST_ATTR, "'Info.plist'");
@@ -2953,16 +2346,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     checkBundleIdFlagsInPlistMergeAction(
         Optional.<String>absent(), getVariableSubstitutionArgumentsDefaultFormat(ruleType));
-  }
-
-  protected void checkFallbackBundleIdInMergedPlist(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    ruleTypePair.scratchTargets(scratch,
-        INFOPLIST_ATTR, "'Info.plist'");
-    scratch.file("bin/Info.plist");
-
-    checkBundleIdFlagsInPlistMergeAction(
-        Optional.<String>absent(), getVariableSubstitutionArguments(ruleTypePair));
   }
 
   protected void checkBundleIdFlagsInPlistMergeAction(
@@ -3005,150 +2388,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     }
   }
 
-  protected void checkSigningSimulatorBuild(BinaryRuleTypePair ruleTypePair, boolean useMultiCpu)
-      throws Exception {
-    if (useMultiCpu) {
-      useConfiguration("--ios_multi_cpus=i386,x86_64", "--cpu=ios_i386");
-    } else {
-      useConfiguration("--cpu=ios_i386");
-    }
-
-    ruleTypePair.scratchTargets(scratch);
-
-    SpawnAction ipaGeneratingAction = (SpawnAction) ipaGeneratingAction();
-    assertThat(ActionsTestUtil.baseArtifactNames(ipaGeneratingAction.getInputs()))
-        .containsExactly("x.unprocessed.ipa");
-
-    assertThat(normalizeBashArgs(ipaGeneratingAction.getArguments()))
-        .containsAllOf("/usr/bin/codesign", "--sign", "\"-\"")
-        .inOrder();
-
-    BundleMergeProtos.Control control = bundleMergeControl("//x:x");
-    assertThat(mobileProvisionProfiles(control)).isEmpty();
-  }
-
-  protected Action ipaGeneratingAction() throws Exception {
-    return getGeneratingActionForLabel("//x:x.ipa");
-  }
-
-  protected void checkProvisioningProfileDeviceBuild(
-      BinaryRuleTypePair ruleTypePair, boolean useMultiCpu) throws Exception {
-    if (useMultiCpu) {
-      useConfiguration("--ios_multi_cpus=armv7,arm64", "--cpu=ios_i386", "--watchos_cpus=armv7k");
-    } else {
-      useConfiguration("--cpu=ios_armv7", "--watchos_cpus=armv7k");
-    }
-
-    ruleTypePair.scratchTargets(scratch);
-
-    Artifact provisioningProfile =
-        getFileConfiguredTarget("//tools/objc:foo.mobileprovision").getArtifact();
-    assertThat(ipaGeneratingAction().getInputs()).contains(provisioningProfile);
-
-    BundleMergeProtos.Control control = bundleMergeControl("//x:x");
-    Map<String, String> profiles = mobileProvisionProfiles(control);
-    ImmutableMap<String, String> expectedProfiles = ImmutableMap.of(
-        provisioningProfile.getExecPathString(),
-        ReleaseBundlingSupport.PROVISIONING_PROFILE_BUNDLE_FILE);
-    assertThat(profiles).isEqualTo(expectedProfiles);
-  }
-
-  protected void addCustomProvisioningProfile(BinaryRuleTypePair ruleTypePair,
-      String provisioningProfileAttribute) throws Exception {
-    scratch.file("custom/BUILD", "exports_files(['pp.mobileprovision'])");
-    scratch.file("custom/pp.mobileprovision");
-    ruleTypePair.scratchTargets(
-        scratch, provisioningProfileAttribute, "'//custom:pp.mobileprovision'");
-  }
-
-  protected void checkProvisioningProfileUserSpecified(
-      BinaryRuleTypePair ruleTypePair, boolean useMultiCpu) throws Exception {
-    checkProvisioningProfileUserSpecified(ruleTypePair, useMultiCpu, PROVISIONING_PROFILE_ATTR);
-  }
-  protected void checkProvisioningProfileUserSpecified(
-      BinaryRuleTypePair ruleTypePair, boolean useMultiCpu,
-      String provisioningProfileAttribute) throws Exception {
-    if (useMultiCpu) {
-      useConfiguration("--ios_multi_cpus=armv7,arm64", "--cpu=ios_i386", "--watchos_cpus=armv7k");
-    } else {
-      useConfiguration("--cpu=ios_armv7", "--watchos_cpus=armv7k");
-    }
-    addCustomProvisioningProfile(ruleTypePair, provisioningProfileAttribute);
-
-    Artifact defaultProvisioningProfile =
-        getFileConfiguredTarget("//tools/objc:foo.mobileprovision").getArtifact();
-    Artifact customProvisioningProfile =
-        getFileConfiguredTarget("//custom:pp.mobileprovision").getArtifact();
-    Action signingAction = ipaGeneratingAction();
-    assertThat(signingAction.getInputs()).contains(customProvisioningProfile);
-    assertThat(signingAction.getInputs()).doesNotContain(defaultProvisioningProfile);
-
-    BundleMergeProtos.Control control = bundleMergeControl("//x:x");
-    Map<String, String> profiles = mobileProvisionProfiles(control);
-    Map<String, String> expectedProfiles = ImmutableMap.of(
-        customProvisioningProfile.getExecPathString(),
-        ReleaseBundlingSupport.PROVISIONING_PROFILE_BUNDLE_FILE);
-    assertThat(profiles).isEqualTo(expectedProfiles);
-  }
-
-  protected void checkMergeBundleAction(BinaryRuleTypePair ruleTypePair) throws Exception {
-    ruleTypePair.scratchTargets(scratch,
-        INFOPLIST_ATTR, "'Info.plist'");
-    SpawnAction action = bundleMergeAction("//x:x");
-    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
-        .containsExactly(
-            MOCK_BUNDLEMERGE_PATH,
-            "x/x_lipobin",
-            "x/x.ipa-control",
-            "x/x-MergedInfo.plist");
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
-        .containsExactly("x/x.unprocessed.ipa");
-    assertNotRequiresDarwin(action);
-    assertThat(action.getEnvironment()).isEmpty();
-    assertThat(action.getArguments())
-        .containsExactly(
-            MOCK_BUNDLEMERGE_PATH,
-            execPathEndingWith(action.getInputs(), "x.ipa-control"))
-        .inOrder();
-  }
-
-  protected void checkCollectsAssetCatalogsTransitively(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    scratch.file("lib/ac.xcassets/foo");
-    scratch.file("lib/ac.xcassets/bar");
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .set("asset_catalogs", "glob(['ac.xcassets/**'])")
-        .write();
-
-    scratch.file("x/ac.xcassets/baz");
-    scratch.file("x/ac.xcassets/42");
-    ruleTypePair.scratchTargets(scratch,
-        "deps", "['//lib:lib']",
-        "asset_catalogs", "glob(['ac.xcassets/**'])");
-
-    // Test that the actoolzip Action has arguments and inputs obtained from dependencies.
-    SpawnAction actoolZipAction = actoolZipActionForIpa("//x:x");
-    assertThat(Artifact.toExecPaths(actoolZipAction.getInputs())).containsExactly(
-        "lib/ac.xcassets/foo", "lib/ac.xcassets/bar", "x/ac.xcassets/baz", "x/ac.xcassets/42",
-        MOCK_ACTOOLWRAPPER_PATH);
-    assertContainsSublist(actoolZipAction.getArguments(),
-        ImmutableList.of("lib/ac.xcassets", "x/ac.xcassets"));
-  }
-
-  protected void checkMergeActionsWithAssetCatalog(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    Artifact actoolZipOut = getBinArtifact("x.actool.zip", "//x:x");
-    assertThat(bundleMergeAction("//x:x").getInputs()).contains(actoolZipOut);
-
-    BundleMergeProtos.Control mergeControl = bundleMergeControl("//x:x");
-    assertThat(mergeControl.getMergeZipList())
-        .containsExactly(MergeZip.newBuilder()
-            .setEntryNamePrefix(ruleTypePair.getBundleDir() + "/")
-            .setSourcePath(actoolZipOut.getExecPathString())
-            .build());
-  }
-
   protected void checkBundleablesAreMerged(
       String bundlingTarget, ListMultimap<String, String> artifactAndBundlePaths) throws Exception {
     BundleMergeProtos.Control control = bundleMergeControl(bundlingTarget);
@@ -3163,163 +2402,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
           .build());
     }
     assertThat(control.getBundleFileList()).containsAllIn(expectedBundleFiles);
-  }
-
-  protected void checkConvertStringsAction(BinaryRuleTypePair ruleTypePair) throws Exception {
-    scratch.file("lib/foo.strings");
-    scratch.file("lib/es.lproj/bar.strings");
-    ruleTypePair.scratchTargets(scratch, "strings", "['foo.strings', 'es.lproj/bar.strings']");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:x");
-    Artifact binaryFoo = getBinArtifact("x/foo.strings.binary", target);
-    Artifact binaryBar = getBinArtifact("x/es.lproj/bar.strings.binary", target);
-
-    CommandAction fooAction = (CommandAction) getGeneratingAction(binaryFoo);
-    CommandAction barAction = (CommandAction) getGeneratingAction(binaryBar);
-
-    assertThat(fooAction.getOutputs())
-        .containsExactly(binaryFoo);
-    assertThat(Artifact.toExecPaths(fooAction.getInputs()))
-        .containsExactly("x/foo.strings", MOCK_XCRUNWRAPPER_PATH);
-
-    assertThat(barAction.getOutputs())
-        .containsExactly(binaryBar);
-    assertThat(Artifact.toExecPaths(barAction.getInputs()))
-        .containsExactly("x/es.lproj/bar.strings", MOCK_XCRUNWRAPPER_PATH);
-  }
-
-  protected void checkMomczipActions(
-      BinaryRuleTypePair ruleTypePair, DottedVersion minimumOsVersion) throws Exception {
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("datamodels", "foo.xcdatamodel/1")
-        .write();
-    ruleTypePair.scratchTargets(scratch,
-        "deps", "['//lib:lib']",
-        "datamodels", "['bar.xcdatamodeld/barx.xcdatamodel/2']");
-
-    AppleConfiguration configuration =
-        getTargetConfiguration().getFragment(AppleConfiguration.class);
-
-    Action mergeBundleAction = bundleMergeAction("//x:x");
-    Artifact fooMomZip = getFirstArtifactEndingWith(mergeBundleAction.getInputs(), "x/foo.zip");
-    CommandAction fooMomczipAction = (CommandAction) getGeneratingAction(fooMomZip);
-    Artifact barMomZip = getFirstArtifactEndingWith(mergeBundleAction.getInputs(), "x/bar.zip");
-    CommandAction barMomczipAction = (CommandAction) getGeneratingAction(barMomZip);
-
-    assertThat(Artifact.toExecPaths(fooMomczipAction.getInputs()))
-        .containsExactly("lib/foo.xcdatamodel/1", MOCK_MOMCWRAPPER_PATH);
-    assertThat(fooMomczipAction.getOutputs()).containsExactly(fooMomZip);
-    assertThat(Artifact.toExecPaths(barMomczipAction.getInputs()))
-        .containsExactly("x/bar.xcdatamodeld/barx.xcdatamodel/2", MOCK_MOMCWRAPPER_PATH);
-    assertThat(barMomczipAction.getOutputs()).containsExactly(barMomZip);
-
-    ImmutableList<String> commonMomcZipArguments = ImmutableList.of(
-        "-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir(),
-        "-XD_MOMC_IOS_TARGET_VERSION=" + minimumOsVersion,
-        "-MOMC_PLATFORMS",
-            configuration.getMultiArchPlatform(PlatformType.IOS).getLowerCaseNameInPlist(),
-        "-XD_MOMC_TARGET_VERSION=10.6");
-
-    assertThat(fooMomczipAction.getArguments())
-        .isEqualTo(
-            new ImmutableList.Builder<String>()
-                .add(MOCK_MOMCWRAPPER_PATH)
-                .add(fooMomZip.getExecPathString())
-                .add("foo.mom")
-                .addAll(commonMomcZipArguments)
-                .add("lib/foo.xcdatamodel")
-                .build());
-    assertThat(barMomczipAction.getArguments())
-        .isEqualTo(
-            new ImmutableList.Builder<String>()
-                .add(MOCK_MOMCWRAPPER_PATH)
-                .add(barMomZip.getExecPathString())
-                .add("bar.momd")
-                .addAll(commonMomcZipArguments)
-                .add("x/bar.xcdatamodeld")
-                .build());
-  }
-
-  protected void addCommonResources(BinaryRuleTypePair ruleTypePair) throws Exception {
-    scratch.file("x/Model.xcdatamodeld/Model-1.0.xcdatamodel/contents");
-    ruleTypePair.scratchTargets(scratch,
-        "strings", "['foo.strings']",
-        "xibs", "['bar.xib']",
-        "storyboards", "['baz.storyboard']",
-        "datamodels", "glob(['Model.xcdatamodeld/**'])");
-  }
-
-  protected void checkMultiCpuCompiledResources(BinaryRuleTypePair ruleTypePair) throws Exception {
-    useConfiguration("--ios_multi_cpus=armv7,arm64", "--watchos_cpus=armv7k");
-    addCommonResources(ruleTypePair);
-
-    BundleMergeProtos.Control topControl = bundleMergeControl("//x:x");
-    ImmutableList.Builder<String> bundlePaths = ImmutableList.builder();
-    for (BundleMergeProtos.BundleFile file : topControl.getBundleFileList()) {
-      bundlePaths.add(file.getBundlePath());
-    }
-    assertThat(bundlePaths.build()).containsNoDuplicates();
-
-    ImmutableList.Builder<String> mergeZipNames = ImmutableList.builder();
-    for (BundleMergeProtos.MergeZip zip : topControl.getMergeZipList()) {
-      mergeZipNames.add(Iterables.getLast(Splitter.on('/').split(zip.getSourcePath())));
-    }
-    assertThat(mergeZipNames.build()).containsNoDuplicates();
-  }
-
-  protected void checkMultiCpuCompiledResourcesFromGenrule(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    useConfiguration("--ios_multi_cpus=armv7,arm64", "--watchos_cpus=armv7k");
-
-    String targets =
-        ruleTypePair.targets(scratch, "x", "strings", "['Resources/en.lproj/foo.strings']");
-    scratch.file("x/foo.strings");
-    scratch.file("x/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = ['foo.strings'],",
-        "    outs = ['Resources/en.lproj/foo.strings'],",
-        "    cmd = 'cp $(location foo.strings) $(location Resources/en.lproj/foo.strings)'",
-        ")",
-        targets);
-
-    BundleMergeProtos.Control topControl = bundleMergeControl("//x:x");
-    ImmutableList.Builder<String> bundlePaths = ImmutableList.builder();
-    for (BundleMergeProtos.BundleFile file : topControl.getBundleFileList()) {
-      bundlePaths.add(file.getBundlePath());
-    }
-    assertThat(bundlePaths.build()).containsNoDuplicates();
-  }
-
-  protected void checkMultiCpuGeneratedResourcesFromGenrule(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    useConfiguration("--ios_multi_cpus=armv7,arm64", "--watchos_cpus=armv7k");
-
-    String targets = ruleTypePair.targets(scratch, "x", "resources", "[':gen']");
-    scratch.file(
-        "x/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = ['foo'],",
-        "    outs = ['foo.res'],",
-        "    cmd = 'cp $(location foo) $(location foo.res)'",
-        ")",
-        targets);
-
-    BundleMergeProtos.Control topControl = bundleMergeControl("//x:x");
-    ImmutableList.Builder<String> bundlePaths = ImmutableList.builder();
-    for (BundleMergeProtos.BundleFile file : topControl.getBundleFileList()) {
-      bundlePaths.add(file.getBundlePath());
-    }
-    assertThat(bundlePaths.build()).containsNoDuplicates();
-  }
-
-  protected void checkTwoStringsOneBundlePath(BinaryRuleTypePair ruleTypePair, String errorTarget)
-      throws Exception {
-    String targets = ruleTypePair.targets(scratch, "x",
-        "strings", "['Resources/en.lproj/foo.strings', 'FooBar/en.lproj/foo.strings']");
-    checkTwoStringsOneBundlePath(targets, errorTarget);
   }
 
   protected void checkTwoStringsOneBundlePath(RuleType ruleType) throws Exception {
@@ -3343,12 +2425,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     checkTwoResourcesOneBundlePath(targets, "bndl");
   }
 
-  protected void checkTwoResourcesOneBundlePath(BinaryRuleTypePair ruleTypePair, String errorTarget)
-      throws Exception {
-    String targets = ruleTypePair.targets(scratch, "x", "resources", "['baz/foo', 'bar/foo']");
-    checkTwoResourcesOneBundlePath(targets, errorTarget);
-  }
-
   private void checkTwoResourcesOneBundlePath(String targets, String errorTarget) throws Exception {
     checkError(
         "x",
@@ -3369,19 +2445,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             "strings",
             "['Resources/en.lproj/foo.strings']");
     checkSameStringsTwice(targets, "bndl");
-  }
-
-  protected void checkSameStringsTwice(BinaryRuleTypePair ruleTypePair, String errorTarget)
-      throws Exception {
-    String targets =
-        ruleTypePair.targets(
-            scratch,
-            "x",
-            "resources",
-            "['Resources/en.lproj/foo.strings']",
-            "strings",
-            "['Resources/en.lproj/foo.strings']");
-    checkSameStringsTwice(targets, errorTarget);
   }
 
   private void checkSameStringsTwice(String targets, String errorTarget) throws Exception {
@@ -3431,12 +2494,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(filesToBuild).contains(getBinArtifact("x.app.dSYM/Contents/Info.plist", "//x:x"));
   }
 
-  protected void checkCcDependency(BinaryRuleTypePair ruleTypePair,
-      ConfigurationDistinguisher configurationDistinguisher) throws Exception {
-    ruleTypePair.scratchTargets(scratch, "deps", "['//lib:cclib']");
-    checkCcDependency(configurationDistinguisher, "bin");
-  }
-
   /**
    * @param extraAttrs pairs of key-value strings (must be an even number) which will be added as
    *     extra attributes to the target generated for this test
@@ -3480,53 +2537,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
                 + String.format("x/%s-linker.objlist", targetName));
   }
 
-  protected void checkCcDependencyMultiArch(BinaryRuleTypePair ruleTypePair,
-      ConfigurationDistinguisher configurationDistinguisher) throws Exception {
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-
-    scratch.file("lib/BUILD",
-        "cc_library(",
-        "    name = 'cclib',",
-        "    srcs = ['dep.c'],",
-        ")");
-    ruleTypePair.scratchTargets(scratch, "deps", "['//lib:cclib']");
-
-    CommandAction appLipoAction = (CommandAction) getGeneratingAction(
-        getBinArtifact("x_lipobin", getConfiguredTarget("//x:x", targetConfig)));
-
-    assertThat(Artifact.toExecPaths(appLipoAction.getInputs()))
-        .containsAllOf(
-            configurationBin("armv7", configurationDistinguisher) + "x/bin_bin",
-            configurationBin("arm64", configurationDistinguisher) + "x/bin_bin");
-
-    ImmutableSet.Builder<Artifact> binInputs = ImmutableSet.builder();
-    for (Artifact bin : appLipoAction.getInputs()) {
-      CommandAction binAction = (CommandAction) getGeneratingAction(bin);
-      if (binAction != null) {
-        binInputs.addAll(binAction.getInputs());
-        verifyObjlist(binAction, "x/bin-linker.objlist",
-            "x/libbin.a", "lib/libcclib.a");
-      }
-    }
-
-    assertThat(Artifact.toExecPaths(binInputs.build()))
-        .containsAllOf(
-            configurationBin("armv7", configurationDistinguisher) + "x/libbin.a",
-            configurationBin("arm64", configurationDistinguisher) + "x/libbin.a",
-            configurationBin("armv7", configurationDistinguisher)
-                + "lib/libcclib.a",
-            configurationBin("arm64", configurationDistinguisher)
-                + "lib/libcclib.a",
-            configurationBin("armv7", configurationDistinguisher)
-                + "x/bin-linker.objlist",
-            configurationBin("arm64", configurationDistinguisher)
-                + "x/bin-linker.objlist");
-  }
-
-  protected void checkGenruleDependency(BinaryRuleTypePair ruleTypePair) throws Exception {
-    checkGenruleDependency(ruleTypePair.targets(scratch, "x", "srcs", "['gen.m']"));
-  }
-
   protected void checkGenruleDependency(RuleType ruleType) throws Exception {
     checkGenruleDependency(ruleType.target(scratch, "x", "bin", "srcs", "['gen.m']"));
   }
@@ -3552,177 +2562,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains(
             configurationGenfiles("x86_64", ConfigurationDistinguisher.UNKNOWN, null)
                 + "/x/gen.m");
-  }
-
-  protected void checkGenruleDependencyMultiArch(BinaryRuleTypePair ruleTypePair,
-      ConfigurationDistinguisher configurationDistinguisher) throws Exception {
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-    String targets = ruleTypePair.targets(scratch, "x", "srcs", "['gen.m']");
-    scratch.file("x/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['gen.m'],",
-        "    cmd = '\\'\\' > $(location gen.m)'",
-        ")",
-        targets);
-
-    CommandAction appLipoAction = (CommandAction) getGeneratingAction(
-        getBinArtifact("x_lipobin", getConfiguredTarget("//x:x", targetConfig)));
-
-    assertThat(Artifact.toExecPaths(appLipoAction.getInputs()))
-        .containsExactly(
-            configurationBin("armv7", configurationDistinguisher) + "x/bin_bin",
-            configurationBin("arm64", configurationDistinguisher) + "x/bin_bin",
-            MOCK_XCRUNWRAPPER_PATH);
-  }
-
-  protected void checkGenruleWithoutJavaCcDependency(BinaryRuleTypePair ruleTypePair)
-      throws Exception {
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-
-    String targets = ruleTypePair.targets(scratch, "x", "srcs", "['gen.m']");
-    scratch.file("x/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['gen.m'],",
-        "    cmd = 'echo \"\" > $(location gen.m)'",
-        ")",
-        targets);
-
-    CommandAction appLipoAction = (CommandAction) getGeneratingAction(
-        getBinArtifact("x_lipobin", getConfiguredTarget("//x:x", targetConfig)));
-
-    for (Artifact binBin : appLipoAction.getInputs()) {
-      CommandAction binBinAction = (CommandAction) getGeneratingAction(binBin);
-      if (binBinAction == null) {
-        continue;
-      }
-      Action libBinAction =
-          getGeneratingAction(getFirstArtifactEndingWith(binBinAction.getInputs(), "libbin.a"));
-      Action genOAction =
-          getGeneratingAction(Iterables.getOnlyElement(inputsEndingWith(libBinAction, ".o")));
-      Action genMAction =
-          getGeneratingAction(getFirstArtifactEndingWith(genOAction.getInputs(), "gen.m"));
-      assertThat(genMAction).isNotInstanceOf(FailAction.class);
-    }
-  }
-
-  protected void checkCcDependencyWithProtoDependency(BinaryRuleTypePair ruleTypePair,
-      ConfigurationDistinguisher configurationDistinguisher) throws Exception {
-    MockProtoSupport.setup(mockToolsConfig);
-    useConfiguration("--cpu=ios_i386");
-    scratch.file("lib/BUILD",
-        "proto_library(",
-        "    name = 'protolib',",
-        "    srcs = ['foo.proto'],",
-        "    cc_api_version = 1,",
-        ")",
-        "",
-        "cc_library(",
-        "    name = 'cclib',",
-        "    srcs = ['dep.c'],",
-        "    deps = [':protolib'],",
-        ")");
-    ruleTypePair.scratchTargets(scratch, "deps", "['//lib:cclib']");
-
-    Action appLipoAction = lipoBinAction("//x:x");
-
-     CommandAction binBinAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(appLipoAction.getInputs(), "bin_bin"));
-
-     String i386Prefix = iosConfigurationCcDepsBin("i386", configurationDistinguisher);
-     ImmutableList<String> archiveFilenames = ImmutableList.of(
-         i386Prefix + "lib/libcclib.a",
-         i386Prefix + "x/libbin.a",
-         i386Prefix + "lib/libprotolib.a",
-         i386Prefix + "net/proto/libproto.a");
-
-     verifyObjlist(binBinAction, "x/bin-linker.objlist",
-         archiveFilenames.toArray(new String[archiveFilenames.size()]));
-
-    assertThat(Artifact.toExecPaths(binBinAction.getInputs()))
-        .containsAllIn(
-            ImmutableList.builder()
-                .addAll(archiveFilenames)
-                .add(i386Prefix + "x/bin-linker.objlist")
-                .build());
-  }
-
-  protected void checkCcDependencyAndJ2objcDependency(BinaryRuleTypePair ruleTypePair,
-      ConfigurationDistinguisher configurationDistinguisher) throws Exception {
-    MockProtoSupport.setup(mockToolsConfig);
-    MockJ2ObjcSupport.setup(mockToolsConfig);
-    useConfiguration("--cpu=ios_i386");
-
-    scratch.file("lib/BUILD",
-        "java_library(",
-        "    name = 'javalib',",
-        "    srcs = ['foo.java'],",
-        ")",
-        "",
-        "j2objc_library(",
-        "    name = 'j2objclib',",
-        "    deps = [':javalib'],",
-        ")",
-        "",
-        "cc_library(",
-        "    name = 'cclib',",
-        "    srcs = ['dep.c'],",
-        ")");
-    ruleTypePair.scratchTargets(scratch, "deps", "['//lib:cclib', '//lib:j2objclib']");
-
-    Action appLipoAction = getGeneratingAction(
-        getBinArtifact("x_lipobin", getConfiguredTarget("//x:x", targetConfig)));
-
-    CommandAction binBinAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(appLipoAction.getInputs(), "bin_bin"));
-
-    String i386Prefix = iosConfigurationCcDepsBin("i386", configurationDistinguisher);
-    ImmutableList<String> archiveFilenames =
-        ImmutableList.of(
-            i386Prefix + "lib/libcclib.a",
-            i386Prefix + "x/libbin.a",
-            i386Prefix + "lib/libjavalib_j2objc.a",
-            i386Prefix + toolsRepoExecPath("third_party/java/j2objc/libjre_core_lib.a"));
-
-    verifyObjlist(binBinAction, "x/bin-linker.objlist",
-        archiveFilenames.toArray(new String[archiveFilenames.size()]));
-
-    assertThat(Artifact.toExecPaths(binBinAction.getInputs()))
-        .containsAllIn(
-            ImmutableList.builder()
-                .addAll(archiveFilenames)
-                .add(i386Prefix + "x/bin-linker.objlist")
-                .build());
-  }
-
-  protected void checkCcDependencyWithProtoDependencyMultiArch(BinaryRuleTypePair ruleTypePair,
-      ConfigurationDistinguisher configurationDistinguisher) throws Exception {
-    MockProtoSupport.setup(mockToolsConfig);
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-    scratch.file("lib/BUILD",
-        "proto_library(",
-        "    name = 'protolib',",
-        "    srcs = ['foo.proto'],",
-        "    cc_api_version = 1,",
-        ")",
-        "",
-        "cc_library(",
-        "    name = 'cclib',",
-        "    srcs = ['dep.c'],",
-        "    deps = [':protolib'],",
-        ")");
-    ruleTypePair.scratchTargets(scratch, "deps", "['//lib:cclib']");
-
-    Action appLipoAction = lipoBinAction("//x:x");
-
-    assertThat(Artifact.toExecPaths(appLipoAction.getInputs()))
-        .containsExactly(
-            configurationBin("armv7", configurationDistinguisher) + "x/bin_bin",
-            configurationBin("arm64", configurationDistinguisher) + "x/bin_bin",
-            MOCK_XCRUNWRAPPER_PATH);
   }
 
   protected void checkBinaryStripAction(RuleType ruleType, String... extraItems) throws Exception {
@@ -3760,115 +2599,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     }
 
     assertThat(compileAction("//x:x", "a.o").getArguments()).contains("-g");
-  }
-
-  protected void checkLaunchStoryboardIncluded(BinaryRuleTypePair ruleTypePair) throws Exception {
-    useConfiguration("--ios_minimum_os=8.1");
-    ruleTypePair.scratchTargets(scratch, "launch_storyboard", "'launch.storyboard'");
-    ConfiguredTarget target = getConfiguredTarget("//x:x");
-
-    Artifact storyboardZip = getBinArtifact("x/launch.storyboard.zip", target);
-    CommandAction storyboardCompile = (CommandAction) getGeneratingAction(storyboardZip);
-
-    assertThat(Artifact.toExecPaths(storyboardCompile.getInputs()))
-        .containsExactly(MOCK_IBTOOLWRAPPER_PATH, "x/launch.storyboard");
-
-    assertThat(storyboardCompile.getArguments())
-        .isEqualTo(
-            new CustomCommandLine.Builder()
-                .addDynamicString(MOCK_IBTOOLWRAPPER_PATH)
-                .addExecPath(storyboardZip)
-                .add("launch.storyboardc")
-                .add("--minimum-deployment-target")
-                .add("8.1")
-                .add("--module")
-                .add("x")
-                .add("--target-device")
-                .add("iphone")
-                .add("x/launch.storyboard")
-                .build()
-                .arguments());
-
-    assertGeneratesLaunchStoryboardPlist(target, "launch");
-    assertUsesLaunchStoryboardPlist(target);
-    assertMergesLaunchStoryboard(ruleTypePair, storyboardZip);
-  }
-
-  protected void checkLaunchStoryboardXib(BinaryRuleTypePair ruleTypePair) throws Exception {
-    useConfiguration("--ios_minimum_os=8.1");
-    ruleTypePair.scratchTargets(scratch, "launch_storyboard", "'launch.xib'");
-    ConfiguredTarget target = getConfiguredTarget("//x:x");
-
-    Artifact nibZip = getBinArtifact("x/x/launch.nib.zip", target);
-    CommandAction nibCompile = (CommandAction) getGeneratingAction(nibZip);
-
-    assertThat(Artifact.toExecPaths(nibCompile.getInputs()))
-        .containsExactly(MOCK_IBTOOLWRAPPER_PATH, "x/launch.xib");
-
-    assertThat(nibCompile.getArguments())
-        .containsExactly(
-            MOCK_IBTOOLWRAPPER_PATH,
-            nibZip.getExecPathString(),
-            "launch.nib",
-            "--minimum-deployment-target", "8.1",
-            "--module", "x",
-            "--target-device", "iphone",
-            "x/launch.xib")
-        .inOrder();
-
-    assertGeneratesLaunchStoryboardPlist(target, "launch");
-    assertUsesLaunchStoryboardPlist(target);
-    assertMergesLaunchStoryboard(ruleTypePair, nibZip);
-  }
-
-  private void assertGeneratesLaunchStoryboardPlist(ConfiguredTarget target, String baseName)
-      throws Exception {
-    Artifact storyboardPlist =
-        getBinArtifact("plists/" + target.getLabel().getName() + "-launchstoryboard.plist", target);
-
-    FileWriteAction plistAction = (FileWriteAction) getGeneratingAction(storyboardPlist);
-
-    assertThat(plistAction.getFileContents())
-        .contains("\"UILaunchStoryboardName\" = \"" + baseName + "\"");
-  }
-
-  private void assertUsesLaunchStoryboardPlist(ConfiguredTarget target) throws Exception {
-    Artifact storyboardPlist =
-        getBinArtifact("plists/" + target.getLabel().getName() + "-launchstoryboard.plist", target);
-    PlMergeProtos.Control plMergeControl = plMergeControl(target.getLabel().getCanonicalForm());
-
-    assertThat(plMergeControl.getSourceFileList()).contains(storyboardPlist.getExecPathString());
-  }
-
-  private void assertMergesLaunchStoryboard(BinaryRuleTypePair ruleTypePair, Artifact storyboardZip)
-      throws Exception {
-    assertThat(bundleMergeAction("//x:x").getInputs()).contains(storyboardZip);
-    assertThat(bundleMergeControl("//x:x").getMergeZipList())
-        .contains(
-            BundleMergeProtos.MergeZip.newBuilder()
-                .setEntryNamePrefix(ruleTypePair.getBundleDir() + "/")
-                .setSourcePath(storyboardZip.getExecPathString())
-                .build());
-  }
-
-  protected void checkLaunchStoryboardLproj(BinaryRuleTypePair ruleTypePair) throws Exception {
-    useConfiguration("--ios_minimum_os=8.1");
-    ruleTypePair.scratchTargets(
-        scratch, "launch_storyboard", "'superfluous_dir/en.lproj/launch.storyboard'");
-    ConfiguredTarget target = getConfiguredTarget("//x:x");
-
-    Artifact storyboardZip = getBinArtifact("x/en.lproj/launch.storyboard.zip", target);
-    CommandAction storyboardCompile = (CommandAction) getGeneratingAction(storyboardZip);
-
-    assertThat(storyboardCompile.getInputs())
-        .contains(getSourceArtifact("x/superfluous_dir/en.lproj/launch.storyboard"));
-
-    assertThat(storyboardCompile.getArguments())
-        .containsAllOf(
-            "en.lproj/launch.storyboardc", "x/superfluous_dir/en.lproj/launch.storyboard");
-
-    assertGeneratesLaunchStoryboardPlist(target, "launch");
-    assertMergesLaunchStoryboard(ruleTypePair, storyboardZip);
   }
 
   protected void checkAutomaticPlistEntries(RuleType ruleType) throws Exception {
@@ -3953,14 +2683,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    */
   protected String getBundlePathInsideIpa(RuleType ruleType) {
     return "Payload/" + getBundleNameWithExtension(ruleType);
-  }
-
-  /**
-   * Computes expected variable substitutions from a ruleTypePair
-   */
-  protected Map<String, String> getVariableSubstitutionArguments(BinaryRuleTypePair ruleTypePair) {
-    return constructVariableSubstitutions(
-        ruleTypePair.getBundleName(), ruleTypePair.getBundleDir());
   }
 
   private Map<String, String> constructVariableSubstitutions(String bundleName, String bundleDir) {

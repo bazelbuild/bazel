@@ -95,34 +95,8 @@ public final class MockObjcSupport {
             "libtool")) {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
-    // Since we deleted ios_application, we have to create a custom rule that mocks out a
-    // close-enough test host app for ios_test to use until those rules are also deleted.
-    config.create(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/fake_test_app.bzl",
-        "def _fake_test_app_impl(ctx):",
-        "  return struct(",
-        "      instrumented_files=struct(dependency_attributes=['bundle_loader', 'ipa']),",
-        "      providers=[",
-        "          DefaultInfo(files=depset([ctx.file.ipa])),",
-        "          apple_common.new_xctest_app_provider(",
-        "              bundle_loader=ctx.file.bundle_loader,",
-        "              ipa=ctx.file.ipa,",
-        "              objc_provider=apple_common.new_objc_provider(),",
-        "          ),",
-        "      ],",
-        "  )",
-        "fake_test_app = rule(",
-        "    implementation=_fake_test_app_impl,",
-        "    attrs={",
-        "        'bundle_loader': attr.label(",
-        "            single_file=True, default='//tools/objc:xctest_appbin'),",
-        "        'ipa': attr.label(",
-        "            allow_files=True, single_file=True, default='//tools/objc:xctest_app.ipa'),",
-        "    },",
-        ")");
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/BUILD",
-        "load(':fake_test_app.bzl', 'fake_test_app')",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
@@ -135,7 +109,6 @@ public final class MockObjcSupport {
         ")",
         "sh_binary(name = 'environment_plist', srcs = ['environment_plist.sh'])",
         "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
-        "fake_test_app(name = 'xctest_app')",
         "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
         "filegroup(name = 'j2objc_dead_code_pruner', srcs = ['j2objc_dead_code_pruner.py'])",
@@ -172,17 +145,12 @@ public final class MockObjcSupport {
     if (TestConstants.TOOLS_REPOSITORY_SCRATCH.length() > 0) {
       config.create(
           "tools/objc/BUILD",
-          "load('@"
-              + TestConstants.TOOLS_REPOSITORY_SCRATCH
-              + "//tools/objc:fake_test_app.bzl', 'fake_test_app')",
           "package(default_visibility=['//visibility:public'])",
           "exports_files(glob(['**']))",
-          "fake_test_app(name = 'xctest_app')",
           "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
           "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
           "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])");
     }
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest_app.ipa");
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/foo.mobileprovision", "No such luck");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/compile_protos.py");

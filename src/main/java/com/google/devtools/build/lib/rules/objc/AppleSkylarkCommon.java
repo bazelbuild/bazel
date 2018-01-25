@@ -404,49 +404,6 @@ public class AppleSkylarkCommon {
       };
 
   @SkylarkSignature(
-    name = "new_xctest_app_provider",
-    objectType = AppleSkylarkCommon.class,
-    returnType = XcTestAppProvider.class,
-    doc = "Creates a new XcTestAppProvider instance.",
-    parameters = {
-      @Param(name = "self", type = AppleSkylarkCommon.class, doc = "The apple_common instance."),
-      @Param(
-        name = "bundle_loader",
-        type = Artifact.class,
-        named = true,
-        positional = false,
-        doc = "The bundle loader for the test. Corresponds to the binary inside the test IPA."
-      ),
-      @Param(
-        name = "ipa",
-        type = Artifact.class,
-        named = true,
-        positional = false,
-        doc = "The test IPA."
-      ),
-      @Param(
-        name = "objc_provider",
-        type = ObjcProvider.class,
-        named = true,
-        positional = false,
-        doc = "An ObjcProvider that should be included by tests using this test bundle."
-      )
-    }
-  )
-  public static final BuiltinFunction NEW_XCTEST_APP_PROVIDER =
-      new BuiltinFunction("new_xctest_app_provider") {
-        @SuppressWarnings("unused")
-        // This method is registered statically for skylark, and never called directly.
-        public XcTestAppProvider invoke(
-            AppleSkylarkCommon self,
-            Artifact bundleLoader,
-            Artifact ipa,
-            ObjcProvider objcProvider) {
-          return new XcTestAppProvider(bundleLoader, ipa, objcProvider);
-        }
-      };
-
-  @SkylarkSignature(
     name = "new_dynamic_framework_provider",
     objectType = AppleSkylarkCommon.class,
     returnType = AppleDynamicFrameworkInfo.class,

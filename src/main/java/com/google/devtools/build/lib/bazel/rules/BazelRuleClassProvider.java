@@ -135,7 +135,6 @@ import com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryRule;
 import com.google.devtools.build.lib.rules.objc.AppleStubBinaryRule;
 import com.google.devtools.build.lib.rules.objc.IosDeviceRule;
-import com.google.devtools.build.lib.rules.objc.IosTestRule;
 import com.google.devtools.build.lib.rules.objc.J2ObjcAspect;
 import com.google.devtools.build.lib.rules.objc.J2ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
@@ -552,7 +551,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AppleCcToolchainRule());
           builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
           builder.addRuleDefinition(new IosDeviceRule());
-          builder.addRuleDefinition(new IosTestRule());
           builder.addRuleDefinition(new ObjcBundleRule());
           builder.addRuleDefinition(new ObjcBundleLibraryRule());
           builder.addRuleDefinition(new ObjcFrameworkRule());
@@ -561,8 +559,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
           builder.addRuleDefinition(new ObjcRuleClasses.BundlingRule());
           builder.addRuleDefinition(new ObjcRuleClasses.DylibDependingRule(objcProtoAspect));
-          builder.addRuleDefinition(new ObjcRuleClasses.ReleaseBundlingRule());
-          builder.addRuleDefinition(new ObjcRuleClasses.SimulatorRule());
           builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
           builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
           builder.addRuleDefinition(new ObjcRuleClasses.PlatformRule());
@@ -574,8 +570,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ObjcRuleClasses.ResourceToolsRule());
           builder.addRuleDefinition(new ObjcRuleClasses.XcrunRule());
           builder.addRuleDefinition(new ObjcRuleClasses.LibtoolRule());
-          builder.addRuleDefinition(new ObjcRuleClasses.IpaRule());
-          builder.addRuleDefinition(new ObjcRuleClasses.ReleaseBundlingToolsRule());
           builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
           builder.addRuleDefinition(new XcodeConfigRule());
           builder.addRuleDefinition(new XcodeConfigAliasRule());

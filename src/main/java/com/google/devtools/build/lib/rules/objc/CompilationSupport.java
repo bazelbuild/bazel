@@ -977,7 +977,7 @@ public class CompilationSupport {
         INSTRUMENTATION_SPEC,
         new ObjcCoverageMetadataCollector(),
         oFiles.build(),
-        getGcovForObjectiveCIfNeeded(),
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
         !isTestRule);
@@ -1719,15 +1719,6 @@ public class CompilationSupport {
             .addOutput(strippedBinary)
             .addInput(binaryToLink)
             .build(ruleContext));
-  }
-
-  private NestedSet<Artifact> getGcovForObjectiveCIfNeeded() {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
-        && ruleContext.attributes().has(IosTest.OBJC_GCOV_ATTR, BuildType.LABEL)) {
-      return PrerequisiteArtifacts.nestedSet(ruleContext, IosTest.OBJC_GCOV_ATTR, Mode.HOST);
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
   }
 
   private CompilationSupport registerGenerateUmbrellaHeaderAction(
