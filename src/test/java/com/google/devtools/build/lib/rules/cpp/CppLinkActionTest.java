@@ -756,7 +756,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     for (LinkTargetType linkType : targetTypesToTest) {
 
       scratch.deleteFile("dummyRuleContext/BUILD");
-      Artifact staticLibrary = scratchArtifact("staticLibrary." + linkType.getExtension());
       Artifact output = scratchArtifact("output." + linkType.getExtension());
 
       CppLinkActionBuilder builder =
@@ -769,8 +768,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
               .setLibraryIdentifier("foo")
               .addObjectFiles(ImmutableList.of(testTreeArtifact))
               .addObjectFile(objectFile)
-              .addLibrary(
-                  LinkerInputs.precompiledLibraryToLink(staticLibrary, linkType.getLinkerOutput()))
               // Makes sure this doesn't use a params file.
               .setFake(true);
 
@@ -779,8 +776,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
           .containsAllOf(
               library0.getExecPathString(),
               library1.getExecPathString(),
-              objectFile.getExecPathString(),
-              staticLibrary.getExecPathString())
+              objectFile.getExecPathString())
           .inOrder();
     }
   }
