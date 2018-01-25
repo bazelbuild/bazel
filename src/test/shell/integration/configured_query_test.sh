@@ -111,8 +111,8 @@ function test_ghost_nodes_bug() {
 
   # Create host-configured //pine:plugin node in this cquery
   bazel cquery "deps(//pine:my_java)" || fail "Excepted success"
-  # This cquery should return target configured //pine:plugin but returns
-  # the host-configured target generated above.
+  # This cquery should return target configured //pine:plugin but actually returns
+  # the host-configured target generated above. This is the buggy behavior.
   bazel cquery //pine:dep+//pine:plugin \
     > output 2>"$TEST_log" || fail "Excepted success"
 
@@ -124,6 +124,15 @@ function test_ghost_nodes_bug() {
   DEP_CONFIG=${DEP/"//pine:dep"}
   # Ensure they are are not equal (the buggy behavior).
   assert_not_equals $PLUGIN_CONFIG $DEP_CONFIG
+}
+
+function test_host_config_output() {
+ write_java_library_build
+
+ bazel cquery //pine:plugin --universe_scope=//pine:my_java \
+   > output 2>"$TEST_log" || fail "Excepted success"
+
+ assert_contains "//pine:plugin (HOST)" output
 }
 
 function write_java_library_build() {

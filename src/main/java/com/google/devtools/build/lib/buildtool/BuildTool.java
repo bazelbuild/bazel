@@ -482,13 +482,14 @@ public final class BuildTool {
               public void processOutput(Iterable<ConfiguredTarget> partialResult)
                   throws IOException, InterruptedException {
                 for (ConfiguredTarget configuredTarget : partialResult) {
-                  env.getReporter()
-                      .getOutErr()
-                      .printOutLn(
-                          configuredTarget.getLabel()
-                              + " ("
-                              + configuredTarget.getConfiguration()
-                              + ")");
+                  BuildConfiguration config = configuredTarget.getConfiguration();
+                  StringBuilder output =
+                      new StringBuilder()
+                          .append(configuredTarget.getLabel())
+                          .append(" (")
+                          .append(config != null && config.isHostConfiguration() ? "HOST" : config)
+                          .append(")");
+                  env.getReporter().getOutErr().printOutLn(output.toString());
                 }
               }
             });
