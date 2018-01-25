@@ -50,12 +50,23 @@ def _http_archive_impl(ctx):
   if ctx.attr.build_file and ctx.attr.build_file_content:
     ctx.fail("Only one of build_file and build_file_content can be provided.")
 
+  # These print statement is not only for debug, but it also ensures the file
+  # is referenced before the download is started; this is necessary till a
+  # proper fix for https://github.com/bazelbuild/bazel/issues/2700 is
+  # implemented. A proper could, e.g., be to ensure that all ctx.path of
+  # all the lables provided as arguments are present before the implementation
+  # function is called the first time.
+  if ctx.attr.build_file:
+    print("ctx.attr.build_file %s, path %s" %
+          (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
+  for patchfile in ctx.attr.patches:
+    print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
+
   ctx.download_and_extract(ctx.attr.urls, "", ctx.attr.sha256, ctx.attr.type,
                            ctx.attr.strip_prefix)
   _patch(ctx)
   ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name=ctx.name))
   if ctx.attr.build_file:
-    print("ctx.attr.build_file %s" % str(ctx.attr.build_file))
     ctx.symlink(ctx.attr.build_file, "BUILD")
   elif ctx.attr.build_file_content:
     ctx.file("BUILD", ctx.attr.build_file_content)
