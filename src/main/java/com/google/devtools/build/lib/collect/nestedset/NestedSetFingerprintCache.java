@@ -14,16 +14,18 @@
 
 package com.google.devtools.build.lib.collect.nestedset;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Computes fingerprints for nested sets, reusing sub-computations from children. */
-public abstract class NestedSetFingerprintCache<T> {
+public class NestedSetFingerprintCache {
   private static final byte[] EMPTY_SET_BYTES = new byte[] {};
   private Map<Object, byte[]> fingerprints = createMap();
 
-  public void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet) {
+  public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet) {
     fingerprint.addInt(nestedSet.getOrder().ordinal());
     Object children = nestedSet.rawChildren();
     byte[] bytes = getBytes(children);
@@ -34,6 +36,7 @@ public abstract class NestedSetFingerprintCache<T> {
     fingerprints = createMap();
   }
 
+  @SuppressWarnings("unchecked")
   private byte[] getBytes(Object children) {
     byte[] bytes = fingerprints.get(children);
     if (bytes == null) {
@@ -43,7 +46,7 @@ public abstract class NestedSetFingerprintCache<T> {
           if (child instanceof Object[]) {
             fingerprint.addBytes(getBytes(child));
           } else {
-            addItemFingerprint(fingerprint, cast(child));
+            addToFingerprint(fingerprint, child);
           }
         }
         bytes = fingerprint.digestAndReset();
@@ -55,7 +58,7 @@ public abstract class NestedSetFingerprintCache<T> {
       } else if (children != NestedSet.EMPTY_CHILDREN) {
         // Single item
         Fingerprint fingerprint = new Fingerprint();
-        addItemFingerprint(fingerprint, cast(children));
+        addToFingerprint(fingerprint, children);
         bytes = fingerprint.digestAndReset();
       } else {
         // Empty nested set
@@ -65,14 +68,12 @@ public abstract class NestedSetFingerprintCache<T> {
     return bytes;
   }
 
-  @SuppressWarnings("unchecked")
-  private T cast(Object item) {
-    return (T) item;
+  @VisibleForTesting
+  <T> void addToFingerprint(Fingerprint fingerprint, T object) {
+    fingerprint.addString(CommandLineItem.expandToCommandLine(object));
   }
 
   private static Map<Object, byte[]> createMap() {
     return new ConcurrentHashMap<>();
   }
-
-  protected abstract void addItemFingerprint(Fingerprint fingerprint, T item);
 }

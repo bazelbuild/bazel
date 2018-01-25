@@ -20,22 +20,15 @@ import com.google.devtools.build.lib.util.Fingerprint;
 
 /** Contains state that aids in action key computation via {@link AbstractAction#computeKey}. */
 public class ActionKeyContext {
-  private static final class ArtifactNestedSetFingerprintCache
-      extends NestedSetFingerprintCache<Artifact> {
-    @Override
-    protected void addItemFingerprint(Fingerprint fingerprint, Artifact item) {
-      fingerprint.addPath(item.getExecPath());
-    }
-  }
 
-  private final ArtifactNestedSetFingerprintCache artifactNestedSetFingerprintCache =
-      new ArtifactNestedSetFingerprintCache();
+  private final NestedSetFingerprintCache nestedSetFingerprintCache =
+      new NestedSetFingerprintCache();
 
-  public void addArtifactsToFingerprint(Fingerprint fingerprint, NestedSet<Artifact> artifacts) {
-    artifactNestedSetFingerprintCache.addNestedSetToFingerprint(fingerprint, artifacts);
+  public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet) {
+    nestedSetFingerprintCache.addNestedSetToFingerprint(fingerprint, nestedSet);
   }
 
   public void clear() {
-    artifactNestedSetFingerprintCache.clear();
+    nestedSetFingerprintCache.clear();
   }
 }

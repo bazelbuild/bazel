@@ -1,0 +1,43 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.analysis.actions;
+
+/** An interface for an object that customizes how it is expanded into a command line. */
+public interface CommandLineItem {
+  /**
+   * A map function that allows caller customization how a type is expanded into the command line.
+   */
+  interface MapFn<T> {
+    MapFn<Object> DEFAULT = CommandLineItem::expandToCommandLine;
+
+    String expandToCommandLine(T object);
+  }
+
+  /** Expands the object into the command line as a string. */
+  String expandToCommandLine();
+
+  /**
+   * The default method of expanding types.
+   *
+   * <p>If the object is a {@link CommandLineItem} we use its {@link
+   * CommandLineItem#expandToCommandLine} method, else we call {@link Object#toString()}.
+   */
+  static String expandToCommandLine(Object object) {
+    if (object instanceof CommandLineItem) {
+      return ((CommandLineItem) object).expandToCommandLine();
+    } else {
+      return object.toString();
+    }
+  }
+}

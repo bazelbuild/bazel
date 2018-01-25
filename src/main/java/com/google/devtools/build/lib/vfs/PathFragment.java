@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -52,7 +53,11 @@ import java.util.Set;
 @javax.annotation.concurrent.Immutable
 @ThreadSafe
 public abstract class PathFragment
-    implements Comparable<PathFragment>, Serializable, SkylarkPrintable, FileType.HasFileType {
+    implements Comparable<PathFragment>,
+        Serializable,
+        SkylarkPrintable,
+        FileType.HasFileType,
+        CommandLineItem {
   private static final Helper HELPER =
       OS.getCurrent() == OS.WINDOWS ? WindowsPathFragment.HELPER : UnixPathFragment.HELPER;
 
@@ -760,6 +765,11 @@ public abstract class PathFragment
   @Override
   public String filePathForFileTypeMatcher() {
     return getBaseName();
+  }
+
+  @Override
+  public String expandToCommandLine() {
+    return getPathString();
   }
 
   private static class PathFragmentCodec implements ObjectCodec<PathFragment> {

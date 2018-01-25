@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -148,7 +148,7 @@ class SkylarkCustomCommandLine extends CommandLine {
         mutatedValues.addAll(resultAsList);
       }
       for (int i = 0; i < count; ++i) {
-        mutatedValues.set(i, valueToString(mutatedValues.get(i)));
+        mutatedValues.set(i, CommandLineItem.expandToCommandLine(mutatedValues.get(i)));
       }
       if (hasFormat) {
         String formatStr = (String) arguments.get(argi++);
@@ -291,7 +291,7 @@ class SkylarkCustomCommandLine extends CommandLine {
         BaseFunction mapFn = (BaseFunction) arguments.get(argi++);
         object = applyMapFn(mapFn, object, location, skylarkSemantics, eventHandler);
       }
-      object = valueToString(object);
+      object = CommandLineItem.expandToCommandLine(object);
       if (hasFormat) {
         String formatStr = (String) arguments.get(argi++);
         Formatter formatter = new Formatter(formatStr, location);
@@ -390,18 +390,10 @@ class SkylarkCustomCommandLine extends CommandLine {
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).eval(arguments, argi, result, skylarkSemantics, eventHandler);
       } else {
-        result.add(valueToString(arg));
+        result.add(CommandLineItem.expandToCommandLine(arg));
       }
     }
     return result.build();
-  }
-
-  private static String valueToString(Object value) {
-    if (value instanceof Artifact) {
-      Artifact artifact = (Artifact) value;
-      return artifact.getExecPath().getPathString();
-    }
-    return value.toString();
   }
 
   private static class Formatter {

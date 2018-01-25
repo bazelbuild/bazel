@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
@@ -36,7 +37,7 @@ public class ResourceContainerConverter {
     return new Builder();
   }
 
-  interface ToArg extends Function<ResourceContainer, String> {
+  interface ToArg extends CommandLineItem.MapFn<ResourceContainer> {
 
     String listSeparator();
   }
@@ -128,7 +129,7 @@ public class ResourceContainerConverter {
 
       return new ToArg() {
         @Override
-        public String apply(ResourceContainer container) {
+        public String expandToCommandLine(ResourceContainer container) {
           ImmutableList.Builder<String> cmdPieces = ImmutableList.builder();
           if (includeResourceRoots) {
             cmdPieces.add(convertRoots(container, ResourceType.RESOURCES));

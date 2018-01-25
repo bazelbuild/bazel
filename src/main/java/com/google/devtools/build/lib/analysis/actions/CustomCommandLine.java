@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A customizable, serializable class for building memory efficient command lines. */
@@ -77,10 +76,8 @@ public final class CustomCommandLine extends CommandLine {
     abstract void eval(ImmutableList.Builder<String> builder);
   }
 
-  // TODO(bazel-team): CustomMultiArgv is  going to be difficult to expose
-  // in Skylark. Maybe we can get rid of them by refactoring JavaCompileAction. It also
-  // raises immutability / serialization issues.
-  /** Custom Java code producing a List of String arguments. */
+  /** Deprecated. Do not use. TODO(b/64841073): Remove this */
+  @Deprecated
   public abstract static class CustomMultiArgv extends StandardArgvFragment {
 
     @Override
@@ -179,17 +176,17 @@ public final class CustomCommandLine extends CommandLine {
       }
 
       /** Each argument is mapped using the supplied map function */
-      public MappedVectorArg<T> mapped(Function<T, String> mapFn) {
+      public MappedVectorArg<T> mapped(CommandLineItem.MapFn<T> mapFn) {
         return new MappedVectorArg<>(this, mapFn);
       }
     }
 
     /** A vector arg that maps some type T to strings. */
-    public static class MappedVectorArg<T> extends VectorArg<String> {
+    static class MappedVectorArg<T> extends VectorArg<String> {
       private final Iterable<T> values;
-      private final Function<T, String> mapFn;
+      private final CommandLineItem.MapFn<T> mapFn;
 
-      private MappedVectorArg(SimpleVectorArg<T> other, Function<T, String> mapFn) {
+      private MappedVectorArg(SimpleVectorArg<T> other, CommandLineItem.MapFn<T> mapFn) {
         super(
             other.isNestedSet,
             other.isEmpty,
@@ -263,7 +260,7 @@ public final class CustomCommandLine extends CommandLine {
     @SuppressWarnings("unchecked")
     private static void push(List<Object> arguments, VectorArg<?> vectorArg) {
       final Iterable<?> values;
-      final Function<?, String> mapFn;
+      final CommandLineItem.MapFn<?> mapFn;
       if (vectorArg instanceof SimpleVectorArg) {
         values = ((SimpleVectorArg) vectorArg).values;
         mapFn = null;
@@ -342,14 +339,12 @@ public final class CustomCommandLine extends CommandLine {
             mutatedValues.add(arguments.get(argi++));
           }
         }
-        if (hasMapEach) {
-          Function<Object, String> mapFn = (Function<Object, String>) arguments.get(argi++);
-          for (int i = 0; i < count; ++i) {
-            mutatedValues.set(i, mapFn.apply(mutatedValues.get(i)));
-          }
-        }
+        CommandLineItem.MapFn<Object> mapFn =
+            hasMapEach
+                ? (CommandLineItem.MapFn<Object>) arguments.get(argi++)
+                : CommandLineItem.MapFn.DEFAULT;
         for (int i = 0; i < count; ++i) {
-          mutatedValues.set(i, valueToString(mutatedValues.get(i)));
+          mutatedValues.set(i, mapFn.expandToCommandLine(mutatedValues.get(i)));
         }
         if (hasFormatEach) {
           String formatStr = (String) arguments.get(argi++);
@@ -413,7 +408,7 @@ public final class CustomCommandLine extends CommandLine {
       String formatStr = (String) arguments.get(argi++);
       Object[] args = new Object[argCount];
       for (int i = 0; i < argCount; ++i) {
-        args[i] = valueToString(arguments.get(argi++));
+        args[i] = CommandLineItem.expandToCommandLine(arguments.get(argi++));
       }
       builder.add(String.format(formatStr, args));
       return argi;
@@ -433,7 +428,7 @@ public final class CustomCommandLine extends CommandLine {
     public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
       String before = (String) arguments.get(argi++);
       Object arg = arguments.get(argi++);
-      builder.add(before + valueToString(arg));
+      builder.add(before + CommandLineItem.expandToCommandLine(arg));
       return argi;
     }
   }
@@ -1074,7 +1069,7 @@ public final class CustomCommandLine extends CommandLine {
           i = ((ArgvFragment) substitutedArg).eval(arguments, i, builder);
         }
       } else {
-        builder.add(valueToString(substitutedArg));
+        builder.add(CommandLineItem.expandToCommandLine(substitutedArg));
       }
     }
     return builder.build();
@@ -1082,7 +1077,7 @@ public final class CustomCommandLine extends CommandLine {
 
   private void evalSimpleVectorArg(Iterable<?> arg, ImmutableList.Builder<String> builder) {
     for (Object value : arg) {
-      builder.add(valueToString(value));
+      builder.add(CommandLineItem.expandToCommandLine(value));
     }
   }
 
@@ -1100,11 +1095,5 @@ public final class CustomCommandLine extends CommandLine {
     } else {
       return arg;
     }
-  }
-
-  private static String valueToString(Object value) {
-    return value instanceof Artifact
-        ? ((Artifact) value).getExecPath().getPathString()
-        : value.toString();
   }
 }

@@ -19,6 +19,7 @@ java_library(
     srcs = PATH_FRAGMENT_SOURCES,
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
+        "//src/main/java/com/google/devtools/build/lib:commandline_item",
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",

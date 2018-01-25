@@ -441,7 +441,7 @@ public class AndroidResourcesProcessorBuilder {
       List<Artifact> outs, NestedSetBuilder<Artifact> inputs, Builder builder) {
 
     // Add data
-    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.apply(primary));
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.expandToCommandLine(primary));
     inputs.addAll(primary.getArtifacts());
     inputs.add(primary.getManifest());
 

@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -115,7 +116,11 @@ import javax.annotation.Nullable;
           + "<a href='ctx.html#outputs'>ctx.outputs</a>."
 )
 public class Artifact
-    implements FileType.HasFileType, ActionInput, SkylarkValue, Comparable<Object> {
+    implements FileType.HasFileType,
+        ActionInput,
+        SkylarkValue,
+        Comparable<Object>,
+        CommandLineItem {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
@@ -326,6 +331,11 @@ public class Artifact
   @Override
   public String filePathForFileTypeMatcher() {
     return getExecPath().filePathForFileTypeMatcher();
+  }
+
+  @Override
+  public String expandToCommandLine() {
+    return getExecPathString();
   }
 
   /**

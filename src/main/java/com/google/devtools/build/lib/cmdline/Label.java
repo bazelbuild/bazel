@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -53,7 +54,8 @@ import javax.annotation.Nullable;
 )
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkValue, SkyKey {
+public final class Label
+    implements Comparable<Label>, Serializable, SkylarkValue, SkyKey, CommandLineItem {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
@@ -571,6 +573,11 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
   @Override
   public void str(SkylarkPrinter printer) {
     printer.append(getCanonicalForm());
+  }
+
+  @Override
+  public String expandToCommandLine() {
+    return getCanonicalForm();
   }
 
   /**

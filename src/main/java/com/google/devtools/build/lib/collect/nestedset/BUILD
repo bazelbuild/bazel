@@ -40,6 +40,8 @@ java_library(
     srcs = ["NestedSetFingerprintCache.java"],
     deps = [
         ":nestedset",
+        "//src/main/java/com/google/devtools/build/lib:commandline_item",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:guava",
     ],
 )

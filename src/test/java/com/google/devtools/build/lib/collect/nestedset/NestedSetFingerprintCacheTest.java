@@ -26,21 +26,22 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link NestedSetFingerprintCache}. */
 @RunWith(JUnit4.class)
 public class NestedSetFingerprintCacheTest {
-  private static class StringCache extends NestedSetFingerprintCache<String> {
-    private final Multiset<String> fingerprinted = HashMultiset.create();
+
+  private class TestNestedSetFingerprintCache extends NestedSetFingerprintCache {
+    private final Multiset<Object> fingerprinted = HashMultiset.create();
 
     @Override
-    protected void addItemFingerprint(Fingerprint fingerprint, String item) {
-      fingerprint.addString(item);
-      fingerprinted.add(item);
+    <T> void addToFingerprint(Fingerprint fingerprint, T object) {
+      super.addToFingerprint(fingerprint, object);
+      fingerprinted.add(object);
     }
   }
 
-  private StringCache stringCache;
+  private TestNestedSetFingerprintCache cache;
 
   @Before
   public void setup() {
-    stringCache = new StringCache();
+    cache = new TestNestedSetFingerprintCache();
   }
 
   @Test
@@ -58,7 +59,7 @@ public class NestedSetFingerprintCacheTest {
     String controlDigest = fingerprint.hexDigestAndReset();
 
     Fingerprint nestedSetFingerprint = new Fingerprint();
-    stringCache.addNestedSetToFingerprint(nestedSetFingerprint, nestedSet);
+    cache.addNestedSetToFingerprint(nestedSetFingerprint, nestedSet);
     String nestedSetDigest = nestedSetFingerprint.hexDigestAndReset();
 
     assertThat(controlDigest).isEqualTo(nestedSetDigest);
@@ -77,9 +78,10 @@ public class NestedSetFingerprintCacheTest {
         NestedSetBuilder.<String>stableOrder().add("d").addTransitive(a).addTransitive(b).build();
     NestedSet<String> e =
         NestedSetBuilder.<String>stableOrder().add("e").addTransitive(c).addTransitive(d).build();
-    stringCache.addNestedSetToFingerprint(new Fingerprint(), e);
-    assertThat(stringCache.fingerprinted).containsExactly("a0", "a1", "b0", "b1", "c", "d", "e");
-    for (Multiset.Entry<String> entry : stringCache.fingerprinted.entrySet()) {
+    cache.addNestedSetToFingerprint(new Fingerprint(), e);
+    assertThat(cache.fingerprinted.elementSet())
+        .containsExactly("a0", "a1", "b0", "b1", "c", "d", "e");
+    for (Multiset.Entry<Object> entry : cache.fingerprinted.entrySet()) {
       assertThat(entry.getCount()).isEqualTo(1);
     }
   }

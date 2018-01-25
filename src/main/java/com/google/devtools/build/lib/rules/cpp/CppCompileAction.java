@@ -1081,11 +1081,11 @@ public class CppCompileAction extends AbstractAction
      */
     f.addPaths(context.getDeclaredIncludeDirs());
     f.addPaths(context.getDeclaredIncludeWarnDirs());
-    actionKeyContext.addArtifactsToFingerprint(f, context.getDeclaredIncludeSrcs());
+    actionKeyContext.addNestedSetToFingerprint(f, context.getDeclaredIncludeSrcs());
     f.addInt(0);  // mark the boundary between input types
-    actionKeyContext.addArtifactsToFingerprint(f, getMandatoryInputs());
+    actionKeyContext.addNestedSetToFingerprint(f, getMandatoryInputs());
     f.addInt(0);
-    actionKeyContext.addArtifactsToFingerprint(f, prunableInputs);
+    actionKeyContext.addNestedSetToFingerprint(f, prunableInputs);
     return f.hexDigestAndReset();
   }
 

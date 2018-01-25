@@ -18,6 +18,7 @@ java_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
+        "//src/main/java/com/google/devtools/build/lib:commandline_item",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
