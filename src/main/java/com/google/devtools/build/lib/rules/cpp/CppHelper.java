@@ -616,9 +616,8 @@ public class CppHelper {
 
   private static Artifact getIncludesOutput(RuleContext ruleContext, Artifact src) {
     Preconditions.checkArgument(!src.isSourceArtifact(), src);
-    return ruleContext.getShareableArtifact(
-        src.getRootRelativePath().replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX),
-        src.getRoot());
+    return ruleContext.getGenfilesArtifact(
+        src.getRootRelativePath().replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX));
   }
 
   /**
