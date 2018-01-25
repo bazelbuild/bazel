@@ -176,8 +176,8 @@ public class BuildView {
               + " an upcoming Blaze release",
       defaultValue = "false",
       category = "strategy",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
       help = "Treat visible analysis warnings as errors."
     )
     public boolean analysisWarningsAsErrors;
