@@ -72,7 +72,6 @@ def create_android_sdk_rules(
           "build-tools/%s/lib/apksigner.jar" % build_tools_directory,
           "build-tools/%s/lib/dx.jar" % build_tools_directory,
           "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
-          "tools/proguard/lib/proguard.jar",
           "tools/support/annotations.jar",
       ] + [
           "platforms/android-%d/%s" % (api_level, filename)
