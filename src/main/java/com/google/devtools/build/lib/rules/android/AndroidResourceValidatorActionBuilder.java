@@ -229,9 +229,6 @@ public class AndroidResourceValidatorActionBuilder {
 
     ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
 
-    builder.addExecPath("--annotationJar", sdk.getAnnotationsJar());
-    inputs.add(sdk.getAnnotationsJar());
-
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 

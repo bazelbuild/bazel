@@ -60,7 +60,6 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     Artifact sourceProperties = ruleContext.getHostPrerequisiteArtifact("source_properties");
     Artifact shrinkedAndroidJar =
         ruleContext.getPrerequisiteArtifact("shrinked_android_jar", Mode.HOST);
-    Artifact annotationsJar = ruleContext.getPrerequisiteArtifact("annotations_jar", Mode.HOST);
     Artifact mainDexClasses = ruleContext.getPrerequisiteArtifact("main_dex_classes", Mode.HOST);
 
     if (ruleContext.hasErrors()) {
@@ -77,7 +76,6 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
                 androidJar,
                 sourceProperties,
                 shrinkedAndroidJar,
-                annotationsJar,
                 mainDexClasses,
                 adb,
                 dx,

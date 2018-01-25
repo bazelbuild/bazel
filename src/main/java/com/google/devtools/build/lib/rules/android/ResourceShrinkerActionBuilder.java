@@ -151,9 +151,6 @@ public class ResourceShrinkerActionBuilder {
       commandLine.addExecPath("--aapt", aapt.getExecutable());
     }
 
-    commandLine.addExecPath("--annotationJar", sdk.getAnnotationsJar());
-    inputs.add(sdk.getAnnotationsJar());
-
     commandLine.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 

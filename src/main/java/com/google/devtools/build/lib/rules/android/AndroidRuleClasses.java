@@ -449,7 +449,6 @@ public final class AndroidRuleClasses {
               .cfg(HostTransition.INSTANCE)
               .allowedFileTypes(ANY_FILE))
           .add(attr("annotations_jar", LABEL)
-              .mandatory()
               .cfg(HostTransition.INSTANCE)
               .allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL)

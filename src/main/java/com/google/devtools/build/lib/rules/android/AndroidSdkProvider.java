@@ -36,7 +36,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
       Artifact androidJar,
       @Nullable Artifact sourceProperties,
       Artifact shrinkedAndroidJar,
-      Artifact annotationsJar,
       Artifact mainDexClasses,
       FilesToRunProvider adb,
       FilesToRunProvider dx,
@@ -56,7 +55,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
         androidJar,
         sourceProperties,
         shrinkedAndroidJar,
-        annotationsJar,
         mainDexClasses,
         adb,
         dx,
@@ -100,8 +98,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
   public abstract Artifact getSourceProperties();
 
   public abstract Artifact getShrinkedAndroidJar();
-
-  public abstract Artifact getAnnotationsJar();
 
   public abstract Artifact getMainDexClasses();
 

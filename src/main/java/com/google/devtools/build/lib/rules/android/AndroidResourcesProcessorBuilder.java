@@ -449,9 +449,6 @@ public class AndroidResourcesProcessorBuilder {
       builder.add("--buildToolsVersion", sdk.getBuildToolsVersion());
     }
 
-    builder.addExecPath("--annotationJar", sdk.getAnnotationsJar());
-    inputs.add(sdk.getAnnotationsJar());
-
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
 
