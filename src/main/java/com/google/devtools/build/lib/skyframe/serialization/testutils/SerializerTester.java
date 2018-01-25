@@ -23,12 +23,13 @@ import com.esotericsoftware.kryo.io.UnsafeInput;
 import com.esotericsoftware.kryo.io.UnsafeOutput;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.serializers.RegistrationUtil;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
 import org.objenesis.instantiator.ObjectInstantiator;
 
 /** Utility for testing {@link Serializer} instances. */
-public class SerializerTester<T> {
+public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
   public static final int DEFAULT_JUNK_INPUTS = 20;
   public static final int JUNK_LENGTH_UPPER_BOUND = 20;
 
@@ -48,20 +49,20 @@ public class SerializerTester<T> {
    *
    * <p>See {@link SerializerTester.Builder} for details.
    */
-  public static <T> SerializerTester.Builder<T> newBuilder(Class<T> type) {
+  public static <T> SerializerTester.Builder<T, T> newBuilder(Class<T> type) {
     return new SerializerTester.Builder<>(type);
   }
 
-  private final Class<T> type;
+  private final Class<SerializerT> type;
   private final Kryo kryo;
-  private final ImmutableList<T> subjects;
-  private final VerificationFunction<T> verificationFunction;
+  private final ImmutableList<SubjectT> subjects;
+  private final VerificationFunction<SubjectT> verificationFunction;
 
   private SerializerTester(
-      Class<T> type,
+      Class<SerializerT> type,
       Kryo kryo,
-      ImmutableList<T> subjects,
-      VerificationFunction<T> verificationFunction) {
+      ImmutableList<SubjectT> subjects,
+      VerificationFunction<SubjectT> verificationFunction) {
     this.type = type;
     this.kryo = kryo;
     Preconditions.checkState(!subjects.isEmpty(), "No subjects provided");
@@ -77,18 +78,18 @@ public class SerializerTester<T> {
 
   /** Runs serialization/deserialization tests. */
   void testSerializeDeserialize() throws Exception {
-    for (T subject : subjects) {
+    for (SubjectT subject : subjects) {
       byte[] serialized = toBytes(subject);
-      T deserialized = fromBytes(serialized);
+      SubjectT deserialized = fromBytes(serialized);
       verificationFunction.verifyDeserialized(subject, deserialized);
     }
   }
 
   /** Runs serialized bytes stability tests. */
   void testStableSerialization() throws Exception {
-    for (T subject : subjects) {
+    for (SubjectT subject : subjects) {
       byte[] serialized = toBytes(subject);
-      T deserialized = fromBytes(serialized);
+      SubjectT deserialized = fromBytes(serialized);
       byte[] reserialized = toBytes(deserialized);
       assertThat(reserialized).isEqualTo(serialized);
     }
@@ -99,8 +100,9 @@ public class SerializerTester<T> {
    *
    * <p>Verifies that the Serializer only throws KryoException or IndexOutOfBoundsException.
    *
-   * <p>TODO(shahan): Allowing IndexOutOfBoundsException here is not ideal, but Kryo itself encodes
-   * lengths in the stream and seeking to random lengths triggers this.
+   * <p>TODO(shahan): Allowing IndexOutOfBoundsException and NegativeArraySizeException here is not
+   * ideal, but Kryo itself encodes lengths in the stream and seeking to random lengths triggers
+   * this.
    */
   void testDeserializeJunkData() {
     Random rng = new Random(0);
@@ -112,7 +114,7 @@ public class SerializerTester<T> {
         UnsafeInput input = new UnsafeInput(junkData);
         kryo.readObject(input, type);
         // OK. Junk string was coincidentally parsed.
-      } catch (IndexOutOfBoundsException | KryoException e) {
+      } catch (IndexOutOfBoundsException | NegativeArraySizeException | KryoException e) {
         // OK. Deserialization of junk failed.
         ++numFailures;
       }
@@ -120,11 +122,11 @@ public class SerializerTester<T> {
     assertThat(numFailures).isAtLeast(1);
   }
 
-  private T fromBytes(byte[] bytes) {
+  private SubjectT fromBytes(byte[] bytes) {
     return kryo.readObject(new UnsafeInput(bytes), type);
   }
 
-  private byte[] toBytes(T subject) {
+  private byte[] toBytes(SubjectT subject) {
     ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
     UnsafeOutput out = new UnsafeOutput(byteOut);
     kryo.writeObject(out, subject);
@@ -133,42 +135,54 @@ public class SerializerTester<T> {
   }
 
   /** Builder for {@link SerializerTester}. */
-  public static class Builder<T> {
-    private final Class<T> type;
+  public static class Builder<SubjectT, SerializerT extends SubjectT> {
+    private final Class<SerializerT> type;
     private final Kryo kryo;
-    private final ImmutableList.Builder<T> subjectsBuilder = ImmutableList.builder();
-    private VerificationFunction<T> verificationFunction =
+    private final ImmutableList.Builder<SubjectT> subjectsBuilder = ImmutableList.builder();
+    private VerificationFunction<SubjectT> verificationFunction =
         (original, deserialized) -> assertThat(deserialized).isEqualTo(original);
 
-    private Builder(Class<T> type) {
+    private Builder(Class<SerializerT> type) {
       this.type = type;
       this.kryo = new Kryo();
+      RegistrationUtil.registerSerializers(kryo);
       kryo.setRegistrationRequired(true);
     }
 
-    public <X> Builder<T> register(Class<X> type, Serializer<X> serializer) {
+    public Builder(Class<SubjectT> unusedSubjectType, Class<SerializerT> type) {
+      this(type);
+    }
+
+    public Builder<SubjectT, SerializerT> registerSerializer(Serializer<SerializerT> serializer) {
       kryo.register(type, serializer);
       return this;
     }
 
-    public <X> Builder<T> register(Class<X> type) {
+    public <X> Builder<SubjectT, SerializerT> register(Class<X> type, Serializer<X> serializer) {
+      kryo.register(type, serializer);
+      return this;
+    }
+
+    public <X> Builder<SubjectT, SerializerT> register(Class<X> type) {
       kryo.register(type);
       return this;
     }
 
-    public <X> Builder<T> register(Class<X> type, ObjectInstantiator instantiator) {
+    public <X> Builder<SubjectT, SerializerT> register(
+        Class<X> type, ObjectInstantiator instantiator) {
       kryo.register(type).setInstantiator(instantiator);
       return this;
     }
 
     /** Adds subjects to be tested for serialization/deserialization. */
     @SafeVarargs
-    public final Builder<T> addSubjects(@SuppressWarnings("unchecked") T... subjects) {
+    public final Builder<SubjectT, SerializerT> addSubjects(
+        @SuppressWarnings("unchecked") SubjectT... subjects) {
       return addSubjects(ImmutableList.copyOf(subjects));
     }
 
     /** Adds subjects to be tested for serialization/deserialization. */
-    public Builder<T> addSubjects(ImmutableList<T> subjects) {
+    public Builder<SubjectT, SerializerT> addSubjects(ImmutableList<SubjectT> subjects) {
       subjectsBuilder.addAll(subjects);
       return this;
     }
@@ -179,12 +193,13 @@ public class SerializerTester<T> {
      * <p>Default is simple equality assertion, a custom version may be provided for more, or less,
      * detailed checks.
      */
-    public Builder<T> setVerificationFunction(VerificationFunction<T> verificationFunction) {
+    public Builder<SubjectT, SerializerT> setVerificationFunction(
+        VerificationFunction<SubjectT> verificationFunction) {
       this.verificationFunction = Preconditions.checkNotNull(verificationFunction);
       return this;
     }
 
-    public Builder<T> setRegistrationRequired(boolean isRequired) {
+    public Builder<SubjectT, SerializerT> setRegistrationRequired(boolean isRequired) {
       kryo.setRegistrationRequired(isRequired);
       return this;
     }
@@ -195,7 +210,7 @@ public class SerializerTester<T> {
     }
 
     /** Creates a new {@link SerializerTester} from this builder. */
-    private SerializerTester<T> build() {
+    private SerializerTester<SubjectT, SerializerT> build() {
       return new SerializerTester<>(type, kryo, subjectsBuilder.build(), verificationFunction);
     }
   }

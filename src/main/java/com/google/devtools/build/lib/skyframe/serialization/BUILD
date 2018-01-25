@@ -5,6 +5,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/serializers:srcs",
     ],
 )
 
