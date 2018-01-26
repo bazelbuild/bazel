@@ -82,6 +82,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final String buildRequestId;
   private final String commandId;
   private final DigestUtil digestUtil;
+  private final RemoteStats stats;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -96,7 +97,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       String commandId,
       @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      @Nullable RemoteStats stats) {
     this.execRoot = execRoot;
     this.options = options;
     this.fallbackRunner = fallbackRunner;
@@ -107,12 +109,19 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.digestUtil = digestUtil;
+    this.stats = stats;
   }
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
       throws ExecException, InterruptedException, IOException {
+    if (stats != null) {
+      stats.addSpawn();
+    }
     if (!Spawns.mayBeExecutedRemotely(spawn) || remoteCache == null) {
+      if (stats != null) {
+        stats.addLocal();
+      }
       return fallbackRunner.exec(spawn, policy);
     }
 
@@ -156,6 +165,9 @@ class RemoteSpawnRunner implements SpawnRunner {
                     + actionKey.getDigest());
           }
           try {
+            if (stats != null) {
+              stats.addRemoteCacheHit();
+            }
             return downloadRemoteResults(cachedResult, policy.getFileOutErr());
           } catch (CacheNotFoundException e) {
             // No cache hit, so we fall through to local or remote execution.
@@ -193,7 +205,11 @@ class RemoteSpawnRunner implements SpawnRunner {
       }
 
       try {
-        return downloadRemoteResults(result, policy.getFileOutErr());
+        SpawnResult r = downloadRemoteResults(result, policy.getFileOutErr());
+        if(stats != null) {
+          stats.addRemoteExec();
+        }
+        return r;
       } catch (IOException e) {
         return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
       }

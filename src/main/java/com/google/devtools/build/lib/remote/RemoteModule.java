@@ -15,12 +15,16 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -90,8 +94,14 @@ public final class RemoteModule extends BlazeModule {
     builder.addPathToUriConverter(converter);
   }
 
+  private Reporter reporter;
+  private RemoteStats stats;
+
   @Override
   public void beforeCommand(CommandEnvironment env) {
+    stats = new RemoteStats();
+    this.reporter = env.getReporter();
+
     env.getEventBus().register(this);
     String buildRequestId = env.getBuildRequestId().toString();
     String commandId = env.getCommandId().toString();
@@ -153,7 +163,7 @@ public final class RemoteModule extends BlazeModule {
         executor = null;
       }
 
-      actionContextProvider = new RemoteActionContextProvider(env, cache, executor, digestUtil);
+      actionContextProvider = new RemoteActionContextProvider(env, cache, executor, digestUtil, stats);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment().exit(new AbruptExitException(ExitCode.COMMAND_LINE_ERROR));
@@ -178,5 +188,10 @@ public final class RemoteModule extends BlazeModule {
   public static boolean remoteEnabled(RemoteOptions options) {
     return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
         || GrpcRemoteCache.isRemoteCacheOptions(options);
+  }
+
+  @Subscribe
+  public void buildComplete(BuildCompleteEvent event) {
+    reporter.handle(Event.info(stats.Summary()));
   }
 }
