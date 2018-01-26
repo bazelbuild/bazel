@@ -5,6 +5,8 @@ alias(
     actual = "//external:android/sdk",
 )
 
+android_tools_defaults_jar(name = "android_jar")
+
 android_library(
     name = "incremental_stub_application",
     exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
