@@ -7,14 +7,12 @@ filegroup(
 )
 
 java_library(
-    name = "authandtls",
+    name = "blobstore",
     srcs = glob(["*.java"]),
+    tags = ["bazel"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auth",
         "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party/grpc:grpc-jar",
     ],
 )

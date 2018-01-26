@@ -7,14 +7,18 @@ filegroup(
 )
 
 java_library(
-    name = "authandtls",
+    name = "http",
     srcs = glob(["*.java"]),
+    tags = ["bazel"],
+    runtime_deps = [
+        # This is required for client TLS.
+        "//third_party:netty_tcnative",
+    ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auth",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party:netty",
-        "//third_party/grpc:grpc-jar",
     ],
 )

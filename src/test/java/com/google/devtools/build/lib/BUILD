@@ -1169,7 +1169,7 @@ java_test(
 
 java_test(
     name = "remote-tests",
-    srcs = glob(["remote/*.java"]),
+    srcs = glob(["remote/**/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
@@ -1185,11 +1185,14 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
+        "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:api_client",
         "//third_party:mockito",
+        "//third_party:netty",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_bytestream_bytestream_java_grpc",

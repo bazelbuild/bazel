@@ -18,10 +18,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auth.Credentials;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
-import com.google.devtools.build.lib.remote.blobstore.RestBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.net.URI;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -35,8 +36,14 @@ public final class SimpleBlobStoreFactory {
 
   public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds)
       throws IOException {
-    return new RestBlobStore(
-        options.remoteHttpCache, (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout), creds);
+    try {
+      return new HttpBlobStore(
+          URI.create(options.remoteHttpCache),
+          (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout),
+          creds);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)
