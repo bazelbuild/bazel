@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
@@ -477,26 +479,36 @@ public class RunCommand implements BlazeCommand  {
   /**
    * Performs all available validation checks on an individual target.
    *
-   * @param target ConfiguredTarget to validate
+   * @param configuredTarget ConfiguredTarget to validate
    * @return ExitCode.SUCCESS if all checks succeeded, otherwise a different error code.
+   * @throws IllegalStateException if unable to find a target from the package manager.
    */
-  private ExitCode fullyValidateTarget(CommandEnvironment env, ConfiguredTarget target) {
-    String targetError = validateTarget(target.getTarget());
+  private ExitCode fullyValidateTarget(CommandEnvironment env, ConfiguredTarget configuredTarget) {
+
+    Target target = null;
+    try {
+      target = env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
+    } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+      env.getReporter().handle(Event.error("Failed to find a target to validate. " + e));
+      throw new IllegalStateException("Failed to find a target to validate");
+    }
+
+    String targetError = validateTarget(target);
 
     if (targetError != null) {
       env.getReporter().handle(Event.error(targetError));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    Artifact executable = target.getProvider(FilesToRunProvider.class).getExecutable();
+    Artifact executable = configuredTarget.getProvider(FilesToRunProvider.class).getExecutable();
     if (executable == null) {
-      env.getReporter().handle(Event.error(notExecutableError(target.getTarget())));
+      env.getReporter().handle(Event.error(notExecutableError(target)));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
     // Shouldn't happen: We just validated the target.
-    Preconditions.checkState(executable != null,
-        "Could not find executable for target %s", target);
+    Preconditions.checkState(
+        executable != null, "Could not find executable for target %s", configuredTarget);
     Path executablePath = executable.getPath();
     try {
       if (!executablePath.exists() || !executablePath.isExecutable()) {
