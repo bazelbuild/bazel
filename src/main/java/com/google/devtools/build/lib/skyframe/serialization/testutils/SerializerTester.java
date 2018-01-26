@@ -22,8 +22,9 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.UnsafeInput;
 import com.esotericsoftware.kryo.io.UnsafeOutput;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.serializers.RegistrationUtil;
+import com.google.devtools.build.lib.skyframe.serialization.serializers.KryoConfigUtil;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
 import java.util.function.Consumer;
@@ -83,6 +84,7 @@ public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
 
   /** Runs serialization/deserialization tests. */
   void testSerializeDeserialize() throws Exception {
+    Stopwatch timer = Stopwatch.createStarted();
     int totalBytes = 0;
     for (SubjectT subject : subjects) {
       byte[] serialized = toBytes(subject);
@@ -90,7 +92,9 @@ public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
       SubjectT deserialized = fromBytes(serialized);
       verificationFunction.verifyDeserialized(subject, deserialized);
     }
-    logger.log(Level.INFO, type.getSimpleName() + " total serialized bytes = " + totalBytes);
+    logger.log(
+        Level.INFO,
+        type.getSimpleName() + " total serialized bytes = " + totalBytes + ", " + timer);
   }
 
   /** Runs serialized bytes stability tests. */
@@ -152,8 +156,7 @@ public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
 
     private Builder(Class<SerializerT> type) {
       this.type = type;
-      this.kryo = new Kryo();
-      RegistrationUtil.registerSerializers(kryo);
+      this.kryo = KryoConfigUtil.create();
       kryo.setRegistrationRequired(true);
     }
 

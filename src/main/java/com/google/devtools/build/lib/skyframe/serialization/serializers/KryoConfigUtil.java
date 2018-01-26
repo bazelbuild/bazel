@@ -18,10 +18,19 @@ import com.esotericsoftware.kryo.Kryo;
 import com.google.common.collect.Ordering;
 import java.util.Collections;
 
-/** Utility for registering Serializers defined in this package. */
-public interface RegistrationUtil {
+/** Utility for Kryo configuration. */
+public class KryoConfigUtil {
+  private KryoConfigUtil() {}
 
-  static void registerSerializers(Kryo kryo) {
+  /** Creates a {@link Kryo} instance with extensions defined in this package. */
+  public static Kryo create() {
+    Kryo kryo = new Kryo(new CanonicalReferenceResolver());
+    registerSerializers(kryo);
+    return kryo;
+  }
+
+  /** Registers Serializers defined in this package. */
+  private static void registerSerializers(Kryo kryo) {
     kryo.register(Ordering.natural().getClass());
     kryo.register(Collections.reverseOrder().getClass());
 
