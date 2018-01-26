@@ -90,7 +90,7 @@ public class SerializerTester<SubjectT, SerializerT extends SubjectT> {
       SubjectT deserialized = fromBytes(serialized);
       verificationFunction.verifyDeserialized(subject, deserialized);
     }
-    logger.log(Level.INFO, "total serialized bytes = " + totalBytes);
+    logger.log(Level.INFO, type.getSimpleName() + " total serialized bytes = " + totalBytes);
   }
 
   /** Runs serialized bytes stability tests. */

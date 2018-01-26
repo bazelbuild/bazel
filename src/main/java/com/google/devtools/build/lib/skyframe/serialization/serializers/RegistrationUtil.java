@@ -25,14 +25,17 @@ public interface RegistrationUtil {
     kryo.register(Ordering.natural().getClass());
     kryo.register(Collections.reverseOrder().getClass());
 
+    HashCodeSerializer.registerSerializers(kryo);
     ImmutableListSerializer.registerSerializers(kryo);
     ImmutableMapSerializer.registerSerializers(kryo);
     ImmutableMultimapSerializer.registerSerializers(kryo);
     ImmutableSetSerializer.registerSerializers(kryo);
     ImmutableSortedSetSerializer.registerSerializers(kryo);
+    MapEntrySerializer.registerSerializers(kryo);
     MultimapSerializer.registerSerializers(kryo);
     PatternSerializer.registerSerializers(kryo);
     ReverseListSerializer.registerSerializers(kryo);
+    OptionalSerializer.registerSerializers(kryo);
     UnmodifiableNavigableSetSerializer.registerSerializers(kryo);
   }
 }
