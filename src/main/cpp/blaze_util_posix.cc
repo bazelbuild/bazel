@@ -184,8 +184,6 @@ void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
 
 std::string ConvertPath(const std::string &path) { return path; }
 
-std::string ConvertPathList(const std::string& path_list) { return path_list; }
-
 std::string PathAsJvmFlag(const std::string& path) { return path; }
 
 const char kListSeparator = ':';
