@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
@@ -79,8 +80,8 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
   private final CppSemantics cppSemantics;
   private final Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue;
 
-  public CcProtoAspect(
-      CppSemantics cppSemantics, Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue) {
+  public CcProtoAspect(AspectLegalCppSemantics cppSemantics,
+      Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue) {
     this.cppSemantics = cppSemantics;
     this.ccToolchainAttrValue = ccToolchainAttrValue;
   }
