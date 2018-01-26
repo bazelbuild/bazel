@@ -1169,7 +1169,7 @@ java_test(
 
 java_test(
     name = "remote-tests",
-    srcs = glob(["remote/*.java"]),
+    srcs = glob(["remote/**/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
@@ -1189,6 +1189,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:api_client",
+        "//third_party:netty",
         "//third_party:mockito",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
