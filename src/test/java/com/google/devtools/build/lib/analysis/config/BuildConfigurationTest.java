@@ -353,6 +353,18 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
   }
 
+  @Test
+  public void testHostCompilationModeDefault() throws Exception {
+    BuildConfiguration cfg = createHost();
+    assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.OPT);
+  }
+
+  @Test
+  public void testHostCompilationModeNonDefault() throws Exception {
+    BuildConfiguration cfg = createHost("--host_compilation_mode=dbg");
+    assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.DBG);
+  }
+
   /**
    * Returns a mock config fragment that loads the given label and does nothing else.
    */

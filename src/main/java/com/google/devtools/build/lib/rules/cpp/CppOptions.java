@@ -720,6 +720,28 @@ public class CppOptions extends FragmentOptions {
   public List<String> hostCxxoptList;
 
   @Option(
+      name = "host_conlyopt",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to gcc when compiling C source files for host tools."
+  )
+  public List<String> hostConlyoptList;
+
+  @Option(
+      name = "host_linkopt",
+      defaultValue = "",
+      category = "flags",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to gcc when linking host tools."
+  )
+  public List<String> hostLinkoptList;
+
+  @Option(
     name = "grte_top",
     defaultValue = "null", // The default value is chosen by the toolchain.
     category = "version",
@@ -882,6 +904,8 @@ public class CppOptions extends FragmentOptions {
     }
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
+    host.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
+    host.linkoptList = ImmutableList.copyOf(hostLinkoptList);
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
