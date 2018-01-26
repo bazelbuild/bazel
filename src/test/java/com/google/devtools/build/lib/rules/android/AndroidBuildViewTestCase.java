@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoO
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,18 +49,6 @@ import javax.annotation.Nullable;
 
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
 public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
-
-  @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    return builder
-        // TODO(b/35097211): Remove this once the new testing rules are released.
-        .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
-        .addRuleDefinition(new AndroidHostServiceFixtureRule())
-        .addRuleDefinition(new AndroidInstrumentationTestRule())
-        .build();
-  }
 
   protected Iterable<Artifact> getNativeLibrariesInApk(ConfiguredTarget target) {
     return Iterables.filter(
