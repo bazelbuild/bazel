@@ -38,7 +38,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -186,8 +189,21 @@ public final class PrintActionCommand implements BlazeCommand {
                   env.getSkyframeExecutor().getActionKeyContext(),
                   targets);
             } else {
+              Target target = null;
+              try {
+                target =
+                    env.getPackageManager()
+                        .getTarget(env.getReporter(), configuredTarget.getLabel());
+              } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+                env.getReporter()
+                    .handle(Event.error(null, "Failed to find successful target in package"));
+                return null;
+              }
               gatherActionsForTarget(
-                  configuredTarget, actionGraph, env.getSkyframeExecutor().getActionKeyContext());
+                  configuredTarget,
+                  target,
+                  actionGraph,
+                  env.getSkyframeExecutor().getActionKeyContext());
             }
           } catch (CommandLineExpansionException e) {
             env.getReporter().handle(Event.error(null, "Error expanding command line: " + e));
@@ -219,10 +235,11 @@ public final class PrintActionCommand implements BlazeCommand {
 
     private void gatherActionsForTarget(
         ConfiguredTarget configuredTarget,
+        Target target,
         ActionGraph actionGraph,
         ActionKeyContext actionKeyContext)
         throws CommandLineExpansionException {
-      if (!(configuredTarget.getTarget() instanceof Rule)) {
+      if (!(target instanceof Rule)) {
         return;
       }
 
