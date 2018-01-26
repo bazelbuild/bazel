@@ -183,7 +183,7 @@ public class CppCompileAction extends AbstractAction
   // A list of files to include scan that are not source files, pcm files, lipo scannables, or
   // included via a command-line "-include file.h". Actions that use non C++ files as source
   // files--such as Clif--may use this mechanism.
-  private final ImmutableList<Artifact> additionalIncludeScannables;
+  private final ImmutableList<Artifact> additionalIncludeScanningRoots;
   @VisibleForTesting public final CompileCommandLine compileCommandLine;
   private final ImmutableMap<String, String> executionInfo;
   private final ImmutableMap<String, String> environment;
@@ -249,7 +249,7 @@ public class CppCompileAction extends AbstractAction
    * @param actionContext TODO(bazel-team): Add parameter description.
    * @param coptsFilter regular expression to remove options from {@code copts}
    * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
-   * @param additionalIncludeScannables list of additional artifacts to include-scan
+   * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
    * @param actionClassId TODO(bazel-team): Add parameter description
    * @param environment TODO(bazel-team): Add parameter description
    * @param actionName a string giving the name of this action for the purpose of toolchain
@@ -282,7 +282,7 @@ public class CppCompileAction extends AbstractAction
       Class<? extends CppCompileActionContext> actionContext,
       Predicate<String> coptsFilter,
       Iterable<IncludeScannable> lipoScannables,
-      ImmutableList<Artifact> additionalIncludeScannables,
+      ImmutableList<Artifact> additionalIncludeScanningRoots,
       UUID actionClassId,
       ImmutableMap<String, String> executionInfo,
       ImmutableMap<String, String> environment,
@@ -340,7 +340,7 @@ public class CppCompileAction extends AbstractAction
     this.prunableInputs = prunableInputs;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.cppSemantics = cppSemantics;
-    this.additionalIncludeScannables = ImmutableList.copyOf(additionalIncludeScannables);
+    this.additionalIncludeScanningRoots = ImmutableList.copyOf(additionalIncludeScanningRoots);
     this.builtInIncludeDirectories =
         ImmutableList.copyOf(cppProvider.getBuiltInIncludeDirectories());
     this.gccToolPath = cppProvider.getToolPathFragment(Tool.GCC);
@@ -650,7 +650,7 @@ public class CppCompileAction extends AbstractAction
       builder.addAll(context.getHeaderModuleSrcs());
     } else {
       builder.add(getSourceFile());
-      builder.addAll(additionalIncludeScannables);
+      builder.addAll(additionalIncludeScanningRoots);
     }
     return builder.build().toCollection();
   }
@@ -692,13 +692,13 @@ public class CppCompileAction extends AbstractAction
     return getArgv(getInternalOutputFile());
   }
 
+  protected final List<String> getArgv(PathFragment outputFile) {
+    return compileCommandLine.getArgv(outputFile, overwrittenVariables);
+  }
+
   @Override
   public List<String> getArguments() {
     return getArgv();
-  }
-
-  protected final List<String> getArgv(PathFragment outputFile) {
-    return compileCommandLine.getArgv(outputFile, overwrittenVariables);
   }
 
   @Override

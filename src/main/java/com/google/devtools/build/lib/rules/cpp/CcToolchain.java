@@ -299,7 +299,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
     TransitiveInfoCollection lipoContextCollector =
-        ruleContext.getPrerequisite(":lipo_context_collector", Mode.DONT_CHECK);
+        ruleContext.getPrerequisite(
+            TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, Mode.DONT_CHECK);
     if (lipoContextCollector != null
         && lipoContextCollector.getProvider(LipoContextProvider.class) == null) {
       ruleContext.ruleError("--lipo_context must point to a cc_binary or a cc_test rule");

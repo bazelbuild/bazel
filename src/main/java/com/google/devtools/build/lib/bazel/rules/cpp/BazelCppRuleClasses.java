@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.TransitiveLipoInfoProvider;
 import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -222,7 +223,7 @@ public class BazelCppRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
           .add(
-              attr(":lipo_context_collector", LABEL)
+              attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
                   .cfg(LipoContextCollectorTransition.INSTANCE)
                   .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                   .skipPrereqValidatorCheck())

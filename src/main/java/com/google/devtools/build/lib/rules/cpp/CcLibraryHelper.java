@@ -99,14 +99,15 @@ public final class CcLibraryHelper {
    * Determines what file types CcLibraryHelper considers sources and what action configs are
    * configured in the CROSSTOOL.
    */
-  public static enum SourceCategory {
+  public enum SourceCategory {
     CC(
         FileTypeSet.of(
             CppFileTypes.CPP_SOURCE,
             CppFileTypes.CPP_HEADER,
             CppFileTypes.C_SOURCE,
             CppFileTypes.ASSEMBLER,
-            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR)),
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR,
+            CppFileTypes.CLIF_INPUT_PROTO)),
     CC_AND_OBJC(
         FileTypeSet.of(
             CppFileTypes.CPP_SOURCE,
@@ -322,6 +323,8 @@ public final class CcLibraryHelper {
   private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<Artifact> additionalInputs = new ArrayList<>();
+  private final List<Artifact> compilationMandatoryInputs = new ArrayList<>();
+  private final List<Artifact> additionalIncludeScanningRoots = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final Set<CppSource> compilationUnitSources = new LinkedHashSet<>();
@@ -372,6 +375,7 @@ public final class CcLibraryHelper {
   private boolean useDeps = true;
   private boolean generateModuleMap = true;
   private String purpose = null;
+  private boolean generateNoPic = true;
 
   /**
    * Creates a CcLibraryHelper.
@@ -570,7 +574,7 @@ public final class CcLibraryHelper {
    * Adds a source to {@code compilationUnitSources} if it is a compiled file type (including
    * parsed/preprocessed header) and to {@code privateHeaders} if it is a header.
    */
-  private void addSource(Artifact source, Label label) {
+  private CcLibraryHelper addSource(Artifact source, Label label) {
     Preconditions.checkNotNull(featureConfiguration);
     boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
@@ -582,7 +586,7 @@ public final class CcLibraryHelper {
       privateHeaders.add(source);
     }
     if (isTextualInclude || !isCompiledSource || (isHeader && !shouldProcessHeaders())) {
-      return;
+      return this;
     }
     boolean isClifInputProto = CppFileTypes.CLIF_INPUT_PROTO.matches(source.getExecPathString());
     CppSource.Type type;
@@ -594,6 +598,7 @@ public final class CcLibraryHelper {
       type = CppSource.Type.SOURCE;
     }
     compilationUnitSources.add(CppSource.create(source, label, type));
+    return this;
   }
 
   private boolean shouldProcessHeaders() {
@@ -989,6 +994,28 @@ public final class CcLibraryHelper {
     return this;
   }
 
+  /** non-PIC actions won't be generated. */
+  public CcLibraryHelper setGenerateNoPic(boolean generateNoPic) {
+    this.generateNoPic = generateNoPic;
+    return this;
+  }
+
+  /** Adds mandatory inputs for the compilation action. */
+  public CcLibraryHelper addCompilationMandatoryInputs(
+      Collection<Artifact> compilationMandatoryInputs) {
+    this.compilationMandatoryInputs.addAll(compilationMandatoryInputs);
+    return this;
+  }
+
+  /** Adds additional includes to be scanned. */
+  // TODO(plf): This is only needed for CLIF. Investigate whether this is strictly necessary or
+  // there is a way to avoid include scanning for CLIF rules.
+  public CcLibraryHelper addAditionalIncludeScanningRoots(
+      Collection<Artifact> additionalIncludeScanningRoots) {
+    this.additionalIncludeScanningRoots.addAll(additionalIncludeScanningRoots);
+    return this;
+  }
+
   /**
    * Create the C++ compile and link actions, and the corresponding compilation related providers.
    *
@@ -1008,7 +1035,7 @@ public final class CcLibraryHelper {
    *
    * @throws RuleErrorException
    */
-  public Info.CompilationInfo compile() throws RuleErrorException, InterruptedException {
+  public Info.CompilationInfo compile() throws RuleErrorException {
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :
           AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
@@ -1274,7 +1301,10 @@ public final class CcLibraryHelper {
         .setLinkTargetType(linkType)
         .setNeverLink(neverlink)
         .addLinkActionInputs(linkActionInputs)
+        .addCompilationMandatoryInputs(compilationMandatoryInputs)
+        .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots)
         .setFake(fake)
+        .setGenerateNoPic(generateNoPic)
         .setAllowInterfaceSharedObjects(emitInterfaceSharedObjects)
         .setCreateDynamicLibrary(createDynamicLibrary)
         .setCreateStaticLibraries(createStaticLibraries)

@@ -195,9 +195,7 @@ public class CcCompilationOutputs {
       return this;
     }
 
-    /**
-     * Adds an .o file.
-     */
+    /** Adds an object file. */
     public Builder addObjectFile(Artifact artifact) {
       // We skip file extension checks for TreeArtifacts because they represent directory artifacts
       // without a file extension.
@@ -215,9 +213,7 @@ public class CcCompilationOutputs {
       return this;
     }
 
-    /**
-     * Adds a .pic.o file.
-     */
+    /** Adds a pic object file. */
     public Builder addPicObjectFile(Artifact artifact) {
       picObjectFiles.add(artifact);
       return this;

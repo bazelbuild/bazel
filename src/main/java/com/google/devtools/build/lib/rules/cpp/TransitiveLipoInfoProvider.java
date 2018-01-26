@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public final class TransitiveLipoInfoProvider implements TransitiveInfoProvider {
+  
+  public static final String LIPO_CONTEXT_COLLECTOR = ":lipo_context_collector";
   public static final TransitiveLipoInfoProvider EMPTY =
       new TransitiveLipoInfoProvider(
           NestedSetBuilder.<IncludeScannable>emptySet(Order.STABLE_ORDER));
