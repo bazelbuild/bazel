@@ -207,6 +207,15 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setConfiguredLabel(labelId).build());
   }
 
+  public static BuildEventId unconfiguredLabelId(Label label) {
+    BuildEventStreamProtos.BuildEventId.UnconfiguredLabelId labelId =
+        BuildEventStreamProtos.BuildEventId.UnconfiguredLabelId.newBuilder()
+            .setLabel(label.toString())
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setUnconfiguredLabel(labelId).build());
+  }
+
   public static BuildEventId aspectCompleted(Label target, String aspect) {
     BuildEventStreamProtos.BuildEventId.TargetCompletedId targetId =
         BuildEventStreamProtos.BuildEventId.TargetCompletedId.newBuilder()

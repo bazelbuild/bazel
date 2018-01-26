@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -329,6 +330,7 @@ public final class SkyframeBuildView {
           eventHandler);
       Exception cause = errorInfo.getException();
       Label analysisRootCause = null;
+      BuildEventId configuration = null;
       if (cause instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
         for (Label rootCause : ctCause.getRootCauses()) {
@@ -336,6 +338,7 @@ public final class SkyframeBuildView {
           eventBus.post(new LoadingFailureEvent(topLevelLabel, rootCause));
         }
         analysisRootCause = ctCause.getAnalysisRootCause();
+        configuration = ctCause.getConfiguration();
       } else if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
             topLevelLabel, errorInfo.getCycleInfo());
@@ -350,6 +353,7 @@ public final class SkyframeBuildView {
             new AnalysisFailureEvent(
                 ConfiguredTargetKey.of(
                     topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration()),
+                configuration,
                 analysisRootCause));
       }
     }

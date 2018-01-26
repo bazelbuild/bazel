@@ -161,6 +161,18 @@ genrule(
     srcs = [":cannotsee"],
     cmd = "cp $< $@",
 )
+genrule(
+    name = "cannotsee2",
+    outs = ["cannotsee2.txt"],
+    srcs = ["//visibility/hidden:hello"],
+    cmd = "cp $< $@",
+)
+genrule(
+    name = "indirect2",
+    outs = ["indirect2.txt"],
+    srcs = [":cannotsee2.txt"],
+    cmd = "cp $< $@",
+)
 EOF
 mkdir -p failingtool
 cat > failingtool/BUILD <<'EOF'
@@ -679,6 +691,18 @@ function test_visibility_indirect() {
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
   [ `grep target_completed event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one target_completed event id"
+}
+
+function test_independent_visibility_failures() {
+  bazel shutdown
+  (bazel build -k --build_event_text_file=$TEST_log \
+         //visibility:indirect //visibility:indirect2 \
+       && fail "build failure expected") || true
+  (echo 'g/^aborted/.,+2p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 \
+     > aborted_events
+  [ `grep '^aborted' aborted_events | wc -l` \
+        -eq `grep ANALYSIS_FAILURE aborted_events | wc -l` ] \
+      || fail "events should only be aborted due to analysis failre"
 }
 
 function test_loading_failure_keep_going() {
