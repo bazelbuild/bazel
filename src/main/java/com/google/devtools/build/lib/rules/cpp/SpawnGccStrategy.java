@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.UserExecException;
 import java.util.List;
 
 /**
@@ -50,10 +49,6 @@ public class SpawnGccStrategy implements CppCompileActionContext {
   public CppCompileActionResult execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    if (action.getDotdFile() != null && action.getDotdFile().artifact() == null) {
-      throw new UserExecException("cannot execute remotely or locally: "
-          + action.getPrimaryInput().getExecPathString());
-    }
     Iterable<Artifact> inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
     Spawn spawn = new SimpleSpawn(
         action,

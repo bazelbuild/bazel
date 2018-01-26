@@ -1216,7 +1216,13 @@ public class CppCompileAction extends AbstractAction
       // case where we expected an in-memory .d file, but we did not get an appropriate response.
       // Perhaps we produced the file locally.
       if (dotdFile.artifact() != null || reply == null) {
-        return depSet.read(dotdFile.getPath());
+        Path dotdPath;
+        if (dotdFile.artifact() != null) {
+          dotdPath = dotdFile.getPath();
+        } else {
+          dotdPath = execRoot.getRelative(dotdFile.getSafeExecPath());
+        }
+        return depSet.read(dotdPath);
       } else {
         // This is an in-memory .d file.
         return depSet.process(reply.getContents());
