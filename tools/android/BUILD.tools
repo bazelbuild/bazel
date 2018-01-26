@@ -278,7 +278,6 @@ android_sdk(
     aidl = ":error_message",
     android_jar = ":error_message.jar",
     shrinked_android_jar = ":error_message.jar",
-    annotations_jar = ":error_message.jar",
     main_dex_classes = ":error_message",
     apksigner = ":error_message",
     zipalign = ":error_message",

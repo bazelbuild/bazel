@@ -72,7 +72,6 @@ def create_android_sdk_rules(
           "build-tools/%s/lib/apksigner.jar" % build_tools_directory,
           "build-tools/%s/lib/dx.jar" % build_tools_directory,
           "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
-          "tools/support/annotations.jar",
       ] + [
           "platforms/android-%d/%s" % (api_level, filename)
           for api_level in api_levels
@@ -117,7 +116,6 @@ def create_android_sdk_rules(
         }),
         android_jar = "platforms/android-%d/android.jar" % api_level,
         shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
-        annotations_jar = "tools/support/annotations.jar",
         main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
         apksigner = ":apksigner",
         zipalign = select({
