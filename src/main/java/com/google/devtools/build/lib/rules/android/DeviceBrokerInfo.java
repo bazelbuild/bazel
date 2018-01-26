@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,16 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/** Supplies the device broker type string, passed to the android_test runtime. */
+/** Supplies the device broker type string, passed to the Android test runtime. */
+@SkylarkModule(
+    name = "DeviceBrokerInfo",
+    doc = "Information about the device broker",
+    category = SkylarkModuleCategory.PROVIDER
+)
 @Immutable
-public final class DeviceBrokerTypeProvider implements TransitiveInfoProvider {
+public final class DeviceBrokerInfo extends NativeInfo {
+
+  private static final String SKYLARK_NAME = "DeviceBrokerInfo";
+  public static final NativeProvider<DeviceBrokerInfo> PROVIDER =
+      new NativeProvider<DeviceBrokerInfo>(DeviceBrokerInfo.class, SKYLARK_NAME) {};
 
   private final String deviceBrokerType;
 
-  public DeviceBrokerTypeProvider(String deviceBrokerType) {
+  public DeviceBrokerInfo(String deviceBrokerType) {
+    super(PROVIDER);
     this.deviceBrokerType = deviceBrokerType;
   }
 

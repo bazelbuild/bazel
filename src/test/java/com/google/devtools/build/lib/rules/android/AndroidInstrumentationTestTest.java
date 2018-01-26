@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -161,13 +162,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
     ConfiguredTarget androidInstrumentationTest = getConfiguredTarget("//javatests/com/app/ait");
     assertThat(androidInstrumentationTest).isNotNull();
 
-    String testExecutableScript =
-        ((TemplateExpansionAction)
-                getGeneratingAction(
-                    androidInstrumentationTest
-                        .getProvider(FilesToRunProvider.class)
-                        .getExecutable()))
-            .getFileContents();
+    String testExecutableScript = getTestStubContents(androidInstrumentationTest);
 
     assertThat(testExecutableScript)
         .contains("instrumentation_apk=\"javatests/com/app/instrumentation_app.apk\"");
@@ -225,6 +220,29 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
         ")");
   }
 
+  @Test
+  public void testAndroidInstrumentationTestWithSkylarkDevice()
+      throws Exception {
+    scratch.file(
+        "javatests/com/app/skylarkdevice/local_adb_device.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.write(output=ctx.outputs.executable, content='', is_executable=True)",
+        "  return [android_common.create_device_broker_info('LOCAL_ADB_SERVER')]",
+        "local_adb_device = rule(implementation=_impl, executable=True)");
+    scratch.file(
+        "javatests/com/app/skylarkdevice/BUILD",
+        "load(':local_adb_device.bzl', 'local_adb_device')",
+        "local_adb_device(name = 'local_adb_device')",
+        "android_instrumentation_test(",
+        "  name = 'ait',",
+        "  instrumentation = '//javatests/com/app:instrumentation_app',",
+        "  target_device = ':local_adb_device',",
+        ")");
+    String testExecutableScript =
+        getTestStubContents(getConfiguredTarget("//javatests/com/app/skylarkdevice:ait"));
+    assertThat(testExecutableScript).contains("device_broker_type=\"LOCAL_ADB_SERVER\"");
+  }
+
   private static Artifact getDeviceFixtureScript(ConfiguredTarget deviceScriptFixture) {
     return getFirstArtifactEndingWith(
         deviceScriptFixture.getProvider(FileProvider.class).getFilesToBuild(), ".sh");
@@ -236,5 +254,12 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
 
   private static Artifact getTargetApk(ConfiguredTarget instrumentation) {
     return instrumentation.get(AndroidInstrumentationInfo.PROVIDER).getTargetApk();
+  }
+
+  private String getTestStubContents(ConfiguredTarget androidInstrumentationTest) throws Exception {
+    Action templateAction =
+        getGeneratingAction(
+            androidInstrumentationTest.getProvider(FilesToRunProvider.class).getExecutable());
+    return ((TemplateExpansionAction) templateAction).getFileContents();
   }
 }

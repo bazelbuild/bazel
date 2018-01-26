@@ -132,8 +132,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .setRunfilesSupport(runfilesSupport, executable)
         .addFilesToRun(extraFilesToRun)
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))
-        .addProvider(
-            DeviceBrokerTypeProvider.class, new DeviceBrokerTypeProvider(DEVICE_BROKER_TYPE))
+        .addNativeDeclaredProvider(new DeviceBrokerInfo(DEVICE_BROKER_TYPE))
         .addProvider(
             Dex2OatProvider.class, new Dex2OatProvider(cloudDex2oatEnabled))
         .build();

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -25,6 +26,20 @@ import com.google.devtools.build.lib.vfs.PathFragment;
   doc = "Common utilities and fucntionality related to Android rules."
 )
 public class AndroidSkylarkCommon {
+
+  @SkylarkCallable(
+      name = "create_device_broker_info",
+      doc = "Create a device broker info",
+      parameters = {
+          @Param(
+              name = "type",
+              type = String.class
+          )
+      }
+  )
+  public DeviceBrokerInfo createDeviceBrokerInfo(String deviceBrokerType) {
+    return new DeviceBrokerInfo(deviceBrokerType);
+  }
 
   @SkylarkCallable(
     name = "resource_source_directory",
