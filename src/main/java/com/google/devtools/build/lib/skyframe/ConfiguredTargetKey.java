@@ -185,7 +185,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     private static final KeyAndHost NULL_INSTANCE = new KeyAndHost(null, false);
 
     @Nullable public final BuildConfigurationValue.Key key;
-    private final boolean isHost;
+    final boolean isHost;
 
     private KeyAndHost(@Nullable BuildConfigurationValue.Key key, boolean isHost) {
       this.key = key;
