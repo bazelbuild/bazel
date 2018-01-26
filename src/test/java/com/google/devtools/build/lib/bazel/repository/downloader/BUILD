@@ -14,7 +14,6 @@ java_test(
     name = "DownloaderTestSuite",
     srcs = glob(["*.java"]),
     tags = [
-        "no_windows",
         "rules",
     ],
     deps = [
