@@ -15,8 +15,8 @@
 
 import gzip
 import hashlib
+from io import BytesIO
 import os.path
-from StringIO import StringIO
 import sys
 import tarfile
 import textwrap
@@ -93,16 +93,20 @@ def AddArFileEntry(fileobj, filename,
                    content='', timestamp=0,
                    owner_id=0, group_id=0, mode=0o644):
   """Add a AR file entry to fileobj."""
-  fileobj.write((filename + '/').ljust(16))    # filename (SysV)
-  fileobj.write(str(timestamp).ljust(12))      # timestamp
-  fileobj.write(str(owner_id).ljust(6))        # owner id
-  fileobj.write(str(group_id).ljust(6))        # group id
-  fileobj.write(oct(mode).ljust(8))            # mode
-  fileobj.write(str(len(content)).ljust(10))   # size
-  fileobj.write('\x60\x0a')                    # end of file entry
+  inputs = [
+      (filename + '/').ljust(16),  # filename (SysV)
+      str(timestamp).ljust(12),  # timestamp
+      str(owner_id).ljust(6),  # owner id
+      str(group_id).ljust(6),  # group id
+      oct(mode).ljust(8),  # mode
+      str(len(content)).ljust(10),  # size
+      '\x60\x0a',  # end of file entry
+  ]
+  for i in inputs:
+    fileobj.write(i.encode('ascii'))
   fileobj.write(content)
   if len(content) % 2 != 0:
-    fileobj.write('\n')  # 2-byte alignment padding
+    fileobj.write(b'\n')  # 2-byte alignment padding
 
 
 def MakeDebianControlField(name, value, wrap=False):
@@ -130,18 +134,18 @@ def CreateDebControl(extrafiles=None, **kwargs):
     if values[1] or (key in kwargs and kwargs[key]):
       controlfile += MakeDebianControlField(fieldname, kwargs[key], values[2])
   # Create the control.tar file
-  tar = StringIO()
+  tar = BytesIO()
   with gzip.GzipFile('control.tar.gz', mode='w', fileobj=tar, mtime=0) as gz:
     with tarfile.open('control.tar.gz', mode='w', fileobj=gz) as f:
       tarinfo = tarfile.TarInfo('control')
       tarinfo.size = len(controlfile)
-      f.addfile(tarinfo, fileobj=StringIO(controlfile))
+      f.addfile(tarinfo, fileobj=BytesIO(controlfile.encode('utf-8')))
       if extrafiles:
         for name, (data, mode) in extrafiles.items():
           tarinfo = tarfile.TarInfo(name)
           tarinfo.size = len(data)
           tarinfo.mode = mode
-          f.addfile(tarinfo, fileobj=StringIO(data))
+          f.addfile(tarinfo, fileobj=BytesIO(data.encode('utf-8')))
   control = tar.getvalue()
   tar.close()
   return control
@@ -170,9 +174,9 @@ def CreateDeb(output,
   control = CreateDebControl(extrafiles=extrafiles, **kwargs)
 
   # Write the final AR archive (the deb package)
-  with open(output, 'w') as f:
-    f.write('!<arch>\n')  # Magic AR header
-    AddArFileEntry(f, 'debian-binary', '2.0\n')
+  with open(output, 'wb') as f:
+    f.write(b'!<arch>\n')  # Magic AR header
+    AddArFileEntry(f, 'debian-binary', b'2.0\n')
     AddArFileEntry(f, 'control.tar.gz', control)
     # Tries to preserve the extension name
     ext = os.path.basename(data).split('.')[-2:]
@@ -186,7 +190,7 @@ def CreateDeb(output,
       ext = '.'.join(ext)
       if ext not in ['tar.bz2', 'tar.gz', 'tar.xz', 'tar.lzma']:
         ext = 'tar'
-    with open(data, 'r') as datafile:
+    with open(data, 'rb') as datafile:
       data = datafile.read()
     AddArFileEntry(f, 'data.' + ext, data)
 
@@ -206,7 +210,7 @@ def GetChecksumsFromFile(filename, hash_fns=None):
   hash_fns = hash_fns or {'md5': hashlib.md5}
   checksums = {k: fn() for (k, fn) in hash_fns.items()}
 
-  with open(filename) as file_handle:
+  with open(filename, 'rb') as file_handle:
     while True:
       buf = file_handle.read(1048576)  # 1 MiB
       if not buf:
