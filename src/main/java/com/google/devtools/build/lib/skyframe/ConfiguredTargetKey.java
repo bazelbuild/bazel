@@ -22,7 +22,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -31,6 +36,8 @@ import javax.annotation.Nullable;
  * action of an artifact.
  */
 public class ConfiguredTargetKey extends ActionLookupKey {
+  public static final ObjectCodec<ConfiguredTargetKey> CODEC = Codec.INSTANCE;
+
   private final Label label;
   @Nullable private final BuildConfigurationValue.Key configurationKey;
 
@@ -190,6 +197,39 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     private KeyAndHost(@Nullable BuildConfigurationValue.Key key, boolean isHost) {
       this.key = key;
       this.isHost = isHost;
+    }
+  }
+
+  private static final class Codec implements ObjectCodec<ConfiguredTargetKey> {
+    private static final Codec INSTANCE = new Codec();
+
+    private Codec() {}
+
+    @Override
+    public Class<ConfiguredTargetKey> getEncodedClass() {
+      return ConfiguredTargetKey.class;
+    }
+
+    @Override
+    public void serialize(ConfiguredTargetKey obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      Label.CODEC.serialize(obj.label, codedOut);
+      if (obj.configurationKey == null) {
+        codedOut.writeBoolNoTag(false);
+      } else {
+        codedOut.writeBoolNoTag(true);
+        BuildConfigurationValue.Key.CODEC.serialize(obj.configurationKey, codedOut);
+      }
+      codedOut.writeBoolNoTag(obj.isHostConfiguration());
+    }
+
+    @Override
+    public ConfiguredTargetKey deserialize(CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return of(
+          Label.CODEC.deserialize(codedIn),
+          codedIn.readBool() ? BuildConfigurationValue.Key.CODEC.deserialize(codedIn) : null,
+          codedIn.readBool());
     }
   }
 }

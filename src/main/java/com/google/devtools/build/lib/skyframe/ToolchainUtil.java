@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.Inval
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionValue.ToolchainResolutionKey;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
@@ -141,14 +140,8 @@ public class ToolchainUtil {
     Label executionPlatformLabel = platformConfiguration.getExecutionPlatform();
     Label targetPlatformLabel = platformConfiguration.getTargetPlatforms().get(0);
 
-    SkyKey executionPlatformKey =
-        LegacySkyKey.create(
-            SkyFunctions.CONFIGURED_TARGET,
-            ConfiguredTargetKey.of(executionPlatformLabel, configuration));
-    SkyKey targetPlatformKey =
-        LegacySkyKey.create(
-            SkyFunctions.CONFIGURED_TARGET,
-            ConfiguredTargetKey.of(targetPlatformLabel, configuration));
+    SkyKey executionPlatformKey = ConfiguredTargetKey.of(executionPlatformLabel, configuration);
+    SkyKey targetPlatformKey = ConfiguredTargetKey.of(targetPlatformLabel, configuration);
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
         env.getValuesOrThrow(

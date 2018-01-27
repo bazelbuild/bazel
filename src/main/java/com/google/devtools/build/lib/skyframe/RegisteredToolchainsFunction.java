@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -102,11 +101,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     ImmutableList<SkyKey> keys =
         labels
             .stream()
-            .map(
-                label ->
-                    LegacySkyKey.create(
-                        SkyFunctions.CONFIGURED_TARGET,
-                        ConfiguredTargetKey.of(label, configuration)))
+            .map(label -> ConfiguredTargetKey.of(label, configuration))
             .collect(ImmutableList.toImmutableList());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
