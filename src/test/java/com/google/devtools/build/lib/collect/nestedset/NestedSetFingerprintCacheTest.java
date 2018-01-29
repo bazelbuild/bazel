@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.util.Fingerprint;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,11 +30,11 @@ import org.junit.runners.JUnit4;
 public class NestedSetFingerprintCacheTest {
 
   private class TestNestedSetFingerprintCache extends NestedSetFingerprintCache {
-    private final Multiset<Object> fingerprinted = HashMultiset.create();
+    private Multiset<Object> fingerprinted = HashMultiset.create();
 
     @Override
-    <T> void addToFingerprint(Fingerprint fingerprint, T object) {
-      super.addToFingerprint(fingerprint, object);
+    <T> void addToFingerprint(MapFn<? super T> mapFn, Fingerprint fingerprint, T object) {
+      super.addToFingerprint(mapFn, fingerprint, object);
       fingerprinted.add(object);
     }
   }
@@ -83,6 +85,31 @@ public class NestedSetFingerprintCacheTest {
         .containsExactly("a0", "a1", "b0", "b1", "c", "d", "e");
     for (Multiset.Entry<Object> entry : cache.fingerprinted.entrySet()) {
       assertThat(entry.getCount()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void testMapFn() {
+    // Make sure that the map function assigns completely different key spaces
+    NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a0").add("a1").build();
+
+    Fingerprint defaultMapFnFingerprint = new Fingerprint();
+    cache.addNestedSetToFingerprint(defaultMapFnFingerprint, a);
+    Fingerprint explicitDefaultMapFnFingerprint = new Fingerprint();
+    cache.addNestedSetToFingerprint(
+        CommandLineItem.MapFn.DEFAULT, explicitDefaultMapFnFingerprint, a);
+    Fingerprint mappedFingerprint = new Fingerprint();
+    cache.addNestedSetToFingerprint(s -> s + "_mapped", mappedFingerprint, a);
+
+    String defaultMapFnDigest = defaultMapFnFingerprint.hexDigestAndReset();
+    String explicitDefaultMapFnDigest = explicitDefaultMapFnFingerprint.hexDigestAndReset();
+    String mappedDigest = mappedFingerprint.hexDigestAndReset();
+    assertThat(defaultMapFnDigest).isEqualTo(explicitDefaultMapFnDigest);
+    assertThat(mappedDigest).isNotEqualTo(defaultMapFnDigest);
+
+    assertThat(cache.fingerprinted.elementSet()).containsExactly("a0", "a1");
+    for (Multiset.Entry<Object> entry : cache.fingerprinted.entrySet()) {
+      assertThat(entry.getCount()).isEqualTo(2);
     }
   }
 }

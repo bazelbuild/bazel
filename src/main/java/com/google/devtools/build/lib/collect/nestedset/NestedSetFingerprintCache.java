@@ -23,30 +23,40 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Computes fingerprints for nested sets, reusing sub-computations from children. */
 public class NestedSetFingerprintCache {
   private static final byte[] EMPTY_SET_BYTES = new byte[] {};
-  private Map<Object, byte[]> fingerprints = createMap();
+
+  /** Memoize the subresults. We have to have one cache per type of command item map function. */
+  private Map<CommandLineItem.MapFn<?>, Map<Object, byte[]>> mapFnToFingerprints = createMap();
 
   public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet) {
+    addNestedSetToFingerprint(CommandLineItem.MapFn.DEFAULT, fingerprint, nestedSet);
+  }
+
+  public <T> void addNestedSetToFingerprint(
+      CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet) {
+    Map<Object, byte[]> fingerprints =
+        mapFnToFingerprints.computeIfAbsent(mapFn, k -> new ConcurrentHashMap<>());
     fingerprint.addInt(nestedSet.getOrder().ordinal());
     Object children = nestedSet.rawChildren();
-    byte[] bytes = getBytes(children);
+    byte[] bytes = getBytes(mapFn, fingerprints, children);
     fingerprint.addBytes(bytes);
   }
 
   public void clear() {
-    fingerprints = createMap();
+    mapFnToFingerprints = createMap();
   }
 
   @SuppressWarnings("unchecked")
-  private byte[] getBytes(Object children) {
+  private <T> byte[] getBytes(
+      CommandLineItem.MapFn<? super T> mapFn, Map<Object, byte[]> fingerprints, Object children) {
     byte[] bytes = fingerprints.get(children);
     if (bytes == null) {
       if (children instanceof Object[]) {
         Fingerprint fingerprint = new Fingerprint();
         for (Object child : (Object[]) children) {
           if (child instanceof Object[]) {
-            fingerprint.addBytes(getBytes(child));
+            fingerprint.addBytes(getBytes(mapFn, fingerprints, child));
           } else {
-            addToFingerprint(fingerprint, child);
+            addToFingerprint(mapFn, fingerprint, (T) child);
           }
         }
         bytes = fingerprint.digestAndReset();
@@ -58,7 +68,7 @@ public class NestedSetFingerprintCache {
       } else if (children != NestedSet.EMPTY_CHILDREN) {
         // Single item
         Fingerprint fingerprint = new Fingerprint();
-        addToFingerprint(fingerprint, children);
+        addToFingerprint(mapFn, fingerprint, (T) children);
         bytes = fingerprint.digestAndReset();
       } else {
         // Empty nested set
@@ -69,11 +79,12 @@ public class NestedSetFingerprintCache {
   }
 
   @VisibleForTesting
-  <T> void addToFingerprint(Fingerprint fingerprint, T object) {
-    fingerprint.addString(CommandLineItem.expandToCommandLine(object));
+  <T> void addToFingerprint(
+      CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, T object) {
+    fingerprint.addString(mapFn.expandToCommandLine(object));
   }
 
-  private static Map<Object, byte[]> createMap() {
+  private static Map<CommandLineItem.MapFn<?>, Map<Object, byte[]>> createMap() {
     return new ConcurrentHashMap<>();
   }
 }

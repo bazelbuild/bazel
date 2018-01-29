@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.actions.CustomCommandLine.builder;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -29,10 +30,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -897,6 +901,40 @@ public class CustomCommandLineTest {
             "--argTwo",
             "myArtifact/treeArtifact2/children/child2")
         .inOrder();
+  }
+
+  @Test
+  public void testKeyComputation() {
+    NestedSet<String> values = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    ImmutableList<CustomCommandLine> commandLines =
+        ImmutableList.<CustomCommandLine>builder()
+            .add(builder().add("arg").build())
+            .add(builder().addFormatted("--foo=%s", "arg").build())
+            .add(builder().addPrefixed("--foo=%s", "arg").build())
+            .add(builder().addAll(values).build())
+            .add(builder().addAll(VectorArg.addBefore("--foo=%s").each(values)).build())
+            .add(builder().addAll(VectorArg.join("--foo=%s").each(values)).build())
+            .add(builder().addAll(VectorArg.format("--foo=%s").each(values)).build())
+            .add(builder().addAll(VectorArg.of(values).mapped(s -> s + "_mapped")).build())
+            .build();
+
+    // Ensure all these command lines have distinct keys
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    Map<String, CustomCommandLine> digests = new HashMap<>();
+    for (CustomCommandLine commandLine : commandLines) {
+      Fingerprint fingerprint = new Fingerprint();
+      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      String digest = fingerprint.hexDigestAndReset();
+      CustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
+      if (previous != null) {
+        fail(
+            String.format(
+                "Found two command lines with identical digest %s: '%s' and '%s'",
+                digest,
+                Joiner.on(' ').join(previous.arguments()),
+                Joiner.on(' ').join(commandLine.arguments())));
+      }
+    }
   }
 
   @Test

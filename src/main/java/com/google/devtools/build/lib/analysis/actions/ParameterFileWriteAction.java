@@ -67,14 +67,19 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    *
    * @param owner the action owner
    * @param inputs the list of TreeArtifacts that must be resolved and expanded before evaluating
-   *     the contents of {@link commandLine}.
+   *     the contents of {@link CommandLine}.
    * @param output the Artifact that will be created by executing this Action
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
    * @param charset the charset of the file
    */
-  public ParameterFileWriteAction(ActionOwner owner, Iterable<Artifact> inputs, Artifact output,
-      CommandLine commandLine, ParameterFileType type, Charset charset) {
+  public ParameterFileWriteAction(
+      ActionOwner owner,
+      Iterable<Artifact> inputs,
+      Artifact output,
+      CommandLine commandLine,
+      ParameterFileType type,
+      Charset charset) {
     super(owner, ImmutableList.copyOf(inputs), output, false);
     this.commandLine = commandLine;
     this.type = type;
@@ -172,7 +177,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     f.addString(String.valueOf(makeExecutable));
     f.addString(type.toString());
     f.addString(charset.toString());
-    f.addStrings(commandLine.arguments());
+    commandLine.addToFingerprint(actionKeyContext, f);
     return f.hexDigestAndReset();
   }
 }

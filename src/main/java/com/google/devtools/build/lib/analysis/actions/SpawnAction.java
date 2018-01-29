@@ -337,7 +337,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       throws CommandLineExpansionException {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    f.addStrings(argv.arguments());
+    argv.addToFingerprint(actionKeyContext, f);
     f.addString(getMnemonic());
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a

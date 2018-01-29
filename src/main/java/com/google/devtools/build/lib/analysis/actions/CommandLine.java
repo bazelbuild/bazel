@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.util.Fingerprint;
 
 /** A representation of a list of arguments, often a command executed by {@link SpawnAction}. */
 public abstract class CommandLine {
@@ -45,6 +47,13 @@ public abstract class CommandLine {
   public Iterable<String> arguments(ArtifactExpander artifactExpander)
       throws CommandLineExpansionException {
     return arguments();
+  }
+
+  public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint)
+      throws CommandLineExpansionException {
+    for (String s : arguments()) {
+      fingerprint.addString(s);
+    }
   }
 
   /** Returns a {@link CommandLine} backed by a copy of the given list of arguments. */
