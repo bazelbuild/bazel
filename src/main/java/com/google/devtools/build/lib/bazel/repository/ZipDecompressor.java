@@ -127,8 +127,13 @@ public class ZipDecompressor implements Decompressor {
       PathFragment target = PathFragment.create(new String(buffer, Charset.defaultCharset()))
           .normalize();
       if (!target.isNormalized()) {
-        throw new IOException("Zip entries cannot refer to files outside of their directory: "
-            + reader.getFilename() + " has a symlink to " + target);
+        PathFragment pointsTo =
+            PathFragment.create(strippedRelativePath.getParentDirectory(), target).normalize();
+        if (!pointsTo.isNormalized()) {
+          throw new IOException("Zip entries cannot refer to files outside of their directory: "
+              + reader.getFilename() + " has a symlink " + strippedRelativePath + " pointing to "
+              + target);
+        }
       }
       if (target.isAbsolute()) {
         target = target.relativeTo(PathFragment.ROOT_DIR);

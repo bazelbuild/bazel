@@ -237,7 +237,7 @@ sh_test(
     size = "large",
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
-    shard_count = 3,
+    shard_count = 6,
 )
 
 sh_test(

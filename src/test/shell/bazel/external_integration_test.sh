@@ -1050,6 +1050,8 @@ EOF
 
 function test_query_cached() {
   # Verify that external repositories are cached after being used once.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
   mkdir ext
   cat > ext/BUILD <<'EOF'
 genrule(
@@ -1164,6 +1166,79 @@ EOF
         --experimental_repository_cache="${TOPDIR}/cache}" > "${TEST_log}" \
       || fail "Expected success"
   expect_log '@ext//:foo'
+}
+
+function test_good_symlinks() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir -p ext/subdir
+  echo foo > ext/file.txt
+  ln -s ../file.txt ext/subdir/symlink.txt
+  ls -alR ext
+  zip -r --symlinks ext.zip ext
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${WRKDIR}/ext.zip"],
+  build_file="@//:ext.BUILD"
+)
+EOF
+  cat > ext.BUILD <<'EOF'
+exports_files(["subdir/symlink.txt"])
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs = ["@ext//:subdir/symlink.txt"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:local || fail "Expected success"
+}
+
+function test_bad_symlinks() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir -p ext/subdir
+  echo foo > ext/file.txt
+  ln -s ../file.txt ext/symlink.txt
+  ls -alR ext
+  zip -r --symlinks ext.zip ext
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${WRKDIR}/ext.zip"],
+  build_file="@//:ext.BUILD"
+)
+EOF
+  cat > ext.BUILD <<'EOF'
+exports_files(["file.txt"])
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs = ["@ext//:file.txt"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:local \
+    && fail "Expected failure due to unsupported symlink" || :
 }
 
 run_suite "external tests"
