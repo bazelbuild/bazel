@@ -98,12 +98,11 @@ filegroup(
 genrule(
     name = "generate-changelog-file",
     srcs = [
-        "convert_changelog.py",
-        "//:changelog-file",
+        "generate_changelog.py",
         "//:bazel-srcs",  # Force a rebuild on source change
     ],
     outs = ["changelog"],
-    cmd = "python $(location convert_changelog.py) bazel-out/volatile-status.txt $(location //:changelog-file) $(location changelog)",
+    cmd = "python $(location generate_changelog.py) bazel-out/volatile-status.txt $(location changelog)",
     stamp = 1,
 )
 
