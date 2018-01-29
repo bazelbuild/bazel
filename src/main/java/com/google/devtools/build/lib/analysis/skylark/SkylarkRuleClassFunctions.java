@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
-import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -143,7 +143,8 @@ public class SkylarkRuleClassFunctions {
           .build();
 
   /** Parent rule class for test Skylark rules. */
-  public static final RuleClass getTestBaseRule(String toolsRepository) {
+  public static final RuleClass getTestBaseRule(String toolsRepository,
+      PatchTransition lipoDataTransition) {
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)
         .add(
@@ -200,7 +201,9 @@ public class SkylarkRuleClassFunctions {
                 .cfg(HostTransition.INSTANCE)
                 .value(labelCache.getUnchecked("//tools/defaults:coverage_report_generator"))
                 .singleArtifact())
-        .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
+        .add(attr(":run_under", LABEL)
+            .cfg(lipoDataTransition)
+            .value(RUN_UNDER))
         .build();
   }
 
@@ -496,7 +499,8 @@ public class SkylarkRuleClassFunctions {
           RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
           RuleClass parent =
               test
-                  ? getTestBaseRule(SkylarkUtils.getToolsRepository(funcallEnv))
+                  ? getTestBaseRule(SkylarkUtils.getToolsRepository(funcallEnv),
+                      (PatchTransition) SkylarkUtils.getLipoDataTransition(funcallEnv))
                   : (executable ? binaryBaseRule : baseRule);
 
           // We'll set the name later, pass the empty string for now.

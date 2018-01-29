@@ -812,6 +812,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
             .build();
     SkylarkUtils.setToolsRepository(env, toolsRepository);
     SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
+    SkylarkUtils.setLipoDataTransition(env, getLipoDataTransition());
     return env;
   }
 
