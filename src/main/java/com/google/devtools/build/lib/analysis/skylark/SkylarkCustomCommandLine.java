@@ -144,6 +144,16 @@ class SkylarkCustomCommandLine extends CommandLine {
                   null));
         }
         List resultAsList = (List) result;
+        if (resultAsList.size() != count) {
+          throw new CommandLineExpansionException(
+              errorMessage(
+                  String.format(
+                      "map_fn must return a list of the same length as the input. "
+                          + "Found list of length %d, expected %d.",
+                      resultAsList.size(), count),
+                  location,
+                  null));
+        }
         mutatedValues.clear();
         mutatedValues.addAll(resultAsList);
       }

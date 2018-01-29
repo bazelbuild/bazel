@@ -950,7 +950,8 @@ public class SkylarkActionFactory implements SkylarkValue {
           noneable = true,
           doc =
               "The passed objects are passed through a map function. "
-                  + "For vector args the function is given a list and is expected to return a list."
+                  + "For vector args the function is given a list and is expected to "
+                  + "return a list of the same length as the input."
         )
       },
       useLocation = true

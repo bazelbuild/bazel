@@ -1986,6 +1986,33 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLazyArgMapFnReturnsWrongArgumentCount() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "args = ruleContext.actions.args()",
+        "def bad_fn(args): return [0]",
+        "args.add([1, 2], map_fn=bad_fn)",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    try {
+      action.getArguments();
+      fail();
+    } catch (CommandLineExpansionException e) {
+      assertThat(e.getMessage())
+          .contains("map_fn must return a list of the same length as the input");
+    }
+  }
+
+  @Test
   public void createShellWithLazyArgs() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
