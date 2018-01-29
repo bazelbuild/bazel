@@ -117,7 +117,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.appleSdk = objcOptions.appleSdk;
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   ObjcConfiguration(
       DottedVersion iosSimulatorVersion,
       String iosSimulatorDevice,

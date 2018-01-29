@@ -123,7 +123,7 @@ public class BazelConfiguration extends Fragment {
     this(os, options.useStrictActionEnv, determineShellExecutable(os, options.shellExecutable));
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   BazelConfiguration(OS os, boolean useStrictActionEnv, PathFragment shellExecutable) {
     this.os = os;
     this.useStrictActionEnv = useStrictActionEnv;

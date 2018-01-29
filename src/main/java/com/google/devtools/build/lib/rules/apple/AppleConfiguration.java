@@ -91,7 +91,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   AppleConfiguration(AppleCommandLineOptions options, String iosCpu) {
     this.options = options;
     this.iosCpu = iosCpu;

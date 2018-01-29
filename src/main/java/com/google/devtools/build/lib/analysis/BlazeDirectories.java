@@ -66,7 +66,7 @@ public final class BlazeDirectories {
   private final Path localOutputPath;
   private final String productName;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
     this.serverDirectories = serverDirectories;
     this.workspace = workspace;

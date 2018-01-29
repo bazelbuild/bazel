@@ -41,7 +41,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   PythonConfiguration(
       PythonVersion defaultPythonVersion,
       boolean ignorePythonVersionAttribute,

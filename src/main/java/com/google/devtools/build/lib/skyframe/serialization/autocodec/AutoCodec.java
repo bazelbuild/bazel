@@ -40,19 +40,19 @@ public @interface AutoCodec {
    */
   enum Strategy {
     /**
-     * Uses a constructor of the class to synthesize a codec.
+     * Uses a constructor or factory method of the class to synthesize a codec.
      *
      * <p>This strategy depends on
      *
      * <ul>
-     *   <li>a designated constructor to inspect to generate the codec
+     *   <li>a designated constructor or factory method to inspect to generate the codec
      *   <li>the parameters must match member fields on name and type.
      * </ul>
      *
-     * <p>If there is a unique constructor, that is the designated constructor, otherwise one must
-     * be selected using the {@link AutoCodec.Constructor} annotation.
+     * <p>If there is a unique constructor, @AutoCodec may select that as the default instantiator,
+     * otherwise one must be selected using the {@link AutoCodec.Instantiator} annotation.
      */
-    CONSTRUCTOR,
+    INSTANTIATOR,
     /**
      * Uses the public fields to infer serialization code.
      *
@@ -70,18 +70,18 @@ public @interface AutoCodec {
   }
 
   /**
-   * Marks a specific constructor when using the CONSTRUCTOR strategy.
+   * Marks a specific method when using the INSTANTIATOR strategy.
    *
-   * <p>Indicates a constructor for codec generation. A compile-time error will result if multiple
-   * constructors are thus tagged.
+   * <p>Indicates an instantiator, either a constructor or factory method, for codec generation. A
+   * compile-time error will result if multiple methods are thus tagged.
    */
-  @Target(ElementType.CONSTRUCTOR)
-  @interface Constructor {}
+  @Target({ElementType.CONSTRUCTOR, ElementType.METHOD})
+  @interface Instantiator {}
 
   /**
    * Marks a specific constructor parameter as a dependency.
    *
-   * <p>When a constructor selected for the {@code CONSTRUCTOR} strategy has one of its parameters
+   * <p>When a constructor selected for the {@code INSTANTIATOR} strategy has one of its parameters
    * tagged {@code @Dependency}, {@code @AutoCodec} generates an {@link
    * com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec} instead of the usual
    * {@link com.google.devtools.build.lib.skyframe.serialization.ObjectCodec} with the dependency
@@ -97,7 +97,7 @@ public @interface AutoCodec {
   @Target(ElementType.PARAMETER)
   @interface Dependency {}
 
-  Strategy strategy() default Strategy.CONSTRUCTOR;
+  Strategy strategy() default Strategy.INSTANTIATOR;
   /**
    * Specifies a deserialization dependency.
    *

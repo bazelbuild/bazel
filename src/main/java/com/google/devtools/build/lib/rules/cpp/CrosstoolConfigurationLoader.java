@@ -78,7 +78,7 @@ public class CrosstoolConfigurationLoader {
     private final CrosstoolConfig.CrosstoolRelease proto;
     private final String md5;
 
-    @AutoCodec.Constructor
+    @AutoCodec.Instantiator
     CrosstoolFile(String location, CrosstoolConfig.CrosstoolRelease proto, String md5) {
       this.location = location;
       this.proto = proto;

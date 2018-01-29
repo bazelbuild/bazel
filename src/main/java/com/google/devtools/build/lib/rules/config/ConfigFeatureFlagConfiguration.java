@@ -124,7 +124,7 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
     this(options.getFlagValues());
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   ConfigFeatureFlagConfiguration(ImmutableSortedMap<Label, String> flagValues) {
     this.flagValues = flagValues;
     this.flagHash = this.flagValues.isEmpty() ? null : hashFlags(this.flagValues);

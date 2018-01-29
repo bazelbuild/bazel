@@ -65,7 +65,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     private final Label runUnderLabel;
     private final ImmutableList<String> runUnderList;
 
-    @AutoCodec.Constructor
+    @AutoCodec.Instantiator
     RunUnderLabel(String input, Label runUnderLabel, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderLabel = runUnderLabel;
@@ -126,7 +126,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     private final String runUnderCommand;
     private final ImmutableList<String> runUnderList;
 
-    @AutoCodec.Constructor
+    @AutoCodec.Instantiator
     RunUnderCommand(String input, String runUnderCommand, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderCommand = runUnderCommand;

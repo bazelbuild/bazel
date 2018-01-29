@@ -887,7 +887,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   AndroidConfiguration(
       Label sdk,
       String cpu,

@@ -336,7 +336,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         cppToolchainInfo);
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   CppConfiguration(
       Label crosstoolTop,
       CrosstoolFile crosstoolFile,

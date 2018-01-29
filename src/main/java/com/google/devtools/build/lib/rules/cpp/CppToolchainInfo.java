@@ -230,7 +230,7 @@ public final class CppToolchainInfo {
     }
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   CppToolchainInfo(
       CToolchain toolchain,
       PathFragment crosstoolTopPathFragment,

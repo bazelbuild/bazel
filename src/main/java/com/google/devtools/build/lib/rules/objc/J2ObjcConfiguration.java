@@ -108,7 +108,7 @@ public class J2ObjcConfiguration extends Fragment {
         Optional.fromNullable(j2ObjcOptions.deadCodeReport));
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   J2ObjcConfiguration(
       List<String> translationFlags,
       boolean removeDeadCode,

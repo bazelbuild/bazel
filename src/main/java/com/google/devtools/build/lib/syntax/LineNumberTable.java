@@ -87,7 +87,7 @@ public abstract class LineNumberTable implements Serializable {
       this(computeLinestart(buffer), path, buffer.length);
     }
 
-    @AutoCodec.Constructor
+    @AutoCodec.Instantiator
     Regular(int[] linestart, PathFragment path, int bufferLength) {
       this.linestart = linestart;
       this.path = path;
@@ -262,7 +262,7 @@ public abstract class LineNumberTable implements Serializable {
           buffer.length);
     }
 
-    @AutoCodec.Constructor
+    @AutoCodec.Instantiator
     HashLine(ImmutableList<SingleHashLine> table, PathFragment defaultPath, int bufferLength) {
       this.table = table;
       this.defaultPath = defaultPath;

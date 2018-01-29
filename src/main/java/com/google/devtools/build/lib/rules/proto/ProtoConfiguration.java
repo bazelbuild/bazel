@@ -225,7 +225,7 @@ public class ProtoConfiguration extends Fragment {
   private final ImmutableList<String> ccProtoLibrarySourceSuffixes;
   private final Options options;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   public ProtoConfiguration(Options options) {
     this.protocOpts = ImmutableList.copyOf(options.protocOpts);
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);

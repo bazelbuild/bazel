@@ -45,7 +45,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableMap<Label, Label> toolchainResolutionOverrides;
   private final ImmutableList<Label> enabledToolchainTypes;
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   PlatformConfiguration(
       Label executionPlatform,
       ImmutableList<Label> extraExecutionPlatforms,

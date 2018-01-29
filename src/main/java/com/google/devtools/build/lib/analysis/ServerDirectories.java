@@ -53,7 +53,7 @@ public final class ServerDirectories {
         Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5)));
   }
 
-  @AutoCodec.Constructor
+  @AutoCodec.Instantiator
   ServerDirectories(Path installBase, Path outputBase, HashCode installMD5) {
     this.installBase = installBase;
     this.outputBase = outputBase;
