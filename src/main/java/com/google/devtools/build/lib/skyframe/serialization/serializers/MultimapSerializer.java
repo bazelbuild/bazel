@@ -54,6 +54,7 @@ class MultimapSerializer<E, T extends Multimap<E, E>> extends Serializer<T> {
   @Override
   public T read(Kryo kryo, Input input, Class<T> unusedType) {
     T multimap = create.get();
+    kryo.reference(multimap);
     int size = input.readInt(true);
     for (int i = 0; i < size; ++i) {
       multimap.put((E) kryo.readClassAndObject(input), (E) kryo.readClassAndObject(input));

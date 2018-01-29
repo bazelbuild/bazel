@@ -34,17 +34,21 @@ public class KryoConfigUtil {
     kryo.register(Ordering.natural().getClass());
     kryo.register(Collections.reverseOrder().getClass());
 
+    ClassSerializer.registerSerializers(kryo);
     HashCodeSerializer.registerSerializers(kryo);
     ImmutableListSerializer.registerSerializers(kryo);
     ImmutableMapSerializer.registerSerializers(kryo);
     ImmutableMultimapSerializer.registerSerializers(kryo);
     ImmutableSetSerializer.registerSerializers(kryo);
+    ImmutableSortedMapSerializer.registerSerializers(kryo);
     ImmutableSortedSetSerializer.registerSerializers(kryo);
     MapEntrySerializer.registerSerializers(kryo);
     MultimapSerializer.registerSerializers(kryo);
     PatternSerializer.registerSerializers(kryo);
     ReverseListSerializer.registerSerializers(kryo);
     OptionalSerializer.registerSerializers(kryo);
+    UnmodifiableListSerializer.registerSerializers(kryo);
+    UnmodifiableMapSerializer.registerSerializers(kryo);
     UnmodifiableNavigableSetSerializer.registerSerializers(kryo);
   }
 }

@@ -42,7 +42,7 @@ class ImmutableMultimapSerializer extends Serializer<ImmutableMultimap<Object, O
       Kryo kryo, Input input, Class<ImmutableMultimap<Object, Object>> type) {
     ImmutableMultimap.Builder<Object, Object> builder;
     if (type.equals(ImmutableListMultimap.class)) {
-      builder = ImmutableMultimap.builder();
+      builder = ImmutableListMultimap.builder();
     } else if (type.equals(ImmutableSetMultimap.class)) {
       builder = ImmutableSetMultimap.builder();
     } else {
