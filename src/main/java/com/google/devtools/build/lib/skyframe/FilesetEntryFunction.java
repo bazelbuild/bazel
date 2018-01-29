@@ -240,7 +240,7 @@ public final class FilesetEntryFunction implements SkyFunction {
     SkyKey depKey = RecursiveFilesystemTraversalValue.key(
         new RecursiveFilesystemTraversalValue.TraversalRequest(traversal.getRoot().asRootedPath(),
             traversal.isGenerated(), traversal.getPackageBoundaryMode(), traversal.isPackage(),
-            errorInfo, /*pattern=*/null));
+            errorInfo));
     RecursiveFilesystemTraversalValue v = (RecursiveFilesystemTraversalValue) env.getValue(depKey);
     if (env.valuesMissing()) {
       throw new MissingDepException();

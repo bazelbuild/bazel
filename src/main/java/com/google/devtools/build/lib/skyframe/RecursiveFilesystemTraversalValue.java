@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -133,27 +132,22 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      */
     final boolean skipTestingForSubpackage;
 
-    /** A pattern that files must match to be included in this traversal (may be null.) */
-    @Nullable
-    final Pattern pattern;
-
     /** Information to be attached to any error messages that may be reported. */
     @Nullable final String errorInfo;
 
     public TraversalRequest(RootedPath path, boolean isRootGenerated,
         PackageBoundaryMode crossPkgBoundaries, boolean skipTestingForSubpackage,
-        @Nullable String errorInfo, @Nullable Pattern pattern) {
+        @Nullable String errorInfo) {
       this.path = path;
       this.isGenerated = isRootGenerated;
       this.crossPkgBoundaries = crossPkgBoundaries;
       this.skipTestingForSubpackage = skipTestingForSubpackage;
       this.errorInfo = errorInfo;
-      this.pattern = pattern;
     }
 
     private TraversalRequest duplicate(RootedPath newRoot, boolean newSkipTestingForSubpackage) {
       return new TraversalRequest(newRoot, isGenerated, crossPkgBoundaries,
-          newSkipTestingForSubpackage, errorInfo, pattern);
+          newSkipTestingForSubpackage, errorInfo);
     }
 
     /** Creates a new request to traverse a child element in the current directory (the root). */
@@ -183,23 +177,20 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       TraversalRequest o = (TraversalRequest) obj;
       return path.equals(o.path) && isGenerated == o.isGenerated
           && crossPkgBoundaries == o.crossPkgBoundaries
-          && skipTestingForSubpackage == o.skipTestingForSubpackage
-          && Objects.equal(pattern, o.pattern);
+          && skipTestingForSubpackage == o.skipTestingForSubpackage;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(path, isGenerated, crossPkgBoundaries, skipTestingForSubpackage,
-          pattern);
+      return Objects.hashCode(path, isGenerated, crossPkgBoundaries, skipTestingForSubpackage);
     }
 
     @Override
     public String toString() {
       return String.format(
           "TraversalParams(root=%s, is_generated=%d, skip_testing_for_subpkg=%d,"
-          + " pkg_boundaries=%s, pattern=%s)", path, isGenerated ? 1 : 0,
-          skipTestingForSubpackage ? 1 : 0, crossPkgBoundaries,
-          pattern == null ? "null" : pattern.pattern());
+          + " pkg_boundaries=%s)", path, isGenerated ? 1 : 0,
+          skipTestingForSubpackage ? 1 : 0, crossPkgBoundaries);
     }
   }
 

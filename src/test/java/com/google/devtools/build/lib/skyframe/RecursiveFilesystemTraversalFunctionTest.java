@@ -68,7 +68,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -228,12 +227,12 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode) {
     return new TraversalRequest(
-        rootedPath(file), !file.isSourceArtifact(), pkgBoundaryMode, false, null, null);
+        rootedPath(file), !file.isSourceArtifact(), pkgBoundaryMode, false, null);
   }
 
   private static TraversalRequest pkgRoot(
       RootedPath pkgDirectory, PackageBoundaryMode pkgBoundaryMode) {
-    return new TraversalRequest(pkgDirectory, false, pkgBoundaryMode, true, null, null);
+    return new TraversalRequest(pkgDirectory, false, pkgBoundaryMode, true, null);
   }
 
   private <T extends SkyValue> EvaluationResult<T> eval(SkyKey key) throws Exception {
@@ -803,25 +802,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(params, expected);
     assertThat(v2).isEqualTo(v1);
     assertTraversalRootHashesAreEqual(v1, v2);
-  }
-
-  @Test
-  public void testRegexp() throws Exception {
-    Artifact wantedArtifact = sourceArtifact("foo/bar/baz.txt");
-    Artifact unwantedArtifact = sourceArtifact("foo/boo/baztxt.bak");
-    RootedPath wantedPath = rootedPath(wantedArtifact);
-    createFile(wantedPath, "hello");
-    createFile(unwantedArtifact, "nope");
-    Artifact pkgDirArtifact = sourceArtifact("foo");
-    RootedPath dir = rootedPath(pkgDirArtifact);
-    scratch.dir(dir.asPath().getPathString());
-
-    TraversalRequest traversalRoot =
-        new TraversalRequest(
-            dir, false, PackageBoundaryMode.REPORT_ERROR, true, null, Pattern.compile(".*\\.txt"));
-
-    ResolvedFile expected = regularFileForTesting(wantedPath);
-    traverseAndAssertFiles(traversalRoot, expected);
   }
 
   @Test
