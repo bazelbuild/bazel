@@ -180,12 +180,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
       Artifact featureOfArtifact =
           ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
-              ? ruleContext.getPrerequisite("feature_of", Mode.TARGET, ApkProvider.class).getApk()
+              ? ruleContext.getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER).getApk()
               : null;
       Artifact featureAfterArtifact =
           ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
               ? ruleContext
-                  .getPrerequisite("feature_after", Mode.TARGET, ApkProvider.class)
+                  .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
                   .getApk()
               : null;
 
@@ -424,8 +424,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     // If this is an instrumentation APK, create the provider for android_instrumentation_test.
     if (isInstrumentation(ruleContext)) {
-      ApkProvider targetApkProvider =
-          ruleContext.getPrerequisite("instruments", Mode.TARGET, ApkProvider.class);
+      ApkInfo targetApkProvider =
+          ruleContext.getPrerequisite("instruments", Mode.TARGET, ApkInfo.PROVIDER);
 
       Artifact targetApk = targetApkProvider.getApk();
       Artifact instrumentationApk = zipAlignedApk;
@@ -517,9 +517,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addProvider(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(resourceClasses, javaSemantics))
-        .addProvider(
-            ApkProvider.class,
-            ApkProvider.create(
+        .addNativeDeclaredProvider(
+            new ApkInfo(
                 zipAlignedApk,
                 unsignedApk,
                 androidCommon.getInstrumentedJar(),

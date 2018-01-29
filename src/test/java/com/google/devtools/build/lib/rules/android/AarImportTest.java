@@ -281,7 +281,7 @@ public class AarImportTest extends BuildViewTestCase {
   @Test
   public void testExportsManifest() throws Exception {
     Artifact binaryMergedManifest =
-        getConfiguredTarget("//java:app").getProvider(ApkProvider.class).getMergedManifest();
+        getConfiguredTarget("//java:app").get(ApkInfo.PROVIDER).getMergedManifest();
     // Compare root relative path strings instead of artifacts due to difference in configuration
     // caused by the Android split transition.
     assertThat(

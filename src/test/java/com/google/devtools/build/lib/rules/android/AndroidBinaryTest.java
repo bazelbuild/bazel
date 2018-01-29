@@ -3964,6 +3964,59 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testApkInfoAccessibleFromSkylark() throws Exception {
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "load(':postprocess.bzl', 'postprocess')",
+        "android_binary(name = 'b1',",
+        "               srcs = ['b1.java'],",
+        "               manifest = 'AndroidManifest.xml')",
+        "postprocess(name = 'postprocess', dep = ':b1')");
+    scratch.file(
+        "java/com/google/android/postprocess.bzl",
+        "def _impl(ctx):",
+        "  return [DefaultInfo(files=depset([ctx.attr.dep[ApkInfo].signed_apk]))]",
+        "postprocess = rule(implementation=_impl,",
+        "              attrs={'dep': attr.label(providers=[ApkInfo])})");
+    ConfiguredTarget postprocess = getConfiguredTarget("//java/com/google/android:postprocess");
+    assertThat(postprocess).isNotNull();
+    assertThat(
+            ActionsTestUtil.prettyArtifactNames(
+                postprocess.getProvider(FilesToRunProvider.class).getFilesToRun()))
+        .containsExactly("java/com/google/android/b1.apk");
+  }
+
+  @Test
+  public void testInstrumentationInfoAccessibleFromSkylark() throws Exception {
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "load(':instr.bzl', 'instr')",
+        "android_binary(name = 'b1',",
+        "               srcs = ['b1.java'],",
+        "               instruments = ':b2',",
+        "               manifest = 'AndroidManifest.xml')",
+        "android_binary(name = 'b2',",
+        "               srcs = ['b2.java'],",
+        "               manifest = 'AndroidManifest.xml')",
+        "instr(name = 'instr', dep = ':b1')");
+    scratch.file(
+        "java/com/google/android/instr/instr.bzl",
+        "def _impl(ctx):",
+        "  target = ctx.attr.dep[AndroidInstrumentationInfo].target_apk",
+        "  instr = ctx.attr.dep[AndroidInstrumentationInfo].instrumentation_apk",
+        "  return [DefaultInfo(files=depset([target,instr]))]",
+        "instr = rule(implementation=_impl,",
+        "             attrs={'dep': attr.label(providers=[AndroidInstrumentationInfo])})");
+    ConfiguredTarget instr = getConfiguredTarget("//java/com/google/android/instr");
+    assertThat(instr).isNotNull();
+    assertThat(
+            ActionsTestUtil.prettyArtifactNames(
+                instr.getProvider(FilesToRunProvider.class).getFilesToRun()))
+        .containsExactly(
+            "java/com/google/android/instr/b1.apk", "java/com/google/android/instr/b2.apk");
+  }
+
+  @Test
   public void testInstrumentationInfoProviderHasApks() throws Exception {
     scratch.file(
         "java/com/google/android/instr/BUILD",

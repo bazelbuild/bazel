@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceScriptFixtureRule;
 import com.google.devtools.build.lib.rules.android.AndroidHostServiceFixtureRule;
+import com.google.devtools.build.lib.rules.android.AndroidInstrumentationInfo;
 import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestRule;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
@@ -89,6 +90,7 @@ import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
+import com.google.devtools.build.lib.rules.android.ApkInfo;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -478,6 +480,9 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidHostServiceFixtureRule());
 
           builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
+          builder.addSkylarkAccessibleTopLevels(ApkInfo.PROVIDER.getName(), ApkInfo.PROVIDER);
+          builder.addSkylarkAccessibleTopLevels(
+              AndroidInstrumentationInfo.PROVIDER.getName(), AndroidInstrumentationInfo.PROVIDER);
 
           try {
             builder.addWorkspaceFilePrefix(
