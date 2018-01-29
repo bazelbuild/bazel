@@ -464,7 +464,6 @@ java_library(
             "rules/extra/*.java",
             "rules/filegroup/*.java",
             "rules/fileset/*.java",
-            "rules/test/*.java",
             "rules/repository/*.java",
             "skyframe/*.java",
         ],
@@ -566,6 +565,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib:testing-support-rules",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -965,6 +965,29 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:core-rules",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "testing-support-rules",
+    srcs = glob(
+        ["rules/test/*.java"],
+    ),
+    deps = [
+        ":packages-internal",
+        ":skylarkinterface",
+        ":util",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:core-rules",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
     ],
 )
