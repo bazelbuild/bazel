@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -154,7 +153,11 @@ public class BaseRuleClasses {
 
           // The target itself and run_under both run on the same machine. We use the DATA config
           // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
-          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER).skipPrereqValidatorCheck())
+          .add(
+              attr(":run_under", LABEL)
+                  .cfg(env.getLipoDataTransition())
+                  .value(RUN_UNDER)
+                  .skipPrereqValidatorCheck())
           .build();
     }
 
@@ -328,7 +331,7 @@ public class BaseRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
-          .add(attr("data", LABEL_LIST).cfg(DATA)
+          .add(attr("data", LABEL_LIST).cfg(env.getLipoDataTransition())
               .allowedFileTypes(FileTypeSet.ANY_FILE)
               .dontCheckConstraints())
           .build();

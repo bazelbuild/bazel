@@ -968,6 +968,7 @@ public class CcCommonTest extends BuildViewTestCase {
         public ConfiguredRuleClassProvider createRuleClassProvider() {
           ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
           builder.setToolsRepository("@bazel_tools");
+          BazelRuleClassProvider.LIPO_DATA_TRANSITION.init(builder);
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
           CoreRules.INSTANCE.init(builder);
           CoreWorkspaceRules.INSTANCE.init(builder);

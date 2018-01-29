@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-
 import javax.annotation.Nullable;
 
 /**
@@ -49,4 +49,14 @@ public interface RuleDefinitionEnvironment {
    */
   @Nullable
   Label getLauncherLabel();
+
+  /**
+   * Returns the C++ LIPO data transition, as defined in {@link
+   * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
+   *
+   * <p>This is language-specific, so doesn't really belong here. But since non-C++ rules declare
+   * this transition, we need universal access to it. The need for this interface should go away on
+   * the deprecation of LIPO for <a href="https://clang.llvm.org/docs/ThinLTO.html">ThinLTO</a>.
+   */
+  PatchTransition getLipoDataTransition();
 }

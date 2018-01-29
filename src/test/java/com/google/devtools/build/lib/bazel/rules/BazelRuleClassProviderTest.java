@@ -64,6 +64,7 @@ public class BazelRuleClassProviderTest {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     Set<RuleSet> result = new HashSet<>();
+    result.add(BazelRuleClassProvider.LIPO_DATA_TRANSITION);
     result.add(BazelRuleClassProvider.BAZEL_SETUP);
     collectTransitiveClosure(result, top);
     for (RuleSet module : result) {
