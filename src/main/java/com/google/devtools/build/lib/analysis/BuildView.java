@@ -19,7 +19,6 @@ import static com.google.common.collect.Iterables.concat;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -78,6 +77,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -114,6 +114,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -439,21 +440,28 @@ public class BuildView {
     }
   }
 
-  /**
-   * Returns the collection of configured targets corresponding to any of the provided targets.
-   */
+  /** Returns the collection of configured targets corresponding to any of the provided targets. */
   @VisibleForTesting
   static Iterable<? extends ConfiguredTarget> filterTestsByTargets(
       Collection<? extends ConfiguredTarget> targets,
-      final Set<? extends Target> allowedTargets) {
-    return Iterables.filter(
-        targets,
-        new Predicate<ConfiguredTarget>() {
-          @Override
-          public boolean apply(ConfiguredTarget rule) {
-            return allowedTargets.contains(rule.getTarget());
-          }
-        });
+      final Set<? extends Target> allowedTargets,
+      ExtendedEventHandler eventHandler,
+      PackageManager packageManager) {
+    return targets
+        .stream()
+        .filter(
+            ct -> {
+              Target target = null;
+              try {
+                target = packageManager.getTarget(eventHandler, ct.getLabel());
+              } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+                eventHandler.handle(
+                    Event.error("Failed to get target from package when filtering."));
+                return false;
+              }
+              return allowedTargets.contains(target);
+            })
+        .collect(Collectors.toSet());
   }
 
   @ThreadCompatible
@@ -629,8 +637,13 @@ public class BuildView {
     Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
       // Determine the subset of configured targets that are meant to be run as tests.
-      allTargetsToTest = Sets.newLinkedHashSet(
-          filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
+      allTargetsToTest =
+          Sets.newLinkedHashSet(
+              filterTestsByTargets(
+                  configuredTargets,
+                  Sets.newHashSet(testsToRun),
+                  eventHandler,
+                  skyframeExecutor.getPackageManager()));
     }
 
     Set<Artifact> artifactsToBuild = new HashSet<>();
@@ -644,7 +657,8 @@ public class BuildView {
     artifactsToBuild.addAll(buildInfoArtifacts);
 
     // Extra actions
-    addExtraActionsIfRequested(viewOptions, configuredTargets, aspects, artifactsToBuild);
+    addExtraActionsIfRequested(
+        viewOptions, configuredTargets, aspects, artifactsToBuild, eventHandler);
 
     // Coverage
     NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
@@ -667,7 +681,13 @@ public class BuildView {
     }
 
     // Tests. This must come last, so that the exclusive tests are scheduled after everything else.
-    scheduleTestsIfRequested(parallelTests, exclusiveTests, topLevelOptions, allTargetsToTest);
+    scheduleTestsIfRequested(
+        parallelTests,
+        exclusiveTests,
+        topLevelOptions,
+        allTargetsToTest,
+        skyframeExecutor,
+        eventHandler);
 
     String error = createErrorMessage(loadingResult, skyframeAnalysisResult);
 
@@ -733,13 +753,15 @@ public class BuildView {
     return baselineCoverageArtifacts.build();
   }
 
-  private void addExtraActionsIfRequested(Options viewOptions,
+  private void addExtraActionsIfRequested(
+      Options viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
-      Set<Artifact> artifactsToBuild) {
+      Set<Artifact> artifactsToBuild,
+      ExtendedEventHandler eventHandler) {
     Iterable<Artifact> extraActionArtifacts =
         concat(
-            addExtraActionsFromTargets(viewOptions, configuredTargets),
+            addExtraActionsFromTargets(viewOptions, configuredTargets, eventHandler),
             addExtraActionsFromAspects(viewOptions, aspects));
 
     RegexFilter filter = viewOptions.extraActionFilter;
@@ -753,7 +775,9 @@ public class BuildView {
   }
 
   private NestedSet<Artifact> addExtraActionsFromTargets(
-      BuildView.Options viewOptions, Collection<ConfiguredTarget> configuredTargets) {
+      BuildView.Options viewOptions,
+      Collection<ConfiguredTarget> configuredTargets,
+      ExtendedEventHandler eventHandler) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       ExtraActionArtifactsProvider provider =
@@ -762,7 +786,14 @@ public class BuildView {
         if (viewOptions.extraActionTopLevelOnly) {
           // Collect all aspect-classes that topLevel might inject.
           Set<AspectClass> aspectClasses = new HashSet<>();
-          for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
+          Target actualTarget = null;
+          try {
+            actualTarget =
+                skyframeExecutor.getPackageManager().getTarget(eventHandler, target.getLabel());
+          } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+            eventHandler.handle(Event.error(""));
+          }
+          for (Attribute attr : actualTarget.getAssociatedRule().getAttributes()) {
             aspectClasses.addAll(attr.getAspectClasses());
           }
 
@@ -815,35 +846,57 @@ public class BuildView {
     return builder.build();
   }
 
-  private static void scheduleTestsIfRequested(Collection<ConfiguredTarget> targetsToTest,
-      Collection<ConfiguredTarget> targetsToTestExclusive, TopLevelArtifactContext topLevelOptions,
-      Collection<ConfiguredTarget> allTestTargets) {
+  private static void scheduleTestsIfRequested(
+      Collection<ConfiguredTarget> targetsToTest,
+      Collection<ConfiguredTarget> targetsToTestExclusive,
+      TopLevelArtifactContext topLevelOptions,
+      Collection<ConfiguredTarget> allTestTargets,
+      SkyframeExecutor skyframeExecutor,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException {
     Set<String> outputGroups = topLevelOptions.outputGroups();
     if (!outputGroups.contains(OutputGroupInfo.FILES_TO_COMPILE)
         && !outputGroups.contains(OutputGroupInfo.COMPILATION_PREREQUISITES)
         && allTestTargets != null) {
-      scheduleTests(targetsToTest, targetsToTestExclusive, allTestTargets,
-          topLevelOptions.runTestsExclusively());
+      scheduleTests(
+          targetsToTest,
+          targetsToTestExclusive,
+          allTestTargets,
+          topLevelOptions.runTestsExclusively(),
+          skyframeExecutor,
+          eventHandler);
     }
   }
-
 
   /**
    * Returns set of artifacts representing test results, writing into targetsToTest and
    * targetsToTestExclusive.
    */
-  private static void scheduleTests(Collection<ConfiguredTarget> targetsToTest,
-                                    Collection<ConfiguredTarget> targetsToTestExclusive,
-                                    Collection<ConfiguredTarget> allTestTargets,
-                                    boolean isExclusive) {
-    for (ConfiguredTarget target : allTestTargets) {
-      if (target.getTarget() instanceof Rule) {
-        boolean exclusive =
-            isExclusive || TargetUtils.isExclusiveTestRule((Rule) target.getTarget());
+  private static void scheduleTests(
+      Collection<ConfiguredTarget> targetsToTest,
+      Collection<ConfiguredTarget> targetsToTestExclusive,
+      Collection<ConfiguredTarget> allTestTargets,
+      boolean isExclusive,
+      SkyframeExecutor skyframeExecutor,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    for (ConfiguredTarget configuredTarget : allTestTargets) {
+      Target target = null;
+      try {
+        target =
+            skyframeExecutor
+                .getPackageManager()
+                .getTarget(eventHandler, configuredTarget.getLabel());
+      } catch (NoSuchTargetException | NoSuchPackageException e) {
+        eventHandler.handle(Event.error("Failed to get target when scheduling tests"));
+        continue;
+      }
+      if (target instanceof Rule) {
+        boolean exclusive = isExclusive || TargetUtils.isExclusiveTestRule((Rule) target);
         Collection<ConfiguredTarget> testCollection = exclusive
             ? targetsToTestExclusive
             : targetsToTest;
-        testCollection.add(target);
+        testCollection.add(configuredTarget);
       }
     }
   }
@@ -916,7 +969,17 @@ public class BuildView {
       ToolchainContext toolchainContext)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException {
-    if (!(ct.getTarget() instanceof Rule)) {
+
+    Target target = null;
+    try {
+      target = skyframeExecutor.getPackageManager().getTarget(eventHandler, ct.getLabel());
+    } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+      eventHandler.handle(
+          Event.error("Failed to get target from package during prerequisite analysis." + e));
+      return OrderedSetMultimap.create();
+    }
+
+    if (!(target instanceof Rule)) {
       return OrderedSetMultimap.create();
     }
 
@@ -975,8 +1038,7 @@ public class BuildView {
     }
 
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
-    TargetAndConfiguration ctgNode =
-        new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
+    TargetAndConfiguration ctgNode = new TargetAndConfiguration(target, ct.getConfiguration());
     return dependencyResolver.dependentNodeMap(
         ctgNode,
         configurations.getHostConfiguration(),
@@ -1108,35 +1170,46 @@ public class BuildView {
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(
       ExtendedEventHandler eventHandler,
-      ConfiguredTarget target,
+      ConfiguredTarget configuredTarget,
       AnalysisEnvironment env,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, ToolchainContextException {
-    BuildConfiguration targetConfig = target.getConfiguration();
+    BuildConfiguration targetConfig = configuredTarget.getConfiguration();
+    Target target = null;
+    try {
+      target =
+          skyframeExecutor.getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
+    } catch (NoSuchPackageException | NoSuchTargetException e) {
+      eventHandler.handle(
+          Event.error("Failed to get target when trying to get rule context for testing"));
+      throw new IllegalStateException(e);
+    }
     Set<Label> requiredToolchains =
-        target.getTarget().getAssociatedRule().getRuleClassObject().getRequiredToolchains();
+        target.getAssociatedRule().getRuleClassObject().getRequiredToolchains();
     ToolchainContext toolchainContext =
         skyframeExecutor.getToolchainContextForTesting(
             requiredToolchains, targetConfig, eventHandler);
     OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap =
-        getPrerequisiteMapForTesting(eventHandler, target, configurations, toolchainContext);
+        getPrerequisiteMapForTesting(
+            eventHandler, configuredTarget, configurations, toolchainContext);
     toolchainContext.resolveToolchains(prerequisiteMap);
 
     return new RuleContext.Builder(
             env,
-            (Rule) target.getTarget(),
+            (Rule) target,
             ImmutableList.of(),
             targetConfig,
             configurations.getHostConfiguration(),
             ruleClassProvider.getPrerequisiteValidator(),
-            ((Rule) target.getTarget()).getRuleClassObject().getConfigurationFragmentPolicy())
+            ((Rule) target).getRuleClassObject().getConfigurationFragmentPolicy())
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,
                 PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
         .setPrerequisites(
-            getPrerequisiteMapForTesting(eventHandler, target, configurations, toolchainContext))
+            getPrerequisiteMapForTesting(
+                eventHandler, configuredTarget, configurations, toolchainContext))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragment(ruleClassProvider.getUniversalFragment())
         .setToolchainContext(toolchainContext)
