@@ -192,6 +192,10 @@ class StartupOptions {
   // The capitalized name of this binary.
   const std::string product_name;
 
+  // If supplied, alternate location to write the blaze server's jvm's stdout.
+  // Otherwise a default path in the output base is used.
+  std::string server_jvm_out;
+
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
   std::string output_base;

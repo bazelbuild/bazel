@@ -449,7 +449,8 @@ static void WriteProcessStartupTime(const string& server_dir, HANDLE process) {
 }
 
 static HANDLE CreateJvmOutputFile(const wstring& path,
-                                  SECURITY_ATTRIBUTES* sa) {
+                                  SECURITY_ATTRIBUTES* sa,
+                                  bool daemon_out_append) {
   // If the previous server process was asked to be shut down (but not killed),
   // it takes a while for it to comply, so wait until the JVM output file that
   // it held open is closed. There seems to be no better way to wait for a file
@@ -461,10 +462,16 @@ static HANDLE CreateJvmOutputFile(const wstring& path,
         /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
         /* dwShareMode */ FILE_SHARE_READ,
         /* lpSecurityAttributes */ sa,
-        /* dwCreationDisposition */ CREATE_ALWAYS,
+        /* dwCreationDisposition */
+            daemon_out_append ? OPEN_ALWAYS : CREATE_ALWAYS,
         /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
         /* hTemplateFile */ NULL);
     if (handle != INVALID_HANDLE_VALUE) {
+      if (daemon_out_append
+          && !SetFilePointerEx(handle, {0}, NULL, FILE_END)) {
+        fprintf(stderr, "Could not seek to end of file (%s)\n", path.c_str());
+        return INVALID_HANDLE_VALUE;
+      }
       return handle;
     }
     if (GetLastError() != ERROR_SHARING_VIOLATION &&
@@ -503,7 +510,8 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
 
 
 int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                  const string& daemon_output, const string& server_dir,
+                  const string& daemon_output, const bool daemon_out_append,
+                  const string& server_dir,
                   BlazeServerStartup** server_startup) {
   wstring wdaemon_output;
   if (!blaze_util::AsAbsoluteWindowsPath(daemon_output, &wdaemon_output)) {
@@ -527,7 +535,8 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
          "ExecuteDaemon(%s): CreateFileA(NUL)", exe.c_str());
   }
 
-  AutoHandle stdout_file(CreateJvmOutputFile(wdaemon_output.c_str(), &sa));
+  AutoHandle stdout_file(CreateJvmOutputFile(wdaemon_output.c_str(), &sa,
+                                             daemon_out_append));
   if (!stdout_file.IsValid()) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "ExecuteDaemon(%s): CreateJvmOutputFile(%ls)", exe.c_str(),

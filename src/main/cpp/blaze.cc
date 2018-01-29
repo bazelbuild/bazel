@@ -425,6 +425,10 @@ static vector<string> GetArgumentArray() {
   result.push_back("--workspace_directory=" +
                    blaze::ConvertPath(globals->workspace));
 
+  if (!globals->options->server_jvm_out.empty()) {
+    result.push_back("--server_jvm_out=" + globals->options->server_jvm_out);
+  }
+
   if (globals->options->allow_configurable_attributes) {
     result.push_back("--allow_configurable_attributes");
   }
@@ -616,7 +620,8 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
 
-  return ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file, server_dir,
+  return ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file,
+                       globals->jvm_log_file_append, server_dir,
                        server_startup);
 }
 
@@ -775,9 +780,15 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
       globals->option_processor->PrintStartupOptionsProvenanceMessage();
-      fprintf(stderr, "\nServer crashed during startup. Now printing '%s':\n",
-              globals->jvm_log_file.c_str());
-      WriteFileToStderrOrDie(globals->jvm_log_file.c_str());
+      fprintf(stderr, "\nServer crashed during startup. ");
+      if (globals->jvm_log_file_append) {
+        // Don't dump the log if we were appending - the user should know where
+        // to find it, and who knows how much content they may have accumulated.
+        fprintf(stderr, "See '%s'\n", globals->jvm_log_file.c_str());
+      } else {
+        fprintf(stderr, "Now printing '%s':\n", globals->jvm_log_file.c_str());
+        WriteFileToStderrOrDie(globals->jvm_log_file.c_str());
+      }
       exit(blaze_exit_code::INTERNAL_ERROR);
     }
   }
@@ -1257,8 +1268,14 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 
   globals->lockfile =
       blaze_util::JoinPath(globals->options->output_base, "lock");
-  globals->jvm_log_file =
+  if (!globals->options->server_jvm_out.empty()) {
+    globals->jvm_log_file = globals->options->server_jvm_out;
+    globals->jvm_log_file_append = true;
+  } else {
+    globals->jvm_log_file =
       blaze_util::JoinPath(globals->options->output_base, "server/jvm.out");
+    globals->jvm_log_file_append = false;
+  }
 }
 
 // Prepares the environment to be suitable to start a JVM.

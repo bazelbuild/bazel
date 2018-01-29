@@ -195,7 +195,8 @@ bool SymlinkDirectories(const string &target, const string &link) {
 // Causes the current process to become a daemon (i.e. a child of
 // init, detached from the terminal, in its own session.)  We don't
 // change cwd, though.
-static void Daemonize(const char* daemon_output) {
+static void Daemonize(const char* daemon_output,
+                      const bool daemon_output_append) {
   // Don't call die() or exit() in this function; we're already in a
   // child process so it won't work as expected.  Just don't do
   // anything that can possibly fail. :)
@@ -216,7 +217,9 @@ static void Daemonize(const char* daemon_output) {
 
   open("/dev/null", O_RDONLY);  // stdin
   // stdout:
-  if (open(daemon_output, O_WRONLY | O_CREAT | O_TRUNC, 0666) == -1) {
+  int out_flags =
+      O_WRONLY | O_CREAT | (daemon_output_append ? O_APPEND : O_TRUNC);
+  if (open(daemon_output, out_flags, 0666) == -1) {
     // In a daemon, no-one can hear you scream.
     open("/dev/null", O_WRONLY);
   }
@@ -338,7 +341,9 @@ void WriteSystemSpecificProcessIdentifier(
 // localized here.
 int ExecuteDaemon(const string& exe,
                   const std::vector<string>& args_vector,
-                  const string& daemon_output, const string& server_dir,
+                  const string& daemon_output,
+                  const bool daemon_output_append,
+                  const string& server_dir,
                   BlazeServerStartup** server_startup) {
   int fds[2];
 
@@ -380,7 +385,7 @@ int ExecuteDaemon(const string& exe,
     // before ExecuteDaemon() to understand why.
     close(fds[0]);  // ...child keeps the other.
 
-    Daemonize(daemon_output_chars);
+    Daemonize(daemon_output_chars, daemon_output_append);
 
     pid_t server_pid = getpid();
     WriteToFdWithRetryEintr(fds[1], &server_pid, sizeof server_pid,

@@ -102,13 +102,15 @@ class BlazeServerStartup {
 };
 
 // Starts a daemon process with its standard output and standard error
-// redirected to the file "daemon_output". Sets server_startup to an object
-// that can be used to query if the server is still alive. The PID of the
-// daemon started is written into server_dir, both as a symlink (for legacy
-// reasons) and as a file, and returned to the caller.
+// redirected (and conditionally appended) to the file "daemon_output". Sets
+// server_startup to an object that can be used to query if the server is
+// still alive. The PID of the daemon started is written into server_dir,
+// both as a symlink (for legacy reasons) and as a file, and returned to the
+// caller.
 int ExecuteDaemon(const std::string& exe,
                   const std::vector<std::string>& args_vector,
                   const std::string& daemon_output,
+                  const bool daemon_output_append,
                   const std::string& server_dir,
                   BlazeServerStartup** server_startup);
 

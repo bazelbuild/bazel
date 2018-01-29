@@ -150,6 +150,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("max_idle_secs");
   RegisterUnaryStartupFlag("output_base");
   RegisterUnaryStartupFlag("output_user_root");
+  RegisterUnaryStartupFlag("server_jvm_out");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -201,6 +202,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--output_user_root")) != NULL) {
     output_user_root = MakeAbsolute(value);
     option_sources["output_user_root"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg,
+                                     "--server_jvm_out")) != NULL) {
+    server_jvm_out = MakeAbsolute(value);
+    option_sources["server_jvm_out"] = rcfile;
   } else if (GetNullaryOption(arg, "--deep_execroot")) {
     deep_execroot = true;
     option_sources["deep_execroot"] = rcfile;
