@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
-import com.google.devtools.build.lib.vfs.PathCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
@@ -34,7 +33,7 @@ public class GlobDescriptorTest {
   public void testSerialization() throws Exception {
     ObjectCodecTester.newBuilder(
             GlobDescriptor.getCodec(
-                Root.getCodec(FsUtils.TEST_FILESYSTEM, new PathCodec(FsUtils.TEST_FILESYSTEM))))
+                Root.getCodec(FsUtils.TEST_FILESYSTEM)))
         .addSubjects(
             GlobDescriptor.create(
                 PackageIdentifier.create("@foo", PathFragment.create("//bar")),

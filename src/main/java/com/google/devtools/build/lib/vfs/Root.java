@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
@@ -33,8 +35,10 @@ import javax.annotation.Nullable;
  */
 public interface Root extends Comparable<Root>, Serializable {
 
-  static ObjectCodec<Root> getCodec(FileSystem fileSystem, PathCodec pathCodec) {
-    return new RootCodec(fileSystem, pathCodec);
+  InjectingObjectCodec<Root, FileSystemProvider> CODEC = new RootCodec();
+
+  static ObjectCodec<Root> getCodec(FileSystem fileSystem) {
+    return new InjectingObjectCodecAdapter<>(CODEC, () -> fileSystem);
   }
 
   /** Constructs a root from a path. */
@@ -258,28 +262,20 @@ public interface Root extends Comparable<Root>, Serializable {
   }
 
   /** Codec to serialize {@link Root}s. */
-  class RootCodec implements ObjectCodec<Root> {
-    private final FileSystem fileSystem;
-    private final PathCodec pathCodec;
-
-    private RootCodec(FileSystem fileSystem, PathCodec pathCodec) {
-      this.fileSystem = fileSystem;
-      this.pathCodec = pathCodec;
-    }
-
+  class RootCodec implements InjectingObjectCodec<Root, FileSystemProvider> {
     @Override
     public Class<Root> getEncodedClass() {
       return Root.class;
     }
 
     @Override
-    public void serialize(Root obj, CodedOutputStream codedOut)
+    public void serialize(FileSystemProvider dependency, Root obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       if (obj instanceof PathRoot) {
         codedOut.writeBoolNoTag(false);
-        pathCodec.serialize(((PathRoot) obj).path, codedOut);
+        Path.CODEC.serialize(dependency, ((PathRoot) obj).path, codedOut);
       } else if (obj instanceof AbsoluteRoot) {
-        Preconditions.checkArgument(((AbsoluteRoot) obj).fileSystem == fileSystem);
+        Preconditions.checkArgument(((AbsoluteRoot) obj).fileSystem == dependency.getFileSystem());
         codedOut.writeBoolNoTag(true);
       } else {
         throw new AssertionError("Unknown Root subclass: " + obj.getClass().getName());
@@ -287,12 +283,13 @@ public interface Root extends Comparable<Root>, Serializable {
     }
 
     @Override
-    public Root deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+    public Root deserialize(FileSystemProvider dependency, CodedInputStream codedIn)
+        throws SerializationException, IOException {
       boolean isAbsolute = codedIn.readBool();
       if (isAbsolute) {
-        return fileSystem.getAbsoluteRoot();
+        return dependency.getFileSystem().getAbsoluteRoot();
       } else {
-        Path path = pathCodec.deserialize(codedIn);
+        Path path = Path.CODEC.deserialize(dependency, codedIn);
         return new PathRoot(path);
       }
     }

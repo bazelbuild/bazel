@@ -98,7 +98,7 @@ public class RootTest {
 
   @Test
   public void testSerialization() throws Exception {
-    ObjectCodec<Root> codec = Root.getCodec(fs, new PathCodec(fs));
+    ObjectCodec<Root> codec = Root.getCodec(fs);
     ObjectCodecTester.newBuilder(codec)
         .addSubjects(Root.absoluteRoot(fs), Root.fromPath(fs.getPath("/foo")))
         .skipBadDataTest()

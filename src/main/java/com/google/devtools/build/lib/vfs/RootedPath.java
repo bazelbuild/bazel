@@ -135,7 +135,7 @@ public class RootedPath implements Serializable {
 
     /** Create an instance which will deserialize RootedPaths on {@code fileSystem}. */
     public RootedPathCodec(FileSystem fileSystem) {
-      this.rootCodec = Root.getCodec(fileSystem, new PathCodec(fileSystem));
+      this.rootCodec = Root.getCodec(fileSystem);
     }
 
     @Override
