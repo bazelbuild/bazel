@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,16 +41,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ASTFileLookupFunctionTest extends BuildViewTestCase {
 
-  private static class MockFileSystem extends InMemoryFileSystem {
-
+  private class MockFileSystem extends InMemoryFileSystem {
     boolean statThrowsIoException;
 
     @Override
     public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
       if (statThrowsIoException
-          && path.asFragment()
-              .getPathString()
-              .equals("/workspace/tools/build_rules/prelude_" + TestConstants.PRODUCT_NAME)) {
+          && path.asFragment().getPathString().equals("/workspace/" + preludeLabelRelativePath)) {
         throw new IOException("bork");
       }
       return super.stat(path, followSymlinks);
@@ -59,6 +55,8 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
   }
 
   private MockFileSystem mockFS;
+  String preludeLabelRelativePath =
+      getRuleClassProvider().getPreludeLabel().toPathFragment().toString();
 
   @Override
   protected FileSystem createFileSystem() {
@@ -66,12 +64,12 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     return mockFS;
   }
 
-    @Test
+  @Test
   public void testPreludeASTFileIsNotMandatory() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "foo/BUILD", "genrule(name = 'foo',", "  outs = ['out.txt'],", "  cmd = 'echo hello >@')");
-    scratch.deleteFile("tools/build_rules/prelude_blaze");
+    scratch.deleteFile(preludeLabelRelativePath);
     invalidatePackages();
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
@@ -105,7 +103,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromBuildFileInRemoteRepo() throws Exception {
-    scratch.deleteFile("tools/build_rules/prelude_blaze");
+    scratch.deleteFile(preludeLabelRelativePath);
     scratch.overwriteFile("WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",
@@ -130,7 +128,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromSkylarkFileInRemoteRepo() throws Exception {
-    scratch.deleteFile("tools/build_rules/prelude_blaze");
+    scratch.deleteFile(preludeLabelRelativePath);
     scratch.overwriteFile("WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",
