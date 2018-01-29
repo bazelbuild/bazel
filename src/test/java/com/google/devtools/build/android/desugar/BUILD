@@ -314,6 +314,7 @@ java_test(
     srcs = [
         "DesugarCoreLibraryFunctionalTest.java",
     ],
+    # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
     jvm_flags = ["-Xbootclasspath/p:$(location :testdata_desugared_core_library):$(location //third_party/java/jacoco:blaze-agent)"],
     tags = ["no_windows"],
     deps = [
@@ -334,7 +335,7 @@ java_test(
     srcs = [
         "StackMapBugTest.java",
     ],
-    jvm_flags = ["-Xbootclasspath/p:$(location //third_party/java/jacoco:blaze-agent)"],
+    jvm_flags = ["-Xbootclasspath/a:$(location //third_party/java/jacoco:blaze-agent)"],
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared_core_library",  # Make tests run against desugared library
