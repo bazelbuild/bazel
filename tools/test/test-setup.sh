@@ -105,12 +105,12 @@ GUNIT_OUTPUT="xml:${XML_OUTPUT_FILE}"
 
 RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
 
-if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
+if [[ "${RUNFILES_MANIFEST_ONLY:-}" != "1" ]]; then
   function rlocation() {
     if is_absolute "$1" ; then
       echo "$1"
     else
-      echo "$(dirname $RUNFILES_MANIFEST_FILE)/$1"
+      echo "$TEST_SRCDIR/$1"
     fi
   }
 else
@@ -118,7 +118,7 @@ else
     if is_absolute "$1" ; then
       echo "$1"
     else
-      echo $(grep "^$1 " "${RUNFILES_MANIFEST_FILE}" | sed 's/[^ ]* //')
+      echo "$(grep "^$1 " "${RUNFILES_MANIFEST_FILE}" | sed 's/[^ ]* //')"
     fi
   }
 fi

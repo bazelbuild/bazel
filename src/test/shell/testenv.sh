@@ -33,7 +33,7 @@ function is_darwin() {
 function _log_base() {
   prefix=$1
   shift
-  echo >&2 "${prefix}[$(basename "$0") $(date "+%H:%M:%S.%N (%z)")] $*"
+  echo >&2 "${prefix}[$(basename "$0") $(date "+%Y-%m-%d %H:%M:%S (%z)")] $*"
 }
 
 function log_info() {
@@ -45,6 +45,9 @@ function log_fatal() {
   exit 1
 }
 
+if ! type rlocation &> /dev/null; then
+  log_fatal "rlocation() is undefined"
+fi
 
 # Set some environment variables needed on Windows.
 if is_windows; then
@@ -97,17 +100,6 @@ export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
 #
 [ -z "$TEST_SRCDIR" ] && log_fatal "TEST_SRCDIR not set!"
 BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
-
-if ! type rlocation &> /dev/null; then
-  function rlocation() {
-    if [[ "$1" = /* ]]; then
-      echo $1
-    else
-      echo "$TEST_SRCDIR/$1"
-    fi
-  }
-  export -f rlocation
-fi
 
 # WORKSPACE file
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
@@ -463,10 +455,11 @@ function cleanup_workspace() {
 # Clean-up the bazel install base
 function cleanup() {
   if [ -d "${BAZEL_INSTALL_BASE:-__does_not_exists__}" ]; then
+    log_info "Cleaning up BAZEL_INSTALL_BASE under $BAZEL_INSTALL_BASE"
     # Windows takes its time to shut down Bazel and we can't delete A-server.jar
     # until then, so just give it time and keep trying for 2 minutes.
     for i in {1..120}; do
-      if rm -fr "${BAZEL_INSTALL_BASE}" ; then
+      if rm -fr "${BAZEL_INSTALL_BASE}" >&/dev/null ; then
         break
       fi
       if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then
