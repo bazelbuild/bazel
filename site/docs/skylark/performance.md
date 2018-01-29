@@ -207,7 +207,6 @@ You must pass these two startup flags to *every* Bazel invocation:
   ```
   **NOTE**: The bazel repository comes with an allocation instrumenter.
   Make sure to adjust '$(BAZEL)' for your repository location.
--->
 
 These start the server in memory tracking mode. If you forget these for even
 one Bazel invocation the server will restart and you will have to start over.
@@ -260,7 +259,6 @@ Next, we use the `pprof` tool to investigate the heap. A good starting point is
 getting a flame graph by using `pprof -flame $HOME/prof.gz`.
 
   You can get `pprof` from https://github.com/google/pprof.
--->
 
 In this case we get a text dump of the hottest call sites annotated with lines:
 
