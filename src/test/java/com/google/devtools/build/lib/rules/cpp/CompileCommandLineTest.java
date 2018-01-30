@@ -146,7 +146,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
           }
         },
         "c++-compile",
-        getTargetConfiguration().getFragment(CppConfiguration.class),
+        getTargetConfiguration().getFragment(CppConfiguration.class).getCrosstoolTopPathFragment(),
         new DotdFile(scratchArtifact("a/dotD")));
   }
 }

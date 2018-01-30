@@ -177,6 +177,7 @@ public class CppCompileAction extends AbstractAction
   private final boolean shouldPruneModules;
   private final boolean usePic;
   private final boolean useHeaderModules;
+  private final boolean isStrictSystemIncludes;
   private final CppCompilationContext context;
   private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
@@ -189,7 +190,6 @@ public class CppCompileAction extends AbstractAction
   private final ImmutableMap<String, String> environment;
   private final String actionName;
 
-  @VisibleForTesting final CppConfiguration cppConfiguration;
   private final FeatureConfiguration featureConfiguration;
   protected final CppSemantics cppSemantics;
 
@@ -228,12 +228,14 @@ public class CppCompileAction extends AbstractAction
    * @param owner the owner of the action, usually the configured target that emitted it
    * @param allInputs the list of all action inputs.
    * @param featureConfiguration TODO(bazel-team): Add parameter description.
+   * @param crosstoolTopPathFragment the path to the CROSSTOOL given in --crosstool_top
    * @param variables TODO(bazel-team): Add parameter description.
    * @param sourceFile the source file that should be compiled. {@code mandatoryInputs} must contain
    *     this file
    * @param shouldScanIncludes a boolean indicating whether scanning of {@code sourceFile} is to be
    *     performed looking for inclusions.
    * @param usePic TODO(bazel-team): Add parameter description.
+   * @param isStrictSystemIncludes should this compile action use strict system includes
    * @param mandatoryInputs any additional files that need to be present for the compilation to
    *     succeed, can be empty but not null, for example, extra sources for FDO.
    * @param outputFile the object file that is written as result of the compilation, or the fake
@@ -243,7 +245,6 @@ public class CppCompileAction extends AbstractAction
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
    * @param optionalSourceFile an additional optional source file (null if unneeded)
-   * @param cppConfiguration TODO(bazel-team): Add parameter description.
    * @param context the compilation context
    * @param coptsFilter regular expression to remove options from {@code copts}
    * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
@@ -259,12 +260,14 @@ public class CppCompileAction extends AbstractAction
       ActionOwner owner,
       NestedSet<Artifact> allInputs,
       FeatureConfiguration featureConfiguration,
+      PathFragment crosstoolTopPathFragment,
       CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
       boolean usePic,
       boolean useHeaderModules,
+      boolean isStrictSystemIncludes,
       NestedSet<Artifact> mandatoryInputs,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> prunableInputs,
@@ -275,7 +278,6 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact ltoIndexingFile,
       Artifact optionalSourceFile,
       ImmutableMap<String, String> localShellEnvironment,
-      CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Predicate<String> coptsFilter,
       Iterable<IncludeScannable> lipoScannables,
@@ -300,7 +302,6 @@ public class CppCompileAction extends AbstractAction
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.optionalSourceFile = optionalSourceFile;
     this.context = context;
-    this.cppConfiguration = cppConfiguration;
     this.featureConfiguration = featureConfiguration;
     // inputsKnown begins as the logical negation of shouldScanIncludes.
     // When scanning includes, the inputs begin as not known, and become
@@ -312,6 +313,7 @@ public class CppCompileAction extends AbstractAction
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes, this);
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
+    this.isStrictSystemIncludes = isStrictSystemIncludes;
     this.discoversInputs = shouldScanIncludes || cppSemantics.needsDotdInputPruning();
     this.compileCommandLine =
         CompileCommandLine.builder(
@@ -319,7 +321,7 @@ public class CppCompileAction extends AbstractAction
                 outputFile,
                 coptsFilter,
                 actionName,
-                cppConfiguration,
+                crosstoolTopPathFragment,
                 dotdFile)
             .setFeatureConfiguration(featureConfiguration)
             .setVariables(variables)
@@ -788,7 +790,7 @@ public class CppCompileAction extends AbstractAction
       allowedIncludes.add(optionalSourceFile);
     }
     Iterable<PathFragment> ignoreDirs =
-        cppConfiguration.isStrictSystemIncludes()
+        isStrictSystemIncludes
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
 

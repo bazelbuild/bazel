@@ -36,9 +36,9 @@ public final class CompileCommandLine {
   private final Artifact outputFile;
   private final Predicate<String> coptsFilter;
   private final FeatureConfiguration featureConfiguration;
+  private final PathFragment crosstoolTopPathFragment;
   private final CcToolchainFeatures.Variables variables;
   private final String actionName;
-  private final CppConfiguration cppConfiguration;
   private final DotdFile dotdFile;
 
   private CompileCommandLine(
@@ -46,7 +46,7 @@ public final class CompileCommandLine {
       Artifact outputFile,
       Predicate<String> coptsFilter,
       FeatureConfiguration featureConfiguration,
-      CppConfiguration cppConfiguration,
+      PathFragment crosstoolTopPathFragment,
       CcToolchainFeatures.Variables variables,
       String actionName,
       DotdFile dotdFile) {
@@ -54,7 +54,7 @@ public final class CompileCommandLine {
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.coptsFilter = coptsFilter;
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
-    this.cppConfiguration = Preconditions.checkNotNull(cppConfiguration);
+    this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.variables = variables;
     this.actionName = actionName;
     this.dotdFile = isGenerateDotdFile(sourceFile) ? dotdFile : null;
@@ -82,7 +82,7 @@ public final class CompileCommandLine {
     commandLine.add(
         featureConfiguration
             .getToolForAction(actionName)
-            .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
+            .getToolPath(crosstoolTopPathFragment)
             .getPathString());
 
     // second: The compiler options.
@@ -176,10 +176,10 @@ public final class CompileCommandLine {
       Artifact outputFile,
       Predicate<String> coptsFilter,
       String actionName,
-      CppConfiguration cppConfiguration,
+      PathFragment crosstoolTopPathFragment,
       DotdFile dotdFile) {
     return new Builder(
-        sourceFile, outputFile, coptsFilter, actionName, cppConfiguration, dotdFile);
+        sourceFile, outputFile, coptsFilter, actionName, crosstoolTopPathFragment, dotdFile);
   }
 
   /** A builder for a {@link CompileCommandLine}. */
@@ -190,7 +190,7 @@ public final class CompileCommandLine {
     private FeatureConfiguration featureConfiguration;
     private CcToolchainFeatures.Variables variables = Variables.EMPTY;
     private final String actionName;
-    private final CppConfiguration cppConfiguration;
+    private final PathFragment crosstoolTopPathFragment;
     @Nullable private final DotdFile dotdFile;
 
     public CompileCommandLine build() {
@@ -199,7 +199,7 @@ public final class CompileCommandLine {
           Preconditions.checkNotNull(outputFile),
           Preconditions.checkNotNull(coptsFilter),
           Preconditions.checkNotNull(featureConfiguration),
-          Preconditions.checkNotNull(cppConfiguration),
+          Preconditions.checkNotNull(crosstoolTopPathFragment),
           Preconditions.checkNotNull(variables),
           Preconditions.checkNotNull(actionName),
           dotdFile);
@@ -210,13 +210,13 @@ public final class CompileCommandLine {
         Artifact outputFile,
         Predicate<String> coptsFilter,
         String actionName,
-        CppConfiguration cppConfiguration,
+        PathFragment crosstoolTopPathFragment,
         DotdFile dotdFile) {
       this.sourceFile = sourceFile;
       this.outputFile = outputFile;
       this.coptsFilter = coptsFilter;
       this.actionName = actionName;
-      this.cppConfiguration = cppConfiguration;
+      this.crosstoolTopPathFragment = crosstoolTopPathFragment;
       this.dotdFile = dotdFile;
     }
 
