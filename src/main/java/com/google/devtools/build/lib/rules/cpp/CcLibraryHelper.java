@@ -966,7 +966,7 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Disables checking that the deps actually are C++ rules. By default, the {@link #build} method
+   * Disables checking that the deps actually are C++ rules. By default, the {@link #compile} method
    * uses {@link LanguageDependentFragment.Checker#depSupportsLanguage} to check that all deps
    * provide C++ providers.
    */
@@ -1014,20 +1014,6 @@ public final class CcLibraryHelper {
       Collection<Artifact> additionalIncludeScanningRoots) {
     this.additionalIncludeScanningRoots.addAll(additionalIncludeScanningRoots);
     return this;
-  }
-
-  /**
-   * Create the C++ compile and link actions, and the corresponding compilation related providers.
-   *
-   * @throws RuleErrorException
-   */
-  public Info build() throws RuleErrorException, InterruptedException {
-    Info.CompilationInfo compilationInfo = compile();
-    Info.LinkingInfo linkingInfo =
-        link(
-            compilationInfo.getCcCompilationOutputs(), compilationInfo.getCppCompilationContext());
-
-    return new Info(compilationInfo, linkingInfo);
   }
 
   /**
