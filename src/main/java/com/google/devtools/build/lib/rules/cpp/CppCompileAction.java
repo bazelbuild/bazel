@@ -191,7 +191,6 @@ public class CppCompileAction extends AbstractAction
 
   @VisibleForTesting final CppConfiguration cppConfiguration;
   private final FeatureConfiguration featureConfiguration;
-  protected final Class<? extends CppCompileActionContext> actionContext;
   protected final CppSemantics cppSemantics;
 
   /**
@@ -246,7 +245,6 @@ public class CppCompileAction extends AbstractAction
    * @param optionalSourceFile an additional optional source file (null if unneeded)
    * @param cppConfiguration TODO(bazel-team): Add parameter description.
    * @param context the compilation context
-   * @param actionContext TODO(bazel-team): Add parameter description.
    * @param coptsFilter regular expression to remove options from {@code copts}
    * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
@@ -279,7 +277,6 @@ public class CppCompileAction extends AbstractAction
       ImmutableMap<String, String> localShellEnvironment,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
-      Class<? extends CppCompileActionContext> actionContext,
       Predicate<String> coptsFilter,
       Iterable<IncludeScannable> lipoScannables,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
@@ -327,7 +324,6 @@ public class CppCompileAction extends AbstractAction
             .setFeatureConfiguration(featureConfiguration)
             .setVariables(variables)
             .build();
-    this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
     this.executionInfo = executionInfo;
@@ -424,7 +420,7 @@ public class CppCompileAction extends AbstractAction
     try {
       initialResult =
           actionExecutionContext
-              .getContext(actionContext)
+              .getContext(CppCompileActionContext.class)
               .findAdditionalInputs(
                   this, actionExecutionContext, cppSemantics.getIncludeProcessing());
     } catch (ExecException e) {
@@ -1042,11 +1038,6 @@ public class CppCompileAction extends AbstractAction
     return context.getDeclaredIncludeSrcs();
   }
 
-  @VisibleForTesting
-  public Class<? extends CppCompileActionContext> getActionContext() {
-    return actionContext;
-  }
-
   /**
    * Estimate resource consumption when this action is executed locally.
    */
@@ -1110,7 +1101,7 @@ public class CppCompileAction extends AbstractAction
     try {
       CppCompileActionResult cppCompileActionResult =
           actionExecutionContext
-              .getContext(actionContext)
+              .getContext(CppCompileActionContext.class)
               .execWithReply(this, actionExecutionContext);
       reply = cppCompileActionResult.contextReply();
       spawnResults = cppCompileActionResult.spawnResults();
@@ -1274,7 +1265,7 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     Iterable<Artifact> scannedIncludes;
     try {
-      scannedIncludes = actionExecutionContext.getContext(actionContext)
+      scannedIncludes = actionExecutionContext.getContext(CppCompileActionContext.class)
           .findAdditionalInputs(this, actionExecutionContext,  cppSemantics.getIncludeProcessing());
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);

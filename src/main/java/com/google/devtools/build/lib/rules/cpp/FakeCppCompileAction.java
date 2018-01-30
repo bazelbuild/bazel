@@ -74,7 +74,6 @@ public class FakeCppCompileAction extends CppCompileAction {
       ImmutableMap<String, String> localShellEnvironment,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
-      Class<? extends CppCompileActionContext> actionContext,
       Predicate<String> nocopts,
       Iterable<IncludeScannable> lipoScannables,
       CppSemantics cppSemantics,
@@ -109,7 +108,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         // the cc_fake_binary, and the runfiles must be determined at analysis
         // time, so they can't depend on the contents of the ".d" file.)
         CppCompilationContext.disallowUndeclaredHeaders(context),
-        actionContext,
         nocopts,
         lipoScannables,
         ImmutableList.<Artifact>of(),
@@ -131,7 +129,8 @@ public class FakeCppCompileAction extends CppCompileAction {
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
     logger.info("Generating " + getDotdFile());
-    CppCompileActionContext context = actionExecutionContext.getContext(actionContext);
+    CppCompileActionContext context =
+        actionExecutionContext.getContext(CppCompileActionContext.class);
     CppCompileActionContext.Reply reply = null;
     try {
       CppCompileActionResult cppCompileActionResult =

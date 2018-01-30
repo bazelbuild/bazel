@@ -70,7 +70,6 @@ public class CppCompileActionBuilder {
   private boolean usePic;
   private boolean allowUsingHeaderModules;
   private UUID actionClassId = GUID;
-  private Class<? extends CppCompileActionContext> actionContext;
   private CppConfiguration cppConfiguration;
   private ImmutableMap<Artifact, IncludeScannable> lipoScannableMap;
   private final ImmutableList.Builder<Artifact> additionalIncludeScanningRoots;
@@ -124,7 +123,6 @@ public class CppCompileActionBuilder {
     this.allowUsingHeaderModules = true;
     this.localShellEnvironment = configuration.getLocalShellEnvironment();
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
-    this.actionContext = CppCompileActionContext.class;
     this.ccToolchain = ccToolchain;
   }
 
@@ -151,7 +149,6 @@ public class CppCompileActionBuilder {
     this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
     this.actionClassId = other.actionClassId;
-    this.actionContext = other.actionContext;
     this.cppConfiguration = other.cppConfiguration;
     this.configuration = other.configuration;
     this.usePic = other.usePic;
@@ -379,7 +376,6 @@ public class CppCompileActionBuilder {
               localShellEnvironment,
               cppConfiguration,
               context,
-              actionContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               cppSemantics,
@@ -409,7 +405,6 @@ public class CppCompileActionBuilder {
               localShellEnvironment,
               cppConfiguration,
               context,
-              actionContext,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               additionalIncludeScanningRoots.build(),
@@ -545,12 +540,6 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setCppConfiguration(CppConfiguration cppConfiguration) {
     this.cppConfiguration = cppConfiguration;
-    return this;
-  }
-
-  public CppCompileActionBuilder setActionContext(
-      Class<? extends CppCompileActionContext> actionContext) {
-    this.actionContext = actionContext;
     return this;
   }
 
