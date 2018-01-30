@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
@@ -718,7 +718,7 @@ public abstract class DependencyResolver {
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
       }
-      Transition transition = TransitionResolver.evaluateTransition(
+      ConfigurationTransition transition = TransitionResolver.evaluateTransition(
           ruleConfig, rule, attributeAndOwner.attribute, toTarget, attributeMap);
       outgoingEdges.put(
           attributeAndOwner.attribute,

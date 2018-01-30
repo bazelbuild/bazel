@@ -16,8 +16,8 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingPatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 
@@ -39,7 +39,7 @@ public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
   }
 
   @Override
-  public Transition buildTransitionFor(Rule rule) {
+  public ConfigurationTransition buildTransitionFor(Rule rule) {
     PatchTransition transition1 = (PatchTransition) rtf1.buildTransitionFor(rule);
     PatchTransition transition2 = (PatchTransition) rtf2.buildTransitionFor(rule);
 

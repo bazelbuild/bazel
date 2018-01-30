@@ -29,9 +29,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
@@ -359,7 +359,7 @@ public final class Attribute implements Comparable<Attribute> {
   public static class Builder <TYPE> {
     private final String name;
     private final Type<TYPE> type;
-    private Transition configTransition = NoTransition.INSTANCE;
+    private ConfigurationTransition configTransition = NoTransition.INSTANCE;
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
     private SplitTransitionProvider splitTransitionProvider;
@@ -498,7 +498,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Defines the configuration transition for this attribute. Defaults to
      * {@code NONE}.
      */
-    public Builder<TYPE> cfg(Transition configTransition) {
+    public Builder<TYPE> cfg(ConfigurationTransition configTransition) {
       Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
       if (configTransition instanceof SplitTransition) {
@@ -1734,7 +1734,7 @@ public final class Attribute implements Comparable<Attribute> {
   // (We assume a hypothetical Type.isValid(Object) predicate.)
   private final Object defaultValue;
 
-  private final Transition configTransition;
+  private final ConfigurationTransition configTransition;
 
   private final SplitTransitionProvider splitTransitionProvider;
 
@@ -1789,7 +1789,7 @@ public final class Attribute implements Comparable<Attribute> {
       Type<?> type,
       Set<PropertyFlag> propertyFlags,
       Object defaultValue,
-      Transition configTransition,
+      ConfigurationTransition configTransition,
       SplitTransitionProvider splitTransitionProvider,
       RuleClassNamePredicate allowedRuleClassesForLabels,
       RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
@@ -1915,7 +1915,7 @@ public final class Attribute implements Comparable<Attribute> {
    * Returns the configuration transition for this attribute for label or label
    * list attributes. For other attributes it will always return {@code NONE}.
    */
-  public Transition getConfigurationTransition() {
+  public ConfigurationTransition getConfigurationTransition() {
     return configTransition;
   }
 

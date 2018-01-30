@@ -18,11 +18,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingSplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 
 /**
- * Tool for evaluating which {@link Transition}(s) should be applied to given targets.
+ * Tool for evaluating which {@link ConfigurationTransition}(s) should be applied to given targets.
  *
  * <p>For the work of turning these transitions into actual configurations, see {@link
  * ConfigurationResolver}.
@@ -55,8 +55,12 @@ public final class TransitionResolver {
    * @return the child's configuration, expressed as a diff from the parent's configuration. This
    *     is either a {@link PatchTransition} or {@link SplitTransition}.
    */
-  public static Transition evaluateTransition(BuildConfiguration fromConfig, final Rule fromRule,
-      final Attribute attribute, final Target toTarget, ConfiguredAttributeMapper attributeMap) {
+  public static ConfigurationTransition evaluateTransition(
+      BuildConfiguration fromConfig,
+      final Rule fromRule,
+      final Attribute attribute,
+      final Target toTarget,
+      ConfiguredAttributeMapper attributeMap) {
 
     // I. Input files and package groups have no configurations. We don't want to duplicate them.
     if (usesNullConfiguration(toTarget)) {
@@ -89,13 +93,14 @@ public final class TransitionResolver {
     // The current transition to apply. When multiple transitions are requested, this is a
     // ComposingSplitTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
-    Transition currentTransition = NoTransition.INSTANCE;
+    ConfigurationTransition currentTransition = NoTransition.INSTANCE;
 
     // Apply the parent rule's outgoing transition if it has one.
     RuleTransitionFactory transitionFactory =
         fromRule.getRuleClassObject().getOutgoingTransitionFactory();
     if (transitionFactory != null) {
-      Transition transition = transitionFactory.buildTransitionFor(toTarget.getAssociatedRule());
+      ConfigurationTransition transition =
+          transitionFactory.buildTransitionFor(toTarget.getAssociatedRule());
       if (transition != null) {
         currentTransition = composeTransitions(currentTransition, transition);
       }
@@ -121,12 +126,13 @@ public final class TransitionResolver {
    * Same as evaluateTransition except does not check for transitions coming from parents and
    * enables support for rule-triggered top-level configuration hooks.
    */
-  public static Transition evaluateTopLevelTransition(TargetAndConfiguration targetAndConfig) {
+  public static ConfigurationTransition evaluateTopLevelTransition(
+      TargetAndConfiguration targetAndConfig) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
 
     // Top-level transitions (chosen by configuration fragments):
-    Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
+    ConfigurationTransition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
     if (topLevelTransition == null) {
       topLevelTransition = NoTransition.INSTANCE;
     }
@@ -150,7 +156,8 @@ public final class TransitionResolver {
    * Composes two transitions together efficiently.
    */
   @VisibleForTesting
-  public static Transition composeTransitions(Transition transition1, Transition transition2) {
+  public static ConfigurationTransition composeTransitions(ConfigurationTransition transition1,
+      ConfigurationTransition transition2) {
     if (isFinal(transition1) || transition2 == NoTransition.INSTANCE) {
       return transition1;
     } else if (isFinal(transition2) || transition1 == NoTransition.INSTANCE) {
@@ -168,7 +175,7 @@ public final class TransitionResolver {
    * Returns true if once the given transition is applied to a dep no followup transitions should
    * be composed after it.
    */
-  private static boolean isFinal(Transition transition) {
+  private static boolean isFinal(ConfigurationTransition transition) {
     return (transition == NullTransition.INSTANCE
         || transition == HostTransition.INSTANCE);
   }
@@ -176,7 +183,8 @@ public final class TransitionResolver {
   /**
    * Applies the given split and composes it after an existing transition.
    */
-  private static Transition split(Transition currentTransition, SplitTransition split) {
+  private static ConfigurationTransition split(ConfigurationTransition currentTransition,
+      SplitTransition split) {
     Preconditions.checkState(currentTransition != NullTransition.INSTANCE,
         "cannot apply splits after null transitions (null transitions are expected to be final)");
     Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
@@ -190,7 +198,8 @@ public final class TransitionResolver {
    * @param currentTransition a pre-existing transition to be composed with
    * @param toTarget rule to examine for transitions
    */
-  private static Transition applyRuleTransition(Transition currentTransition, Target toTarget) {
+  private static ConfigurationTransition applyRuleTransition(
+      ConfigurationTransition currentTransition, Target toTarget) {
     if (isFinal(currentTransition)) {
       return currentTransition;
     }

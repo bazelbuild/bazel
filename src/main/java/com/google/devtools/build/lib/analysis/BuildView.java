@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
@@ -1092,7 +1092,8 @@ public class BuildView {
     return result;
   }
 
-  private Transition getTopLevelTransitionForTarget(Label label, ExtendedEventHandler handler) {
+  private ConfigurationTransition getTopLevelTransitionForTarget(Label label,
+      ExtendedEventHandler handler) {
     Rule rule;
     try {
       rule = skyframeExecutor
@@ -1114,7 +1115,7 @@ public class BuildView {
     if (factory == null) {
       return NoTransition.INSTANCE;
     }
-    Transition transition = factory.buildTransitionFor(rule);
+    ConfigurationTransition transition = factory.buildTransitionFor(rule);
     return (transition == null) ? NoTransition.INSTANCE : transition;
   }
 

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import javax.annotation.Nullable;
 
 /**
@@ -28,5 +28,5 @@ public interface RuleTransitionFactory {
    * If this class determines that no transition should be performed, it should return {@code null}.
    */
   @Nullable
-  Transition buildTransitionFor(Rule rule);
+  ConfigurationTransition buildTransitionFor(Rule rule);
 }

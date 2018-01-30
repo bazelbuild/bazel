@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
@@ -147,7 +147,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static class SetsTestFilterFromAttributeTransitionFactory
       implements RuleTransitionFactory {
     @Override
-    public Transition buildTransitionFor(Rule rule) {
+    public ConfigurationTransition buildTransitionFor(Rule rule) {
       NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
       String value = attributes.get("sets_test_filter_to", STRING);
       if (Strings.isNullOrEmpty(value)) {
@@ -381,7 +381,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
    * Returns the value of {@link TestConfiguration.TestOptions#testFilter} for a transition
    * applied over the target configuration.
    */
-  private List<String> getTestFilterOptionValue(Transition transition)
+  private List<String> getTestFilterOptionValue(ConfigurationTransition transition)
       throws Exception {
     ImmutableList.Builder<String> outValues = ImmutableList.builder();
     for (BuildOptions toOptions : ConfigurationResolver.applyTransition(

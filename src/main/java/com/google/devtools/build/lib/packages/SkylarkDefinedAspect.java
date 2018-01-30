@@ -18,7 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -38,7 +38,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private final ImmutableSet<SkylarkProviderIdentifier> provides;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
-  private final Transition hostTransition;
+  private final ConfigurationTransition hostTransition;
   private final ImmutableSet<String> hostFragments;
   private final ImmutableList<Label> requiredToolchains;
 
@@ -54,7 +54,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       // The host transition is in lib.analysis, so we can't reference it directly here.
-      Transition hostTransition,
+      ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
       Environment funcallEnv) {

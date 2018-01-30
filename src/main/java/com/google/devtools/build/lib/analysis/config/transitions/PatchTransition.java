@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
  * {@link com.google.devtools.build.lib.analysis.config.BuildOptions} doesn't currently
  * enforce immutability. So care must be taken not to modify the wrong instance.
  */
-public interface PatchTransition extends Transition {
+public interface PatchTransition extends ConfigurationTransition {
 
   /**
    * Applies the transition.

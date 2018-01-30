@@ -34,14 +34,15 @@ import java.util.List;
  * captures all possible combinations.
  */
 public class ComposingSplitTransition implements SplitTransition {
-  private Transition transition1;
-  private Transition transition2;
+  private ConfigurationTransition transition1;
+  private ConfigurationTransition transition2;
 
   /**
    * Creates a {@link ComposingSplitTransition} that applies the sequence:
    * {@code fromOptions -> transition1 -> transition2 -> toOptions  }.
    */
-  public ComposingSplitTransition(Transition transition1, Transition transition2) {
+  public ComposingSplitTransition(ConfigurationTransition transition1,
+      ConfigurationTransition transition2) {
     this.transition1 = verifySupported(transition1);
     this.transition2 = verifySupported(transition2);
   }
@@ -59,7 +60,7 @@ public class ComposingSplitTransition implements SplitTransition {
    * Verifies support for the given transition type. Throws an {@link IllegalArgumentException} if
    * unsupported.
    */
-  private Transition verifySupported(Transition transition) {
+  private ConfigurationTransition verifySupported(ConfigurationTransition transition) {
     Preconditions.checkArgument(transition instanceof PatchTransition
         || transition instanceof SplitTransition);
     return transition;
@@ -69,7 +70,7 @@ public class ComposingSplitTransition implements SplitTransition {
    * Applies the given transition over the given {@link BuildOptions}, returns the result.
    */
   // TODO(gregce): move this somewhere more general. This isn't intrinsic to composed splits.
-  static List<BuildOptions> apply(BuildOptions fromOptions, Transition transition) {
+  static List<BuildOptions> apply(BuildOptions fromOptions, ConfigurationTransition transition) {
     if (transition instanceof PatchTransition) {
       return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
     } else if (transition instanceof SplitTransition) {

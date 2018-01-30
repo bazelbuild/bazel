@@ -74,9 +74,9 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1132,7 +1132,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // The host configuration inherits the data, not target options. This is so host tools don't
     // apply LIPO.
     BuildConfiguration firstTargetConfig = topLevelTargetConfigs.get(0);
-    Transition dataTransition =
+    ConfigurationTransition dataTransition =
         ((ConfiguredRuleClassProvider) ruleClassProvider).getLipoDataTransition();
     BuildOptions dataOptions = dataTransition != NoTransition.INSTANCE
         ? ((PatchTransition) dataTransition).apply(firstTargetConfig.getOptions())
@@ -1649,7 +1649,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
-      Transition transition) {
+      ConfigurationTransition transition) {
     ConfiguredTargetAndTarget configuredTargetAndTarget =
         Iterables.getFirst(
             getConfiguredTargetsForTesting(

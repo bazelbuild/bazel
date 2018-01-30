@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -516,14 +516,14 @@ public class RuleClass {
      * A RuleTransitionFactory which always returns the same transition.
      */
     private static final class FixedTransitionFactory implements RuleTransitionFactory {
-      private final Transition transition;
+      private final ConfigurationTransition transition;
 
-      private FixedTransitionFactory(Transition transition) {
+      private FixedTransitionFactory(ConfigurationTransition transition) {
         this.transition = transition;
       }
 
       @Override
-      public Transition buildTransitionFor(Rule rule) {
+      public ConfigurationTransition buildTransitionFor(Rule rule) {
         return transition;
       }
     }
@@ -716,7 +716,7 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(Transition transition,
+    public Builder requiresConfigurationFragments(ConfigurationTransition transition,
         Class<?>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           transition,
@@ -748,8 +748,8 @@ public class RuleClass {
      * fragments to be present in the given configuration that isn't the rule's configuration but
      * is also readable by the rule.
      *
-     * <p>In contrast to {@link #requiresConfigurationFragments(Transition, Class...)}, this method
-     * takes Skylark module names of fragments instead of their classes.
+     * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
+     * this method takes Skylark module names of fragments instead of their classes.
      * *
      * <p>You probably don't want to use this, because rules generally shouldn't read configurations
      * other than their own. If you want to declare host config fragments, see
@@ -757,8 +757,8 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(Transition transition,
-        Collection<String> configurationFragmentNames) {
+    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+        ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
           configurationFragmentNames);
       return this;
@@ -838,7 +838,7 @@ public class RuleClass {
      * <p>If you need the transition to depend on the rule it's being applied to, use
      * {@link #cfg(RuleTransitionFactory)}.
      */
-    public Builder cfg(Transition transition) {
+    public Builder cfg(ConfigurationTransition transition) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
       Preconditions.checkState(this.transitionFactory == null,
@@ -851,8 +851,8 @@ public class RuleClass {
     /**
      * Applies the given transition factory to all incoming edges for this rule class.
      *
-     * <p>Unlike{@link #cfg(Transition)}, the factory can examine the rule when deciding what
-     * transition to use.
+     * <p>Unlike{@link #cfg(ConfigurationTransition)}, the factory can examine the rule when
+     * deciding what transition to use.
      */
     public Builder cfg(RuleTransitionFactory transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,

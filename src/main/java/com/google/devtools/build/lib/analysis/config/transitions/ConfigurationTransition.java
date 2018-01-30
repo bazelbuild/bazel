@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 /**
  * A configuration transition.
  */
-public interface Transition {
+public interface ConfigurationTransition {
   /**
    * Does this transition switch to a "host" configuration?
    */

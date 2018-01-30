@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -428,7 +428,7 @@ public final class AspectDefinition {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(Transition transition,
+    public Builder requiresConfigurationFragments(ConfigurationTransition transition,
         Class<?>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(transition,
           ImmutableSet.copyOf(configurationFragments));
@@ -454,15 +454,15 @@ public final class AspectDefinition {
      * fragments to be present in the given configuration that isn't the aspect's configuration but
      * is also readable by the aspect.
      *
-     * <p>In contrast to {@link #requiresConfigurationFragments(Transition, Class...)}, this method
-     * takes the Skylark module names of fragments instead of their classes.
+     * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
+     * this method takes the Skylark module names of fragments instead of their classes.
      *
      * <p>You probably don't want to use this, because aspects generally shouldn't read
      * configurations other than their own. If you want to declare host config fragments, see
      * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(Transition transition,
-        Collection<String> configurationFragmentNames) {
+    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+        ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
           configurationFragmentNames);
       return this;
