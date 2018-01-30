@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -133,6 +134,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
     // Helper Skyfunctions to call ExternalPackageUtil.
     skyFunctions.put(GET_RULE_BY_NAME_FUNCTION, new GetRuleByNameFunction());
+    skyFunctions.put(
+        GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION, new GetRegisteredExecutionPlatformsFunction());
     skyFunctions.put(GET_REGISTERED_TOOLCHAINS_FUNCTION, new GetRegisteredToolchainsFunction());
 
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
@@ -189,6 +192,22 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     assertThat(result.get(key).registeredToolchainLabels())
         // There are default toolchains that are always registered, so just check for the ones added
         .containsAllOf(makeLabel("//toolchain:tc1"), makeLabel("//toolchain:tc2"))
+        .inOrder();
+  }
+
+  @Test
+  public void getRegisteredExecutionPlatforms() throws Exception {
+    scratch.overwriteFile(
+        "WORKSPACE", "register_execution_platforms(", "  '//platform:ep1',", "  '//platform:ep2')");
+
+    SkyKey key = getRegisteredExecutionPlatformsKey();
+    EvaluationResult<GetRegisteredExecutionPlatformsValue> result =
+        getRegisteredExecutionPlatforms(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+
+    assertThat(result.get(key).registeredExecutionPlatformLabels())
+        .containsExactly(makeLabel("//platform:ep1"), makeLabel("//platform:ep2"))
         .inOrder();
   }
 
@@ -280,6 +299,55 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
         return null;
       }
       return GetRegisteredToolchainsValue.create(registeredToolchainLabels);
+    }
+
+    @Nullable
+    @Override
+    public String extractTag(SkyKey skyKey) {
+      return null;
+    }
+  }
+
+  // GetRegisteredExecutionPlatforms.
+  SkyKey getRegisteredExecutionPlatformsKey() {
+    return LegacySkyKey.create(GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION, "singleton");
+  }
+
+  EvaluationResult<GetRegisteredExecutionPlatformsValue> getRegisteredExecutionPlatforms(SkyKey key)
+      throws InterruptedException {
+    return driver.<GetRegisteredExecutionPlatformsValue>evaluate(
+        ImmutableList.of(key),
+        false,
+        SkyframeExecutor.DEFAULT_THREAD_COUNT,
+        NullEventHandler.INSTANCE);
+  }
+
+  private static final SkyFunctionName GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION =
+      SkyFunctionName.create("GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION");
+
+  @AutoValue
+  abstract static class GetRegisteredExecutionPlatformsValue implements SkyValue {
+    abstract ImmutableList<Label> registeredExecutionPlatformLabels();
+
+    static GetRegisteredExecutionPlatformsValue create(
+        Iterable<Label> registeredExecutionPlatformLabels) {
+      return new AutoValue_ExternalPackageUtilTest_GetRegisteredExecutionPlatformsValue(
+          ImmutableList.copyOf(registeredExecutionPlatformLabels));
+    }
+  }
+
+  private static final class GetRegisteredExecutionPlatformsFunction implements SkyFunction {
+
+    @Nullable
+    @Override
+    public SkyValue compute(SkyKey skyKey, Environment env)
+        throws SkyFunctionException, InterruptedException {
+      List<Label> registeredExecutionPlatformLabels =
+          RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
+      if (registeredExecutionPlatformLabels == null) {
+        return null;
+      }
+      return GetRegisteredExecutionPlatformsValue.create(registeredExecutionPlatformLabels);
     }
 
     @Nullable
