@@ -510,7 +510,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         },
         ChangeArtifact.CHANGE_MTIME,
         Callables.<Void>returning(null),
-        ExpectActionIs.DIRTIED_BUT_VERIFIED_CLEAN);
+        unconditionalExecution
+            ? ExpectActionIs.REEXECUTED
+            : ExpectActionIs.DIRTIED_BUT_VERIFIED_CLEAN);
   }
 
   public void testActionWithNonChangingInput(final boolean unconditionalExecution)

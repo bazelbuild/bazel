@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -204,7 +206,28 @@ public abstract class FileArtifactValue implements SkyValue, Metadata {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this).add("digest", digest).add("size", size).toString();
+      return MoreObjects.toStringHelper(this)
+          .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
+          .add("size", size)
+          .add("proxy", proxy).toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof RegularFileArtifactValue)) {
+        return false;
+      }
+      RegularFileArtifactValue r = (RegularFileArtifactValue) o;
+      return Arrays.equals(digest, r.digest) && Objects.equals(proxy, r.proxy) && size == r.size;
+    }
+
+    @Override
+    public int hashCode() {
+      return (proxy != null ? 127 * proxy.hashCode() : 0)
+          + 37 * Long.hashCode(getSize()) + Arrays.hashCode(getDigest());
     }
   }
 
