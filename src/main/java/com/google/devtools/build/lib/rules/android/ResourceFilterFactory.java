@@ -254,7 +254,7 @@ public class ResourceFilterFactory {
     ImmutableList.Builder<FolderConfiguration> filterBuilder = ImmutableList.builder();
     for (String filter : configFilters) {
       addIfNotNull(
-          getFolderConfiguration(ruleErrorConsumer, filter),
+          getFolderConfiguration(filter),
           filter,
           filterBuilder,
           ruleErrorConsumer,
@@ -264,13 +264,12 @@ public class ResourceFilterFactory {
     return filterBuilder.build();
   }
 
-  private FolderConfiguration getFolderConfiguration(
-      RuleErrorConsumer ruleErrorConsumer, String filter) {
+  private FolderConfiguration getFolderConfiguration(String filter) {
 
     // Clean up deprecated representations of resource qualifiers that FolderConfiguration can't
     // handle.
     for (DeprecatedQualifierHandler handler : deprecatedQualifierHandlers) {
-      filter = handler.fixAttributeIfNeeded(ruleErrorConsumer, filter);
+      filter = handler.fixAttributeIfNeeded(filter);
     }
 
     return FolderConfiguration.getConfigForQualifierString(filter);
@@ -281,7 +280,6 @@ public class ResourceFilterFactory {
     private final String replacement;
     private final String description;
 
-    private boolean warnedForAttribute = false;
     private boolean warnedForResources = false;
 
     private DeprecatedQualifierHandler(String pattern, String replacement, String description) {
@@ -290,26 +288,14 @@ public class ResourceFilterFactory {
       this.description = description;
     }
 
-    private String fixAttributeIfNeeded(RuleErrorConsumer ruleErrorConsumer, String qualifier) {
+    private String fixAttributeIfNeeded(String qualifier) {
       Matcher matcher = pattern.matcher(qualifier);
 
       if (!matcher.matches()) {
         return qualifier;
       }
 
-      String fixed = matcher.replaceFirst(replacement);
-      // We don't want to spam users. Only warn about this kind of issue once per target.
-      // TODO(asteinb): Will this cause problems when settings are propagated via dynamic
-      // configuration?
-      if (!warnedForAttribute) {
-        ruleErrorConsumer.attributeWarning(
-            RESOURCE_CONFIGURATION_FILTERS_NAME,
-            String.format(
-                "When referring to %s, use of qualifier '%s' is deprecated. Use '%s' instead.",
-                description, matcher.group(), fixed));
-        warnedForAttribute = true;
-      }
-      return fixed;
+      return matcher.replaceFirst(replacement);
     }
 
     private String fixResourceIfNeeded(
@@ -339,7 +325,16 @@ public class ResourceFilterFactory {
     }
   }
 
-  /** List of deprecated qualifiers that should currently by handled with a warning */
+  /**
+   * List of deprecated qualifiers that are not supported by {@link FolderConfiguration}.
+   *
+   * For resources, we should warn if these qualifiers are encountered, since aapt supports the
+   * fixed version (and aapt2 only supports that version).
+   *
+   * For resource filters, however, aapt only supports this old version. Convert the qualifiers so
+   * that they can be parsed by FolderConfiguration, but do not warn (since they are, actually, what
+   * aapt expects) and save the original qualifier strings to be passed to aapt.
+   */
   private final List<DeprecatedQualifierHandler> deprecatedQualifierHandlers =
       ImmutableList.of(
           /*

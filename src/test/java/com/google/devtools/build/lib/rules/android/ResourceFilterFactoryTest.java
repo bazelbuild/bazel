@@ -137,10 +137,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .hasSize(1);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -152,10 +150,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .hasSize(1);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -167,10 +163,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .hasSize(1);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -182,10 +176,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .hasSize(1);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -202,10 +194,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         // Serbian in explicitly Cyrillic characters should be filtered out.
         ImmutableList.of("values-b+sr+Cyrl/foo.xml"));
 
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .hasSize(1);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -235,10 +225,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         // Spanish with another region specified should be filtered out.
         ImmutableList.of("values-es-rUS/foo.xml"));
 
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .hasSize(1);
+    errorConsumer.assertNoAttributeWarnings(
+        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   @Test
@@ -255,54 +243,6 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
     errorConsumer.assertNoAttributeWarnings(
         ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
-  }
-
-  /**
-   * Tests that filtering with deprecated resource qualifiers only warns once for each type of
-   * problem in each resource filter object.
-   */
-  @Test
-  public void testFilterDeprecatedQualifierFormatsAttributeWarnings() throws RuleErrorException {
-    ImmutableList<String> badQualifiers =
-        ImmutableList.of("en_US", "sr-Latn", "es-419", "mcc310-en_US", "sr_rLatn", "es_419");
-
-    ImmutableList<String> expectedWarnings =
-        ImmutableList.of(
-            "When referring to Serbian in Latin characters, use of qualifier 'sr-Latn' is"
-                + " deprecated. Use 'b+sr+Latn' instead.",
-            "When referring to Spanish for Latin America and the Caribbean, use of qualifier"
-                + " 'es-419' is deprecated. Use 'b+es+419' instead.",
-            "When referring to locale qualifiers with regions, use of qualifier 'en_US' is"
-                + " deprecated. Use 'en-rUS' instead.");
-
-    ResourceFilterFactory filter =
-        new ResourceFilterFactory(
-            badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
-
-    doFilter(filter, ImmutableList.of());
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .containsExactlyElementsIn(expectedWarnings);
-    errorConsumer.assertNoRuleWarnings();
-
-    // Filtering again with this filter should not produce additional warnings
-    doFilter(filter, ImmutableList.of());
-    errorConsumer.assertNoAttributeWarnings(
-        ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
-    errorConsumer.assertNoRuleWarnings();
-
-    // Filtering with a new filter should produce warnings again, since it is working on a different
-    // target
-    filter =
-        new ResourceFilterFactory(
-            badQualifiers, ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
-    doFilter(filter, ImmutableList.of());
-    assertThat(
-            errorConsumer.getAndClearAttributeWarnings(
-                ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME))
-        .containsExactlyElementsIn(expectedWarnings);
-    errorConsumer.assertNoRuleWarnings();
   }
 
   @Test
@@ -494,14 +434,10 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     assertThat(transitiveToDiscard.getResourcesRoots()).isEmpty();
 
     ResourceContainer transitiveToKeep = transitiveContainers.get(1);
-    assertThat(transitiveToKeep.getResources())
-        .containsExactly(transitiveResourceToKeep);
+    assertThat(transitiveToKeep.getResources()).containsExactly(transitiveResourceToKeep);
     assertThat(transitiveToKeep.getResourcesRoots())
         .containsExactly(
-            transitiveResourceToKeep
-                .getExecPath()
-                .getParentDirectory()
-                .getParentDirectory());
+            transitiveResourceToKeep.getExecPath().getParentDirectory().getParentDirectory());
 
     // We tell the resource processing actions to ignore references to filtered resources from
     // dependencies.
