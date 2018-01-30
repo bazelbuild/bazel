@@ -49,12 +49,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
 
-    if (platformConfiguration.hasToolchainOverride(key.toolchainType())) {
-      // Short circuit everything and just return the override.
-      return ToolchainResolutionValue.create(
-          platformConfiguration.getToolchainOverride(key.toolchainType()));
-    }
-
     // Get all toolchains.
     RegisteredToolchainsValue toolchains;
     try {

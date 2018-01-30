@@ -64,30 +64,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
-  public void testResolution_flagOverride() throws Exception {
-    // Add extra toolchain.
-    scratch.file(
-        "extra/BUILD",
-        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
-        "test_toolchain(",
-        "  name='extra_toolchain_impl',",
-        "  data = 'extra')");
-
-    useConfiguration(
-        "--toolchain_resolution_override=" + testToolchainType + "=//extra:extra_toolchain_impl");
-
-    SkyKey key =
-        ToolchainResolutionValue.key(targetConfig, testToolchainType, linuxPlatform, macPlatform);
-    EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
-
-    assertThatEvaluationResult(result).hasNoError();
-
-    ToolchainResolutionValue toolchainResolutionValue = result.get(key);
-    assertThat(toolchainResolutionValue.toolchainLabel())
-        .isEqualTo(makeLabel("//extra:extra_toolchain_impl"));
-  }
-
-  @Test
   public void testResolution_noneFound() throws Exception {
     // Clear the toolchains.
     rewriteWorkspace();
