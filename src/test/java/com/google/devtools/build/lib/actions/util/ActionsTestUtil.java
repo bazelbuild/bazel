@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -89,6 +90,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -338,11 +341,7 @@ public final class ActionsTestUtil {
    * List.
    */
   public static List<String> baseArtifactNames(Iterable<Artifact> artifacts) {
-    List<String> baseNames = new ArrayList<>();
-    for (Artifact artifact : artifacts) {
-      baseNames.add(artifact.getExecPath().getBaseName());
-    }
-    return baseNames;
+    return transform(artifacts, artifact -> artifact.getExecPath().getBaseName());
   }
 
   /**
@@ -350,11 +349,7 @@ public final class ActionsTestUtil {
    * List.
    */
   public static List<String> execPaths(Iterable<Artifact> artifacts) {
-    List<String> names = new ArrayList<>();
-    for (Artifact artifact : artifacts) {
-      names.add(artifact.getExecPathString());
-    }
-    return names;
+    return transform(artifacts, Artifact::getExecPathString);
   }
 
   /**
@@ -362,19 +357,24 @@ public final class ActionsTestUtil {
    * that this returns the root-relative paths, not the exec paths.
    */
   public static List<String> prettyArtifactNames(Iterable<Artifact> artifacts) {
-    List<String> result = new ArrayList<>();
-    for (Artifact artifact : artifacts) {
-      result.add(artifact.prettyPrint());
-    }
-    return result;
+    return transform(artifacts, Artifact::prettyPrint);
   }
 
+  /**
+   * This function is exactly duplication of {@link #prettyArtifactNames(Iterable)}
+   * It appears by mistake. It has more than 144 usages in the code. I decided to not remove it
+   * or not to mark it as deprecated. Just leave it to kindly remind that our world is not perfect.
+   * It should not us hurt to much.
+   */
   public static List<String> prettyJarNames(Iterable<Artifact> jars) {
-    List<String> result = new ArrayList<>();
-    for (Artifact jar : jars) {
-      result.add(jar.prettyPrint());
-    }
-    return result;
+    return prettyArtifactNames(jars);
+  }
+
+  public static <T, R> List<R> transform(Iterable<T> iterable, Function<T, R> mapper) {
+    // Can not use com.google.common.collect.Iterables.transform() there, as it returns Iterable.
+    return Streams.stream(iterable)
+        .map(mapper)
+        .collect(Collectors.toList());
   }
 
   /**
