@@ -28,8 +28,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -207,36 +211,44 @@ class BuildResultPrinter {
   private Collection<ConfiguredTarget> filterTargetsToPrint(
       Collection<ConfiguredTarget> configuredTargets) {
     ImmutableList.Builder<ConfiguredTarget> result = ImmutableList.builder();
-    for (ConfiguredTarget target : configuredTargets) {
+    for (ConfiguredTarget configuredTarget : configuredTargets) {
       // TODO(bazel-team): this is quite ugly. Add a marker provider for this check.
-      if (target instanceof InputFileConfiguredTarget) {
+      if (configuredTarget instanceof InputFileConfiguredTarget) {
         // Suppress display of source files (because we do no work to build them).
         continue;
       }
-      if (target.getTarget() instanceof Rule) {
-        Rule rule = (Rule) target.getTarget();
+      Target target = null;
+      try {
+        target = env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
+      } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+        env.getReporter()
+            .handle(Event.error("Unable to get target when filtering targets to print. " + e));
+        continue;
+      }
+      if (target instanceof Rule) {
+        Rule rule = (Rule) target;
         if (rule.getRuleClass().contains("$")) {
           // Suppress display of hidden rules
           continue;
         }
       }
-      if (target instanceof OutputFileConfiguredTarget) {
+      if (configuredTarget instanceof OutputFileConfiguredTarget) {
         // Suppress display of generated files (because they appear underneath
         // their generating rule), EXCEPT those ones which are not part of the
         // filesToBuild of their generating rule (e.g. .par, _deploy.jar
         // files), OR when a user explicitly requests an output file but not
         // its rule.
         TransitiveInfoCollection generatingRule =
-            ((OutputFileConfiguredTarget) target).getGeneratingRule();
+            ((OutputFileConfiguredTarget) configuredTarget).getGeneratingRule();
         if (CollectionUtils.containsAll(
-            generatingRule.getProvider(FileProvider.class).getFilesToBuild(),
-            target.getProvider(FileProvider.class).getFilesToBuild())
+                generatingRule.getProvider(FileProvider.class).getFilesToBuild(),
+                configuredTarget.getProvider(FileProvider.class).getFilesToBuild())
             && configuredTargets.contains(generatingRule)) {
           continue;
         }
       }
 
-      result.add(target);
+      result.add(configuredTarget);
     }
     return result.build();
   }
