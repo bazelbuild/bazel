@@ -386,17 +386,5 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         }
       };
 
-  public static final EvaluatorSupplier SUPPLIER =
-      new EvaluatorSupplier() {
-        @Override
-        public MemoizingEvaluator create(
-            ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-            Differencer differencer,
-            @Nullable EvaluationProgressReceiver progressReceiver,
-            EmittedEventState emittedEventState,
-            boolean keepEdges) {
-          return new InMemoryMemoizingEvaluator(
-              skyFunctions, differencer, progressReceiver, emittedEventState, keepEdges);
-        }
-      };
+  public static final EvaluatorSupplier SUPPLIER = InMemoryMemoizingEvaluator::new;
 }

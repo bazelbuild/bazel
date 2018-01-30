@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -324,7 +325,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         InMemoryMemoizingEvaluator.SUPPLIER.create(
             makeFreshSkyFunctions(),
             preinjectedDifferencer,
-            /*progressReceiver=*/ null,
+            new EvaluationProgressReceiver.NullEvaluationProgressReceiver(),
             new MemoizingEvaluator.EmittedEventState(),
             /*keepEdges=*/ false));
   }
