@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
@@ -31,5 +32,6 @@ public interface PackageSerializerInterface {
    * @param codedOut the stream to write {@code pkg}'s serialized representation to
    * @throws IOException on failure writing to {@code codedOut}
    */
-  void serialize(Package pkg, CodedOutputStream codedOut) throws IOException;
+  void serialize(Package pkg, CodedOutputStream codedOut)
+      throws SerializationException, IOException;
 }

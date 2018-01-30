@@ -1585,7 +1585,7 @@ public class Package {
     @Override
     public void serialize(
         PackageCodecDependencies codecDeps, Package input, CodedOutputStream codedOut)
-        throws IOException {
+        throws IOException, SerializationException {
       codecDeps.getPackageSerializer().serialize(input, codedOut);
     }
 

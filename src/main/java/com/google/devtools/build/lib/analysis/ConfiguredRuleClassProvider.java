@@ -824,6 +824,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return configurationFragmentMap;
   }
 
+  /** Returns all skylark objects in global scope for this RuleClassProvider. */
+  public Map<String, Object> getTransitiveGlobalBindings() {
+    return globals.getTransitiveBindings();
+  }
+
   /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
   public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
     ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =

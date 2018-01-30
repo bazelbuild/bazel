@@ -230,7 +230,8 @@ public abstract class SkylarkInfo extends Info implements Concatable {
   }
 
   /** A {@link SkylarkInfo} implementation that stores its values in a map. */
-  private static final class MapBackedSkylarkInfo extends SkylarkInfo {
+  // TODO(b/72448383): Make private.
+  public static final class MapBackedSkylarkInfo extends SkylarkInfo {
 
     private final ImmutableMap<String, Object> values;
 
