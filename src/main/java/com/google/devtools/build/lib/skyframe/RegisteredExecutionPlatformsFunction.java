@@ -49,7 +49,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     // Get the execution platforms from the configuration.
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
-    registeredExecutionPlatformLabels.addAll(platformConfiguration.getExtraExecutionPlatforms());
+    if (platformConfiguration != null) {
+      registeredExecutionPlatformLabels.addAll(platformConfiguration.getExtraExecutionPlatforms());
+    }
 
     // Get the registered execution platforms from the WORKSPACE.
     List<Label> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
