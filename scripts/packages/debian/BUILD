@@ -102,7 +102,7 @@ genrule(
         "//:bazel-srcs",  # Force a rebuild on source change
     ],
     outs = ["changelog"],
-    cmd = "python $(location generate_changelog.py) bazel-out/volatile-status.txt $(location changelog)",
+    cmd = "python2.7 $(location generate_changelog.py) bazel-out/volatile-status.txt $(location changelog)",
     stamp = 1,
 )
 
