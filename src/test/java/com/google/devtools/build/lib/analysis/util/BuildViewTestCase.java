@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
@@ -1508,16 +1507,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the configuration created by applying the given transition to the source configuration.
    */
   protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
-      Transition transition) throws InterruptedException {
+      PatchTransition transition) throws InterruptedException {
     if (transition == NoTransition.INSTANCE) {
       return fromConfig;
     } else if (transition == NullTransition.INSTANCE) {
       return null;
     } else {
-      PatchTransition patchTransition =
-          (PatchTransition) ruleClassProvider.getDynamicTransitionMapper().map(transition);
-      return skyframeExecutor.getConfigurationForTesting(reporter, fromConfig.fragmentClasses(),
-          patchTransition.apply(fromConfig.getOptions()));
+      return skyframeExecutor.getConfigurationForTesting(
+          reporter, fromConfig.fragmentClasses(), transition.apply(fromConfig.getOptions()));
     }
   }
 

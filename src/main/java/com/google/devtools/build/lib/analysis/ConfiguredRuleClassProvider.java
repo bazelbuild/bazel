@@ -32,10 +32,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
-import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -228,8 +226,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private ImmutableMap.Builder<Transition, Transition> dynamicTransitionMaps
-        = ImmutableMap.builder();
     private PatchTransition lipoDataTransition;
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
@@ -344,11 +340,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      */
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
       configurationFragmentFactories.add(factory);
-      return this;
-    }
-
-    public Builder addDynamicTransitionMaps(Map<Transition, Transition> maps) {
-      dynamicTransitionMaps.putAll(maps);
       return this;
     }
 
@@ -487,7 +478,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragmentFactories),
-          new DynamicTransitionMapper(dynamicTransitionMaps.build()),
           lipoDataTransition,
           universalFragment,
           prerequisiteValidator,
@@ -590,11 +580,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** The set of configuration fragment factories. */
   private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
-  /**
-   * The dynamic configuration transition mapper.
-   */
-  private final DynamicTransitionMapper dynamicTransitionMapper;
-
   private final PatchTransition lipoDataTransition;
 
   /**
@@ -625,7 +610,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      DynamicTransitionMapper dynamicTransitionMapper,
       PatchTransition lipoDataTransition,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
@@ -643,7 +627,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
-    this.dynamicTransitionMapper = dynamicTransitionMapper;
     this.lipoDataTransition = lipoDataTransition;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
@@ -724,13 +707,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public RuleDefinition getRuleClassDefinition(String ruleClassName) {
     return ruleDefinitionMap.get(ruleClassName);
-  }
-
-  /**
-   * Returns the dynamic configuration transition mapper.
-   */
-  public DynamicTransitionMapper getDynamicTransitionMapper() {
-    return dynamicTransitionMapper;
   }
 
   /**

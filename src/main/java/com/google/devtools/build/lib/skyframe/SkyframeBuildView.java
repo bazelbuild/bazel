@@ -575,7 +575,7 @@ public final class SkyframeBuildView {
   }
 
   SkyframeDependencyResolver createDependencyResolver(Environment env) {
-    return new SkyframeDependencyResolver(env, ruleClassProvider.getDynamicTransitionMapper());
+    return new SkyframeDependencyResolver(env);
   }
 
   /**

@@ -59,9 +59,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Before
   public final void createResolver() throws Exception {
-    dependencyResolver =
-        new DependencyResolver(ruleClassProvider.getDynamicTransitionMapper()) {
-
+    dependencyResolver = new DependencyResolver() {
           @Override
           protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
             throw new IllegalStateException();

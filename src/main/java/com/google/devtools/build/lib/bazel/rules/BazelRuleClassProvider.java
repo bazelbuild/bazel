@@ -112,7 +112,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
@@ -351,9 +350,7 @@ public class BazelRuleClassProvider {
           builder.addSkylarkAccessibleTopLevels("cc_common", CcModule.INSTANCE);
 
           builder.addConfig(CppOptions.class, new CppConfigurationLoader(CpuTransformer.IDENTITY));
-
           builder.addBuildInfoFactory(new CppBuildInfo());
-          builder.addDynamicTransitionMaps(CppRuleClasses.DYNAMIC_TRANSITIONS_MAP);
 
           builder.addRuleDefinition(new CcToolchainRule());
           builder.addRuleDefinition(new CcToolchainSuiteRule());

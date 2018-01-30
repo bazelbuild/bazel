@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.Transition;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
@@ -985,7 +984,6 @@ public class BuildView {
 
     class SilentDependencyResolver extends DependencyResolver {
       private SilentDependencyResolver() {
-        super(ruleClassProvider.getDynamicTransitionMapper());
       }
 
       @Override
@@ -1116,12 +1114,7 @@ public class BuildView {
     if (factory == null) {
       return NoTransition.INSTANCE;
     }
-
-    // dynamicTransitionMapper is only needed because of ConfigurationTransitionProxy.DATA:
-    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
-    // C++-specific patch transition that implements it.
-    PatchTransition transition = (PatchTransition)
-        ruleClassProvider.getDynamicTransitionMapper().map(factory.buildTransitionFor(rule));
+    Transition transition = factory.buildTransitionFor(rule);
     return (transition == null) ? NoTransition.INSTANCE : transition;
   }
 

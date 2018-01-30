@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -1081,7 +1080,7 @@ public final class RuleContext extends TargetContext
             + " is not configured for the target configuration");
       }
     } else if (mode == Mode.DATA) {
-      if (transition != disableLipoTransition && transition != ConfigurationTransitionProxy.DATA) {
+      if (transition != disableLipoTransition) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the data configuration");

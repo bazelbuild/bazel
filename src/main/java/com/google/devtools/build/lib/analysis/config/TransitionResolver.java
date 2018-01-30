@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingSplitTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransitionProxy;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -44,16 +43,6 @@ import com.google.devtools.build.lib.packages.Target;
  * transitions.
  */
 public final class TransitionResolver {
-  private final DynamicTransitionMapper transitionMapper;
-
-  /**
-   * Instantiates this resolver with a helper class that maps non-{@link PatchTransition}s to
-   * {@link PatchTransition}s.
-   */
-  public TransitionResolver(DynamicTransitionMapper transitionMapper) {
-    this.transitionMapper = transitionMapper;
-  }
-
   /**
    * Given a parent rule and configuration depending on a child through an attribute, determines
    * the configuration the child should take.
@@ -64,10 +53,9 @@ public final class TransitionResolver {
    * @param toTarget the child target (which may or may not be a rule)
    *
    * @return the child's configuration, expressed as a diff from the parent's configuration. This
-   *     is usually a {@PatchTransition} but exceptions apply (e.g.
-   *     {@link ConfigurationTransitionProxy}).
+   *     is either a {@link PatchTransition} or {@link SplitTransition}.
    */
-  public Transition evaluateTransition(BuildConfiguration fromConfig, final Rule fromRule,
+  public static Transition evaluateTransition(BuildConfiguration fromConfig, final Rule fromRule,
       final Attribute attribute, final Target toTarget, ConfiguredAttributeMapper attributeMap) {
 
     // I. Input files and package groups have no configurations. We don't want to duplicate them.
@@ -126,15 +114,14 @@ public final class TransitionResolver {
 
     // IV. Applies any rule transitions associated with the dep target, composes their transitions
     // with a passed-in existing transition, and returns the composed result.
-    return applyRuleTransition(currentTransition, toTarget, transitionMapper);
+    return applyRuleTransition(currentTransition, toTarget);
   }
 
   /**
    * Same as evaluateTransition except does not check for transitions coming from parents and
    * enables support for rule-triggered top-level configuration hooks.
    */
-  public static Transition evaluateTopLevelTransition(
-      TargetAndConfiguration targetAndConfig, DynamicTransitionMapper dynamicTransitionMapper) {
+  public static Transition evaluateTopLevelTransition(TargetAndConfiguration targetAndConfig) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
 
@@ -148,7 +135,7 @@ public final class TransitionResolver {
     if (target.getAssociatedRule() == null) {
       return topLevelTransition;
     }
-    return applyRuleTransition(topLevelTransition, target, dynamicTransitionMapper);
+    return applyRuleTransition(topLevelTransition, target);
   }
 
   /**
@@ -163,27 +150,18 @@ public final class TransitionResolver {
    * Composes two transitions together efficiently.
    */
   @VisibleForTesting
-  public Transition composeTransitions(Transition transition1, Transition transition2) {
-    if (isFinal(transition1)) {
+  public static Transition composeTransitions(Transition transition1, Transition transition2) {
+    if (isFinal(transition1) || transition2 == NoTransition.INSTANCE) {
       return transition1;
-    } else if (transition2 == NoTransition.INSTANCE) {
-      return transition1;
-    } else if (transition2 == NullTransition.INSTANCE) {
-      // A NULL transition can just replace earlier transitions: no need to compose them.
-      return NullTransition.INSTANCE;
-    } else if (transition2.isHostTransition()) {
-      // A HOST transition can just replace earlier transitions: no need to compose them.
-      // But it also improves performance: host transitions are common, and
-      // ConfiguredTargetFunction has special optimized logic to handle them. If they were buried
-      // in the last segment of a ComposingSplitTransition, those optimizations wouldn't trigger.
-      return HostTransition.INSTANCE;
+    } else if (isFinal(transition2) || transition1 == NoTransition.INSTANCE) {
+      // When the second transition is a HOST transition, there's no need to compose. But this also
+      // improves performance: host transitions are common, and ConfiguredTargetFunction has special
+      // optimized logic to handle them. If they were buried in the last segment of a
+      // ComposingSplitTransition, those optimizations wouldn't trigger.
+      return transition2;
+    } else {
+      return new ComposingSplitTransition(transition1, transition2);
     }
-
-    // TODO(gregce): remove the below conversion when all transitions are patch transitions.
-    Transition dynamicTransition = transitionMapper.map(transition2);
-    return transition1 == NoTransition.INSTANCE
-        ? dynamicTransition
-        : new ComposingSplitTransition(transition1, dynamicTransition);
   }
 
   /**
@@ -211,12 +189,8 @@ public final class TransitionResolver {
   /**
    * @param currentTransition a pre-existing transition to be composed with
    * @param toTarget rule to examine for transitions
-   * @param transitionMapper only needed because of ConfigurationTransitionProxy.DATA: this is
-   *     C++-specific but non-C++ rules declare it. So they can't directly provide the C++-specific
-   *     patch transition that implements it.
    */
-  private static Transition applyRuleTransition(
-      Transition currentTransition, Target toTarget, DynamicTransitionMapper transitionMapper) {
+  private static Transition applyRuleTransition(Transition currentTransition, Target toTarget) {
     if (isFinal(currentTransition)) {
       return currentTransition;
     }
@@ -224,8 +198,8 @@ public final class TransitionResolver {
     RuleTransitionFactory transitionFactory =
         associatedRule.getRuleClassObject().getTransitionFactory();
     if (transitionFactory != null) {
-      PatchTransition ruleClassTransition = (PatchTransition)
-          transitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
+      PatchTransition ruleClassTransition =
+          (PatchTransition) transitionFactory.buildTransitionFor(associatedRule);
       if (ruleClassTransition != null) {
         if (currentTransition == NoTransition.INSTANCE) {
           return ruleClassTransition;
