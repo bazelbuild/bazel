@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -106,15 +107,11 @@ public final class JavaLibraryBuildRequest {
       List<BlazeJavaCompilerPlugin> extraPlugins,
       DependencyModule.Builder depsBuilder)
       throws InvalidCommandLineException, IOException {
-    depsBuilder.addDirectMappings(
+    depsBuilder.setDirectJars(
+        optionsParser.directJars().stream().map(Paths::get).collect(toImmutableSet()));
+    depsBuilder.setJarsToTargets(
         optionsParser
-            .getDirectMappings()
-            .entrySet()
-            .stream()
-            .collect(toImmutableMap(e -> Paths.get(e.getKey()), e -> e.getValue())));
-    depsBuilder.addIndirectMappings(
-        optionsParser
-            .getIndirectMappings()
+            .jarsToTargets()
             .entrySet()
             .stream()
             .collect(toImmutableMap(e -> Paths.get(e.getKey()), e -> e.getValue())));

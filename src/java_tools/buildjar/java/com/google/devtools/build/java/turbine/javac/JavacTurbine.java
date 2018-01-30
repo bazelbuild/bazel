@@ -258,24 +258,24 @@ public class JavacTurbine implements AutoCloseable {
             .setTargetLabel(turbineOptions.targetLabel().orNull())
             .addDepsArtifacts(asPaths(turbineOptions.depsArtifacts()))
             .setPlatformJars(platformJars)
-            .setStrictJavaDeps(strictDepsMode.toString())
-            .addDirectMappings(parseJarsToTargets(turbineOptions.directJarsToTargets()))
-            .addIndirectMappings(parseJarsToTargets(turbineOptions.indirectJarsToTargets()));
-
+            .setStrictJavaDeps(strictDepsMode.toString());
+    ImmutableSet.Builder<Path> directJars = ImmutableSet.builder();
+    ImmutableMap.Builder<Path, JarOwner> jarsToTargets = ImmutableMap.builder();
+    for (Map.Entry<String, String> entry : turbineOptions.directJarsToTargets().entrySet()) {
+      Path path = Paths.get(entry.getKey());
+      directJars.add(path);
+      jarsToTargets.put(path, parseJarOwner(entry.getKey()));
+    }
+    for (Map.Entry<String, String> entry : turbineOptions.indirectJarsToTargets().entrySet()) {
+      jarsToTargets.put(Paths.get(entry.getKey()), parseJarOwner(entry.getValue()));
+    }
+    dependencyModuleBuilder.setDirectJars(directJars.build());
+    dependencyModuleBuilder.setJarsToTargets(jarsToTargets.build());
     if (turbineOptions.outputDeps().isPresent()) {
       dependencyModuleBuilder.setOutputDepsProtoFile(Paths.get(turbineOptions.outputDeps().get()));
     }
 
     return dependencyModuleBuilder.build();
-  }
-
-  private static ImmutableMap<Path, JarOwner> parseJarsToTargets(
-      ImmutableMap<String, String> input) {
-    ImmutableMap.Builder<Path, JarOwner> result = ImmutableMap.builder();
-    for (Map.Entry<String, String> entry : input.entrySet()) {
-      result.put(Paths.get(entry.getKey()), parseJarOwner(entry.getKey()));
-    }
-    return result.build();
   }
 
   private static JarOwner parseJarOwner(String line) {
