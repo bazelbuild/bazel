@@ -455,8 +455,7 @@ public final class ConfiguredTargetFactory {
     }
 
     ConfiguredAspect configuredAspect =
-        aspectFactory.create(
-            associatedTarget.getConfiguredTarget(), ruleContext, aspect.getParameters());
+        aspectFactory.create(associatedTarget, ruleContext, aspect.getParameters());
     if (configuredAspect != null) {
       validateAdvertisedProviders(
           configuredAspect, aspect.getDefinition().getAdvertisedProviders(),

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -223,7 +224,7 @@ public class TestAspects {
     implements ConfiguredAspectFactory {
     @Override
     public ConfiguredAspect create(
-        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters) {
       String information = parameters.isEmpty()
           ? ""
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
@@ -269,7 +270,7 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters) {
       return new ConfiguredAspect.Builder(this, parameters, ruleContext)
           .addProvider(new FooProvider())
           .build();
@@ -288,7 +289,7 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters) {
       return new ConfiguredAspect.Builder(this, parameters, ruleContext)
           .addProvider(new BarProvider())
           .build();
@@ -423,7 +424,7 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters) {
       StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
       if (!parameters.isEmpty()) {
         information.append(" data " + Iterables.getFirst(parameters.getAttribute("baz"), null));
@@ -471,8 +472,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
-      ruleContext.ruleWarning("Aspect warning on " + base.getTarget().getLabel());
+        ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters) {
+      ruleContext.ruleWarning("Aspect warning on " + ctatBase.getTarget().getLabel());
       return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
     }
 
@@ -496,7 +497,7 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters) {
       ruleContext.ruleError("Aspect error");
       return null;
     }
@@ -525,8 +526,9 @@ public class TestAspects {
     }
 
     @Override
-    public ConfiguredAspect create(ConfiguredTarget base, RuleContext context,
-        AspectParameters parameters) throws InterruptedException {
+    public ConfiguredAspect create(
+        ConfiguredTargetAndTarget ctatBase, RuleContext context, AspectParameters parameters)
+        throws InterruptedException {
       return new ConfiguredAspect.Builder(this, parameters, context).build();
     }
   }
@@ -772,10 +774,11 @@ public class TestAspects {
     }
 
     @Override
-    public ConfiguredAspect create(ConfiguredTarget base, RuleContext context,
-        AspectParameters parameters) throws InterruptedException {
+    public ConfiguredAspect create(
+        ConfiguredTargetAndTarget ctatBase, RuleContext context, AspectParameters parameters)
+        throws InterruptedException {
       return ConfiguredAspect.builder(this, parameters, context)
-          .addProvider(Provider.class, new Provider(base.getLabel()))
+          .addProvider(Provider.class, new Provider(ctatBase.getConfiguredTarget().getLabel()))
           .build();
     }
   }

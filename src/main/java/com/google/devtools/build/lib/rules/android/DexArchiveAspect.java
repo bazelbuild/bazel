@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -170,10 +171,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTarget base, RuleContext ruleContext, AspectParameters params)
+      ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters params)
       throws InterruptedException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
-    Function<Artifact, Artifact> desugaredJars = desugarJarsIfRequested(base, ruleContext, result);
+    Function<Artifact, Artifact> desugaredJars =
+        desugarJarsIfRequested(ctatBase.getConfiguredTarget(), ruleContext, result);
 
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
@@ -191,7 +193,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     DexArchiveProvider.Builder dexArchives =
         new DexArchiveProvider.Builder()
             .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
-    Iterable<Artifact> runtimeJars = getProducedRuntimeJars(base, ruleContext);
+    Iterable<Artifact> runtimeJars =
+        getProducedRuntimeJars(ctatBase.getConfiguredTarget(), ruleContext);
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);

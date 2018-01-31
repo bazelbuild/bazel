@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
@@ -427,7 +428,7 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+          ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters)
           throws InterruptedException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
         return new ConfiguredAspect.Builder(this, parameters, ruleContext)
@@ -479,12 +480,10 @@ public class AspectTest extends AnalysisTestCase {
         return new AspectDefinition.Builder(this).build();
       }
 
-
-
       @Override
       public ConfiguredAspect create(
-          ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
-              throws InterruptedException {
+          ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters)
+          throws InterruptedException {
         ruleContext.registerAction(new NullAction(ruleContext.createOutputArtifact()));
         return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
       }
