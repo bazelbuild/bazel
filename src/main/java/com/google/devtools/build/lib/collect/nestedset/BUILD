@@ -41,7 +41,10 @@ java_library(
 
 java_library(
     name = "fingerprint_cache",
-    srcs = ["NestedSetFingerprintCache.java"],
+    srcs = [
+        "DigestMap.java",
+        "NestedSetFingerprintCache.java",
+    ],
     deps = [
         ":nestedset",
         "//src/main/java/com/google/devtools/build/lib:commandline_item",

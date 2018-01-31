@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.DigestException;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -71,6 +72,26 @@ public final class Fingerprint {
       throw new IllegalStateException("failed to flush", e);
     }
     return md5.digest();
+  }
+
+  /**
+   * Completes the hash computation by doing final operations and resets the underlying state,
+   * allowing this instance to be used again.
+   *
+   * <p>Instead of returning a digest, this method writes the digest straight into the supplied byte
+   * array, at the given offset.
+   *
+   * @see java.security.MessageDigest#digest()
+   */
+  public void digestAndReset(byte[] buf, int offset, int len) {
+    try {
+      codedOut.flush();
+      md5.digest(buf, offset, len);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to flush", e);
+    } catch (DigestException e) {
+      throw new IllegalStateException("failed to digest", e);
+    }
   }
 
   /** Same as {@link #digestAndReset()}, except returns the digest in hex string form. */
