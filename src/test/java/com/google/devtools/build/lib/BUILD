@@ -1053,6 +1053,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:java-compilation",
         "//src/main/java/com/google/devtools/build/lib:java-rules",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",

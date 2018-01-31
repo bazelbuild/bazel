@@ -312,7 +312,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               JavaRuleOutputJarsProvider.builder(),
               /*createOutputSourceJar*/ false,
               /*outputSourceJar=*/ null),
-          true /* isReportedAsStrict */);
+          /*isReportedAsStrict=*/ true,
+          /*isNeverlink=*/ false);
     }
 
     private ImmutableList<TransitiveInfoCollection> getProtoRuntimeDeps() {

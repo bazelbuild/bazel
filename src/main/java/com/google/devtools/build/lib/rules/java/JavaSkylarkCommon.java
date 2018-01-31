@@ -311,6 +311,13 @@ public class JavaSkylarkCommon {
           type = SkylarkList.class,
           generic1 = Artifact.class,
           defaultValue = "[]"
+      ),
+      @Param(
+          name = "neverlink",
+          positional = false,
+          named = true,
+          type = Boolean.class,
+          defaultValue = "False"
       )
     }
   )
@@ -328,7 +335,8 @@ public class JavaSkylarkCommon {
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
-      SkylarkList<Artifact> resources) throws EvalException, InterruptedException {
+      SkylarkList<Artifact> resources,
+      Boolean neverlink) throws EvalException, InterruptedException {
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
@@ -346,6 +354,7 @@ public class JavaSkylarkCommon {
             hostJavabase,
             sourcepathEntries,
             resources,
+            neverlink,
             javaSemantics);
   }
 

@@ -197,6 +197,14 @@ public abstract class JavaCompilationArgs {
       return this;
     }
 
+    public Builder addTransitiveCompilationArgs(
+        Iterable<JavaCompilationArgsProvider> args, boolean recursive, ClasspathType type) {
+      for (JavaCompilationArgsProvider provider : args) {
+        addTransitiveCompilationArgs(provider, recursive, type);
+      }
+      return this;
+    }
+
     /**
      * Merges the artifacts of another target.
      */
@@ -240,10 +248,26 @@ public abstract class JavaCompilationArgs {
     /**
      * Merges the artifacts of a collection of targets.
      */
+    public Builder addTransitiveTargets(Iterable<? extends TransitiveInfoCollection> deps) {
+      return addTransitiveTargets(deps, /*recursive=*/true, ClasspathType.BOTH);
+    }
+
+    /**
+     * Merges the artifacts of a collection of targets.
+     */
     public Builder addTransitiveDependencies(Iterable<JavaCompilationArgsProvider> deps,
         boolean recursive) {
       for (JavaCompilationArgsProvider dep : deps) {
         addTransitiveDependency(dep, recursive, ClasspathType.BOTH);
+      }
+      return this;
+    }
+
+    /** Merges the artifacts of a collection of targets. */
+    public Builder addTransitiveDependencies(
+        Iterable<JavaCompilationArgsProvider> deps, boolean recursive, ClasspathType type) {
+      for (JavaCompilationArgsProvider dep : deps) {
+        addTransitiveDependency(dep, recursive, type);
       }
       return this;
     }
@@ -258,13 +282,6 @@ public abstract class JavaCompilationArgs {
           : dep.getJavaCompilationArgs();
       addTransitiveArgs(args, type);
       return this;
-    }
-
-    /**
-     * Merges the artifacts of a collection of targets.
-     */
-    public Builder addTransitiveTargets(Iterable<? extends TransitiveInfoCollection> deps) {
-      return addTransitiveTargets(deps, /*recursive=*/true, ClasspathType.BOTH);
     }
 
     /**

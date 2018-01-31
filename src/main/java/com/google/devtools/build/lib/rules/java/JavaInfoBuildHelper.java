@@ -146,6 +146,13 @@ final class JavaInfoBuildHelper {
     return javaInfoBuilder.build();
   }
 
+  /** Creates a {@link JavaSourceJarsProvider} from the given lists of source jars. */
+  private static JavaSourceJarsProvider createJavaSourceJarsProvider(
+      List<Artifact> sourceJars, NestedSet<Artifact> transitiveSourceJars) {
+    NestedSet<Artifact> javaSourceJars = NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJars);
+    return JavaSourceJarsProvider.create(transitiveSourceJars, javaSourceJars);
+  }
+
   private JavaSourceJarsProvider createJavaSourceJarsProvider(
       Iterable<Artifact> sourceJars, Iterable<JavaInfo> transitiveDeps) {
     NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
@@ -279,6 +286,7 @@ final class JavaInfoBuildHelper {
       ConfiguredTarget hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
+      Boolean neverlink,
       JavaSemantics javaSemantics)
       throws EvalException, InterruptedException {
     if (sourceJars.isEmpty() && sourceFiles.isEmpty() && exports.isEmpty()) {
@@ -331,7 +339,7 @@ final class JavaInfoBuildHelper {
             outputSourceJar);
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
-        helper.buildCompilationArgsProvider(artifacts, true);
+        helper.buildCompilationArgsProvider(artifacts, true, neverlink);
     Runfiles runfiles =
         new Runfiles.Builder(skylarkRuleContext.getWorkspaceName())
             .addTransitiveArtifactsWrappedInStableOrder(
@@ -363,6 +371,7 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
         .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
+        .setNeverlink(neverlink)
         .build();
   }
 
@@ -443,13 +452,5 @@ final class JavaInfoBuildHelper {
   private static Artifact getSourceJar(SkylarkRuleContext skylarkRuleContext, Artifact outputJar) {
     return JavaCompilationHelper.derivedArtifact(
         skylarkRuleContext.getRuleContext(), outputJar, "", "-src.jar");
-  }
-
-  /** Creates a {@link JavaSourceJarsProvider} from the given lists of source jars. */
-  private static JavaSourceJarsProvider createJavaSourceJarsProvider(
-      List<Artifact> sourceJars, NestedSet<Artifact> transitiveSourceJars) {
-    NestedSet<Artifact> javaSourceJars =
-        NestedSetBuilder.<Artifact>stableOrder().addAll(sourceJars).build();
-    return JavaSourceJarsProvider.create(transitiveSourceJars, javaSourceJars);
   }
 }

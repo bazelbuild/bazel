@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyJ
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.Outpu
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1317,6 +1319,69 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         .containsExactly("foo/libmy_java_lib_a.jar");
   }
 
+  /* Test inspired by {@link AbstractJavaLibraryConfiguredTargetTest#testNeverlink}.*/
+  @Test
+  public void javaCommonCompileNeverlink() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_binary(name = 'plugin',",
+        "    deps = [ ':somedep'],",
+        "    srcs = [ 'Plugin.java'],",
+        "    main_class = 'plugin.start')",
+        "java_custom_library(name = 'somedep',",
+        "    srcs = ['Dependency.java'],",
+        "    deps = [ ':eclipse' ])",
+        "java_custom_library(name = 'eclipse',",
+        "    neverlink = 1,",
+        "    srcs = ['EclipseDependency.java'])");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  deps = [dep[java_common.provider] for dep in ctx.attr.deps]",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    javac_opts = java_common.default_javac_opts(",
+        "        ctx, java_toolchain_attr = '_java_toolchain'),",
+        "    neverlink = ctx.attr.neverlink,",
+        "    deps = deps,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct(",
+        "    files = depset([output_jar]),",
+        "    providers = [compilation_provider]",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    'neverlink': attr.bool(),",
+        "     'deps': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/test:plugin");
+    assertThat(
+            actionsTestUtil()
+                .predecessorClosureAsCollection(getFilesToBuild(target), JavaSemantics.JAVA_SOURCE))
+        .containsExactly("Plugin.java", "Dependency.java", "EclipseDependency.java");
+    assertThat(
+            ActionsTestUtil.baseNamesOf(
+                FileType.filter(
+                    getRunfilesSupport(target).getRunfilesSymlinkTargets(), JavaSemantics.JAR)))
+        .isEqualTo("libsomedep.jar plugin.jar");
+  }
 
   @Test
   public void strictDepsEnabled() throws Exception {
@@ -1522,3 +1587,4 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     return true;
   }
 }
+

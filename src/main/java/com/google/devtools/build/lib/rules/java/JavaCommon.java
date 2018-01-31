@@ -262,22 +262,21 @@ public class JavaCommon {
    *
    * @param recursive Whether to scan dependencies recursively.
    * @param isNeverLink Whether the target has the 'neverlink' attr.
-   * @param srcLessDepsExport If srcs is omitted, deps are exported
-   * (deprecated behaviour for android_library only)
+   * @param srcLessDepsExport If srcs is omitted, deps are exported (deprecated behaviour for
+   *     android_library only)
    */
-  public JavaCompilationArgs collectJavaCompilationArgs(boolean recursive, boolean isNeverLink,
-      boolean srcLessDepsExport) {
-    ClasspathType type = isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH;
-    JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder()
-        .merge(getJavaCompilationArtifacts(), isNeverLink)
-        .addTransitiveTargets(getExports(ruleContext), recursive, type);
-    // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
-    if (recursive || srcLessDepsExport) {
-      builder
-          .addTransitiveTargets(targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY), recursive, type)
-          .addTransitiveTargets(getRuntimeDeps(ruleContext), recursive, ClasspathType.RUNTIME_ONLY);
-    }
-    return builder.build();
+  public JavaCompilationArgs collectJavaCompilationArgs(
+      boolean recursive, boolean isNeverLink, boolean srcLessDepsExport) {
+    return JavaLibraryHelper.getJavaCompilationArgs(
+        JavaCompilationArgsHelper.builder()
+            .setRecursive(recursive)
+            .setIsNeverLink(isNeverLink)
+            .setSrcLessDepsExport(srcLessDepsExport)
+            .setCompilationArtifacts(getJavaCompilationArtifacts())
+            .setDeps(targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))
+            .setRuntimeDeps(getRuntimeDeps(ruleContext))
+            .setExports(getExports(ruleContext))
+            .build());
   }
 
   /**

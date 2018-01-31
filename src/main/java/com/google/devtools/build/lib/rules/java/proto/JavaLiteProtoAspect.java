@@ -277,7 +277,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               JavaRuleOutputJarsProvider.builder(),
               /*createOutputSourceJar*/ false,
               /*outputSourceJar=*/ null);
-      return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
+      return helper.buildCompilationArgsProvider(
+          artifacts, /*isReportedAsStrict=*/ true, /*isNeverlink=*/ false);
     }
 
     private ImmutableList<TransitiveInfoCollection> getProtoRuntimeDeps() {
