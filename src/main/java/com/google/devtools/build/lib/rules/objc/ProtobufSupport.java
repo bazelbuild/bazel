@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -164,7 +165,7 @@ final class ProtobufSupport {
   public ProtobufSupport registerGenerationActions() {
     int actionId = 0;
 
-    for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
+    for (ImmutableSet<Artifact> inputProtos : orderedInputOutputKeySet()) {
       Iterable<Artifact> outputProtos = inputsToOutputsMap.get(inputProtos);
       registerGenerationAction(outputProtos, inputProtos, getUniqueBundledProtosSuffix(actionId));
       actionId++;
@@ -203,7 +204,7 @@ final class ProtobufSupport {
     int actionId = 0;
     Iterable<PathFragment> userHeaderSearchPaths =
         ImmutableList.of(getWorkspaceRelativeOutputDir());
-    for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
+    for (ImmutableSet<Artifact> inputProtos : orderedInputOutputKeySet()) {
       ImmutableSet<Artifact> outputProtos = inputsToOutputsMap.get(inputProtos);
 
       IntermediateArtifacts intermediateArtifacts = getUniqueIntermediateArtifacts(actionId);
@@ -243,7 +244,7 @@ final class ProtobufSupport {
     }
 
     int actionId = 0;
-    for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
+    for (ImmutableSet<Artifact> inputProtos : orderedInputOutputKeySet()) {
       ImmutableSet<Artifact> outputProtos = inputsToOutputsMap.get(inputProtos);
       IntermediateArtifacts intermediateArtifacts = getUniqueIntermediateArtifacts(actionId);
 
@@ -275,7 +276,7 @@ final class ProtobufSupport {
     }
 
     int actionId = 0;
-    for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
+    for (ImmutableSet<Artifact> inputProtos : orderedInputOutputKeySet()) {
       ImmutableSet<Artifact> outputProtos = inputsToOutputsMap.get(inputProtos);
       IntermediateArtifacts intermediateArtifacts = getUniqueIntermediateArtifacts(actionId);
 
@@ -370,6 +371,20 @@ final class ProtobufSupport {
       inputsToOutputsMapBuilder.put(ImmutableSet.copyOf(protoToGroupMap.get(proto)), proto);
     }
     return inputsToOutputsMapBuilder.build();
+  }
+
+  /**
+   * Returns an ordered list of ImmutableSets<Artifact>s representing the keys to the inputs-outputs
+   * map. Using an ordered list ensures that for the same inputs, the keys are processed in the same
+   * order, and avoids non-determinism in the intermediate outputs.
+   */
+  private List<ImmutableSet<Artifact>> orderedInputOutputKeySet() {
+    return new Ordering<ImmutableSet<Artifact>>() {
+      @Override
+      public int compare(ImmutableSet<Artifact> o1, ImmutableSet<Artifact> o2) {
+        return o1.hashCode() - o2.hashCode();
+      }
+    }.sortedCopy(inputsToOutputsMap.keySet());
   }
 
   private String getBundledProtosSuffix() {
