@@ -1067,27 +1067,6 @@ static void ExtractData(const string &self_path) {
         continue;
       }
       if (!blaze_util::CanReadFile(path)) {
-        // TODO(laszlocsomor): remove the following `#if 1` block after I or
-        // somebody else fixed https://github.com/bazelbuild/bazel/issues/3618.
-#if 1
-        fprintf(stderr,
-                "DEBUG: corrupt installation: file '%s' missing. "
-                "Dumping debug data.\n",
-                path.c_str());
-        string p = path;
-        while (!p.empty()) {
-          fprintf(stderr, "DEBUG: p=(%s), exists=%d, isdir=%d, canread=%d\n",
-                  p.c_str(), blaze_util::PathExists(p) ? 1 : 0,
-                  blaze_util::IsDirectory(p) ? 1 : 0,
-                  blaze_util::CanReadFile(p) ? 1 : 0);
-          string parent = blaze_util::Dirname(p);
-          if (parent == p) {
-            break;
-          } else {
-            p = parent;
-          }
-        }
-#endif
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' missing."
             " Please remove '%s' and try again.",
