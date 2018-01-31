@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -432,8 +434,14 @@ public class ConfiguredTargetQueryEnvironment
   @Override
   public Target getTarget(Label label)
       throws TargetNotFoundException, QueryException, InterruptedException {
-    ConfiguredTarget configuredTarget = getConfiguredTarget(label);
-    return configuredTarget == null ? null : configuredTarget.getTarget();
+    try {
+      return ((PackageValue)
+              walkableGraphSupplier.get().getValue(PackageValue.key(label.getPackageIdentifier())))
+          .getPackage()
+          .getTarget(label.getName());
+    } catch (NoSuchTargetException e) {
+      throw new TargetNotFoundException(e);
+    }
   }
 
   @Override
