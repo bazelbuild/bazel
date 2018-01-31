@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  *
  * <pre>expr ::= LET WORD = expr IN expr</pre>
  */
-class LetExpression extends QueryExpression {
+public class LetExpression extends QueryExpression {
 
   private static final String VAR_NAME_PATTERN = "[a-zA-Z_][a-zA-Z0-9_]*$";
 
@@ -39,7 +39,7 @@ class LetExpression extends QueryExpression {
     return REF_PATTERN.matcher(varName).matches();
   }
 
-  static String getNameFromReference(String reference) {
+  public static String getNameFromReference(String reference) {
     return reference.substring(1);
   }
 
@@ -47,21 +47,21 @@ class LetExpression extends QueryExpression {
   private final QueryExpression varExpr;
   private final QueryExpression bodyExpr;
 
-  LetExpression(String varName, QueryExpression varExpr, QueryExpression bodyExpr) {
+  public LetExpression(String varName, QueryExpression varExpr, QueryExpression bodyExpr) {
     this.varName = varName;
     this.varExpr = varExpr;
     this.bodyExpr = bodyExpr;
   }
 
-  String getVarName() {
+  public String getVarName() {
     return varName;
   }
 
-  QueryExpression getVarExpr() {
+  public QueryExpression getVarExpr() {
     return varExpr;
   }
 
-  QueryExpression getBodyExpr() {
+  public QueryExpression getBodyExpr() {
     return bodyExpr;
   }
 
@@ -91,8 +91,8 @@ class LetExpression extends QueryExpression {
   }
 
   @Override
-  public <T> T accept(QueryExpressionVisitor<T> visitor) {
-    return visitor.visit(this);
+  public <T, C> T accept(QueryExpressionVisitor<T, C> visitor, C context) {
+    return visitor.visit(this, context);
   }
 
   @Override

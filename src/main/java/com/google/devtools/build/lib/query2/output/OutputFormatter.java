@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.QueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
@@ -387,7 +386,7 @@ public abstract class OutputFormatter implements Serializable {
         return;
       }
 
-      QueryExpressionVisitor<Boolean> noteBuildFilesAndLoadLilesVisitor =
+      ContainsFunctionQueryExpressionVisitor noteBuildFilesAndLoadLilesVisitor =
           new ContainsFunctionQueryExpressionVisitor(ImmutableList.of("loadfiles", "buildfiles"));
 
       if (expr.accept(noteBuildFilesAndLoadLilesVisitor)) {

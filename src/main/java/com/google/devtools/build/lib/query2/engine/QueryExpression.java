@@ -81,8 +81,12 @@ public abstract class QueryExpression {
    */
   public abstract void collectTargetPatterns(Collection<String> literals);
 
-  /* Implementations should just be {@code return visitor.visit(this)}. */
-  public abstract <T> T accept(QueryExpressionVisitor<T> visitor);
+  /* Implementations should just be {@code return visitor.visit(this, context)}. */
+  public abstract <T, C> T accept(QueryExpressionVisitor<T, C> visitor, C context);
+
+  public final <T> T accept(QueryExpressionVisitor<T, Void> visitor) {
+    return accept(visitor, /*context=*/ null);
+  }
 
   /**
    * Returns this query expression pretty-printed.

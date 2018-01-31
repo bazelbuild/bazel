@@ -335,7 +335,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    * {@literal 'rdeps(<universeScope>, <T>)'} to {@literal 'allrdeps(<T>)'}. The latter is more
    * efficient.
    */
-  protected static class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper {
+  protected static class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
     protected final TargetPattern.Parser targetPatternParser;
     private final String absoluteUniverseScopePattern;
 
@@ -347,7 +347,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     @Override
-    public QueryExpression visit(FunctionExpression functionExpression) {
+    public QueryExpression visit(FunctionExpression functionExpression, Void context) {
       if (functionExpression.getFunction().getName().equals(new RdepsFunction().getName())) {
         List<Argument> args = functionExpression.getArgs();
         QueryExpression universeExpression = args.get(0).getExpression();
@@ -361,13 +361,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           }
         }
       }
-      return super.visit(functionExpression);
+      return super.visit(functionExpression, context);
     }
   }
 
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
-    QueryExpressionMapper mapper = getQueryExpressionMapper();
+    QueryExpressionMapper<Void> mapper = getQueryExpressionMapper();
     QueryExpression transformedQueryExpression = queryExpression.accept(mapper);
     logger.info(
         String.format(
@@ -381,7 +381,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return transformedQueryExpression;
   }
 
-  protected QueryExpressionMapper getQueryExpressionMapper() {
+  protected QueryExpressionMapper<Void> getQueryExpressionMapper() {
     if (universeScope.size() != 1) {
       return QueryExpressionMapper.identity();
     }
