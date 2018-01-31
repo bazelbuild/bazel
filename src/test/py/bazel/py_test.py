@@ -41,7 +41,7 @@ class PyTest(test_base.TestBase):
         'a/b.py',
         [
             'def Hello():',
-            '    print "Hello, World"',
+            '    print("Hello, World")',
         ])
 
   def testSmoke(self):
