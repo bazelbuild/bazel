@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -968,7 +969,7 @@ public class CcCommonTest extends BuildViewTestCase {
         public ConfiguredRuleClassProvider createRuleClassProvider() {
           ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
           builder.setToolsRepository("@bazel_tools");
-          BazelRuleClassProvider.LIPO_DATA_TRANSITION.init(builder);
+          LipoDataTransitionRuleSet.INSTANCE.init(builder);
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
           CoreRules.INSTANCE.init(builder);
           CoreWorkspaceRules.INSTANCE.init(builder);

@@ -115,7 +115,7 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
-import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
@@ -323,23 +323,6 @@ public class BazelRuleClassProvider {
         @Override
         public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CoreRules.INSTANCE);
-        }
-      };
-
-  /**
-   * Rules defined before this set will fail when trying to declare a data transition. So it's best
-   * to define this as early as possible.
-   */
-  public static final RuleSet LIPO_DATA_TRANSITION =
-      new RuleSet() {
-        @Override
-        public void init(Builder builder) {
-          builder.setLipoDataTransition(DisableLipoTransition.INSTANCE);
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of();
         }
       };
 
@@ -639,7 +622,9 @@ public class BazelRuleClassProvider {
 
   private static final ImmutableSet<RuleSet> RULE_SETS =
       ImmutableSet.of(
-          LIPO_DATA_TRANSITION,
+          // Rules defined before LipoDataTransitionRuleSet will fail when trying to declare a data
+          // transition.
+          LipoDataTransitionRuleSet.INSTANCE,
           BAZEL_SETUP,
           CoreRules.INSTANCE,
           CoreWorkspaceRules.INSTANCE,
