@@ -560,21 +560,24 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
-  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.")
+  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.",
+      allowReturnNones = true)
   public String getCompiler() {
-    return toolchainInfo.getCompiler();
+    return toolchainInfo == null ? null : toolchainInfo.getCompiler();
   }
 
   /** Returns the libc version string (e.g. "glibc-2.2.2"). */
-  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.")
+  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.",
+      allowReturnNones = true)
   public String getTargetLibc() {
-    return toolchainInfo.getTargetLibc();
+    return toolchainInfo == null ? null : toolchainInfo.getTargetLibc();
   }
 
   /** Returns the target architecture using blaze-specific constants (e.g. "piii"). */
-  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
+  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.",
+      allowReturnNones = true)
   public String getTargetCpu() {
-    return toolchainInfo.getTargetCpu();
+    return toolchainInfo == null ? null : toolchainInfo.getTargetCpu();
   }
 
   /**
@@ -619,7 +622,9 @@ public final class CcToolchainProvider extends ToolchainInfo {
             + "inferred from the command-line options."
   )
   public ImmutableList<String> getLinkOptionsWithSysroot() {
-    return cppConfiguration.getLinkOptionsDoNotUse(sysroot);
+    return cppConfiguration == null
+        ? ImmutableList.of()
+        : cppConfiguration.getLinkOptionsDoNotUse(sysroot);
   }
 
   public ImmutableList<String> getLinkOptions() {
@@ -761,10 +766,11 @@ public final class CcToolchainProvider extends ToolchainInfo {
   @SkylarkCallable(
     name = "target_gnu_system_name",
     structField = true,
-    doc = "The GNU System Name."
+    doc = "The GNU System Name.",
+    allowReturnNones = true
   )
   public String getTargetGnuSystemName() {
-    return toolchainInfo.getTargetGnuSystemName();
+    return toolchainInfo == null ? null : toolchainInfo.getTargetGnuSystemName();
   }
 
   /** Returns the architecture component of the GNU System Name */
