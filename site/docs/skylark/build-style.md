@@ -16,6 +16,7 @@ generate `BUILD` files.
 
 `BUILD` file formatting must match the output of `buildifier`.
 
+
 ## Contents
 
 - [Formatting example](#formatting-example)
