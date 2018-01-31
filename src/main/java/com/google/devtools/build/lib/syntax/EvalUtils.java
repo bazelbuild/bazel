@@ -70,8 +70,8 @@ public final class EvalUtils {
         @Override
         @SuppressWarnings("unchecked")
         public int compare(Object o1, Object o2) {
-          o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
-          o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
+          o1 = SkylarkType.convertToSkylark(o1, (Environment) null);
+          o2 = SkylarkType.convertToSkylark(o2, (Environment) null);
 
           if (o1 instanceof SkylarkList
               && o2 instanceof SkylarkList

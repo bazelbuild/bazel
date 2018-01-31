@@ -726,14 +726,21 @@ public abstract class SkylarkType implements Serializable {
    * Converts an object to a Skylark-compatible type if possible.
    */
   public static Object convertToSkylark(Object object, @Nullable Environment env) {
+    return convertToSkylark(object, env == null ? null : env.mutability());
+  }
+
+  /**
+   * Converts an object to a Skylark-compatible type if possible.
+   */
+  public static Object convertToSkylark(Object object, @Nullable Mutability mutability) {
     if (object instanceof List && !(object instanceof SkylarkList)) {
-      return MutableList.copyOf(env, (List<?>) object);
+      return MutableList.copyOf(mutability, (List<?>) object);
     }
     if (object instanceof SkylarkValue) {
       return object;
     }
     if (object instanceof Map) {
-      return SkylarkDict.<Object, Object>copyOf(env, (Map<?, ?>) object);
+      return SkylarkDict.<Object, Object>copyOf(mutability, (Map<?, ?>) object);
     }
     // TODO(bazel-team): ensure everything is a SkylarkValue at all times.
     // Preconditions.checkArgument(EvalUtils.isSkylarkAcceptable(

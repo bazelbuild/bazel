@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.testutil.TestMode;
+import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -118,6 +120,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     @SkylarkCallable(name = "string", doc = "")
     public String string() {
       return "a";
+    }
+    @SkylarkCallable(name = "string_list_dict", doc = "")
+    public Map<String, List<String>> stringListDict() {
+      return ImmutableMap.of("a", ImmutableList.of("b", "c"));
     }
 
     @SkylarkCallable(
@@ -751,6 +757,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "type 'Mock' has no method isEmpty(string str)", "mock.isEmpty(str='abc')");
   }
 
+  @Test
+  public void testStringListDictValues() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "def func(mock):",
+            "  for i, v in mock.string_list_dict().items():",
+            "    modified_list = v + ['extra_string']",
+            "  return modified_list",
+            "m = func(mock)")
+        .testLookup("m", MutableList.of(env, "b", "c", "extra_string"));
+  }
 
   @Test
   public void testJavaCallWithPositionalAndKwargs() throws Exception {
@@ -1328,6 +1346,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "return_bad",
             "string",
             "string_list",
+            "string_list_dict",
             "struct_field",
             "struct_field_callable",
             "value_of",

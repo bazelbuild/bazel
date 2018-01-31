@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -175,7 +176,7 @@ class SkylarkAttributesCollection implements SkylarkValue {
             val == null
                 ? Runtime.NONE
                 // Attribute values should be type safe
-                : SkylarkType.convertToSkylark(val, null));
+                : SkylarkType.convertToSkylark(val, (Environment) null));
         return;
       }
       if (a.isExecutable()) {
@@ -231,7 +232,7 @@ class SkylarkAttributesCollection implements SkylarkValue {
         for (TransitiveInfoCollection prereq : allPrereq) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
-        attrBuilder.put(skyname, SkylarkType.convertToSkylark(builder.build(), null));
+        attrBuilder.put(skyname, SkylarkType.convertToSkylark(builder.build(), (Environment) null));
       } else if (type == BuildType.LABEL_DICT_UNARY) {
         Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
         for (TransitiveInfoCollection target :
