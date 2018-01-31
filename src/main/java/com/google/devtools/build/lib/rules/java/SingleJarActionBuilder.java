@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
@@ -160,16 +162,50 @@ public final class SingleJarActionBuilder {
     args.addExecPaths("--sources", resourceJars);
     if (!resources.isEmpty()) {
       args.add("--resources");
-      args.addAll(VectorArg.of(resources).mapped(resource -> getResourceArg(semantics, resource)));
+      args.addAll(VectorArg.of(resources).mapped(new ResourceArgMapFn(semantics)));
     }
     return args.build();
   }
 
-  private static String getResourceArg(JavaSemantics semantics, Artifact resource) {
-    return String.format(
-        "%s:%s",
-        resource.getExecPathString(),
-        semantics.getDefaultJavaResourcePath(resource.getRootRelativePath()));
+  private static class ResourceArgMapFn extends CommandLineItem.ParametrizedMapFn<Artifact> {
+    private final JavaSemantics semantics;
+
+    ResourceArgMapFn(JavaSemantics semantics) {
+      this.semantics = Preconditions.checkNotNull(semantics);
+    }
+
+    @Override
+    public String expandToCommandLine(Artifact resource) {
+      String execPath = resource.getExecPathString();
+      String resourcePath =
+          semantics.getDefaultJavaResourcePath(resource.getRootRelativePath()).getPathString();
+      StringBuilder sb = new StringBuilder(execPath.length() + resourcePath.length() + 1);
+      sb.append(execPath).append(":").append(resourcePath);
+      return sb.toString();
+    }
+
+    @Override
+    public int maxInstancesAllowed() {
+      // Expect only one semantics object.
+      return 1;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      ResourceArgMapFn that = (ResourceArgMapFn) o;
+      return semantics.equals(that.semantics);
+    }
+
+    @Override
+    public int hashCode() {
+      return semantics.hashCode();
+    }
   }
 }
 

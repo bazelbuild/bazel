@@ -25,7 +25,8 @@ import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg.Includes;
 import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,18 +42,18 @@ public class AndroidResourceMergingActionBuilder {
 
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
       ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeLabel()
-          .includeSymbolsBin()
-          .withSeparator(SeparatorType.SEMICOLON_AMPERSAND)
+          .include(Includes.ResourceRoots)
+          .include(Includes.Label)
+          .include(Includes.SymbolsBin)
+          .withSeparator(ToArg.SeparatorType.SEMICOLON_AMPERSAND)
           .toArgConverter();
 
   private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED =
       ResourceContainerConverter.builder()
-          .includeResourceRoots()
-          .includeLabel()
-          .includeCompiledSymbols()
-          .withSeparator(SeparatorType.SEMICOLON_AMPERSAND)
+          .include(Includes.ResourceRoots)
+          .include(Includes.Label)
+          .include(Includes.CompiledSymbols)
+          .withSeparator(ToArg.SeparatorType.SEMICOLON_AMPERSAND)
           .toArgConverter();
 
   private final RuleContext ruleContext;

@@ -910,6 +910,7 @@ java_library(
         "rules/java/proto/GeneratedExtensionRegistryProvider.java",
     ],
     deps = [
+        ":commandline_item",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-info",
         "//src/main/java/com/google/devtools/build/lib:events",

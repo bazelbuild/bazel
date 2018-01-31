@@ -24,6 +24,43 @@ public interface CommandLineItem {
     String expandToCommandLine(T object);
   }
 
+  /**
+   * Use this map function when parametrizing over a limited set of values.
+   *
+   * <p>The user promises that the number of distinct instances constructed is closer to O(rule
+   * class count) than O(rule count).
+   *
+   * <p>Without this, {@link
+   * com.google.devtools.build.lib.collect.nestedset.NestedSetFingerprintCache} will refuse to cache
+   * your {@link MapFn} computations.
+   */
+  abstract class ParametrizedMapFn<T> implements MapFn<T> {
+    @Override
+    public abstract boolean equals(Object obj);
+
+    @Override
+    public abstract int hashCode();
+
+    /**
+     * This method controls the max number of distinct instances allowed. If the system sees any
+     * more than this, it will throw.
+     *
+     * <p>Override and set this to something low. You want this to represent the small number of
+     * preallocated static instances used in this blaze instance. 3 is an OK number, 100 is a bad
+     * number.
+     */
+    public abstract int maxInstancesAllowed();
+  }
+
+  /**
+   * Use this map function when your map function needs to capture per-rule information.
+   *
+   * <p>Use of this class prevents sharing sub-computations over shared NestedSets, since the map
+   * function is per-target. This will make your action key computations become O(N^2). Please avoid
+   * if possible.
+   */
+  interface CapturingMapFn<T> extends MapFn<T> {}
+
   /** Expands the object into the command line as a string. */
   String expandToCommandLine();
 
