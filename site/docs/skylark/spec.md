@@ -1653,7 +1653,7 @@ print(x)                        # 1
 CallSuffix = '(' [Arguments] ')' .
 
 Arguments = Argument {',' Argument} .
-Argument  = identifier | identifier '=' Test | '*' identifier | '**' identifier .
+Argument  = Test | identifier '=' Test | '*' identifier | '**' identifier .
 ```
 
 A value `f` of type `function` may be called using the expression `f(...)`.
@@ -3228,7 +3228,7 @@ CallSuffix  = '(' [Arguments [',']] ')' .
 SliceSuffix = '[' [Expression] [':' Test [':' Test]] ']' .
 
 Arguments = Argument {',' Argument} .
-Argument  = identifier | identifier '=' Test | '*' identifier | '**' identifier .
+Argument  = Test | identifier '=' Test | '*' identifier | '**' identifier .
 
 ListExpr = '[' [Expression [',']] ']' .
 ListComp = '[' Test {CompClause} ']'.
