@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -336,6 +338,23 @@ public class ArtifactTest {
                     new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar")))
                 .serializeToString())
         .isEqualTo("b/c /3 //foo:bar");
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    ObjectCodecTester.newBuilder(
+            new InjectingObjectCodecAdapter<>(Artifact.CODEC, () -> scratch.getFileSystem()))
+        .addSubjects(
+            new Artifact(PathFragment.create("src/a"), rootDir),
+            new Artifact(
+                PathFragment.create("src/b"), ArtifactRoot.asSourceRoot(Root.fromPath(execDir))),
+            new Artifact(
+                scratch.file("/src/c"),
+                ArtifactRoot.asDerivedRoot(
+                    scratch.getFileSystem().getPath("/"), scratch.dir("/src")),
+                PathFragment.create("c"),
+                new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"))))
+        .buildAndRunTests();
   }
 
   @Test

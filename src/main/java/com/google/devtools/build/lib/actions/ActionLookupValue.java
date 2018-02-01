@@ -23,6 +23,9 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
@@ -187,7 +190,11 @@ public class ActionLookupValue implements SkyValue {
    * subclasses of ActionLookupKey. This allows callers to easily find the value key, while
    * remaining agnostic to what ActionLookupValues actually exist.
    */
+  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   public abstract static class ActionLookupKey implements ArtifactOwner, SkyKey {
+    public static final ObjectCodec<ActionLookupKey> CODEC =
+        new ActionLookupValue_ActionLookupKey_AutoCodec();
+
     @Override
     public Label getLabel() {
       return null;

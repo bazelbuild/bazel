@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -494,6 +495,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   }
 
   private static class SingletonActionLookupKey extends ActionLookupValue.ActionLookupKey {
+
+    public static final SingletonCodec<SingletonActionLookupKey> CODEC =
+        SingletonCodec.of(new SingletonActionLookupKey(), "none");
+
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.CONFIGURED_TARGET;

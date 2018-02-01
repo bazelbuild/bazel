@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -112,6 +114,14 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     outTwo = createTreeArtifact("outputTwo");
     outTwoFileOne = treeFileArtifact(outTwo, "out_one_file_one");
     outTwoFileTwo = treeFileArtifact(outTwo, "out_one_file_two");
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    ObjectCodecTester.newBuilder(
+            new InjectingObjectCodecAdapter<>(Artifact.CODEC, () -> scratch.getFileSystem()))
+        .addSubjects(outOne, outOneFileOne)
+        .buildAndRunTests();
   }
 
   /** Simple smoke test. If this isn't passing, something is very wrong... */

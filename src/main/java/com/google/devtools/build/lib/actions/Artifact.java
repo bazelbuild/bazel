@@ -31,6 +31,9 @@ import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -115,12 +119,16 @@ import javax.annotation.Nullable;
           + " Then you can access the File through the rule's "
           + "<a href='ctx.html#outputs'>ctx.outputs</a>."
 )
+@AutoCodec(dependency = FileSystemProvider.class)
 public class Artifact
     implements FileType.HasFileType,
         ActionInput,
         SkylarkValue,
         Comparable<Object>,
         CommandLineItem {
+
+  public static final InjectingObjectCodec<Artifact, FileSystemProvider> CODEC =
+      new Artifact_AutoCodec();
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
@@ -194,6 +202,7 @@ public class Artifact
    * </pre>
    */
   @VisibleForTesting
+  @AutoCodec.Instantiator
   public Artifact(Path path, ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
     if (root == null || !root.getRoot().contains(path)) {
       throw new IllegalArgumentException(root + ": illegal root for " + path
@@ -454,16 +463,21 @@ public class Artifact
   /**
    * A special kind of artifact that either is a fileset or needs special metadata caching behavior.
    *
-   * <p>We subclass {@link Artifact} instead of storing the special attributes inside in order
-   * to save memory. The proportion of artifacts that are special is very small, and by not having
-   * to keep around the attribute for the rest we save some memory.
+   * <p>We subclass {@link Artifact} instead of storing the special attributes inside in order to
+   * save memory. The proportion of artifacts that are special is very small, and by not having to
+   * keep around the attribute for the rest we save some memory.
    */
   @Immutable
   @VisibleForTesting
+  @AutoCodec(dependency = FileSystemProvider.class)
   public static final class SpecialArtifact extends Artifact {
+
+    public static final InjectingObjectCodec<SpecialArtifact, FileSystemProvider> CODEC =
+        new Artifact_SpecialArtifact_AutoCodec();
+
     private final SpecialArtifactType type;
 
-    @VisibleForTesting
+    @VisibleForSerialization
     public SpecialArtifact(
         Path path,
         ArtifactRoot root,
@@ -508,19 +522,24 @@ public class Artifact
   }
 
   /**
-   * A special kind of artifact that represents a concrete file created at execution time under
-   * its associated TreeArtifact.
+   * A special kind of artifact that represents a concrete file created at execution time under its
+   * associated TreeArtifact.
    *
-   * <p> TreeFileArtifacts should be only created during execution time inside some special actions
-   * to support action inputs and outputs that are unpredictable at analysis time.
-   * TreeFileArtifacts should not be created directly by any rules at analysis time.
+   * <p>TreeFileArtifacts should be only created during execution time inside some special actions
+   * to support action inputs and outputs that are unpredictable at analysis time. TreeFileArtifacts
+   * should not be created directly by any rules at analysis time.
    *
-   * <p>We subclass {@link Artifact} instead of storing the extra fields directly inside in order
-   * to save memory. The proportion of TreeFileArtifacts is very small, and by not having to keep
+   * <p>We subclass {@link Artifact} instead of storing the extra fields directly inside in order to
+   * save memory. The proportion of TreeFileArtifacts is very small, and by not having to keep
    * around the extra fields for the rest we save some memory.
    */
   @Immutable
+  @AutoCodec(dependency = FileSystemProvider.class)
   public static final class TreeFileArtifact extends Artifact {
+
+    public static final InjectingObjectCodec<TreeFileArtifact, FileSystemProvider> CODEC =
+        new Artifact_TreeFileArtifact_AutoCodec();
+
     private final Artifact parentTreeArtifact;
     private final PathFragment parentRelativePath;
 
@@ -537,23 +556,24 @@ public class Artifact
      * Constructs a TreeFileArtifact with the given parent-relative path under the given parent
      * TreeArtifact, owned by the given {@code artifactOwner}.
      */
-    TreeFileArtifact(Artifact parent, PathFragment parentRelativePath,
-        ArtifactOwner artifactOwner) {
+    @AutoCodec.Instantiator
+    TreeFileArtifact(
+        Artifact parentTreeArtifact, PathFragment parentRelativePath, ArtifactOwner owner) {
       super(
-          parent.getPath().getRelative(parentRelativePath),
-          parent.getRoot(),
-          parent.getExecPath().getRelative(parentRelativePath),
-          artifactOwner);
+          parentTreeArtifact.getPath().getRelative(parentRelativePath),
+          parentTreeArtifact.getRoot(),
+          parentTreeArtifact.getExecPath().getRelative(parentRelativePath),
+          owner);
       Preconditions.checkState(
-          parent.isTreeArtifact(),
+          parentTreeArtifact.isTreeArtifact(),
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
           parentRelativePath,
-          parent);
+          parentTreeArtifact);
       Preconditions.checkState(
           parentRelativePath.isNormalized() && !parentRelativePath.isAbsolute(),
           "%s is not a proper normalized relative path",
           parentRelativePath);
-      this.parentTreeArtifact = parent;
+      this.parentTreeArtifact = parentTreeArtifact;
       this.parentRelativePath = parentRelativePath;
     }
 
