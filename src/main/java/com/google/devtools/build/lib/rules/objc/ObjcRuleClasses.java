@@ -541,10 +541,15 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(hdrs) -->
-          The list of C, C++, Objective-C, and Objective-C++ files that are
-          included as headers by source files in this rule or by users of this
-          library. These will be compiled separately from the source if modules
-          are enabled.
+          The list of C, C++, Objective-C, and Objective-C++ header files published
+          by this library to be included by sources in dependent rules.
+          <p>
+          These headers describe the public interface for the library and will be
+          made available for inclusion by sources in this rule or in dependent
+          rules. Headers not meant to be included by a client of this library
+          should be listed in the srcs attribute instead.
+          <p>
+          These will be compiled separately from the source if modules are enabled.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
