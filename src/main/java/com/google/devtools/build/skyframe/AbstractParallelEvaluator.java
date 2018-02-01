@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
  * result. Derived classes should do this.
  */
 public abstract class AbstractParallelEvaluator {
-  private static final Logger logger = Logger.getLogger(ParallelEvaluator.class.getName());
+  private static final Logger logger = Logger.getLogger(AbstractParallelEvaluator.class.getName());
 
   final ProcessableGraph graph;
   final ParallelEvaluatorContext evaluatorContext;
