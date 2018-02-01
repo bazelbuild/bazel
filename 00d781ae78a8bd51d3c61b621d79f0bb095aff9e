@@ -1,0 +1,29 @@
+Incompatible changes:
+
+  - ctx.fragments.jvm is not available anymore.
+
+New features:
+
+  - java,runfiles: You can now depend on
+    `@bazel_tools//tools/runfiles:java-runfiles` to get a
+    platform-independent runfiles library for Java. See JavaDoc of
+    https://github.com/bazelbuild/bazel/blob/master/src/tools/runfiles
+    /java/com/google/devtools/build/runfiles/Runfiles.java for usage
+    information.
+
+Important changes:
+
+  - The --[no]experimental_disable_jvm command line option is not
+    supported anymore.
+  - Allow expanding TreeArtifacts for libraries_to_link
+  - Proguarded Android binaries can be built with incremental dexing.
+  - aar_import now supports assets.
+  - Crash in OutputJar::Close has been fixed
+  - generator_* attributes are nonconfigurable.
+  - Introduces --[no]keep_state_after_build
+  - Add support for merged object files needed for -flto-unit.
+  - Fix how libraries to link is specified to archiver actions.
+  - Replace //tools/defaults:android_jar with
+    @bazel_tools//tools/android:android_jar.
+    //tools/defaults:android_jar will be removed in a future release.
+  - java_common.compile supports neverlink
