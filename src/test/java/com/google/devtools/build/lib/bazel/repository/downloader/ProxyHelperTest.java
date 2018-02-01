@@ -61,6 +61,97 @@ public class ProxyHelperTest {
   }
 
   @Test
+  public void testCreateIfNeededNoProxyLowerCase() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "no_proxy",
+                "something.com,example.com,localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+  }
+
+  @Test
+  public void testCreateIfNeededNoProxyUpperCase() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "NO_PROXY",
+                "something.com,example.com,localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+  }
+
+  @Test
+  public void testCreateIfNeededMultipleNoProxyLowerCase() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "no_proxy",
+                "something.com,example.com,localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+  }
+
+  @Test
+  public void testCreateIfNeededMultipleNoProxyUpperCase() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "NO_PROXY",
+                "something.com,example.com,localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+  }
+
+  @Test
+  public void testCreateIfNeededNoProxyNoMatchSubstring() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "NO_PROXY",
+                "something.com,example.com,localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.not-example.com"));
+    assertThat(proxy.toString()).endsWith("my.example.com:443");
+  }
+
+  @Test
+  public void testCreateIfNeededNoProxyMatchSubdomainInNoProxy() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "NO_PROXY",
+                ".something.com,example.com,localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.my.something.com"));
+    assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+  }
+
+  @Test
+  public void testCreateIfNeededNoProxyMatchSubdomainInURL() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(
+            ImmutableMap.of(
+                "NO_PROXY",
+                "something.com,example.com,localhost",
+                "HTTPS_PROXY",
+                "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.my.subdomain.something.com"));
+    assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
+  }
+
+  @Test
   public void testNoProxy() throws Exception {
     // Empty address.
     Proxy proxy = ProxyHelper.createProxy(null);
