@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
@@ -218,14 +219,19 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
 
     @Override
     public void report(ProgressStatus state, String name) {
+      ActionExecutionMetadata action = spawn.getResourceOwner();
+      if (action.getOwner() == null) {
+        return;
+      }
+
       // TODO(ulfjack): We should report more details to the UI.
       EventBus eventBus = actionExecutionContext.getEventBus();
       switch (state) {
         case EXECUTING:
-          eventBus.post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), name));
+          eventBus.post(ActionStatusMessage.runningStrategy(action, name));
           break;
         case SCHEDULING:
-          eventBus.post(ActionStatusMessage.schedulingStrategy(spawn.getResourceOwner()));
+          eventBus.post(ActionStatusMessage.schedulingStrategy(action));
           break;
         default:
           break;
