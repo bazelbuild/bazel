@@ -26,6 +26,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -33,7 +34,7 @@ import javax.annotation.Nullable;
  *
  * @see java.security.MessageDigest
  */
-public final class Fingerprint {
+public final class Fingerprint implements Consumer<String> {
 
   private static final MessageDigest MD5_PROTOTYPE;
   private static final boolean MD5_PROTOTYPE_SUPPORTS_CLONE;
@@ -298,5 +299,10 @@ public final class Fingerprint {
    */
   public static String md5Digest(String input) {
     return hexDigest(cloneOrCreateMd5().digest(input.getBytes(StandardCharsets.UTF_8)));
+  }
+
+  @Override
+  public void accept(String s) {
+    addString(s);
   }
 }

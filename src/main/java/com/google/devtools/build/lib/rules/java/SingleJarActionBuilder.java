@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.function.Consumer;
 
 /**
  * Helper class to create singlejar actions - singlejar can merge multiple zip files without
@@ -175,13 +176,13 @@ public final class SingleJarActionBuilder {
     }
 
     @Override
-    public String expandToCommandLine(Artifact resource) {
+    public void expandToCommandLine(Artifact resource, Consumer<String> args) {
       String execPath = resource.getExecPathString();
       String resourcePath =
           semantics.getDefaultJavaResourcePath(resource.getRootRelativePath()).getPathString();
       StringBuilder sb = new StringBuilder(execPath.length() + resourcePath.length() + 1);
       sb.append(execPath).append(":").append(resourcePath);
-      return sb.toString();
+      args.accept(sb.toString());
     }
 
     @Override

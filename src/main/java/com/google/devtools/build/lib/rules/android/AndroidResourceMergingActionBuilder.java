@@ -167,8 +167,7 @@ public class AndroidResourceMergingActionBuilder {
     NestedSetBuilder<Artifact> inputs = createInputsForBuilder(builder);
 
     Preconditions.checkNotNull(primary);
-    builder.add(
-        "--primaryData", RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED.expandToCommandLine(primary));
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED.map(primary));
     inputs.addAll(primary.getArtifacts());
     inputs.add(primary.getCompiledSymbols());
 
@@ -204,7 +203,7 @@ public class AndroidResourceMergingActionBuilder {
     NestedSetBuilder<Artifact> inputs = createInputsForBuilder(builder);
 
     Preconditions.checkNotNull(primary);
-    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.expandToCommandLine(primary));
+    builder.add("--primaryData", RESOURCE_CONTAINER_TO_ARG.map(primary));
     inputs.addAll(primary.getArtifacts());
     inputs.add(primary.getSymbols());
 

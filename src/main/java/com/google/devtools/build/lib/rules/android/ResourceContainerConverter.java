@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceTyp
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg.Includes;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Factory for functions to convert a {@link ResourceContainer} to a commandline argument, or a
@@ -91,7 +92,11 @@ public class ResourceContainerConverter {
     }
 
     @Override
-    public String expandToCommandLine(ResourceContainer container) {
+    public void expandToCommandLine(ResourceContainer container, Consumer<String> args) {
+      args.accept(map(container));
+    }
+
+    String map(ResourceContainer container) {
       ImmutableList.Builder<String> cmdPieces = ImmutableList.builder();
       if (includes.contains(Includes.ResourceRoots)) {
         cmdPieces.add(convertRoots(container, ResourceType.RESOURCES));

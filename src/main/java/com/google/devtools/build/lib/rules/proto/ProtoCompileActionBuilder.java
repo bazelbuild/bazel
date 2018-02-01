@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Constructs actions to run the protocol compiler to generate sources from .proto files. */
@@ -578,14 +579,15 @@ public class ProtoCompileActionBuilder {
       @Nullable NestedSet<Artifact> protosInDirectDependencies,
       NestedSet<Artifact> transitiveImports) {
     commandLine.addAll(
-        VectorArg.of(transitiveImports).mapped(ProtoCompileActionBuilder::transitiveImportArg));
+        VectorArg.of(transitiveImports)
+            .mapped(ProtoCompileActionBuilder::expandTransitiveImportArg));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(protosInDirectDependencies)
-                .mapped(ProtoCompileActionBuilder::getPathIgnoringRepository));
+                .mapped(ProtoCompileActionBuilder::expandToPathIgnoringRepository));
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
         commandLine.add("--direct_dependencies=");
@@ -593,8 +595,12 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  private static String transitiveImportArg(Artifact artifact) {
-    return "-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString();
+  private static void expandTransitiveImportArg(Artifact artifact, Consumer<String> args) {
+    args.accept("-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString());
+  }
+
+  private static void expandToPathIgnoringRepository(Artifact artifact, Consumer<String> args) {
+    args.accept(getPathIgnoringRepository(artifact));
   }
 
   /**

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -45,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** A customizable, serializable class for building memory efficient command lines. */
@@ -308,15 +308,15 @@ public final class CustomCommandLine extends CommandLine {
       }
       vectorArgFragment = VectorArgFragment.interner.intern(vectorArgFragment);
       arguments.add(vectorArgFragment);
+      if (vectorArgFragment.hasMapEach) {
+        arguments.add(mapFn);
+      }
       if (vectorArgFragment.isNestedSet) {
         arguments.add(values);
       } else {
         // Simply expand any ordinary collection into the argv
         arguments.add(vectorArg.count);
         Iterables.addAll(arguments, values);
-      }
-      if (vectorArgFragment.hasMapEach) {
-        arguments.add(mapFn);
       }
       if (vectorArgFragment.hasFormatEach) {
         arguments.add(vectorArg.formatEach);
@@ -360,26 +360,38 @@ public final class CustomCommandLine extends CommandLine {
       @SuppressWarnings("unchecked")
       @Override
       public int eval(List<Object> arguments, int argi, ImmutableList.Builder<String> builder) {
-        final List<Object> mutatedValues;
-        final int count;
+        final List<String> mutatedValues;
+        CommandLineItem.MapFn<Object> mapFn =
+            hasMapEach ? (CommandLineItem.MapFn<Object>) arguments.get(argi++) : null;
         if (isNestedSet) {
-          Iterable<Object> values = (Iterable<Object>) arguments.get(argi++);
-          mutatedValues = Lists.newArrayList(values);
-          count = mutatedValues.size();
+          NestedSet<Object> values = (NestedSet<Object>) arguments.get(argi++);
+          Collection<Object> collection = values.toCollection();
+          mutatedValues = new ArrayList<>(collection.size());
+          if (mapFn != null) {
+            Consumer<String> args = mutatedValues::add; // Hoist out of loop to reduce GC
+            for (Object object : collection) {
+              mapFn.expandToCommandLine(object, args);
+            }
+          } else {
+            for (Object object : collection) {
+              mutatedValues.add(CommandLineItem.expandToCommandLine(object));
+            }
+          }
         } else {
-          count = (Integer) arguments.get(argi++);
+          int count = (Integer) arguments.get(argi++);
           mutatedValues = new ArrayList<>(count);
-          for (int i = 0; i < count; ++i) {
-            mutatedValues.add(arguments.get(argi++));
+          if (mapFn != null) {
+            Consumer<String> args = mutatedValues::add; // Hoist out of loop to reduce GC
+            for (int i = 0; i < count; ++i) {
+              mapFn.expandToCommandLine(arguments.get(argi++), args);
+            }
+          } else {
+            for (int i = 0; i < count; ++i) {
+              mutatedValues.add(CommandLineItem.expandToCommandLine(arguments.get(argi++)));
+            }
           }
         }
-        CommandLineItem.MapFn<Object> mapFn =
-            hasMapEach
-                ? (CommandLineItem.MapFn<Object>) arguments.get(argi++)
-                : CommandLineItem.MapFn.DEFAULT;
-        for (int i = 0; i < count; ++i) {
-          mutatedValues.set(i, mapFn.expandToCommandLine(mutatedValues.get(i)));
-        }
+        final int count = mutatedValues.size();
         if (hasFormatEach) {
           String formatStr = (String) arguments.get(argi++);
           for (int i = 0; i < count; ++i) {
@@ -390,14 +402,14 @@ public final class CustomCommandLine extends CommandLine {
           String beforeEach = (String) arguments.get(argi++);
           for (int i = 0; i < count; ++i) {
             builder.add(beforeEach);
-            builder.add((String) mutatedValues.get(i));
+            builder.add(mutatedValues.get(i));
           }
         } else if (hasJoinWith) {
           String joinWith = (String) arguments.get(argi++);
           builder.add(Joiner.on(joinWith).join(mutatedValues));
         } else {
           for (int i = 0; i < count; ++i) {
-            builder.add((String) mutatedValues.get(i));
+            builder.add(mutatedValues.get(i));
           }
         }
         return argi;
@@ -410,25 +422,25 @@ public final class CustomCommandLine extends CommandLine {
           int argi,
           ActionKeyContext actionKeyContext,
           Fingerprint fingerprint) {
+        CommandLineItem.MapFn<Object> mapFn =
+            hasMapEach ? (CommandLineItem.MapFn<Object>) arguments.get(argi++) : null;
         if (isNestedSet) {
           NestedSet<Object> values = (NestedSet<Object>) arguments.get(argi++);
-          CommandLineItem.MapFn<Object> mapFn =
-              hasMapEach
-                  ? (CommandLineItem.MapFn<Object>) arguments.get(argi++)
-                  : CommandLineItem.MapFn.DEFAULT;
-          actionKeyContext.addNestedSetToFingerprint(mapFn, fingerprint, values);
+          if (mapFn != null) {
+            actionKeyContext.addNestedSetToFingerprint(mapFn, fingerprint, values);
+          } else {
+            actionKeyContext.addNestedSetToFingerprint(fingerprint, values);
+          }
         } else {
           int count = (Integer) arguments.get(argi++);
-          CommandLineItem.MapFn<Object> mapFn =
-              hasMapEach
-                  ? (CommandLineItem.MapFn<Object>)
-                      arguments.get(argi + count) // Peek ahead to mapFn
-                  : CommandLineItem.MapFn.DEFAULT;
-          for (int i = 0; i < count; ++i) {
-            fingerprint.addString(mapFn.expandToCommandLine(arguments.get(argi++)));
-          }
-          if (hasMapEach) {
-            ++argi; // Consume mapFn
+          if (mapFn != null) {
+            for (int i = 0; i < count; ++i) {
+              mapFn.expandToCommandLine(arguments.get(argi++), fingerprint);
+            }
+          } else {
+            for (int i = 0; i < count; ++i) {
+              fingerprint.addString(CommandLineItem.expandToCommandLine(arguments.get(argi++)));
+            }
           }
         }
         if (hasFormatEach) {

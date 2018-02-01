@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.actions.CommandLineItem.CapturingM
 import com.google.devtools.build.lib.analysis.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -102,7 +103,7 @@ public class NestedSetFingerprintCacheTest {
     cache.addNestedSetToFingerprint(
         CommandLineItem.MapFn.DEFAULT, explicitDefaultMapFnFingerprint, a);
     Fingerprint mappedFingerprint = new Fingerprint();
-    cache.addNestedSetToFingerprint(s -> s + "_mapped", mappedFingerprint, a);
+    cache.addNestedSetToFingerprint((s, args) -> args.accept(s + "_mapped"), mappedFingerprint, a);
 
     String defaultMapFnDigest = defaultMapFnFingerprint.hexDigestAndReset();
     String explicitDefaultMapFnDigest = explicitDefaultMapFnFingerprint.hexDigestAndReset();
@@ -124,24 +125,25 @@ public class NestedSetFingerprintCacheTest {
     // Make sure a normal method reference doesn't get blacklisted.
     for (int i = 0; i < 2; ++i) {
       cache.addNestedSetToFingerprint(
-          NestedSetFingerprintCacheTest::simpleMapFn, new Fingerprint(), nestedSet);
+          NestedSetFingerprintCacheTest::simpleExpand, new Fingerprint(), nestedSet);
     }
 
     // Try again to make sure Java synthesizes a new class for a second method reference.
     for (int i = 0; i < 2; ++i) {
       cache.addNestedSetToFingerprint(
-          NestedSetFingerprintCacheTest::simpleMapFn2, new Fingerprint(), nestedSet);
+          NestedSetFingerprintCacheTest::simpleExpand2, new Fingerprint(), nestedSet);
     }
 
     // Make sure a non-capturing lambda doesn't get blacklisted
     for (int i = 0; i < 2; ++i) {
-      cache.addNestedSetToFingerprint(s -> s + "_mapped", new Fingerprint(), nestedSet);
+      cache.addNestedSetToFingerprint(
+          (s, args) -> args.accept(s + "_mapped"), new Fingerprint(), nestedSet);
     }
 
     // Make sure a CapturingMapFn doesn't get blacklisted
     for (int i = 0; i < 2; ++i) {
       cache.addNestedSetToFingerprint(
-          (CapturingMapFn<String>) object -> object, new Fingerprint(), nestedSet);
+          (CapturingMapFn<String>) (s, args) -> args.accept(s + 1), new Fingerprint(), nestedSet);
     }
 
     // Make sure a ParametrizedMapFn doesn't get blacklisted until it exceeds its instance count
@@ -159,7 +161,7 @@ public class NestedSetFingerprintCacheTest {
         () -> {
           for (int i = 0; i < 2; ++i) {
             StringJoiner str = new StringJoiner("hello");
-            cache.addNestedSetToFingerprint(str::join, new Fingerprint(), nestedSet);
+            cache.addNestedSetToFingerprint(str::expand, new Fingerprint(), nestedSet);
           }
         });
 
@@ -170,7 +172,7 @@ public class NestedSetFingerprintCacheTest {
           for (int i = 0; i < 2; ++i) {
             final int capturedVariable = i;
             cache.addNestedSetToFingerprint(
-                s -> s + capturedVariable, new Fingerprint(), nestedSet);
+                (s, args) -> args.accept(s + capturedVariable), new Fingerprint(), nestedSet);
           }
         });
   }
@@ -183,8 +185,8 @@ public class NestedSetFingerprintCacheTest {
     }
 
     @Override
-    public String expandToCommandLine(String object) {
-      return object + i;
+    public void expandToCommandLine(String object, Consumer<String> args) {
+      args.accept(object + i);
     }
 
     @Override
@@ -217,16 +219,16 @@ public class NestedSetFingerprintCacheTest {
       this.str = str;
     }
 
-    private String join(String other) {
-      return str + other;
+    private void expand(String other, Consumer<String> args) {
+      args.accept(str + other);
     }
   }
 
-  private static String simpleMapFn(String o) {
-    return o + "_mapped";
+  private static void simpleExpand(String o, Consumer<String> args) {
+    args.accept(o + "_mapped");
   }
 
-  private static String simpleMapFn2(String o) {
-    return o + "_mapped2";
+  private static void simpleExpand2(String o, Consumer<String> args) {
+    args.accept(o + "_mapped2");
   }
 }

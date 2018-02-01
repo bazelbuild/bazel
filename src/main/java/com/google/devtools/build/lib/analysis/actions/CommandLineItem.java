@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import java.util.function.Consumer;
+
 /** An interface for an object that customizes how it is expanded into a command line. */
 public interface CommandLineItem {
   /**
    * A map function that allows caller customization how a type is expanded into the command line.
    */
   interface MapFn<T> {
-    MapFn<Object> DEFAULT = CommandLineItem::expandToCommandLine;
+    MapFn<Object> DEFAULT =
+        (Object object, Consumer<String> args) ->
+            args.accept(CommandLineItem.expandToCommandLine(object));
 
-    String expandToCommandLine(T object);
+    void expandToCommandLine(T object, Consumer<String> args);
   }
 
   /**

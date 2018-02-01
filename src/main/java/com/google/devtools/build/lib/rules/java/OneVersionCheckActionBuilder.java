@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import java.util.function.Consumer;
 
 /** Utility for generating a call to the one-version binary. */
 public final class OneVersionCheckActionBuilder {
@@ -110,12 +111,12 @@ public final class OneVersionCheckActionBuilder {
     return outputArtifact;
   }
 
-  public static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
-    return VectorArg.of(jarsToCheck).mapped(OneVersionCheckActionBuilder::jarAndTargetArg);
+  static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
+    return VectorArg.of(jarsToCheck).mapped(OneVersionCheckActionBuilder::expandToJarAndTarget);
   }
 
-  private static String jarAndTargetArg(Artifact jar) {
-    return jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar);
+  private static void expandToJarAndTarget(Artifact jar, Consumer<String> args) {
+    args.accept(jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar));
   }
 
   private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
