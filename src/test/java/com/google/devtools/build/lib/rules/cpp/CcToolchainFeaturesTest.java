@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Str
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValueBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -99,6 +100,51 @@ public class CcToolchainFeaturesTest {
       }
     }
     return enabledFeatures.build();
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    FeatureConfiguration emptyConfiguration =
+        buildFeatures("").getFeatureConfiguration(ImmutableSet.of());
+    FeatureConfiguration emptyFeatures =
+        buildFeatures("feature {name: 'a'}", "feature {name: 'b'}")
+            .getFeatureConfiguration(ImmutableSet.of("a", "b"));
+    FeatureConfiguration featuresWithFlags =
+        buildFeatures(
+                "feature {",
+                "   name: 'a'",
+                "   flag_set {",
+                "      action: 'action-a'",
+                "      flag_group { flag: 'flag-a'}",
+                "   }",
+                "   flag_set {",
+                "      action: 'action-b'",
+                "      flag_group { flag: 'flag-b'}",
+                "   }",
+                "}",
+                "feature {",
+                "   name: 'b'",
+                "   flag_set {",
+                "      action: 'action-c'",
+                "      flag_group { flag: 'flag-c'}",
+                "   }",
+                "}")
+            .getFeatureConfiguration(ImmutableSet.of("a", "b"));
+    FeatureConfiguration featureWithEnvSet =
+        buildFeatures(
+                "feature {",
+                "   name: 'a'",
+                "   env_set {",
+                "      action: 'action-a'",
+                "      env_entry { key: 'foo', value: 'bar'}",
+                "      env_entry { key: 'baz', value: 'zee'}",
+                "   }",
+                "}")
+            .getFeatureConfiguration(ImmutableSet.of("a"));
+
+    ObjectCodecTester.newBuilder(FeatureConfiguration.CODEC)
+        .addSubjects(emptyConfiguration, emptyFeatures, featuresWithFlags, featureWithEnvSet)
+        .buildAndRunTests();
   }
 
   @Test

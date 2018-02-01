@@ -39,9 +39,14 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.WithFeatureSet;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -54,6 +59,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
@@ -113,8 +119,12 @@ public class CcToolchainFeatures implements Serializable {
    * %{var1}/%{var2}"). We split the string into chunks, where each chunk represents either a text
    * snippet, or a variable that is to be replaced.
    */
+  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   interface StringChunk {
-    
+
+    public static final ObjectCodec<StringChunk> CODEC =
+        new CcToolchainFeatures_StringChunk_AutoCodec();
+
     /**
      * Expands this chunk.
      *
@@ -123,21 +133,43 @@ public class CcToolchainFeatures implements Serializable {
      */
     void expand(Variables variables, StringBuilder flag);
   }
-  
-  /**
-   * A plain text chunk of a string (containing no variables).
-   */
+
+  /** A plain text chunk of a string (containing no variables). */
   @Immutable
-  private static class StringLiteralChunk implements StringChunk, Serializable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class StringLiteralChunk implements StringChunk, Serializable {
+
+    public static final ObjectCodec<StringLiteralChunk> CODEC =
+        new CcToolchainFeatures_StringLiteralChunk_AutoCodec();
+
     private final String text;
-    
-    private StringLiteralChunk(String text) {
+
+    @VisibleForSerialization
+    StringLiteralChunk(String text) {
       this.text = text;
     }
     
     @Override
     public void expand(Variables variables, StringBuilder flag) {
       flag.append(text);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof StringLiteralChunk) {
+        StringLiteralChunk that = (StringLiteralChunk) object;
+        return text.equals(that.text);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(text);
     }
   }
   
@@ -159,6 +191,23 @@ public class CcToolchainFeatures implements Serializable {
       // the nesting level of the NestedSequence was deeper than the nesting level of the flag
       // groups.
       stringBuilder.append(variables.getStringVariable(variableName));
+    }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof VariableChunk) {
+        VariableChunk that = (VariableChunk) object;
+        return variableName.equals(that.variableName);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(variableName);
     }
   }
   
@@ -282,11 +331,14 @@ public class CcToolchainFeatures implements Serializable {
           + " at position " + current + " while parsing a flag containing '" + value + "'");
     }
   }
-  
-  /**
-   * A flag or flag group that can be expanded under a set of variables.
-   */
+
+  /** A flag or flag group that can be expanded under a set of variables. */
+  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   interface Expandable {
+
+    public static final ObjectCodec<Expandable> CODEC =
+        new CcToolchainFeatures_Expandable_AutoCodec();
+
     /**
      * Expands the current expandable under the given {@code view}, adding new flags to {@code
      * commandLine}.
@@ -304,10 +356,16 @@ public class CcToolchainFeatures implements Serializable {
    * of text.
    */
   @Immutable
-  private static class Flag implements Serializable, Expandable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class Flag implements Serializable, Expandable {
+
+    public static final ObjectCodec<Flag> CODEC = new CcToolchainFeatures_Flag_AutoCodec();
+
     private final ImmutableList<StringChunk> chunks;
-    
-    private Flag(ImmutableList<StringChunk> chunks) {
+
+    @VisibleForSerialization
+    Flag(ImmutableList<StringChunk> chunks) {
       this.chunks = chunks;
     }
 
@@ -321,13 +379,33 @@ public class CcToolchainFeatures implements Serializable {
       }
       commandLine.add(flag.toString());
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof Flag) {
+        Flag that = (Flag) object;
+        return Iterables.elementsEqual(chunks, that.chunks);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(chunks);
+    }
   }
-  
-  /**
-   * A single environment key/value pair to be expanded under a set of variables.
-   */
+
+  /** A single environment key/value pair to be expanded under a set of variables. */
   @Immutable
-  private static class EnvEntry implements Serializable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class EnvEntry implements Serializable {
+
+    public static final ObjectCodec<EnvEntry> CODEC = new CcToolchainFeatures_EnvEntry_AutoCodec();
+
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
 
@@ -335,6 +413,13 @@ public class CcToolchainFeatures implements Serializable {
       this.key = envEntry.getKey();
       StringValueParser parser = new StringValueParser(envEntry.getValue());
       this.valueChunks = parser.getChunks();
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+      this.key = key;
+      this.valueChunks = valueChunks;
     }
 
     /**
@@ -348,10 +433,34 @@ public class CcToolchainFeatures implements Serializable {
       }
       envBuilder.put(key, value.toString());
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof EnvEntry) {
+        EnvEntry that = (EnvEntry) object;
+        return Objects.equals(key, that.key)
+            && Iterables.elementsEqual(valueChunks, that.valueChunks);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(key, valueChunks);
+    }
   }
 
   @Immutable
-  private static class VariableWithValue {
+  @AutoCodec
+  @VisibleForSerialization
+  static class VariableWithValue {
+
+    public static final ObjectCodec<VariableWithValue> CODEC =
+        new CcToolchainFeatures_VariableWithValue_AutoCodec();
+
     public final String variable;
     public final String value;
 
@@ -366,7 +475,13 @@ public class CcToolchainFeatures implements Serializable {
    * and the flag_group will be expanded repeatedly for every value in the sequence.
    */
   @Immutable
-  private static class FlagGroup implements Serializable, Expandable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class FlagGroup implements Serializable, Expandable {
+
+    public static final ObjectCodec<FlagGroup> CODEC =
+        new CcToolchainFeatures_FlagGroup_AutoCodec();
+
     private final ImmutableList<Expandable> expandables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
@@ -408,6 +523,25 @@ public class CcToolchainFeatures implements Serializable {
       } else {
         this.expandIfEqual = null;
       }
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    public FlagGroup(
+        ImmutableList<Expandable> expandables,
+        String iterateOverVariable,
+        ImmutableSet<String> expandIfAllAvailable,
+        ImmutableSet<String> expandIfNoneAvailable,
+        String expandIfTrue,
+        String expandIfFalse,
+        VariableWithValue expandIfEqual) {
+      this.expandables = expandables;
+      this.iterateOverVariable = iterateOverVariable;
+      this.expandIfAllAvailable = expandIfAllAvailable;
+      this.expandIfNoneAvailable = expandIfNoneAvailable;
+      this.expandIfTrue = expandIfTrue;
+      this.expandIfFalse = expandIfFalse;
+      this.expandIfEqual = expandIfEqual;
     }
 
     @Override
@@ -482,6 +616,36 @@ public class CcToolchainFeatures implements Serializable {
         Variables variables, @Nullable ArtifactExpander expander, final List<String> commandLine) {
       expand(variables, expander, commandLine);
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof FlagGroup) {
+        FlagGroup that = (FlagGroup) object;
+        return Iterables.elementsEqual(expandables, that.expandables)
+            && Objects.equals(iterateOverVariable, that.iterateOverVariable)
+            && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
+            && Iterables.elementsEqual(expandIfNoneAvailable, that.expandIfNoneAvailable)
+            && Objects.equals(expandIfTrue, that.expandIfTrue)
+            && Objects.equals(expandIfFalse, that.expandIfFalse)
+            && Objects.equals(expandIfEqual, that.expandIfEqual);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          expandables,
+          iterateOverVariable,
+          expandIfAllAvailable,
+          expandIfNoneAvailable,
+          expandIfTrue,
+          expandIfFalse,
+          expandIfEqual);
+    }
   }
 
   private static boolean isWithFeaturesSatisfied(
@@ -504,11 +668,14 @@ public class CcToolchainFeatures implements Serializable {
     return false;
   }
 
-  /**
-   * Groups a set of flags to apply for certain actions.
-   */
+  /** Groups a set of flags to apply for certain actions. */
   @Immutable
-  private static class FlagSet implements Serializable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class FlagSet implements Serializable {
+
+    public static final ObjectCodec<FlagSet> CODEC = new CcToolchainFeatures_FlagSet_AutoCodec();
+
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
@@ -533,6 +700,19 @@ public class CcToolchainFeatures implements Serializable {
       this.flagGroups = builder.build();
     }
 
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    FlagSet(
+        ImmutableSet<String> actions,
+        ImmutableSet<String> expandIfAllAvailable,
+        ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets,
+        ImmutableList<FlagGroup> flagGroups) {
+      this.actions = actions;
+      this.expandIfAllAvailable = expandIfAllAvailable;
+      this.withFeatureSets = withFeatureSets;
+      this.flagGroups = flagGroups;
+    }
+
     /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
     private void expandCommandLine(
         String action,
@@ -555,13 +735,33 @@ public class CcToolchainFeatures implements Serializable {
         flagGroup.expandCommandLine(variables, expander, commandLine);
       }
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (object instanceof FlagSet) {
+        FlagSet that = (FlagSet) object;
+        return Iterables.elementsEqual(actions, that.actions)
+            && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
+            && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets)
+            && Iterables.elementsEqual(flagGroups, that.flagGroups);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(actions, expandIfAllAvailable, withFeatureSets, flagGroups);
+    }
   }
-  
-  /**
-   * Groups a set of environment variables to apply for certain actions.
-   */
+
+  /** Groups a set of environment variables to apply for certain actions. */
   @Immutable
-  private static class EnvSet implements Serializable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class EnvSet implements Serializable {
+
+    public static final ObjectCodec<EnvSet> CODEC = new CcToolchainFeatures_EnvSet_AutoCodec();
+
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
     private final ImmutableSet<CToolchain.WithFeatureSet> withFeatureSets;
@@ -574,6 +774,17 @@ public class CcToolchainFeatures implements Serializable {
       }
       this.envEntries = builder.build();
       this.withFeatureSets = ImmutableSet.copyOf(envSet.getWithFeatureList());
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    EnvSet(
+        ImmutableSet<String> actions,
+        ImmutableList<EnvEntry> envEntries,
+        ImmutableSet<WithFeatureSet> withFeatureSets) {
+      this.actions = actions;
+      this.envEntries = envEntries;
+      this.withFeatureSets = withFeatureSets;
     }
 
     /**
@@ -595,6 +806,25 @@ public class CcToolchainFeatures implements Serializable {
         envEntry.addEnvEntry(variables, envBuilder);
       }
     }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof EnvSet) {
+        EnvSet that = (EnvSet) object;
+        return Iterables.elementsEqual(actions, that.actions)
+            && Iterables.elementsEqual(envEntries, that.envEntries)
+            && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(actions, envEntries, withFeatureSets);
+    }
   }
 
   /**
@@ -611,11 +841,14 @@ public class CcToolchainFeatures implements Serializable {
     String getName();
   }
 
-  /**
-   * Contains flags for a specific feature.
-   */
+  /** Contains flags for a specific feature. */
   @Immutable
-  private static class Feature implements Serializable, CrosstoolSelectable {
+  @AutoCodec
+  @VisibleForSerialization
+  static class Feature implements Serializable, CrosstoolSelectable {
+
+    public static final ObjectCodec<Feature> CODEC = new CcToolchainFeatures_Feature_AutoCodec();
+
     private final String name;
     private final ImmutableList<FlagSet> flagSets;
     private final ImmutableList<EnvSet> envSets;
@@ -633,6 +866,14 @@ public class CcToolchainFeatures implements Serializable {
         envSetBuilder.add(new EnvSet(flagSet));
       }
       this.envSets = envSetBuilder.build();
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    Feature(String name, ImmutableList<FlagSet> flagSets, ImmutableList<EnvSet> envSets) {
+      this.name = name;
+      this.flagSets = flagSets;
+      this.envSets = envSets;
     }
 
     @Override
@@ -661,6 +902,25 @@ public class CcToolchainFeatures implements Serializable {
       for (FlagSet flagSet : flagSets) {
         flagSet.expandCommandLine(action, variables, enabledFeatureNames, expander, commandLine);
       }
+    }
+
+    @Override
+    public boolean equals(@Nullable Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof Feature) {
+        Feature that = (Feature) object;
+        return name.equals(that.name)
+            && Iterables.elementsEqual(flagSets, that.flagSets)
+            && Iterables.elementsEqual(envSets, that.envSets);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, flagSets, envSets);
     }
   }
 
@@ -698,29 +958,32 @@ public class CcToolchainFeatures implements Serializable {
       return executionRequirements;
     }
   }
-  
-  
+
   /**
    * A container for information on a particular blaze action.
    *
-   * <p>An ActionConfig can select a tool for its blaze action based on the set of active
-   * features.  Internally, an ActionConfig maintains an ordered list (the order being that of the
-   * list of tools in the crosstool action_config message) of such tools and the feature sets for
-   * which they are valid.  For a given feature configuration, the ActionConfig will consider the
-   * first tool in that list with a feature set that matches the configuration to be the tool for
-   * its blaze action.
+   * <p>An ActionConfig can select a tool for its blaze action based on the set of active features.
+   * Internally, an ActionConfig maintains an ordered list (the order being that of the list of
+   * tools in the crosstool action_config message) of such tools and the feature sets for which they
+   * are valid. For a given feature configuration, the ActionConfig will consider the first tool in
+   * that list with a feature set that matches the configuration to be the tool for its blaze
+   * action.
    *
-   * <p>ActionConfigs can be activated by features.  That is, a particular feature can cause an
-   * ActionConfig to be applied in its "implies" field.  Blaze may include certain actions in
-   * the action graph only if a corresponding ActionConfig is activated in the toolchain - this
-   * provides the crosstool with a mechanism for adding certain actions to the action graph based
-   * on feature configuration.
+   * <p>ActionConfigs can be activated by features. That is, a particular feature can cause an
+   * ActionConfig to be applied in its "implies" field. Blaze may include certain actions in the
+   * action graph only if a corresponding ActionConfig is activated in the toolchain - this provides
+   * the crosstool with a mechanism for adding certain actions to the action graph based on feature
+   * configuration.
    *
-   * <p>It is invalid for a toolchain to contain two action configs for the same blaze action.  In
+   * <p>It is invalid for a toolchain to contain two action configs for the same blaze action. In
    * that case, blaze will throw an error when it consumes the crosstool.
    */
   @Immutable
+  @AutoCodec
   static class ActionConfig implements Serializable, CrosstoolSelectable {
+
+    public static final ObjectCodec<ActionConfig> CODEC =
+        new CcToolchainFeatures_ActionConfig_AutoCodec();
 
     public static final String FLAG_SET_WITH_ACTION_ERROR =
         "action_config %s specifies actions.  An action_config's flag sets automatically apply "
@@ -748,6 +1011,19 @@ public class CcToolchainFeatures implements Serializable {
         flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
       }
       this.flagSets = flagSetBuilder.build();
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    ActionConfig(
+        String configName,
+        String actionName,
+        List<CToolchain.Tool> tools,
+        ImmutableList<FlagSet> flagSets) {
+      this.configName = configName;
+      this.actionName = actionName;
+      this.tools = tools;
+      this.flagSets = flagSets;
     }
 
     @Override
@@ -1733,14 +2009,17 @@ public class CcToolchainFeatures implements Serializable {
       return lookupVariable(variable, false, expander) != null;
     }
   }
-  
-  /**
-   * Captures the set of enabled features and action configs for a rule.
-   */
+
+  /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
+  @AutoCodec
   public static class FeatureConfiguration {
+
+    public static final ObjectCodec<FeatureConfiguration> CODEC =
+        new CcToolchainFeatures_FeatureConfiguration_AutoCodec();
+
     private final ImmutableSet<String> enabledFeatureNames;
-    private final Iterable<Feature> enabledFeatures;
+    private final ImmutableList<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
     
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
@@ -1753,15 +2032,13 @@ public class CcToolchainFeatures implements Serializable {
     public static final FeatureConfiguration EMPTY = new FeatureConfiguration();
 
     protected FeatureConfiguration() {
-      this(
-          ImmutableList.of(),
-          ImmutableList.of(),
-          ImmutableMap.of());
+      this(ImmutableList.of(), ImmutableSet.of(), ImmutableMap.of());
     }
 
-    private FeatureConfiguration(
-        Iterable<Feature> enabledFeatures,
-        Iterable<ActionConfig> enabledActionConfigs,
+    @AutoCodec.Instantiator
+    FeatureConfiguration(
+        ImmutableList<Feature> enabledFeatures,
+        ImmutableSet<String> enabledActionConfigActionNames,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
       this.enabledFeatures = enabledFeatures;
       
@@ -1771,12 +2048,7 @@ public class CcToolchainFeatures implements Serializable {
         featureBuilder.add(feature.getName());
       }
       this.enabledFeatureNames = featureBuilder.build();
-      
-      ImmutableSet.Builder<String> actionConfigBuilder = ImmutableSet.builder();
-      for (ActionConfig actionConfig : enabledActionConfigs) {
-        actionConfigBuilder.add(actionConfig.getActionName());
-      }
-      this.enabledActionConfigActionNames = actionConfigBuilder.build();
+      this.enabledActionConfigActionNames = enabledActionConfigActionNames;
     }
     
     /**
@@ -1862,6 +2134,31 @@ public class CcToolchainFeatures implements Serializable {
           actionName);
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
       return actionConfig.getTool(enabledFeatureNames);
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (object == this) {
+        return true;
+      }
+      if (object instanceof FeatureConfiguration) {
+        FeatureConfiguration that = (FeatureConfiguration) object;
+        return Objects.equals(actionConfigByActionName, that.actionConfigByActionName)
+            && Iterables.elementsEqual(
+                enabledActionConfigActionNames, that.enabledActionConfigActionNames)
+            && Iterables.elementsEqual(enabledFeatureNames, that.enabledFeatureNames)
+            && Iterables.elementsEqual(enabledFeatures, that.enabledFeatures);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          actionConfigByActionName,
+          enabledActionConfigActionNames,
+          enabledFeatureNames,
+          enabledFeatures);
     }
   }
 
@@ -2241,8 +2538,12 @@ public class CcToolchainFeatures implements Serializable {
 
       ImmutableList<CrosstoolSelectable> enabledActivatablesInOrder =
           enabledActivatablesInOrderBuilder.build();
-      Iterable<Feature> enabledFeaturesInOrder =
-          Iterables.filter(enabledActivatablesInOrder, Feature.class);
+      ImmutableList<Feature> enabledFeaturesInOrder =
+          enabledActivatablesInOrder
+              .stream()
+              .filter(a -> a instanceof Feature)
+              .map(f -> (Feature) f)
+              .collect(ImmutableList.toImmutableList());
       Iterable<ActionConfig> enabledActionConfigsInOrder =
           Iterables.filter(enabledActivatablesInOrder, ActionConfig.class);
 
@@ -2260,10 +2561,13 @@ public class CcToolchainFeatures implements Serializable {
         }
       }
 
+      ImmutableSet.Builder<String> enabledActionConfigNames = ImmutableSet.builder();
+      for (ActionConfig actionConfig : enabledActionConfigsInOrder) {
+        enabledActionConfigNames.add(actionConfig.actionName);
+      }
+
       return new FeatureConfiguration(
-          enabledFeaturesInOrder,
-          enabledActionConfigsInOrder,
-          actionConfigsByActionName);
+          enabledFeaturesInOrder, enabledActionConfigNames.build(), actionConfigsByActionName);
     }
 
     /**
