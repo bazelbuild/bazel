@@ -161,19 +161,7 @@ public final class MockObjcSupport {
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/header_scanner");
     createCrosstoolPackage(config, partialToolchainLines);
     setupIosSimDevice(config);
-    setupIosTest(config);
     setupObjcProto(config);
-  }
-
-  /**
-   * Sets up mock IOS test support.
-   */
-  public static void setupIosTest(MockToolsConfig config) throws IOException {
-    config.create(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/precomp_testrunner_deploy.jar");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/StdRedirect.dylib");
-    createMemleaksSim(config);
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/ios_test.sh.bazel_template");
   }
 
   /**
@@ -187,19 +175,6 @@ public final class MockObjcSupport {
         "  ios_version = '9.8',",
         "  type = 'iChimpanzee',",
         ")");
-  }
-
-  private static void createMemleaksSim(MockToolsConfig config) throws IOException {
-    config.create(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/memleaks/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "  name = 'memleaks',",
-        "  srcs = ['memleaks.m'],",
-        ")");
-
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/memleaks/libmemleaks.a");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/memleaks_plugin");
   }
 
   /** Sets up the support for building protocol buffers for ObjC. */

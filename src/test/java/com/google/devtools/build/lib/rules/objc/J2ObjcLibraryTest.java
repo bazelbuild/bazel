@@ -80,7 +80,6 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = ['test'])");
     MockObjcSupport.setup(mockToolsConfig);
     MockObjcSupport.setupIosSimDevice(mockToolsConfig);
-    MockObjcSupport.setupIosTest(mockToolsConfig);
     MockJ2ObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
 
