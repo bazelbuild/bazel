@@ -25,6 +25,8 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 
 set_up() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
   # create an archive file with files interesting for patching
   mkdir ext-0.1.2
   cat > ext-0.1.2/foo.sh <<'EOF'
@@ -106,6 +108,176 @@ EOF
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
   grep -q 'env' $foopath || fail "expected unpatched file"
+}
+
+test_override_buildfile() {
+  ## Verify that the BUILD file of an external repository can be overriden
+  ## via the http_archive rule.
+  EXTREPODIR=`pwd`
+
+  mkdir withbuild
+  cat > withbuild/BUILD <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo BAD >> $@",
+)
+EOF
+  cat > withbuild/file.txt <<'EOF'
+from external repo
+EOF
+  zip withbuild.zip withbuild/*
+  rm -rf withbuild
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="withbuild",
+  strip_prefix="withbuild",
+  urls=["file://${EXTREPODIR}/withbuild.zip"],
+  build_file="@//:ext.BUILD",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  outs = ["local.txt"],
+  srcs = ["@withbuild//:target"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > ext.BUILD <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo GOOD >> $@",
+  visibility=["//visibility:public"],
+)
+EOF
+
+  bazel build //:local || fail "Expected success"
+
+  cat `bazel info bazel-genfiles`/local.txt > "${TEST_log}"
+  expect_log "from external repo"
+  expect_log "GOOD"
+  expect_not_log "BAD"
+}
+
+test_override_buildfile_content() {
+  ## Verify that the BUILD file of an external repository can be overriden
+  ## via specified content in the http_archive rule.
+  EXTREPODIR=`pwd`
+
+  mkdir withbuild
+  cat > withbuild/BUILD <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo BAD >> $@",
+)
+EOF
+  cat > withbuild/file.txt <<'EOF'
+from external repo
+EOF
+  zip withbuild.zip withbuild/*
+  rm -rf withbuild
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="withbuild",
+  strip_prefix="withbuild",
+  urls=["file://${EXTREPODIR}/withbuild.zip"],
+  build_file_content="""
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp \$< \$@ && echo GOOD >> \$@",
+  visibility=["//visibility:public"],
+)
+  """,
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  outs = ["local.txt"],
+  srcs = ["@withbuild//:target"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:local || fail "Expected success"
+
+  cat `bazel info bazel-genfiles`/local.txt > "${TEST_log}"
+  expect_log "from external repo"
+  expect_log "GOOD"
+  expect_not_log "BAD"
+}
+
+test_build_file_build_bazel() {
+  ## Verify that the BUILD file of an external repository can be overriden
+  ## via the http_archive rule.
+  EXTREPODIR=`pwd`
+
+  mkdir withbuild
+  cat > withbuild/BUILD.bazel <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo BAD >> $@",
+)
+EOF
+  cat > withbuild/file.txt <<'EOF'
+from external repo
+EOF
+  zip withbuild.zip withbuild/*
+  rm -rf withbuild
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="withbuild",
+  strip_prefix="withbuild",
+  urls=["file://${EXTREPODIR}/withbuild.zip"],
+  build_file="@//:ext.BUILD",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  outs = ["local.txt"],
+  srcs = ["@withbuild//:target"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > ext.BUILD <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo GOOD >> $@",
+  visibility=["//visibility:public"],
+)
+EOF
+
+  bazel build //:local || fail "Expected success"
+
+  cat `bazel info bazel-genfiles`/local.txt > "${TEST_log}"
+  expect_log "from external repo"
+  expect_log "GOOD"
+  expect_not_log "BAD"
 }
 
 run_suite "external patching tests"
