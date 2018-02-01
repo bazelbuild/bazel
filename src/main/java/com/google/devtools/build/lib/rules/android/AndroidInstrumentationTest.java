@@ -54,11 +54,11 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     if (getInstrumentationProvider(ruleContext) == null) {
       ruleContext.throwWithAttributeError(
-          "instrumentation",
+          "test_app",
           String.format(
               "The android_binary target %s is missing an 'instruments' attribute. Please set "
                   + "it to the label of the android_binary under test.",
-              ruleContext.attributes().get("instrumentation", BuildType.LABEL)));
+              ruleContext.attributes().get("test_app", BuildType.LABEL)));
     }
   }
 
@@ -199,7 +199,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   @Nullable
   private static AndroidInstrumentationInfo getInstrumentationProvider(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
-        "instrumentation", Mode.TARGET, AndroidInstrumentationInfo.PROVIDER);
+        "test_app", Mode.TARGET, AndroidInstrumentationInfo.PROVIDER);
   }
 
   /** The target APK from the {@code android_binary} in the {@code instrumentation} attribute. */

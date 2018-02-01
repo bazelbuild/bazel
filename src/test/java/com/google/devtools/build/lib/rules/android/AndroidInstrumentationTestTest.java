@@ -73,7 +73,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
         "javatests/com/app/ait/BUILD",
         "android_instrumentation_test(",
         "  name = 'ait',",
-        "  instrumentation = '//javatests/com/app:instrumentation_app',",
+        "  test_app = '//javatests/com/app:instrumentation_app',",
         "  target_device = '//tools/android/emulated_device:nexus_6',",
         "  fixtures = [",
         "    '//javatests/com/app:device_fixture',",
@@ -192,7 +192,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
         ")",
         "android_instrumentation_test(",
         "  name = 'ait',",
-        "  instrumentation = '//javatests/com/app:instrumentation_app',",
+        "  test_app = '//javatests/com/app:instrumentation_app',",
         "  target_device = '//tools/android/emulated_device:nexus_6',",
         "  fixtures = [",
         "    ':host_fixture',",
@@ -215,7 +215,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
         ")",
         "android_instrumentation_test(",
         "  name = 'ait',",
-        "  instrumentation = ':app',",
+        "  test_app = ':app',",
         "  target_device = '//tools/android/emulated_device:nexus_6',",
         ")");
   }
@@ -235,7 +235,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
         "local_adb_device(name = 'local_adb_device')",
         "android_instrumentation_test(",
         "  name = 'ait',",
-        "  instrumentation = '//javatests/com/app:instrumentation_app',",
+        "  test_app = '//javatests/com/app:instrumentation_app',",
         "  target_device = ':local_adb_device',",
         ")");
     String testExecutableScript =
