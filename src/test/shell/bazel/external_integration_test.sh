@@ -949,33 +949,6 @@ EOF
     || fail 'Expected @ext//:foo and //:foo not to conflict'
 }
 
-function test_unicode_characters_tar() {
-  # Verify that archives with the utf-8 encoding of unicode-characters in the
-  # file name can be decompressed.
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-  mkdir ext
-  # F0 9F 8D 82 is the UTF-8 encoding of the 'FALLEN LEAF' (U+1F342) unicode
-  # symbol
-  echo 'leaves' > ext/$'unicode-\xF0\x9F\x8D\x83.txt'
-  echo 'Hello World' > ext/hello.txt
-  echo 'exports_files(["hello.txt"])' > ext/BUILD
-  tar cvf ext.tar ext
-  rm -rf ext
-
-  mkdir main
-  cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-  name="ext",
-  strip_prefix="ext",
-  urls=["file://${WRKDIR}/ext.tar"],
-)
-EOF
-  bazel build '@ext//:hello.txt' || fail "expected success"
-}
-
 function test_missing_build() {
   mkdir ext
   echo foo> ext/foo
