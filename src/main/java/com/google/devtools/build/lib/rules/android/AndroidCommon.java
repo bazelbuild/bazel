@@ -743,6 +743,8 @@ public class AndroidCommon {
         .setNeverlink(isNeverlink)
         .build();
 
+    AndroidResourcesInfo resourceInfo = resourceApk.toResourceInfo(ruleContext.getLabel());
+
     return builder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
@@ -752,9 +754,7 @@ public class AndroidCommon {
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
-        .addProvider(
-            AndroidResourcesProvider.class,
-            resourceApk.toResourceProvider(ruleContext.getLabel()))
+        .addNativeDeclaredProvider(resourceInfo)
         .addProvider(
             AndroidIdeInfoProvider.class,
             createAndroidIdeInfoProvider(
@@ -766,7 +766,8 @@ public class AndroidCommon {
                 zipAlignedApk,
                 apksUnderTest,
                 nativeLibs))
-        .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
+        .addSkylarkTransitiveInfo(
+            AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider(resourceInfo))
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
         .addOutputGroup(

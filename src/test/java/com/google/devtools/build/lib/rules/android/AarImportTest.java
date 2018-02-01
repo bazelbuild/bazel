@@ -78,9 +78,8 @@ public class AarImportTest extends BuildViewTestCase {
   public void testResourcesProvided() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
-    NestedSet<ResourceContainer> directResources = aarImportTarget
-        .getProvider(AndroidResourcesProvider.class)
-        .getDirectAndroidResources();
+    NestedSet<ResourceContainer> directResources =
+        aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
     assertThat(directResources).hasSize(1);
 
     ResourceContainer resourceContainer = directResources.iterator().next();
@@ -99,7 +98,7 @@ public class AarImportTest extends BuildViewTestCase {
   public void testResourcesExtractor() throws Exception {
     ResourceContainer resourceContainer =
         getConfiguredTarget("//a:foo")
-            .getProvider(AndroidResourcesProvider.class)
+            .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
             .toList()
             .get(0);
@@ -176,11 +175,12 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testNoCustomJavaPackage() throws Exception {
-    ResourceContainer resourceContainer = getConfiguredTarget("//a:foo")
-        .getProvider(AndroidResourcesProvider.class)
-        .getDirectAndroidResources()
-        .iterator()
-        .next();
+    ResourceContainer resourceContainer =
+        getConfiguredTarget("//a:foo")
+            .get(AndroidResourcesInfo.PROVIDER)
+            .getDirectAndroidResources()
+            .iterator()
+            .next();
 
     // aar_import should not set a custom java package. Instead aapt will read the
     // java package from the manifest.
@@ -293,7 +293,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   private String getAndroidManifest(String aarImport) throws Exception {
     return getConfiguredTarget(aarImport)
-        .getProvider(AndroidResourcesProvider.class)
+        .get(AndroidResourcesInfo.PROVIDER)
         .getDirectAndroidResources()
         .toList()
         .get(0)

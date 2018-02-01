@@ -104,8 +104,8 @@ public final class ResourceDependencies {
       if (!attributes.has(attr, BuildType.LABEL_LIST) && !attributes.has(attr, BuildType.LABEL)) {
         continue;
       }
-      for (AndroidResourcesProvider resources :
-          ruleContext.getPrerequisites(attr, Mode.TARGET, AndroidResourcesProvider.class)) {
+      for (AndroidResourcesInfo resources :
+          ruleContext.getPrerequisites(attr, Mode.TARGET, AndroidResourcesInfo.PROVIDER)) {
         transitiveDependencies.addTransitive(resources.getTransitiveAndroidResources());
         directDependencies.addTransitive(resources.getDirectAndroidResources());
         transitiveResources.addTransitive(resources.getTransitiveResources());
@@ -233,23 +233,22 @@ public final class ResourceDependencies {
   }
 
   /**
-   * Creates a new AndroidResourcesProvider with the supplied ResourceContainer as the direct dep.
+   * Creates a new AndroidResourcesInfo with the supplied ResourceContainer as the direct dep.
    *
-   * <p>When a library produces a new resource container the AndroidResourcesProvider should use
-   * that container as a the direct dependency for that library. This makes the consuming rule to
+   * <p>When a library produces a new resource container the AndroidResourcesInfo should use that
+   * container as a the direct dependency for that library. This makes the consuming rule to
    * identify the new container and merge appropriately. The previous direct dependencies are then
    * added to the transitive dependencies.
    *
    * @param label The label of the library exporting this provider.
-   * @param newDirectResource The new direct dependency for AndroidResourcesProvider
+   * @param newDirectResource The new direct dependency for AndroidResourcesInfo
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesProvider toProvider(
-      Label label, ResourceContainer newDirectResource) {
+  public AndroidResourcesInfo toInfo(Label label, ResourceContainer newDirectResource) {
     if (neverlink) {
-      return ResourceDependencies.empty().toProvider(label);
+      return ResourceDependencies.empty().toInfo(label);
     }
-    return AndroidResourcesProvider.create(
+    return new AndroidResourcesInfo(
         label,
         NestedSetBuilder.<ResourceContainer>naiveLinkOrder()
             .addTransitive(transitiveResourceContainers)
@@ -272,19 +271,8 @@ public final class ResourceDependencies {
         withDirectAndTransitive(newDirectResource.getRTxt(), transitiveRTxt));
   }
 
-  private static NestedSet<Artifact> withDirectAndTransitive(
-      @Nullable Artifact direct, NestedSet<Artifact> transitive) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-    builder.addTransitive(transitive);
-    if (direct != null) {
-      builder.add(direct);
-    }
-
-    return builder.build();
-  }
-
   /**
-   * Create a new AndroidResourcesProvider from the dependencies of this library.
+   * Create a new AndroidResourcesInfo from the dependencies of this library.
    *
    * <p>When a library doesn't export resources it should simply forward the current transitive and
    * direct resources to the consuming rule. This allows the consuming rule to make decisions about
@@ -293,11 +281,11 @@ public final class ResourceDependencies {
    * @param label The label of the library exporting this provider.
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesProvider toProvider(Label label) {
+  public AndroidResourcesInfo toInfo(Label label) {
     if (neverlink) {
-      return ResourceDependencies.empty().toProvider(label);
+      return ResourceDependencies.empty().toInfo(label);
     }
-    return AndroidResourcesProvider.create(
+    return new AndroidResourcesInfo(
         label,
         transitiveResourceContainers,
         directResourceContainers,
@@ -309,6 +297,17 @@ public final class ResourceDependencies {
         transitiveCompiledSymbols,
         transitiveStaticLib,
         transitiveRTxt);
+  }
+
+  private static NestedSet<Artifact> withDirectAndTransitive(
+      @Nullable Artifact direct, NestedSet<Artifact> transitive) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
+    builder.addTransitive(transitive);
+    if (direct != null) {
+      builder.add(direct);
+    }
+
+    return builder.build();
   }
 
   /**

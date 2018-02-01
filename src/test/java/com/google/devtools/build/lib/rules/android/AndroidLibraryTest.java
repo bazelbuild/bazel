@@ -906,7 +906,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testNeverlinkResources_AndroidResourcesProvider() throws Exception {
+  public void testNeverlinkResources_AndroidResourcesInfo() throws Exception {
     scratch.file("java/apps/android/BUILD",
         "android_library(name = 'foo',",
         "                manifest = 'AndroidManifest.xml',",
@@ -922,29 +922,31 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                manifest = 'AndroidManifest.xml')");
     Function<ResourceContainer, Label> getLabel = ResourceContainer::getLabel;
     ConfiguredTarget foo = getConfiguredTarget("//java/apps/android:foo");
-    assertThat(Iterables.transform(
-        foo.getProvider(AndroidResourcesProvider.class).getTransitiveAndroidResources(), getLabel))
+    assertThat(
+            Iterables.transform(
+                foo.get(AndroidResourcesInfo.PROVIDER).getTransitiveAndroidResources(), getLabel))
         .containsExactly(
             Label.parseAbsolute("//java/apps/android:lib"),
             Label.parseAbsolute("//java/apps/android:bar"));
-    assertThat(Iterables.transform(
-        foo.getProvider(AndroidResourcesProvider.class).getDirectAndroidResources(), getLabel))
+    assertThat(
+            Iterables.transform(
+                foo.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources(), getLabel))
         .containsExactly(Label.parseAbsolute("//java/apps/android:foo"));
 
     ConfiguredTarget lib = getConfiguredTarget("//java/apps/android:lib");
-    assertThat(Iterables.transform(
-        lib.getProvider(AndroidResourcesProvider.class).getTransitiveAndroidResources(), getLabel))
+    assertThat(
+            Iterables.transform(
+                lib.get(AndroidResourcesInfo.PROVIDER).getTransitiveAndroidResources(), getLabel))
         .containsExactly(Label.parseAbsolute("//java/apps/android:bar"));
-    assertThat(Iterables.transform(
-        lib.getProvider(AndroidResourcesProvider.class).getDirectAndroidResources(), getLabel))
+    assertThat(
+            Iterables.transform(
+                lib.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources(), getLabel))
         .containsExactly(Label.parseAbsolute("//java/apps/android:lib"));
 
     ConfiguredTarget libNeverlink = getConfiguredTarget("//java/apps/android:lib_neverlink");
-    assertThat(libNeverlink.getProvider(AndroidResourcesProvider.class)
-        .getTransitiveAndroidResources())
+    assertThat(libNeverlink.get(AndroidResourcesInfo.PROVIDER).getTransitiveAndroidResources())
         .isEmpty();
-    assertThat(libNeverlink.getProvider(AndroidResourcesProvider.class)
-        .getDirectAndroidResources())
+    assertThat(libNeverlink.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources())
         .isEmpty();
   }
 
@@ -1010,7 +1012,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     ResourceContainer resources =
         Iterables.getOnlyElement(
-            target.getProvider(AndroidResourcesProvider.class).getDirectAndroidResources());
+            target.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources());
 
     SpawnAction resourceParserAction =
         (SpawnAction)
@@ -1125,8 +1127,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isEqualTo(
             ActionsTestUtil.getFirstArtifactEndingWith(
                 artifactClosure, "java/android/AndroidManifest.xml"));
-    ResourceContainer resources = getOnlyElement(getConfiguredTarget("//java/android:r")
-        .getProvider(AndroidResourcesProvider.class).getDirectAndroidResources());
+    ResourceContainer resources =
+        getOnlyElement(
+            getConfiguredTarget("//java/android:r")
+                .get(AndroidResourcesInfo.PROVIDER)
+                .getDirectAndroidResources());
     assertThat(provider.getGeneratedManifest()).isEqualTo(resources.getManifest());
   }
 
@@ -1154,9 +1159,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isEqualTo(
             ActionsTestUtil.getFirstArtifactEndingWith(
                 artifactClosure, "handwriting/AndroidManifest.xml"));
-    ResourceContainer resources = getOnlyElement(
-        getConfiguredTarget("//research/handwriting/java/com/google/research/handwriting:r")
-            .getProvider(AndroidResourcesProvider.class).getDirectAndroidResources());
+    ResourceContainer resources =
+        getOnlyElement(
+            getConfiguredTarget("//research/handwriting/java/com/google/research/handwriting:r")
+                .get(AndroidResourcesInfo.PROVIDER)
+                .getDirectAndroidResources());
     assertThat(provider.getGeneratedManifest()).isEqualTo(resources.getManifest());
   }
 
@@ -1186,8 +1193,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isEqualTo(
             ActionsTestUtil.getFirstArtifactEndingWith(
                 artifactClosure, "java/android/AndroidManifest.xml"));
-    ResourceContainer resources = getOnlyElement(getConfiguredTarget("//java/android:r")
-        .getProvider(AndroidResourcesProvider.class).getDirectAndroidResources());
+    ResourceContainer resources =
+        getOnlyElement(
+            getConfiguredTarget("//java/android:r")
+                .get(AndroidResourcesInfo.PROVIDER)
+                .getDirectAndroidResources());
     assertThat(provider.getGeneratedManifest()).isEqualTo(resources.getManifest());
   }
 

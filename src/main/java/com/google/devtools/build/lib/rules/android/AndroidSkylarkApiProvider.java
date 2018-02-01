@@ -50,6 +50,11 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   public static final String NAME = "android";
 
   private final IdlInfo idlInfo = new IdlInfo();
+  private final AndroidResourcesInfo resourceInfo;
+
+  public AndroidSkylarkApiProvider(AndroidResourcesInfo resourceInfo) {
+    this.resourceInfo = resourceInfo;
+  }
 
   @SkylarkCallable(
     name = "apk",
@@ -175,8 +180,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   private NestedSet<Artifact> collectDirectArtifacts(final ResourceType resources) {
-    AndroidResourcesProvider provider = getInfo().getProvider(AndroidResourcesProvider.class);
-    if (provider == null) {
+    if (resourceInfo == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     // This will iterate over all (direct) resources. If this turns out to be a performance
@@ -185,7 +189,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
         Order.STABLE_ORDER,
         Iterables.concat(
             Iterables.transform(
-                provider.getDirectAndroidResources(),
+                resourceInfo.getDirectAndroidResources(),
                 (ResourceContainer resourceContainer) ->
                     resourceContainer.getArtifacts(resources))));
   }

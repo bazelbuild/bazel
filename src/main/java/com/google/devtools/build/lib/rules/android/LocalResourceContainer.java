@@ -105,12 +105,12 @@ public final class LocalResourceContainer {
    */
   private static void validateNoAndroidResourcesInSources(RuleContext ruleContext)
       throws RuleErrorException {
-    Iterable<AndroidResourcesProvider> resources =
-        ruleContext.getPrerequisites("srcs", Mode.TARGET, AndroidResourcesProvider.class);
-    for (AndroidResourcesProvider provider : resources) {
+    Iterable<AndroidResourcesInfo> resources =
+        ruleContext.getPrerequisites("srcs", Mode.TARGET, AndroidResourcesInfo.PROVIDER);
+    for (AndroidResourcesInfo info : resources) {
       ruleContext.throwWithAttributeError(
           "srcs",
-          String.format("srcs should not contain label with resources %s", provider.getLabel()));
+          String.format("srcs should not contain label with resources %s", info.getLabel()));
     }
   }
 
@@ -187,40 +187,6 @@ public final class LocalResourceContainer {
         ImmutableList.of(resourcesDir.getExecPath().getChild("res")),
         ImmutableList.of(assetsDir),
         ImmutableList.of(assetsDir.getExecPath().getChild("assets")));
-  }
-
-  private static ImmutableList<Artifact> getResources(Iterable<FileProvider> targets) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    for (FileProvider target : targets) {
-      builder.addAll(target.getFilesToBuild());
-    }
-
-    return builder.build();
-  }
-
-  /**
-   * Gets the roots of some resources.
-   *
-   * @return a list of roots, or an empty list of the passed resources cannot all be contained in a
-   *     single {@link LocalResourceContainer}. If that's the case, it will be reported to the
-   *     {@link RuleErrorConsumer}.
-   */
-  @VisibleForTesting
-  static ImmutableList<PathFragment> getResourceRoots(
-      RuleErrorConsumer ruleErrorConsumer, Iterable<Artifact> files, String resourcesAttr)
-      throws RuleErrorException {
-    Artifact lastFile = null;
-    PathFragment lastResourceDir = null;
-    Set<PathFragment> resourceRoots = new LinkedHashSet<>();
-    for (Artifact file : files) {
-      PathFragment resourceDir =
-          addResourceDir(
-              file, lastFile, lastResourceDir, resourceRoots, resourcesAttr, ruleErrorConsumer);
-      lastFile = file;
-      lastResourceDir = resourceDir;
-    }
-
-    return ImmutableList.copyOf(resourceRoots);
   }
 
   /**
@@ -358,6 +324,15 @@ public final class LocalResourceContainer {
     this.assetRoots = assetRoots;
   }
 
+  private static ImmutableList<Artifact> getResources(Iterable<FileProvider> targets) {
+    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
+    for (FileProvider target : targets) {
+      builder.addAll(target.getFilesToBuild());
+    }
+
+    return builder.build();
+  }
+
   public ImmutableList<Artifact> getResources() {
     return resources;
   }
@@ -368,6 +343,31 @@ public final class LocalResourceContainer {
 
   public ImmutableList<PathFragment> getAssetRoots() {
     return assetRoots;
+  }
+
+  /**
+   * Gets the roots of some resources.
+   *
+   * @return a list of roots, or an empty list of the passed resources cannot all be contained in a
+   *     single {@link LocalResourceContainer}. If that's the case, it will be reported to the
+   *     {@link RuleErrorConsumer}.
+   */
+  @VisibleForTesting
+  static ImmutableList<PathFragment> getResourceRoots(
+      RuleErrorConsumer ruleErrorConsumer, Iterable<Artifact> files, String resourcesAttr)
+      throws RuleErrorException {
+    Artifact lastFile = null;
+    PathFragment lastResourceDir = null;
+    Set<PathFragment> resourceRoots = new LinkedHashSet<>();
+    for (Artifact file : files) {
+      PathFragment resourceDir =
+          addResourceDir(
+              file, lastFile, lastResourceDir, resourceRoots, resourcesAttr, ruleErrorConsumer);
+      lastFile = file;
+      lastResourceDir = resourceDir;
+    }
+
+    return ImmutableList.copyOf(resourceRoots);
   }
 
   public ImmutableList<PathFragment> getResourceRoots() {

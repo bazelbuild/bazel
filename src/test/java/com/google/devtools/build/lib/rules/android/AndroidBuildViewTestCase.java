@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -130,12 +131,10 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       ConfiguredTarget target, boolean transitive) {
 
     Preconditions.checkNotNull(target);
-    final AndroidResourcesProvider provider = target.getProvider(AndroidResourcesProvider.class);
-    assertThat(provider).named("No android resources exported from the target.").isNotNull();
+    final AndroidResourcesInfo info = target.get(AndroidResourcesInfo.PROVIDER);
+    assertThat(info).named("No android resources exported from the target.").isNotNull();
     return getOnlyElement(
-        transitive
-            ? provider.getTransitiveAndroidResources()
-            : provider.getDirectAndroidResources());
+        transitive ? info.getTransitiveAndroidResources() : info.getDirectAndroidResources());
   }
 
   protected Artifact getResourceClassJar(final ConfiguredTarget target) {
@@ -161,10 +160,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     String actualFlagValue = actualArgs.get(actualArgs.indexOf("--primaryData") + 1);
     List<String> actualPaths = null;
     if (actualFlagValue.matches("[^;]*;[^;]*;.*")) {
-      actualPaths = Arrays.asList(actualFlagValue.split(";")[0].split("#"));
+      actualPaths =
+          Arrays.asList(Iterables.get(Splitter.on(';').split(actualFlagValue), 0).split("#"));
 
     } else if (actualFlagValue.matches("[^:]*:[^:]*:.*")) {
-      actualPaths = Arrays.asList(actualFlagValue.split(":")[0].split("#"));
+      actualPaths =
+          Arrays.asList(Iterables.get(Splitter.on(':').split(actualFlagValue), 0).split("#"));
     } else {
       fail(String.format("Failed to parse --primaryData: %s", actualFlagValue));
     }
@@ -193,8 +194,9 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       fail(String.format("Failed to parse flag: %s", actualFlagValue));
     }
     ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
-    for (String resourceDependency :  actualFlagValue.split(",")) {
-      actualPaths.add(resourceDependency.split(separator)[0].split("#"));
+    for (String resourceDependency : Splitter.on(',').split(actualFlagValue)) {
+      actualPaths.add(
+          Iterables.get(Splitter.on(separator).split(resourceDependency), 0).split("#"));
     }
     return actualPaths.build();
   }
@@ -223,8 +225,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   // Returns an artifact that will be generated when a rule has resources.
   protected static Artifact getResourceArtifact(ConfiguredTarget target) {
     // the last provider is the provider from the target.
-    return Iterables.getLast(
-            target.getProvider(AndroidResourcesProvider.class).getDirectAndroidResources())
+    return Iterables.getLast(target.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources())
         .getJavaClassJar();
   }
 
