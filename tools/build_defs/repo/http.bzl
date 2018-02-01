@@ -109,9 +109,6 @@ http_archive = repository_rule(
 """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-The repository should already contain a BUILD file. If it does not, use
-`new_http_archive` instead.
-
 It supports the following file extensions: `"zip"`, `"jar"`, `"war"`,
 `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
 
