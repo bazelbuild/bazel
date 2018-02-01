@@ -17,19 +17,19 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+
 import java.util.Date;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 /**
  * Common code for unarchiving a compressed TAR file.
@@ -79,20 +79,8 @@ public abstract class CompressedTarFunction implements Decompressor {
                   filename, descriptor.repositoryPath().getRelative(linkName));
             }
           } else {
-            if (OS.getCurrent() == OS.DARWIN) {
-              // On Darwin, Files interprets file names as utf8, regardless of the standard
-              // encoding, so we have to create a unicode string that, when ecoded utf-8 gives
-              // the same octets back; in this way, we can have Files.copy to behave consistent
-              // with the file name interpretation of com.google.devtools.build.lib.vfs.
-              String filenameForFiles =
-                  new String(
-                      filename.getPathFile().toPath().toString().getBytes("ISO-8859-1"), "UTF-8");
-              Files.copy(
-                  tarStream, Paths.get(filenameForFiles), StandardCopyOption.REPLACE_EXISTING);
-            } else {
-              Files.copy(
-                  tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
+            Files.copy(
+                tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
             filename.chmod(entry.getMode());
 
             // This can only be done on real files, not links, or it will skip the reader to
