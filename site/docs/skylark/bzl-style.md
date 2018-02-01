@@ -18,7 +18,7 @@ Skylark, as engineers read BUILD files to understand dependencies of their
 targets and details of their builds.This reading will often happen in passing,
 in a hurry, or in parallel to accomplishing some other task. Consequently,
 simplicity and readability are very important so that users can parse and
-   comprehend BUILD files quickly.
+comprehend BUILD files quickly.
 
 When a user opens a BUILD file, they quickly want to know the list of targets in
 the file; or review the list of sources of that C++ library; or remove a
@@ -61,9 +61,10 @@ is to make your files easy to process, both by humans and tools.
 * As in BUILD files, there is no strict line length limit as labels can be long.
   When possible, try to use at most 79 characters per line.
 
-* In keyword arguments, spaces around the equal sign are optional. In general,
-  we follow the BUILD file convention when calling macros and native rules, and
-  the Python convention for other functions, e.g.
+* In keyword arguments, spaces around the equal sign are optional, but be
+  consistent within any given call. In general, we follow the BUILD file
+  convention when calling macros and native rules, and the Python convention for
+  other functions, e.g.
 
 ```python
 def fct(name, srcs):
@@ -73,6 +74,14 @@ def fct(name, srcs):
     srcs = filtered_srcs,
   )
 ```
+
+* Do not use the `print()` function in production code; it is only intended for
+  debugging, and will spam all direct and indirect users of your `.bzl` file.
+  The only exception is that you may submit code that uses `print()` if it is
+  disabled by default and can only be enabled by editing the source -- for
+  example, if all uses of `print()` are guarded by `if DEBUG:` where `DEBUG` is
+  hardcoded to false. Be mindful of whether these statements are useful enough
+  to justify their impact on readability.
 
 
 ## Macros
@@ -119,8 +128,13 @@ As a rule of thumb, the more macros resemble the rules, the better.
 
 ## Rules
 
-* Rules, aspects, and their attributes should use lower_case names (“snake case”).
-* Use consistent names for rules. For most languages, typical rules include:
+* Rules, aspects, and their attributes should use lower_case names (“snake
+  case”).
+* Rule names are nouns that describe the main kind of artifact produced by the
+  rule, from the point of view of its dependencies (or for leaf rules, the
+  user). This is not necessarily a file suffix. For instance, a rule that
+  produces C++ artifacts meant to be used as Python extensions might be called
+  `py_extension`. For most languages, typical rules include:
   * `*_library` - a compilation unit or "module".
   * `*_binary` - a target producing an executable or a deployment unit.
   *  `*_test` - a test target. This can include multiple tests.
@@ -137,6 +151,13 @@ As a rule of thumb, the more macros resemble the rules, the better.
   * `data`: `label_list`, allowing files: data files, such as test data etc.
   * `runtime_deps`: `label_list`: runtime dependencies that are not needed for
     compilation.
+* For any attributes with non-obvious behavior (for example, string templates
+  with special substitutions, or tools that are invoked with specific
+  requirements), provide documentation using the `doc` keyword argument to the
+  attribute's declaration (`attr.label_list()` or similar).
+* Rule implementation functions should almost always be private functions (named
+  with a leading underscore). A common style is to give the implementation
+  function for `myrule` the name `_myrule_impl`.
 * Pass information between your rules using a well-defined
   [provider](rules.md#providers) interface. Declare and document provider
   fields.
