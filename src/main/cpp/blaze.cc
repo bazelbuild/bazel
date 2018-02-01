@@ -394,13 +394,14 @@ string GetEmbeddedBinariesRoot(const string &install_base) {
 }
 
 // Returns the JVM command argument array.
-static vector<string> GetArgumentArray() {
+static vector<string> GetArgumentArray(
+    const WorkspaceLayout *workspace_layout) {
   vector<string> result;
 
   // e.g. A Blaze server process running in ~/src/build_root (where there's a
   // ~/src/build_root/WORKSPACE file) will appear in ps(1) as "blaze(src)".
   string workspace =
-      blaze_util::Basename(blaze_util::Dirname(globals->workspace));
+      workspace_layout->GetPrettyWorkspaceName(globals->workspace);
   string product = globals->options->product_name;
   blaze_util::ToLower(&product);
   result.push_back(product + "(" + workspace + ")");
@@ -673,7 +674,7 @@ static void VerifyJavaVersionAndSetJvm() {
 // Starts the Blaze server.
 static int StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
-  vector<string> jvm_args_vector = GetArgumentArray();
+  vector<string> jvm_args_vector = GetArgumentArray(workspace_layout);
   string argument_string = GetArgumentString(jvm_args_vector);
   string server_dir =
       blaze_util::JoinPath(globals->options->output_base, "server");
@@ -734,7 +735,7 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
         globals->options->product_name.c_str(),
         globals->options->product_name.c_str(), product.c_str());
   }
-  vector<string> jvm_args_vector = GetArgumentArray();
+  vector<string> jvm_args_vector = GetArgumentArray(workspace_layout);
   if (!command.empty()) {
     jvm_args_vector.push_back(command);
     AddLoggingArgs(&jvm_args_vector);
@@ -1134,7 +1135,8 @@ static bool ServerNeedsToBeKilled(const vector<string> &args1,
 }
 
 // Kills the running Blaze server, if any, if the startup options do not match.
-static void KillRunningServerIfDifferentStartupOptions(BlazeServer *server) {
+static void KillRunningServerIfDifferentStartupOptions(
+    const WorkspaceLayout *workspace_layout, BlazeServer *server) {
   if (!server->Connected()) {
     return;
   }
@@ -1153,7 +1155,7 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer *server) {
   // These strings contain null-separated command line arguments. If they are
   // the same, the server can stay alive, otherwise, it needs shuffle off this
   // mortal coil.
-  if (ServerNeedsToBeKilled(arguments, GetArgumentArray())) {
+  if (ServerNeedsToBeKilled(arguments, GetArgumentArray(workspace_layout))) {
     globals->restart_reason = NEW_OPTIONS;
     PrintWarning(
         "Running %s server needs to be killed, because the "
@@ -1493,7 +1495,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
 
   blaze_server->Connect();
   EnsureCorrectRunningVersion(blaze_server);
-  KillRunningServerIfDifferentStartupOptions(blaze_server);
+  KillRunningServerIfDifferentStartupOptions(workspace_layout, blaze_server);
 
   if (globals->options->batch) {
     SetScheduling(globals->options->batch_cpu_scheduling,

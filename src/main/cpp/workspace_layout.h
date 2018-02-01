@@ -40,6 +40,11 @@ class WorkspaceLayout {
   // relative or absolute.
   virtual std::string GetWorkspace(const std::string& cwd) const;
 
+  // Given a result returned from GetWorkspace, returns a pretty workspace name
+  // than can e.g. be used in the process title of the Bazel server.
+  virtual std::string GetPrettyWorkspaceName(
+      const std::string& workspace) const;
+
   // Returns if workspace is a valid build workspace.
   virtual bool InWorkspace(const std::string& workspace) const;
 
