@@ -31,7 +31,7 @@ source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function _log_progress() {
-  if [[ "$PLATFORM" =~ msys ]]; then
+  if is_windows; then
     log_info "test_bootstrap: $*"
   fi
 }
