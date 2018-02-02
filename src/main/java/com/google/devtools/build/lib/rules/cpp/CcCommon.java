@@ -635,13 +635,19 @@ public final class CcCommon {
               ? CppRuleClasses.DYNAMIC_LINK_MSVCRT_DEBUG
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
     }
-    for (String feature :
-        Iterables.concat(
-            ImmutableSet.of(
-                toolchain.getCompilationMode().toString(), getHostOrNonHostFeature(ruleContext)),
-            DEFAULT_FEATURES,
-            toolchain.getFeatures().getDefaultFeaturesAndActionConfigs(),
-            ruleContext.getFeatures())) {
+    ImmutableList.Builder<String> allFeatures =
+        new ImmutableList.Builder<String>()
+            .addAll(
+                ImmutableSet.of(
+                    toolchain.getCompilationMode().toString(),
+                    getHostOrNonHostFeature(ruleContext)))
+            .addAll(DEFAULT_FEATURES)
+            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
+            .addAll(ruleContext.getFeatures());
+    if (CppHelper.useFission(ruleContext.getFragment(CppConfiguration.class), toolchain)) {
+      allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
+    }
+    for (String feature : allFeatures.build()) {
       if (!allUnsupportedFeatures.contains(feature)) {
         allRequestedFeaturesBuilder.add(feature);
       }
@@ -649,10 +655,6 @@ public final class CcCommon {
     allRequestedFeaturesBuilder.addAll(requestedFeatures);
 
     allRequestedFeaturesBuilder.addAll(DEFAULT_ACTION_CONFIGS);
-
-    if (CppHelper.useFission(ruleContext.getFragment(CppConfiguration.class), toolchain)) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-    }
 
     try {
       FeatureConfiguration configuration =

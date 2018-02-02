@@ -1105,4 +1105,16 @@ public class CppHelper {
   public static boolean useFission(CppConfiguration config, CcToolchainProvider toolchain) {
     return config.fissionIsActiveForCurrentCompilationMode() && toolchain.supportsFission();
   }
+
+  /**
+   * Returns true if Fission and PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL
+   * for the build implied by the given configuration, toolchain and feature configuration.
+   */
+  public static boolean shouldCreatePerObjectDebugInfo(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return useFission(config, toolchain)
+        && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
+  }
 }

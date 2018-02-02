@@ -791,7 +791,8 @@ public final class CppModel {
                 // The source action does not generate dwo when it has bitcode
                 // output (since it isn't generating a native object with debug
                 // info). In that case the LtoBackendAction will generate the dwo.
-                /* generateDwo= */ CppHelper.useFission(cppConfiguration, ccToolchain)
+                CppHelper.shouldCreatePerObjectDebugInfo(
+                        cppConfiguration, ccToolchain, featureConfiguration)
                     && !bitcodeOutput,
                 isGenerateDotdFile(sourceArtifact));
             break;
@@ -898,7 +899,9 @@ public final class CppModel {
             ? CppHelper.getCompileOutputArtifact(ruleContext, gcnoFileName, configuration)
             : null;
 
-    boolean generateDwo = CppHelper.useFission(cppConfiguration, ccToolchain);
+    boolean generateDwo =
+        CppHelper.shouldCreatePerObjectDebugInfo(
+            cppConfiguration, ccToolchain, featureConfiguration);
     Artifact dwoFile = generateDwo ? getDwoFile(builder.getOutputFile()) : null;
     // TODO(tejohnson): Add support for ThinLTO if needed.
     boolean bitcodeOutput =
