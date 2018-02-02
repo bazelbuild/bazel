@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.service.AutoService;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -165,9 +166,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
     TypeSpec.Builder codecClassBuilder =
         AutoCodecUtil.initializeCodecClassBuilder(encodedType, parameters.dependency);
 
-    initializeUnsafeOffsets(codecClassBuilder, encodedType, parameters.fields);
-
-    codecClassBuilder.addMethod(buildSerializeMethodWithInstantiator(encodedType, parameters));
+    if (encodedType.getAnnotation(AutoValue.class) == null) {
+      initializeUnsafeOffsets(codecClassBuilder, encodedType, parameters.fields);
+      codecClassBuilder.addMethod(buildSerializeMethodWithInstantiator(encodedType, parameters));
+    } else {
+      codecClassBuilder.addMethod(
+          buildSerializeMethodWithInstantiatorForAutoValue(encodedType, parameters));
+    }
 
     MethodSpec.Builder deserializeBuilder =
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, parameters.dependency);
@@ -275,8 +280,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
               parameter.getSimpleName());
           break;
         case ARRAY:
+          // fall through
+        case DECLARED:
           serializeBuilder.addStatement(
-              "$T unsafe_$L = ($T)$T.getInstance().getObject(input, $L_offset)",
+              "$T unsafe_$L = ($T) $T.getInstance().getObject(input, $L_offset)",
               field.asType(),
               parameter.getSimpleName(),
               field.asType(),
@@ -286,19 +293,32 @@ public class AutoCodecProcessor extends AbstractProcessor {
               new Marshaller.Context(
                   serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
           break;
+        default:
+          throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
+      }
+    }
+    return serializeBuilder.build();
+  }
+
+  private MethodSpec buildSerializeMethodWithInstantiatorForAutoValue(
+      TypeElement encodedType, PartitionedParameters parameters) {
+    MethodSpec.Builder serializeBuilder =
+        AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, parameters.dependency);
+    for (VariableElement parameter : parameters.fields) {
+      TypeKind typeKind = parameter.asType().getKind();
+      String getter = "input." + parameter.getSimpleName() + "()";
+      switch (typeKind) {
+        case BOOLEAN:
+          serializeBuilder.addStatement("codedOut.writeBoolNoTag($L)", getter);
+          break;
+        case INT:
+          serializeBuilder.addStatement("codedOut.writeInt32NoTag($L)", getter);
+          break;
+        case ARRAY:
+          // fall through
         case DECLARED:
-          serializeBuilder.addStatement(
-              "$T unsafe_$L = ($T)$T.getInstance().getObject(input, $L_offset)",
-              field.asType(),
-              parameter.getSimpleName(),
-              field.asType(),
-              UnsafeProvider.class,
-              parameter.getSimpleName());
           marshallers.writeSerializationCode(
-              new Marshaller.Context(
-                  serializeBuilder,
-                  (DeclaredType) parameter.asType(),
-                  "unsafe_" + parameter.getSimpleName()));
+              new Marshaller.Context(serializeBuilder, parameter.asType(), getter));
           break;
         default:
           throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
