@@ -25,6 +25,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -826,7 +827,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   /** Returns all skylark objects in global scope for this RuleClassProvider. */
   public Map<String, Object> getTransitiveGlobalBindings() {
-    return globals.getTransitiveBindings();
+    // TODO(brandjon): Remove unordered hash maps from Environment so we don't have to sort here.
+    return ImmutableSortedMap.copyOf(globals.getTransitiveBindings());
   }
 
   /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
