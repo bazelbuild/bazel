@@ -52,6 +52,8 @@ java_library(
     deps = [
         ":autocodec-annotation",
         ":unsafe-provider",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:auto_service",
         "//third_party:auto_value",
