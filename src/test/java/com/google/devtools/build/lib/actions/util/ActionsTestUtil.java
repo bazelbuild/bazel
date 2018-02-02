@@ -362,9 +362,9 @@ public final class ActionsTestUtil {
 
   /**
    * This function is exactly duplication of {@link #prettyArtifactNames(Iterable)}
-   * It appears by mistake. It has more than 144 usages in the code. I decided to not remove it
+   * It appears by mistake. It has more than 144 usages in the code. Decided to not remove it
    * or not to mark it as deprecated. Just leave it to kindly remind that our world is not perfect.
-   * It should not us hurt to much.
+   * It should not hurt us to much.
    */
   public static List<String> prettyJarNames(Iterable<Artifact> jars) {
     return prettyArtifactNames(jars);
