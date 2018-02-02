@@ -15,8 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
 
 /** An Aspect which BazelJavaLiteProtoLibrary injects to build Java Lite protos. */
@@ -25,7 +24,7 @@ public class BazelJavaLiteProtoAspect extends JavaLiteProtoAspect {
   public static final String DEFAULT_PROTO_TOOLCHAIN_LABEL =
       "@com_google_protobuf_javalite//:javalite_toolchain";
 
-  public BazelJavaLiteProtoAspect(LateBoundDefault<?, Label> hostJdkAttribute) {
+  public BazelJavaLiteProtoAspect(LabelLateBoundDefault<?> hostJdkAttribute) {
     super(
         BazelJavaSemantics.INSTANCE,
         null /* jacocoLabel */,

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -149,8 +149,8 @@ public class AppleToolchain {
   }
 
   /** The default label of the build-wide {@code xcode_config} configuration rule. */
-  public static LateBoundDefault<?, Label> getXcodeConfigLabel(String toolsRepository) {
-    return LateBoundDefault.fromTargetConfiguration(
+  public static LabelLateBoundDefault<?> getXcodeConfigLabel(String toolsRepository) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
         AppleConfiguration.class,
         Label.parseAbsoluteUnchecked(
             toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),

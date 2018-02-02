@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -106,8 +106,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   protected static final ImmutableList<String> J2OBJC_PLUGIN_PARAMS =
       ImmutableList.of("file_dir_mapping", "generate_class_mappings");
 
-  private static final LateBoundDefault<?, Label> DEAD_CODE_REPORT =
-      LateBoundDefault.fromTargetConfiguration(
+  private static final LabelLateBoundDefault<?> DEAD_CODE_REPORT =
+      LabelLateBoundDefault.fromTargetConfiguration(
           J2ObjcConfiguration.class,
           null,
           (rule, attributes, j2objcConfig) -> j2objcConfig.deadCodeReport().orNull());

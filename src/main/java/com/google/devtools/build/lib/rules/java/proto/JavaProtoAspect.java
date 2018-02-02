@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
@@ -69,10 +69,10 @@ import javax.annotation.Nullable;
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
   private static final String SPEED_PROTO_TOOLCHAIN_ATTR = ":aspect_java_proto_toolchain";
-  private final LateBoundDefault<?, Label> hostJdkAttribute;
+  private final LabelLateBoundDefault<?> hostJdkAttribute;
 
-  private static LateBoundDefault<?, Label> getSpeedProtoToolchainLabel(String defaultValue) {
-    return LateBoundDefault.fromTargetConfiguration(
+  private static LabelLateBoundDefault<?> getSpeedProtoToolchainLabel(String defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
         ProtoConfiguration.class,
         Label.parseAbsoluteUnchecked(defaultValue),
         (rule, attributes, protoConfig) -> protoConfig.protoToolchainForJava());
@@ -89,7 +89,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       @Nullable String jacocoLabel,
       RpcSupport rpcSupport,
       String defaultSpeedProtoToolchainLabel,
-      LateBoundDefault<?, Label> hostJdkAttribute) {
+      LabelLateBoundDefault<?> hostJdkAttribute) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.rpcSupport = rpcSupport;

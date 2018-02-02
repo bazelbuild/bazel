@@ -111,7 +111,7 @@ public class LateBoundSplitUtil {
                                 .allowedRuleClasses(Attribute.ANY_RULE)
                                 .cfg(SIMPLE_SPLIT)
                                 .value(
-                                    Attribute.LateBoundDefault.fromConstant(
+                                    Attribute.LateBoundDefault.fromConstantForTesting(
                                         Label.parseAbsoluteUnchecked("//foo:latebound_dep"))))
                         .requiresConfigurationFragments(TestFragment.class);
                   });

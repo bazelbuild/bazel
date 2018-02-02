@@ -88,20 +88,25 @@ public class ConstraintsTest extends AbstractConstraintsTest {
               .compatibleWith(env.getLabel("//buildenv/rule_class_compat:a"))
               .restrictedTo(env.getLabel("//buildenv/rule_class_compat:b")));
 
-  private static final MockRule RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS = () -> MockRule.define(
-      "rule_with_implicit_and_latebound_deps",
-      (builder, env) ->
-          builder
-              .setUndocumented()
-              .add(Attribute.attr("$implicit", BuildType.LABEL)
-                  .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
-              .add(Attribute.attr(":latebound", BuildType.LABEL)
-                  .value(
-                      Attribute.LateBoundDefault.fromConstant(
-                          Label.parseAbsoluteUnchecked("//helpers:latebound"))))
-              .add(Attribute.attr("normal", BuildType.LABEL)
-                  .allowedFileTypes(FileTypeSet.NO_FILE)
-                  .value(Label.parseAbsoluteUnchecked("//helpers:default"))));
+  private static final MockRule RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS =
+      () ->
+          MockRule.define(
+              "rule_with_implicit_and_latebound_deps",
+              (builder, env) ->
+                  builder
+                      .setUndocumented()
+                      .add(
+                          Attribute.attr("$implicit", BuildType.LABEL)
+                              .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
+                      .add(
+                          Attribute.attr(":latebound", BuildType.LABEL)
+                              .value(
+                                  Attribute.LateBoundDefault.fromConstantForTesting(
+                                      Label.parseAbsoluteUnchecked("//helpers:latebound"))))
+                      .add(
+                          Attribute.attr("normal", BuildType.LABEL)
+                              .allowedFileTypes(FileTypeSet.NO_FILE)
+                              .value(Label.parseAbsoluteUnchecked("//helpers:default"))));
 
   private static final MockRule RULE_WITH_ENFORCED_IMPLICIT_ATTRIBUTE = () -> MockRule.define(
       "rule_with_enforced_implicit_deps",

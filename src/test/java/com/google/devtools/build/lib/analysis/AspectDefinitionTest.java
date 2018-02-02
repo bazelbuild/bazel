@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -76,8 +77,8 @@ public class AspectDefinitionTest {
     Attribute implicit = attr("$runtime", BuildType.LABEL)
         .value(Label.parseAbsoluteUnchecked("//run:time"))
         .build();
-    LateBoundDefault<Void, Label> latebound =
-        LateBoundDefault.fromConstant(Label.parseAbsoluteUnchecked("//run:away"));
+    LabelLateBoundDefault<Void> latebound =
+        LateBoundDefault.fromConstantForTesting(Label.parseAbsoluteUnchecked("//run:away"));
     AspectDefinition simple = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
         .add(implicit)
         .add(attr(":latebound", BuildType.LABEL).value(latebound))

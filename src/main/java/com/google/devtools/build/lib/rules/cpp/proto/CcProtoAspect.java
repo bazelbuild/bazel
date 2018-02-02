@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
@@ -71,17 +71,17 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
 
   private static final String PROTO_TOOLCHAIN_ATTR = ":aspect_cc_proto_toolchain";
 
-  private static final Attribute.LateBoundDefault<?, Label> PROTO_TOOLCHAIN_LABEL =
-      Attribute.LateBoundDefault.fromTargetConfiguration(
+  private static final LabelLateBoundDefault<?> PROTO_TOOLCHAIN_LABEL =
+      LabelLateBoundDefault.fromTargetConfiguration(
           ProtoConfiguration.class,
           Label.parseAbsoluteUnchecked("@com_google_protobuf//:cc_toolchain"),
           (rule, attributes, protoConfig) -> protoConfig.protoToolchainForCc());
 
   private final CppSemantics cppSemantics;
-  private final Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue;
+  private final LabelLateBoundDefault<?> ccToolchainAttrValue;
 
-  public CcProtoAspect(AspectLegalCppSemantics cppSemantics,
-      Attribute.LateBoundDefault<?, Label> ccToolchainAttrValue) {
+  public CcProtoAspect(
+      AspectLegalCppSemantics cppSemantics, LabelLateBoundDefault<?> ccToolchainAttrValue) {
     this.cppSemantics = cppSemantics;
     this.ccToolchainAttrValue = ccToolchainAttrValue;
   }

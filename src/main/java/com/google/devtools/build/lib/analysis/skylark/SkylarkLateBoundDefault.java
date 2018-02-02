@@ -22,6 +22,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute.AbstractLabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
@@ -33,18 +34,18 @@ import java.util.concurrent.ExecutionException;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * An implementation of {@link LateBoundDefault} which obtains a late-bound attribute value
- * (of type 'label') specifically by skylark configuration fragment name and field name, as
- * registered by {@link SkylarkConfigurationField}.
+ * An implementation of {@link LateBoundDefault} which obtains a late-bound attribute value (of type
+ * 'label') specifically by skylark configuration fragment name and field name, as registered by
+ * {@link SkylarkConfigurationField}.
  *
- * <p>For example, a SkylarkLateBoundDefault on "java" and "toolchain" would
- * require a valid configuration fragment named "java" with a method annotated with
- * {@link SkylarkConfigurationField} of name "toolchain". This {@link LateBoundDefault} would
- * provide a late-bound dependency (defined by the label returned by that configuration field)
- * in the current target configuration.
+ * <p>For example, a SkylarkLateBoundDefault on "java" and "toolchain" would require a valid
+ * configuration fragment named "java" with a method annotated with {@link
+ * SkylarkConfigurationField} of name "toolchain". This {@link LateBoundDefault} would provide a
+ * late-bound dependency (defined by the label returned by that configuration field) in the current
+ * target configuration.
  */
 @Immutable
-public class SkylarkLateBoundDefault<FragmentT> extends LateBoundDefault<FragmentT, Label> {
+public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT> {
 
   private final Method method;
   private final String fragmentName;

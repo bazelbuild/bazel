@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
@@ -731,11 +731,9 @@ public class TestAspects {
           attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")));
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
-  private static final LateBoundDefault<?, List<Label>> PLUGINS_LABEL_LIST =
-      LateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          ImmutableList.of(),
-          (rule, attributes, javaConfig) -> javaConfig.getPlugins());
+  private static final LabelListLateBoundDefault<?> PLUGINS_LABEL_LIST =
+      LabelListLateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class, (rule, attributes, javaConfig) -> javaConfig.getPlugins());
 
   public static final MockRule LATE_BOUND_DEP_RULE = () ->
       MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -47,8 +47,8 @@ public final class CcToolchainRule implements RuleDefinition {
     return ruleClass.endsWith("cc_toolchain");
   }
 
-  private static final LateBoundDefault<?, Label> LIBC_TOP =
-      LateBoundDefault.fromTargetConfiguration(
+  private static final LabelLateBoundDefault<?> LIBC_TOP =
+      LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> cppConfig.getSysrootLabel());
@@ -118,7 +118,7 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
                 .value(
-                    LateBoundDefault.fromTargetConfiguration(
+                    LabelLateBoundDefault.fromTargetConfiguration(
                         CppConfiguration.class,
                         null,
                         // TODO(b/69547565): Remove call to isLLVMOptimizedFdo

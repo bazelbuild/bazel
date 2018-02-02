@@ -35,8 +35,8 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
   private static final Label DEFAULT_PROTO_COMPILER =
       Label.parseAbsoluteUnchecked("@com_google_protobuf//:protoc");
-  private static final Attribute.LateBoundDefault<?, Label> PROTO_COMPILER =
-      Attribute.LateBoundDefault.fromTargetConfiguration(
+  private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
+      Attribute.LabelLateBoundDefault.fromTargetConfiguration(
           ProtoConfiguration.class,
           DEFAULT_PROTO_COMPILER,
           (rule, attributes, protoConfig) ->

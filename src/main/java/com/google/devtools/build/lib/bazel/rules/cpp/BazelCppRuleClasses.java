@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -77,8 +77,8 @@ public class BazelCppRuleClasses {
    * <p>If rule has an implicit $stl_default attribute returns STL version set on the command line
    * or if not set, the value of the $stl_default attribute. Returns {@code null} otherwise.
    */
-  public static final LateBoundDefault<?, Label> STL =
-      LateBoundDefault.fromTargetConfiguration(
+  public static final LabelLateBoundDefault<?> STL =
+      LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> {
@@ -463,8 +463,8 @@ public class BazelCppRuleClasses {
   }
 
   /** Implementation for the :lipo_context attribute. */
-  static final LateBoundDefault<?, Label> LIPO_CONTEXT =
-      LateBoundDefault.fromTargetConfiguration(
+  static final LabelLateBoundDefault<?> LIPO_CONTEXT =
+      LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> {

@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
@@ -199,8 +199,8 @@ public final class AndroidRuleClasses {
   public static final String NOCOMPRESS_EXTENSIONS_ATTR = "nocompress_extensions";
 
   /** The default label of android_sdk option */
-  public static LateBoundDefault<?, Label> getAndroidSdkLabel(Label androidSdk) {
-    return LateBoundDefault.fromTargetConfiguration(
+  public static LabelLateBoundDefault<?> getAndroidSdkLabel(Label androidSdk) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
         AndroidConfiguration.class,
         androidSdk,
         (rule, attributes, configuration) -> configuration.getSdk());

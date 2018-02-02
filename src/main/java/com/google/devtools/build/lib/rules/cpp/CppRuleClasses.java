@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryL
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
@@ -51,8 +51,8 @@ public class CppRuleClasses {
    * <p>This attribute connects a target to the LIPO context target configured with the lipo input
    * collector configuration.
    */
-  public static final LateBoundDefault<?, Label> LIPO_CONTEXT_COLLECTOR =
-      LateBoundDefault.fromTargetConfiguration(
+  public static final LabelLateBoundDefault<?> LIPO_CONTEXT_COLLECTOR =
+      LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
           // TODO(b/69548520): Remove call to isLipoOptimization
@@ -72,13 +72,13 @@ public class CppRuleClasses {
    */
   public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
 
-  public static final LateBoundDefault<?, Label> DEFAULT_MALLOC =
-      LateBoundDefault.fromTargetConfiguration(
+  public static final LabelLateBoundDefault<?> DEFAULT_MALLOC =
+      LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class, null, (rule, attributes, cppConfig) -> cppConfig.customMalloc());
 
-  public static LateBoundDefault<CppConfiguration, Label> ccToolchainAttribute(
+  public static LabelLateBoundDefault<CppConfiguration> ccToolchainAttribute(
       RuleDefinitionEnvironment env) {
-    return LateBoundDefault.fromTargetConfiguration(
+    return LabelLateBoundDefault.fromTargetConfiguration(
         CppConfiguration.class,
         env.getToolsLabel(CROSSTOOL_LABEL),
         (rules, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
