@@ -47,6 +47,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.create("PACKAGE_ERROR");
   public static final SkyFunctionName TARGET_MARKER = SkyFunctionName.create("TARGET_MARKER");
   public static final SkyFunctionName TARGET_PATTERN = SkyFunctionName.create("TARGET_PATTERN");
+  public static final SkyFunctionName TARGET_PATTERN_ERROR =
+      SkyFunctionName.create("TARGET_PATTERN_ERROR");
   public static final SkyFunctionName PREPARE_DEPS_OF_PATTERNS =
       SkyFunctionName.create("PREPARE_DEPS_OF_PATTERNS");
   public static final SkyFunctionName PREPARE_DEPS_OF_PATTERN =

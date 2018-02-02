@@ -206,8 +206,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
       Environment env, TargetPatternPhaseKey options, PathPackageLocator pkgPath)
-      throws InterruptedException {
+          throws InterruptedException {
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>();
+    ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
             options.getTargetPatterns(),
@@ -224,6 +225,16 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // pattern could be parsed successfully).
         env.getListener().post(
             new ParsingFailedEvent(keyOrException.getOriginalPattern(),  e.getMessage()));
+        try {
+          env.getValueOrThrow(
+              TargetPatternErrorFunction.key(e.getMessage()), TargetParsingException.class);
+        } catch (TargetParsingException ignore) {
+          // We ignore this. Keep going is active.
+        }
+        env.getListener().handle(
+            Event.error(
+                "Skipping '" + keyOrException.getOriginalPattern() + "': " + e.getMessage()));
+        builder.setError();
       }
     }
     Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
@@ -232,7 +243,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       return null;
     }
 
-    ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
@@ -265,6 +275,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       } catch (MissingDepException e) {
         return null;
       } catch (TargetParsingException e) {
+        try {
+          env.getValueOrThrow(
+              TargetPatternErrorFunction.key(e.getMessage()), TargetParsingException.class);
+        } catch (TargetParsingException ignore) {
+          // We ignore this. Keep going is active.
+        }
         env.getListener().handle(Event.error(e.getMessage()));
         return ResolvedTargets.failed();
       }

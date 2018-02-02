@@ -148,6 +148,43 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testMistypedTarget() throws Exception {
+    try {
+      tester.load("foo//bar:missing");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat().contains(
+          "invalid target format 'foo//bar:missing': "
+          + "invalid package name 'foo//bar': "
+          + "package names may not contain '//' path separators");
+    }
+  }
+
+  @Test
+  public void testEmptyTarget() throws Exception {
+    try {
+      tester.load("");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
+    }
+  }
+
+  @Test
+  public void testMistypedTargetKeepGoing() throws Exception {
+    LoadingResult result = tester.loadKeepGoing("foo//bar:missing");
+    // Legacy loading phase does _not_ report a target pattern error, and it's work to fix, so we
+    // skip this check for now.
+    if (useSkyframeTargetPatternEval()) {
+      assertThat(result.hasTargetPatternError()).isTrue();
+    }
+    tester.assertContainsError(
+          "invalid target format 'foo//bar:missing': "
+          + "invalid package name 'foo//bar': "
+          + "package names may not contain '//' path separators");
+  }
+
+  @Test
   public void testBadTargetPatternWithTest() throws Exception {
     tester.addFile("base/BUILD");
     LoadingResult loadingResult = tester.loadTestsKeepGoing("//base:missing");
@@ -550,6 +587,20 @@ public class LoadingPhaseRunnerTest {
     tester.useLoadingOptions("--compile_one_dependency");
     LoadingResult loadingResult = tester.loadKeepGoing("base/hello.cc");
     assertThat(loadingResult.hasLoadingError()).isFalse();
+  }
+
+  @Test
+  public void testCompileOneDependencyReferencesFile() throws Exception {
+    tester.addFile("base/BUILD",
+        "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    tester.useLoadingOptions("--compile_one_dependency");
+    try {
+      tester.load("//base:hello");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat()
+          .contains("--compile_one_dependency target '//base:hello' must be a file");
+    }
   }
 
   @Test
