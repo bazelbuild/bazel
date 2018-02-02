@@ -88,6 +88,7 @@ py_test(
     name = "launcher_test",
     size = "medium",
     srcs = ["launcher_test.py"],
+    shard_count = 4,
     deps = [":test_base"],
 )
 
