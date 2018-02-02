@@ -35,8 +35,14 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
+import com.google.devtools.build.lib.skyframe.serialization.ImmutableListCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -54,6 +60,7 @@ public final class AspectValue extends ActionLookupValue {
 
   /** A base class for a key representing an aspect applied to a particular target. */
   public static class AspectKey extends AspectValueKey {
+    public static final ObjectCodec<AspectKey> CODEC = new AspectKeyCodec();
     private final Label label;
     private final ImmutableList<AspectKey> baseKeys;
     private final BuildConfigurationValue.Key aspectConfigurationKey;
@@ -243,7 +250,8 @@ public final class AspectValue extends ActionLookupValue {
   }
 
   /** An {@link AspectKey} for an aspect in the host configuration. */
-  private static class HostAspectKey extends AspectKey {
+  static class HostAspectKey extends AspectKey {
+    static final ObjectCodec<AspectKey> CODEC = AspectKey.CODEC;
 
     private HostAspectKey(
         Label label,
@@ -257,6 +265,38 @@ public final class AspectValue extends ActionLookupValue {
     @Override
     protected boolean aspectConfigurationIsHost() {
       return true;
+    }
+  }
+
+  private static class AspectKeyCodec implements ObjectCodec<AspectKey> {
+    private final ImmutableListCodec<AspectKey> listCodec = new ImmutableListCodec<>(this);
+
+    @Override
+    public Class<AspectKey> getEncodedClass() {
+      return AspectKey.class;
+    }
+
+    @Override
+    public void serialize(AspectKey obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      Label.CODEC.serialize(obj.label, codedOut);
+      ConfiguredTargetKey.CODEC.serialize(obj.baseConfiguredTargetKey, codedOut);
+      listCodec.serialize(obj.baseKeys, codedOut);
+      AspectDescriptor.CODEC.serialize(obj.aspectDescriptor, codedOut);
+      Key.CODEC.serialize(obj.aspectConfigurationKey, codedOut);
+      codedOut.writeBoolNoTag(obj.aspectConfigurationIsHost());
+    }
+
+    @Override
+    public AspectKey deserialize(CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return createAspectKey(
+          Label.CODEC.deserialize(codedIn),
+          ConfiguredTargetKey.CODEC.deserialize(codedIn),
+          listCodec.deserialize(codedIn),
+          AspectDescriptor.CODEC.deserialize(codedIn),
+          Key.CODEC.deserialize(codedIn),
+          codedIn.readBool());
     }
   }
 
