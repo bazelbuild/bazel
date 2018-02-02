@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
@@ -135,7 +136,7 @@ public class RootedPath implements Serializable {
 
     /** Create an instance which will deserialize RootedPaths on {@code fileSystem}. */
     public RootedPathCodec(FileSystem fileSystem) {
-      this.rootCodec = Root.getCodec(fileSystem);
+      this.rootCodec = new InjectingObjectCodecAdapter<>(Root.CODEC, () -> fileSystem);
     }
 
     @Override

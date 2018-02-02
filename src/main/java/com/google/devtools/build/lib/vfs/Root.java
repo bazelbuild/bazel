@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -36,10 +34,6 @@ import javax.annotation.Nullable;
 public interface Root extends Comparable<Root>, Serializable {
 
   InjectingObjectCodec<Root, FileSystemProvider> CODEC = new RootCodec();
-
-  static ObjectCodec<Root> getCodec(FileSystem fileSystem) {
-    return new InjectingObjectCodecAdapter<>(CODEC, () -> fileSystem);
-  }
 
   /** Constructs a root from a path. */
   static Root fromPath(Path path) {

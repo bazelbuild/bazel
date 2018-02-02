@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -98,7 +99,7 @@ public class RootTest {
 
   @Test
   public void testSerialization() throws Exception {
-    ObjectCodec<Root> codec = Root.getCodec(fs);
+    ObjectCodec<Root> codec = new InjectingObjectCodecAdapter<>(Root.CODEC, () -> fs);
     ObjectCodecTester.newBuilder(codec)
         .addSubjects(Root.absoluteRoot(fs), Root.fromPath(fs.getPath("/foo")))
         .skipBadDataTest()
