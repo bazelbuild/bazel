@@ -1997,7 +1997,7 @@ A `return` statement ends the execution of a function and returns a
 value to the caller of the function.
 
 ```text
-ReturnStmt = 'return' Expression .
+ReturnStmt = 'return' [Expression] .
 ```
 
 A return statement may have zero, one, or more
@@ -3192,7 +3192,7 @@ SmallStmt = ReturnStmt
           | LoadStmt
           .
 
-ReturnStmt   = 'return' Expression .
+ReturnStmt   = 'return' [Expression] .
 BreakStmt    = 'break' .
 ContinueStmt = 'continue' .
 PassStmt     = 'pass' .
