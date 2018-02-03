@@ -86,6 +86,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -449,17 +450,25 @@ public final class BuildTool {
     // Currently, CTQE assumes that all top level targets take on the same default config and we
     // don't have the ability to map multiple configs to multiple top level targets.
     // So for now, we only allow multiple targets when they all carry the same config.
-    // TODO: fully support multiple top level targets
-    TargetAndConfiguration sampleTAndC = topLevelTargetsWithConfigs.get(0);
-    BuildConfiguration sampleConfig = sampleTAndC.getConfiguration();
-    for (TargetAndConfiguration targAndConfig : topLevelTargetsWithConfigs) {
-      if (!targAndConfig.getConfiguration().equals(sampleConfig)) {
-        throw new QueryException(
-            new TargetLiteral(queryExpression.toString()),
-            String.format(
-                "Top level targets %s and %s have different configurations (top level "
-                    + "targets with different configurations is not supported)",
-                sampleTAndC.getLabel(), targAndConfig.getLabel()));
+    // TODO: b/71508373 - fully support multiple top level targets
+    List<TargetAndConfiguration> nonNullTargets =
+        topLevelTargetsWithConfigs
+            .stream()
+            .filter(targetAndConfig -> targetAndConfig.getConfiguration() != null)
+            .collect(Collectors.toList());
+    BuildConfiguration targetConfig = null;
+    if (!nonNullTargets.isEmpty()) {
+      targetConfig = nonNullTargets.get(0).getConfiguration();
+      for (TargetAndConfiguration targAndConfig : topLevelTargetsWithConfigs) {
+        if (targAndConfig.getConfiguration() != null
+            && !targAndConfig.getConfiguration().equals(targetConfig)) {
+          throw new QueryException(
+              new TargetLiteral(queryExpression.toString()),
+              String.format(
+                  "Top-level targets %s and %s have different configurations (top-level "
+                      + "targets with different configurations is not supported)",
+                  nonNullTargets.get(0).getLabel(), targAndConfig.getLabel()));
+        }
       }
     }
 
@@ -470,7 +479,7 @@ public final class BuildTool {
             request.getKeepGoing(),
             env.getReporter(),
             env.getRuntime().getQueryFunctions(),
-            sampleConfig,
+            targetConfig,
             hostConfiguration,
             env.newTargetPatternEvaluator().getOffset(),
             env.getPackageManager().getPackagePath(),
