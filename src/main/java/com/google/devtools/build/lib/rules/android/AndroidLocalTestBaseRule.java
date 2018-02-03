@@ -129,31 +129,15 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         the libraries under test have a <code>minSdkVersion</code> tag in them.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("manifest", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
-        /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(resource_files) -->
-        The list of test resources to be packaged. This is typically a <code>glob</code>
-        of all files under the <code>res</code> directory.
-        <p>
-        Generated files (from genrules) can be referenced by
-        <a href="../build-ref.html#labels">Label</a> here as well. The only restriction is that
-        the generated outputs must be under the same "<code>res</code>" directory as any other
-        resource files that are included. It is rare to need this.
-        </p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("resource_files", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-        /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(assets_dir) -->
-        The string giving the path to the files in <code>assets</code>.
-        The pair <code>assets</code> and <code>assets_dir</code> describe packaged
-        assets and either both attributes should be provided or neither of them.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("assets_dir", STRING))
-        /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(assets) -->
-        The list of test assets to be packaged. This is typically a <code>glob</code> of all files
-        under the <code>assets</code> directory. You can also reference other rules (any rule that
-        produces files) or exported files in the other packages, as long as all those files are
-        under the <code>assets_dir</code> directory in the corresponding package. It is rare to
-        need this.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("assets", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(
+            attr("resource_files", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .undocumented("soon to be unsupported behavior"))
+        .add(attr("assets_dir", STRING).undocumented("soon to be unsupported behavior"))
+        .add(
+            attr("assets", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .undocumented("soon to be unsupported behavior"))
         .build();
   }
 
