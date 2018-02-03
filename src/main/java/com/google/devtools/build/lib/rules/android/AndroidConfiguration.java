@@ -875,12 +875,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
 
-    if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
-      // TODO(bazel-team): Still needed? See DexArchiveAspect
-      throw new InvalidConfigurationException(
-          "--dexopts_supported_in_incremental_dexing must "
-              + "include '--no-locals' to enable coverage builds");
-    }
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
           "--experimental_incremental_dexing_after_proguard must be a positive number");

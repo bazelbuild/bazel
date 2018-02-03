@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
-import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -71,7 +70,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 /** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
 public final class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -474,10 +472,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    */
   static ImmutableSet<String> incrementalDexopts(
       RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      // TODO(b/27382165): Still needed? No longer done in AndroidCommon.createDexAction
-      tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
-    }
     return normalizeDexopts(
         Iterables.filter(
             tokenizedDexopts,
@@ -501,12 +495,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * latter typically come from a {@code dexopts} attribute on a top-level target. This should be a
    * superset of {@link #incrementalDexopts}.
    */
-  static ImmutableSet<String> topLevelDexbuilderDexopts(
-      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      // TODO(b/27382165): Still needed? No longer done in AndroidCommon.createDexAction
-      tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
-    }
+  static ImmutableSet<String> topLevelDexbuilderDexopts(Iterable<String> tokenizedDexopts) {
     // We don't need an ordered set but might as well.
     return normalizeDexopts(Iterables.filter(tokenizedDexopts, DEXOPTS_SUPPORTED_IN_DEXBUILDER));
   }
@@ -526,14 +515,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   private static ImmutableSet<String> normalizeDexopts(Iterable<String> tokenizedDexopts) {
-    // Use TreeSet to drop duplicates and get fixed (sorted) order.  Fixed order is important so
-    // we generate one dex archive per set of flag in create() method, regardless of how those flags
-    // are listed in all the top-level targets being built.
-    return ImmutableSet.copyOf(
-        Streams.stream(tokenizedDexopts)
-            .map(FlagConverter.DX_TO_DEXBUILDER)
-            .collect(toCollection(TreeSet::new))
-            .iterator());
+    // Sort and use ImmutableSet to drop duplicates and get fixed (sorted) order.  Fixed order is
+    // important so we generate one dex archive per set of flag in create() method, regardless of
+    // how those flags are listed in all the top-level targets being built.
+    return Streams.stream(tokenizedDexopts)
+        .map(FlagConverter.DX_TO_DEXBUILDER)
+        .sorted()
+        .collect(ImmutableSet.toImmutableSet()); // collector with dedupe
   }
 
   private static class FlagMatcher implements Predicate<String> {

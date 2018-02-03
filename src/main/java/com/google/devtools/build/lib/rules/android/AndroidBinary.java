@@ -1003,7 +1003,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         DexArchiveAspect.createDexArchiveAction(
             ruleContext,
             proguardedJar,
-            DexArchiveAspect.topLevelDexbuilderDexopts(ruleContext, dexopts),
+            DexArchiveAspect.topLevelDexbuilderDexopts(dexopts),
             dexArchives.get(0));
       } else {
         createShuffleJarActions(
@@ -1428,7 +1428,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         DexArchiveAspect.createDexArchiveAction(
             ruleContext,
             shuffleOutputs.get(i),
-            DexArchiveAspect.topLevelDexbuilderDexopts(ruleContext, dexopts),
+            DexArchiveAspect.topLevelDexbuilderDexopts(dexopts),
             shards.get(i));
       }
     }
