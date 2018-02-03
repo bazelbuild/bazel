@@ -26,6 +26,7 @@ java_library(
         ":javac-bootclasspath-locations",
     ],
     data = ["@bazel_tools//tools/jdk:bootclasspath"],
+    deps = ["//third_party:guava"],
 )
 
 # Exports the canonical javac jar location

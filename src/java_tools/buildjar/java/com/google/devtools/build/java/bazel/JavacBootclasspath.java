@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.java.bazel;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOError;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -83,5 +87,10 @@ public class JavacBootclasspath {
    */
   public static List<File> asFiles() {
     return new ArrayList<>(AS_FILES);
+  }
+
+  /** Returns the blessed boot class path as a list of {@code Path}s. */
+  public static ImmutableList<Path> asPaths() {
+    return asFiles().stream().map(File::toPath).map(Path::normalize).collect(toImmutableList());
   }
 }
