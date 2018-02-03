@@ -360,16 +360,6 @@ public final class ActionsTestUtil {
     return transform(artifacts, Artifact::prettyPrint);
   }
 
-  /**
-   * This function is exactly duplication of {@link #prettyArtifactNames(Iterable)}
-   * It appears by mistake. It has more than 144 usages in the code. Decided to not remove it
-   * or not to mark it as deprecated. Just leave it to kindly remind that our world is not perfect.
-   * It should not hurt us to much.
-   */
-  public static List<String> prettyJarNames(Iterable<Artifact> jars) {
-    return prettyArtifactNames(jars);
-  }
-
   public static <T, R> List<R> transform(Iterable<T> iterable, Function<T, R> mapper) {
     // Can not use com.google.common.collect.Iterables.transform() there, as it returns Iterable.
     return Streams.stream(iterable)
