@@ -314,7 +314,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         out.println("    (subpath \"" + path.getPathString() + "\")");
       }
       if (statisticsPath.isPresent()) {
-        out.println("    (subpath \"" + statisticsPath + "\")");
+        out.println("    (literal \"" + statisticsPath.get() + "\")");
       }
       out.println(")");
 
