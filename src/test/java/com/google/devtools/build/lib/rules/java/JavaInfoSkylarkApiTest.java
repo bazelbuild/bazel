@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
@@ -724,7 +723,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
     }
   }
 
-  private JavaInfo fetchJavaInfo() throws LabelSyntaxException {
+  private JavaInfo fetchJavaInfo() throws Exception {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
     Info info =
         myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));

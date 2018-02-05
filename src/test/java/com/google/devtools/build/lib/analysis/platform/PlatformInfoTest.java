@@ -95,12 +95,6 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setLabel(makeLabel("//platform/plat1"))
                 .addConstraint(value1)
                 .addConstraint(value2)
-                .build(),
-            PlatformInfo.builder()
-                .setLabel(makeLabel("//platform/plat1"))
-                .addConstraint(value1)
-                .addConstraint(value2)
-                .setRemoteExecutionProperties("key=val") // execution properties are ignored.
                 .build())
         .addEqualityGroup(
             // Different label.

@@ -42,12 +42,14 @@ import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -131,6 +133,48 @@ public final class FuncallExpression extends Expression {
                     }
                   }
                   return ImmutableMap.copyOf(methodMap);
+                }
+              });
+
+  private static final LoadingCache<Class<?>, Map<String, MethodDescriptor>> fieldCache =
+      CacheBuilder.newBuilder()
+          .initialCapacity(10)
+          .maximumSize(100)
+          .build(
+              new CacheLoader<Class<?>, Map<String, MethodDescriptor>>() {
+
+                @Override
+                public Map<String, MethodDescriptor> load(Class<?> key) throws Exception {
+                  ImmutableMap.Builder<String, MethodDescriptor> fieldMap = ImmutableMap.builder();
+                  HashSet<String> fieldNamesForCollisions = new HashSet<>();
+                  List<MethodDescriptor> fieldMethods =
+                      methodCache
+                          .get(key)
+                          .values()
+                          .stream()
+                          .flatMap(List::stream)
+                          .filter(
+                              methodDescriptor -> methodDescriptor.getAnnotation().structField())
+                          .collect(Collectors.toList());
+
+                  for (MethodDescriptor fieldMethod : fieldMethods) {
+                    SkylarkCallable callable = fieldMethod.getAnnotation();
+                    String name = callable.name();
+                    if (name.isEmpty()) {
+                      name =
+                          StringUtilities.toPythonStyleFunctionName(
+                              fieldMethod.getMethod().getName());
+                    }
+                    // TODO(b/72113542): Validate with annotation processor instead of at runtime.
+                    if (!fieldNamesForCollisions.add(name)) {
+                      throw new IllegalArgumentException(
+                          String.format(
+                              "Class %s has two structField methods named %s defined",
+                              key.getName(), name));
+                    }
+                    fieldMap.put(name, fieldMethod);
+                  }
+                  return fieldMap.build();
                 }
               });
 
@@ -260,15 +304,30 @@ public final class FuncallExpression extends Expression {
     return printer.toString();
   }
 
-  /**
-   * Returns the list of Skylark callable Methods of objClass with the given name and argument
-   * number.
-   */
+  /** Returns the Skylark callable Method of objClass with structField=true and the given name. */
+  public static MethodDescriptor getStructField(Class<?> objClass, String methodName) {
+    try {
+      return fieldCache.get(objClass).get(methodName);
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Method loading failed: " + e);
+    }
+  }
+
+  /** Returns the list of names of Skylark callable Methods of objClass with structField=true. */
+  public static Set<String> getStructFieldNames(Class<?> objClass) {
+    try {
+      return fieldCache.get(objClass).keySet();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Method loading failed: " + e);
+    }
+  }
+
+  /** Returns the list of Skylark callable Methods of objClass with the given name. */
   public static List<MethodDescriptor> getMethods(Class<?> objClass, String methodName) {
     try {
       return methodCache.get(objClass).get(methodName);
     } catch (ExecutionException e) {
-      throw new IllegalStateException("method invocation failed: " + e);
+      throw new IllegalStateException("Method loading failed: " + e);
     }
   }
 
@@ -280,8 +339,23 @@ public final class FuncallExpression extends Expression {
     try {
       return methodCache.get(objClass).keySet();
     } catch (ExecutionException e) {
-      throw new IllegalStateException("method invocation failed: " + e);
+      throw new IllegalStateException("Method loading failed: " + e);
     }
+  }
+
+  /**
+   * Invokes the given structField=true method and returns the result.
+   *
+   * @param methodDescriptor the descriptor of the method to invoke
+   * @param fieldName the name of the struct field
+   * @param obj the object on which to invoke the method
+   * @return the method return value
+   * @throws EvalException if there was an issue evaluating the method
+   */
+  public static Object invokeStructField(
+      MethodDescriptor methodDescriptor, String fieldName, Object obj) throws EvalException {
+    Preconditions.checkArgument(methodDescriptor.getAnnotation().structField());
+    return callMethod(methodDescriptor, fieldName, obj, new Object[0], Location.BUILTIN, null);
   }
 
   static Object callMethod(MethodDescriptor methodDescriptor, String methodName, Object obj,

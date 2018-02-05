@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -108,14 +109,17 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
   public abstract boolean hasField(String name);
 
   /**
-   * {@inheritDoc}
-   *
-   * <p>Overrides {@link ClassObject#getValue(String)}, but does not allow {@link EvalException} to
-   * be thrown.
+   * <p>Wraps {@link ClassObject#getValue(String)}, returning null in cases where
+   * {@link EvalException} would have been thrown.
    */
-  @Nullable
-  @Override
-  public abstract Object getValue(String name);
+  @VisibleForTesting
+  public Object getValueOrNull(String name) {
+    try {
+      return getValue(name);
+    } catch (EvalException e) {
+      return null;
+    }
+  }
 
   /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
@@ -172,7 +176,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
       return false;
     }
     for (String field : getFieldNames()) {
-      if (!this.getValue(field).equals(other.getValue(field))) {
+      if (!Objects.equal(this.getValueOrNull(field), other.getValueOrNull(field))) {
         return false;
       }
     }
@@ -187,7 +191,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
     objectsToHash.add(provider);
     for (String field : fields) {
       objectsToHash.add(field);
-      objectsToHash.add(getValue(field));
+      objectsToHash.add(getValueOrNull(field));
     }
     return Objects.hashCode(objectsToHash.toArray());
   }
@@ -208,7 +212,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
       first = false;
       printer.append(fieldName);
       printer.append(" = ");
-      printer.repr(getValue(fieldName));
+      printer.repr(getValueOrNull(fieldName));
     }
     printer.append(")");
   }

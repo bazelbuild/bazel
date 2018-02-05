@@ -15,7 +15,11 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import java.util.Map;
 
 /** Base class for native implementations of {@link Info}. */
@@ -23,19 +27,35 @@ import java.util.Map;
 public class NativeInfo extends Info {
   protected final ImmutableMap<String, Object> values;
 
+  // Initialized lazily.
+  private ImmutableSet<String> fieldNames;
+
   @Override
-  public Object getValue(String name) {
-    return values.get(name);
+  public Object getValue(String name) throws EvalException {
+    if (values.containsKey(name)) {
+      return values.get(name);
+    } else if (hasField(name)) {
+      MethodDescriptor methodDescriptor = FuncallExpression.getStructField(this.getClass(), name);
+      return FuncallExpression.invokeStructField(methodDescriptor, name, this);
+    } else {
+      return null;
+    }
   }
 
   @Override
   public boolean hasField(String name) {
-    return values.containsKey(name);
+    return getFieldNames().contains(name);
   }
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    return values.keySet();
+    if (fieldNames == null) {
+      fieldNames = ImmutableSet.<String>builder()
+          .addAll(values.keySet())
+          .addAll(FuncallExpression.getStructFieldNames(this.getClass()))
+          .build();
+    }
+    return fieldNames;
   }
 
   public NativeInfo(NativeProvider<?> provider) {
