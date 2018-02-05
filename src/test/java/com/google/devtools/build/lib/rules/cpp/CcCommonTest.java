@@ -33,12 +33,15 @@ import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
+import com.google.devtools.build.lib.bazel.rules.CcRules;
+import com.google.devtools.build.lib.bazel.rules.GenericRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
+import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -973,9 +976,9 @@ public class CcCommonTest extends BuildViewTestCase {
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
           CoreRules.INSTANCE.init(builder);
           CoreWorkspaceRules.INSTANCE.init(builder);
-          BazelRuleClassProvider.PLATFORM_RULES.init(builder);
-          BazelRuleClassProvider.GENERIC_RULES.init(builder);
-          BazelRuleClassProvider.CPP_RULES.init(builder);
+          PlatformRules.INSTANCE.init(builder);
+          GenericRules.INSTANCE.init(builder);
+          CcRules.INSTANCE.init(builder);
           return builder.build();
         }
 

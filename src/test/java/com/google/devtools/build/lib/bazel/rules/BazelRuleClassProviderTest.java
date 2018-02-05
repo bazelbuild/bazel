@@ -96,7 +96,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void genericConsistency() {
-    checkModule(BazelRuleClassProvider.GENERIC_RULES);
+    checkModule(GenericRules.INSTANCE);
   }
 
   @Test
@@ -116,12 +116,12 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void cppConsistency() {
-    checkModule(BazelRuleClassProvider.CPP_RULES);
+    checkModule(CcRules.INSTANCE);
   }
 
   @Test
   public void javaConsistency() {
-    checkModule(BazelRuleClassProvider.JAVA_RULES);
+    checkModule(JavaRules.INSTANCE);
   }
 
   @Test
@@ -136,7 +136,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void objcConsistency() {
-    checkModule(BazelRuleClassProvider.OBJC_RULES);
+    checkModule(ObjcRules.INSTANCE);
   }
 
   @Test
