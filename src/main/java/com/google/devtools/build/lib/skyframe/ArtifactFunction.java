@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -54,11 +53,11 @@ class ArtifactFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
-    OwnedArtifact ownedArtifact = (OwnedArtifact) skyKey.argument();
-    Artifact artifact = ownedArtifact.getArtifact();
+    ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
+    Artifact artifact = artifactSkyKey.getArtifact();
     if (artifact.isSourceArtifact()) {
       try {
-        return createSourceValue(artifact, ownedArtifact.isMandatory(), env);
+        return createSourceValue(artifact, artifactSkyKey.isMandatory(), env);
       } catch (MissingInputFileException e) {
         // The error is not necessarily truly transient, but we mark it as such because we have
         // the above side effect of posting an event to the EventBus. Importantly, that event
@@ -306,7 +305,7 @@ class ArtifactFunction implements SkyFunction {
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((OwnedArtifact) skyKey.argument()).getArtifact().getOwner());
+    return Label.print(((ArtifactSkyKey) skyKey.argument()).getArtifact().getOwner());
   }
 
   @VisibleForTesting

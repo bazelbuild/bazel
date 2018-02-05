@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -48,8 +47,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   }
 
   private String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
-    if (arg instanceof OwnedArtifact) {
-      return "file: " + ((OwnedArtifact) arg).getArtifact().getRootRelativePathString();
+    if (arg instanceof ArtifactSkyKey) {
+      return "file: " + ((ArtifactSkyKey) arg).getArtifact().getRootRelativePathString();
     } else if (arg instanceof ActionLookupData) {
       return "action from: " + arg;
     } else if (arg instanceof TargetCompletionKey
@@ -60,14 +59,14 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return "test target: " + ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion, TestCompletion or OwnedArtifact: " + arg);
+        "Argument is not Action, TargetCompletion, TestCompletion or ArtifactSkyKey: " + arg);
   }
 
   @Override
   protected Label getLabel(SkyKey key) {
     Object arg = key.argument();
-    if (arg instanceof OwnedArtifact) {
-      return ((OwnedArtifact) arg).getArtifact().getOwner();
+    if (arg instanceof ArtifactSkyKey) {
+      return ((ArtifactSkyKey) arg).getArtifact().getOwner();
     } else if (arg instanceof ActionLookupData) {
       return ((ActionLookupData) arg).getLabelForErrors();
     } else if (arg instanceof TargetCompletionKey
@@ -78,7 +77,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion, TestCompletion or OwnedArtifact: " + arg);
+        "Argument is not Action, TargetCompletion, TestCompletion or ArtifactSkyKey: " + arg);
   }
 
   @Override

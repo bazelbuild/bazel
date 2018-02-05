@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -243,8 +242,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      OwnedArtifact ownedArtifact = (OwnedArtifact) skyKey.argument();
-      Artifact artifact = ownedArtifact.getArtifact();
+      ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
+      Artifact artifact = artifactSkyKey.getArtifact();
       return Preconditions.checkNotNull(artifactValueMap.get(artifact));
     }
 
