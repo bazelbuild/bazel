@@ -68,17 +68,17 @@ bool JarStripperProcessor::Accept(const char* filename, const u4 attr) {
              CLASS_EXTENSION) != 0) {
     return false;
   }
-  // skip module-info.class files, which don't need stripping
+  return true;
+}
+
+static bool IsModuleInfo(const char* filename) {
   const char* slash = strrchr(filename, '/');
   if (slash == NULL) {
     slash = filename;
   } else {
     slash++;
   }
-  if (strcmp(slash, "module-info.class") == 0) {
-    return false;
-  }
-  return true;
+  return strcmp(slash, "module-info.class") == 0;
 }
 
 void JarStripperProcessor::Process(const char* filename, const u4 attr,
@@ -86,17 +86,23 @@ void JarStripperProcessor::Process(const char* filename, const u4 attr,
   if (verbose) {
     fprintf(stderr, "INFO: StripClass: %s\n", filename);
   }
-  u1* buf = reinterpret_cast<u1*>(malloc(size));
-  u1* classdata_out = buf;
-  if (!StripClass(buf, data, size)) {
+  if (IsModuleInfo(filename)) {
+    u1* q = builder->NewFile(filename, 0);
+    memcpy(q, data, size);
+    builder->FinishFile(size, false, true);
+  } else {
+    u1* buf = reinterpret_cast<u1*>(malloc(size));
+    u1* classdata_out = buf;
+    if (!StripClass(buf, data, size)) {
+      free(classdata_out);
+      return;
+    }
+    u1* q = builder->NewFile(filename, 0);
+    size_t out_length = buf - classdata_out;
+    memcpy(q, classdata_out, out_length);
+    builder->FinishFile(out_length, false, true);
     free(classdata_out);
-    return;
   }
-  u1* q = builder->NewFile(filename, 0);
-  size_t out_length = buf - classdata_out;
-  memcpy(q, classdata_out, out_length);
-  builder->FinishFile(out_length, false, true);
-  free(classdata_out);
 }
 
 // Opens "file_in" (a .jar file) for reading, and writes an interface
