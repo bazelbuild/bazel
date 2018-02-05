@@ -668,7 +668,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertError("the need whole archive flag must be false for static links", builder);
   }
 
-  private Artifact createTreeArtifact(String name) {
+  private SpecialArtifact createTreeArtifact(String name) {
     FileSystem fs = scratch.getFileSystem();
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
@@ -691,7 +691,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testLinksTreeArtifactLibraries() throws Exception {
-    Artifact testTreeArtifact = createTreeArtifact("library_directory");
+    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
     TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
@@ -738,7 +738,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY,
             LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
 
-    Artifact testTreeArtifact = createTreeArtifact("library_directory");
+    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
     TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");

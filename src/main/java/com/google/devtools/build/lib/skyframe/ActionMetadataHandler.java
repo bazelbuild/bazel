@@ -23,6 +23,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
@@ -192,7 +193,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       checkInconsistentData(artifact, oldValue, value);
       return metadataFromValue(value);
     } else if (artifact.isTreeArtifact()) {
-      TreeArtifactValue setValue = getTreeArtifactValue(artifact);
+      TreeArtifactValue setValue = getTreeArtifactValue((SpecialArtifact) artifact);
       if (setValue != null && setValue != TreeArtifactValue.MISSING_TREE_ARTIFACT) {
         return setValue.getMetadata();
       }
@@ -290,7 +291,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     return contents;
   }
 
-  private TreeArtifactValue getTreeArtifactValue(Artifact artifact) throws IOException {
+  private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
     TreeArtifactValue value = outputTreeArtifactData.get(artifact);
     if (value != null) {
       return value;
@@ -384,7 +385,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     return TreeArtifactValue.create(values);
   }
 
-  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(Artifact artifact)
+  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact artifact)
       throws IOException {
     Preconditions.checkState(artifact.isTreeArtifact(), artifact);
 
@@ -600,7 +601,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     }
   }
 
-  private void setTreeReadOnlyAndExecutable(Artifact parent, PathFragment subpath)
+  private void setTreeReadOnlyAndExecutable(SpecialArtifact parent, PathFragment subpath)
       throws IOException {
     Path path = parent.getPath().getRelative(subpath);
     if (path.isDirectory()) {

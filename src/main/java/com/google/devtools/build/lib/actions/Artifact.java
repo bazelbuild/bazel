@@ -536,11 +536,10 @@ public class Artifact
   @Immutable
   @AutoCodec(dependency = FileSystemProvider.class)
   public static final class TreeFileArtifact extends Artifact {
-
     public static final InjectingObjectCodec<TreeFileArtifact, FileSystemProvider> CODEC =
         new Artifact_TreeFileArtifact_AutoCodec();
 
-    private final Artifact parentTreeArtifact;
+    private final SpecialArtifact parentTreeArtifact;
     private final PathFragment parentRelativePath;
 
     /**
@@ -548,7 +547,7 @@ public class Artifact
      * TreeArtifact. The {@link ArtifactOwner} of the TreeFileArtifact is the {@link ArtifactOwner}
      * of the parent TreeArtifact.
      */
-    TreeFileArtifact(Artifact parent, PathFragment parentRelativePath) {
+    TreeFileArtifact(SpecialArtifact parent, PathFragment parentRelativePath) {
       this(parent, parentRelativePath, parent.getArtifactOwner());
     }
 
@@ -558,7 +557,7 @@ public class Artifact
      */
     @AutoCodec.Instantiator
     TreeFileArtifact(
-        Artifact parentTreeArtifact, PathFragment parentRelativePath, ArtifactOwner owner) {
+        SpecialArtifact parentTreeArtifact, PathFragment parentRelativePath, ArtifactOwner owner) {
       super(
           parentTreeArtifact.getPath().getRelative(parentRelativePath),
           parentTreeArtifact.getRoot(),

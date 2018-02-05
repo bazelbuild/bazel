@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -130,7 +131,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
 
@@ -331,7 +332,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
 

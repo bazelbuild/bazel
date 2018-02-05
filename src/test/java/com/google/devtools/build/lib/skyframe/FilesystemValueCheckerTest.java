@@ -419,25 +419,25 @@ public class FilesystemValueCheckerTest {
     // To decouple FileSystemValueTester checking from Action execution, we inject TreeArtifact
     // contents into ActionExecutionValues.
 
-    Artifact out1 = createTreeArtifact("one");
+    SpecialArtifact out1 = createTreeArtifact("one");
     TreeFileArtifact file11 = treeFileArtifact(out1, "fizz");
     FileSystemUtils.createDirectoryAndParents(out1.getPath());
     FileSystemUtils.writeContentAsLatin1(file11.getPath(), "buzz");
 
-    Artifact out2 = createTreeArtifact("two");
+    SpecialArtifact out2 = createTreeArtifact("two");
     FileSystemUtils.createDirectoryAndParents(out2.getPath().getChild("subdir"));
     TreeFileArtifact file21 = treeFileArtifact(out2, "moony");
     TreeFileArtifact file22 = treeFileArtifact(out2, "subdir/wormtail");
     FileSystemUtils.writeContentAsLatin1(file21.getPath(), "padfoot");
     FileSystemUtils.writeContentAsLatin1(file22.getPath(), "prongs");
 
-    Artifact outEmpty = createTreeArtifact("empty");
+    SpecialArtifact outEmpty = createTreeArtifact("empty");
     FileSystemUtils.createDirectoryAndParents(outEmpty.getPath());
 
-    Artifact outUnchanging = createTreeArtifact("untouched");
+    SpecialArtifact outUnchanging = createTreeArtifact("untouched");
     FileSystemUtils.createDirectoryAndParents(outUnchanging.getPath());
 
-    Artifact last = createTreeArtifact("zzzzzzzzzz");
+    SpecialArtifact last = createTreeArtifact("zzzzzzzzzz");
     FileSystemUtils.createDirectoryAndParents(last.getPath());
 
     SkyKey actionLookupKey =
@@ -614,7 +614,7 @@ public class FilesystemValueCheckerTest {
         outputPath.getRelative(relPath), ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputPath));
   }
 
-  private Artifact createTreeArtifact(String relPath) throws IOException {
+  private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
     Path outputDir = fs.getPath("/bin");
     Path outputPath = outputDir.getRelative(relPath);
     outputDir.createDirectory();

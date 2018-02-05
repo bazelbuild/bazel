@@ -52,7 +52,7 @@ import org.junit.runners.JUnit4;
 public class ParamFileWriteActionTest extends BuildViewTestCase {
   private ArtifactRoot rootDir;
   private Artifact outputArtifact;
-  private Artifact treeArtifact;
+  private SpecialArtifact treeArtifact;
 
   @Before
   public void createArtifacts() throws Exception  {
@@ -108,7 +108,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
                 + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
   }
 
-  private Artifact createTreeArtifact(String rootRelativePath) {
+  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
         rootDir.getRoot().getRelative(relpath),
@@ -119,7 +119,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   }
 
   private TreeFileArtifact createTreeFileArtifact(
-      Artifact inputTreeArtifact, String parentRelativePath) {
+      SpecialArtifact inputTreeArtifact, String parentRelativePath) {
     return ActionInputHelper.treeFileArtifact(
         inputTreeArtifact,
         PathFragment.create(parentRelativePath));

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -75,7 +76,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
 
   private final Artifact archive;
   private final Artifact archiveManifest;
-  private final Artifact outputTreeArtifact;
+  private final SpecialArtifact outputTreeArtifact;
   private final FilesToRunProvider zipper;
 
   /**
@@ -92,7 +93,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
       ActionOwner owner,
       Artifact archive,
       Artifact archiveManifest,
-      Artifact treeArtifactToPopulate,
+      SpecialArtifact treeArtifactToPopulate,
       FilesToRunProvider zipper) {
     super(
         owner,
@@ -114,7 +115,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
   }
 
   private static class PopulateTreeArtifactSpawn extends BaseSpawn {
-    private final Artifact treeArtifact;
+    private final SpecialArtifact treeArtifact;
     private final Iterable<PathFragment> entriesToExtract;
 
     // The output TreeFileArtifacts are created lazily outside of the contructor because potentially
@@ -122,7 +123,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
     private Collection<TreeFileArtifact> outputTreeFileArtifacts;
 
     PopulateTreeArtifactSpawn(
-        Artifact treeArtifact,
+        SpecialArtifact treeArtifact,
         Iterable<PathFragment> entriesToExtract,
         Iterable<String> commandLine,
         RunfilesSupplier runfilesSupplier,

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -82,7 +83,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * creating it if necessary, and setting the root of that artifact to {@code root}. The artifact
    * will be a TreeArtifact.
    */
-  Artifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+  SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
   /**
    * Returns the artifact for the derived file {@code rootRelativePath}, creating it if necessary,

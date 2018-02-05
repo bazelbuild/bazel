@@ -266,8 +266,8 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
   public void testComputeKey() throws Exception {
     final Artifact archiveA = getSourceArtifact("myArchiveA.zip");
     final Artifact archiveB = getSourceArtifact("myArchiveB.zip");
-    final Artifact treeArtifactToPopulateA = createTreeArtifact("testA/archive_member");
-    final Artifact treeArtifactToPopulateB = createTreeArtifact("testB/archive_member");
+    final SpecialArtifact treeArtifactToPopulateA = createTreeArtifact("testA/archive_member");
+    final SpecialArtifact treeArtifactToPopulateB = createTreeArtifact("testB/archive_member");
     final Artifact archiveManifestA = getSourceArtifact("archiveManifestA.txt");
     final Artifact archiveManifestB = getSourceArtifact("archiveManifestB.txt");
     final FilesToRunProvider zipperA = FilesToRunProvider.fromSingleExecutableArtifact(
@@ -282,7 +282,7 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
           public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
             Artifact archive =
                 attributesToFlip.contains(KeyAttributes.ARCHIVE) ? archiveA : archiveB;
-            Artifact treeArtifactToPopulate =
+            SpecialArtifact treeArtifactToPopulate =
                 attributesToFlip.contains(KeyAttributes.TREE_ARTIFACT)
                     ? treeArtifactToPopulateA
                     : treeArtifactToPopulateB;
@@ -306,7 +306,7 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
 
   private PopulateTreeArtifactAction createPopulateTreeArtifactAction() throws Exception {
     Artifact archive = getSourceArtifact("myArchive.zip");
-    Artifact treeArtifactToPopulate = createTreeArtifact("test/archive_member");
+    SpecialArtifact treeArtifactToPopulate = createTreeArtifact("test/archive_member");
     Artifact archiveManifest = getSourceArtifact("archiveManifest.txt");
     FilesToRunProvider unzip = FilesToRunProvider.fromSingleExecutableArtifact(
         getSourceArtifact("unzipBinary"));
@@ -343,7 +343,7 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
         null);
   }
 
-  private Artifact createTreeArtifact(String rootRelativePath) {
+  private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
         root.getRoot().getRelative(relpath),
