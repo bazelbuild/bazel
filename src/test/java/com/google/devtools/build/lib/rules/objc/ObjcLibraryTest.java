@@ -598,17 +598,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
         "--experimental_objc_enable_module_maps");
-    createLibraryTargetWriter("//objc:lib")
+    String target = "//objc/library:lib@a-foo_foobar";
+    createLibraryTargetWriter(target)
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
         .write();
 
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    CommandAction compileActionA = compileAction(target, "a.o");
     assertThat(compileActionA.getArguments())
-        .containsAllIn(moduleMapArtifactArguments("//objc", "lib"));
+        .containsAllIn(moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
     assertThat(compileActionA.getArguments()).contains("-fmodule-maps");
     assertThat(Artifact.toRootRelativePaths(compileActionA.getInputs()))
-        .doesNotContain("objc/lib.modulemaps/module.modulemap");
+        .doesNotContain("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
   }
 
   @Test

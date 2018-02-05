@@ -431,9 +431,9 @@ public final class IntermediateArtifacts {
             .toString()
             .replace("//", "")
             .replace("@", "")
+            .replace("-", "_")
             .replace("/", "_")
             .replace(":", "_");
- 
     Optional<Artifact> customModuleMap = CompilationSupport.getCustomModuleMap(ruleContext);
     if (customModuleMap.isPresent()) {
       return new CppModuleMap(customModuleMap.get(), moduleName);
