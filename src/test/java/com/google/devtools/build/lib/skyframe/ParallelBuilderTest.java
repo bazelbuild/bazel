@@ -283,7 +283,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
             @Override
             public long getLastChangeTime() throws IOException {
-              return original.getLastChangeTime();
+              throw new IOException();
             }
           };
         }

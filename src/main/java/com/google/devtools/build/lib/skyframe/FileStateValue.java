@@ -155,11 +155,10 @@ public abstract class FileStateValue implements SkyValue {
       try {
         byte[] digest = tryGetDigest(path, stat);
         if (digest == null) {
-          long mtime = stat.getLastModifiedTime();
           // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
           // method.
           if (tsgm != null) {
-            tsgm.notifyDependenceOnFileTime(path.asFragment(), mtime);
+            tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
           }
           return new RegularFileStateValue(stat.getSize(), null, FileContentsProxy.create(stat));
         } else {
@@ -256,10 +255,9 @@ public abstract class FileStateValue implements SkyValue {
 
     static SpecialFileStateValue fromStat(PathFragment path, FileStatus stat,
         @Nullable TimestampGranularityMonitor tsgm) throws IOException {
-      long mtime = stat.getLastModifiedTime();
       // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
       if (tsgm != null) {
-        tsgm.notifyDependenceOnFileTime(path, mtime);
+        tsgm.notifyDependenceOnFileTime(path, stat.getLastChangeTime());
       }
       return new SpecialFileStateValue(FileContentsProxy.create(stat));
     }

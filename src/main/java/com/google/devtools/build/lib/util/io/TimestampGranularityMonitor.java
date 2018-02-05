@@ -125,12 +125,12 @@ public class TimestampGranularityMonitor {
    * of a build file or source file with the specified time stamp.
    */
   @ThreadSafe
-  public void notifyDependenceOnFileTime(PathFragment path, long mtime) {
-    if (mtime == this.commandStartTimeMillis) {
+  public void notifyDependenceOnFileTime(PathFragment path, long ctimeMillis) {
+    if (ctimeMillis == this.commandStartTimeMillis) {
       logger.info("Will have to wait for a millisecond on completion because of " + path);
       this.waitAMillisecond = true;
     }
-    if (mtime == this.commandStartTimeMillisRounded) {
+    if (ctimeMillis == this.commandStartTimeMillisRounded) {
       logger.info("Will have to wait for a second on completion because of " + path);
       this.waitASecond = true;
     }
