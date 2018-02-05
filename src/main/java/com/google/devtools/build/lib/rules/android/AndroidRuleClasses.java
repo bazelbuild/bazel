@@ -952,7 +952,7 @@ public final class AndroidRuleClasses {
               <li><code>manifest_merger = "android"</code>: Use the android manifest merger. Allows
                 features like placeholder substitution and tools attributes for defining merge
                 behavior. Follows the semantics from
-                <a href="http://tools.android.com/tech-docs/new-build-system/user-guide/manifest-merger">
+                <a href="https://developer.android.com/studio/build/manifest-merge.html">
                 the documentation</a> except it has been modified to also remove all
                 <code>&lt;uses-permission&gt;</code> and <code>&lt;uses-permission-sdk-23&gt;</code>
                 tags. Performs an attribute-level merge.</li>
