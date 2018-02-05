@@ -162,13 +162,14 @@ bool SetEnv(const string& env_name, const string& value) {
 string GetRandomStr(size_t len) {
   static const char alphabet[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  ostringstream rand_str;
+  string rand_str;
+  rand_str.reserve(len);
   unsigned int x;
   for (size_t i = 0; i < len; i++) {
     rand_s(&x);
-    rand_str << alphabet[x % strlen(alphabet)];
+    rand_str += alphabet[x % strlen(alphabet)];
   }
-  return rand_str.str();
+  return rand_str;
 }
 
 bool NormalizePath(const string& path, string* result) {
