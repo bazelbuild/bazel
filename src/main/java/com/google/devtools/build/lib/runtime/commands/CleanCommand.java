@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -127,7 +128,7 @@ public final class CleanCommand implements BlazeCommand {
   private static final Logger logger = Logger.getLogger(CleanCommand.class.getName());
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options)
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options)
       throws ShutdownBlazeServerException {
     Options cleanOptions = options.getOptions(Options.class);
     boolean async = cleanOptions.async;
@@ -165,16 +166,16 @@ public final class CleanCommand implements BlazeCommand {
               .getOptions(BuildRequestOptions.class)
               .getSymlinkPrefix(env.getRuntime().getProductName());
       actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
-      return ExitCode.SUCCESS;
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     } catch (CommandException | ExecException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return ExitCode.RUN_FAILURE;
+      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("clean interrupted"));
-      return ExitCode.INTERRUPTED;
+      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
     }
   }
 
@@ -265,7 +266,7 @@ public final class CleanCommand implements BlazeCommand {
 
     // shutdown on expunge cleans
     if (expunge) {
-      throw new ShutdownBlazeServerException(0);
+      throw new ShutdownBlazeServerException(ExitCode.SUCCESS);
     }
     System.gc();
   }

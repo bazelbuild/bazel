@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
  * <p>The most basic use-case for this class is as follows:
  * <pre>
  *   String[] args = { "/bin/du", "-s", directory };
- *   CommandResult result = new Command(args).execute();
+ *   BlazeCommandResult result = new Command(args).execute();
  *   String output = new String(result.getStdout());
  * </pre>
  * which writes the output of the {@code du(1)} command into {@code output}. More complex cases
@@ -78,7 +78,7 @@ import javax.annotation.Nullable;
  * <p>To execute a shell command directly, use the following pattern:
  * <pre>
  *   String[] args = { "/bin/sh", "-c", shellCommand };
- *   CommandResult result = new Command(args).execute();
+ *   BlazeCommandResult result = new Command(args).execute();
  * </pre>
  * {@code shellCommand} is a complete Bourne shell program, possibly containing all kinds of
  * unescaped metacharacters.  For example, here's a shell command that enumerates the working

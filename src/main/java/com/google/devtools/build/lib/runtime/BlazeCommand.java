@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 
@@ -41,7 +40,7 @@ public interface BlazeCommand {
    * @throws BlazeCommandDispatcher.ShutdownBlazeServerException Indicates that the command wants to
    *     shutdown the Blaze server.
    */
-  ExitCode exec(CommandEnvironment env, OptionsProvider options)
+  BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options)
       throws BlazeCommandDispatcher.ShutdownBlazeServerException;
 
   /**

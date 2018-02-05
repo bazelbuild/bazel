@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -176,7 +177,7 @@ public final class HelpCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     env.getEventBus().post(new NoBuildEvent());
 
     BlazeRuntime runtime = env.getRuntime();
@@ -185,11 +186,11 @@ public final class HelpCommand implements BlazeCommand {
     if (options.getResidue().isEmpty()) {
       emitBlazeVersionInfo(outErr, runtime.getProductName());
       emitGenericHelp(outErr, runtime);
-      return ExitCode.SUCCESS;
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     }
     if (options.getResidue().size() != 1) {
       env.getReporter().handle(Event.error("You must specify exactly one command"));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     String helpSubject = options.getResidue().get(0);
     String productName = runtime.getProductName();
@@ -203,7 +204,7 @@ public final class HelpCommand implements BlazeCommand {
             runtime,
             getDeprecatedOptionCategoriesDescriptions(productName),
             helpOptions.useNewCategoryEnum);
-        return ExitCode.SUCCESS;
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "target-syntax":
         emitBlazeVersionInfo(outErr, runtime.getProductName());
         emitTargetSyntaxHelp(
@@ -212,19 +213,19 @@ public final class HelpCommand implements BlazeCommand {
             productName,
             helpOptions.useNewCategoryEnum);
 
-        return ExitCode.SUCCESS;
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "info-keys":
         emitInfoKeysHelp(env, outErr);
-        return ExitCode.SUCCESS;
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "completion":
         emitCompletionHelp(runtime, outErr);
-        return ExitCode.SUCCESS;
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "flags-as-proto":
         emitFlagsAsProtoHelp(runtime, outErr);
-        return ExitCode.SUCCESS;
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "everything-as-html":
         new HtmlEmitter(runtime, helpOptions.useNewCategoryEnum).emit(outErr);
-        return ExitCode.SUCCESS;
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       default: // fall out
     }
 
@@ -236,11 +237,11 @@ public final class HelpCommand implements BlazeCommand {
         // There is a rule with a corresponding name
         outErr.printOut(
             BlazeRuleHelpPrinter.getRuleDoc(helpSubject, runtime.getProductName(), provider));
-        return ExitCode.SUCCESS;
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       } else {
         env.getReporter().handle(Event.error(
             null, "'" + helpSubject + "' is neither a command nor a build rule"));
-        return ExitCode.COMMAND_LINE_ERROR;
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
     }
     emitBlazeVersionInfo(outErr, productName);
@@ -254,7 +255,7 @@ public final class HelpCommand implements BlazeCommand {
             productName,
             helpOptions.useNewCategoryEnum));
 
-    return ExitCode.SUCCESS;
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
   private void emitBlazeVersionInfo(OutErr outErr, String productName) {

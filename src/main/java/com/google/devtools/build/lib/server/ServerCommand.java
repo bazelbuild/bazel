@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -35,7 +36,7 @@ public interface ServerCommand {
    *     --[no]flag or --flag=value form. If we don't have access to this information (--batch),
    *     leave this parameter as Optional.empty().
    */
-  int exec(
+  BlazeCommandResult exec(
       InvocationPolicy policy,
       List<String> args,
       OutErr outErr,

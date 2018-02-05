@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
@@ -166,7 +167,7 @@ public class DumpCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     BlazeRuntime runtime = env.getRuntime();
     DumpOptions dumpOptions = options.getOptions(DumpOptions.class);
 
@@ -190,7 +191,7 @@ public class DumpCommand implements BlazeCommand {
           getClass(),
           optionList, categories, OptionsParser.HelpVerbosity.LONG,
           runtime.getProductName()));
-      return ExitCode.ANALYSIS_FAILURE;
+      return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
     }
     PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());
     try {
@@ -241,7 +242,7 @@ public class DumpCommand implements BlazeCommand {
         out.println();
       }
 
-      return success ? ExitCode.SUCCESS : ExitCode.ANALYSIS_FAILURE;
+      return BlazeCommandResult.exitCode(success ? ExitCode.SUCCESS : ExitCode.ANALYSIS_FAILURE);
 
     } finally {
       out.flush();

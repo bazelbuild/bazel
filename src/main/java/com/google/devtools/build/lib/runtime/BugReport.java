@@ -87,7 +87,7 @@ public abstract class BugReport {
    * halts the runtime in that case.
    */
   public static void handleCrash(Throwable throwable, String... args) {
-    int exitCode = getExitCodeForThrowable(throwable);
+    int exitCode = getExitCodeForThrowable(throwable).getNumericExitCode();
     try {
       if (alreadyHandlingCrash.compareAndSet(false, true)) {
         try {
@@ -131,10 +131,10 @@ public abstract class BugReport {
   }
 
   /** Get exit code corresponding to throwable. */
-  public static int getExitCodeForThrowable(Throwable throwable) {
+  public static ExitCode getExitCodeForThrowable(Throwable throwable) {
     return (Throwables.getRootCause(throwable) instanceof OutOfMemoryError)
-        ? ExitCode.OOM_ERROR.getNumericExitCode()
-        : ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
+        ? ExitCode.OOM_ERROR
+        : ExitCode.BLAZE_INTERNAL_ERROR;
   }
 
   private static void printThrowableTo(OutErr outErr, Throwable e) {

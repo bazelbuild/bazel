@@ -81,11 +81,11 @@ public class BlazeCommandDispatcherRcoptionsTest {
   private static class ReportNumCommand implements BlazeCommand {
 
     @Override
-    public ExitCode exec(CommandEnvironment env, OptionsProvider options)
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options)
         throws ShutdownBlazeServerException {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
       env.getReporter().getOutErr().printOut("" + fooOptions.numOption);
-      return ExitCode.SUCCESS;
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     }
 
     @Override
@@ -101,13 +101,13 @@ public class BlazeCommandDispatcherRcoptionsTest {
   private static class ReportAllCommand implements BlazeCommand {
 
     @Override
-    public ExitCode exec(CommandEnvironment env, OptionsProvider options)
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options)
         throws ShutdownBlazeServerException {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
       env.getReporter()
           .getOutErr()
           .printOut("" + fooOptions.numOption + " " + fooOptions.stringOption);
-      return ExitCode.SUCCESS;
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     }
 
     @Override

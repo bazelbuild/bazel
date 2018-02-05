@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
@@ -167,7 +168,7 @@ public class MobileInstallCommand implements BlazeCommand {
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     Options mobileInstallOptions = options.getOptions(Options.class);
     WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
 
@@ -193,7 +194,8 @@ public class MobileInstallCommand implements BlazeCommand {
               env.getReporter().getOutErr(),
               env.getCommandId(),
               env.getCommandStartTime());
-      return new BuildTool(env).processRequest(request, null).getExitCondition();
+      ExitCode exitCode = new BuildTool(env).processRequest(request, null).getExitCondition();
+      return BlazeCommandResult.exitCode(exitCode);
     }
 
     // This list should look like: ["//executable:target", "arg1", "arg2"]
@@ -202,7 +204,7 @@ public class MobileInstallCommand implements BlazeCommand {
     // The user must at least specify an executable target.
     if (targetAndArgs.isEmpty()) {
       env.getReporter().handle(Event.error("Must specify a target to run"));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     List<String> targets = ImmutableList.of(targetAndArgs.get(0));
@@ -222,17 +224,17 @@ public class MobileInstallCommand implements BlazeCommand {
 
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running target"));
-      return result.getExitCondition();
+      return BlazeCommandResult.exitCode(result.getExitCondition());
     }
 
     Collection<ConfiguredTarget> targetsBuilt = result.getSuccessfulTargets();
     if (targetsBuilt == null) {
       env.getReporter().handle(Event.error(NO_TARGET_MESSAGE));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     if (targetsBuilt.size() != 1) {
       env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     ConfiguredTarget targetToRun = Iterables.getOnlyElement(targetsBuilt);
 
@@ -299,7 +301,7 @@ public class MobileInstallCommand implements BlazeCommand {
           .execute(outErr.getOutputStream(), outErr.getErrorStream())
           .getTerminationStatus()
           .getExitCode();
-      return ExitCode.SUCCESS;
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     } catch (BadExitStatusException e) {
       String message =
           "Non-zero return code '"
@@ -307,13 +309,13 @@ public class MobileInstallCommand implements BlazeCommand {
               + "' from command: "
               + e.getMessage();
       env.getReporter().handle(Event.error(message));
-      return ExitCode.RUN_FAILURE;
+      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
     } catch (AbnormalTerminationException e) {
       // The process was likely terminated by a signal in this case.
-      return ExitCode.INTERRUPTED;
+      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
     } catch (CommandException e) {
       env.getReporter().handle(Event.error("Error running program: " + e.getMessage()));
-      return ExitCode.RUN_FAILURE;
+      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
     }
   }
 

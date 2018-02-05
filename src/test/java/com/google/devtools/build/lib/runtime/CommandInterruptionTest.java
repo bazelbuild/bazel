@@ -89,11 +89,11 @@ public final class CommandInterruptionTest {
     }
 
     @Override
-    public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
       CommandState commandState = new CommandState(
           env, options.getOptions(WaitOptions.class).expectInterruption, isTestShuttingDown);
       commandStateHandoff.getAndSet(null).set(commandState);
-      return commandState.waitForExitCodeFromTest();
+      return BlazeCommandResult.exitCode(commandState.waitForExitCodeFromTest());
     }
 
     @Override

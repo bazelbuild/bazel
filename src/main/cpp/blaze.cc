@@ -1780,10 +1780,9 @@ unsigned int GrpcBlazeServer::Communicate() {
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
   bool command_id_set = false;
   bool pipe_broken = false;
-  int exit_code = -1;
+  command_server::RunResponse final_response;
   bool finished = false;
   bool finished_warning_emitted = false;
-  bool termination_expected = false;
 
   while (reader->Read(&response)) {
     if (finished && !finished_warning_emitted) {
@@ -1799,8 +1798,7 @@ unsigned int GrpcBlazeServer::Communicate() {
     const char *broken_pipe_name = nullptr;
 
     if (response.finished()) {
-      exit_code = response.exit_code();
-      termination_expected = response.termination_expected();
+      final_response = response;
       finished = true;
     }
 
@@ -1838,7 +1836,7 @@ unsigned int GrpcBlazeServer::Communicate() {
 
   // If the server has shut down, but does not terminate itself within a 1m
   // grace period, terminate it.
-  if (termination_expected &&
+  if (final_response.termination_expected() &&
       !AwaitServerProcessTermination(globals->server_pid,
                                      globals->options->output_base,
                                      kPostShutdownGracePeriodSeconds)) {
@@ -1862,10 +1860,31 @@ unsigned int GrpcBlazeServer::Communicate() {
             "(log file: '%s')\n\n",
             globals->jvm_log_file.c_str());
     return GetExitCodeForAbruptExit(*globals);
+  } else if (final_response.has_exec_request()) {
+    const command_server::ExecRequest& request = final_response.exec_request();
+    if (request.argv_size() < 1) {
+      fprintf(stderr,
+          "\nServer requested exec() but did not pass a binary to execute\n\n");
+      return blaze_exit_code::INTERNAL_ERROR;
+    }
+
+    vector<string> argv;
+    argv.insert(argv.begin(), request.argv().begin(), request.argv().end());
+    for (const auto& variable : request.environment_variable()) {
+      SetEnv(variable.name(), variable.value());
+    }
+
+    if (!blaze_util::ChangeDirectory(request.working_directory())) {
+      pdie(blaze_exit_code::INTERNAL_ERROR, "changing directory into %s failed",
+           request.working_directory().c_str());
+    }
+    ExecuteProgram(request.argv(0), argv);
   }
 
   // We'll exit with exit code SIGPIPE on Unixes due to PropagateSignalOnExit()
-  return pipe_broken ? blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR : exit_code;
+  return pipe_broken
+      ? blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR
+      : final_response.exit_code();
 }
 
 void GrpcBlazeServer::Disconnect() {

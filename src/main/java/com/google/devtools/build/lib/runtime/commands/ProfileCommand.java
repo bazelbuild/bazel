@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.profiler.statistics.MultiProfileStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -212,7 +213,7 @@ public final class ProfileCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(final CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(final CommandEnvironment env, OptionsProvider options) {
     ProfileOptions opts =
         options.getOptions(ProfileOptions.class);
 
@@ -325,7 +326,7 @@ public final class ProfileCommand implements BlazeCommand {
         }
       }
     }
-    return ExitCode.SUCCESS;
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
   /**

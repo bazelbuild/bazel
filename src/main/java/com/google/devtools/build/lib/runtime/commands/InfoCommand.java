@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -101,7 +102,8 @@ public class InfoCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) { }
 
   @Override
-  public ExitCode exec(final CommandEnvironment env, final OptionsProvider optionsProvider) {
+  public BlazeCommandResult exec(
+      final CommandEnvironment env, final OptionsProvider optionsProvider) {
     final BlazeRuntime runtime = env.getRuntime();
     env.getReporter().switchToAnsiAllowingHandler();
     Options infoOptions = optionsProvider.getOptions(Options.class);
@@ -152,7 +154,7 @@ public class InfoCommand implements BlazeCommand {
       List<String> residue = optionsProvider.getResidue();
       if (residue.size() > 1) {
         env.getReporter().handle(Event.error("at most one key may be specified"));
-        return ExitCode.COMMAND_LINE_ERROR;
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
 
       String key = residue.size() == 1 ? residue.get(0) : null;
@@ -163,14 +165,14 @@ public class InfoCommand implements BlazeCommand {
           value = items.get(key).get(configurationSupplier, env);
         } else {
           env.getReporter().handle(Event.error("unknown key: '" + key + "'"));
-          return ExitCode.COMMAND_LINE_ERROR;
+          return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
         }
         try {
           outErr.getOutputStream().write(value);
           outErr.getOutputStream().flush();
         } catch (IOException e) {
           env.getReporter().handle(Event.error("Cannot write info block: " + e.getMessage()));
-          return ExitCode.ANALYSIS_FAILURE;
+          return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
         }
       } else { // print them all
         configurationSupplier.get();  // We'll need this later anyway
@@ -184,15 +186,15 @@ public class InfoCommand implements BlazeCommand {
         }
       }
     } catch (AbruptExitException e) {
-      return e.getExitCode();
+      return BlazeCommandResult.exitCode(e.getExitCode());
     } catch (ExitCausingRuntimeException e) {
-      return e.getExitCode();
+      return BlazeCommandResult.exitCode(e.getExitCode());
     } catch (IOException e) {
-      return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     } catch (InterruptedException e) {
-      return ExitCode.INTERRUPTED;
+      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
     }
-    return ExitCode.SUCCESS;
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
   static Map<String, InfoItem> getHardwiredInfoItemMap(OptionsProvider commandOptions,

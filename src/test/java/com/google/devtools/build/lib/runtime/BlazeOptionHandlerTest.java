@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.runtime.BlazeOptionHandler.RcChunkOfArgs;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -114,7 +113,7 @@ public class BlazeOptionHandlerTest {
   )
   private static class C0Command implements BlazeCommand {
     @Override
-    public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
       throw new UnsupportedOperationException();
     }
 

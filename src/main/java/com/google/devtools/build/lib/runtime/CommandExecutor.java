@@ -43,7 +43,7 @@ public class CommandExecutor implements ServerCommand {
   }
 
   @Override
-  public int exec(
+  public BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
@@ -75,7 +75,7 @@ public class CommandExecutor implements ServerCommand {
       shutdown = true;
       runtime.shutdown();
       dispatcher.shutdown();
-      return e.getExitStatus();
+      return BlazeCommandResult.exitCode(e.getExitCode());
     }
   }
 

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -99,7 +100,7 @@ public final class PrintActionCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     LoadingOptions loadingOptions =
         options.getOptions(LoadingOptions.class);
 
@@ -107,7 +108,7 @@ public final class PrintActionCommand implements BlazeCommand {
     PrintActionRunner runner = new PrintActionRunner(loadingOptions.compileOneDependency, options,
         env.getReporter().getOutErr(),
         options.getResidue(), Sets.newHashSet(printActionOptions.printActionMnemonics));
-    return runner.printActionsForTargets(env);
+    return BlazeCommandResult.exitCode(runner.printActionsForTargets(env));
   }
 
   /**

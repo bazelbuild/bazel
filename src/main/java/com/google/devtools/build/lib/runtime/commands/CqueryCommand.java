@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -66,13 +67,13 @@ public final class CqueryCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     if (options.getResidue().isEmpty()) {
       env.getReporter()
           .handle(
               Event.error(
                   "Missing query expression. Use the 'help cquery' command for syntax and help."));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     String query = Joiner.on(' ').join(options.getResidue());
     HashMap<String, QueryFunction> functions = new HashMap<>();
@@ -85,7 +86,7 @@ public final class CqueryCommand implements BlazeCommand {
     } catch (QueryException e) {
       env.getReporter()
           .handle(Event.error("Error while parsing '" + query + "': " + e.getMessage()));
-      return ExitCode.COMMAND_LINE_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
     List<String> topLevelTargets = options.getOptions(CommonQueryOptions.class).universeScope;
@@ -104,6 +105,7 @@ public final class CqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    return new BuildTool(env).processRequest(request, null, expr).getExitCondition();
+    ExitCode exitCode = new BuildTool(env).processRequest(request, null, expr).getExitCondition();
+    return BlazeCommandResult.exitCode(exitCode);
   }
 }

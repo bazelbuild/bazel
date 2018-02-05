@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
@@ -814,7 +815,7 @@ public class GrpcServerImpl implements RPCServer {
     }
 
     String commandId;
-    int exitCode;
+    BlazeCommandResult result;
 
     // TODO(b/63925394): This information needs to be passed to the GotOptionsEvent, which does not
     // currently have the explicit startup options. See Improved Command Line Reporting design doc
@@ -847,7 +848,7 @@ public class GrpcServerImpl implements RPCServer {
 
       try {
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
-        exitCode =
+        result =
             commandExecutor.exec(
                 policy,
                 args.build(),
@@ -858,10 +859,10 @@ public class GrpcServerImpl implements RPCServer {
                 Optional.of(startupOptions.build()));
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
-        exitCode = ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+        result = BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
     } catch (InterruptedException e) {
-      exitCode = ExitCode.INTERRUPTED.getNumericExitCode();
+      result = BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
       commandId = ""; // The default value, the client will ignore it
     }
 
@@ -883,17 +884,22 @@ public class GrpcServerImpl implements RPCServer {
     if (shutdown) {
       server.shutdown();
     }
-    RunResponse response =
-        RunResponse.newBuilder()
-            .setCookie(responseCookie)
-            .setCommandId(commandId)
-            .setFinished(true)
-            .setExitCode(exitCode)
-            .setTerminationExpected(shutdown)
-            .build();
+
+    RunResponse.Builder response = RunResponse.newBuilder()
+        .setCookie(responseCookie)
+        .setCommandId(commandId)
+        .setFinished(true)
+        .setTerminationExpected(shutdown);
+
+    if (result.getExecRequest() != null) {
+      response.setExitCode(0);
+      response.setExecRequest(result.getExecRequest());
+    } else {
+      response.setExitCode(result.getExitCode().getNumericExitCode());
+    }
 
     try {
-      observer.onNext(response);
+      observer.onNext(response.build());
       observer.onCompleted();
     } catch (StatusRuntimeException e) {
       // The client cancelled the call. Log an error and go on.
