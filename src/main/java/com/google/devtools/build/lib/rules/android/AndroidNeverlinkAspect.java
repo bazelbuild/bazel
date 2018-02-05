@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +41,11 @@ import java.util.List;
  * <p>One would think that using the compile time classpath would be enough, but alas, those are
  * ijars,
  */
+@AutoCodec
 public class AndroidNeverlinkAspect extends NativeAspectClass implements ConfiguredAspectFactory {
+  public static final ObjectCodec<AndroidNeverlinkAspect> CODEC =
+      new AndroidNeverlinkAspect_AutoCodec();
+
   public static final String NAME = "AndroidNeverlinkAspect";
   private static final ImmutableList<String> ATTRIBUTES =
       ImmutableList.of(
