@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileOperationException;
@@ -892,8 +891,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      OwnedArtifact ownedArtifact = (OwnedArtifact) skyKey.argument();
-      Artifact artifact = ownedArtifact.getArtifact();
+      ArtifactSkyKey artifactKey = (ArtifactSkyKey) skyKey.argument();
+      Artifact artifact = artifactKey.getArtifact();
       try {
         return FileArtifactValue.create(artifact.getPath());
       } catch (IOException e) {
