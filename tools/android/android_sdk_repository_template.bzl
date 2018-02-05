@@ -219,8 +219,7 @@ def create_android_sdk_rules(
             "STRIPPED_JAR=$$2",
             "JAR=$$3",
             "" +
-            "DIRNAME=$$(dirname $$0)",
-            "JAVA_BINARY=TBD/main_dex_list_creator_java",  # Proper runfiles path comes here
+            "JAVA_BINARY=$$0.runfiles/%s/main_dex_list_creator_java" % name,
             "$$JAVA_BINARY $$STRIPPED_JAR $$JAR > $$MAIN_DEX_LIST",
             "exit $$?",
             "",
@@ -245,14 +244,9 @@ def create_android_sdk_rules(
       runtime_deps = [":dx_jar_import"],
   )
 
-  native.filegroup(
-      name = "dx_jar",
-      srcs = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
-  )
-
   native.java_import(
       name = "dx_jar_import",
-      jars = [":dx_jar"],
+      jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
   )
 
 
