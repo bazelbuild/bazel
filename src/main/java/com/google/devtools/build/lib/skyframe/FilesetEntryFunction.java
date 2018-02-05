@@ -238,7 +238,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       Environment env, String errorInfo, DirectTraversal traversal)
       throws MissingDepException, InterruptedException {
     SkyKey depKey = RecursiveFilesystemTraversalValue.key(
-        new RecursiveFilesystemTraversalValue.TraversalRequest(traversal.getRoot().asRootedPath(),
+        new RecursiveFilesystemTraversalValue.TraversalRequest(traversal.getRoot(),
             traversal.isGenerated(), traversal.getPackageBoundaryMode(), traversal.isPackage(),
             errorInfo));
     RecursiveFilesystemTraversalValue v = (RecursiveFilesystemTraversalValue) env.getValue(depKey);

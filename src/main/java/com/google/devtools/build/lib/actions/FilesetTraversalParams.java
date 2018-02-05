@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Parameters of a filesystem traversal requested by a Fileset rule.
@@ -71,6 +72,13 @@ public interface FilesetTraversalParams {
   abstract class DirectTraversalRoot {
 
     /**
+     * Returns the output Artifact corresponding to this traversal, if present. Only present when
+     * traversing a generated output.
+     */
+    @Nullable
+    public abstract Artifact getOutputArtifact();
+
+    /**
      * Returns the root part of the full path.
      *
      * <p>This is typically the workspace root or some output tree's root (e.g. genfiles, binfiles).
@@ -94,14 +102,21 @@ public interface FilesetTraversalParams {
     @Override
     public abstract int hashCode();
 
-    static DirectTraversalRoot forPackage(Artifact buildFile) {
+    public static DirectTraversalRoot forPackage(Artifact buildFile) {
       return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
+          null,
           buildFile.getRoot().getRoot(), buildFile.getRootRelativePath().getParentDirectory());
     }
 
-    static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
+    public static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
       return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(
+          fileOrDirectory.isSourceArtifact() ? null : fileOrDirectory,
           fileOrDirectory.getRoot().getRoot(), fileOrDirectory.getRootRelativePath());
+    }
+
+    public static DirectTraversalRoot forRootedPath(RootedPath newPath) {
+      return new AutoValue_FilesetTraversalParams_DirectTraversalRoot(null,
+          newPath.getRoot(), newPath.getRootRelativePath());
     }
   }
 
