@@ -174,6 +174,33 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
+  def CopyFile(self, src_path, dst_path, executable=False):
+    """Copy a file to a path under the test's scratch directory.
+
+    Args:
+      src_path: string; a path, the file to copy
+      dst_path: string; a path, relative to the test's scratch directory, the
+        destination to copy the file to, e.g. "foo/bar/BUILD"
+      executable: bool; whether to make the destination file executable
+    Returns:
+      The absolute path of the destination file.
+    Raises:
+      ArgumentError: if `dst_path` is absolute or contains uplevel references
+      IOError: if an I/O error occurs
+    """
+    if not src_path or not dst_path:
+      return
+    abspath = self.Path(dst_path)
+    if os.path.exists(abspath) and not os.path.isfile(abspath):
+      raise IOError('"%s" (%s) exists and is not a file' % (dst_path, abspath))
+    self.ScratchDir(os.path.dirname(dst_path))
+    with open(src_path, 'r') as s:
+      with open(abspath, 'w') as d:
+        d.write(s.read())
+    if executable:
+      os.chmod(abspath, stat.S_IRWXU)
+    return abspath
+
   def RunBazel(self, args, env_remove=None, env_add=None):
     """Runs "bazel <args>", waits for it to exit.
 

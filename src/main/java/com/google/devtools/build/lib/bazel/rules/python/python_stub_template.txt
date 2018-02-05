@@ -100,6 +100,34 @@ def GetRepositoriesImports(module_space, import_all):
     return [d for d in repo_dirs if os.path.isdir(d)]
   return [os.path.join(module_space, "%workspace_name%")]
 
+# Finds the runfiles manifest or the runfiles directory.
+def RunfilesEnvvar(module_space):
+  # If this binary is the data-dependency of another one, the other sets
+  # RUNFILES_MANIFEST_FILE or RUNFILES_DIR for our sake.
+  runfiles = os.environ.get('RUNFILES_MANIFEST_FILE', None)
+  if runfiles:
+    return ('RUNFILES_MANIFEST_FILE', runfiles)
+
+  runfiles = os.environ.get('RUNFILES_DIR', None)
+  if runfiles:
+    return ('RUNFILES_DIR', runfiles)
+
+  # If running from a zip, there's no manifest file.
+  if IsRunningFromZip():
+    return ('RUNFILES_DIR', module_space)
+
+  # Look for the runfiles "output" manifest, argv[0] + ".runfiles_manifest"
+  runfiles = module_space + '_manifest'
+  if os.path.exists(runfiles):
+    return ('RUNFILES_MANIFEST_FILE', runfiles)
+
+  # Look for the runfiles "input" manifest, argv[0] + ".runfiles/MANIFEST"
+  runfiles = os.path.join(module_space, 'MANIFEST')
+  if os.path.exists(runfiles):
+    return ('RUNFILES_DIR', runfiles)
+
+  return (None, None)
+
 def Main():
   args = sys.argv[1:]
 
@@ -125,6 +153,9 @@ def Main():
     python_path = python_path.replace("/", os.sep)
 
   new_env['PYTHONPATH'] = python_path
+  runfiles_envkey, runfiles_envvalue = RunfilesEnvvar(module_space)
+  if runfiles_envkey:
+    new_env[runfiles_envkey] = runfiles_envvalue
 
   # Now look for my main python source file.
   # The magic string percent-main-percent is replaced with the filename of the
