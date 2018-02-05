@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestRul
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
+import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
@@ -259,6 +260,8 @@ public class BazelRuleClassProvider {
               AndroidInstrumentationInfo.PROVIDER.getName(), AndroidInstrumentationInfo.PROVIDER);
           builder.addSkylarkAccessibleTopLevels(
               DeviceBrokerInfo.PROVIDER.getName(), DeviceBrokerInfo.PROVIDER);
+          builder.addSkylarkAccessibleTopLevels(
+              AndroidResourcesInfo.PROVIDER.getName(), AndroidResourcesInfo.PROVIDER);
 
           try {
             builder.addWorkspaceFilePrefix(
