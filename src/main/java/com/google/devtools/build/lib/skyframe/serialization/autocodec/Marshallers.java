@@ -707,13 +707,25 @@ class Marshallers {
         public void addSerializationCode(Context context) {
           TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
           String nestedSetCodec = context.makeName("nestedSetCodec");
-          context.builder.addStatement(
-              "$T<$T> $L = new $T<>($T.CODEC)",
-              NestedSetCodec.class,
-              typeParameter,
-              nestedSetCodec,
-              NestedSetCodec.class,
-              typeParameter);
+
+          TypeMirror typeParameterCodec = getCodec((DeclaredType) typeParameter).get().asType();
+          if (matchesErased(typeParameterCodec, InjectingObjectCodec.class)) {
+            context.builder.addStatement(
+                "$T<$T> $L = new $T<>($T.CODEC, dependency)",
+                NestedSetCodec.class,
+                typeParameter,
+                nestedSetCodec,
+                NestedSetCodec.class,
+                typeParameter);
+          } else {
+            context.builder.addStatement(
+                "$T<$T> $L = new $T<>($T.CODEC)",
+                NestedSetCodec.class,
+                typeParameter,
+                nestedSetCodec,
+                NestedSetCodec.class,
+                typeParameter);
+          }
           context.builder.addStatement("$L.serialize($L, codedOut)", nestedSetCodec, context.name);
         }
 
@@ -721,13 +733,25 @@ class Marshallers {
         public void addDeserializationCode(Context context) {
           TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
           String nestedSetCodec = context.makeName("nestedSetCodec");
-          context.builder.addStatement(
-              "$T<$T> $L = new $T<>($T.CODEC)",
-              NestedSetCodec.class,
-              typeParameter,
-              nestedSetCodec,
-              NestedSetCodec.class,
-              typeParameter);
+
+          TypeMirror typeParameterCodec = getCodec((DeclaredType) typeParameter).get().asType();
+          if (matchesErased(typeParameterCodec, InjectingObjectCodec.class)) {
+            context.builder.addStatement(
+                "$T<$T> $L = new $T<>($T.CODEC, dependency)",
+                NestedSetCodec.class,
+                typeParameter,
+                nestedSetCodec,
+                NestedSetCodec.class,
+                typeParameter);
+          } else {
+            context.builder.addStatement(
+                "$T<$T> $L = new $T<>($T.CODEC)",
+                NestedSetCodec.class,
+                typeParameter,
+                nestedSetCodec,
+                NestedSetCodec.class,
+                typeParameter);
+          }
           context.builder.addStatement(
               "$L = $L.deserialize(codedIn)", context.name, nestedSetCodec);
         }
