@@ -70,7 +70,6 @@ sh_test(
         "//src/test/shell:shell_utils",
     ],
     shard_count = 5,
-    tags = ["jdk8"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -260,7 +259,6 @@ sh_test(
         "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
     ],
     shard_count = 3,
-    tags = ["jdk8"],
 )
 
 sh_test(
@@ -278,7 +276,6 @@ sh_test(
     # TODO(b/34450149): remove when no longer flaky
     flaky = 1,
     shard_count = 3,
-    tags = ["jdk8"],
 )
 
 sh_test(

@@ -61,7 +61,6 @@ genrule(
         # Non RC version number are not matched by the regex, example translations:
         # 0.1.2         0.1.2
         # 0.1.2rc2      0.1.2~rc2
-        # 0.1.2rc2-jdk7 0.1.2~rc2-jdk7
         " | sed -E 's/^([0-9\\.]+)([^0-9\\.].*)$$/\\1~\\2/'" +
         " > $@\n",
 )

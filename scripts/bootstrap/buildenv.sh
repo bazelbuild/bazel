@@ -47,7 +47,6 @@ function fail() {
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
 
-JAVA_VERSION=${JAVA_VERSION:-1.8}
 BAZELRC=${BAZELRC:-"/dev/null"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
@@ -85,8 +84,8 @@ freebsd)
 
 darwin)
   if [[ -z "$JAVA_HOME" ]]; then
-    JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
-      || fail "Could not find JAVA_HOME, please ensure a JDK (version ${JAVA_VERSION}+) is installed."
+    JAVA_HOME="$(/usr/libexec/java_home -v 1.8+ 2> /dev/null)" \
+      || fail "Could not find JAVA_HOME, please ensure a JDK (version 1.8+) is installed."
   fi
   ;;
 
@@ -276,28 +275,3 @@ else
     md5sum $1
   }
 fi
-
-# Gets the java version from JAVA_HOME
-# Sets JAVAC and JAVAC_VERSION with respectively the path to javac and
-# the version of javac.
-function get_java_version() {
-  test -z "$JAVA_HOME" && fail "JDK not found, please set \$JAVA_HOME."
-  JAVAC="${JAVA_HOME}/bin/javac"
-  [[ -x "${JAVAC}" ]] \
-    || fail "JAVA_HOME ($JAVA_HOME) is not a path to a working JDK."
-
-  JAVAC_VERSION=$("${JAVAC}" -version 2>&1)
-  if [[ "$JAVAC_VERSION" =~ javac\ ((1\.)?([789]|[1-9][0-9])).*$ ]]; then
-    JAVAC_VERSION=1.${BASH_REMATCH[3]}
-  else
-    fail \
-      "Cannot determine JDK version, please set \$JAVA_HOME.\n" \
-      "\$JAVAC_VERSION is \"${JAVAC_VERSION}\""
-  fi
-}
-
-# Return the target that a bind point to, using Bazel query.
-function get_bind_target() {
-  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc ${BAZEL_DIR_STARTUP_OPTIONS} \
-    query "deps($1, 1) - $1"
-}

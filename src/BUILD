@@ -43,31 +43,11 @@ filegroup(
     "_notools": [],
 }.items()]
 
-# Try to grab the java version from the java_toolchain.
-# Unfortunately, we don't have access to the javac options
-# so we cannot get it from the command-line options.
-genquery(
-    name = "java_toolchain_content",
-    expression = "kind(java_toolchain, deps(//tools/defaults:java_toolchain))",
-    opts = ["--output=xml"],
-    scope = ["//tools/defaults:java_toolchain"],
-)
-
 genrule(
     name = "java-version",
-    srcs = [":java_toolchain_content"],
     outs = ["java.version"],
-    cmd = """
-          VERSION_LINE=$$(cat $< | grep target_version);
-          JAVA_VERSION=$$(echo $${VERSION_LINE} | sed 's/.*value=\\"\\([^\\"]\\)\\".*/\\1/');
-          if [ -z "$${JAVA_VERSION}" ]; then
-            echo "1.8" >$@  # Java 8 is the default
-          elif [[ "$${JAVA_VERSION}" =~ ^[0-9]+$$ ]]; then
-            echo "1.$${JAVA_VERSION}" >$@  # Add 1. before 7 or 8
-          else
-            echo "$${JAVA_VERSION}" >$@
-          fi
-          """,
+    # Bazel currently requires at least a Java 8 runtime.
+    cmd = "echo '1.8' >$@",
 )
 
 # Create dummy tools so we can do select to prevent building iOS target on
