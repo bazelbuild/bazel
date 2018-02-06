@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Logger;
 
 /**
  * Executes a Blaze command.
@@ -28,13 +27,9 @@ import java.util.logging.Logger;
  * <p>This is the common execution path between the gRPC server and the legacy AF_UNIX server.
  */
 public class CommandExecutor implements ServerCommand {
-  private static final Logger logger = Logger.getLogger(CommandExecutor.class.getName());
-
-  private final BlazeRuntime runtime;
   private final BlazeCommandDispatcher dispatcher;
 
-  CommandExecutor(BlazeRuntime runtime, BlazeCommandDispatcher dispatcher) {
-    this.runtime = runtime;
+  CommandExecutor(BlazeCommandDispatcher dispatcher) {
     this.dispatcher = dispatcher;
   }
 
@@ -48,9 +43,8 @@ public class CommandExecutor implements ServerCommand {
       long firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
       throws InterruptedException {
-    logger.info(BlazeRuntime.getRequestLogString(args));
 
-    BlazeCommandResult result = dispatcher.exec(
+    return dispatcher.exec(
         invocationPolicy,
         args,
         outErr,
@@ -58,10 +52,5 @@ public class CommandExecutor implements ServerCommand {
         clientDescription,
         firstContactTime,
         startupOptionsTaggedWithBazelRc);
-    if (result.shutdown()) {
-      runtime.shutdown();
-      dispatcher.shutdown();
-    }
-    return result;
   }
 }
