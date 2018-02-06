@@ -58,7 +58,8 @@ class HeaderClassLoader extends ClassLoader {
       // Have ASM compute maxs so we don't need to figure out how many formal parameters there are
       ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
       ImmutableList<FieldInfo> interfaceFieldNames = getFieldsIfReaderIsInterface(reader);
-      reader.accept(new CodeStubber(writer, interfaceFieldNames), 0);
+      // TODO(kmb): Consider SKIP_CODE and stubbing everything so class loader doesn't verify code
+      reader.accept(new CodeStubber(writer, interfaceFieldNames), ClassReader.SKIP_DEBUG);
       bytecode = writer.toByteArray();
     } catch (IOException e) {
       throw new IOError(e);
