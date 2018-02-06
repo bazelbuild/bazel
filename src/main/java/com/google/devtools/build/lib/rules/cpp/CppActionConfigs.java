@@ -57,6 +57,14 @@ public class CppActionConfigs {
               + "  }"
               + "}";
     }
+    String originLinkerVariableName = "";
+    if (platform == CppPlatform.MAC) {
+        originLinkerVariableName = "@loader_path";
+    }
+    if (platform == CppPlatform.LINUX) {
+        originLinkerVariableName = "$ORIGIN";
+    }
+
     return Joiner.on("\n")
         .join(
             ImmutableList.of(
@@ -574,7 +582,8 @@ public class CppActionConfigs {
                         "  }",
                         "  flag_group {",
                         "    expand_if_all_available: 'is_not_cc_test_link_action'"),
-                    "        flag: '-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}'",
+                    "        flag: '-Wl,-rpath," + originLinkerVariableName
+                        + "/%{runtime_library_search_directories}'",
                     "      }",
                     "    }",
                     "  }",
