@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -202,7 +203,7 @@ public class ToolchainUtil {
     for (Label toolchainType : requiredToolchains) {
       registeredToolchainKeys.add(
           ToolchainResolutionValue.key(
-              configuration, toolchainType, targetPlatform, executionPlatform));
+              configuration, toolchainType, targetPlatform, ImmutableList.of(executionPlatform)));
     }
 
     Map<
@@ -238,9 +239,17 @@ public class ToolchainUtil {
         if (valueOrException.get() == null) {
           valuesMissing = true;
         } else {
+          ToolchainResolutionValue toolchainResolutionValue =
+              (ToolchainResolutionValue) valueOrException.get();
+
+          // TODO(https://github.com/bazelbuild/bazel/issues/4442): Handle finding the best
+          // execution platform when multiple are available.
           Label toolchainLabel =
-              ((ToolchainResolutionValue) valueOrException.get()).toolchainLabel();
-          builder.put(requiredToolchainType, toolchainLabel);
+              Iterables.getFirst(
+                  toolchainResolutionValue.availableToolchainLabels().values(), null);
+          if (toolchainLabel != null) {
+            builder.put(requiredToolchainType, toolchainLabel);
+          }
         }
       } catch (NoToolchainFoundException e) {
         // Save the missing type and continue looping to check for more.

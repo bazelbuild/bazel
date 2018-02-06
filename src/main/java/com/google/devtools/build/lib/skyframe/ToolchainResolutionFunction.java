@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -34,6 +36,9 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** {@link SkyFunction} which performs toolchain resolution for a class of rules. */
@@ -69,28 +74,38 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     // Find the right one.
     boolean debug = configuration.getOptions().get(PlatformOptions.class).toolchainResolutionDebug;
-    DeclaredToolchainInfo toolchain =
+    ImmutableMap<PlatformInfo, Label> resolvedToolchainLabels =
         resolveConstraints(
             key.toolchainType(),
-            key.execPlatform(),
+            key.availableExecutionPlatforms(),
             key.targetPlatform(),
             toolchains.registeredToolchains(),
             debug ? env.getListener() : null);
 
-    if (toolchain == null) {
+    if (resolvedToolchainLabels.isEmpty()) {
       throw new ToolchainResolutionFunctionException(
           new NoToolchainFoundException(key.toolchainType()));
     }
-    return ToolchainResolutionValue.create(toolchain.toolchainLabel());
+
+    return ToolchainResolutionValue.create(resolvedToolchainLabels);
   }
 
-  @VisibleForTesting
-  static DeclaredToolchainInfo resolveConstraints(
+  /**
+   * Given the available execution platforms and toolchains, find the set of platform, toolchain
+   * pairs that are compatible a) with each other, and b) with the toolchain type and target
+   * platform.
+   */
+  private static ImmutableMap<PlatformInfo, Label> resolveConstraints(
       Label toolchainType,
-      PlatformInfo execPlatform,
+      List<PlatformInfo> availableExecutionPlatforms,
       PlatformInfo targetPlatform,
       ImmutableList<DeclaredToolchainInfo> toolchains,
       @Nullable EventHandler eventHandler) {
+
+    // Platforms may exist multiple times in availableExecutionPlatforms. The Set lets this code
+    // check whether a platform has already been seen during processing.
+    Set<PlatformInfo> platformsSeen = new HashSet<>();
+    ImmutableMap.Builder<PlatformInfo, Label> builder = ImmutableMap.builder();
 
     debugMessage(eventHandler, "Looking for toolchain of type %s...", toolchainType);
     for (DeclaredToolchainInfo toolchain : toolchains) {
@@ -99,13 +114,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
         continue;
       }
       debugMessage(eventHandler, "  Considering toolchain %s...", toolchain.toolchainLabel());
-      if (!checkConstraints(eventHandler, toolchain.execConstraints(), "execution", execPlatform)) {
-        debugMessage(
-            eventHandler,
-            "  Rejected toolchain %s, because of execution platform mismatch",
-            toolchain.toolchainLabel());
-        continue;
-      }
+
+      // Make sure the target platform matches.
       if (!checkConstraints(
           eventHandler, toolchain.targetConstraints(), "target", targetPlatform)) {
         debugMessage(
@@ -115,12 +125,36 @@ public class ToolchainResolutionFunction implements SkyFunction {
         continue;
       }
 
-      debugMessage(eventHandler, "  Selected toolchain %s", toolchain.toolchainLabel());
-      return toolchain;
+      // Find the matching execution platforms.
+      for (PlatformInfo executionPlatform : availableExecutionPlatforms) {
+        if (!checkConstraints(
+            eventHandler, toolchain.execConstraints(), "execution", executionPlatform)) {
+          continue;
+        }
+
+        // Only add the toolchains if this is a new platform.
+        if (!platformsSeen.contains(executionPlatform)) {
+          builder.put(executionPlatform, toolchain.toolchainLabel());
+          platformsSeen.add(executionPlatform);
+        }
+      }
     }
 
-    debugMessage(eventHandler, "  No toolchain found");
-    return null;
+    ImmutableMap<PlatformInfo, Label> resolvedToolchainLabels = builder.build();
+    if (resolvedToolchainLabels.isEmpty()) {
+      debugMessage(eventHandler, "  No toolchains found");
+    } else {
+      debugMessage(
+          eventHandler,
+          "  Selected execution platforms and toolchains: {%s}",
+          resolvedToolchainLabels
+              .entrySet()
+              .stream()
+              .map(e -> String.format("%s -> %s", e.getKey().label(), e.getValue()))
+              .collect(joining(", ")));
+    }
+
+    return resolvedToolchainLabels;
   }
 
   /**
