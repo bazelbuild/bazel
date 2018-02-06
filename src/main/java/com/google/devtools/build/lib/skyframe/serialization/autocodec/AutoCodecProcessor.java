@@ -263,9 +263,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     MethodSpec.Builder serializeBuilder =
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, parameters.dependency);
     for (VariableElement parameter : parameters.fields) {
-      VariableElement field =
-          getFieldByName(encodedType, parameter.getSimpleName().toString()).value;
-      TypeKind typeKind = field.asType().getKind();
+      TypeKind typeKind = parameter.asType().getKind();
       switch (typeKind) {
         case BOOLEAN:
           serializeBuilder.addStatement(
@@ -284,9 +282,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
         case DECLARED:
           serializeBuilder.addStatement(
               "$T unsafe_$L = ($T) $T.getInstance().getObject(input, $L_offset)",
-              field.asType(),
+              parameter.asType(),
               parameter.getSimpleName(),
-              field.asType(),
+              parameter.asType(),
               UnsafeProvider.class,
               parameter.getSimpleName());
           marshallers.writeSerializationCode(
@@ -501,13 +499,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
     for (VariableElement param : parameters) {
       FieldValueAndClass field = getFieldByName(encodedType, param.getSimpleName().toString());
-      if (!env.getTypeUtils().isSameType(field.value.asType(), param.asType())) {
-        throw new IllegalArgumentException(
-            encodedType.getQualifiedName()
-                + " field "
-                + field.value.getSimpleName()
-                + " has mismatching type.");
-      }
       builder.addField(
           TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
       constructor.beginControlFlow("try");
