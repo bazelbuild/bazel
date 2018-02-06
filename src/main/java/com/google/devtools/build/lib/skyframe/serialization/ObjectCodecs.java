@@ -166,7 +166,7 @@ public class ObjectCodecs {
     } else if (allowDefaultCodec) {
       return DEFAULT_CODEC;
     } else {
-      throw new SerializationException(
+      throw new SerializationException.NoCodecException(
           "No codec available for " + classifier.toStringUtf8() + " and default fallback disabled");
     }
   }
