@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -285,6 +286,33 @@ class Marshallers {
           writeDeserializationCode(context.with(optionalType, optionalName));
           context.builder.addStatement(
               "$L = $T.fromNullable($L)", context.name, Optional.class, optionalName);
+        }
+      };
+
+  private final Marshaller supplierMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesErased(type, Supplier.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          DeclaredType suppliedType =
+              (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
+          writeSerializationCode(context.with(suppliedType, context.name + ".get()"));
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          DeclaredType suppliedType =
+              (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
+          String suppliedName = context.makeName("supplied");
+          writeDeserializationCode(context.with(suppliedType, suppliedName));
+          String suppliedFinalName = context.makeName("suppliedFinal");
+          context.builder.addStatement(
+              "final $T $L = $L", suppliedType, suppliedFinalName, suppliedName);
+          context.builder.addStatement("$L = () -> $L", context.name, suppliedFinalName);
         }
       };
 
@@ -893,6 +921,7 @@ class Marshallers {
           enumMarshaller,
           stringMarshaller,
           optionalMarshaller,
+          supplierMarshaller,
           mapEntryMarshaller,
           listMarshaller,
           immutableSetMarshaller,
