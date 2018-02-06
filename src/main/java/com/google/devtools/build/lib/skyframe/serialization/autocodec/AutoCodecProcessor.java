@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.PolymorphicHelper;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
@@ -506,7 +507,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
           "this.$L_offset = $T.getInstance().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
           param.getSimpleName(),
           UnsafeProvider.class,
-          field.declaringClassType,
+          ClassName.get(field.declaringClassType),
           param.getSimpleName());
       constructor.nextControlFlow("catch ($T e)", NoSuchFieldException.class);
       constructor.addStatement("throw new $T(e)", IllegalStateException.class);
@@ -550,8 +551,11 @@ public class AutoCodecProcessor extends AbstractProcessor {
       return Optional.of(new FieldValueAndClass(field.get(), type));
     }
     if (type.getSuperclass().getKind() != TypeKind.NONE) {
+      // Applies the erased superclass type so that it can be used in `T.class`.
       return getFieldByNameRecursive(
-          env.getElementUtils().getTypeElement(type.getSuperclass().toString()), name);
+          (TypeElement)
+              env.getTypeUtils().asElement(env.getTypeUtils().erasure(type.getSuperclass())),
+          name);
     }
     return Optional.empty();
   }
