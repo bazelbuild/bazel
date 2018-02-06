@@ -41,7 +41,6 @@ function join_paths() {
 
 test_label="%test_label%"
 test_entry_point="%test_entry_point%"
-log_levels="%log_levels%"
 WORKSPACE_DIR="${TEST_SRCDIR}/%workspace%"
 adb="${WORKSPACE_DIR}/%adb%"
 aapt="${WORKSPACE_DIR}/%aapt%"

@@ -56,7 +56,6 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
                 .allowedRuleClasses(
                     "android_device_script_fixture", "android_host_service_fixture"))
         .add(attr("fixture_args", STRING_DICT))
-        .add(attr("log_levels", STRING_DICT))
         .add(
             attr("$test_entry_point", LABEL)
                 .exec()
