@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -351,6 +354,8 @@ public final class Environment implements Freezable {
 
     /**
      * Cached hash code for the transitive content of this {@code Extension} and its dependencies.
+     *
+     * <p>Note that "content" refers to the AST content, not the evaluated bindings.
      */
     private final String transitiveContentHashCode;
 
@@ -387,6 +392,61 @@ public final class Environment implements Freezable {
       Extension other = (Extension) obj;
       return transitiveContentHashCode.equals(other.getTransitiveContentHashCode())
           && bindings.equals(other.getBindings());
+    }
+
+    /**
+     * Throws {@link IllegalStateException} if this {@link Extension} is not equal to {@code obj}.
+     *
+     * <p>The exception explains the reason for the inequality, including all unequal bindings.
+     */
+    public void checkStateEquals(Object obj) {
+      if (this == obj) {
+        return;
+      }
+      if (!(obj instanceof Extension)) {
+        throw new IllegalStateException(String.format(
+            "Expected an equal Extension, but got a %s instead of an Extension",
+            obj == null ? "null" : obj.getClass().getName()));
+      }
+      Extension other = (Extension) obj;
+      ImmutableMap<String, Object> otherBindings = other.getBindings();
+
+      Set<String> names = bindings.keySet();
+      Set<String> otherNames = otherBindings.keySet();
+      if (!names.equals(otherNames)) {
+        throw new IllegalStateException(String.format(
+            "Expected Extensions to be equal, but they don't define the same bindings: "
+                + "in this one but not given one: [%s]; in given one but not this one: [%s]",
+            Joiner.on(", ").join(Sets.difference(names, otherNames)),
+            Joiner.on(", ").join(Sets.difference(otherNames, names))));
+      }
+
+      ArrayList<String> badEntries = new ArrayList<>();
+      for (String name : names) {
+        Object value = bindings.get(name);
+        Object otherValue = otherBindings.get(name);
+        if (!value.equals(otherValue)) {
+          badEntries.add(String.format(
+              "%s: this one has %s (class %s), but given one has %s (class %s)",
+              name,
+              Printer.repr(value),
+              value.getClass().getName(),
+              Printer.repr(otherValue),
+              otherValue.getClass().getName()));
+        }
+      }
+      if (!badEntries.isEmpty()) {
+        throw new IllegalStateException(
+            "Expected Extensions to be equal, but the following bindings are unequal: "
+                + Joiner.on("; ").join(badEntries));
+      }
+
+      if (!transitiveContentHashCode.equals(other.getTransitiveContentHashCode())) {
+        throw new IllegalStateException(String.format(
+            "Expected Extensions to be equal, but transitive content hashes don't match: %s != %s",
+            transitiveContentHashCode,
+            other.getTransitiveContentHashCode()));
+      }
     }
 
     @Override

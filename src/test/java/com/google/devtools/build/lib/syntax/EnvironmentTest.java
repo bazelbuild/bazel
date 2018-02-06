@@ -18,7 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -269,5 +271,56 @@ public class EnvironmentTest extends EvaluationTestCase {
               "Variable 'global_var' is referenced before assignment. "
                   + "The variable is defined in the global scope.");
     }
+  }
+
+  @Test
+  public void testExtensionEqualityDebugging_RhsIsNull() {
+    assertCheckStateFailsWithMessage(
+        new Extension(ImmutableMap.of(), "abc"),
+        null,
+        "got a null");
+  }
+
+  @Test
+  public void testExtensionEqualityDebugging_RhsHasBadType() {
+    assertCheckStateFailsWithMessage(
+        new Extension(ImmutableMap.of(), "abc"),
+        5,
+        "got a java.lang.Integer");
+  }
+
+  @Test
+  public void testExtensionEqualityDebugging_DifferentBindings() {
+    assertCheckStateFailsWithMessage(
+        new Extension(ImmutableMap.of("w", 1, "x", 2, "y", 3), "abc"),
+        new Extension(ImmutableMap.of("y", 3, "z", 4), "abc"),
+        "in this one but not given one: [w, x]; in given one but not this one: [z]");
+  }
+
+  @Test
+  public void testExtensionEqualityDebugging_DifferentValues() {
+    assertCheckStateFailsWithMessage(
+        new Extension(ImmutableMap.of("x", 1, "y", "foo", "z", true), "abc"),
+        new Extension(ImmutableMap.of("x", 2.0, "y", "foo", "z", false), "abc"),
+        "bindings are unequal: x: this one has 1 (class java.lang.Integer), but given one has 2.0 "
+            + "(class java.lang.Double); z: this one has True (class java.lang.Boolean), but given "
+            + "one has False (class java.lang.Boolean)");
+  }
+
+  @Test
+  public void testExtensionEqualityDebugging_DifferentHashes() {
+    assertCheckStateFailsWithMessage(
+        new Extension(ImmutableMap.of(), "abc"),
+        new Extension(ImmutableMap.of(), "xyz"),
+        "transitive content hashes don't match: abc != xyz");
+  }
+
+  private static void assertCheckStateFailsWithMessage(
+      Extension left, Object right, String substring) {
+    IllegalStateException expected =
+        expectThrows(
+            IllegalStateException.class,
+            () -> left.checkStateEquals(right));
+    assertThat(expected).hasMessageThat().contains(substring);
   }
 }
