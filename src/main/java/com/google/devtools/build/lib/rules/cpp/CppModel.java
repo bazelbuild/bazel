@@ -186,7 +186,6 @@ public final class CppModel {
   private final Predicate<String> coptsFilter;
   private boolean fake;
   private boolean maySaveTemps;
-  private boolean onlySingleOutput;
   private CcCompilationOutputs compilationOutputs;
 
   // link model
@@ -273,17 +272,6 @@ public final class CppModel {
    */
   public CppModel setFake(boolean fake) {
     this.fake = fake;
-    return this;
-  }
-
-  /**
-   * If set, the CppModel only creates a single .o output that can be linked into a dynamic library,
-   * i.e., it never generates both PIC and non-PIC outputs. Otherwise it creates outputs that can be
-   * linked into both static binaries and dynamic libraries (if both require PIC or both require
-   * non-PIC, then it still only creates a single output). Defaults to false.
-   */
-  public CppModel setOnlySingleOutput(boolean onlySingleOutput) {
-    this.onlySingleOutput = onlySingleOutput;
     return this;
   }
 
@@ -479,7 +467,7 @@ public final class CppModel {
 
     // Either you're only making a dynamic library (onlySingleOutput) or pic should be used
     // in all cases.
-    if (onlySingleOutput || usePicForBinaries) {
+    if (usePicForBinaries) {
       if (picFeatureEnabled) {
         return false;
       }
