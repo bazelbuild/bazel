@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
@@ -208,14 +207,11 @@ public class CrosstoolConfigurationLoader {
       throws IOException, InvalidConfigurationException, InterruptedException {
     final Path path;
     try {
-      Package containingPackage = env.getTarget(crosstoolTop.getLocalTargetLabel("BUILD"))
-          .getPackage();
+      Package containingPackage = env.getTarget(crosstoolTop).getPackage();
       if (containingPackage == null) {
         return null;
       }
       path = env.getPath(containingPackage, CROSSTOOL_CONFIGURATION_FILENAME);
-    } catch (LabelSyntaxException e) {
-      throw new InvalidConfigurationException(e);
     } catch (NoSuchThingException e) {
       // Handled later
       return null;
