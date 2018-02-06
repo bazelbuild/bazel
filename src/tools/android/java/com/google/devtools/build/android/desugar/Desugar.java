@@ -248,6 +248,28 @@ class Desugar {
     )
     public boolean coreLibrary;
 
+    /** Type prefixes that we'll move to a custom package. */
+    @Option(
+      name = "rewrite_core_library_prefix",
+      defaultValue = "", // ignored
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Assume the given java.* prefixes are desugared."
+    )
+    public List<String> rewriteCoreLibraryPrefixes;
+
+    /** Interfaces whose default and static interface methods we'll emulate. */
+    @Option(
+      name = "emulate_core_library_interface",
+      defaultValue = "", // ignored
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Assume the given java.* interfaces are emulated."
+    )
+    public List<String> emulateCoreLibraryInterfaces;
+
     /** Set to work around b/62623509 with JaCoCo versions prior to 0.7.9. */
     // TODO(kmb): Remove when Android Studio doesn't need it anymore (see b/37116789)
     @Option(
@@ -265,7 +287,7 @@ class Desugar {
   private final DesugarOptions options;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
-  private final GeneratedClassStore store;
+  private final GeneratedClassStore store = new GeneratedClassStore();
   private final Set<String> visitedExceptionTypes = new HashSet<>();
   /** The counter to record the times of try-with-resources desugaring is invoked. */
   private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();
@@ -282,7 +304,6 @@ class Desugar {
     this.options = options;
     this.rewriter = new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
     this.lambdas = new LambdaClassMaker(dumpDirectory);
-    this.store = new GeneratedClassStore();
     this.outputJava7 = options.minSdkVersion < 24;
     this.allowDefaultMethods =
         options.desugarInterfaceMethodBodiesIfNeeded || options.minSdkVersion >= 24;
@@ -358,6 +379,16 @@ class Desugar {
 
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector = ImmutableSet.builder();
       ClassVsInterface interfaceCache = new ClassVsInterface(classpathReader);
+      CoreLibrarySupport coreLibrarySupport =
+          options.rewriteCoreLibraryPrefixes.isEmpty()
+                  && options.emulateCoreLibraryInterfaces.isEmpty()
+              ? null
+              : new CoreLibrarySupport(
+                  rewriter,
+                  loader,
+                  ImmutableList.copyOf(options.rewriteCoreLibraryPrefixes),
+                  ImmutableList.copyOf(options.emulateCoreLibraryInterfaces));
+
       desugarClassesInInput(
           inputFiles,
           outputFileProvider,
@@ -365,6 +396,7 @@ class Desugar {
           classpathReader,
           depsCollector,
           bootclasspathReader,
+          coreLibrarySupport,
           interfaceCache,
           interfaceLambdaMethodCollector);
 
@@ -374,11 +406,12 @@ class Desugar {
           classpathReader,
           depsCollector,
           bootclasspathReader,
+          coreLibrarySupport,
           interfaceCache,
           interfaceLambdaMethodCollector.build(),
           bridgeMethodReader);
 
-      desugarAndWriteGeneratedClasses(outputFileProvider, bootclasspathReader);
+      desugarAndWriteGeneratedClasses(outputFileProvider, bootclasspathReader, coreLibrarySupport);
       copyThrowableExtensionClass(outputFileProvider);
 
       byte[] depsInfo = depsCollector.toByteArray();
@@ -445,6 +478,7 @@ class Desugar {
       @Nullable ClassReaderFactory classpathReader,
       DependencyCollector depsCollector,
       ClassReaderFactory bootclasspathReader,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassVsInterface interfaceCache,
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector)
       throws IOException {
@@ -466,6 +500,7 @@ class Desugar {
                   classpathReader,
                   depsCollector,
                   bootclasspathReader,
+                  coreLibrarySupport,
                   interfaceCache,
                   interfaceLambdaMethodCollector,
                   writer,
@@ -494,6 +529,7 @@ class Desugar {
       @Nullable ClassReaderFactory classpathReader,
       DependencyCollector depsCollector,
       ClassReaderFactory bootclasspathReader,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassVsInterface interfaceCache,
       ImmutableSet<String> interfaceLambdaMethods,
       @Nullable ClassReaderFactory bridgeMethodReader)
@@ -525,6 +561,7 @@ class Desugar {
                 classpathReader,
                 depsCollector,
                 bootclasspathReader,
+                coreLibrarySupport,
                 interfaceCache,
                 interfaceLambdaMethods,
                 bridgeMethodReader,
@@ -540,7 +577,9 @@ class Desugar {
   }
 
   private void desugarAndWriteGeneratedClasses(
-      OutputFileProvider outputFileProvider, ClassReaderFactory bootclasspathReader)
+      OutputFileProvider outputFileProvider,
+      ClassReaderFactory bootclasspathReader,
+      @Nullable CoreLibrarySupport coreLibrarySupport)
       throws IOException {
     // Write out any classes we generated along the way
     ImmutableMap<String, ClassNode> generatedClasses = store.drain();
@@ -552,8 +591,13 @@ class Desugar {
       UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
       // checkState above implies that we want Java 7 .class files, so send through that visitor.
       // Don't need a ClassReaderFactory b/c static interface methods should've been moved.
-      ClassVisitor visitor =
-          new Java7Compatibility(writer, (ClassReaderFactory) null, bootclasspathReader);
+      ClassVisitor visitor = writer;
+      if (coreLibrarySupport != null) {
+        visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
+        visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+      }
+
+      visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
       generated.getValue().accept(visitor);
       String filename = rewriter.unprefix(generated.getKey()) + ".class";
       outputFileProvider.write(filename, writer.toByteArray());
@@ -569,6 +613,7 @@ class Desugar {
       @Nullable ClassReaderFactory classpathReader,
       DependencyCollector depsCollector,
       ClassReaderFactory bootclasspathReader,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassVsInterface interfaceCache,
       ImmutableSet<String> interfaceLambdaMethods,
       @Nullable ClassReaderFactory bridgeMethodReader,
@@ -576,6 +621,12 @@ class Desugar {
       UnprefixingClassWriter writer,
       ClassReader input) {
     ClassVisitor visitor = checkNotNull(writer);
+
+    if (coreLibrarySupport != null) {
+      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
+      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+    }
+
     if (!allowTryWithResources) {
       CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
       input.accept(closeResourceMethodScanner, ClassReader.SKIP_DEBUG);
@@ -612,6 +663,7 @@ class Desugar {
                 options.legacyJacocoFix);
       }
     }
+
     visitor =
         new LambdaClassFixer(
             visitor,
@@ -639,11 +691,18 @@ class Desugar {
       @Nullable ClassReaderFactory classpathReader,
       DependencyCollector depsCollector,
       ClassReaderFactory bootclasspathReader,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassVsInterface interfaceCache,
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector,
       UnprefixingClassWriter writer,
       ClassReader input) {
     ClassVisitor visitor = checkNotNull(writer);
+
+    if (coreLibrarySupport != null) {
+      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
+      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+    }
+
     if (!allowTryWithResources) {
       CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
       input.accept(closeResourceMethodScanner, ClassReader.SKIP_DEBUG);
@@ -678,6 +737,7 @@ class Desugar {
                   options.legacyJacocoFix);
         }
       }
+
       // LambdaDesugaring is relatively expensive, so check first whether we need it.  Additionally,
       // we need to collect lambda methods referenced by invokedynamic instructions up-front anyway.
       // TODO(kmb): Scan constant pool instead of visiting the class to find bootstrap methods etc.

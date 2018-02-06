@@ -265,8 +265,7 @@ class InterfaceDesugaring extends ClassVisitor {
     return "<clinit>".equals(methodName);
   }
 
-  private static String normalizeInterfaceMethodName(
-      String name, boolean isLambda, boolean isStatic) {
+  static String normalizeInterfaceMethodName(String name, boolean isLambda, boolean isStatic) {
     if (isLambda) {
       // Rename lambda method to reflect the new owner.  Not doing so confuses LambdaDesugaring
       // if it's run over this class again. LambdaDesugaring has already renamed the method from

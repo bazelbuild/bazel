@@ -85,6 +85,10 @@ class CoreLibraryRewriter {
     return false;
   }
 
+  public String getPrefix() {
+    return prefix;
+  }
+
   /** Removes prefix from class names */
   public String unprefix(String typeName) {
     if (prefix.isEmpty() || !typeName.startsWith(prefix)) {
@@ -159,7 +163,7 @@ class CoreLibraryRewriter {
       if (!prefix.isEmpty()) {
         this.cv =
             new ClassRemapper(
-                this.cv,
+                this.writer,
                 new Remapper() {
                   @Override
                   public String map(String typeName) {
