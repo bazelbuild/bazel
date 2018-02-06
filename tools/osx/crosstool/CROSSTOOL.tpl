@@ -203,6 +203,29 @@ toolchain {
     }
   }
   feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
+    }
+  }
+  feature {
     name: "contains_objc_source"
     flag_set {
       action: "c++-link-interface-dynamic-library"
@@ -1803,6 +1826,29 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
     }
   }
   feature {
@@ -3425,6 +3471,29 @@ toolchain {
     }
   }
   feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
+    }
+  }
+  feature {
     name: "contains_objc_source"
     flag_set {
       action: "c++-link-interface-dynamic-library"
@@ -5044,6 +5113,29 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
     }
   }
   feature {
@@ -6696,6 +6788,29 @@ toolchain {
     }
   }
   feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
+    }
+  }
+  feature {
     name: "contains_objc_source"
     flag_set {
       action: "c++-link-interface-dynamic-library"
@@ -8315,6 +8430,29 @@ toolchain {
     }
   }
   feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
+    }
+  }
+  feature {
     name: "contains_objc_source"
     flag_set {
       action: "c++-link-interface-dynamic-library"
@@ -9919,6 +10057,29 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
     }
   }
   feature {
@@ -11529,6 +11690,29 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
     }
   }
   feature {
@@ -13169,6 +13353,29 @@ toolchain {
     }
   }
   feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
+    }
+  }
+  feature {
     name: "contains_objc_source"
     flag_set {
       action: "c++-link-interface-dynamic-library"
@@ -14776,6 +14983,29 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
+      }
     }
   }
   feature {
