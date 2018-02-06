@@ -1,0 +1,9 @@
+Missing com.google.devtools.build.importdeps.testdata.LibraryInterface
+Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
+Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client
+    missing ancestor: com.google.devtools.build.importdeps.testdata.LibraryInterface
+    resolution failure path: com.google.devtools.build.importdeps.testdata.LibraryInterface
+===Total===
+missing=2
+incomplete=1
+missing_members=0
