@@ -1641,16 +1641,23 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // Only transitive resources need to be ignored when filtered,, and there aren't any here.
     assertThat(resourceArguments(directResources)).doesNotContain("--prefilteredResources");
 
-    // Validate resource filters are not passed to execution, since they were applied in analysis
+    // Validate resource filters are passed to execution
     List<String> args = resourceArguments(directResources);
-    assertThat(args)
-        .doesNotContain(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME);
-    assertThat(args).doesNotContain(ResourceFilterFactory.DENSITIES_NAME);
+
+    // Remove whitespace and quotes from the resourceConfigurationFilters attribute value to get the
+    // value we expect to pass to the resource processing action
+    String fixedResourceConfigFilters = resourceConfigurationFilters.replaceAll("[ ']", "");
+    if (resourceConfigurationFilters.isEmpty()) {
+      assertThat(args).containsNoneOf("--resourceConfigs", fixedResourceConfigFilters);
+    } else {
+      assertThat(args).containsAllOf("--resourceConfigs", fixedResourceConfigFilters).inOrder();
+    }
+
     if (densities.isEmpty()) {
-      assertThat(args).doesNotContain("--densitiesForManifest");
+      assertThat(args).containsNoneOf("--densities", densities);
     } else {
       // We still expect densities only for the purposes of adding information to manifests
-      assertThat(args).containsAllOf("--densitiesForManifest", densities);
+      assertThat(args).containsAllOf("--densities", densities).inOrder();
     }
   }
 

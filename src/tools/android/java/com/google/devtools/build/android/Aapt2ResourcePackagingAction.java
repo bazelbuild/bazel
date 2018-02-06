@@ -87,15 +87,10 @@ public class Aapt2ResourcePackagingAction {
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
 
-      final List<String> densities;
-      if (options.densities.isEmpty()) {
-        // aapt2 always needs to filter on densities, as the resource filtering from analysis is
-        // disregarded.
-        // TODO(b/70335064): Remove this once we never filter in analysis when building for aapt2.
-        densities = options.densitiesForManifest;
-      } else {
-        densities = options.densities;
-      }
+
+      // TODO(b/72995408): Remove the densitiesForManifest option once it is no longer being passed.
+      final List<String> densities =
+          options.densities.isEmpty() ? options.densitiesForManifest : options.densities;
 
       profiler.recordEndOf("setup").startTask("merging");
 

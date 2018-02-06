@@ -262,6 +262,7 @@ public class AndroidResourceProcessingAction {
       converter = CommaSeparatedOptionListConverter.class,
       category = "config",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      deprecationWarning = "use '--densities' instead.",
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Densities to specify in the manifest. If 'densities' is specified, that value will be"
@@ -411,18 +412,18 @@ public class AndroidResourceProcessingAction {
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      final List<String> densitiesForManifest =
-          options.densities.isEmpty() ? options.densitiesForManifest : options.densities;
 
-      // TODO(b/71576526): Stop applying density filtering in execution when resources are filtered
-      // in analysis once density filtering in analysis actually covers all cases.
-      final List<String> densitiesToFilter = densitiesForManifest;
+      // TODO(b/72995408): Remove the densitiesForManifest option once it is no longer being passed.
+      final List<String> densities =
+          options.densities.isEmpty() ? options.densitiesForManifest : options.densities;
 
       final DensityFilteredAndroidData filteredData =
           mergedData.filter(
+              // Even if filtering was done in analysis, we still need to filter by density again
+              // in execution since Fileset contents are not available in analysis.
               new DensitySpecificResourceFilter(
-                  densitiesToFilter, filteredResources, mergedResources),
-              new DensitySpecificManifestProcessor(densitiesForManifest, densityManifest));
+                  densities, filteredResources, mergedResources),
+              new DensitySpecificManifestProcessor(densities, densityManifest));
 
       logger.fine(
           String.format(

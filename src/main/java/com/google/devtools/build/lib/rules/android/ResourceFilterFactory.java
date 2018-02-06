@@ -89,7 +89,9 @@ public class ResourceFilterFactory {
     /**
      * Resources will be filtered in analysis. In android_binary targets, all resources will be
      * filtered by this class, and only resources that are accepted will be passed to resource
-     * processing actions.
+     * processing actions. Resources may be filtered again in execution to handle some edge cases,
+     * including resources contained in Filesets, Pseudolocalized resource generation, and stricter
+     * filtering implementations within aapt.
      */
     FILTER_IN_ANALYSIS,
 

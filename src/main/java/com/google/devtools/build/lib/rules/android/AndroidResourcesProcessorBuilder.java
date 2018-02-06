@@ -313,10 +313,6 @@ public class AndroidResourcesProcessorBuilder {
       builder.add("--conditionalKeepRules");
     }
 
-    if (resourceFilterFactory.hasDensities()) {
-      builder.add("--densities", resourceFilterFactory.getDensityString());
-    }
-
     configureCommonFlags(outs, inputs, builder);
 
     ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
@@ -382,15 +378,6 @@ public class AndroidResourcesProcessorBuilder {
     builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
     configureCommonFlags(outs, inputs, builder);
 
-    if (resourceFilterFactory.hasDensities()) {
-      // If we did not filter by density in analysis, filter in execution. Otherwise, don't filter
-      // in execution, but still pass the densities so they can be added to the manifest.
-      if (resourceFilterFactory.isPrefiltering()) {
-        builder.add("--densitiesForManifest", resourceFilterFactory.getDensityString());
-      } else {
-        builder.add("--densities", resourceFilterFactory.getDensityString());
-      }
-    }
     ImmutableList<String> filteredResources =
         resourceFilterFactory.getResourcesToIgnoreInExecution();
     if (!filteredResources.isEmpty()) {
@@ -494,10 +481,17 @@ public class AndroidResourcesProcessorBuilder {
       builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
+
+    // Always pass density and resource configuration filter strings to execution, even when
+    // filtering in analysis. Filtering in analysis cannot remove resources from Filesets, and, in
+    // addition, aapt needs access to resource filters to generate pseudolocalized resources and
+    // because its resource filtering is somewhat stricter for locales, and
+    // resource processing needs access to densities to add them to the manifest.
     if (resourceFilterFactory.hasConfigurationFilters()) {
-      // Always pass filters to aapt, even if we filtered in analysis, since aapt is stricter and
-      // might remove resources that we previously accepted.
       builder.add("--resourceConfigs", resourceFilterFactory.getConfigurationFilterString());
+    }
+    if (resourceFilterFactory.hasDensities()) {
+      builder.add("--densities", resourceFilterFactory.getDensityString());
     }
     if (!uncompressedExtensions.isEmpty()) {
       builder.addAll("--uncompressedExtensions", VectorArg.join(",").each(uncompressedExtensions));
