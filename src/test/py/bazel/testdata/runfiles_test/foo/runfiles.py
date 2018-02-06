@@ -14,8 +14,44 @@
 """Mock Python binary, only used in tests."""
 
 from __future__ import print_function
+
+import os
+import subprocess
+
 from bazel_tools.tools.runfiles import runfiles
 
-print('Hello Foo!')
-r = runfiles.Create()
-print('rloc=%s' % r.Rlocation('foo_ws/foo/datadep/hello.txt'))
+
+def IsWindows():
+  return os.name == "nt"
+
+
+def ChildBinaryName(lang):
+  if IsWindows():
+    return "foo_ws/bar/bar-%s.exe" % lang
+  else:
+    return "foo_ws/bar/bar-%s" % lang
+
+
+def main():
+  print("Hello Python Foo!")
+  r = runfiles.Create()
+  print("rloc=%s" % r.Rlocation("foo_ws/foo/datadep/hello.txt"))
+
+  # Run a subprocess, propagate the runfiles envvar to it. The subprocess will
+  # use this process's runfiles manifest or runfiles directory.
+  if IsWindows():
+    env = {"SYSTEMROOT": os.environ["SYSTEMROOT"]}
+  else:
+    env = {}
+  env.update(r.EnvVar())
+  p = subprocess.Popen(
+      [r.Rlocation(ChildBinaryName("py"))],
+      env=env,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE)
+  for e in p.communicate():
+    print(e)
+
+
+if __name__ == "__main__":
+  main()

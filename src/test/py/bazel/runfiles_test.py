@@ -86,6 +86,9 @@ class RunfilesTest(test_base.TestBase):
         ("foo/BUILD.mock", "foo/BUILD"),
         ("foo/runfiles.py", "foo/runfiles.py"),
         ("foo/datadep/hello.txt", "foo/datadep/hello.txt"),
+        ("bar/BUILD.mock", "bar/BUILD"),
+        ("bar/bar.py", "bar/bar.py"),
+        ("bar/bar-py-data.txt", "bar/bar-py-data.txt"),
     ]:
       self.CopyFile(
           self.Rlocation(
@@ -107,15 +110,24 @@ class RunfilesTest(test_base.TestBase):
 
     exit_code, stdout, stderr = self.RunProgram([bin_path])
     self.AssertExitCode(exit_code, 0, stderr)
-    if len(stdout) != 2:
+    if len(stdout) < 4:
       self.fail("stdout: %s" % stdout)
-    self.assertEqual(stdout[0], "Hello Foo!")
+    self.assertEqual(stdout[0], "Hello Python Foo!")
     six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
+    self.assertEqual(stdout[2], "Hello Python Bar!")
+    six.assertRegex(self, stdout[3], "^rloc=.*/bar/bar-py-data.txt")
+
     with open(stdout[1].split("=", 1)[1], "r") as f:
       lines = [l.strip() for l in f.readlines()]
     if len(lines) != 1:
       self.fail("lines: %s" % lines)
     self.assertEqual(lines[0], "world")
+
+    with open(stdout[3].split("=", 1)[1], "r") as f:
+      lines = [l.strip() for l in f.readlines()]
+    if len(lines) != 1:
+      self.fail("lines: %s" % lines)
+    self.assertEqual(lines[0], "data for bar.py")
 
 
 if __name__ == "__main__":

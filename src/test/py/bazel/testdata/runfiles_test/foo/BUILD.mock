@@ -1,7 +1,10 @@
 py_binary(
     name = "runfiles-py",
     srcs = ["runfiles.py"],
-    data = ["datadep/hello.txt"],
+    data = [
+        "datadep/hello.txt",
+        "//bar:bar-py",
+    ],
     main = "runfiles.py",
     deps = ["@bazel_tools//tools/runfiles:py-runfiles"],
 )

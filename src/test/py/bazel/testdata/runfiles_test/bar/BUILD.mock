@@ -1,0 +1,9 @@
+package(default_visibility = ["//visibility:public"])
+
+py_binary(
+    name = "bar-py",
+    srcs = ["bar.py"],
+    main = "bar.py",
+    deps = ["@bazel_tools//tools/runfiles:py-runfiles"],
+    data = ["bar-py-data.txt"],
+)
