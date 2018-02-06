@@ -851,7 +851,6 @@ public final class BlazeRuntime {
       Runnable prepareForAbruptShutdown = () -> rpcServer[0].prepareForAbruptShutdown();
       BlazeRuntime runtime = newRuntime(modules, Arrays.asList(args), prepareForAbruptShutdown);
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
-      CommandExecutor commandExecutor = new CommandExecutor(dispatcher);
       BlazeServerStartupOptions startupOptions =
           runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
       try {
@@ -860,7 +859,7 @@ public final class BlazeRuntime {
         Class<?> factoryClass = Class.forName(
             "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
         RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
-        rpcServer[0] = factory.create(commandExecutor, runtime.getClock(),
+        rpcServer[0] = factory.create(dispatcher, runtime.getClock(),
             startupOptions.commandPort,
             runtime.getWorkspace().getWorkspace(),
             runtime.getServerDirectory(),

@@ -119,7 +119,7 @@ public class BlazeCommandDispatcher {
    * code, the desire to shut down the server, or that a given binary should be executed by the
    * client.
    */
-  BlazeCommandResult exec(
+  public BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
@@ -623,6 +623,7 @@ public class BlazeCommandDispatcher {
    * Returns the runtime instance shared by the commands that this dispatcher
    * dispatches to.
    */
+  @VisibleForTesting
   public BlazeRuntime getRuntime() {
     return runtime;
   }
