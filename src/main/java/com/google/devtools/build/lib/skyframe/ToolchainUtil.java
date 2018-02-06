@@ -67,14 +67,19 @@ public class ToolchainUtil {
     // TODO(katre): Load several possible execution platforms, and select one based on available
     // toolchains.
 
-    // Load the execution and target platforms for the current configuration.
+    // Load the host and target platforms for the current configuration.
     PlatformDescriptors platforms = loadPlatformDescriptors(env, configuration);
     if (platforms == null) {
       return null;
     }
 
+    // TODO(katre): This will change with remote execution.
+    PlatformInfo executionPlatform = platforms.hostPlatform();
+    PlatformInfo targetPlatform = platforms.targetPlatform();
+
     ImmutableBiMap<Label, Label> resolvedLabels =
-        resolveToolchainLabels(env, requiredToolchains, configuration, platforms);
+        resolveToolchainLabels(
+            env, requiredToolchains, configuration, executionPlatform, targetPlatform);
     if (resolvedLabels == null) {
       return null;
     }
@@ -82,8 +87,8 @@ public class ToolchainUtil {
     ToolchainContext toolchainContext =
         ToolchainContext.create(
             targetDescription,
-            platforms.execPlatform(),
-            platforms.targetPlatform(),
+            executionPlatform,
+            targetPlatform,
             requiredToolchains,
             resolvedLabels);
     return toolchainContext;
@@ -94,13 +99,13 @@ public class ToolchainUtil {
    */
   @AutoValue
   protected abstract static class PlatformDescriptors {
-    abstract PlatformInfo execPlatform();
+    abstract PlatformInfo hostPlatform();
 
     abstract PlatformInfo targetPlatform();
 
     protected static PlatformDescriptors create(
-        PlatformInfo execPlatform, PlatformInfo targetPlatform) {
-      return new AutoValue_ToolchainUtil_PlatformDescriptors(execPlatform, targetPlatform);
+        PlatformInfo hostPlatform, PlatformInfo targetPlatform) {
+      return new AutoValue_ToolchainUtil_PlatformDescriptors(hostPlatform, targetPlatform);
     }
   }
 
@@ -151,20 +156,20 @@ public class ToolchainUtil {
     if (platformConfiguration == null) {
       return null;
     }
-    Label executionPlatformLabel = platformConfiguration.getExecutionPlatform();
+    Label hostPlatformLabel = platformConfiguration.getHostPlatform();
     Label targetPlatformLabel = platformConfiguration.getTargetPlatforms().get(0);
 
-    SkyKey executionPlatformKey = ConfiguredTargetKey.of(executionPlatformLabel, configuration);
+    SkyKey hostPlatformKey = ConfiguredTargetKey.of(hostPlatformLabel, configuration);
     SkyKey targetPlatformKey = ConfiguredTargetKey.of(targetPlatformLabel, configuration);
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
         env.getValuesOrThrow(
-            ImmutableList.of(executionPlatformKey, targetPlatformKey),
+            ImmutableList.of(hostPlatformKey, targetPlatformKey),
             ConfiguredValueCreationException.class);
     boolean valuesMissing = env.valuesMissing();
     try {
-      PlatformInfo execPlatform =
-          findPlatformInfo(values.get(executionPlatformKey), "execution platform", env);
+      PlatformInfo hostPlatform =
+          findPlatformInfo(values.get(hostPlatformKey), "host platform", env);
       PlatformInfo targetPlatform =
           findPlatformInfo(values.get(targetPlatformKey), "target platform", env);
 
@@ -172,7 +177,7 @@ public class ToolchainUtil {
         return null;
       }
 
-      return PlatformDescriptors.create(execPlatform, targetPlatform);
+      return PlatformDescriptors.create(hostPlatform, targetPlatform);
     } catch (ConfiguredValueCreationException e) {
       throw new ToolchainContextException(e);
     }
@@ -183,7 +188,8 @@ public class ToolchainUtil {
       Environment env,
       Set<Label> requiredToolchains,
       BuildConfiguration configuration,
-      PlatformDescriptors platforms)
+      PlatformInfo executionPlatform,
+      PlatformInfo targetPlatform)
       throws InterruptedException, ToolchainContextException {
 
     // If there are no required toolchains, bail out early.
@@ -196,7 +202,7 @@ public class ToolchainUtil {
     for (Label toolchainType : requiredToolchains) {
       registeredToolchainKeys.add(
           ToolchainResolutionValue.key(
-              configuration, toolchainType, platforms.targetPlatform(), platforms.execPlatform()));
+              configuration, toolchainType, targetPlatform, executionPlatform));
     }
 
     Map<

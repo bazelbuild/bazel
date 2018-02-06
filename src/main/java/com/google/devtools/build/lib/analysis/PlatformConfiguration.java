@@ -37,7 +37,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   public static final ObjectCodec<PlatformConfiguration> CODEC =
       new PlatformConfiguration_AutoCodec();
 
-  private final Label executionPlatform;
+  private final Label hostPlatform;
   private final ImmutableList<Label> extraExecutionPlatforms;
   private final ImmutableList<Label> targetPlatforms;
   private final ImmutableList<Label> extraToolchains;
@@ -45,25 +45,21 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
 
   @AutoCodec.Instantiator
   PlatformConfiguration(
-      Label executionPlatform,
+      Label hostPlatform,
       ImmutableList<Label> extraExecutionPlatforms,
       ImmutableList<Label> targetPlatforms,
       ImmutableList<Label> extraToolchains,
       ImmutableList<Label> enabledToolchainTypes) {
-    this.executionPlatform = executionPlatform;
+    this.hostPlatform = hostPlatform;
     this.extraExecutionPlatforms = extraExecutionPlatforms;
     this.targetPlatforms = targetPlatforms;
     this.extraToolchains = extraToolchains;
     this.enabledToolchainTypes = enabledToolchainTypes;
   }
 
-  @SkylarkCallable(
-    name = "execution_platform",
-    structField = true,
-    doc = "The current execution platform"
-  )
-  public Label getExecutionPlatform() {
-    return executionPlatform;
+  @SkylarkCallable(name = "host_platform", structField = true, doc = "The current host platform")
+  public Label getHostPlatform() {
+    return hostPlatform;
   }
 
   /** Additional platforms that are available for action execution. */

@@ -651,7 +651,7 @@ EOF
   expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the target platform, but does not provide PlatformInfo"
 
   bazel build --host_platform=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the execution platform, but does not provide PlatformInfo"
+  expect_log "While resolving toolchains for target //demo:use: Target filegroup rule //platform:not_a_platform was found as the host platform, but does not provide PlatformInfo"
 }
 
 run_suite "toolchain tests"

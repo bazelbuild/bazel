@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.cmdline.Label;
 
 /** A loader that creates {@link PlatformConfiguration} instances based on command-line options. */
 public class PlatformConfigurationLoader implements ConfigurationFragmentFactory {
@@ -45,10 +44,8 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
 
   private PlatformConfiguration create(PlatformOptions options)
       throws InvalidConfigurationException {
-    // TODO(katre): This will change with remote execution.
-    Label executionPlatform = options.hostPlatform;
     return new PlatformConfiguration(
-        executionPlatform,
+        options.hostPlatform,
         ImmutableList.copyOf(options.extraExecutionPlatforms),
         ImmutableList.copyOf(options.platforms),
         ImmutableList.copyOf(options.extraToolchains),
