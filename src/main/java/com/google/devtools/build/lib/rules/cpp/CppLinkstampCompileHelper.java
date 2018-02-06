@@ -87,7 +87,6 @@ public class CppLinkstampCompileHelper {
         ImmutableList.<String>builder()
             .add("GPLATFORM=\"" + cppConfiguration + "\"")
             .add("BUILD_COVERAGE_ENABLED=" + (codeCoverageEnabled ? "1" : "0"))
-            .add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"")
             // G3_VERSION_INFO and G3_TARGET_NAME are C string literals that normally
             // contain the label of the target being linked.  However, they are set
             // differently when using shared native deps. In that case, a single .so file

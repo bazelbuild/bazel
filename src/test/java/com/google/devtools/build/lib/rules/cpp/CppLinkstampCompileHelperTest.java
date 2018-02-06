@@ -79,6 +79,10 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     assertThat(Iterables.tryFind(arguments, (arg) -> arg.matches(correctG3BuildTargetPattern)))
         .named("in " + arguments + " flag matching " + correctG3BuildTargetPattern)
         .isPresent();
+    String fdoStampPattern = "-D" + CppConfiguration.FDO_STAMP_MACRO + "=\".*\"";
+    assertThat(Iterables.tryFind(arguments, (arg) -> arg.matches(fdoStampPattern)))
+        .named("in " + arguments + " flag matching " + fdoStampPattern)
+        .isAbsent();
   }
 
   /** Tests that linkstamp compilation applies expected command line options. */
@@ -143,5 +147,32 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     assertThat(linkstampCompileAction.getArguments()).contains("-fPIC");
+  }
+
+  @Test
+  public void testLinkstampRespectsFdoFromConfiguration() throws Exception {
+    useConfiguration("--fdo_instrument=foo");
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'foo',",
+        "  deps = ['a'],",
+        ")",
+        "cc_library(",
+        "  name = 'a',",
+        "  srcs = [ 'a.cc' ],",
+        "  linkstamp = 'ls.cc',",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Artifact executable = getExecutable(target);
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
+    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    assertThat(linkstampCompileAction.getArguments())
+        .contains("-D" + CppConfiguration.FDO_STAMP_MACRO + "=\"FDO\"");
   }
 }
