@@ -32,48 +32,36 @@ class RunfilesTest(test_base.TestBase):
                   "\n".join(stderr))
 
   def testJavaRunfilesLibraryInBazelToolsRepo(self):
-    self.ScratchFile("WORKSPACE", ["workspace(name = 'foo_ws')"])
-    self.ScratchFile("foo/BUILD", [
-        "java_binary(",
-        "    name = 'Foo',",
-        "    main_class = 'Foo',",
-        "    srcs = ['Foo.java'],",
-        "    deps = ['@bazel_tools//tools/runfiles:java-runfiles'],",
-        "    data = ['//foo/bar:hello.txt'],",
-        ")"
-    ])
-    self.ScratchFile("foo/Foo.java", [
-        "import com.google.devtools.build.runfiles.Runfiles;",
-        ""
-        "public class Foo {",
-        "  public static void main(String[] args) throws java.io.IOException {",
-        "    System.out.println(\"Hello Foo!\");",
-        "    Runfiles r = Runfiles.create();",
-        "    System.out.println(",
-        "        \"rloc=\" + r.rlocation(\"foo_ws/foo/bar/hello.txt\"));",
-        "  }",
-        "}"
-    ])
-    self.ScratchFile("foo/bar/BUILD", ["exports_files(['hello.txt'])"])
-    self.ScratchFile("foo/bar/hello.txt", ["world"])
+    for s, t in [
+        ("WORKSPACE.mock", "WORKSPACE"),
+        ("foo/BUILD.mock", "foo/BUILD"),
+        ("foo/Foo.java", "foo/Foo.java"),
+        ("foo/datadep/hello.txt", "foo/datadep/hello.txt"),
+    ]:
+      self.CopyFile(
+          self.Rlocation(
+              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t)
 
     exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(["build", "//foo:Foo"])
+    exit_code, _, stderr = self.RunBazel(["build", "//foo:runfiles-java"])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    bin_path = os.path.join(bazel_bin, "foo/Foo" +
-                            (".exe" if test_base.TestBase.IsWindows() else ""))
+    if test_base.TestBase.IsWindows():
+      bin_path = os.path.join(bazel_bin, "foo/runfiles-java.exe")
+    else:
+      bin_path = os.path.join(bazel_bin, "foo/runfiles-java")
+
     self.assertTrue(os.path.exists(bin_path))
 
     exit_code, stdout, stderr = self.RunProgram([bin_path])
     self.AssertExitCode(exit_code, 0, stderr)
     if len(stdout) != 2:
       self.fail("stdout: %s" % stdout)
-    self.assertEqual(stdout[0], "Hello Foo!")
-    six.assertRegex(self, stdout[1], "^rloc=.*/foo/bar/hello.txt")
+    self.assertEqual(stdout[0], "Hello Java Foo!")
+    six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
     with open(stdout[1].split("=", 1)[1], "r") as f:
       lines = [l.strip() for l in f.readlines()]
     if len(lines) != 1:

@@ -8,3 +8,13 @@ py_binary(
     main = "runfiles.py",
     deps = ["@bazel_tools//tools/runfiles:py-runfiles"],
 )
+
+java_binary(
+    name = "runfiles-java",
+    srcs = ["Foo.java"],
+    data = [
+        "datadep/hello.txt",
+    ],
+    main_class = "Foo",
+    deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
+)
