@@ -18,8 +18,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
@@ -32,12 +30,10 @@ import java.util.logging.Logger;
 public class CommandExecutor implements ServerCommand {
   private static final Logger logger = Logger.getLogger(CommandExecutor.class.getName());
 
-  private boolean shutdown;
   private final BlazeRuntime runtime;
   private final BlazeCommandDispatcher dispatcher;
 
   CommandExecutor(BlazeRuntime runtime, BlazeCommandDispatcher dispatcher) {
-    this.shutdown = false;
     this.runtime = runtime;
     this.dispatcher = dispatcher;
   }
@@ -54,33 +50,18 @@ public class CommandExecutor implements ServerCommand {
       throws InterruptedException {
     logger.info(BlazeRuntime.getRequestLogString(args));
 
-    try {
-      return dispatcher.exec(
-          invocationPolicy,
-          args,
-          outErr,
-          lockingMode,
-          clientDescription,
-          firstContactTime,
-          startupOptionsTaggedWithBazelRc);
-    } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
-      if (e.getCause() != null) {
-        StringWriter message = new StringWriter();
-        message.write("Shutting down due to exception:\n");
-        PrintWriter writer = new PrintWriter(message, true);
-        e.printStackTrace(writer);
-        writer.flush();
-        logger.severe(message.toString());
-      }
-      shutdown = true;
+    BlazeCommandResult result = dispatcher.exec(
+        invocationPolicy,
+        args,
+        outErr,
+        lockingMode,
+        clientDescription,
+        firstContactTime,
+        startupOptionsTaggedWithBazelRc);
+    if (result.shutdown()) {
       runtime.shutdown();
       dispatcher.shutdown();
-      return BlazeCommandResult.exitCode(e.getExitCode());
     }
-  }
-
-  @Override
-  public boolean shutdown() {
-    return shutdown;
+    return result;
   }
 }

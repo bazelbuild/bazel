@@ -830,8 +830,6 @@ public final class BlazeRuntime {
         logger.log(Level.SEVERE, "Exception while executing binary from 'run' command", e);
         return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
       }
-    } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
-      return e.getExitCode().getNumericExitCode();
     } catch (InterruptedException e) {
       // This is almost main(), so it's okay to just swallow it. We are exiting soon.
       return ExitCode.INTERRUPTED.getNumericExitCode();

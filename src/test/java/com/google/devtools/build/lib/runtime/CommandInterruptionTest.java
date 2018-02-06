@@ -140,9 +140,8 @@ public final class CommandInterruptionTest {
             ImmutableList.of(
                 "snooze",
                 expectInterruption ? "--expect_interruption" : "--noexpect_interruption"),
-            BlazeCommandDispatcher.LockingMode.ERROR_OUT,
             "CommandInterruptionTest",
-            OutErr.SYSTEM_OUT_ERR);
+            OutErr.SYSTEM_OUT_ERR).getExitCode().getNumericExitCode();
       } catch (Exception throwable) {
         if (commandStateHandoff.isDone()) {
           commandStateHandoff.get().completeWithFailure(throwable);

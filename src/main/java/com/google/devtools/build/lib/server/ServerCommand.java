@@ -45,9 +45,4 @@ public interface ServerCommand {
       long firstContactTime,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
       throws InterruptedException;
-
-  /**
-   * Whether the server needs to be shut down.
-   */
-  boolean shutdown();
 }

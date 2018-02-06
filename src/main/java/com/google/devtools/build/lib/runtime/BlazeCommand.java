@@ -28,20 +28,16 @@ public interface BlazeCommand {
    * line) via {@link OptionsProvider#getResidue()}. The framework parses and makes available
    * exactly the options that the command class specifies via the annotation {@link
    * Command#options()}. The command indicates success / failure via its return value, which becomes
-   * the Unix exit status of the Blaze client process. It may indicate a shutdown request by
-   * throwing {@link BlazeCommandDispatcher.ShutdownBlazeServerException}. In that case, the Blaze
-   * server process (the memory resident portion of Blaze) will shut down and the exit status will
-   * be 0 (in case the shutdown succeeds without error).
+   * the Unix exit status of the Blaze client process. It may indicate that the server needs to be
+   * shut down or that a particular binary needs to be exec()ed on the terminal where Blaze was
+   * invoked from by returning the appropriate {@link BlazeCommandResult}.
    *
    * @param env The environment for the current command invocation
    * @param options A parsed options instance initialized with the values for the options specified
    *     in {@link Command#options()}.
    * @return The Unix exit status for the Blaze client.
-   * @throws BlazeCommandDispatcher.ShutdownBlazeServerException Indicates that the command wants to
-   *     shutdown the Blaze server.
    */
-  BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options)
-      throws BlazeCommandDispatcher.ShutdownBlazeServerException;
+  BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options);
 
   /**
    * Allows the command to provide command-specific option defaults and/or

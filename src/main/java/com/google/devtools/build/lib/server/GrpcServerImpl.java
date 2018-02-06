@@ -880,8 +880,7 @@ public class GrpcServerImpl implements RPCServer {
     // the cancel request won't find the thread to interrupt)
     Thread.interrupted();
 
-    boolean shutdown = commandExecutor.shutdown();
-    if (shutdown) {
+    if (result.shutdown()) {
       server.shutdown();
     }
 
@@ -889,7 +888,7 @@ public class GrpcServerImpl implements RPCServer {
         .setCookie(responseCookie)
         .setCommandId(commandId)
         .setFinished(true)
-        .setTerminationExpected(shutdown);
+        .setTerminationExpected(result.shutdown());
 
     if (result.getExecRequest() != null) {
       response.setExitCode(0);

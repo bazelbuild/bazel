@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -104,7 +103,7 @@ public class CleanCommandRecommendsAsyncTest {
     runtime.initWorkspace(directories, /* binTools= */ null);
 
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, new CleanCommand(os));
-    dispatcher.exec(commandLine, LockingMode.ERROR_OUT, "test", outErr);
+    dispatcher.exec(commandLine, "test", outErr);
     String output = outErr.toString();
 
     if (expectSuggestion) {

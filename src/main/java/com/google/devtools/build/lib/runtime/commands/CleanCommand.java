@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -128,8 +127,7 @@ public final class CleanCommand implements BlazeCommand {
   private static final Logger logger = Logger.getLogger(CleanCommand.class.getName());
 
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options)
-      throws ShutdownBlazeServerException {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     Options cleanOptions = options.getOptions(Options.class);
     boolean async = cleanOptions.async;
     env.getEventBus().post(new NoBuildEvent());
@@ -165,8 +163,7 @@ public final class CleanCommand implements BlazeCommand {
           options
               .getOptions(BuildRequestOptions.class)
               .getSymlinkPrefix(env.getRuntime().getProductName());
-      actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
-      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+      return actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
@@ -208,9 +205,9 @@ public final class CleanCommand implements BlazeCommand {
         .execute();
   }
 
-  private void actuallyClean(
+  private BlazeCommandResult actuallyClean(
       CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
-      throws IOException, ShutdownBlazeServerException, CommandException, ExecException,
+      throws IOException, CommandException, ExecException,
           InterruptedException {
     String workspaceDirectory = env.getWorkspace().getBaseName();
     if (env.getOutputService() != null) {
@@ -266,9 +263,10 @@ public final class CleanCommand implements BlazeCommand {
 
     // shutdown on expunge cleans
     if (expunge) {
-      throw new ShutdownBlazeServerException(ExitCode.SUCCESS);
+      return BlazeCommandResult.shutdown(ExitCode.SUCCESS);
     }
     System.gc();
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
   @Override

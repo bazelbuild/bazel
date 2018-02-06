@@ -29,14 +29,20 @@ public final class BlazeCommandResult {
   private final ExitCode exitCode;
   @Nullable
   private final ExecRequest execDescription;
+  private final boolean shutdown;
 
-  private BlazeCommandResult(ExitCode exitCode, ExecRequest execDescription) {
+  private BlazeCommandResult(ExitCode exitCode, ExecRequest execDescription, boolean shutdown) {
     this.exitCode = Preconditions.checkNotNull(exitCode);
     this.execDescription = execDescription;
+    this.shutdown = shutdown;
   }
 
   public ExitCode getExitCode() {
     return exitCode;
+  }
+
+  public boolean shutdown() {
+    return shutdown;
   }
 
   @Nullable public ExecRequest getExecRequest() {
@@ -44,10 +50,14 @@ public final class BlazeCommandResult {
   }
 
   public static BlazeCommandResult exitCode(ExitCode exitCode) {
-    return new BlazeCommandResult(exitCode, null);
+    return new BlazeCommandResult(exitCode, null, false);
   }
 
+  public static BlazeCommandResult shutdown(ExitCode exitCode) {
+    return new BlazeCommandResult(exitCode, null, true);
+  }
   public static BlazeCommandResult execute(ExecRequest execDescription) {
-    return new BlazeCommandResult(ExitCode.SUCCESS, Preconditions.checkNotNull(execDescription));
+    return new BlazeCommandResult(
+        ExitCode.SUCCESS, Preconditions.checkNotNull(execDescription), false);
   }
 }
