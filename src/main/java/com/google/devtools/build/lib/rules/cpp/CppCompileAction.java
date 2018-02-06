@@ -57,9 +57,9 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -552,10 +552,10 @@ public class CppCompileAction extends AbstractAction
         legalOuts.put(a, null);
       }
     }
-    for (Pair<Artifact, Artifact> pregreppedSrcs : context.getPregreppedHeaders()) {
-      Artifact hdr = pregreppedSrcs.getFirst();
+    for (PregreppedHeader pregreppedSrcs : context.getPregreppedHeaders()) {
+      Artifact hdr = pregreppedSrcs.originalHeader();
       Preconditions.checkState(!hdr.isSourceArtifact(), hdr);
-      legalOuts.put(hdr, pregreppedSrcs.getSecond());
+      legalOuts.put(hdr, pregreppedSrcs.greppedHeader());
     }
     return Collections.unmodifiableMap(legalOuts);
   }

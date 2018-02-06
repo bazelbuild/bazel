@@ -16,24 +16,36 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 
-/**
- * Structure for C++ module maps. Stores the name of the module and a .cppmap artifact.
- */
+/** Structure for C++ module maps. Stores the name of the module and a .cppmap artifact. */
 @Immutable
+@AutoCodec(dependency = FileSystemProvider.class)
 public final class CppModuleMap {
+  public static final InjectingObjectCodec<CppModuleMap, FileSystemProvider> CODEC =
+      new CppModuleMap_AutoCodec();
+
   // NOTE: If you add a field here, you'll likely need to update CppModuleMapAction.computeKey().
   private final Artifact artifact;
   private final String name;
   private final Optional<Artifact> umbrellaHeader;
 
   public CppModuleMap(Artifact artifact, String name) {
-    this(artifact, null, name);
+    this(artifact, Optional.absent(), name);
   }
 
   public CppModuleMap(Artifact artifact, Artifact umbrellaHeader, String name) {
+    this(artifact, Optional.fromNullable(umbrellaHeader), name);
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  CppModuleMap(Artifact artifact, Optional<Artifact> umbrellaHeader, String name) {
     this.artifact = artifact;
-    this.umbrellaHeader = Optional.fromNullable(umbrellaHeader);
+    this.umbrellaHeader = umbrellaHeader;
     this.name = name;
   }
 

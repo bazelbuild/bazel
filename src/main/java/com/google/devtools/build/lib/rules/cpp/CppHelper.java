@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -63,13 +64,16 @@ import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -567,27 +571,52 @@ public class CppHelper {
   }
 
   /**
+   * A header that has been grepped for #include statements. Includes the original header as well as
+   * a stripped version of that header that contains only #include statements.
+   */
+  @AutoCodec(dependency = FileSystemProvider.class)
+  @AutoValue
+  abstract static class PregreppedHeader {
+    public static final InjectingObjectCodec<PregreppedHeader, FileSystemProvider> CODEC =
+        new CppHelper_PregreppedHeader_AutoCodec();
+
+    @AutoCodec.Instantiator
+    static PregreppedHeader create(Artifact originalHeader, Artifact greppedHeader) {
+      return new AutoValue_CppHelper_PregreppedHeader(originalHeader, greppedHeader);
+    }
+
+    /** Returns the original header, before grepping. */
+    abstract Artifact originalHeader();
+
+    /** Returns the grepped header, which contains only #include statements. */
+    abstract Artifact greppedHeader();
+  }
+
+  /**
    * Creates a grep-includes ExtractInclusions action for generated sources/headers in the
-   * needsIncludeScanning() BuildConfiguration case. Returns a map from original header
-   * Artifact to the output Artifact of grepping over it. The return value only includes
-   * entries for generated sources or headers when --extract_generated_inclusions is enabled.
+   * needsIncludeScanning() BuildConfiguration case. Returns a map from original header Artifact to
+   * the output Artifact of grepping over it. The return value only includes entries for generated
+   * sources or headers when --extract_generated_inclusions is enabled.
    *
-   * <p>Previously, incremental rebuilds redid all include scanning work
-   * for a given .cc source in serial. For high-latency file systems, this could cause
-   * performance problems if many headers are generated.
+   * <p>Previously, incremental rebuilds redid all include scanning work for a given .cc source in
+   * serial. For high-latency file systems, this could cause performance problems if many headers
+   * are generated.
    */
   @Nullable
-  public static final Map<Artifact, Artifact> createExtractInclusions(
+  public static final List<PregreppedHeader> createExtractInclusions(
       RuleContext ruleContext, CppSemantics semantics, Iterable<Artifact> prerequisites) {
-    Map<Artifact, Artifact> extractions = new HashMap<>();
+    List<PregreppedHeader> extractions = new ArrayList<>();
+    HashSet<Artifact> alreadyProcessedHeaders = new HashSet<>();
     for (Artifact prerequisite : prerequisites) {
-      if (extractions.containsKey(prerequisite)) {
+      if (alreadyProcessedHeaders.contains(prerequisite)) {
         // Don't create duplicate actions just because user specified same header file twice.
         continue;
       }
+      alreadyProcessedHeaders.add(prerequisite);
+
       Artifact scanned = createExtractInclusions(ruleContext, semantics, prerequisite);
       if (scanned != null) {
-        extractions.put(prerequisite, scanned);
+        extractions.add(PregreppedHeader.create(prerequisite, scanned));
       }
     }
     return extractions;
