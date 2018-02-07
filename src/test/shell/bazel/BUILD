@@ -102,6 +102,7 @@ sh_test(
 sh_test(
     name = "bazel_java_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
     data = [":test-deps"],
 )
