@@ -8,17 +8,21 @@ steps:
 
       echo '+++ Testing'\n
       bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
+      
+      buildkite-agent artifact upload bazel-bin/src/bazel
    agents:
      - "os=ubuntu1404"
 
  - label: "Ubuntu 16.04"
    command: "echo '--- Cleanup'\n
       bazel clean --expunge\n
- 
+
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
 
       echo '+++ Testing'\n
       bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
+      
+      buildkite-agent artifact upload bazel-bin/src/bazel
    agents:
      - "os=ubuntu1604"
