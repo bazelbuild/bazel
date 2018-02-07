@@ -1,10 +1,21 @@
 steps:
-  - command: "bazel build --color=yes //src:bazel\nbuildkite-agent artifact upload bazel-bin/src/bazel"
-    label: "Build Bazel Ubuntu 16.04"
+  - command: "
+	echo \"+++ Building Bazel\"\n
+        bazel build --color=yes //src:bazel\n
+        echo \"--- Uploading Bazel Binary\"\n
+        buildkite-agent artifact upload bazel-bin/src/bazel"
+    label: "Build Bazel"
     agents:
       - "os=ubuntu1604"
 
   - wait
 
-  - trigger: "rules_go-downstream"
-    label: "Trigger rules_go_test"
+  - command: "echo \"--- Downloading Bazel Binary\"\nmkdir upstream\nbuildkite-agent artifact download bazel-bin/src/bazel upstream/\nchmod +x upstream/bazel-bin/src/bazel\necho \"--- Cloning rules_go\"\nrm -rf rules_go\ngit clone https://github.com/geheimspeicher/rules_go\ncd rules_go\necho \"+++ Building rules_go\"\n../upstream/bazel-bin/src/bazel build --color=yes ..."
+    label: "Build rules_go"
+    agents:
+      - "os=ubuntu1604"
+
+  - command: "echo \"--- Downloading Bazel Binary\"\nmkdir upstream\nbuildkite-agent artifact download bazel-bin/src/bazel upstream/\nchmod +x upstream/bazel-bin/src/bazel\necho \"--- Cloning rules_python\"\nrm -rf rules_python\ngit clone https://github.com/geheimspeicher/rules_python\ncd rules_python\necho \"+++ Building rules_python\"\n../upstream/bazel-bin/src/bazel build --color=yes ..."
+    label: "Build rules_python"
+    agents:
+      - "os=ubuntu1604"
