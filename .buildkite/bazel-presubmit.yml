@@ -1,18 +1,52 @@
 steps:
  - label: "Ubuntu 14.04"
-   command: "echo '--- Cleaning Workspace'\n
+   command: "echo '--- Cleanup'\n
       bazel clean --expunge\n
 
-      echo '+++ Building Bazel'\n
-      bazel build --color=yes //src:bazel\n"
+      echo '--- Setup'\n
+      echo >>WORKSPACE
+      cat >>WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    path = "${ANDROID_SDK_PATH}",
+)
+
+android_ndk_repository(
+    name = "androidndk",
+    path = "${ANDROID_NDK_PATH}",
+)
+EOF\n
+
+      echo '+++ Building'\n
+      bazel build --color=yes //src:bazel\n//scripts/...
+
+      echo '+++ Testing'\n
+      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
    agents:
      - "os=ubuntu1404"
 
  - label: "Ubuntu 16.04"
-   command: "echo '--- Cleaning Workspace'\n
+   command: "echo '--- Cleanup'\n
       bazel clean --expunge\n
 
-      echo '+++ Building Bazel'\n
-      bazel build --color=yes //src:bazel\n"
+      echo '--- Setup'\n
+      echo >>WORKSPACE
+      cat >>WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    path = "${ANDROID_SDK_PATH}",
+)
+
+android_ndk_repository(
+    name = "androidndk",
+    path = "${ANDROID_NDK_PATH}",
+)
+EOF\n
+
+      echo '+++ Building'\n
+      bazel build --color=yes //src:bazel\n//scripts/...
+
+      echo '+++ Testing'\n
+      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
    agents:
      - "os=ubuntu1604"
