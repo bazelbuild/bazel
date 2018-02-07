@@ -56,21 +56,6 @@ string WorkspaceLayout::GetPrettyWorkspaceName(
   return blaze_util::Basename(workspace);
 }
 
-static string FindDepotBlazerc(const blaze::WorkspaceLayout* workspace_layout,
-                               const string& workspace) {
-  // Package semantics are ignored here, but that's acceptable because
-  // blaze.blazerc is a configuration file.
-  vector<string> candidates;
-  workspace_layout->WorkspaceRcFileSearchPath(&candidates);
-  for (const auto& candidate : candidates) {
-    string blazerc = blaze_util::JoinPath(workspace, candidate);
-    if (blaze_util::CanReadFile(blazerc)) {
-      return blazerc;
-    }
-  }
-  return "";
-}
-
 static string FindAlongsideBinaryBlazerc(const string& cwd,
                                          const string& path_to_binary) {
   // TODO(b/32115171): This doesn't work on Windows. Fix this together with the
@@ -86,20 +71,16 @@ static string FindAlongsideBinaryBlazerc(const string& cwd,
   return "";
 }
 
-void WorkspaceLayout::FindCandidateBlazercPaths(
+vector<string> WorkspaceLayout::FindCandidateBlazercPaths(
     const string& workspace,
     const string& cwd,
     const string& path_to_binary,
-    const vector<string>& startup_args,
-    std::vector<string>* result) const {
-  result->push_back(FindDepotBlazerc(this, workspace));
-  result->push_back(FindAlongsideBinaryBlazerc(cwd, path_to_binary));
-  result->push_back(FindSystemWideBlazerc());
-}
-
-void WorkspaceLayout::WorkspaceRcFileSearchPath(
-    vector<string>* candidates) const {
-  candidates->push_back("tools/bazel.rc");
+    const vector<string>& startup_args) const {
+  return {
+    blaze_util::JoinPath(workspace, "tools/bazel.rc"),
+    FindAlongsideBinaryBlazerc(cwd, path_to_binary),
+    FindSystemWideBlazerc(),
+  };
 }
 
 bool WorkspaceLayout::WorkspaceRelativizeRcFilePath(const string &workspace,
