@@ -399,6 +399,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     if (getAndroidConfig(ruleContext).checkDesugarDeps()) {
       args.add("--emit_dependency_metadata_as_needed");
     }
+    if (getAndroidConfig(ruleContext).desugarJava8Libs()) {
+      args.add("--desugar_supported_core_libs");
+    }
 
     ruleContext.registerAction(
         new SpawnAction.Builder()

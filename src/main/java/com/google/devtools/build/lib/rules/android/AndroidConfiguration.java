@@ -394,6 +394,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean desugarJava8;
 
+    @Option(
+      name = "experimental_desugar_java8_libs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      },
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      help = "Whether to include supported Java 8 libraries in apps for legacy devices."
+    )
+    public boolean desugarJava8Libs;
+
     // This flag is intended to be flipped globally.
     @Option(
       name = "experimental_check_desugar_deps",
@@ -769,6 +783,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
 
       host.desugarJava8 = desugarJava8;
+      host.desugarJava8Libs = desugarJava8Libs;
       host.checkDesugarDeps = checkDesugarDeps;
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
@@ -822,6 +837,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final boolean useWorkersWithDexbuilder;
   private final boolean desugarJava8;
+  private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
@@ -856,6 +872,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
+    this.desugarJava8Libs = options.desugarJava8Libs;
     this.checkDesugarDeps = options.checkDesugarDeps;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking =
@@ -879,6 +896,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       throw new InvalidConfigurationException(
           "--experimental_incremental_dexing_after_proguard must be a positive number");
     }
+    if (desugarJava8Libs && !desugarJava8) {
+      throw new InvalidConfigurationException(
+          "Java 8 library support requires --desugar_java8 to be enabled.");
+    }
   }
 
   @AutoCodec.Instantiator
@@ -896,6 +917,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       ImmutableList<String> dexoptsSupportedInDexMerger,
       boolean useWorkersWithDexbuilder,
       boolean desugarJava8,
+      boolean desugarJava8Libs,
       boolean checkDesugarDeps,
       boolean useRexToCompressDexFiles,
       boolean allowAndroidLibraryDepsWithoutSrcs,
@@ -926,6 +948,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
     this.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
     this.desugarJava8 = desugarJava8;
+    this.desugarJava8Libs = desugarJava8Libs;
     this.checkDesugarDeps = checkDesugarDeps;
     this.useRexToCompressDexFiles = useRexToCompressDexFiles;
     this.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
@@ -1011,6 +1034,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean desugarJava8() {
     return desugarJava8;
+  }
+
+  public boolean desugarJava8Libs() {
+    return desugarJava8Libs;
   }
 
   public boolean checkDesugarDeps() {

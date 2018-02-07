@@ -832,6 +832,17 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.INSTANCE)
                   .exec()
                   .value(env.getToolsLabel("//tools/android:desugar_java8")))
+          .add(
+              attr("$java8_legacy_dex", LABEL)
+                  .value(env.getToolsLabel("//tools/android:java8_legacy_dex")))
+          .add(
+              attr("$build_java8_legacy_dex", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:build_java8_legacy_dex")))
+          .add(
+              attr("$desugared_java8_legacy_apis", LABEL)
+                  .value(env.getToolsLabel("//tools/android:desugared_java8_legacy_apis")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and

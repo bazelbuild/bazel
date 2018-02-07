@@ -2871,6 +2871,59 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testDesugarJava8Libs_noProguard() throws Exception {
+    useConfiguration("--experimental_desugar_java8_libs");
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  multidex = 'native',",
+        ")");
+
+    ConfiguredTarget top = getConfiguredTarget("//java/com/google/android:foo");
+    Artifact artifact = getBinArtifact("_dx/foo/_final_classes.dex.zip", top);
+    assertThat(artifact).named("_final_classes.dex.zip").isNotNull();
+    Action generatingAction = getGeneratingAction(artifact);
+    assertThat(ActionsTestUtil.baseArtifactNames(generatingAction.getInputs()))
+        .containsAllOf("classes.dex.zip", /*canned*/ "java8_legacy.dex.zip");
+  }
+
+  @Test
+  public void testDesugarJava8Libs_withProguard() throws Exception {
+    useConfiguration("--experimental_desugar_java8_libs");
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  multidex = 'native',",
+        "  proguard_specs = ['foo.cfg'],",
+        ")");
+
+    ConfiguredTarget top = getConfiguredTarget("//java/com/google/android:foo");
+    Artifact artifact = getBinArtifact("_dx/foo/_final_classes.dex.zip", top);
+    assertThat(artifact).named("_final_classes.dex.zip").isNotNull();
+    Action generatingAction = getGeneratingAction(artifact);
+    assertThat(ActionsTestUtil.baseArtifactNames(generatingAction.getInputs()))
+        .containsAllOf("classes.dex.zip", /*built*/ "_java8_legacy.dex.zip");
+  }
+
+  @Test
+  public void testDesugarJava8Libs_noMultidexError() throws Exception {
+    useConfiguration("--experimental_desugar_java8_libs");
+    checkError(/*packageName=*/ "java/com/google/android", /*ruleName=*/ "foo",
+        /*expectedErrorMessage=*/ "multidex",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        ")");
+  }
+
+  @Test
   public void testApplyProguardMapping() throws Exception {
     scratch.file(
         "java/com/google/android/BUILD",

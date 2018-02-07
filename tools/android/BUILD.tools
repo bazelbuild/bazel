@@ -118,6 +118,26 @@ genrule(
     visibility = ["//visibility:private"],
 )
 
+filegroup(
+    name = "desugared_java8_legacy_apis",
+    srcs = [],  # TODO(b/70681189): Populate with ijars
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "build_java8_legacy_dex",
+    srcs = ["fail.sh"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "java8_legacy_dex",
+    outs = ["java8_legacy.dex.zip"],
+    cmd = "$(location :build_java8_legacy_dex) --output $@",
+    tools = [":build_java8_legacy_dex"],
+    visibility = ["//visibility:public"],
+)
+
 alias(
     name = "IdlClass",
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
