@@ -13,9 +13,9 @@ steps:
       
       TESTS_EXIT_STATUS=$?\n
       
-      python3 .buildkite/failed_testlogs.py bep.json | while read logfile; do buildkite-agent artifact upload $logfile; done"
+      python3 .buildkite/failed_testlogs.py bep.json | while read logfile; do buildkite-agent artifact upload $logfile; done\n
       
-      exit $TESTS_EXIT_STATUS\n
+      exit $TESTS_EXIT_STATUS\n"
    agents:
      - "os=ubuntu1404"
 
