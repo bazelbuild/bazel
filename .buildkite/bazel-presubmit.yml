@@ -6,7 +6,7 @@ steps:
       echo '--- Setup'\n
       echo >> WORKSPACE\n
       cat >> WORKSPACE << EOF\n
-android_sdk_repository(
+\android_sdk_repository(
     name = \"androidsdk\",
     path = \"${ANDROID_SDK_PATH}\"
 )
