@@ -48,7 +48,7 @@ steps:
 
         echo '--- Cloning'\n
         git clone https://github.com/geheimspeicher/rules_go\n
-	cd rules_go\n
+        cd rules_go\n
 
         echo '+++ Building'\n
         ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
@@ -73,7 +73,7 @@ steps:
 
         echo '--- Cloning'\n
         git clone https://github.com/geheimspeicher/rules_go\n
-	cd rules_go\n
+        cd rules_go\n
 
         echo '+++ Building'\n
         ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
@@ -98,7 +98,7 @@ steps:
 
         echo '--- Cloning'\n
         git clone https://github.com/geheimspeicher/rules_python\n
-	cd rules_python\n
+        cd rules_python\n
 
         echo '+++ Building'\n
         ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
@@ -123,7 +123,7 @@ steps:
 
         echo '--- Cloning'\n
         git clone https://github.com/geheimspeicher/rules_python\n
-	cd rules_python\n
+        cd rules_python\n
 
         echo '+++ Building'\n
         ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
