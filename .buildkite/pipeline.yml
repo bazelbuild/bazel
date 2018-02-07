@@ -6,5 +6,5 @@ steps:
 
   - wait
 
-  - trigger: "rules_go"
+  - trigger: "rules_go-downstream"
     label: "Trigger rules_go_test"
