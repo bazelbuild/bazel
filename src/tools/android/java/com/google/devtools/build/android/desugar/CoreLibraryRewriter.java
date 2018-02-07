@@ -15,6 +15,7 @@ package com.google.devtools.build.android.desugar;
 
 import java.io.IOException;
 import java.io.InputStream;
+import javax.annotation.Nullable;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -156,6 +157,8 @@ class CoreLibraryRewriter {
   public class UnprefixingClassWriter extends ClassVisitor {
     private final ClassWriter writer;
 
+    private String finalClassName;
+
     UnprefixingClassWriter(int flags) {
       super(Opcodes.ASM6);
       this.writer = new ClassWriter(flags);
@@ -173,8 +176,26 @@ class CoreLibraryRewriter {
       }
     }
 
+    /** Returns the (unprefixed) name of the class once written. */
+    @Nullable
+    String getClassName() {
+      return finalClassName;
+    }
+
     byte[] toByteArray() {
       return writer.toByteArray();
+    }
+
+    @Override
+    public void visit(
+        int version,
+        int access,
+        String name,
+        String signature,
+        String superName,
+        String[] interfaces) {
+      finalClassName = unprefix(name);
+      super.visit(version, access, name, signature, superName, interfaces);
     }
   }
 }

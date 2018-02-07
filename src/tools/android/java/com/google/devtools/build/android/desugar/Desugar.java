@@ -482,16 +482,16 @@ class Desugar {
       ClassVsInterface interfaceCache,
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector)
       throws IOException {
-    for (String filename : inputFiles) {
-      if (OutputFileProvider.DESUGAR_DEPS_FILENAME.equals(filename)) {
+    for (String inputFilename : inputFiles) {
+      if (OutputFileProvider.DESUGAR_DEPS_FILENAME.equals(inputFilename)) {
         // TODO(kmb): rule out that this happens or merge input file with what's in depsCollector
         continue;  // skip as we're writing a new file like this at the end or don't want it
       }
-      try (InputStream content = inputFiles.getInputStream(filename)) {
+      try (InputStream content = inputFiles.getInputStream(inputFilename)) {
         // We can write classes uncompressed since they need to be converted to .dex format
         // for Android anyways. Resources are written as they were in the input jar to avoid
         // any danger of accidentally uncompressed resources ending up in an .apk.
-        if (filename.endsWith(".class")) {
+        if (inputFilename.endsWith(".class")) {
           ClassReader reader = rewriter.reader(content);
           UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
           ClassVisitor visitor =
@@ -507,13 +507,17 @@ class Desugar {
                   reader);
           if (writer == visitor) {
             // Just copy the input if there are no rewritings
-            outputFileProvider.write(filename, reader.b);
+            outputFileProvider.write(inputFilename, reader.b);
           } else {
             reader.accept(visitor, 0);
+            String filename = writer.getClassName() + ".class";
+            checkState(
+                (options.coreLibrary && coreLibrarySupport != null)
+                    || filename.equals(inputFilename));
             outputFileProvider.write(filename, writer.toByteArray());
           }
         } else {
-          outputFileProvider.copyFrom(filename, inputFiles);
+          outputFileProvider.copyFrom(inputFilename, inputFiles);
         }
       }
     }
@@ -569,9 +573,12 @@ class Desugar {
                 writer,
                 reader);
         reader.accept(visitor, 0);
-        String filename =
-            rewriter.unprefix(lambdaClass.getValue().desiredInternalName()) + ".class";
-        outputFileProvider.write(filename, writer.toByteArray());
+        checkState(
+            (options.coreLibrary && coreLibrarySupport != null)
+                || rewriter
+                    .unprefix(lambdaClass.getValue().desiredInternalName())
+                    .equals(writer.getClassName()));
+        outputFileProvider.write(writer.getClassName() + ".class", writer.toByteArray());
       }
     }
   }
@@ -599,8 +606,10 @@ class Desugar {
 
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
       generated.getValue().accept(visitor);
-      String filename = rewriter.unprefix(generated.getKey()) + ".class";
-      outputFileProvider.write(filename, writer.toByteArray());
+      checkState(
+          (options.coreLibrary && coreLibrarySupport != null)
+              || rewriter.unprefix(generated.getKey()).equals(writer.getClassName()));
+      outputFileProvider.write(writer.getClassName() + ".class", writer.toByteArray());
     }
   }
 
