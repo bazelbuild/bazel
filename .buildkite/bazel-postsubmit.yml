@@ -6,6 +6,9 @@ steps:
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
 
+      echo '+++ Testing'\n
+      bazel test --color=yes //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
+
       echo '+++ Uploading Bazel Binary'\n
       buildkite-agent artifact upload bazel-bin/src/bazel
 
@@ -20,6 +23,9 @@ steps:
 
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
+
+      echo '+++ Testing'\n
+      bazel test --color=yes //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
 
       echo '+++ Uploading Bazel Binary'\n
       buildkite-agent artifact upload bazel-bin/src/bazel
@@ -37,7 +43,7 @@ steps:
 
 	echo '--- Downloading Bazel Binary'\n
         mkdir stashed-outputs\n
-        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 14.04'\n
         chmod +x stashed-outputs/bazel-bin/src/bazel\n
 
         echo '--- Cloning'\n
@@ -62,7 +68,7 @@ steps:
 
 	echo '--- Downloading Bazel Binary'\n
         mkdir stashed-outputs\n
-        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 16.04'\n
         chmod +x stashed-outputs/bazel-bin/src/bazel\n
 
         echo '--- Cloning'\n
@@ -87,7 +93,7 @@ steps:
 
 	echo '--- Downloading Bazel Binary'\n
         mkdir stashed-outputs\n
-        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 14.04'\n
         chmod +x stashed-outputs/bazel-bin/src/bazel\n
 
         echo '--- Cloning'\n
@@ -112,7 +118,7 @@ steps:
 
 	echo '--- Downloading Bazel Binary'\n
         mkdir stashed-outputs\n
-        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 16.04'\n
         chmod +x stashed-outputs/bazel-bin/src/bazel\n
 
         echo '--- Cloning'\n
