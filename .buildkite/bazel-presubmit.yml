@@ -3,20 +3,6 @@ steps:
    command: "echo '--- Cleanup'\n
       bazel clean --expunge\n
 
-      echo '--- Setup'\n
-      echo >> WORKSPACE\n
-      cat >> WORKSPACE << EOF\n
-\nandroid_sdk_repository(
-    name = \"androidsdk\",
-    path = \"${ANDROID_SDK_PATH}\"
-)
-
-android_ndk_repository(
-    name = \"androidndk\",
-    path = \"${ANDROID_NDK_PATH}\"
-)\nEOF\n
-cat WORKSPACE
-
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
 
@@ -28,20 +14,7 @@ cat WORKSPACE
  - label: "Ubuntu 16.04"
    command: "echo '--- Cleanup'\n
       bazel clean --expunge\n
-
-      echo '--- Setup'\n
-      cat >> WORKSPACE << EOF
-android_sdk_repository(
-    name = \"androidsdk\",
-    path = \"${ANDROID_SDK_PATH}\",
-)
-
-android_ndk_repository(
-    name = \"androidndk\",
-    path = \"${ANDROID_NDK_PATH}\",
-)
-EOF\n
-
+ 
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n//scripts/...
 
