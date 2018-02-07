@@ -7,9 +7,9 @@ steps:
       bazel build --color=yes //src:bazel\n
 
       echo '+++ Testing'\n
-      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
+      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
       
-      buildkite-agent artifact upload bazel-bin/src/bazel\n
+      buildkite-agent artifact upload bazel-bin/src/bazel\n"
    agents:
      - "os=ubuntu1404"
 
@@ -21,8 +21,8 @@ steps:
       bazel build --color=yes //src:bazel\n
 
       echo '+++ Testing'\n
-      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
+      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
       
-      buildkite-agent artifact upload bazel-bin/src/bazel\n
+      buildkite-agent artifact upload bazel-bin/src/bazel\n"
    agents:
      - "os=ubuntu1604"
