@@ -6,12 +6,8 @@ steps:
       rm -rf bep.json\n
 
       echo '+++ Building'\n
-      bazel build --color=yes //src:bazel\n
+      bazel build --color=yes //src:bazel || exit $?\n
 
-      if [ $? -ne 0 ]; then\n
-        echo $?\n
-      fi\n
-      
       echo '+++ Testing'\n
       bazel test --color=yes --build_event_json_file=bep.json //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
       
@@ -19,7 +15,7 @@ steps:
       
       python3 .buildkite/failed_testlogs.py bep.json | while read logfile; do buildkite-agent artifact upload $logfile; done"
       
-      exit TESTS_EXIT_STATUS=$?
+      exit $TESTS_EXIT_STATUS\n
    agents:
      - "os=ubuntu1404"
 
