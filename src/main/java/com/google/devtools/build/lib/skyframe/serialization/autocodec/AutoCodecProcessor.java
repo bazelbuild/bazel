@@ -110,6 +110,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
         case POLYMORPHIC:
           codecClassBuilder = buildClassWithPolymorphicStrategy(encodedType, dependencyType);
           break;
+        case SINGLETON:
+          codecClassBuilder = buildClassWithSingletonStrategy(encodedType, dependencyType);
+          break;
         default:
           throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
       }
@@ -605,6 +608,24 @@ public class AutoCodecProcessor extends AbstractProcessor {
           Optional.class);
     }
     return builder.build();
+  }
+
+  private static TypeSpec.Builder buildClassWithSingletonStrategy(
+      TypeElement encodedType, @Nullable TypeElement dependency) {
+    if (dependency != null) {
+      throw new IllegalArgumentException(
+          encodedType + " specifies a dependency, but SINGLETON is selected as the strategy.");
+    }
+    TypeSpec.Builder codecClassBuilder =
+        AutoCodecUtil.initializeCodecClassBuilder(encodedType, dependency);
+    // Serialization is a no-op.
+    codecClassBuilder.addMethod(
+        AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, dependency).build());
+    MethodSpec.Builder deserializeMethodBuilder =
+        AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, dependency);
+    deserializeMethodBuilder.addStatement("return $T.INSTANCE", TypeName.get(encodedType.asType()));
+    codecClassBuilder.addMethod(deserializeMethodBuilder.build());
+    return codecClassBuilder;
   }
 
   /** True when {@code type} has the same type as {@code clazz}. */
