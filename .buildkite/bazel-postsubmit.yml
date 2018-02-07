@@ -6,9 +6,6 @@ steps:
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
 
-      echo '+++ Testing'\n
-      bazel test --color=yes //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
-
       echo '+++ Uploading Bazel Binary'\n
       buildkite-agent artifact upload bazel-bin/src/bazel
 
@@ -23,9 +20,6 @@ steps:
 
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
-
-      echo '+++ Testing'\n
-      bazel test --color=yes //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
 
       echo '+++ Uploading Bazel Binary'\n
       buildkite-agent artifact upload bazel-bin/src/bazel
