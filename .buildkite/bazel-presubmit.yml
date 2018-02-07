@@ -4,15 +4,16 @@ steps:
       bazel clean --expunge\n
 
       echo '--- Setup'\n
+      echo >> WORKSPACE\n
       cat >> WORKSPACE << EOF\n
 android_sdk_repository(
     name = \"androidsdk\",
-    path = \"${ANDROID_SDK_PATH}\",
+    path = \"${ANDROID_SDK_PATH}\"
 )
 
 android_ndk_repository(
     name = \"androidndk\",
-    path = \"${ANDROID_NDK_PATH}\",
+    path = \"${ANDROID_NDK_PATH}\"
 )\nEOF\n
 cat WORKSPACE
 
