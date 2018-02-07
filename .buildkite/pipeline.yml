@@ -1,8 +1,7 @@
 steps:
-  - command: "
-	echo \"+++ Building Bazel\"\n
-        bazel build --color=yes //src:bazel\n
-        echo \"--- Uploading Bazel Binary\"\n
+  - command: "echo +++ Building Bazel
+        bazel build --color=yes //src:bazel
+        echo --- Uploading Bazel Binary
         buildkite-agent artifact upload bazel-bin/src/bazel"
     label: "Build Bazel"
     agents:
