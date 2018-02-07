@@ -4,7 +4,7 @@ steps:
       bazel clean --expunge\n
 
       echo '--- Setup'\n
-      cat >>WORKSPACE <<EOF
+      cat >> WORKSPACE << EOF
 android_sdk_repository(
     name = \"androidsdk\",
     path = \"${ANDROID_SDK_PATH}\",
@@ -13,11 +13,11 @@ android_sdk_repository(
 android_ndk_repository(
     name = \"androidndk\",
     path = \"${ANDROID_NDK_PATH}\",
-)
+)\n
 EOF\n
 
       echo '+++ Building'\n
-      bazel build --color=yes //src:bazel\n//scripts/...
+      bazel build --color=yes //src:bazel\n//scripts/...\n
 
       echo '+++ Testing'\n
       bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
@@ -29,7 +29,7 @@ EOF\n
       bazel clean --expunge\n
 
       echo '--- Setup'\n
-      cat >>WORKSPACE <<EOF
+      cat >> WORKSPACE << EOF
 android_sdk_repository(
     name = \"androidsdk\",
     path = \"${ANDROID_SDK_PATH}\",
