@@ -13,8 +13,7 @@ android_sdk_repository(
 android_ndk_repository(
     name = \"androidndk\",
     path = \"${ANDROID_NDK_PATH}\",
-)\n
-EOF\n
+)\nEOF\n
 
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n//scripts/...\n
