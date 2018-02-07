@@ -6,9 +6,6 @@ steps:
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
 
-      echo '+++ Testing'\n
-      bazel test --color=yes //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
-
       echo '+++ Uploading Bazel Binary'\n
       buildkite-agent artifact upload bazel-bin/src/bazel
 
@@ -23,9 +20,6 @@ steps:
 
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
-
-      echo '+++ Testing'\n
-      bazel test --color=yes //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
 
       echo '+++ Uploading Bazel Binary'\n
       buildkite-agent artifact upload bazel-bin/src/bazel
@@ -135,7 +129,6 @@ steps:
         rm -rf stashed-outputs rules_python\n"
    agents:
      - "os=ubuntu1604"
-buchgr@buchgr0:~/code/bazel/.buildkite$ python generate_pipelines.py 
 buchgr@buchgr0:~/code/bazel/.buildkite$ cat bazel-postsubmit.yml 
 steps:
  - label: "Bazel Ubuntu 14.04"
