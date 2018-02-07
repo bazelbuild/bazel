@@ -103,29 +103,6 @@ function test_universe_scope_specified() {
   assert_not_equals $HOST_CONFIG $TARGET_CONFIG
 }
 
-# This test ensures the known buggy behavior described at b/71905538 i.e. nodes
-# lingering from previous builds.
-# TODO(juliexxia): Remove this test once b/71905538 is fixed.
-function test_ghost_nodes_bug() {
-  write_java_library_build
-
-  # Create host-configured //pine:plugin node in this cquery
-  bazel cquery "deps(//pine:my_java)" || fail "Excepted success"
-  # This cquery should return target configured //pine:plugin but actually returns
-  # the host-configured target generated above. This is the buggy behavior.
-  bazel cquery //pine:dep+//pine:plugin \
-    > output 2>"$TEST_log" || fail "Excepted success"
-
-  # Find the lines of output for //pine:plugin and //pine:dep.
-  PLUGIN=$(grep "//pine:plugin" output)
-  DEP=$(grep "//pine:dep" output)
-  # Trim to just configurations.
-  PLUGIN_CONFIG=${PLUGIN/"//pine:plugin"}
-  DEP_CONFIG=${DEP/"//pine:dep"}
-  # Ensure they are are not equal (the buggy behavior).
-  assert_not_equals $PLUGIN_CONFIG $DEP_CONFIG
-}
-
 function test_host_config_output() {
  write_java_library_build
 
