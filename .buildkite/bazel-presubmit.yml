@@ -18,7 +18,7 @@ android_ndk_repository(
 cat WORKSPACE
 
       echo '+++ Building'\n
-      bazel build --color=yes //src:bazel\n//scripts/...\n
+      bazel build --color=yes //src:bazel\n
 
       echo '+++ Testing'\n
       bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
