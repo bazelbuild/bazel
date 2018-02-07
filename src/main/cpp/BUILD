@@ -125,6 +125,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
+        ":rc_file",
         ":startup_options",
         ":workspace_layout",
         "//src/main/cpp/util",
@@ -161,6 +162,22 @@ cc_library(
     deps = [
         ":blaze_util",
         "//src/main/cpp/util",
+    ],
+)
+
+cc_library(
+    name = "rc_file",
+    srcs = ["rc_file.cc"],
+    hdrs = ["rc_file.h"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
+    ],
+    deps = [
+        ":blaze_util",
+        ":workspace_layout",
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:logging",
     ],
 )
 

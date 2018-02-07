@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/exit_code.h"
 
@@ -56,7 +57,7 @@ class OptionProcessor {
   OptionProcessor(const WorkspaceLayout* workspace_layout,
                   std::unique_ptr<StartupOptions> default_startup_options);
 
-  virtual ~OptionProcessor();
+  virtual ~OptionProcessor() {}
 
   // Splits the arguments of a command line invocation.
   //
@@ -113,51 +114,17 @@ class OptionProcessor {
   // to the failure. Otherwise, the server will handle any required logging.
   void PrintStartupOptionsProvenanceMessage() const;
 
- private:
-  class RcOption {
-   public:
-    RcOption(int rcfile_index, const std::string& option);
-
-    const int rcfile_index() const { return rcfile_index_; }
-    const std::string& option() const { return option_; }
-
-   private:
-    int rcfile_index_;
-    std::string option_;
-  };
-
-  class RcFile {
-   public:
-    RcFile(const std::string& filename, int index);
-    blaze_exit_code::ExitCode Parse(
-        const std::string& workspace, const WorkspaceLayout* workspace_layout,
-        std::vector<RcFile*>* rcfiles,
-        std::map<std::string, std::vector<RcOption>>* rcoptions,
-        std::string* error);
-    const std::string& Filename() const { return filename_; }
-    const int Index() const { return index_; }
-
-   private:
-    static blaze_exit_code::ExitCode Parse(
-        const std::string& workspace, const std::string& filename,
-        const int index, const WorkspaceLayout* workspace_layout,
-        std::vector<RcFile*>* rcfiles,
-        std::map<std::string, std::vector<RcOption>>* rcoptions,
-        std::list<std::string>* import_stack, std::string* error);
-
-    std::string filename_;
-    int index_;
-  };
-
   blaze_exit_code::ExitCode ParseStartupOptions(std::string* error);
 
+  // Constructs all synthetic command args that should be passed to the
+  // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
       const std::string& cwd,
-      const std::vector<RcFile*>& blazercs,
-      const std::map<std::string, std::vector<RcOption>>& rcoptions);
+      const std::vector<std::unique_ptr<RcFile>>& blazercs,
+      const std::vector<std::string>& env);
 
   // The list of parsed rc files, this field is initialized by ParseOptions.
-  std::vector<RcFile*> blazercs_;
+  std::vector<std::unique_ptr<RcFile>> blazercs_;
 
   // A map representing the flags parsed from the bazelrc files.
   // A key is a command (e.g. 'build', 'startup') and its value is an ordered
