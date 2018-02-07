@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -1709,28 +1708,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return getConfiguredTarget("//x:x");
   }
 
-  private ConfiguredTarget createTargetWithSwift(RuleType ruleType) throws Exception {
-    scratch.file("x/main.m");
-
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "def swift_rule_impl(ctx):",
-        "  return struct(objc=apple_common.new_objc_provider(uses_swift=True))",
-        "swift_rule = rule(implementation = swift_rule_impl, attrs = {})");
-
-    scratch.file(
-        "x/BUILD",
-        "load('//examples/rule:apple_rules.bzl', 'swift_rule')",
-        "swift_rule(name='swift_bin')",
-        ruleType.getRuleTypeName() + "(",
-        "    name = 'x',",
-        "    srcs = ['main.m'],",
-        "    deps = [':swift_bin'],",
-        ")");
-
-    return getConfiguredTarget("//x:x");
-  }
 
   protected void checkProvidesStoryboardObjects(RuleType ruleType) throws Exception {
     useConfiguration();
@@ -1797,54 +1774,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
                 .build()
                 .arguments())
         .inOrder();
-  }
-
-  protected void assertSwiftStdlibToolAction(
-      ConfiguredTarget target,
-      String platformName,
-      String zipName,
-      String bundlePath)
-      throws Exception {
-    String zipArtifactName = String.format("%s.%s.zip", target.getTarget().getName(), zipName);
-    Artifact swiftLibsZip = getBinArtifact(zipArtifactName, target);
-    Artifact binary = getBinArtifact("x_lipobin", target);
-    SpawnAction toolAction = (SpawnAction) getGeneratingAction(swiftLibsZip);
-
-    assertThat(Artifact.toExecPaths(toolAction.getInputs()))
-        .containsExactly(binary.getExecPathString(), MOCK_SWIFTSTDLIBTOOLWRAPPER_PATH);
-    assertThat(toolAction.getOutputs()).containsExactly(swiftLibsZip);
-
-    CustomCommandLine.Builder expectedCommandLine =
-        CustomCommandLine.builder().addDynamicString(MOCK_SWIFTSTDLIBTOOLWRAPPER_PATH);
-
-    expectedCommandLine
-        .addExecPath("--output_zip_path", swiftLibsZip)
-        .add("--bundle_path", bundlePath)
-        .add("--platform", platformName)
-        .addExecPath("--scan-executable", binary);
-
-    assertThat(toolAction.getArguments()).isEqualTo(expectedCommandLine.build().arguments());
-  }
-
-  protected void checkRegisterSwiftSupportActions(
-      RuleType ruleType, String platformName) throws Exception {
-    checkRegisterSwiftSupportActions(createTargetWithSwift(ruleType), platformName);
-  }
-
-  protected void checkRegisterSwiftSupportActions(
-      ConfiguredTarget target, String platformName) throws Exception {
-    assertSwiftStdlibToolAction(
-        target, platformName, "swiftsupport", "SwiftSupport/" + platformName);
-  }
-
-  protected void checkRegisterSwiftStdlibActions(
-      RuleType ruleType, String platformName) throws Exception {
-    checkRegisterSwiftStdlibActions(createTargetWithSwift(ruleType), platformName);
-  }
-
-  protected void checkRegisterSwiftStdlibActions(
-      ConfiguredTarget target, String platformName) throws Exception {
-    assertSwiftStdlibToolAction(target, platformName, "swiftstdlib", "Frameworks");
   }
 
   /**
