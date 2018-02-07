@@ -2,27 +2,29 @@ steps:
  - label: "Ubuntu 14.04"
    command: "echo '--- Cleanup'\n
       bazel clean --expunge\n
+      rm -rf bep.json
 
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
 
-      buildkite-agent artifact upload bazel-bin/src/bazel\n
-
       echo '+++ Testing'\n
-      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
+      bazel test --color=yes --build_event_json_file=bep.json //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
+      
+      python3 ./buildkite/failed_testlogs.py bep.json | while read logfile; do buildkite-agent artifact upload $logfile; done"
    agents:
      - "os=ubuntu1404"
 
  - label: "Ubuntu 16.04"
    command: "echo '--- Cleanup'\n
       bazel clean --expunge\n
+            rm -rf bep.json
 
       echo '+++ Building'\n
       bazel build --color=yes //src:bazel\n
 
-      buildkite-agent artifact upload bazel-bin/src/bazel\n
-
       echo '+++ Testing'\n
-      bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
+      bazel test --color=yes --build_event_json_file=bep.json //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
+      
+      python3 ./buildkite/failed_testlogs.py bep.json | while read logfile; do buildkite-agent artifact upload $logfile; done"
    agents:
      - "os=ubuntu1604"
