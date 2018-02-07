@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +34,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
@@ -183,7 +182,7 @@ public final class CppModel {
   private final List<Artifact> compilationMandatoryInputs = new ArrayList<>();
   private final List<Artifact> additionalIncludeScanningRoots = new ArrayList<>();
   private final ImmutableList<String> copts;
-  private final Predicate<String> coptsFilter;
+  private final CoptsFilter coptsFilter;
   private boolean fake;
   private boolean maySaveTemps;
   private CcCompilationOutputs compilationOutputs;
@@ -218,7 +217,7 @@ public final class CppModel {
         fdoSupport,
         ruleContext.getConfiguration(),
         copts,
-        Predicates.alwaysTrue());
+        CoptsFilter.alwaysPasses());
   }
 
   public CppModel(
@@ -227,7 +226,7 @@ public final class CppModel {
       CcToolchainProvider ccToolchain,
       FdoSupportProvider fdoSupport,
       ImmutableList<String> copts,
-      Predicate<String> coptsFilter) {
+      CoptsFilter coptsFilter) {
     this(
         ruleContext,
         semantics,
@@ -245,7 +244,7 @@ public final class CppModel {
       FdoSupportProvider fdoSupport,
       BuildConfiguration configuration,
       ImmutableList<String> copts,
-      Predicate<String> coptsFilter) {
+      CoptsFilter coptsFilter) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = semantics;
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);

@@ -20,7 +20,6 @@ import static java.util.stream.Collectors.toCollection;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -333,7 +333,7 @@ public final class CcLibraryHelper {
   private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
   private ImmutableList<String> copts = ImmutableList.of();
   private final List<String> linkopts = new ArrayList<>();
-  private Predicate<String> coptsFilter = Predicates.alwaysTrue();
+  private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CppCompilationContext> depContexts = new ArrayList<>();
@@ -703,7 +703,7 @@ public final class CcLibraryHelper {
   }
 
   /** Sets a pattern that is used to filter copts; set to {@code null} for no filtering. */
-  public CcLibraryHelper setCoptsFilter(Predicate<String> coptsFilter) {
+  public CcLibraryHelper setCoptsFilter(CoptsFilter coptsFilter) {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
     return this;
   }

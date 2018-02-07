@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,13 +53,18 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
+import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -279,7 +283,7 @@ public class CppCompileAction extends AbstractAction
       Artifact optionalSourceFile,
       ImmutableMap<String, String> localShellEnvironment,
       CppCompilationContext context,
-      Predicate<String> coptsFilter,
+      CoptsFilter coptsFilter,
       Iterable<IncludeScannable> lipoScannables,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       UUID actionClassId,
@@ -1344,7 +1348,11 @@ public class CppCompileAction extends AbstractAction
    *   <li>just an execPath that refers to a virtual .d file that is not written to disk
    * </ol>
    */
+  @AutoCodec(dependency = FileSystemProvider.class)
   public static class DotdFile {
+    public static final InjectingObjectCodec<DotdFile, FileSystemProvider> CODEC =
+        new CppCompileAction_DotdFile_AutoCodec();
+
     private final Artifact artifact;
     private final PathFragment execPath;
 
@@ -1355,6 +1363,13 @@ public class CppCompileAction extends AbstractAction
 
     public DotdFile(PathFragment execPath) {
       this.artifact = null;
+      this.execPath = execPath;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    DotdFile(Artifact artifact, PathFragment execPath) {
+      this.artifact = artifact;
       this.execPath = execPath;
     }
 

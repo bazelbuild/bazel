@@ -15,17 +15,18 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CompileCommandLine.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -130,7 +131,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "    }",
                     "  }",
                     "}"))
-            .setCoptsFilter(flag -> !flag.contains("i_am_a_flag"))
+            .setCoptsFilter(CoptsFilter.fromRegex(Pattern.compile(".*i_am_a_flag.*")))
             .build();
     return compileCommandLine.getArgv(scratchArtifact("a/FakeOutput").getExecPath(), null);
   }
@@ -139,12 +140,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
     return CompileCommandLine.builder(
         scratchArtifact("a/FakeInput"),
         scratchArtifact("a/FakeOutput"),
-        new Predicate<String>() {
-          @Override
-          public boolean apply(String s) {
-            return true;
-          }
-        },
+        CoptsFilter.alwaysPasses(),
         "c++-compile",
         getTargetConfiguration().getFragment(CppConfiguration.class).getCrosstoolTopPathFragment(),
         new DotdFile(scratchArtifact("a/dotD")));
