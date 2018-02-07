@@ -36,7 +36,7 @@ sh_test(
 
 sh_test(
     name = "aar_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["aar_integration_test.sh"],
     data = [
         ":android_helper",
