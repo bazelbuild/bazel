@@ -7,13 +7,13 @@ steps:
       echo >>WORKSPACE
       cat >>WORKSPACE <<EOF
 android_sdk_repository(
-    name = "androidsdk",
-    path = "${ANDROID_SDK_PATH}",
+    name = \"androidsdk\",
+    path = \"${ANDROID_SDK_PATH}\",
 )
 
 android_ndk_repository(
-    name = "androidndk",
-    path = "${ANDROID_NDK_PATH}",
+    name = \"androidndk\",
+    path = \"${ANDROID_NDK_PATH}\",
 )
 EOF\n
 
@@ -33,13 +33,13 @@ EOF\n
       echo >>WORKSPACE
       cat >>WORKSPACE <<EOF
 android_sdk_repository(
-    name = "androidsdk",
-    path = "${ANDROID_SDK_PATH}",
+    name = \"androidsdk\",
+    path = \"${ANDROID_SDK_PATH}\",
 )
 
 android_ndk_repository(
-    name = "androidndk",
-    path = "${ANDROID_NDK_PATH}",
+    name = \"androidndk\",
+    path = \"${ANDROID_NDK_PATH}\",
 )
 EOF\n
 
