@@ -22,10 +22,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,7 +49,7 @@ import java.util.TreeMap;
  * TestSummary methods (except the constructor) may mutate the object.
  */
 @VisibleForTesting // Ideally package-scoped.
-public class TestSummary implements Comparable<TestSummary>, BuildEvent {
+public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrderConstraint {
   /**
    * Builder class responsible for creating and altering TestSummary objects.
    */
@@ -465,6 +465,13 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.of();
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return ImmutableList.of(
+        BuildEventId.targetCompleted(
+            AliasProvider.getDependencyLabel(target), target.getConfiguration().getEventId()));
   }
 
   @Override

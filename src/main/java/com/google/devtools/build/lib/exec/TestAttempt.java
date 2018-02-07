@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.runtime.BuildEventStreamerUtils;
@@ -34,7 +34,7 @@ import java.util.Collection;
 import java.util.List;
 
 /** This event is raised whenever an individual test attempt is completed. */
-public class TestAttempt implements BuildEvent {
+public class TestAttempt implements BuildEventWithOrderConstraint {
 
   private final TestRunnerAction testAction;
   private final BlazeTestStatus status;
@@ -151,6 +151,13 @@ public class TestAttempt implements BuildEvent {
         testAction.getShardNum(),
         attempt,
         testAction.getConfiguration().getEventId());
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return ImmutableList.of(
+        BuildEventId.targetCompleted(
+            testAction.getOwner().getLabel(), testAction.getConfiguration().getEventId()));
   }
 
   @Override
