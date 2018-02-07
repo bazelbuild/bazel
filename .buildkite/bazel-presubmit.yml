@@ -9,7 +9,7 @@ steps:
       echo '+++ Testing'\n
       bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
       
-      buildkite-agent artifact upload bazel-bin/src/bazel
+      buildkite-agent artifact upload bazel-bin/src/bazel\n
    agents:
      - "os=ubuntu1404"
 
@@ -23,6 +23,6 @@ steps:
       echo '+++ Testing'\n
       bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
       
-      buildkite-agent artifact upload bazel-bin/src/bazel
+      buildkite-agent artifact upload bazel-bin/src/bazel\n
    agents:
      - "os=ubuntu1604"
