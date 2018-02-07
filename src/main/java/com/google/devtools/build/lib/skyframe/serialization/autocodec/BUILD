@@ -76,6 +76,8 @@ pkg_tar(
         ":libautocodec-annotation.jar": "third_party/bazel_bootstrap/libautocodec-annotation.jar",
         ":libautocodec-processor.jar": "third_party/bazel_bootstrap/libautocodec-processor.jar",
         ":libunsafe-provider.jar": "third_party/bazel_bootstrap/libunsafe-provider.jar",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:libnestedset.jar": "third_party/bazel_bootstrap/libnestedset.jar",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:libserialization.jar": "third_party/bazel_bootstrap/libnestedsetserialization.jar",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar": "third_party/bazel_bootstrap/libserialization.jar",
     },
     visibility = ["//visibility:public"],
