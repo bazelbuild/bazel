@@ -1,0 +1,10 @@
+steps:
+  - command: "bazel build --color=yes //src:bazel\nbuildkite-agent artifact upload bazel-bin/src/bazel"
+    label: "Build Bazel Ubuntu 16.04"
+    agents:
+      - "os=ubuntu1604"
+
+  - wait
+
+  - trigger: "rules_go"
+    label: "Trigger rules_go_test"
