@@ -102,7 +102,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'not a valid release string')."
-            + " Defaulting to revision 14.");
+            + " Bazel will attempt to treat the NDK as if it was r14.");
   }
 
   @Test
@@ -128,7 +128,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'invalid package revision'). "
-            + "Defaulting to revision 14.");
+            + "Bazel will attempt to treat the NDK as if it was r14.");
   }
 
   @Test
@@ -153,7 +153,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The major revision of the Android NDK referenced by android_ndk_repository rule "
             + "'androidndk' is 15. The major revisions supported by Bazel are [10, 11, 12, 13, 14]."
-            + " Defaulting to revision 14.");
+            + " Bazel will attempt to treat the NDK as if it was r14.");
   }
 
   @Test
