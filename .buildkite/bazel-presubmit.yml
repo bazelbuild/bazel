@@ -1,0 +1,18 @@
+steps:
+ - label: "Ubuntu 14.04"
+   command: "echo '--- Cleaning Workspace'\n
+      bazel clean --expunge\n
+
+      echo '+++ Building Bazel'\n
+      bazel build --color=yes //src:bazel\n"
+   agents:
+     - "os=ubuntu1404"
+
+ - label: "Ubuntu 16.04"
+   command: "echo '--- Cleaning Workspace'\n
+      bazel clean --expunge\n
+
+      echo '+++ Building Bazel'\n
+      bazel build --color=yes //src:bazel\n"
+   agents:
+     - "os=ubuntu1604"
