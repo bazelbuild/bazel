@@ -18,12 +18,12 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -169,7 +169,8 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
     invalidatePackages();
 
-    ConfiguredTarget cpufeatures = getConfiguredTarget("@androidndk//:cpufeatures");
+    ConfiguredTargetAndTarget cpufeatures =
+        getConfiguredTargetAndTarget("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
     AttributeContainer attributes =
         cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();

@@ -123,6 +123,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.LegacyLoadingPhaseRunner;
@@ -624,25 +625,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.getActionGraph(reporter);
   }
 
-  protected final Action getGeneratingAction(Artifact artifact) {
-    Preconditions.checkNotNull(artifact);
-    ActionAnalysisMetadata action = mutableActionGraph.getGeneratingAction(artifact);
-
-    if (action == null) {
-      action = getActionGraph().getGeneratingAction(artifact);
-    }
-
-    if (action != null) {
-      Preconditions.checkState(
-          action instanceof Action,
-          "%s is not a proper Action object",
-          action.prettyPrint());
-      return (Action) action;
-    } else {
-      return null;
-    }
-  }
-
   @Nullable
   protected final ParameterFileWriteAction findParamsFileAction(SpawnAction spawnAction) {
     for (Artifact input : spawnAction.getInputs()) {
@@ -670,6 +652,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getGeneratingAction(artifact);
   }
 
+  protected final Action getGeneratingAction(Artifact artifact) {
+    Preconditions.checkNotNull(artifact);
+    ActionAnalysisMetadata action = mutableActionGraph.getGeneratingAction(artifact);
+
+    if (action == null) {
+      action = getActionGraph().getGeneratingAction(artifact);
+    }
+
+    if (action != null) {
+      Preconditions.checkState(
+          action instanceof Action, "%s is not a proper Action object", action.prettyPrint());
+      return (Action) action;
+    } else {
+      return null;
+    }
+  }
+
   protected Action getGeneratingActionInOutputGroup(
       ConfiguredTarget target, String outputName, String outputGroupName) {
     NestedSet<Artifact> outputGroup =
@@ -685,6 +684,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return (SpawnAction) getGeneratingAction(artifact);
   }
 
+  protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
+    return getGeneratingSpawnAction(
+        Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
+  }
+
   protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact)
       throws CommandLineExpansionException {
     SpawnAction a = getGeneratingSpawnAction(artifact);
@@ -692,11 +696,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return p == null
         ? a.getArguments()
         : ImmutableList.copyOf(Iterables.concat(a.getArguments(), p.getContents()));
-  }
-
-  protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
-    return getGeneratingSpawnAction(
-        Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
   }
 
   protected ActionsTestUtil actionsTestUtil() {
@@ -740,6 +739,25 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
     return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
+  }
+
+  /**
+   * Returns a ConfiguredTargetAndTarget for the specified label, using the given build
+   * configuration.
+   */
+  protected ConfiguredTargetAndTarget getConfiguredTargetAndTarget(
+      Label label, BuildConfiguration config) {
+    return view.getConfiguredTargetAndTargetForTesting(reporter, label, config);
+  }
+
+  /**
+   * Returns the ConfiguredTargetAndTarget for the specified label. If the label corresponds to a
+   * target with a top-level configuration transition, that transition is applied to the given
+   * config in the ConfiguredTargetAndTarget's ConfiguredTarget.
+   */
+  public ConfiguredTargetAndTarget getConfiguredTargetAndTarget(String label)
+      throws LabelSyntaxException {
+    return getConfiguredTargetAndTarget(Label.parseAbsolute(label), targetConfig);
   }
 
   /**
@@ -803,6 +821,57 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Create and return a configured scratch rule.
+   *
+   * @param packageName the package name of the rule.
+   * @param ruleName the name of the rule.
+   * @param config the configuration to use to construct the configured rule.
+   * @param lines the text of the rule.
+   * @return the configured target instance for the created rule.
+   * @throws IOException
+   * @throws Exception
+   */
+  protected ConfiguredTarget scratchConfiguredTarget(
+      String packageName, String ruleName, BuildConfiguration config, String... lines)
+      throws IOException, Exception {
+    ConfiguredTargetAndTarget ctat =
+        scratchConfiguredTargetAndTarget(packageName, ruleName, config, lines);
+    return ctat == null ? null : ctat.getConfiguredTarget();
+  }
+
+  /**
+   * Creates and returns a configured scratch rule and it's target.
+   *
+   * @param packageName the package name of the rule.
+   * @param rulename the name of the rule.
+   * @param lines the text of the rule.
+   * @return the configured tatarget and target instance for the created rule.
+   * @throws Exception
+   */
+  protected ConfiguredTargetAndTarget scratchConfiguredTargetAndTarget(
+      String packageName, String rulename, String... lines) throws Exception {
+    return scratchConfiguredTargetAndTarget(packageName, rulename, targetConfig, lines);
+  }
+
+  /**
+   * Creates and returns a configured scratch rule and it's target.
+   *
+   * @param packageName the package name of the rule.
+   * @param ruleName the name of the rule.
+   * @param config the configuration to use to construct the configured rule.
+   * @param lines the text of the rule.
+   * @return the ConfiguredTargetAndTarget instance for the created rule.
+   * @throws IOException
+   * @throws Exception
+   */
+  protected ConfiguredTargetAndTarget scratchConfiguredTargetAndTarget(
+      String packageName, String ruleName, BuildConfiguration config, String... lines)
+      throws Exception {
+    Target rule = scratchRule(packageName, ruleName, lines);
+    return view.getConfiguredTargetAndTargetForTesting(reporter, rule.getLabel(), config);
+  }
+
+  /**
    * Create and return a scratch rule.
    *
    * @param packageName the package name of the rule.
@@ -826,26 +895,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new ModifiedFileSet.Builder().modify(PathFragment.create(buildFilePathString)).build(),
         Root.fromPath(rootDirectory));
     return (Rule) getTarget("//" + packageName + ":" + ruleName);
-  }
-
-  /**
-   * Create and return a configured scratch rule.
-   *
-   * @param packageName the package name of the rule.
-   * @param ruleName the name of the rule.
-   * @param config the configuration to use to construct the configured rule.
-   * @param lines the text of the rule.
-   * @return the configured target instance for the created rule.
-   * @throws IOException
-   * @throws Exception
-   */
-  protected ConfiguredTarget scratchConfiguredTarget(String packageName,
-                                                     String ruleName,
-                                                     BuildConfiguration config,
-                                                     String... lines)
-      throws IOException, Exception {
-    Target rule = scratchRule(packageName, ruleName, lines);
-    return view.getConfiguredTargetForTesting(reporter, rule.getLabel(), config);
   }
 
   /**
@@ -1156,18 +1205,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Strips the C++-contributed prefix out of an output path when tests are run with trimmed
-   * configurations. e.g. turns "bazel-out/gcc-X-glibc-Y-k8-fastbuild/ to "bazel-out/fastbuild/".
-   *
-   * <p>This should be used for targets use configurations with C++ fragments.
-   */
-  protected String stripCppPrefixForTrimmedConfigs(String outputPath) {
-    return targetConfig.trimConfigurations()
-        ? AnalysisTestUtil.OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(outputPath).replaceFirst("")
-        : outputPath;
-  }
-
-  /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
    * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
    * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
@@ -1217,6 +1254,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {
     return getGeneratingAction(getFileConfiguredTarget(label).getArtifact());
+  }
+
+  /**
+   * Strips the C++-contributed prefix out of an output path when tests are run with trimmed
+   * configurations. e.g. turns "bazel-out/gcc-X-glibc-Y-k8-fastbuild/ to "bazel-out/fastbuild/".
+   *
+   * <p>This should be used for targets use configurations with C++ fragments.
+   */
+  protected String stripCppPrefixForTrimmedConfigs(String outputPath) {
+    return targetConfig.trimConfigurations()
+        ? AnalysisTestUtil.OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(outputPath).replaceFirst("")
+        : outputPath;
   }
 
   protected String fileName(Artifact artifact) {
@@ -1299,20 +1348,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
-  }
-
-  private BuildConfiguration getConfiguration(String label) {
-    BuildConfiguration config;
-    try {
-      config = getConfiguredTarget(label).getConfiguration();
-      config = view.getConfigurationForTesting(getTarget(label), config, reporter);
-    } catch (LabelSyntaxException e) {
-      throw new IllegalArgumentException(e);
-    } catch (Exception e) {
-      //TODO(b/36585204): Clean this up
-      throw new RuntimeException(e);
-    }
-    return config;
   }
 
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
@@ -1517,6 +1552,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return skyframeExecutor.getConfigurationForTesting(
           reporter, fromConfig.fragmentClasses(), transition.apply(fromConfig.getOptions()));
     }
+  }
+
+  private BuildConfiguration getConfiguration(String label) {
+    BuildConfiguration config;
+    try {
+      config = getConfiguredTarget(label).getConfiguration();
+      config = view.getConfigurationForTesting(getTarget(label), config, reporter);
+    } catch (LabelSyntaxException e) {
+      throw new IllegalArgumentException(e);
+    } catch (Exception e) {
+      // TODO(b/36585204): Clean this up
+      throw new RuntimeException(e);
+    }
+    return config;
   }
 
   /**

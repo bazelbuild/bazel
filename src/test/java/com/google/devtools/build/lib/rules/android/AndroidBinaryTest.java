@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1547,19 +1548,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "png");
   }
 
-  private void testDirectResourceFiltering(
-      String filters, List<String> unexpectedQualifiers, ImmutableList<String> expectedQualifiers)
-      throws Exception {
-    testDirectResourceFiltering(
-        filters,
-        /* densities= */ "",
-        unexpectedQualifiers,
-        expectedQualifiers,
-        /* expectUnqualifiedResource= */ true,
-        "drawable",
-        "png");
-  }
-
   private void testDensityResourceFiltering(
       String densities, List<String> unexpectedQualifiers, List<String> expectedQualifiers)
       throws Exception {
@@ -1569,6 +1557,19 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         unexpectedQualifiers,
         expectedQualifiers,
         /* expectUnqualifiedResource= */ false,
+        "drawable",
+        "png");
+  }
+
+  private void testDirectResourceFiltering(
+      String filters, List<String> unexpectedQualifiers, ImmutableList<String> expectedQualifiers)
+      throws Exception {
+    testDirectResourceFiltering(
+        filters,
+        /* densities= */ "",
+        unexpectedQualifiers,
+        expectedQualifiers,
+        /* expectUnqualifiedResource= */ true,
         "drawable",
         "png");
   }
@@ -2004,7 +2005,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'lib_string'>Libs!</string></resources>");
     scratch.file("java/r/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
-    Artifact jar = getResourceClassJar(getConfiguredTarget("//java/r/android:r"));
+    Artifact jar = getResourceClassJar(getConfiguredTargetAndTarget("//java/r/android:r"));
     assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
     assertThat(getGeneratingSpawnActionArgs(jar))
         .containsAllOf("--primaryRTxt", "--primaryManifest", "--library", "--classJarOutput");
@@ -2019,7 +2020,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               )");
     scratch.file("java/r/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
-    Artifact jar = getResourceClassJar(getConfiguredTarget("//java/r/android:r"));
+    Artifact jar = getResourceClassJar(getConfiguredTargetAndTarget("//java/r/android:r"));
     assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
     List<String> args = getGeneratingSpawnActionArgs(jar);
     assertThat(args).containsAllOf("--primaryRTxt", "--primaryManifest", "--classJarOutput");
@@ -2044,7 +2045,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'lib_string'>Libs!</string></resources>");
     scratch.file("java/r/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
-    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
+    ConfiguredTargetAndTarget binary = getConfiguredTargetAndTarget("//java/r/android:r");
     Artifact jar = getResourceClassJar(binary);
     assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
     List<String> args = getGeneratingSpawnActionArgs(jar);

@@ -111,11 +111,12 @@ public class SkyframeExecutorTestUtils {
    */
   public static Iterable<ConfiguredTarget> getExistingConfiguredTargets(
       SkyframeExecutor skyframeExecutor, final Label label) {
-    return Iterables.filter(getAllExistingConfiguredTargets(skyframeExecutor),
+    return Iterables.filter(
+        getAllExistingConfiguredTargets(skyframeExecutor),
         new Predicate<ConfiguredTarget>() {
           @Override
           public boolean apply(ConfiguredTarget input) {
-            return input.getTarget().getLabel().equals(label);
+            return input.getLabel().equals(label);
           }
         });
   }

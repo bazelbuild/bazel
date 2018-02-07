@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -389,6 +390,23 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return update(new EventBus(), defaultFlags(), aspects, labels);
   }
 
+  protected ConfiguredTargetAndTarget getConfiguredTargetAndTarget(String label)
+      throws InterruptedException {
+    return getConfiguredTargetAndTarget(label, getTargetConfiguration());
+  }
+
+  protected ConfiguredTargetAndTarget getConfiguredTargetAndTarget(
+      String label, BuildConfiguration config) {
+    ensureUpdateWasCalled();
+    Label parsedLabel;
+    try {
+      parsedLabel = Label.parseAbsolute(label);
+    } catch (LabelSyntaxException e) {
+      throw new AssertionError(e);
+    }
+    return skyframeExecutor.getConfiguredTargetAndTargetForTesting(reporter, parsedLabel, config);
+  }
+
   protected Target getTarget(String label) throws InterruptedException {
     try {
       return SkyframeExecutorTestUtils.getExistingTarget(skyframeExecutor,
@@ -403,6 +421,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return getConfiguredTargetForSkyframe(label, configuration);
   }
 
+  /**
+   * Returns the corresponding configured target, if it exists. Note that this will only return
+   * anything useful after a call to update() with the same label.
+   */
+  protected ConfiguredTarget getConfiguredTarget(String label) throws InterruptedException {
+    return getConfiguredTarget(label, getTargetConfiguration());
+  }
+
   private ConfiguredTarget getConfiguredTargetForSkyframe(String label,
       BuildConfiguration configuration) {
     Label parsedLabel;
@@ -412,14 +438,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       throw new AssertionError(e);
     }
     return skyframeExecutor.getConfiguredTargetForTesting(reporter, parsedLabel, configuration);
-  }
-
-  /**
-   * Returns the corresponding configured target, if it exists. Note that this will only return
-   * anything useful after a call to update() with the same label.
-   */
-  protected ConfiguredTarget getConfiguredTarget(String label) throws InterruptedException {
-    return getConfiguredTarget(label, getTargetConfiguration());
   }
 
   /**
