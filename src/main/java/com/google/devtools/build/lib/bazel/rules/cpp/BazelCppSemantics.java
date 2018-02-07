@@ -26,12 +26,15 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.NoProcessing;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
 
-/**
- * C++ compilation semantics.
- */
+/** C++ compilation semantics. */
 public class BazelCppSemantics implements AspectLegalCppSemantics {
   public static final BazelCppSemantics INSTANCE = new BazelCppSemantics();
+
+  public static final ObjectCodec<BazelCppSemantics> CODEC =
+      SingletonCodec.of(INSTANCE, "BazelCppSemantics");
 
   private final IncludeProcessing includeProcessing;
 

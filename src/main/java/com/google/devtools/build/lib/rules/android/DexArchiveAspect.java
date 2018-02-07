@@ -65,6 +65,8 @@ import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProv
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -72,8 +74,12 @@ import java.util.Map;
 import java.util.Set;
 
 /** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
+@AutoCodec
 public final class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "DexArchiveAspect";
+
+  public static final ObjectCodec<DexArchiveAspect> CODEC = new DexArchiveAspect_AutoCodec();
+
   /**
    * Function that returns a {@link Rule}'s {@code incremental_dexing} attribute for use by this
    * aspect. Must be provided when attaching this aspect to a target.

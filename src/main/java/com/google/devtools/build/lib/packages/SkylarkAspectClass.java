@@ -16,14 +16,16 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
-/**
- * {@link AspectClass} for aspects defined in Skylark.
- */
+/** {@link AspectClass} for aspects defined in Skylark. */
+@AutoCodec
 @Immutable
 public final class SkylarkAspectClass implements AspectClass {
+  public static final ObjectCodec<SkylarkAspectClass> CODEC = new SkylarkAspectClass_AutoCodec();
+
   private final Label extensionLabel;
   private final String exportedName;
 
@@ -39,7 +41,6 @@ public final class SkylarkAspectClass implements AspectClass {
   public String getExportedName() {
     return exportedName;
   }
-
 
   @Override
   public final String getName() {

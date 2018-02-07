@@ -73,13 +73,18 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
 /** J2ObjC transpilation aspect for Java and proto rules. */
+@AutoCodec
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "J2ObjcAspect";
+  public static final ObjectCodec<J2ObjcAspect> CODEC = new J2ObjcAspect_AutoCodec();
+
   private final String toolsRepository;
 
   private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(

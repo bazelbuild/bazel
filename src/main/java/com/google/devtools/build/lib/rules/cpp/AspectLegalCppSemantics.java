@@ -14,9 +14,16 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+
 /**
- * A marker for {@link CppSemantics} implementations that are legal as members of an aspect.  These
+ * A marker for {@link CppSemantics} implementations that are legal as members of an aspect. These
  * implementations must not be heavy to serialize (e.g. a singleton is fine), so as not to weigh
  * down AspectKey.
  */
-public interface AspectLegalCppSemantics extends CppSemantics {}
+@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
+public interface AspectLegalCppSemantics extends CppSemantics {
+  public static final ObjectCodec<AspectLegalCppSemantics> CODEC =
+      new AspectLegalCppSemantics_AutoCodec();
+}

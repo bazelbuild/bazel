@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathTyp
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,10 +56,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/**
- * Pluggable Java compilation semantics.
- */
+/** Pluggable Java compilation semantics. */
+@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface JavaSemantics {
+  public static final ObjectCodec<JavaSemantics> CODEC = new JavaSemantics_AutoCodec();
 
   LibraryLanguage LANGUAGE = new LibraryLanguage("Java");
 
