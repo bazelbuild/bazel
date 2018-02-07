@@ -1,6 +1,11 @@
 steps:
-  - command: "echo +++ Building Bazel
+  - command: "
+	echo --- Cleaning
+	bazel clean --expunge
+
+	echo +++ Building Bazel
         bazel build --color=yes //src:bazel
+
         echo --- Uploading Bazel Binary
         buildkite-agent artifact upload bazel-bin/src/bazel"
     label: "Build Bazel"
@@ -9,12 +14,40 @@ steps:
 
   - wait
 
-  - command: "echo \"--- Downloading Bazel Binary\"\nmkdir upstream\nbuildkite-agent artifact download bazel-bin/src/bazel upstream/\nchmod +x upstream/bazel-bin/src/bazel\necho \"--- Cloning rules_go\"\nrm -rf rules_go\ngit clone https://github.com/geheimspeicher/rules_go\ncd rules_go\necho \"+++ Building rules_go\"\n../upstream/bazel-bin/src/bazel build --color=yes ..."
+  - command: "
+	echo --- Cleaning
+	rm -rf buildkite-outputs rules_go
+	bazel clean --expunge
+
+	echo --- Downloading Bazel Binary
+        mkdir buildkite-outputs
+        buildkite-agent artifact download bazel-bin/src/bazel buildkite-outputs
+        chmod +x buildkite-outputs/bazel-bin/src/bazel
+
+        echo --- Cloning rules_go
+        git clone https://github.com/geheimspeicher/rules_go
+        cd rules_go
+        echo +++ Building rules_go
+        ../buildkite-outputs/bazel-bin/src/bazel build --color=yes ..."
     label: "Build rules_go"
     agents:
       - "os=ubuntu1604"
 
-  - command: "echo \"--- Downloading Bazel Binary\"\nmkdir upstream\nbuildkite-agent artifact download bazel-bin/src/bazel upstream/\nchmod +x upstream/bazel-bin/src/bazel\necho \"--- Cloning rules_python\"\nrm -rf rules_python\ngit clone https://github.com/geheimspeicher/rules_python\ncd rules_python\necho \"+++ Building rules_python\"\n../upstream/bazel-bin/src/bazel build --color=yes ..."
+  - command: "
+	echo --- Cleaning
+	rm -rf buildkite-outputs rules_python
+	bazel clean --expunge
+
+	echo --- Downloading Bazel Binary
+        mkdir buildkite-outputs
+        buildkite-agent artifact download bazel-bin/src/bazel buildkite-outputs
+        chmod +x buildkite-outputs/bazel-bin/src/bazel
+
+        echo --- Cloning rules_python
+        git clone https://github.com/geheimspeicher/rules_python
+        cd rules_python
+        echo +++ Building rules_python
+        ../buildkite-outputs/bazel-bin/src/bazel build --color=yes ..."
     label: "Build rules_python"
     agents:
       - "os=ubuntu1604"
