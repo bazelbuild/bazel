@@ -16,7 +16,7 @@ steps:
       bazel clean --expunge\n
  
       echo '+++ Building'\n
-      bazel build --color=yes //src:bazel\n//scripts/...
+      bazel build --color=yes //src:bazel\n
 
       echo '+++ Testing'\n
       bazel test //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n"
