@@ -69,11 +69,11 @@ their App Store).
 For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with iOS
 SDK 8.1 installed on your system.
 
-Once XCode is installed you can trigger signing the license with the following
+Once XCode is installed you can agree to the license agreement with the following
 command:
 
 ```
-sudo gcc --version
+sudo xcodebuild -license accept
 ```
 
 ### 2. Download the Bazel installer
