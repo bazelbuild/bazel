@@ -183,6 +183,6 @@ public abstract class ResourceTestBase {
   public Artifact getResource(String pathString) {
     Path path = fileSystem.getPath("/" + RESOURCE_ROOT + "/" + pathString);
     return new Artifact(
-        path, root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
+        root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
   }
 }

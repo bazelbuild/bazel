@@ -217,8 +217,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
           String path = (String) rule.getAttributeContainer().getAttr("path");
           return Optional.of(
               LocalRepositoryLookupValue.success(
-                  RepositoryName.create("@" + rule.getName()),
-                  PathFragment.create(path).normalize()));
+                  RepositoryName.create("@" + rule.getName()), PathFragment.create(path)));
         } catch (LabelSyntaxException e) {
           // This shouldn't be possible if the rule name is valid, and it should already have been
           // validated.

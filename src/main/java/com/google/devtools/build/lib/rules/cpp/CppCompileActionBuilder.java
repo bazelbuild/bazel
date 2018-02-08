@@ -488,8 +488,7 @@ public class CppCompileActionBuilder {
       if (includePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
         includePath = includePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
       }
-      if (includePath.isAbsolute()
-          || !PathFragment.EMPTY_FRAGMENT.getRelative(includePath).normalize().isNormalized()) {
+      if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
         errorReporter.accept(
             String.format(
                 "The include path '%s' references a path outside of the execution root.",

@@ -98,13 +98,12 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
 
     // For every source artifact, we compute a virtual artifact that is below the include directory.
     // These are used for include checking.
-    PathFragment prefixFragment = packageFragment.getRelative(expandedIncSymlinkAttr);
-    if (!prefixFragment.isNormalized()) {
+    if (!PathFragment.isNormalized(expandedIncSymlinkAttr)) {
       ruleContext.attributeWarning("prefix", "should not contain '.' or '..' elements");
     }
+    PathFragment prefixFragment = packageFragment.getRelative(expandedIncSymlinkAttr);
     ImmutableSortedMap.Builder<Artifact, Artifact> virtualArtifactMapBuilder =
         ImmutableSortedMap.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
-    prefixFragment = prefixFragment.normalize();
     ImmutableList<Artifact> hdrs = ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET).list();
     for (Artifact src : hdrs) {
       // All declared header files must start with package/targetPrefix.

@@ -173,7 +173,7 @@ public class SkylarkImports {
 
     @Override
     public PathFragment asPathFragment() {
-      return PathFragment.create(PathFragment.ROOT_DIR).getRelative(importLabel.toPathFragment());
+      return PathFragment.create("/").getRelative(importLabel.toPathFragment());
     }
 
     @Override

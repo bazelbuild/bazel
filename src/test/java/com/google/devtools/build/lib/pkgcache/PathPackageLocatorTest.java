@@ -338,7 +338,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
         workspace.getRelative("foo"),
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     assertThat(eventCollector.count()).isSameAs(1);
-    assertContainsEvent("The package path element './foo' will be taken relative");
+    assertContainsEvent("The package path element 'foo' will be taken relative");
   }
 
   /** Regression test for bug: "IllegalArgumentException in PathPackageLocator.create()" */

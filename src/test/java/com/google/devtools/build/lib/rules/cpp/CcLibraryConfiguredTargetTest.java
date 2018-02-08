@@ -1066,7 +1066,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "root",
         "a",
-        "The include path 'd/../../somewhere' references a path outside of the execution root.",
+        "The include path '../somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
   }
 

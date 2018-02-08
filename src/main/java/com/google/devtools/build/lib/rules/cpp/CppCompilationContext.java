@@ -512,7 +512,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * absolute. Before it is stored, the include directory is normalized.
      */
     public Builder addIncludeDir(PathFragment includeDir) {
-      includeDirs.add(includeDir.normalize());
+      includeDirs.add(includeDir);
       return this;
     }
 
@@ -536,7 +536,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * is stored, the include directory is normalized.
      */
     public Builder addQuoteIncludeDir(PathFragment quoteIncludeDir) {
-      quoteIncludeDirs.add(quoteIncludeDir.normalize());
+      quoteIncludeDirs.add(quoteIncludeDir);
       return this;
     }
 
@@ -547,7 +547,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * is stored, the include directory is normalized.
      */
     public Builder addSystemIncludeDir(PathFragment systemIncludeDir) {
-      systemIncludeDirs.add(systemIncludeDir.normalize());
+      systemIncludeDirs.add(systemIncludeDir);
       return this;
     }
 

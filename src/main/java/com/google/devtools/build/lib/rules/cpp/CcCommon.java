@@ -545,8 +545,8 @@ public final class CcCommon {
             "ignoring invalid absolute path '" + includesAttr + "'");
         continue;
       }
-      PathFragment includesPath = packageFragment.getRelative(includesAttr).normalize();
-      if (!includesPath.isNormalized()) {
+      PathFragment includesPath = packageFragment.getRelative(includesAttr);
+      if (includesPath.containsUplevelReferences()) {
         ruleContext.attributeError("includes",
             "Path references a path above the execution root.");
       }

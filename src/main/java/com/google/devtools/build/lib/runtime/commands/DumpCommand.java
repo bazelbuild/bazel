@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.RuleStat;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -207,8 +206,9 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (dumpOptions.dumpVfs) {
+        // TODO(b/72498697): Remove this flag
         out.println("Filesystem cache");
-        FileSystemUtils.dump(env.getOutputBase().getFileSystem(), out);
+        out.println("dump --vfs is no longer meaningful");
         out.println();
       }
 

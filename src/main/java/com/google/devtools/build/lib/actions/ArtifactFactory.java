@@ -149,8 +149,7 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkArgument(
         execPath.isAbsolute() == root.getRoot().isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
-    execPath = execPath.normalize();
-    return getArtifact(root.getRoot().getRelative(execPath), root, execPath, owner, null);
+    return getArtifact(root, execPath, owner, null);
   }
 
   @Override
@@ -162,7 +161,7 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkArgument(!root.isSourceRoot());
     Preconditions.checkArgument(
         rootRelativePath.isAbsolute() == root.getRoot().isAbsolute(), rootRelativePath);
-    Preconditions.checkArgument(rootRelativePath.isNormalized(), rootRelativePath);
+    Preconditions.checkArgument(!rootRelativePath.containsUplevelReferences(), rootRelativePath);
     Preconditions.checkArgument(
         root.getRoot().asPath().startsWith(execRootParent), "%s %s", root, execRootParent);
     Preconditions.checkArgument(
@@ -182,8 +181,7 @@ public class ArtifactFactory implements ArtifactResolver {
   public Artifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getRoot().getRelative(rootRelativePath);
-    return getArtifact(path, root, root.getExecPath().getRelative(rootRelativePath), owner, null);
+    return getArtifact(root, root.getExecPath().getRelative(rootRelativePath), owner, null);
   }
 
   /**
@@ -197,13 +195,8 @@ public class ArtifactFactory implements ArtifactResolver {
   public Artifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
-        path,
-        root,
-        root.getExecPath().getRelative(rootRelativePath),
-        owner,
-        SpecialArtifactType.FILESET);
+        root, root.getExecPath().getRelative(rootRelativePath), owner, SpecialArtifactType.FILESET);
   }
 
   /**
@@ -216,21 +209,14 @@ public class ArtifactFactory implements ArtifactResolver {
   public Artifact getTreeArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
-        path,
-        root,
-        root.getExecPath().getRelative(rootRelativePath),
-        owner,
-        SpecialArtifactType.TREE);
+        root, root.getExecPath().getRelative(rootRelativePath), owner, SpecialArtifactType.TREE);
   }
 
   public Artifact getConstantMetadataArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
-    Path path = root.getRoot().getRelative(rootRelativePath);
     return getArtifact(
-        path,
         root,
         root.getExecPath().getRelative(rootRelativePath),
         owner,
@@ -242,7 +228,6 @@ public class ArtifactFactory implements ArtifactResolver {
    * root</code> and <code>execPath</code> to the specified values.
    */
   private synchronized Artifact getArtifact(
-      Path path,
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
@@ -251,7 +236,7 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkNotNull(execPath);
 
     if (!root.isSourceRoot()) {
-      return createArtifact(path, root, execPath, owner, type);
+      return createArtifact(root, execPath, owner, type);
     }
 
     Artifact artifact = sourceArtifactCache.getArtifact(execPath);
@@ -260,23 +245,22 @@ public class ArtifactFactory implements ArtifactResolver {
       // There really should be a safety net that makes it impossible to create two Artifacts
       // with the same exec path but a different Owner, but we also need to reuse Artifacts from
       // previous builds.
-      artifact = createArtifact(path, root, execPath, owner, type);
+      artifact = createArtifact(root, execPath, owner, type);
       sourceArtifactCache.putArtifact(execPath, artifact);
     }
     return artifact;
   }
 
   private Artifact createArtifact(
-      Path path,
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
       @Nullable SpecialArtifactType type) {
-    Preconditions.checkNotNull(owner, path);
+    Preconditions.checkNotNull(owner);
     if (type == null) {
-      return new Artifact(path, root, execPath, owner);
+      return new Artifact(root, execPath, owner);
     } else {
-      return new Artifact.SpecialArtifact(path, root, execPath, owner, type);
+      return new Artifact.SpecialArtifact(root, execPath, owner, type);
     }
   }
 
@@ -301,7 +285,6 @@ public class ArtifactFactory implements ArtifactResolver {
         !relativePath.isEmpty(), "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
         baseExecPath == null ? relativePath : baseExecPath.getRelative(relativePath);
-    execPath = execPath.normalize();
     if (execPath.containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
       return null;
@@ -371,17 +354,16 @@ public class ArtifactFactory implements ArtifactResolver {
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 
     for (PathFragment execPath : execPaths) {
-      PathFragment execPathNormalized = execPath.normalize();
-      if (execPathNormalized.containsUplevelReferences()) {
+      if (execPath.containsUplevelReferences()) {
         // Source exec paths cannot escape the source root.
         result.put(execPath, null);
         continue;
       }
       // First try a quick map lookup to see if the artifact already exists.
-      Artifact a = sourceArtifactCache.getArtifactIfValid(execPathNormalized);
+      Artifact a = sourceArtifactCache.getArtifactIfValid(execPath);
       if (a != null) {
         result.put(execPath, a);
-      } else if (isDerivedArtifact(execPathNormalized)) {
+      } else if (isDerivedArtifact(execPath)) {
         // Don't create an artifact if it's derived.
         result.put(execPath, null);
       } else {

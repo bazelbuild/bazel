@@ -984,7 +984,6 @@ public class CustomCommandLineTest {
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        rootDir.getRoot().getRelative(relpath),
         rootDir,
         rootDir.getExecPath().getRelative(relpath),
         ArtifactOwner.NullArtifactOwner.INSTANCE,

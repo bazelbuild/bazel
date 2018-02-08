@@ -31,7 +31,7 @@ class InMemoryLinkInfo extends InMemoryContentInfo {
   InMemoryLinkInfo(Clock clock, PathFragment linkContent) {
     super(clock);
     this.linkContent = linkContent;
-    this.normalizedLinkContent = linkContent.normalize();
+    this.normalizedLinkContent = linkContent;
   }
 
   @Override
@@ -56,7 +56,7 @@ class InMemoryLinkInfo extends InMemoryContentInfo {
 
   @Override
   public long getSize() {
-    return linkContent.toString().length();
+    return linkContent.getSafePathString().length();
   }
 
   /**

@@ -1307,6 +1307,16 @@ public class BuildConfiguration implements BuildEvent {
     return Objects.hash(isActionsEnabled(), fragments, buildOptions.getOptions());
   }
 
+  public void describe(StringBuilder sb) {
+    sb.append(isActionsEnabled()).append('\n');
+    for (Fragment fragment : fragments.values()) {
+      sb.append(fragment.getClass().getName()).append('\n');
+    }
+    for (String s : buildOptions.toString().split(" ")) {
+      sb.append(s).append('\n');
+    }
+  }
+
   @Override
   public int hashCode() {
     return hashCode;

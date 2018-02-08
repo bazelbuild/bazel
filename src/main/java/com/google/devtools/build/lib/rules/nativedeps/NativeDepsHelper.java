@@ -312,7 +312,7 @@ public abstract class NativeDepsHelper {
     PathFragment libParentDir =
         relativePath.replaceName(lib.getExecPath().getParentDirectory().getBaseName());
     String libName = lib.getExecPath().getBaseName();
-    return PathFragment.create(libParentDir, PathFragment.create(libName));
+    return libParentDir.getRelative(libName);
   }
 
   /**

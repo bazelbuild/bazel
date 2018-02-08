@@ -204,7 +204,6 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Path fullPath = root.getRelative(execPath);
     SpecialArtifact output =
         new SpecialArtifact(
-            fullPath,
             ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
             execPath,
             ALL_OWNER,

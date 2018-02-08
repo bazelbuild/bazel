@@ -133,6 +133,13 @@ public class BuildEventTransportFactoryTest {
     assertThat(transports).isEmpty();
   }
 
+  @Test
+  public void testPathToUriString() {
+    // See https://blogs.msdn.microsoft.com/ie/2006/12/06/file-uris-in-windows/
+    assertThat(BuildEventTransportFactory.pathToUriString("C:/Temp/Foo Bar.txt"))
+        .isEqualTo("file:///C:/Temp/Foo%20Bar.txt");
+  }
+
   private void sendEventsAndClose(BuildEvent event, Iterable<BuildEventTransport> transports)
       throws IOException{
     for (BuildEventTransport transport : transports) {

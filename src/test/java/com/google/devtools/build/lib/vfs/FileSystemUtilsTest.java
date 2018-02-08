@@ -175,11 +175,29 @@ public class FileSystemUtilsTest {
   @Test
   public void testRelativePath() throws IOException {
     createTestDirectoryTree();
-    assertThat(relativePath(topDir, file1).getPathString()).isEqualTo("file-1");
-    assertThat(relativePath(topDir, topDir).getPathString()).isEqualTo(".");
-    assertThat(relativePath(topDir, dirLink).getPathString()).isEqualTo("a-dir/inner-dir/dir-link");
-    assertThat(relativePath(topDir, file4).getPathString()).isEqualTo("../file-4");
-    assertThat(relativePath(innerDir, file4).getPathString()).isEqualTo("../../../file-4");
+    assertThat(
+            relativePath(PathFragment.create("/top-dir"), PathFragment.create("/top-dir/file-1"))
+                .getPathString())
+        .isEqualTo("file-1");
+    assertThat(
+            relativePath(PathFragment.create("/top-dir"), PathFragment.create("/top-dir"))
+                .getPathString())
+        .isEqualTo("");
+    assertThat(
+            relativePath(
+                    PathFragment.create("/top-dir"),
+                    PathFragment.create("/top-dir/a-dir/inner-dir/dir-link"))
+                .getPathString())
+        .isEqualTo("a-dir/inner-dir/dir-link");
+    assertThat(
+            relativePath(PathFragment.create("/top-dir"), PathFragment.create("/file-4"))
+                .getPathString())
+        .isEqualTo("../file-4");
+    assertThat(
+            relativePath(
+                    PathFragment.create("/top-dir/a-dir/inner-dir"), PathFragment.create("/file-4"))
+                .getPathString())
+        .isEqualTo("../../../file-4");
   }
 
   @Test

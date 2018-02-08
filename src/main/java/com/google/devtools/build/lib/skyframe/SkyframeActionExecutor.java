@@ -266,7 +266,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
           ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
           throws InterruptedException {
     MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap = new ConcurrentSkipListMap<>();
+    ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap =
+        new ConcurrentSkipListMap<>(Actions.comparatorForPrefixConflicts());
     // Action graph construction is CPU-bound.
     int numJobs = Runtime.getRuntime().availableProcessors();
     // No great reason for expecting 5000 action lookup values, but not worth counting size of

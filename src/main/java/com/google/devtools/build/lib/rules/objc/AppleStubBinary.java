@@ -188,8 +188,7 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
 
     makeVariableContext.validatePathRoot(pathString);
 
-    PathFragment pathFragment = PathFragment.create(pathString);
-    if (!pathFragment.isNormalized()) {
+    if (!PathFragment.isNormalized(pathString)) {
       throw ruleContext.throwWithAttributeError(
           AppleStubBinaryRule.XCENV_BASED_PATH_ATTR, PATH_NOT_NORMALIZED_ERROR);
     }

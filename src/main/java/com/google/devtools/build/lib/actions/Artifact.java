@@ -176,7 +176,6 @@ public class Artifact
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
   private final int hashCode;
-  private final Path path;
   private final ArtifactRoot root;
   private final PathFragment execPath;
   private final PathFragment rootRelativePath;
@@ -203,35 +202,26 @@ public class Artifact
    */
   @VisibleForTesting
   @AutoCodec.Instantiator
-  public Artifact(Path path, ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
-    if (root == null || !root.getRoot().contains(path)) {
-      throw new IllegalArgumentException(root + ": illegal root for " + path
-          + " (execPath: " + execPath + ")");
-    }
-    if (execPath == null
-        || execPath.isAbsolute() != root.getRoot().isAbsolute()
-        || !path.asFragment().endsWith(execPath)) {
-      throw new IllegalArgumentException(execPath + ": illegal execPath for " + path
-          + " (root: " + root + ")");
+  public Artifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
+    Preconditions.checkNotNull(root);
+    if (execPath == null || execPath.isAbsolute() != root.getRoot().isAbsolute()) {
+      throw new IllegalArgumentException(
+          execPath + ": illegal execPath for " + execPath + " (root: " + root + ")");
     }
     if (execPath.isEmpty()) {
       throw new IllegalArgumentException(
           "it is illegal to create an artifact with an empty execPath");
     }
-    this.hashCode = path.hashCode();
-    this.path = path;
+    this.hashCode = execPath.hashCode();
     this.root = root;
     this.execPath = execPath;
-    // These two lines establish the invariant that
-    // execPath == rootRelativePath <=> execPath.equals(rootRelativePath)
-    // This is important for isSourceArtifact.
-    PathFragment rootRel = root.getRoot().relativize(path);
-    if (!execPath.endsWith(rootRel)) {
-      throw new IllegalArgumentException(execPath + ": illegal execPath doesn't end with "
-          + rootRel + " at " + path + " with root " + root);
+    PathFragment rootExecPath = root.getExecPath();
+    if (rootExecPath.isEmpty()) {
+      this.rootRelativePath = execPath;
+    } else {
+      this.rootRelativePath = execPath.relativeTo(root.getExecPath());
     }
-    this.rootRelativePath = rootRel.equals(execPath) ? execPath : rootRel;
-    this.owner = Preconditions.checkNotNull(owner, path);
+    this.owner = Preconditions.checkNotNull(owner);
   }
 
   /**
@@ -251,8 +241,8 @@ public class Artifact
    * <pre>
    */
   @VisibleForTesting
-  public Artifact(Path path, ArtifactRoot root, PathFragment execPath) {
-    this(path, root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE);
+  public Artifact(ArtifactRoot root, PathFragment execPath) {
+    this(root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE);
   }
 
   /**
@@ -262,7 +252,6 @@ public class Artifact
   @VisibleForTesting // Only exists for testing.
   public Artifact(Path path, ArtifactRoot root) {
     this(
-        path,
         root,
         root.getExecPath().getRelative(root.getRoot().relativize(path)),
         ArtifactOwner.NullArtifactOwner.INSTANCE);
@@ -272,14 +261,13 @@ public class Artifact
   @VisibleForTesting // Only exists for testing.
   public Artifact(PathFragment rootRelativePath, ArtifactRoot root) {
     this(
-        root.getRoot().getRelative(rootRelativePath),
         root,
         root.getExecPath().getRelative(rootRelativePath),
         ArtifactOwner.NullArtifactOwner.INSTANCE);
   }
 
   public final Path getPath() {
-    return path;
+    return root.getRoot().getRelative(rootRelativePath);
   }
 
   public boolean hasParent() {
@@ -412,9 +400,8 @@ public class Artifact
     structField = true,
     doc = "Returns true if this is a source file, i.e. it is not generated."
   )
-  @SuppressWarnings("ReferenceEquality")  // == is an optimization
   public final boolean isSourceArtifact() {
-    return execPath == rootRelativePath;
+    return root.isSourceRoot();
   }
 
   /**
@@ -479,12 +466,8 @@ public class Artifact
 
     @VisibleForSerialization
     public SpecialArtifact(
-        Path path,
-        ArtifactRoot root,
-        PathFragment execPath,
-        ArtifactOwner owner,
-        SpecialArtifactType type) {
-      super(path, root, execPath, owner);
+        ArtifactRoot root, PathFragment execPath, ArtifactOwner owner, SpecialArtifactType type) {
+      super(root, execPath, owner);
       this.type = type;
     }
 
@@ -559,17 +542,16 @@ public class Artifact
     TreeFileArtifact(
         SpecialArtifact parentTreeArtifact, PathFragment parentRelativePath, ArtifactOwner owner) {
       super(
-          parentTreeArtifact.getPath().getRelative(parentRelativePath),
           parentTreeArtifact.getRoot(),
           parentTreeArtifact.getExecPath().getRelative(parentRelativePath),
           owner);
-      Preconditions.checkState(
+      Preconditions.checkArgument(
           parentTreeArtifact.isTreeArtifact(),
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
           parentRelativePath,
           parentTreeArtifact);
-      Preconditions.checkState(
-          parentRelativePath.isNormalized() && !parentRelativePath.isAbsolute(),
+      Preconditions.checkArgument(
+          !parentRelativePath.containsUplevelReferences() && !parentRelativePath.isAbsolute(),
           "%s is not a proper normalized relative path",
           parentRelativePath);
       this.parentTreeArtifact = parentTreeArtifact;
@@ -668,7 +650,7 @@ public class Artifact
     // We don't bother to check root in the equivalence relation, because we
     // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return Objects.equals(this.path, that.path);
+    return Objects.equals(this.execPath, that.execPath) && Objects.equals(this.root, that.root);
   }
 
   @Override
@@ -702,7 +684,7 @@ public class Artifact
       return "[" + root + "]" + rootRelativePath;
     } else {
       // Derived Artifact: path and root are under execRoot
-      PathFragment execRoot = trimTail(path.asFragment(), execPath);
+      PathFragment execRoot = trimTail(getPath().asFragment(), execPath);
       return "[["
           + execRoot
           + "]"

@@ -182,8 +182,7 @@ class TreeArtifactValue implements SkyValue {
       PathFragment pathToExplode, ImmutableSet.Builder<PathFragment> valuesBuilder)
       throws IOException {
     for (Path subpath : treeArtifact.getPath().getRelative(pathToExplode).getDirectoryEntries()) {
-      PathFragment canonicalSubpathFragment =
-          pathToExplode.getChild(subpath.getBaseName()).normalize();
+      PathFragment canonicalSubpathFragment = pathToExplode.getChild(subpath.getBaseName());
       if (subpath.isDirectory()) {
         explodeDirectory(treeArtifact,
             pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
@@ -202,7 +201,7 @@ class TreeArtifactValue implements SkyValue {
         // TreeArtifact into a/b/outside_dir.
         PathFragment intermediatePath = canonicalSubpathFragment.getParentDirectory();
         for (String pathSegment : linkTarget.getSegments()) {
-          intermediatePath = intermediatePath.getRelative(pathSegment).normalize();
+          intermediatePath = intermediatePath.getRelative(pathSegment);
           if (intermediatePath.containsUplevelReferences()) {
             String errorMessage = String.format(
                 "A TreeArtifact may not contain relative symlinks whose target paths traverse "

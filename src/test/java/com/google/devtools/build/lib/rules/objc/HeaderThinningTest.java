@@ -189,7 +189,6 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
   private Artifact getTreeArtifact(String name) {
     Artifact treeArtifactBase = getSourceArtifact(name);
     return new SpecialArtifact(
-        treeArtifactBase.getPath(),
         treeArtifactBase.getRoot(),
         treeArtifactBase.getExecPath(),
         treeArtifactBase.getArtifactOwner(),

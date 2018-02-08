@@ -17,7 +17,6 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectOutput;
 
-
 /**
  * A helper proxy for serializing immutable {@link PathFragment} objects.
  */
@@ -44,7 +43,7 @@ public final class PathFragmentSerializationProxy implements Externalizable {
   }
 
   private Object readResolve() {
-    return PathFragment.create(pathFragmentString);
+    return PathFragment.createAlreadyNormalized(pathFragmentString);
   }
 }
 

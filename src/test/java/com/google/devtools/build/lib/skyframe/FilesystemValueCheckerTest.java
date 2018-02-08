@@ -620,7 +620,6 @@ public class FilesystemValueCheckerTest {
     outputDir.createDirectory();
     ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputDir);
     return new SpecialArtifact(
-        outputPath,
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
         ArtifactOwner.NullArtifactOwner.INSTANCE,

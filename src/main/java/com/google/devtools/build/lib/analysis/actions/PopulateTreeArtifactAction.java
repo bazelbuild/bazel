@@ -273,7 +273,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
       if (!line.isEmpty()) {
         PathFragment path = PathFragment.create(line);
 
-        if (!path.isNormalized() || path.isAbsolute()) {
+        if (!PathFragment.isNormalized(line) || path.isAbsolute()) {
           throw new IllegalManifestFileException(
               path + " is not a proper relative path");
         }

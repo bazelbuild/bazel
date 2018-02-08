@@ -326,7 +326,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment)
       throws IOException {
-    NativePosixFiles.symlink(targetFragment.toString(), linkPath.toString());
+    NativePosixFiles.symlink(targetFragment.getSafePathString(), linkPath.toString());
   }
 
   @Override

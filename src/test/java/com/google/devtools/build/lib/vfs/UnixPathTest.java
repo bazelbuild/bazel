@@ -17,15 +17,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.vfs.LocalPath.OsPathPolicy;
-import com.google.devtools.build.lib.vfs.LocalPath.UnixOsPathPolicy;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests the unix implementation of {@link LocalPath}. */
+/** Tests the unix implementation of {@link Path}. */
 @RunWith(JUnit4.class)
-public class UnixLocalPathTest extends LocalPathAbstractTest {
+public class UnixPathTest extends PathAbstractTest {
 
   @Test
   public void testEqualsAndHashCodeUnix() {
@@ -37,8 +35,6 @@ public class UnixLocalPathTest extends LocalPathAbstractTest {
 
   @Test
   public void testRelativeToUnix() {
-    // Cannot relativize absolute and non-absolute
-    assertThat(create("c/d").getRelative("/a/b").getPathString()).isEqualTo("/a/b");
     assertThat(create("/").relativeTo(create("/")).getPathString()).isEmpty();
     assertThat(create("/foo").relativeTo(create("/foo")).getPathString()).isEmpty();
     assertThat(create("/foo/bar/baz").relativeTo(create("/foo")).getPathString())
@@ -53,16 +49,24 @@ public class UnixLocalPathTest extends LocalPathAbstractTest {
   }
 
   @Test
-  public void testIsAbsoluteUnix() {
-    assertThat(create("/absolute/test").isAbsolute()).isTrue();
-    assertThat(create("relative/test").isAbsolute()).isFalse();
-  }
-
-  @Test
   public void testGetRelativeUnix() {
     assertThat(create("/a").getRelative("b").getPathString()).isEqualTo("/a/b");
+    assertThat(create("/a/b").getRelative("c/d").getPathString()).isEqualTo("/a/b/c/d");
+    assertThat(create("/c/d").getRelative("/a/b").getPathString()).isEqualTo("/a/b");
+    assertThat(create("/a").getRelative("").getPathString()).isEqualTo("/a");
     assertThat(create("/").getRelative("").getPathString()).isEqualTo("/");
-    assertThat(create("c/d").getRelative("/a/b").getPathString()).isEqualTo("/a/b");
+    assertThat(create("/a/b").getRelative("../foo").getPathString()).isEqualTo("/a/foo");
+
+    // Make sure any fast path of Path#getRelative(PathFragment) works
+    assertThat(create("/a/b").getRelative(PathFragment.create("../foo")).getPathString())
+        .isEqualTo("/a/foo");
+
+    // Make sure any fast path of Path#getRelative(PathFragment) works
+    assertThat(create("/c/d").getRelative(PathFragment.create("/a/b")).getPathString())
+        .isEqualTo("/a/b");
+
+    // Test normalization
+    assertThat(create("/a").getRelative(".").getPathString()).isEqualTo("/a");
   }
 
   @Test
@@ -107,14 +111,10 @@ public class UnixLocalPathTest extends LocalPathAbstractTest {
 
   @Test
   public void testGetParentDirectoryUnix() {
-    LocalPath fooBarWizAbs = create("/foo/bar/wiz");
-    LocalPath fooBarAbs = create("/foo/bar");
-    LocalPath fooAbs = create("/foo");
-    LocalPath rootAbs = create("/");
-    assertThat(fooBarWizAbs.getParentDirectory()).isEqualTo(fooBarAbs);
-    assertThat(fooBarAbs.getParentDirectory()).isEqualTo(fooAbs);
-    assertThat(fooAbs.getParentDirectory()).isEqualTo(rootAbs);
-    assertThat(rootAbs.getParentDirectory()).isNull();
+    assertThat(create("/foo/bar/wiz").getParentDirectory()).isEqualTo(create("/foo/bar"));
+    assertThat(create("/foo/bar").getParentDirectory()).isEqualTo(create("/foo"));
+    assertThat(create("/foo").getParentDirectory()).isEqualTo(create("/"));
+    assertThat(create("/").getParentDirectory()).isNull();
   }
 
   @Test
@@ -127,8 +127,7 @@ public class UnixLocalPathTest extends LocalPathAbstractTest {
 
   @Test
   public void testStartsWithUnix() {
-    LocalPath foobar = create("/foo/bar");
-    LocalPath foobarRelative = create("foo/bar");
+    Path foobar = create("/foo/bar");
 
     // (path, prefix) => true
     assertThat(foobar.startsWith(foobar)).isTrue();
@@ -140,13 +139,6 @@ public class UnixLocalPathTest extends LocalPathAbstractTest {
     // (prefix, path) => false
     assertThat(create("/foo").startsWith(foobar)).isFalse();
     assertThat(create("/").startsWith(foobar)).isFalse();
-
-    // (absolute, relative) => false
-    assertThat(foobar.startsWith(foobarRelative)).isFalse();
-    assertThat(foobarRelative.startsWith(foobar)).isFalse();
-
-    // relative paths start with nothing, absolute paths do not
-    assertThat(foobar.startsWith(create(""))).isFalse();
 
     // (path, sibling) => false
     assertThat(create("/foo/wiz").startsWith(foobar)).isFalse();
@@ -162,8 +154,10 @@ public class UnixLocalPathTest extends LocalPathAbstractTest {
     assertThat(create("/..")).isEqualTo(create("/.."));
   }
 
-  @Override
-  protected OsPathPolicy getFilePathOs() {
-    return new UnixOsPathPolicy();
+  @Test
+  public void testParentOfRootIsRootUnix() {
+    assertThat(create("/..")).isEqualTo(create("/"));
+    assertThat(create("/../../../../../..")).isEqualTo(create("/"));
+    assertThat(create("/../../../foo")).isEqualTo(create("/foo"));
   }
 }

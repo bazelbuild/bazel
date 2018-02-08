@@ -171,10 +171,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private Artifact derivedArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    Path fullPath = rootDirectory.getRelative(execPath);
     Artifact output =
         new Artifact(
-            fullPath,
             ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
             execPath);
     return output;

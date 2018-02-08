@@ -757,15 +757,25 @@ public final class CcCompilationHelper {
           null);
     }
 
-    PathFragment prefix =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")
-            ? PathFragment.create(ruleContext.attributes().get("include_prefix", Type.STRING))
-            : null;
+    PathFragment prefix = null;
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")) {
+      String prefixAttr = ruleContext.attributes().get("include_prefix", Type.STRING);
+      prefix = PathFragment.create(prefixAttr);
+      if (PathFragment.containsUplevelReferences(prefixAttr)) {
+        ruleContext.attributeError("include_prefix", "should not contain uplevel references");
+      }
+      if (prefix.isAbsolute()) {
+        ruleContext.attributeError("include_prefix", "should be a relative path");
+      }
+    }
 
     PathFragment stripPrefix;
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("strip_include_prefix")) {
-      stripPrefix =
-          PathFragment.create(ruleContext.attributes().get("strip_include_prefix", Type.STRING));
+      String stripPrefixAttr = ruleContext.attributes().get("strip_include_prefix", Type.STRING);
+      if (PathFragment.containsUplevelReferences(stripPrefixAttr)) {
+        ruleContext.attributeError("strip_include_prefix", "should not contain uplevel references");
+      }
+      stripPrefix = PathFragment.create(stripPrefixAttr);
       if (stripPrefix.isAbsolute()) {
         stripPrefix =
             ruleContext
@@ -789,18 +799,6 @@ public final class CcCompilationHelper {
           ImmutableList.copyOf(Iterables.concat(publicHeaders, nonModuleMapHeaders)),
           ImmutableList.copyOf(publicHeaders),
           null);
-    }
-
-    if (stripPrefix.containsUplevelReferences()) {
-      ruleContext.attributeError("strip_include_prefix", "should not contain uplevel references");
-    }
-
-    if (prefix != null && prefix.containsUplevelReferences()) {
-      ruleContext.attributeError("include_prefix", "should not contain uplevel references");
-    }
-
-    if (prefix != null && prefix.isAbsolute()) {
-      ruleContext.attributeError("include_prefix", "should be a relative path");
     }
 
     if (ruleContext.hasErrors()) {

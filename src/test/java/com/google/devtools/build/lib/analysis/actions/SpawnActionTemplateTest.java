@@ -325,7 +325,6 @@ public class SpawnActionTemplateTest {
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
     PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
-        root.getRoot().getRelative(relpath),
         root,
         root.getExecPath().getRelative(relpath),
         ArtifactOwner.NullArtifactOwner.INSTANCE,

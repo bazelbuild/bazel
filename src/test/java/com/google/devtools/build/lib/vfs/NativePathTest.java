@@ -106,13 +106,6 @@ public class NativePathTest {
   }
 
   @Test
-  public void testParentOfRootIsRoot() {
-    assertThat(fs.getPath("/..")).isEqualTo(fs.getPath("/"));
-    assertThat(fs.getPath("/../../../../../..")).isEqualTo(fs.getPath("/"));
-    assertThat(fs.getPath("/../../../foo")).isEqualTo(fs.getPath("/foo"));
-  }
-
-  @Test
   public void testIsDirectory() {
     assertThat(fs.getPath(aDirectory.getPath()).isDirectory()).isTrue();
     assertThat(fs.getPath(aFile.getPath()).isDirectory()).isFalse();
@@ -240,15 +233,5 @@ public class NativePathTest {
     }
     assertThat(in.read()).isEqualTo(-1);
     in.close();
-  }
-
-  @Test
-  public void testDerivedSegmentEquality() {
-    Path absoluteSegment = fs.getRootDirectory();
-
-    Path derivedNode = absoluteSegment.getChild("derivedSegment");
-    Path otherDerivedNode = absoluteSegment.getChild("derivedSegment");
-
-    assertThat(otherDerivedNode).isSameAs(derivedNode);
   }
 }

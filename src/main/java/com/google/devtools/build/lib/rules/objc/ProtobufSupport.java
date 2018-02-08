@@ -515,8 +515,7 @@ final class ProtobufSupport {
     // of dependers.
     PathFragment rootRelativeOutputDir = ruleContext.getUniqueDirectory(UNIQUE_DIRECTORY_NAME);
 
-    return PathFragment.create(
-        buildConfiguration.getBinDirectory().getExecPath(), rootRelativeOutputDir);
+    return buildConfiguration.getBinDirectory().getExecPath().getRelative(rootRelativeOutputDir);
   }
 
   private Iterable<Artifact> getGeneratedProtoOutputs(
@@ -526,9 +525,8 @@ final class ProtobufSupport {
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
       String generatedOutputName = attributes.getGeneratedProtoFilename(protoFileName, true);
 
-      PathFragment generatedFilePath = PathFragment.create(
-          protoFile.getRootRelativePath().getParentDirectory(),
-          PathFragment.create(generatedOutputName));
+      PathFragment generatedFilePath =
+          protoFile.getRootRelativePath().getParentDirectory().getRelative(generatedOutputName);
 
       PathFragment outputFile = FileSystemUtils.appendExtension(generatedFilePath, extension);
 

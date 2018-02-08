@@ -107,8 +107,8 @@ public class BazelPythonSemantics implements PythonSemantics {
             "ignoring invalid absolute path '" + importsAttr + "'");
         continue;
       }
-      PathFragment importsPath = packageFragment.getRelative(importsAttr).normalize();
-      if (!importsPath.isNormalized()) {
+      PathFragment importsPath = packageFragment.getRelative(importsAttr);
+      if (importsPath.containsUplevelReferences()) {
         ruleContext.attributeError("imports",
             "Path " + importsAttr + " references a path above the execution root");
       }
@@ -239,10 +239,10 @@ public class BazelPythonSemantics implements PythonSemantics {
     String zipRunfilesPath;
     if (isUnderWorkspace(path)) {
       // If the file is under workspace, add workspace name as prefix
-      zipRunfilesPath = workspaceName.getRelative(path).normalize().toString();
+      zipRunfilesPath = workspaceName.getRelative(path).toString();
     } else {
       // If the file is in external package, strip "external"
-      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).normalize().toString();
+      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).toString();
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.

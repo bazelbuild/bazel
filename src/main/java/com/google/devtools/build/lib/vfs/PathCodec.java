@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -24,6 +25,7 @@ import java.io.IOException;
 /** Custom serialization for {@link Path}s. */
 public class PathCodec implements ObjectCodec<Path> {
 
+  private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
   private final FileSystem fileSystem;
 
   /** Create an instance for serializing and deserializing {@link Path}s on {@code fileSystem}. */
@@ -41,15 +43,15 @@ public class PathCodec implements ObjectCodec<Path> {
       throws IOException, SerializationException {
     Preconditions.checkState(
         path.getFileSystem() == fileSystem,
-        "Path's FileSystem (%s) did not match the configured FileSystem (%s)",
+        "Path's FileSystem (%s) did not match the configured FileSystem (%s) for path (%s)",
         path.getFileSystem(),
-        fileSystem);
-    PathFragment.CODEC.serialize(path.asFragment(), codedOut);
+        fileSystem,
+        path);
+    stringCodec.serialize(path.getPathString(), codedOut);
   }
 
   @Override
   public Path deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
-    PathFragment pathFragment = PathFragment.CODEC.deserialize(codedIn);
-    return fileSystem.getPath(pathFragment);
+    return fileSystem.getPath(stringCodec.deserialize(codedIn));
   }
 }

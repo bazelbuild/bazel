@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -58,7 +59,7 @@ public class ArtifactTest {
     Path f1 = scratch.file("/exec/dir/file.ext");
     Path bogusDir = scratch.file("/exec/dir/bogus");
     try {
-      new Artifact(f1, ArtifactRoot.asDerivedRoot(execDir, bogusDir), f1.relativeTo(execDir));
+      new Artifact(ArtifactRoot.asDerivedRoot(execDir, bogusDir), f1.relativeTo(execDir));
       fail("Expected IllegalArgumentException constructing artifact with a bad root dir");
     } catch (IllegalArgumentException expected) {}
   }
@@ -93,7 +94,7 @@ public class ArtifactTest {
   @Test
   public void testRootPrefixedExecPath_normal() throws IOException {
     Path f1 = scratch.file("/exec/root/dir/file.ext");
-    Artifact a1 = new Artifact(f1, rootDir, f1.relativeTo(execDir));
+    Artifact a1 = new Artifact(rootDir, f1.relativeTo(execDir));
     assertThat(Artifact.asRootPrefixedExecPath(a1)).isEqualTo("root:dir/file.ext");
   }
 
@@ -109,9 +110,10 @@ public class ArtifactTest {
   public void testRootPrefixedExecPath_nullRootDir() throws IOException {
     Path f1 = scratch.file("/exec/dir/file.ext");
     try {
-      new Artifact(f1, null, f1.relativeTo(execDir));
-      fail("Expected IllegalArgumentException creating artifact with null root");
-    } catch (IllegalArgumentException expected) {}
+      new Artifact(null, f1.relativeTo(execDir));
+      fail("Expected NullPointerException creating artifact with null root");
+    } catch (NullPointerException expected) {
+    }
   }
 
   @Test
@@ -119,9 +121,9 @@ public class ArtifactTest {
     Path f1 = scratch.file("/exec/root/dir/file1.ext");
     Path f2 = scratch.file("/exec/root/dir/dir/file2.ext");
     Path f3 = scratch.file("/exec/root/dir/dir/dir/file3.ext");
-    Artifact a1 = new Artifact(f1, rootDir, f1.relativeTo(execDir));
-    Artifact a2 = new Artifact(f2, rootDir, f2.relativeTo(execDir));
-    Artifact a3 = new Artifact(f3, rootDir, f3.relativeTo(execDir));
+    Artifact a1 = new Artifact(rootDir, f1.relativeTo(execDir));
+    Artifact a2 = new Artifact(rootDir, f2.relativeTo(execDir));
+    Artifact a3 = new Artifact(rootDir, f3.relativeTo(execDir));
     List<String> strings = new ArrayList<>();
     Artifact.addRootPrefixedExecPaths(Lists.newArrayList(a1, a2, a3), strings);
     assertThat(strings).containsExactly(
@@ -283,10 +285,9 @@ public class ArtifactTest {
 
   @Test
   public void testToDetailString() throws Exception {
-    Path execRoot = scratch.getFileSystem().getPath("/");
+    Path execRoot = scratch.getFileSystem().getPath("/a");
     Artifact a =
         new Artifact(
-            scratch.file("/a/b/c"),
             ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a/b")),
             PathFragment.create("b/c"));
     assertThat(a.toDetailString()).isEqualTo("[[/a]b]c");
@@ -294,17 +295,12 @@ public class ArtifactTest {
 
   @Test
   public void testWeirdArtifact() throws Exception {
-    try {
-      Path execRoot = scratch.getFileSystem().getPath("/");
-      new Artifact(
-          scratch.file("/a/b/c"),
-          ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a")),
-          PathFragment.create("c"));
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage(
-          "c: illegal execPath doesn't end with b/c at /a/b/c with root /a[derived]");
-    }
+    Path execRoot = scratch.getFileSystem().getPath("/");
+    MoreAsserts.expectThrows(
+        IllegalArgumentException.class,
+        () ->
+            new Artifact(
+                ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a")), PathFragment.create("c")));
   }
 
   @Test
@@ -319,25 +315,23 @@ public class ArtifactTest {
 
   @Test
   public void testSerializeToStringWithExecPath() throws Exception {
-    Path execRoot = scratch.getFileSystem().getPath("/");
-    Path path = scratch.file("/aaa/bbb/ccc");
+    Path execRoot = scratch.getFileSystem().getPath("/aaa");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/aaa/bbb"));
     PathFragment execPath = PathFragment.create("bbb/ccc");
 
-    assertThat(new Artifact(path, root, execPath).serializeToString()).isEqualTo("bbb/ccc /3");
+    assertThat(new Artifact(root, execPath).serializeToString()).isEqualTo("bbb/ccc /3");
   }
 
   @Test
   public void testSerializeToStringWithOwner() throws Exception {
-    Path execRoot = scratch.getFileSystem().getPath("/");
+    Path execRoot = scratch.getFileSystem().getPath("/aa");
     assertThat(
             new Artifact(
-                    scratch.file("/aa/b/c"),
-                    ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/aa")),
+                    ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/aa/b")),
                     PathFragment.create("b/c"),
                     new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar")))
                 .serializeToString())
-        .isEqualTo("b/c /3 //foo:bar");
+        .isEqualTo("b/c /1 //foo:bar");
   }
 
   @Test
@@ -349,10 +343,9 @@ public class ArtifactTest {
             new Artifact(
                 PathFragment.create("src/b"), ArtifactRoot.asSourceRoot(Root.fromPath(execDir))),
             new Artifact(
-                scratch.file("/src/c"),
                 ArtifactRoot.asDerivedRoot(
                     scratch.getFileSystem().getPath("/"), scratch.dir("/src")),
-                PathFragment.create("c"),
+                PathFragment.create("src/c"),
                 new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"))))
         .buildAndRunTests();
   }
@@ -387,7 +380,6 @@ public class ArtifactTest {
   public void testIsSourceArtifact() throws Exception {
     assertThat(
             new Artifact(
-                    scratch.file("/src/foo.cc"),
                     ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
                     PathFragment.create("src/foo.cc"))
                 .isSourceArtifact())

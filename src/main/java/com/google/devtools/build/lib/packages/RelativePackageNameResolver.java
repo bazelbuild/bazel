@@ -72,7 +72,6 @@ public class RelativePackageNameResolver {
     }
 
     PathFragment result = isAbsolute ? relative : offset.getRelative(relative);
-    result = result.normalize();
     if (result.containsUplevelReferences()) {
       throw new InvalidPackageNameException(
           PackageIdentifier.createInMainRepo(pkg),

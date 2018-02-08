@@ -536,7 +536,7 @@ public class Package {
     // stat(2) is executed.
     Path filename = getPackageDirectory().getRelative(targetName);
     String suffix;
-    if (!PathFragment.create(targetName).isNormalized()) {
+    if (!PathFragment.isNormalized(targetName)) {
       // Don't check for file existence in this case because the error message
       // would be confusing and wrong. If the targetName is "foo/bar/.", and
       // there is a directory "foo/bar", it doesn't mean that "//pkg:foo/bar/."

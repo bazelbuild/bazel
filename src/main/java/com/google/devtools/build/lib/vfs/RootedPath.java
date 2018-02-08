@@ -30,9 +30,8 @@ import java.util.Objects;
  * <p>Two {@link RootedPath}s are considered equal iff they have equal roots and equal relative
  * paths.
  *
- * <p>TODO(bazel-team): refactor Artifact to use this instead of Root. TODO(bazel-team): use an
- * opaque root representation so as to not expose the absolute path to clients via #asPath or
- * #getRoot.
+ * <p>TODO(bazel-team): use an opaque root representation so as to not expose the absolute path to
+ * clients via #asPath or #getRoot.
  */
 public class RootedPath implements Serializable {
 
@@ -48,7 +47,7 @@ public class RootedPath implements Serializable {
         rootRelativePath,
         root);
     this.root = root;
-    this.rootRelativePath = rootRelativePath.normalize();
+    this.rootRelativePath = rootRelativePath;
     this.path = root.getRelative(this.rootRelativePath);
   }
 

@@ -1381,15 +1381,15 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   public static PathFragment computeDefaultSysroot(CToolchain toolchain) {
-    PathFragment defaultSysroot =
-        toolchain.getBuiltinSysroot().length() == 0
-            ? null
-            : PathFragment.create(toolchain.getBuiltinSysroot());
-    if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
-      throw new IllegalArgumentException(
-          "The built-in sysroot '" + defaultSysroot + "' is not normalized.");
+    String builtInSysroot = toolchain.getBuiltinSysroot();
+    if (builtInSysroot.isEmpty()) {
+      return null;
     }
-    return defaultSysroot;
+    if (!PathFragment.isNormalized(builtInSysroot)) {
+      throw new IllegalArgumentException(
+          "The built-in sysroot '" + builtInSysroot + "' is not normalized.");
+    }
+    return PathFragment.create(builtInSysroot);
   }
 
   @Override

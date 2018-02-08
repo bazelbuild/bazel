@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -90,25 +89,13 @@ public class FileSystemUtils {
 
     return a;
   }
-  /**
-   * Returns a path fragment from a given from-dir to a given to-path. May be
-   * either a short relative path "foo/bar", an up'n'over relative path
-   * "../../foo/bar" or an absolute path.
-   */
-  public static PathFragment relativePath(Path fromDir, Path to) {
-    if (to.getFileSystem() != fromDir.getFileSystem()) {
-      throw new IllegalArgumentException("fromDir and to must be on the same FileSystem");
-    }
-
-    return relativePath(fromDir.asFragment(), to.asFragment());
-  }
 
   /**
    * Returns a path fragment from a given from-dir to a given to-path.
    */
   public static PathFragment relativePath(PathFragment fromDir, PathFragment to) {
     if (to.equals(fromDir)) {
-      return PathFragment.create(".");  // same dir, just return '.'
+      return PathFragment.EMPTY_FRAGMENT;
     }
     if (to.startsWith(fromDir)) {
       return to.relativeTo(fromDir);  // easy case--it's a descendant
@@ -880,30 +867,6 @@ public class FileSystemUtils {
           + "' (expected " + fileSizeInt + ", got " + bytes.length + " bytes)");
     }
     return bytes;
-  }
-
-  /**
-   * Dumps diagnostic information about the specified filesystem to {@code out}.
-   * This is the implementation of the filesystem part of the 'blaze dump'
-   * command. It lives here, rather than in DumpCommand, because it requires
-   * privileged access to members of this package.
-   *
-   * <p>Its results are unspecified and MUST NOT be interpreted programmatically.
-   */
-  public static void dump(FileSystem fs, final PrintStream out) {
-    // Unfortunately there's no "letrec" for anonymous functions so we have to
-    // (a) name the function, (b) put it in a box and (c) use List not array
-    // because of the generic type.  *sigh*.
-    final List<Predicate<Path>> dumpFunction = new ArrayList<>();
-    dumpFunction.add(
-        child -> {
-          Path path = child;
-          out.println("  " + path + " (" + path.toDebugString() + ")");
-          path.applyToChildren(dumpFunction.get(0));
-          return false;
-        });
-
-    fs.getRootDirectory().applyToChildren(dumpFunction.get(0));
   }
 
   /**

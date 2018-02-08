@@ -87,7 +87,7 @@ public final class PackageIdentifier
       // TODO(ulfjack): Remove this when kchodorow@'s exec root rearrangement has been rolled out.
       RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
       return PackageIdentifier.create(repository, tofind.subFragment(2));
-    } else if (!tofind.normalize().isNormalized()) {
+    } else if (tofind.containsUplevelReferences()) {
       RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
       return PackageIdentifier.create(repository, tofind.subFragment(2));
     } else {
@@ -112,9 +112,6 @@ public final class PackageIdentifier
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
     this.repository = Preconditions.checkNotNull(repository);
-    if (!pkgName.isNormalized()) {
-      pkgName = pkgName.normalize();
-    }
     this.pkgName = Canonicalizer.fragments().intern(Preconditions.checkNotNull(pkgName));
     this.hashCode = Objects.hash(repository, pkgName);
   }

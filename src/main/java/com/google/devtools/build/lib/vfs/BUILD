@@ -10,8 +10,9 @@ PATH_FRAGMENT_SOURCES = [
     "Canonicalizer.java",
     "PathFragment.java",
     "PathFragmentSerializationProxy.java",
-    "UnixPathFragment.java",
-    "WindowsPathFragment.java",
+    "OsPathPolicy.java",
+    "UnixOsPathPolicy.java",
+    "WindowsOsPathPolicy.java",
 ]
 
 java_library(
@@ -25,6 +26,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
     ],
@@ -47,7 +50,6 @@ java_library(
         ":pathfragment",
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:filetype",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -55,8 +57,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
-        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",

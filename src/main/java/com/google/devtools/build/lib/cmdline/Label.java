@@ -345,8 +345,17 @@ public final class Label
     return packageIdentifier.getPackageFragment();
   }
 
-  /** Returns the label as a path fragment, using the package and the label name. */
+  /**
+   * Returns the label as a path fragment, using the package and the label name.
+   *
+   * <p>Make sure that the label refers to a file. Non-file labels do not necessarily have
+   * PathFragment representations.
+   */
   public PathFragment toPathFragment() {
+    // PathFragments are normalized, so if we do this on a non-file target named '.'
+    // then the package would be returned. Detect this and throw.
+    // A target named '.' can never refer to a file.
+    Preconditions.checkArgument(!name.equals("."));
     return packageIdentifier.getPackageFragment().getRelative(name);
   }
 

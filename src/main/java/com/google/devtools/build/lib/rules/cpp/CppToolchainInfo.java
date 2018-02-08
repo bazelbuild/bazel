@@ -794,11 +794,11 @@ public final class CppToolchainInfo {
       CToolchain toolchain, PathFragment crosstoolTopPathFragment) {
     Map<String, PathFragment> toolPathsCollector = Maps.newHashMap();
     for (CrosstoolConfig.ToolPath tool : toolchain.getToolPathList()) {
-      PathFragment path = PathFragment.create(tool.getPath());
-      if (!path.isNormalized()) {
-        throw new IllegalArgumentException(
-            "The include path '" + tool.getPath() + "' is not normalized.");
+      String pathStr = tool.getPath();
+      if (!PathFragment.isNormalized(pathStr)) {
+        throw new IllegalArgumentException("The include path '" + pathStr + "' is not normalized.");
       }
+      PathFragment path = PathFragment.create(pathStr);
       toolPathsCollector.put(tool.getName(), crosstoolTopPathFragment.getRelative(path));
     }
 

@@ -23,7 +23,9 @@ import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -149,7 +151,7 @@ public final class Actions {
    */
   public static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
       findArtifactPrefixConflicts(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
-    TreeMap<PathFragment, Artifact> artifactPathMap = new TreeMap();
+    TreeMap<PathFragment, Artifact> artifactPathMap = new TreeMap<>(comparatorForPrefixConflicts());
     for (Artifact artifact : generatingActions.keySet()) {
       artifactPathMap.put(artifact.getExecPath(), artifact);
     }
@@ -159,18 +161,63 @@ public final class Actions {
   }
 
   /**
+   * Returns a comparator for use with {@link #findArtifactPrefixConflicts(ActionGraph, SortedMap)}.
+   */
+  public static Comparator<PathFragment> comparatorForPrefixConflicts() {
+    return PathFragmentPrefixComparator.INSTANCE;
+  }
+
+  private static class PathFragmentPrefixComparator implements Comparator<PathFragment> {
+    private static final PathFragmentPrefixComparator INSTANCE = new PathFragmentPrefixComparator();
+
+    @Override
+    public int compare(PathFragment lhs, PathFragment rhs) {
+      // We need to use the OS path policy in case the OS is case insensitive.
+      OsPathPolicy os = OsPathPolicy.getFilePathOs();
+      String str1 = lhs.getPathString();
+      String str2 = rhs.getPathString();
+      int len1 = str1.length();
+      int len2 = str2.length();
+      int n = Math.min(len1, len2);
+      for (int i = 0; i < n; ++i) {
+        char c1 = str1.charAt(i);
+        char c2 = str2.charAt(i);
+        int res = os.compare(c1, c2);
+        if (res != 0) {
+          if (c1 == PathFragment.SEPARATOR_CHAR) {
+            return -1;
+          } else if (c2 == PathFragment.SEPARATOR_CHAR) {
+            return 1;
+          }
+          return res;
+        }
+      }
+      return len1 - len2;
+    }
+  }
+
+  /**
    * Finds Artifact prefix conflicts between generated artifacts. An artifact prefix conflict
    * happens if one action generates an artifact whose path is a prefix of another artifact's path.
    * Those two artifacts cannot exist simultaneously in the output tree.
    *
    * @param actionGraph the {@link ActionGraph} to query for artifact conflicts
-   * @param artifactPathMap a map mapping generated artifacts to their exec paths
+   * @param artifactPathMap a map mapping generated artifacts to their exec paths. The map must be
+   *     sorted using the comparator from {@link #comparatorForPrefixConflicts()}.
    * @return A map between actions that generated the conflicting artifacts and their associated
    *     {@link ArtifactPrefixConflictException}.
    */
   public static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
-      findArtifactPrefixConflicts(ActionGraph actionGraph,
-      SortedMap<PathFragment, Artifact> artifactPathMap) {
+      findArtifactPrefixConflicts(
+          ActionGraph actionGraph, SortedMap<PathFragment, Artifact> artifactPathMap) {
+    // You must construct the sorted map using this comparator for the algorithm to work.
+    // The algorithm requires subdirectories to immediately follow parent directories,
+    // before any files in that directory.
+    // Example: "foo", "foo.obj", foo/bar" must be sorted
+    // "foo", "foo/bar", foo.obj"
+    Preconditions.checkArgument(
+        artifactPathMap.comparator() instanceof PathFragmentPrefixComparator,
+        "artifactPathMap must be sorted with PathFragmentPrefixComparator");
     // No actions in graph -- currently happens only in tests. Special-cased because .next() call
     // below is unconditional.
     if (artifactPathMap.isEmpty()) {

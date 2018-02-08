@@ -186,7 +186,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getTargetCpu()).isEqualTo("piii");
     assertThat(ccProvider.getTargetGnuSystemName()).isEqualTo("target-system-name");
 
-    assertThat(toolchain.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("/path-to-ar"));
+    assertThat(toolchain.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path-to-ar"));
 
     assertThat(ccProvider.getAbi()).isEqualTo("abi-version");
     assertThat(ccProvider.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
@@ -199,7 +199,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.supportsFission()).isTrue();
 
     assertThat(ccProvider.getBuiltInIncludeDirectories())
-        .containsExactly(getToolPath("/system-include-dir"));
+        .containsExactly(getToolPath("system-include-dir"));
     assertThat(ccProvider.getSysroot()).isNull();
 
     assertThat(CppHelper.getCompilerOptions(toolchain, ccProvider, NO_FEATURES))
@@ -238,8 +238,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                     "CC_FLAGS", "")
                 .entrySet());
 
-    assertThat(toolchain.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("/path-to-ld"));
-    assertThat(toolchain.getToolPathFragment(Tool.DWP)).isEqualTo(getToolPath("/path-to-dwp"));
+    assertThat(toolchain.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("path-to-ld"));
+    assertThat(toolchain.getToolPathFragment(Tool.DWP)).isEqualTo(getToolPath("path-to-dwp"));
   }
 
   /**
@@ -605,7 +605,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 .entrySet());
     assertThat(ccProviderA.getBuiltInIncludeDirectories())
         .containsExactly(
-            getToolPath("/system-include-dir-A-1"), getToolPath("/system-include-dir-A-2"))
+            getToolPath("system-include-dir-A-1"), getToolPath("system-include-dir-A-2"))
         .inOrder();
     assertThat(ccProviderA.getSysroot()).isEqualTo(PathFragment.create("some"));
 
@@ -682,9 +682,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     PackageIdentifier packageIdentifier =
         PackageIdentifier.create(
             TestConstants.TOOLS_REPOSITORY,
-            PathFragment.create(
-                PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH),
-                PathFragment.create(path)));
+            PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH).getRelative(path));
     return packageIdentifier.getPathUnderExecRoot();
   }
 

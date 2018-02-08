@@ -110,8 +110,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
           return false;
         }
         ChildEntry other = (ChildEntry) o;
-        // Pointer comparisons only, because both the Path segments and the TreeNodes are interned.
-        return other.segment == segment && other.child == child;
+        // Pointer comparison for the TreeNode as it is interned
+        return other.segment.equals(segment) && other.child == child;
       }
 
       @Override
@@ -322,7 +322,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     String segment = segments.get(inputsStart).get(segmentIndex);
     for (int inputIndex = inputsStart; inputIndex < inputsEnd; ++inputIndex) {
       if (inputIndex + 1 == inputsEnd
-          || segment != segments.get(inputIndex + 1).get(segmentIndex)) {
+          || !segment.equals(segments.get(inputIndex + 1).get(segmentIndex))) {
         entries.add(
             new TreeNode.ChildEntry(
                 segment,

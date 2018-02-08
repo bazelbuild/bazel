@@ -814,7 +814,13 @@ public class PackageFunction implements SkyFunction {
     Set<SkyKey> containingPkgLookupKeys = Sets.newHashSet();
     Map<Target, SkyKey> targetToKey = new HashMap<>();
     for (Target target : pkgBuilder.getTargets()) {
-      PathFragment dir = target.getLabel().toPathFragment().getParentDirectory();
+      PathFragment dir = getContainingDirectory(target.getLabel());
+      if (dir == null) {
+        throw new IllegalStateException(
+            String.format(
+                "Null pkg for label %s as path fragment %s in pkg %s",
+                target.getLabel(), target.getLabel().getPackageFragment(), pkgId));
+      }
       PackageIdentifier dirId = PackageIdentifier.create(pkgId.getRepository(), dir);
       if (dir.equals(pkgId.getPackageFragment())) {
         continue;
@@ -825,7 +831,7 @@ public class PackageFunction implements SkyFunction {
     }
     Map<Label, SkyKey> subincludeToKey = new HashMap<>();
     for (Label subincludeLabel : pkgBuilder.getSubincludeLabels()) {
-      PathFragment dir = subincludeLabel.toPathFragment().getParentDirectory();
+      PathFragment dir = getContainingDirectory(subincludeLabel);
       PackageIdentifier dirId = PackageIdentifier.create(pkgId.getRepository(), dir);
       if (dir.equals(pkgId.getPackageFragment())) {
         continue;
@@ -868,6 +874,12 @@ public class PackageFunction implements SkyFunction {
         pkgBuilder.setContainsErrors();
       }
     }
+  }
+
+  private static PathFragment getContainingDirectory(Label label) {
+    PathFragment pkg = label.getPackageFragment();
+    String name = label.getName();
+    return name.equals(".") ? pkg : pkg.getRelative(name).getParentDirectory();
   }
 
   @Nullable
