@@ -1327,6 +1327,11 @@ public final class RuleContext extends TargetContext
     return TargetUtils.isTestRule(getTarget());
   }
 
+  /** Returns true if the testonly attribute is set on this context. */
+  public boolean isTestOnlyTarget() {
+    return attributes().has("testonly", Type.BOOLEAN) && attributes().get("testonly", Type.BOOLEAN);
+  }
+
   /**
    * @return true if {@code rule} is visible from {@code prerequisite}.
    *
