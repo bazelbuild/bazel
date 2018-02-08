@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -32,13 +31,15 @@ import com.google.devtools.build.android.desugar.CoreLibraryRewriter.Unprefixing
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -427,7 +428,7 @@ class Desugar {
   }
 
   /**
-   * Returns a dependency collector for use with a single input Jar.  If
+   * Returns a dependency collector for use with a single input Jar. If
    * {@link DesugarOptions#emitDependencyMetadata} is set, this method instantiates the collector
    * reflectively to allow compiling and using the desugar tool without this mechanism.
    */
@@ -799,7 +800,7 @@ class Desugar {
     } catch (ReflectiveOperationException e) {
       // We do not want to crash Desugar, if we cannot load or access these classes or fields.
       // We aim to provide better diagnostics. If we cannot, just let it go.
-      e.printStackTrace();
+      e.printStackTrace(System.err); // To silence error-prone's complaint.
     }
   }
 
@@ -830,12 +831,11 @@ class Desugar {
   }
 
   private static DesugarOptions parseCommandLineOptions(String[] args) throws IOException {
-    if (args.length == 1 && args[0].startsWith("@")) {
-      args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
-    }
-    DesugarOptions options =
-        Options.parseAndExitUponError(DesugarOptions.class, /*allowResidue=*/ false, args)
-            .getOptions();
+    OptionsParser parser = OptionsParser.newOptionsParser(DesugarOptions.class);
+    parser.setAllowResidue(false);
+    parser.enableParamsFileSupport(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
+    parser.parseAndExitUponError(args);
+    DesugarOptions options = parser.getOptions(DesugarOptions.class);
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(
