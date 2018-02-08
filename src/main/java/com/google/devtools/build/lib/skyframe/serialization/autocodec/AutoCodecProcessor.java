@@ -302,13 +302,46 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return serializeBuilder.build();
   }
 
+  private String findGetterForAutoValue(VariableElement parameter, TypeElement type) {
+    List<ExecutableElement> methods = ElementFilter.methodsIn(type.getEnclosedElements());
+
+    ImmutableList.Builder<String> possibleGetterNamesBuilder =
+        ImmutableList.<String>builder().add(parameter.getSimpleName().toString());
+
+    if (parameter.asType().getKind() == TypeKind.BOOLEAN) {
+      possibleGetterNamesBuilder.add(
+          addCamelCasePrefix(parameter.getSimpleName().toString(), "is"));
+    } else {
+      possibleGetterNamesBuilder.add(
+          addCamelCasePrefix(parameter.getSimpleName().toString(), "get"));
+    }
+    ImmutableList<String> possibleGetterNames = possibleGetterNamesBuilder.build();
+
+    for (Element element : methods) {
+      if (possibleGetterNames.contains(element.getSimpleName().toString())) {
+        return element.getSimpleName().toString();
+      }
+    }
+
+    throw new IllegalArgumentException(
+        "No AutoValue getter found corresponding to parameter " + parameter.getSimpleName());
+  }
+
+  private String addCamelCasePrefix(String name, String prefix) {
+    if (name.length() == 1) {
+      return prefix + Character.toUpperCase(name.charAt(0));
+    } else {
+      return prefix + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+  }
+
   private MethodSpec buildSerializeMethodWithInstantiatorForAutoValue(
       TypeElement encodedType, PartitionedParameters parameters) {
     MethodSpec.Builder serializeBuilder =
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, parameters.dependency);
     for (VariableElement parameter : parameters.fields) {
       TypeKind typeKind = parameter.asType().getKind();
-      String getter = "input." + parameter.getSimpleName() + "()";
+      String getter = "input." + findGetterForAutoValue(parameter, encodedType) + "()";
       switch (typeKind) {
         case BOOLEAN:
           serializeBuilder.addStatement("codedOut.writeBoolNoTag($L)", getter);
