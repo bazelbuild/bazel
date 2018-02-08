@@ -411,6 +411,7 @@ sh_test(
 sh_test(
     name = "remote_execution_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["remote_execution_test.sh"],
     data = [
         ":test-deps",
