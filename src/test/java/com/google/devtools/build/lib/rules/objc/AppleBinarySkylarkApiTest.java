@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.Set;
 import org.junit.Before;
@@ -51,7 +52,10 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
   @Before
   public final void setup() throws Exception  {
     scratch.file("test_skylark/BUILD");
-    scratch.file("test_skylark/apple_binary_skylark.bzl",
+    String toolsLoc = TestConstants.TOOLS_REPOSITORY + "//tools/objc";
+
+    scratch.file(
+        "test_skylark/apple_binary_skylark.bzl",
         "def apple_binary_skylark_impl(ctx):",
         "  link_provider = apple_common.link_multi_arch_binary(ctx)",
         "  return struct(",
@@ -70,22 +74,22 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
         "                fragment='cpp', name='cc_toolchain'),),",
         "        '_googlemac_proto_compiler': attr.label(",
         "            cfg='host',",
-        "            default=Label('//tools/objc:protobuf_compiler_wrapper')),",
+        "            default=Label('" + toolsLoc + ":protobuf_compiler_wrapper')),",
         "        '_googlemac_proto_compiler_support': attr.label(",
         "            cfg='host',",
-        "            default=Label('//tools/objc:protobuf_compiler_support')),",
+        "            default=Label('" + toolsLoc + ":protobuf_compiler_support')),",
         "        '_lib_protobuf': attr.label(",
-        "            default=Label('//tools/objc:protobuf_lib')),",
+        "            default=Label('" + toolsLoc + ":protobuf_lib')),",
         "        '_protobuf_well_known_types': attr.label(",
         "            cfg='host',",
-        "            default=Label('//tools/objc:protobuf_well_known_types')),",
+        "            default=Label('" + toolsLoc + ":protobuf_well_known_types')),",
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
         "        '_xcrunwrapper': attr.label(",
         "            executable=True,",
         "            cfg='host',",
-        "            default=Label('//tools/objc:xcrunwrapper')),",
+        "            default=Label('" + toolsLoc + ":xcrunwrapper')),",
         "        'binary_type': attr.string(),",
         "        'bundle_loader': attr.label(aspects=[apple_common.objc_proto_aspect],),",
         "        'non_propagated_deps': attr.label_list(cfg=apple_common.multi_arch_split),",

@@ -12,36 +12,7 @@ filegroup(
 
 java_library(
     name = "ObjcRulesTests_lib",
-    srcs = [
-        # TODO(b/64531582): Use glob for all files in this directory once
-        # legacy tests are removed.
-        "AppleBinaryTest.java",
-        "AppleDynamicLibraryTest.java",
-        "AppleStaticLibraryTest.java",
-        "AppleStubBinaryTest.java",
-        "AppleToolchainSelectionTest.java",
-        "BinaryRuleType.java",
-        "HeaderThinningTest.java",
-        "InterspersingTest.java",
-        "IosDeviceTest.java",
-        "J2ObjcLibraryTest.java",
-        "J2ObjcSourceTest.java",
-        "ObjcBuildVariablesTest.java",
-        "ObjcBundleLibraryTest.java",
-        "ObjcBundleTest.java",
-        "ObjcFrameworkTest.java",
-        "ObjcProtoAspectTest.java",
-        "ObjcProtoLibraryTest.java",
-        "ObjcImportTest.java",
-        "ObjcLibraryTest.java",
-        "ObjcProviderTest.java",
-        "ObjcRuleTestCase.java",
-        "ObjcSkylarkTest.java",
-        "OnlyNeedsSourcesRuleType.java",
-        "RuleType.java",
-        "TargetDeviceFamilyTest.java",
-        "ValueTest.java",
-    ],
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
