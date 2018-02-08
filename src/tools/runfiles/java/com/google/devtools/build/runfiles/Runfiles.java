@@ -57,15 +57,15 @@ public abstract class Runfiles {
    * key's value in {@code env}.
    *
    * <p>Otherwise this method returns a directory-based implementation. The directory's path is
-   * defined by the "RUNFILES_DIR" or "TEST_SRCDIR" key's value in {@code env}, in this priority
-   * order.
+   * defined by the value in {@code env} under the "RUNFILES_DIR" key, or if absent, then under the
+   * "JAVA_RUNFILES" key.
    *
    * <p>Note about performance: the manifest-based implementation eagerly reads and caches the whole
    * manifest file upon instantiation.
    *
    * @throws IOException if RUNFILES_MANIFEST_ONLY=1 is in {@code env} but there's no
-   *     "RUNFILES_MANIFEST_FILE", or if neither "RUNFILES_DIR" nor "TEST_SRCDIR" is in {@code env},
-   *     or if some IO error occurs
+   *     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in {@code env} or their
+   *     values are empty, or some IO error occurs
    */
   public static Runfiles create(Map<String, String> env) throws IOException {
     if (isManifestOnly(env)) {
@@ -89,16 +89,15 @@ public abstract class Runfiles {
    *
    * @param path runfiles-root-relative path of the runfile
    * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
-   *     empty, it's absolute or contains uplevel references
+   *     empty, or contains uplevel references
    */
   public final String rlocation(String path) {
     Util.checkArgument(path != null);
     Util.checkArgument(!path.isEmpty());
     Util.checkArgument(!path.contains(".."), "path contains uplevel references: \"%s\"", path);
-    Util.checkArgument(
-        !new File(path).isAbsolute() && path.charAt(0) != File.separatorChar,
-        "path is absolute: \"%s\"",
-        path);
+    if (new File(path).isAbsolute() || path.charAt(0) == File.separatorChar) {
+      return path;
+    }
     return rlocationChecked(path);
   }
 
@@ -118,15 +117,13 @@ public abstract class Runfiles {
   }
 
   private static String getRunfilesDir(Map<String, String> env) throws IOException {
-    // On Linux and macOS, Bazel sets RUNFILES_DIR and TEST_SRCDIR.
-    // Google-internal Blaze sets only TEST_SRCDIR.
     String value = env.get("RUNFILES_DIR");
     if (Util.isNullOrEmpty(value)) {
-      value = env.get("TEST_SRCDIR");
+      value = env.get("JAVA_RUNFILES");
     }
     if (Util.isNullOrEmpty(value)) {
       throw new IOException(
-          "Cannot find runfiles: $RUNFILES_DIR and $TEST_SRCDIR are both unset or empty");
+          "Cannot find runfiles: $RUNFILES_DIR and $JAVA_RUNFILES are both unset or empty");
     }
     return value;
   }
