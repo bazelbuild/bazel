@@ -382,7 +382,7 @@ final class ProtobufSupport {
     return new Ordering<ImmutableSet<Artifact>>() {
       @Override
       public int compare(ImmutableSet<Artifact> o1, ImmutableSet<Artifact> o2) {
-        return o1.hashCode() - o2.hashCode();
+        return Integer.compare(o1.hashCode(), o2.hashCode());
       }
     }.sortedCopy(inputsToOutputsMap.keySet());
   }
