@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.remote.blobstore.http;
 
 import com.google.auth.Credentials;
+import com.google.common.base.Charsets;
+import com.google.common.io.BaseEncoding;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import java.io.IOException;
@@ -53,6 +56,12 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   protected void addCredentialHeaders(HttpRequest request, URI uri) throws IOException {
+    String userInfo = uri.getUserInfo();
+    if (userInfo != null) {
+      String value = BaseEncoding.base64Url().encode(userInfo.getBytes(Charsets.UTF_8));
+      request.headers().set(HttpHeaderNames.AUTHORIZATION, "Basic " + value);
+      return;
+    }
     if (credentials == null || !credentials.hasRequestMetadata()) {
       return;
     }
