@@ -27,7 +27,6 @@ load(
     "is_cc_configure_debug",
 )
 
-
 def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
   """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
   bazel_sh = get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
@@ -71,14 +70,12 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
       '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }' +
       '   feature { name: "copy_dynamic_libraries_to_binary" }' )
 
-
 def _get_system_root(repository_ctx):
   r"""Get System root path on Windows, default is C:\\Windows. Doesn't %-escape the result."""
   if "SYSTEMROOT" in repository_ctx.os.environ:
     return escape_string(repository_ctx.os.environ["SYSTEMROOT"])
   auto_configure_warning("SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
   return "C:\\Windows"
-
 
 def _find_cuda(repository_ctx):
   """Find out if and where cuda is installed. Doesn't %-escape the result."""
@@ -88,7 +85,6 @@ def _find_cuda(repository_ctx):
   if nvcc:
     return nvcc[:-len("/bin/nvcc.exe")]
   return None
-
 
 def _find_python(repository_ctx):
   """Find where is python on Windows. Doesn't %-escape the result."""
@@ -102,14 +98,12 @@ def _find_python(repository_ctx):
   auto_configure_warning("Python found at %s" % python_binary)
   return python_binary
 
-
 def _add_system_root(repository_ctx, env):
   r"""Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\system32 in PATH."""
   if "PATH" not in env:
     env["PATH"] = ""
   env["PATH"] = env["PATH"] + ";" + _get_system_root(repository_ctx) + "\\system32"
   return env
-
 
 def find_vc_path(repository_ctx):
   """Find Visual C++ build tools install path. Doesn't %-escape the result."""
@@ -167,7 +161,6 @@ def find_vc_path(repository_ctx):
   auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
   return vc_dir
 
-
 def _is_vs_2017(vc_path):
   """Check if the installed VS version is Visual Studio 2017."""
   # In VS 2017, the location of VC is like:
@@ -175,7 +168,6 @@ def _is_vs_2017(vc_path):
   # In VS 2015 or older version, it is like:
   # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
   return vc_path.find("2017") != -1
-
 
 def _find_vcvarsall_bat_script(repository_ctx, vc_path):
   """Find vcvarsall.bat script. Doesn't %-escape the result."""
@@ -188,7 +180,6 @@ def _find_vcvarsall_bat_script(repository_ctx, vc_path):
     return None
 
   return vcvarsall
-
 
 def setup_vc_env_vars(repository_ctx, vc_path):
   """Get environment variables set by VCVARSALL.BAT. Doesn't %-escape the result!"""
@@ -207,7 +198,6 @@ def setup_vc_env_vars(repository_ctx, vc_path):
     key, value = env.split("=", 1)
     env_map[key] = escape_string(value.replace("\\", "\\\\"))
   return env_map
-
 
 def find_msvc_tool(repository_ctx, vc_path, tool):
   """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
@@ -246,7 +236,6 @@ def _find_missing_vc_tools(repository_ctx, vc_path):
 
   return missing_tools
 
-
 def _is_support_whole_archive(repository_ctx, vc_path):
   """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
   env = repository_ctx.os.environ
@@ -256,19 +245,16 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   result = execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/WHOLEARCHIVE") != -1
 
-
 def _is_support_debug_fastlink(repository_ctx, vc_path):
   """Run MSVC linker alone to see if it supports /DEBUG:FASTLINK."""
   linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
   result = execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
 
-
 def _is_use_msvc_wrapper(repository_ctx):
   """Returns True if USE_MSVC_WRAPPER is set to 1."""
   env = repository_ctx.os.environ
   return "USE_MSVC_WRAPPER" in env and env["USE_MSVC_WRAPPER"] == "1"
-
 
 def _get_compilation_mode_content():
   """Return the content for adding flags for different compilation modes when using MSVC wrapper."""
@@ -289,7 +275,6 @@ def _get_compilation_mode_content():
       "      linker_flag: '-Xcompilation-mode=opt'",
       "    }"])
 
-
 def _escaped_cuda_compute_capabilities(repository_ctx):
   """Returns a %-escaped list of strings representing cuda compute capabilities."""
 
@@ -306,10 +291,9 @@ def _escaped_cuda_compute_capabilities(repository_ctx):
       auto_configure_fail("Invalid compute capability: %s" % capability)
   return capabilities
 
-
 def configure_windows_toolchain(repository_ctx):
   """Configure C++ toolchain on Windows."""
-  repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
+  repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static.windows"), "BUILD")
 
   vc_path = find_vc_path(repository_ctx)
   missing_tools = None
