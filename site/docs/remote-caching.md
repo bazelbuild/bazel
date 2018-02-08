@@ -27,7 +27,7 @@ make builds significantly faster.
     * [Exclude specific targets from using the remote cache](#exclude-specific-targets-from-using-the-remote-cache)
     * [Delete content from the remote cache](#delete-content-from-the-remote-cache)
 * [Known Issues](#known-issues)
-* [Bazel remote execution (in development)](#remote-execution-in-development)
+* [Bazel remote execution (in development)](#bazel-remote-execution-in-development)
 
 ## Remote caching overview
 
