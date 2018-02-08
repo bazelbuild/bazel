@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -127,7 +126,6 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
         .add(artifactSubstitution("%target_apk%", getTargetApk(ruleContext)))
         .add(artifactSubstitution("%instrumentation_apk%", getInstrumentationApk(ruleContext)))
         .add(artifactListSubstitution("%support_apks%", getAllSupportApks(ruleContext)))
-        .add(Substitution.ofSpaceSeparatedMap("%fixture_args%", getFixtureArgs(ruleContext)))
         .add(deviceScriptFixturesSubstitution(ruleContext))
         .addAll(hostServiceFixturesSubstitutions(ruleContext))
         .add(artifactListSubstitution("%data_deps%", getDataDeps(ruleContext)))
@@ -254,11 +252,6 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   /** AAPT binary from the Android SDK. */
   private static FilesToRunProvider getAapt(RuleContext ruleContext) {
     return AndroidSdkProvider.fromRuleContext(ruleContext).getAapt();
-  }
-
-  /** Map of {@code fixture_args} for the test runner to pass to the {@code fixtures}. */
-  private static ImmutableMap<String, String> getFixtureArgs(RuleContext ruleContext) {
-    return ImmutableMap.copyOf(ruleContext.attributes().get("fixture_args", Type.STRING_DICT));
   }
 
   private static ImmutableList<Artifact> getDataDeps(RuleContext ruleContext) {

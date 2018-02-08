@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -55,7 +54,6 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .allowedRuleClasses(
                     "android_device_script_fixture", "android_host_service_fixture"))
-        .add(attr("fixture_args", STRING_DICT))
         .add(
             attr("$test_entry_point", LABEL)
                 .exec()

@@ -65,8 +65,6 @@ declare -A device_script_fixtures=( %device_script_fixtures% )
 host_service_fixture="%host_service_fixture%"
 host_service_fixture_services="%host_service_fixture_services%"
 
-fixture_args="%fixture_args%"
-
 test_suite_property_name='%test_suite_property_name%'
 
 argv=$(cat <<END
