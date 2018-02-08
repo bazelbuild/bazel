@@ -46,7 +46,7 @@ class RunfilesTest(unittest.TestCase):
       r = runfiles.Create({
           "RUNFILES_MANIFEST_FILE": mf.Path(),
           "RUNFILES_DIR": "ignored when RUNFILES_MANIFEST_FILE has a value",
-          "TEST_SRCDIR": "ignored when RUNFILES_MANIFEST_FILE has a value"
+          "TEST_SRCDIR": "always ignored",
       })
       self.assertEqual(r.Rlocation("a/b"), "c/d")
       self.assertIsNone(r.Rlocation("foo"))
@@ -55,16 +55,11 @@ class RunfilesTest(unittest.TestCase):
   def testCreatesDirectoryBasedRunfiles(self):
     r = runfiles.Create({
         "RUNFILES_DIR": "runfiles/dir",
-        "TEST_SRCDIR": "ignored when RUNFILES_DIR is set"
+        "TEST_SRCDIR": "always ignored",
     })
     self.assertEqual(r.Rlocation("a/b"), "runfiles/dir/a/b")
     self.assertEqual(r.Rlocation("foo"), "runfiles/dir/foo")
     self.assertDictEqual(r.EnvVar(), {"RUNFILES_DIR": "runfiles/dir"})
-
-    r = runfiles.Create({"TEST_SRCDIR": "test/srcdir"})
-    self.assertEqual(r.Rlocation("a/b"), "test/srcdir/a/b")
-    self.assertEqual(r.Rlocation("foo"), "test/srcdir/foo")
-    self.assertDictEqual(r.EnvVar(), {"RUNFILES_DIR": "test/srcdir"})
 
   def testFailsToCreateManifestBasedBecauseManifestDoesNotExist(self):
 
@@ -78,10 +73,13 @@ class RunfilesTest(unittest.TestCase):
       runfiles.Create({
           "RUNFILES_MANIFEST_FILE": mf.Path(),
           "RUNFILES_DIR": "whatever",
-          "TEST_SRCDIR": "whatever"
+          "TEST_SRCDIR": "always ignored",
       })
-    runfiles.Create({"RUNFILES_DIR": "whatever", "TEST_SRCDIR": "whatever"})
-    runfiles.Create({"TEST_SRCDIR": "whatever"})
+    runfiles.Create({
+        "RUNFILES_DIR": "whatever",
+        "TEST_SRCDIR": "always ignored",
+    })
+    self.assertIsNone(runfiles.Create({"TEST_SRCDIR": "always ignored"}))
     self.assertIsNone(runfiles.Create({"FOO": "bar"}))
 
   def testManifestBasedRlocation(self):

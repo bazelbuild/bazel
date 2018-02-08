@@ -69,9 +69,8 @@ def Create(env=None):
   the whole manifest file upon instantiation; this may be relevant for
   performance consideration.
 
-  Otherwise, if `env` contains "RUNFILES_DIR" or "TEST_SRCDIR" with non-empty
-  value (checked in this priority order), this method returns a directory-based
-  implementation.
+  Otherwise, if `env` contains "RUNFILES_DIR" with non-empty value (checked in
+  this priority order), this method returns a directory-based implementation.
 
   If neither cases apply, this method returns null.
 
@@ -87,8 +86,6 @@ def Create(env=None):
     return CreateManifestBased(manifest)
 
   directory = env_map.get("RUNFILES_DIR")
-  if not directory:
-    directory = env_map.get("TEST_SRCDIR")
   if directory:
     return CreateDirectoryBased(directory)
 
