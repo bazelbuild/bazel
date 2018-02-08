@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static java.util.stream.Collectors.toList;
 
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -222,7 +223,7 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (dumpOptions.dumpRules) {
-        dumpRuleStats(env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
+        dumpRuleStats(env.getReporter(), env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
         out.println();
       }
 
@@ -290,8 +291,12 @@ public class DumpCommand implements BlazeCommand {
     }
   }
 
-  private void dumpRuleStats(BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out) {
-    List<RuleStat> ruleStats = executor.getRuleStats();
+  private void dumpRuleStats(
+      ExtendedEventHandler eventHandler,
+      BlazeWorkspace workspace,
+      SkyframeExecutor executor,
+      PrintStream out) {
+    List<RuleStat> ruleStats = executor.getRuleStats(eventHandler);
     if (ruleStats.isEmpty()) {
       out.print("No rules in Blaze server, please run a build command first.");
       return;

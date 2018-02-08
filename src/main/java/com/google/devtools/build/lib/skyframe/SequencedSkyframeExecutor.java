@@ -41,8 +41,11 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.BuildFileName;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -692,7 +695,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public List<RuleStat> getRuleStats() {
+  public List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler) {
     Map<String, RuleStat> ruleStats = new HashMap<>();
     for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
         memoizingEvaluator.getGraphMap().entrySet()) {
@@ -707,8 +710,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
           ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
           if (configuredTarget instanceof RuleConfiguredTarget) {
+
+            Rule rule;
+            try {
+              rule =
+                  (Rule) getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
+            } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+              throw new IllegalStateException(
+                  "Failed to get Rule target from package when calculating stats.", e);
+            }
             RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-            RuleClass ruleClass = ruleConfiguredTarget.getTarget().getRuleClassObject();
+            RuleClass ruleClass = rule.getRuleClassObject();
             RuleStat ruleStat =
                 ruleStats.computeIfAbsent(
                     ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
