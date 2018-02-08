@@ -19,6 +19,7 @@ make builds significantly faster.
     * [Bazel Remote Cache](#bazel-remote-cache)
     * [Google Cloud Storage](#google-cloud-storage)
     * [Other servers](#other-servers)
+* [Authentication](#authentication)
 * [HTTP Caching Protocol](#http-caching-protocol)
 * [Run Bazel using the remote cache](#run-bazel-using-the-remote-cache)
     * [Read from and write to the remote cache](#read-from-and-write-to-the-remote-cache)
@@ -173,6 +174,14 @@ to/from your GCS bucket.
 You can set up any HTTP/1.1 server that supports PUT and GET as the cache's
 backend. Users have reported success with caching backends such as [Hazelcast],
 [Apache httpd], and [AWS S3].
+
+## Authentication
+
+As of version 0.11.0 support for HTTP Basic Authentication was added to Bazel.
+You can pass a username and password to Bazel via the remote cache URL. The
+syntax is `https://username:password@hostname.com:port/path`. Please note that
+HTTP Basic Authentication transmits username and password in plaintext over the
+network and it's thus critical to always use it with HTTPS.
 
 ## HTTP Caching Protocol
 

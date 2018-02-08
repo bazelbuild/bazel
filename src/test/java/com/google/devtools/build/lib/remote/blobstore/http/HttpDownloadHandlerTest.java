@@ -40,7 +40,7 @@ import org.mockito.Mockito;
 
 /** Tests for {@link HttpDownloadHandler}. */
 @RunWith(JUnit4.class)
-public class HttpDownloadHandlerTest {
+public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
 
   private static final URI CACHE_URI = URI.create("http://storage.googleapis.com:80/cache-bucket");
 
