@@ -36,6 +36,8 @@ public class CoreLibrarySupportTest {
     assertThat(support.isRenamedCoreLibrary("java/time/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("java/time/y/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("java/io/X")).isFalse();
+    assertThat(support.isRenamedCoreLibrary("java/io/X$$CC")).isTrue();
+    assertThat(support.isRenamedCoreLibrary("java/io/X$$Lambda$17")).isTrue();
     assertThat(support.isRenamedCoreLibrary("com/google/X")).isFalse();
   }
 
@@ -50,6 +52,8 @@ public class CoreLibrarySupportTest {
     assertThat(support.isRenamedCoreLibrary("__/java/time/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("__/java/time/y/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("__/java/io/X")).isFalse();
+    assertThat(support.isRenamedCoreLibrary("__/java/io/X$$CC")).isTrue();
+    assertThat(support.isRenamedCoreLibrary("__/java/io/X$$Lambda$17")).isTrue();
     assertThat(support.isRenamedCoreLibrary("com/google/X")).isFalse();
   }
   @Test

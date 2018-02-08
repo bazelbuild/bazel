@@ -56,7 +56,14 @@ class CoreLibrarySupport {
 
   public boolean isRenamedCoreLibrary(String internalName) {
     String unprefixedName = rewriter.unprefix(internalName);
-    return renamedPrefixes.stream().anyMatch(prefix -> unprefixedName.startsWith(prefix));
+    if (!unprefixedName.startsWith("java/")) {
+      return false; // shortcut
+    }
+    // Rename any classes desugar might generate under java/ (for emulated interfaces) as well as
+    // configured prefixes
+    return unprefixedName.contains("$$Lambda$")
+        || unprefixedName.endsWith("$$CC")
+        || renamedPrefixes.stream().anyMatch(prefix -> unprefixedName.startsWith(prefix));
   }
 
   public String renameCoreLibrary(String internalName) {
