@@ -30,13 +30,13 @@ public class PrecomputedValueCodecTest extends AbstractObjectCodecTest<Precomput
   public PrecomputedValueCodecTest() {
     super(
         new PrecomputedValueCodec(
-            () ->
-                ObjectCodecs.newBuilder()
+            () -> new ObjectCodecs(
+                ObjectCodecRegistry.newBuilder()
                     .asClassKeyedBuilder()
                     // Note no PathFragmentCodec.
                     .add(String.class, StringCodecs.asciiOptimized())
                     .add(Label.class, LabelCodec.INSTANCE)
-                    .build()),
+                    .build())),
         new PrecomputedValue(PathFragment.create("java serializable 1")),
         new PrecomputedValue(PathFragment.create("java serializable 2")),
         new PrecomputedValue("first string"),

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -78,7 +79,10 @@ public class ObjectCodecsTest {
   @Before
   public final void setup() {
     spyObjectCodec = spy(new IntegerCodec());
-    this.underTest = ObjectCodecs.newBuilder().add(KNOWN_CLASSIFIER, spyObjectCodec).build();
+    this.underTest = new ObjectCodecs(
+        ObjectCodecRegistry.newBuilder()
+            .add(KNOWN_CLASSIFIER, spyObjectCodec)
+            .build());
   }
 
   @Test
@@ -207,30 +211,28 @@ public class ObjectCodecsTest {
 
   @Test
   public void testSerializeFailsWhenNoCustomCodecAndFallbackDisabled() throws Exception {
-    try {
-      ObjectCodecs.newBuilder().setAllowDefaultCodec(false).build().serialize("X", "Y");
-      fail("Expected exception");
-    } catch (SerializationException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("No codec available for X and default fallback disabled");
-    }
+    ObjectCodecs underTest = new ObjectCodecs(
+        ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build());
+    SerializationException.NoCodecException expected = expectThrows(
+        SerializationException.NoCodecException.class,
+        () -> underTest.serialize("X", "Y"));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo("No codec available for X and default fallback disabled");
   }
 
   @Test
   public void testDeserializeFailsWhenNoCustomCodecAndFallbackDisabled() throws Exception {
     ByteString serialized = ByteString.copyFromUtf8("doesn't matter");
-    try {
-      ObjectCodecs.newBuilder()
-          .setAllowDefaultCodec(false)
-          .build()
-          .deserialize(ByteString.copyFromUtf8("X"), serialized);
-      fail("Expected exception");
-    } catch (SerializationException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("No codec available for X and default fallback disabled");
-    }
+    ObjectCodecs underTest = new ObjectCodecs(
+        ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build());
+    SerializationException.NoCodecException expected = expectThrows(
+        SerializationException.NoCodecException.class,
+        () -> underTest.deserialize(ByteString.copyFromUtf8("X"), serialized));
+
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo("No codec available for X and default fallback disabled");
   }
 
   @Test

@@ -14,65 +14,25 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Wrapper for the minutiae of serializing and deserializing objects using {@link ObjectCodec}s,
  * serving as a layer between the streaming-oriented {@link ObjectCodec} interface and users.
- * Handles the mapping and selection of custom serialization implementations, falling back on less
- * performant java serialization by default when no better option is available and it is allowed by
- * the configuration.
- *
- * <p>To use, create a {@link ObjectCodecs.Builder} and add custom classifier to {@link ObjectCodec}
- * mappings using {@link ObjectCodecs.Builder#add} directly or by using one of the convenience
- * builders returned by {@link ObjectCodecs.Builder#asSkyFunctionNameKeyedBuilder()} or
- * {@link ObjectCodecs.Builder#asClassKeyedBuilder()}. The provided mappings are then used to
- * determine serialization/deserialization logic. For example:
- *
- * <pre>{@code
- * // Create an instance for which anything identified as "foo" will use FooCodec.
- * ObjectCodecs objectCodecs = ObjectCodecs.newBuilder()
- *     .add("foo", new FooCodec())
- *     .build();
- *
- * // This will use the custom supplied FooCodec to serialize obj:
- * ByteString serialized = objectCodecs.serialize("foo", obj);
- * Object deserialized = objectCodecs.deserialize(ByteString.copyFromUtf8("foo"), serialized);
- *
- * // This will use default java object serialization to serialize obj:
- * ByteString serialized = objectCodecs.serialize("bar", obj);
- * Object deserialized = objectCodecs.deserialize(ByteString.copyFromUtf8("bar"), serialized);
- * }</pre>
- *
- * <p>Classifiers will typically be class names or SkyFunction names.
  */
 public class ObjectCodecs {
 
-  private static final ObjectCodec<Object> DEFAULT_CODEC = new JavaSerializableCodec();
+  private final ObjectCodecRegistry codecRegistry;
 
-  /** Create new ObjectCodecs.Builder, the preferred instantiation method. */
-  // TODO(janakr,michajlo): Specialize builders into ones keyed by class (even if the class isn't
-  // the one specified by the codec) and ones keyed by string, and expose a getClassifier() method
-  // for ObjectCodecs keyed by class.
-  public static ObjectCodecs.Builder newBuilder() {
-    return new Builder();
-  }
-
-  private final Map<String, ObjectCodec<?>> stringMappedCodecs;
-  private final Map<ByteString, ObjectCodec<?>> byteStringMappedCodecs;
-  private final boolean allowDefaultCodec;
-
-  private ObjectCodecs(Map<String, ObjectCodec<?>> codecs, boolean allowDefaultCodec) {
-    this.stringMappedCodecs = codecs;
-    this.byteStringMappedCodecs = makeByteStringMappedCodecs(codecs);
-    this.allowDefaultCodec = allowDefaultCodec;
+  /**
+   * Creates an instance using the supplied {@link ObjectCodecRegistry} for looking up
+   * {@link ObjectCodec}s.
+   */
+  ObjectCodecs(ObjectCodecRegistry codecRegistry) {
+    this.codecRegistry = codecRegistry;
   }
 
   /**
@@ -82,7 +42,7 @@ public class ObjectCodecs {
   public ByteString serialize(String classifier, Object subject) throws SerializationException {
     ByteString.Output resultOut = ByteString.newOutput();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
-    ObjectCodec<?> codec = getCodec(classifier);
+    ObjectCodec<?> codec = codecRegistry.getCodecDescriptor(classifier).getCodec();
     try {
       doSerialize(classifier, codec, subject, codedOut);
       codedOut.flush();
@@ -102,7 +62,7 @@ public class ObjectCodecs {
    */
   public void serialize(String classifier, Object subject, CodedOutputStream codedOut)
       throws SerializationException {
-    ObjectCodec<?> codec = getCodec(classifier);
+    ObjectCodec<?> codec = codecRegistry.getCodecDescriptor(classifier).getCodec();
     try {
       doSerialize(classifier, codec, subject, codedOut);
     } catch (IOException e) {
@@ -129,7 +89,7 @@ public class ObjectCodecs {
    */
   public Object deserialize(ByteString classifier, CodedInputStream codedIn)
       throws SerializationException {
-    ObjectCodec<?> codec = getCodec(classifier);
+    ObjectCodec<?> codec = codecRegistry.getCodecDescriptor(classifier).getCodec();
     // If safe, this will allow CodedInputStream to return a direct view of the underlying bytes
     // in some situations, bypassing a copy.
     codedIn.enableAliasing(true);
@@ -143,31 +103,6 @@ public class ObjectCodecs {
     } catch (IOException e) {
       throw new SerializationException(
           "Failed to deserialize data using " + codec + " for " + classifier.toStringUtf8(), e);
-    }
-  }
-
-  private ObjectCodec<?> getCodec(String classifier)
-      throws SerializationException.NoCodecException {
-    ObjectCodec<?> result = stringMappedCodecs.get(classifier);
-    if (result != null) {
-      return result;
-    } else if (allowDefaultCodec) {
-      return DEFAULT_CODEC;
-    } else {
-      throw new SerializationException.NoCodecException(
-          "No codec available for " + classifier + " and default fallback disabled");
-    }
-  }
-
-  private ObjectCodec<?> getCodec(ByteString classifier) throws SerializationException {
-    ObjectCodec<?> result = byteStringMappedCodecs.get(classifier);
-    if (result != null) {
-      return result;
-    } else if (allowDefaultCodec) {
-      return DEFAULT_CODEC;
-    } else {
-      throw new SerializationException.NoCodecException(
-          "No codec available for " + classifier.toStringUtf8() + " and default fallback disabled");
     }
   }
 
@@ -190,91 +125,4 @@ public class ObjectCodecs {
           e);
     }
   }
-
-  /** Builder for {@link ObjectCodecs}. */
-  static class Builder {
-    private final ImmutableMap.Builder<String, ObjectCodec<?>> codecsBuilder =
-        ImmutableMap.builder();
-    private boolean allowDefaultCodec = true;
-
-    private Builder() {}
-
-    /**
-     * Add custom serialization strategy ({@code codec}) for {@code classifier}.
-     *
-     * <p>Intended for package-internal usage only. Consider using the specialized build types
-     * returned by {@link #asClassKeyedBuilder()} or {@link #asSkyFunctionNameKeyedBuilder()}
-     * before using this method.
-     */
-    Builder add(String classifier, ObjectCodec<?> codec) {
-      codecsBuilder.put(classifier, codec);
-      return this;
-    }
-
-    /** Set whether or not we allow fallback to the default codec, java serialization. */
-    public Builder setAllowDefaultCodec(boolean allowDefaultCodec) {
-      this.allowDefaultCodec = allowDefaultCodec;
-      return this;
-    }
-
-    /** Wrap this builder with a {@link ClassKeyedBuilder}. */
-    public ClassKeyedBuilder asClassKeyedBuilder() {
-      return new ClassKeyedBuilder(this);
-    }
-
-    /** Wrap this builder with a {@link SkyFunctionNameKeyedBuilder}. */
-    public SkyFunctionNameKeyedBuilder asSkyFunctionNameKeyedBuilder() {
-      return new SkyFunctionNameKeyedBuilder(this);
-    }
-
-    public ObjectCodecs build() {
-      return new ObjectCodecs(codecsBuilder.build(), allowDefaultCodec);
-    }
-  }
-
-  /** Convenience builder for adding codecs classified by class name. */
-  static class ClassKeyedBuilder {
-    private final Builder underlying;
-
-    private ClassKeyedBuilder(Builder underlying) {
-      this.underlying = underlying;
-    }
-
-    public <T> ClassKeyedBuilder add(Class<? extends T> clazz, ObjectCodec<T> codec) {
-      underlying.add(clazz.getName(), codec);
-      return this;
-    }
-
-    public ObjectCodecs build() {
-      return underlying.build();
-    }
-  }
-
-  /** Convenience builder for adding codecs classified by SkyFunctionName. */
-  static class SkyFunctionNameKeyedBuilder {
-    private final Builder underlying;
-
-    private SkyFunctionNameKeyedBuilder(Builder underlying) {
-      this.underlying = underlying;
-    }
-
-    public SkyFunctionNameKeyedBuilder add(SkyFunctionName skyFuncName, ObjectCodec<?> codec) {
-      underlying.add(skyFuncName.getName(), codec);
-      return this;
-    }
-
-    public ObjectCodecs build() {
-      return underlying.build();
-    }
-  }
-
-  private static Map<ByteString, ObjectCodec<?>> makeByteStringMappedCodecs(
-      Map<String, ObjectCodec<?>> stringMappedCodecs) {
-    ImmutableMap.Builder<ByteString, ObjectCodec<?>> result = ImmutableMap.builder();
-    for (Entry<String, ObjectCodec<?>> entry : stringMappedCodecs.entrySet()) {
-      result.put(ByteString.copyFromUtf8(entry.getKey()), entry.getValue());
-    }
-    return result.build();
-  }
-
 }
