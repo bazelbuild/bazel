@@ -37,15 +37,6 @@ import java.util.List;
 )
 public class SpawnGccStrategy implements CppCompileActionContext {
   @Override
-  public Iterable<Artifact> findAdditionalInputs(
-      CppCompileAction action,
-      ActionExecutionContext actionExecutionContext,
-      IncludeProcessing includeProcessing)
-      throws ExecException, InterruptedException {
-    return null;
-  }
-
-  @Override
   public CppCompileActionResult execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {

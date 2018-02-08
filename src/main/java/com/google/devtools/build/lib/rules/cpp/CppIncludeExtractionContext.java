@@ -24,7 +24,7 @@ import java.io.IOException;
 /**
  * Context for actions that do include scanning.
  */
-public interface IncludeScanningContext extends ActionContext {
+public interface CppIncludeExtractionContext extends ActionContext {
   /**
    * Extracts the set of include files from a source file.
    *

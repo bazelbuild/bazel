@@ -145,8 +145,8 @@ public class FakeCppCompileAction extends CppCompileAction {
           actionExecutionContext.getVerboseFailures(),
           this);
     }
-    IncludeScanningContext scanningContext =
-        actionExecutionContext.getContext(IncludeScanningContext.class);
+    CppIncludeExtractionContext scanningContext =
+        actionExecutionContext.getContext(CppIncludeExtractionContext.class);
     Path execRoot = actionExecutionContext.getExecRoot();
 
     NestedSet<Artifact> discoveredInputs;

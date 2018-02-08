@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -34,7 +36,10 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
-import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
+import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -42,6 +47,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Provide a standalone, local execution context.
@@ -49,11 +55,11 @@ import java.io.IOException;
 public class StandaloneActionContextProvider extends ActionContextProvider {
 
   /**
-   * a IncludeScanningContext that does nothing. Since local execution does not need to
-   * discover inclusion in advance, we do not need include scanning.
+   * An IncludeExtractionContext that does nothing. Since local execution does not need to discover
+   * inclusion in advance, we do not need include scanning.
    */
-  @ExecutionStrategy(contextType = IncludeScanningContext.class)
-  class DummyIncludeScanningContext implements IncludeScanningContext {
+  @ExecutionStrategy(contextType = CppIncludeExtractionContext.class)
+  class DummyCppIncludeExtractionContext implements CppIncludeExtractionContext {
     @Override
     public void extractIncludes(
         ActionExecutionContext actionExecutionContext,
@@ -67,6 +73,23 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
     @Override
     public ArtifactResolver getArtifactResolver() {
       return env.getSkyframeBuildView().getArtifactFactory();
+    }
+  }
+
+  /**
+   * An IncludeScanningContext that does nothing. Since local execution does not need to discover
+   * inclusion in advance, we do not need include scanning.
+   */
+  @ExecutionStrategy(contextType = CppIncludeScanningContext.class)
+  static class DummyCppIncludeScanningContext implements CppIncludeScanningContext {
+    @Override
+    @Nullable
+    public Iterable<Artifact> findAdditionalInputs(
+        CppCompileAction action,
+        ActionExecutionContext actionExecutionContext,
+        IncludeProcessing includeProcessing)
+        throws ExecException, InterruptedException, ActionExecutionException {
+      return null;
     }
   }
 
@@ -92,7 +115,8 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
     // last one from strategies list will be used
     return ImmutableList.of(
         new StandaloneSpawnStrategy(env.getExecRoot(), createLocalRunner(env)),
-        new DummyIncludeScanningContext(),
+        new DummyCppIncludeExtractionContext(),
+        new DummyCppIncludeScanningContext(),
         new SpawnGccStrategy(),
         testStrategy,
         new ExclusiveTestStrategy(testStrategy),

@@ -68,8 +68,8 @@ final class ExtractInclusionAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    IncludeScanningContext context =
-        actionExecutionContext.getContext(IncludeScanningContext.class);
+    CppIncludeExtractionContext context =
+        actionExecutionContext.getContext(CppIncludeExtractionContext.class);
     try {
       context.extractIncludes(actionExecutionContext, this, getPrimaryInput(),
           getPrimaryOutput());
