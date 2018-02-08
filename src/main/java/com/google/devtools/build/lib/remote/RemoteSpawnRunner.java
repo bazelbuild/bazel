@@ -244,7 +244,8 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (exception instanceof RetryException
         && RemoteRetrierUtils.causedByStatus((RetryException) exception, Code.UNAVAILABLE)) {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
-    } else if (cause instanceof CacheNotFoundException) {
+    } else if (exception instanceof CacheNotFoundException
+        || cause instanceof CacheNotFoundException) {
       status = Status.REMOTE_CACHE_FAILED;
     } else {
       status = Status.EXECUTION_FAILED;
