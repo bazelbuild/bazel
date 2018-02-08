@@ -42,6 +42,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -286,6 +287,36 @@ class Marshallers {
           writeDeserializationCode(context.with(optionalType, optionalName));
           context.builder.addStatement(
               "$L = $T.fromNullable($L)", context.name, Optional.class, optionalName);
+        }
+      };
+
+  private final Marshaller uuidMarshller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesType(type, UUID.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement(
+              "codedOut.writeInt64NoTag($L.getMostSignificantBits())", context.name);
+          context.builder.addStatement(
+              "codedOut.writeInt64NoTag($L.getLeastSignificantBits())", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          String mostSignificantBitsName = context.makeName("mostSignificantBits");
+          String leastSignificantBitsName = context.makeName("leastSignificantBits");
+          context.builder.addStatement("long $L = codedIn.readInt64()", mostSignificantBitsName);
+          context.builder.addStatement("long $L = codedIn.readInt64()", leastSignificantBitsName);
+          context.builder.addStatement(
+              "$L = new $T($L, $L)",
+              context.name,
+              UUID.class,
+              mostSignificantBitsName,
+              leastSignificantBitsName);
         }
       };
 
@@ -922,6 +953,7 @@ class Marshallers {
           stringMarshaller,
           optionalMarshaller,
           supplierMarshaller,
+          uuidMarshller,
           mapEntryMarshaller,
           listMarshaller,
           immutableSetMarshaller,
