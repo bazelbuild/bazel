@@ -81,9 +81,6 @@ import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.objc.J2ObjcAspect;
-import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryBaseRule;
-import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -299,25 +296,6 @@ public class BazelRuleClassProvider {
         }
       };
 
-  public static final RuleSet J2OBJC_RULES =
-      new RuleSet() {
-        @Override
-        public void init(Builder builder) {
-          String toolsRepository = checkNotNull(builder.getToolsRepository());
-          J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(toolsRepository);
-
-          builder.addNativeAspectClass(j2ObjcAspect);
-          builder.addRuleDefinition(new J2ObjcLibraryBaseRule());
-          builder.addRuleDefinition(new J2ObjcLibraryRule(j2ObjcAspect));
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE, CcRules.INSTANCE, JavaRules.INSTANCE,
-              ObjcRules.INSTANCE);
-        }
-      };
-
   public static final RuleSet VARIOUS_WORKSPACE_RULES =
       new RuleSet() {
         @Override
@@ -362,7 +340,7 @@ public class BazelRuleClassProvider {
           ANDROID_RULES,
           PYTHON_RULES,
           ObjcRules.INSTANCE,
-          J2OBJC_RULES,
+          J2ObjcRules.INSTANCE,
           TestingSupportRules.INSTANCE,
           VARIOUS_WORKSPACE_RULES,
           // This rule set is a little special: it needs to depend on every configuration fragment

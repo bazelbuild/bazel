@@ -141,7 +141,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void j2objcConsistency() {
-    checkModule(BazelRuleClassProvider.J2OBJC_RULES);
+    checkModule(J2ObjcRules.INSTANCE);
   }
 
   @Test
