@@ -30,6 +30,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RunfilesTest {
 
+  private static boolean isWindows() {
+    return File.separatorChar == '\\';
+  }
+
   private void assertRlocationArg(Runfiles runfiles, String path, @Nullable String error)
       throws Exception {
     try {
@@ -48,13 +52,6 @@ public final class RunfilesTest {
     assertRlocationArg(r, null, null);
     assertRlocationArg(r, "", null);
     assertRlocationArg(r, "foo/..", "contains uplevel");
-    if (File.separatorChar == '/') {
-      assertRlocationArg(r, "/foo", "is absolute");
-    } else {
-      assertRlocationArg(r, "\\foo", "is absolute");
-      assertRlocationArg(r, "c:/foo", "is absolute");
-      assertRlocationArg(r, "c:\\foo", "is absolute");
-    }
   }
 
   @Test
@@ -66,9 +63,18 @@ public final class RunfilesTest {
                   "RUNFILES_MANIFEST_ONLY", "1",
                   "RUNFILES_MANIFEST_FILE", mf.path.toString(),
                   "RUNFILES_DIR", "ignored when RUNFILES_MANIFEST_ONLY=1",
-                  "TEST_SRCDIR", "ignored when RUNFILES_MANIFEST_ONLY=1"));
+                  "JAVA_RUNFILES", "ignored when RUNFILES_DIR has a value",
+                  "TEST_SRCDIR", "should always be ignored"));
       assertThat(r.rlocation("a/b")).isEqualTo("c/d");
       assertThat(r.rlocation("foo")).isNull();
+
+      if (isWindows()) {
+        assertThat(r.rlocation("\\foo")).isEqualTo("\\foo");
+        assertThat(r.rlocation("c:/foo")).isEqualTo("c:/foo");
+        assertThat(r.rlocation("c:\\foo")).isEqualTo("c:\\foo");
+      } else {
+        assertThat(r.rlocation("/foo")).isEqualTo("/foo");
+      }
     }
   }
 
@@ -79,7 +85,8 @@ public final class RunfilesTest {
             ImmutableMap.of(
                 "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
                 "RUNFILES_DIR", "runfiles/dir",
-                "TEST_SRCDIR", "ignored when RUNFILES_DIR is set"));
+                "JAVA_RUNFILES", "ignored when RUNFILES_DIR has a value",
+                "TEST_SRCDIR", "should always be ignored"));
     assertThat(r.rlocation("a/b")).isEqualTo("runfiles/dir/a/b");
     assertThat(r.rlocation("foo")).isEqualTo("runfiles/dir/foo");
 
@@ -87,9 +94,41 @@ public final class RunfilesTest {
         Runfiles.create(
             ImmutableMap.of(
                 "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
-                "TEST_SRCDIR", "test/srcdir"));
-    assertThat(r.rlocation("a/b")).isEqualTo("test/srcdir/a/b");
-    assertThat(r.rlocation("foo")).isEqualTo("test/srcdir/foo");
+                "RUNFILES_DIR", "",
+                "JAVA_RUNFILES", "runfiles/dir",
+                "TEST_SRCDIR", "should always be ignored"));
+    assertThat(r.rlocation("a/b")).isEqualTo("runfiles/dir/a/b");
+    assertThat(r.rlocation("foo")).isEqualTo("runfiles/dir/foo");
+  }
+
+  @Test
+  public void testIgnoresTestSrcdirWhenJavaRunfilesIsUndefinedAndJustFails() throws Exception {
+    Runfiles.create(
+        ImmutableMap.of(
+            "RUNFILES_DIR", "non-empty",
+            "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+            "TEST_SRCDIR", "should always be ignored"));
+
+    Runfiles.create(
+        ImmutableMap.of(
+            "JAVA_RUNFILES", "non-empty",
+            "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+            "TEST_SRCDIR", "should always be ignored"));
+
+    try {
+      // The method must ignore TEST_SRCDIR, for the scenario when Bazel runs a test which itself
+      // runs Bazel to build and run java_binary. The java_binary should not pick up the test's
+      // TEST_SRCDIR.
+      Runfiles.create(
+          ImmutableMap.of(
+              "RUNFILES_DIR", "",
+              "JAVA_RUNFILES", "",
+              "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+              "TEST_SRCDIR", "should always be ignored"));
+      fail();
+    } catch (IOException e) {
+      assertThat(e).hasMessageThat().contains("$RUNFILES_DIR and $JAVA_RUNFILES");
+    }
   }
 
   @Test
