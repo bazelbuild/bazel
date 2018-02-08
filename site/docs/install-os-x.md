@@ -69,8 +69,8 @@ their App Store).
 For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with iOS
 SDK 8.1 installed on your system.
 
-Once XCode is installed you can agree to the license agreement with the following
-command:
+Once XCode is installed, you can agree to the license agreement for all users with
+the following command:
 
 ```
 sudo xcodebuild -license accept
