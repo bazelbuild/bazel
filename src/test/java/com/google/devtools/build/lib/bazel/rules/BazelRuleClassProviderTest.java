@@ -106,7 +106,7 @@ public class BazelRuleClassProviderTest {
 
   @Test
   public void shConsistency() {
-    checkModule(BazelRuleClassProvider.SH_RULES);
+    checkModule(ShRules.INSTANCE);
   }
 
   @Test

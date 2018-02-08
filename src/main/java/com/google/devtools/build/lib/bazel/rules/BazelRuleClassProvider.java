@@ -43,10 +43,6 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuntimeRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShTestRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.GitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpFileRule;
@@ -160,22 +156,6 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(new ProtoConfiguration.Loader());
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE);
-        }
-      };
-
-  public static final RuleSet SH_RULES =
-      new RuleSet() {
-        @Override
-        public void init(Builder builder) {
-          builder.addRuleDefinition(new BazelShRuleClasses.ShRule());
-          builder.addRuleDefinition(new BazelShLibraryRule());
-          builder.addRuleDefinition(new BazelShBinaryRule());
-          builder.addRuleDefinition(new BazelShTestRule());
         }
 
         @Override
@@ -333,7 +313,7 @@ public class BazelRuleClassProvider {
           ConfigRules.INSTANCE,
           PlatformRules.INSTANCE,
           PROTO_RULES,
-          SH_RULES,
+          ShRules.INSTANCE,
           CcRules.INSTANCE,
           CPP_PROTO_RULES,
           JavaRules.INSTANCE,
