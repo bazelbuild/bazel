@@ -56,12 +56,14 @@ class RunfilesTest(test_base.TestBase):
 
     self.assertTrue(os.path.exists(bin_path))
 
-    exit_code, stdout, stderr = self.RunProgram([bin_path])
+    exit_code, stdout, stderr = self.RunProgram(
+        [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
     self.AssertExitCode(exit_code, 0, stderr)
     if len(stdout) != 2:
       self.fail("stdout: %s" % stdout)
     self.assertEqual(stdout[0], "Hello Java Foo!")
     six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
+    self.assertNotIn("__ignore_me__", stdout[1])
     with open(stdout[1].split("=", 1)[1], "r") as f:
       lines = [l.strip() for l in f.readlines()]
     if len(lines) != 1:
@@ -96,14 +98,17 @@ class RunfilesTest(test_base.TestBase):
 
     self.assertTrue(os.path.exists(bin_path))
 
-    exit_code, stdout, stderr = self.RunProgram([bin_path])
+    exit_code, stdout, stderr = self.RunProgram(
+        [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
     self.AssertExitCode(exit_code, 0, stderr)
     if len(stdout) < 4:
       self.fail("stdout: %s" % stdout)
     self.assertEqual(stdout[0], "Hello Python Foo!")
     six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
+    self.assertNotIn("__ignore_me__", stdout[1])
     self.assertEqual(stdout[2], "Hello Python Bar!")
     six.assertRegex(self, stdout[3], "^rloc=.*/bar/bar-py-data.txt")
+    self.assertNotIn("__ignore_me__", stdout[3])
 
     with open(stdout[1].split("=", 1)[1], "r") as f:
       lines = [l.strip() for l in f.readlines()]

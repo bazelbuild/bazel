@@ -32,6 +32,15 @@ def ChildBinaryName(lang):
     return "foo_ws/bar/bar-%s" % lang
 
 
+def SplitToLines(stdouterr):
+  if isinstance(stdouterr, bytes):
+    # Python3's communicate() returns bytes.
+    return [l.strip() for l in stdouterr.decode().split("\n")]
+  else:
+    # Python2's communicate() returns str.
+    return [l.strip() for l in stdouterr.split("\n")]
+
+
 def main():
   print("Hello Python Foo!")
   r = runfiles.Create()
@@ -49,8 +58,13 @@ def main():
       env=env,
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE)
-  for e in p.communicate():
-    print(e)
+  out, err = p.communicate()
+  out = SplitToLines(out)
+  if len(out) >= 2:
+    print(out[0])  # e.g. "Hello Python Bar!"
+    print(out[1])  # e.g. "rloc=/tmp/foo_ws/bar/bar-py-data.txt"
+  else:
+    raise Exception("ERROR: error running bar-py: %s" % SplitToLines(err))
 
 
 if __name__ == "__main__":
