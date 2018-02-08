@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.java.bazel.JavaBuilderConfig;
 import com.sun.tools.javac.api.JavacTool;
@@ -155,9 +156,16 @@ public class InMemoryJavaFileManager {
 
     public CompilationResult compile() throws IOException {
       if (output == null) {
-        Path root =
-            sources.iterator().next().getFileSystem().getRootDirectories().iterator().next();
-        output = Files.createTempDirectory(root, "classes");
+        Path tmp =
+            sources
+                .iterator()
+                .next()
+                .getFileSystem()
+                .getPath(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+        if (!Files.exists(tmp)) {
+          Files.createDirectory(tmp);
+        }
+        output = Files.createTempDirectory(tmp, "classes");
         Files.createDirectories(output);
       }
       DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
