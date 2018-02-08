@@ -112,6 +112,7 @@ public class ByteStreamUploaderTest {
   public void tearDown() throws Exception {
     server.shutdownNow();
     retryService.shutdownNow();
+    server.awaitTermination();
   }
 
   @Test(timeout = 10000)

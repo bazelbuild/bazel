@@ -121,6 +121,7 @@ public class GrpcRemoteCacheTest {
   @After
   public void tearDown() throws Exception {
     fakeServer.shutdownNow();
+    fakeServer.awaitTermination();
   }
 
   private static class CallCredentialsInterceptor implements ClientInterceptor {
