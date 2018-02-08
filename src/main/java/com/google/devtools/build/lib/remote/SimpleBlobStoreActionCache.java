@@ -196,7 +196,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     boolean success = blobStore.getActionResult(digest.getHash(), out);
     if (!success) {
-      throw new CacheNotFoundException(digest);
+      throw new CacheNotFoundException(digest, digestUtil);
     }
     return out.toByteArray();
   }
@@ -216,7 +216,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     try (OutputStream out = dest.getOutputStream()) {
       boolean success = blobStore.get(digest.getHash(), out);
       if (!success) {
-        throw new CacheNotFoundException(digest);
+        throw new CacheNotFoundException(digest, digestUtil);
       }
     }
   }
@@ -229,7 +229,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
       boolean success = blobStore.get(digest.getHash(), out);
       if (!success) {
-        throw new CacheNotFoundException(digest);
+        throw new CacheNotFoundException(digest, digestUtil);
       }
       return out.toByteArray();
     }

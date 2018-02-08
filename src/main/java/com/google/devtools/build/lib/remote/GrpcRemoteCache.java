@@ -185,7 +185,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     if (!options.remoteInstanceName.isEmpty()) {
       resourceName += options.remoteInstanceName + "/";
     }
-    resourceName += "blobs/" + digest.getHash() + "/" + digest.getSizeBytes();
+    resourceName += "blobs/" + digestUtil.toString(digest);
     Iterator<ReadResponse> replies = bsBlockingStub()
         .read(ReadRequest.newBuilder().setResourceName(resourceName).build());
     while (replies.hasNext()) {
@@ -205,7 +205,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
           });
     } catch (RetryException e) {
       if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
-        throw new CacheNotFoundException(digest);
+        throw new CacheNotFoundException(digest, digestUtil);
       }
       throw e;
     }
@@ -225,7 +225,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
           });
     } catch (RetryException e) {
       if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
-        throw new CacheNotFoundException(digest);
+        throw new CacheNotFoundException(digest, digestUtil);
       }
       throw e;
     }

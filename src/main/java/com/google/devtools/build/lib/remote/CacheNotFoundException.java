@@ -24,8 +24,8 @@ import java.io.IOException;
 public final class CacheNotFoundException extends IOException {
   private final Digest missingDigest;
 
-  CacheNotFoundException(Digest missingDigest) {
-    super("Missing digest: " + missingDigest);
+  CacheNotFoundException(Digest missingDigest, DigestUtil digestUtil) {
+    super("Missing digest: " + digestUtil.toString(missingDigest));
     this.missingDigest = missingDigest;
   }
 

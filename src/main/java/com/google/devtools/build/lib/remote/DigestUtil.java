@@ -104,6 +104,10 @@ public class DigestUtil {
     return Digest.newBuilder().setHash(hexHash).setSizeBytes(size).build();
   }
 
+  public String toString(Digest digest) {
+    return digest.getHash() + "/" + digest.getSizeBytes();
+  }
+
   public static Digest getFromInputCache(ActionInput input, MetadataProvider cache)
       throws IOException {
     Metadata metadata = cache.getMetadata(input);
