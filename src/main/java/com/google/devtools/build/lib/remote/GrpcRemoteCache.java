@@ -178,11 +178,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
    * allow throwing such an exception. Any caller must make sure to catch the
    * {@link StatusRuntimeException}. Note that the retrier implicitly catches it, so if this is used
    * in the context of {@link RemoteRetrier#execute}, that's perfectly safe.
-   *
-   * <p>This method also converts any NOT_FOUND code returned from the server into a
-   * {@link CacheNotFoundException}. TODO(olaola): this is not enough. NOT_FOUND can also be raised
-   * by execute, in which case the server should return the missing digest in the Status.details
-   * field. This should be part of the API.
    */
   private void readBlob(Digest digest, OutputStream stream)
       throws IOException, StatusRuntimeException {
@@ -191,14 +186,25 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       resourceName += options.remoteInstanceName + "/";
     }
     resourceName += "blobs/" + digest.getHash() + "/" + digest.getSizeBytes();
+    Iterator<ReadResponse> replies = bsBlockingStub()
+        .read(ReadRequest.newBuilder().setResourceName(resourceName).build());
+    while (replies.hasNext()) {
+      replies.next().getData().writeTo(stream);
+    }
+  }
+
+  @Override
+  protected void downloadBlob(Digest digest, Path dest) throws IOException, InterruptedException {
     try {
-      Iterator<ReadResponse> replies = bsBlockingStub()
-          .read(ReadRequest.newBuilder().setResourceName(resourceName).build());
-      while (replies.hasNext()) {
-        replies.next().getData().writeTo(stream);
-      }
-    } catch (StatusRuntimeException e) {
-      if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+      retrier.execute(
+          () -> {
+            try (OutputStream stream = dest.getOutputStream()) {
+              readBlob(digest, stream);
+            }
+            return null;
+          });
+    } catch (RetryException e) {
+      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
         throw new CacheNotFoundException(digest);
       }
       throw e;
@@ -206,27 +212,23 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  protected void downloadBlob(Digest digest, Path dest) throws IOException, InterruptedException {
-    retrier.execute(
-        () -> {
-          try (OutputStream stream = dest.getOutputStream()) {
-            readBlob(digest, stream);
-          }
-          return null;
-        });
-  }
-
-  @Override
   protected byte[] downloadBlob(Digest digest) throws IOException, InterruptedException {
     if (digest.getSizeBytes() == 0) {
       return new byte[0];
     }
-    return retrier.execute(
-        () -> {
-          ByteArrayOutputStream stream = new ByteArrayOutputStream((int) digest.getSizeBytes());
-          readBlob(digest, stream);
-          return stream.toByteArray();
-        });
+    try {
+      return retrier.execute(
+          () -> {
+            ByteArrayOutputStream stream = new ByteArrayOutputStream((int) digest.getSizeBytes());
+            readBlob(digest, stream);
+            return stream.toByteArray();
+          });
+    } catch (RetryException e) {
+      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
+        throw new CacheNotFoundException(digest);
+      }
+      throw e;
+    }
   }
 
   @Override
