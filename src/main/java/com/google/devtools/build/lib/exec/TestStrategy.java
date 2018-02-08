@@ -162,7 +162,7 @@ public abstract class TestStrategy implements TestActionContext {
    * @return the command line as string list.
    * @throws ExecException 
    */
-  protected ImmutableList<String> getArgs(String coverageScript, TestRunnerAction testAction)
+  public static ImmutableList<String> getArgs(String coverageScript, TestRunnerAction testAction)
       throws ExecException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
@@ -278,11 +278,11 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  protected String getTmpDirName(PathFragment execPath, int shard, int run) {
+  public static String getTmpDirName(TestRunnerAction action) {
     Fingerprint digest = new Fingerprint();
-    digest.addPath(execPath);
-    digest.addInt(shard);
-    digest.addInt(run);
+    digest.addPath(action.getExecutionSettings().getExecutable().getExecPath());
+    digest.addInt(action.getShardNum());
+    digest.addInt(action.getRunNumber());
     return digest.hexDigestAndReset();
   }
 

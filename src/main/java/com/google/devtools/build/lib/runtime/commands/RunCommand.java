@@ -21,12 +21,16 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -35,7 +39,10 @@ import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.buildtool.TargetValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
+import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -77,6 +84,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -135,6 +143,10 @@ public class RunCommand implements BlazeCommand  {
 
   @VisibleForTesting
   public static final String NO_TARGET_MESSAGE = "No targets found to run";
+
+  public static final String MULTIPLE_TESTS_MESSAGE =
+      "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
+      + "and without --runs_per_test";
 
   // Value of --run_under as of the most recent command invocation.
   private RunUnder currentRunUnder;
@@ -345,6 +357,49 @@ public class RunCommand implements BlazeCommand  {
         null, "Running command line: " + ShellEscaper.escapeJoinAll(prettyCmdLine)));
 
     if (runOptions.direct) {
+      Map<String, String> runEnvironment;
+      if (targetToRun.getProvider(TestProvider.class) != null) {
+        // This is a test. Provide it with a reasonable approximation of the actual test environment
+        ImmutableList<Artifact> statusArtifacts = TestProvider.getTestStatusArtifacts(targetToRun);
+        if (statusArtifacts.size() != 1) {
+          env.getReporter().handle(Event.error(MULTIPLE_TESTS_MESSAGE));
+          return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+        }
+
+        TestRunnerAction testAction = (TestRunnerAction) env.getSkyframeExecutor()
+            .getActionGraph(env.getReporter()).getGeneratingAction(
+                Iterables.getOnlyElement(statusArtifacts));
+        TestTargetExecutionSettings settings = testAction.getExecutionSettings();
+        // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
+        Preconditions.checkState(settings.getRunfilesSymlinksCreated()
+            == options.getOptions(BuildConfiguration.Options.class).buildRunfiles);
+
+        ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
+        Path tmpDirRoot = TestStrategy.getTmpRoot(
+            env.getWorkspace(), env.getExecRoot(), executionOptions);
+        PathFragment relativeTmpDir = tmpDirRoot.relativeTo(env.getExecRoot());
+        Duration timeout = executionOptions.testTimeout.get(
+            testAction.getTestProperties().getTimeout());
+        runEnvironment = StandaloneTestStrategy.DEFAULT_LOCAL_POLICY.computeTestEnvironment(
+            testAction,
+            env.getClientEnv(),
+            timeout,
+            settings.getRunfilesDir().relativeTo(env.getExecRoot()),
+            relativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction)));
+        workingDir = env.getExecRoot();
+        try {
+          // It's unfortunate that this method requires the path to the coverage collection script.
+          // Fortunately, this is "blaze run" and not "blaze coverage", so it's okay unless someone
+          // calls "blaze run --collect_code_coverage".
+          cmdLine = TestStrategy.getArgs("dummy-coverage-script", testAction);
+        } catch (ExecException e) {
+          env.getReporter().handle(Event.error(e.getMessage()));
+          return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+        }
+      } else {
+        runEnvironment = env.getClientEnv();
+      }
+
       ExecRequest.Builder execDescription = ExecRequest.newBuilder()
           .setWorkingDirectory(
               ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
@@ -353,7 +408,7 @@ public class RunCommand implements BlazeCommand  {
         execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
       }
 
-      for (Map.Entry<String, String> variable : env.getClientEnv().entrySet()) {
+      for (Map.Entry<String, String> variable : runEnvironment.entrySet()) {
         execDescription.addEnvironmentVariable(EnvironmentVariable.newBuilder()
             .setName(ByteString.copyFrom(variable.getKey(), StandardCharsets.ISO_8859_1))
             .setValue(ByteString.copyFrom(variable.getValue(), StandardCharsets.ISO_8859_1))
