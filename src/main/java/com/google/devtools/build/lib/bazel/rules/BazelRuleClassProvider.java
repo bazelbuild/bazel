@@ -324,6 +324,7 @@ public class BazelRuleClassProvider {
       ImmutableSet.of(
           // Rules defined before LipoDataTransitionRuleSet will fail when trying to declare a data
           // transition.
+          // TODO(b/73071922): remove this when LIPO support is phased out
           LipoDataTransitionRuleSet.INSTANCE,
           BAZEL_SETUP,
           CoreRules.INSTANCE,
