@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
-import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -212,14 +212,15 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    CcLibraryHelper compilationHelper =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+    CcCompilationHelper compilationHelper =
+        new CcCompilationHelper(
+                ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
             .fromCommon(common)
             .addSources(common.getSources())
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
             .setFake(fake)
             .addPrecompiledFiles(precompiledFiles);
-    Info.CompilationInfo compilationInfo = compilationHelper.compile();
+    CompilationInfo compilationInfo = compilationHelper.compile();
     CppCompilationContext cppCompilationContext = compilationInfo.getCppCompilationContext();
     CcCompilationOutputs ccCompilationOutputs = compilationInfo.getCcCompilationOutputs();
 
@@ -232,11 +233,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             && cppConfiguration.getLinkCompileOutputSeparately()
             && linkStaticness == LinkStaticness.DYNAMIC;
     // When linking the object files directly into the resulting binary, we do not need
-    // library-level link outputs; thus, we do not let CcLibraryHelper produce link outputs
+    // library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
     // (either shared object files or archives) for a non-library link type [*], and add
     // the object files explicitly in determineLinkerArguments.
     //
-    // When linking the object files into their own library, we want CcLibraryHelper to
+    // When linking the object files into their own library, we want CcCompilationHelper to
     // take care of creating the library link outputs for us, so we need to set the link
     // type to STATIC_LIBRARY.
     //
@@ -245,8 +246,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
     if (linkCompileOutputSeparately) {
-      CcLibraryHelper linkingHelper =
-          new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+      CcLinkingHelper linkingHelper =
+          new CcLinkingHelper(
+                  ruleContext,
+                  semantics,
+                  featureConfiguration,
+                  ccToolchain,
+                  fdoSupport,
+                  ruleContext.getConfiguration())
               .fromCommon(common)
               .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
               .setFake(fake)
@@ -868,7 +875,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         instrumentedObjectFiles, !TargetUtils.isTestRule(ruleContext.getRule()) && !fake);
 
     NestedSet<Artifact> headerTokens =
-        CcLibraryHelper.collectHeaderTokens(ruleContext, ccCompilationOutputs);
+        CcCompilationHelper.collectHeaderTokens(ruleContext, ccCompilationOutputs);
     NestedSet<Artifact> filesToCompile =
         ccCompilationOutputs.getFilesToCompile(
             cppConfiguration.isLipoContextCollector(),

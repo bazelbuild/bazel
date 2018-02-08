@@ -23,7 +23,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -62,7 +63,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
           "'shared_library' should be specified when 'system_provided' is false");
     }
 
-    // Create CcLibraryHelper
+    // Create CcCompilationHelper
     CcToolchainProvider ccToolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     FeatureConfiguration featureConfiguration =
@@ -72,8 +73,9 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
 
     // Add headers to compilation step.
     final CcCommon common = new CcCommon(ruleContext);
-    Info.CompilationInfo compilationInfo =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+    CompilationInfo compilationInfo =
+        new CcCompilationHelper(
+                ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
             .addPublicHeaders(common.getHeaders())
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
             .compile();
@@ -90,8 +92,14 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
             .getPathString();
 
-    CcLibraryHelper linkingHelper =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport);
+    CcLinkingHelper linkingHelper =
+        new CcLinkingHelper(
+            ruleContext,
+            semantics,
+            featureConfiguration,
+            ccToolchain,
+            fdoSupport,
+            ruleContext.getConfiguration());
 
     if (staticLibrary != null) {
       if (CppFileTypes.PIC_ARCHIVE.matches(staticLibrary.getPath())) {
@@ -159,7 +167,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
       linkingHelper.addDynamicLibraries(dynamicLibraryList);
     }
 
-    Info.LinkingInfo linkingInfo =
+    LinkingInfo linkingInfo =
         linkingHelper.link(
             compilationInfo.getCcCompilationOutputs(), compilationInfo.getCppCompilationContext());
 
@@ -168,8 +176,8 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
         .addProviders(linkingInfo.getProviders())
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .addOutputGroups(
-            Info.mergeOutputGroups(
-                compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups()))
+            CcCommon.mergeOutputGroups(
+                ImmutableList.of(compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups())))
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

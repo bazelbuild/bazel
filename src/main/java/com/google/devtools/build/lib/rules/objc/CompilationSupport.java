@@ -88,9 +88,12 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
-import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -301,7 +304,7 @@ public class CompilationSupport {
     }
   }
 
-  private Info.CompilationInfo compile(
+  private CompilationInfo compile(
       ObjcProvider objcProvider,
       VariablesExtension extension,
       ExtraCompileArgs extraCompileArgs,
@@ -318,12 +321,12 @@ public class CompilationSupport {
       ObjcCppSemantics semantics,
       String purpose)
       throws RuleErrorException, InterruptedException {
-    CcLibraryHelper result =
-        new CcLibraryHelper(
+    CcCompilationHelper result =
+        new CcCompilationHelper(
                 ruleContext,
                 semantics,
                 getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
-                CcLibraryHelper.SourceCategory.CC_AND_OBJC,
+                CcCompilationHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoSupport,
                 buildConfiguration)
@@ -398,7 +401,7 @@ public class CompilationSupport {
 
     String purpose = String.format("%s_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(true);
-    Info.CompilationInfo objcArcCompilationInfo =
+    CompilationInfo objcArcCompilationInfo =
         compile(
             objcProvider,
             extensionBuilder.build(),
@@ -417,7 +420,7 @@ public class CompilationSupport {
 
     purpose = String.format("%s_non_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(false);
-    Info.CompilationInfo nonObjcArcCompilationInfo =
+    CompilationInfo nonObjcArcCompilationInfo =
         compile(
             objcProvider,
             extensionBuilder.build(),
@@ -434,23 +437,18 @@ public class CompilationSupport {
             semantics,
             purpose);
 
-    CcLibraryHelper resultLink =
-        new CcLibraryHelper(
+    CcLinkingHelper resultLink =
+        new CcLinkingHelper(
                 ruleContext,
                 semantics,
                 getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
-                CcLibraryHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoSupport,
                 buildConfiguration)
-            .addPrecompiledFiles(precompiledFiles)
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            // Not all our dependencies need to export cpp information.
-            // For example, objc_proto_library can depend on a proto_library rule that does not
-            // generate C++ protos.
-            .setCheckDepsGenerateCpp(false)
             .setLinkedArtifactNameSuffix(intermediateArtifacts.archiveFileNameSuffix())
             .setNeverLink(true)
+            .setCheckDepsGenerateCpp(false)
             .addVariableExtension(extensionBuilder.build());
 
     if (linkType != null) {
@@ -475,15 +473,15 @@ public class CompilationSupport {
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
 
-    Info.LinkingInfo linkingInfo =
-        resultLink.link(
-            compilationOutputsBuilder.build(), compilationContextBuilder.build());
+    LinkingInfo linkingInfo =
+        resultLink.link(compilationOutputsBuilder.build(), compilationContextBuilder.build());
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
-        Info.mergeOutputGroups(
-            objcArcCompilationInfo.getOutputGroups(),
-            nonObjcArcCompilationInfo.getOutputGroups(),
-            linkingInfo.getOutputGroups());
+        CcCommon.mergeOutputGroups(
+            ImmutableList.of(
+                objcArcCompilationInfo.getOutputGroups(),
+                nonObjcArcCompilationInfo.getOutputGroups(),
+                linkingInfo.getOutputGroups()));
 
     return new Pair<>(compilationOutputsBuilder.build(), ImmutableMap.copyOf(mergedOutputGroups));
   }
@@ -570,36 +568,6 @@ public class CompilationSupport {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
     }
-  }
-
-  private void registerHeaderScanningActions(
-      CcCompilationOutputs ccCompilationOutputs,
-      ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts) {
-    // PIC is not used for Obj-C builds, if that changes this method will need to change
-    if (!isHeaderThinningEnabled() || ccCompilationOutputs.getObjectFiles(false).isEmpty()) {
-      return;
-    }
-
-    ImmutableList.Builder<ObjcHeaderThinningInfo> headerThinningInfos = ImmutableList.builder();
-    AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    for (Artifact objectFile : ccCompilationOutputs.getObjectFiles(false)) {
-      ActionAnalysisMetadata generatingAction =
-          analysisEnvironment.getLocalGeneratingAction(objectFile);
-      if (generatingAction instanceof CppCompileAction) {
-        CppCompileAction action = (CppCompileAction) generatingAction;
-        Artifact sourceFile = action.getSourceFile();
-        if (!sourceFile.isTreeArtifact()
-            && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
-          headerThinningInfos.add(
-              new ObjcHeaderThinningInfo(
-                  sourceFile,
-                  intermediateArtifacts.headersListFile(sourceFile),
-                  action.getCompilerOptions()));
-        }
-      }
-    }
-    registerHeaderScanningActions(headerThinningInfos.build(), objcProvider, compilationArtifacts);
   }
 
   /**
@@ -890,6 +858,74 @@ public class CompilationSupport {
   }
 
   /**
+   * Returns a provider that collects this target's instrumented sources as well as those of its
+   * dependencies.
+   *
+   * @param common common information about this rule and its dependencies
+   * @return an instrumented files provider
+   */
+  public InstrumentedFilesProvider getInstrumentedFilesProvider(ObjcCommon common) {
+    ImmutableList.Builder<Artifact> oFiles = ImmutableList.builder();
+
+    if (common.getCompilationArtifacts().isPresent()) {
+      CompilationArtifacts artifacts = common.getCompilationArtifacts().get();
+      for (Artifact artifact : Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
+        oFiles.add(intermediateArtifacts.objFile(artifact));
+      }
+    }
+
+    return InstrumentedFilesCollector.collect(
+        ruleContext,
+        INSTRUMENTATION_SPEC,
+        new ObjcCoverageMetadataCollector(),
+        oFiles.build(),
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+        // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
+        NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+        !isTestRule);
+  }
+
+  /**
+   * Validates compilation-related attributes on this rule.
+   *
+   * @return this compilation support
+   * @throws RuleErrorException if there are attribute errors
+   */
+  CompilationSupport validateAttributes() throws RuleErrorException {
+    for (PathFragment absoluteInclude :
+        Iterables.filter(attributes.includes(), PathFragment::isAbsolute)) {
+      ruleContext.attributeError(
+          "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
+    }
+
+    if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
+      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(attributes.hdrs());
+      ImmutableSet<Artifact> srcsSet =
+          ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
+
+      // Check for overlap between srcs and hdrs.
+      for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
+        String path = header.getRootRelativePath().toString();
+        ruleContext.attributeWarning(
+            "srcs", String.format(FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT, path));
+      }
+
+      // Check for overlap between srcs and non_arc_srcs.
+      ImmutableSet<Artifact> nonArcSrcsSet =
+          ImmutableSet.copyOf(
+              ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET).list());
+      for (Artifact conflict : Sets.intersection(nonArcSrcsSet, srcsSet)) {
+        String path = conflict.getRootRelativePath().toString();
+        ruleContext.attributeError(
+            "srcs", String.format(FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, path));
+      }
+    }
+
+    ruleContext.assertNoErrors();
+    return this;
+  }
+
+  /**
    * Registers all actions necessary to compile this rule's sources and archive them.
    *
    * @param compilationArtifacts collection of artifacts required for the compilation
@@ -937,111 +973,6 @@ public class CompilationSupport {
       ObjcCommon common, Iterable<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
     return registerCompileAndArchiveActions(common, ExtraCompileArgs.NONE, priorityHeaders);
-  }
-
-  /**
-   * Registers an action to create an archive artifact by fully (statically) linking all transitive
-   * dependencies of this rule.
-   *
-   * @param objcProvider provides all compiling and linking information to create this artifact
-   * @param outputArchive the output artifact for this action
-   */
-  public CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Artifact outputArchive) throws InterruptedException {
-    return registerFullyLinkAction(
-        objcProvider,
-        outputArchive,
-        toolchain,
-        maybeGetFdoSupport());
-  }
-
-  /**
-   * Returns a provider that collects this target's instrumented sources as well as those of its
-   * dependencies.
-   *
-   * @param common common information about this rule and its dependencies
-   * @return an instrumented files provider
-   */
-  public InstrumentedFilesProvider getInstrumentedFilesProvider(ObjcCommon common) {
-    ImmutableList.Builder<Artifact> oFiles = ImmutableList.builder();
-
-    if (common.getCompilationArtifacts().isPresent()) {
-      CompilationArtifacts artifacts = common.getCompilationArtifacts().get();
-      for (Artifact artifact : Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
-        oFiles.add(intermediateArtifacts.objFile(artifact));
-      }
-    }
-
-    return InstrumentedFilesCollector.collect(
-        ruleContext,
-        INSTRUMENTATION_SPEC,
-        new ObjcCoverageMetadataCollector(),
-        oFiles.build(),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
-        NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-        !isTestRule);
-  }
-
-  /**
-   * Registers an action that will generate a clang module map for this target, using the hdrs
-   * attribute of this rule.
-   */
-  CompilationSupport registerGenerateModuleMapAction(CompilationArtifacts compilationArtifacts) {
-    // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
-    // dropped.
-    // TODO(b/32225593): Include private headers in the module map.
-    Iterable<Artifact> publicHeaders = attributes.hdrs();
-      publicHeaders = Iterables.concat(publicHeaders, compilationArtifacts.getAdditionalHdrs());
-    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
-    registerGenerateModuleMapAction(moduleMap, publicHeaders);
-
-    Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
-    if (umbrellaHeader.isPresent()) {
-      registerGenerateUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders);
-    }
-
-    return this;
-  }
-
-  /**
-   * Validates compilation-related attributes on this rule.
-   *
-   * @return this compilation support
-   * @throws RuleErrorException if there are attribute errors
-   */
-  CompilationSupport validateAttributes() throws RuleErrorException {
-    for (PathFragment absoluteInclude :
-        Iterables.filter(attributes.includes(), PathFragment::isAbsolute)) {
-      ruleContext.attributeError(
-          "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
-    }
-
-    if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
-      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(attributes.hdrs());
-      ImmutableSet<Artifact> srcsSet =
-          ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
-
-      // Check for overlap between srcs and hdrs.
-      for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
-        String path = header.getRootRelativePath().toString();
-        ruleContext.attributeWarning(
-            "srcs", String.format(FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT, path));
-      }
-
-      // Check for overlap between srcs and non_arc_srcs.
-      ImmutableSet<Artifact> nonArcSrcsSet =
-          ImmutableSet.copyOf(
-              ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET).list());
-      for (Artifact conflict : Sets.intersection(nonArcSrcsSet, srcsSet)) {
-        String path = conflict.getRootRelativePath().toString();
-        ruleContext.attributeError(
-            "srcs", String.format(FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, path));
-      }
-    }
-
-    ruleContext.assertNoErrors();
-    return this;
   }
 
   /**
@@ -1373,6 +1304,18 @@ public class CompilationSupport {
             ParameterFile.ParameterFileType.UNQUOTED,
             ISO_8859_1));
     return this;
+  }
+
+  /**
+   * Registers an action to create an archive artifact by fully (statically) linking all transitive
+   * dependencies of this rule.
+   *
+   * @param objcProvider provides all compiling and linking information to create this artifact
+   * @param outputArchive the output artifact for this action
+   */
+  public CompilationSupport registerFullyLinkAction(
+      ObjcProvider objcProvider, Artifact outputArchive) throws InterruptedException {
+    return registerFullyLinkAction(objcProvider, outputArchive, toolchain, maybeGetFdoSupport());
   }
 
   /**
@@ -1745,6 +1688,27 @@ public class CompilationSupport {
   }
 
   /**
+   * Registers an action that will generate a clang module map for this target, using the hdrs
+   * attribute of this rule.
+   */
+  CompilationSupport registerGenerateModuleMapAction(CompilationArtifacts compilationArtifacts) {
+    // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
+    // dropped.
+    // TODO(b/32225593): Include private headers in the module map.
+    Iterable<Artifact> publicHeaders = attributes.hdrs();
+    publicHeaders = Iterables.concat(publicHeaders, compilationArtifacts.getAdditionalHdrs());
+    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+    registerGenerateModuleMapAction(moduleMap, publicHeaders);
+
+    Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
+    if (umbrellaHeader.isPresent()) {
+      registerGenerateUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders);
+    }
+
+    return this;
+  }
+
+  /**
    * Registers an action that will generate a clang module map.
    * @param moduleMap the module map to generate
    * @param publicHeaders the headers that should be directly accessible by dependers
@@ -1838,6 +1802,36 @@ public class CompilationSupport {
     return ruleContext
         .getPrerequisite(ObjcRuleClasses.HEADER_SCANNER_ATTRIBUTE, Mode.HOST)
         .getProvider(FilesToRunProvider.class);
+  }
+
+  private void registerHeaderScanningActions(
+      CcCompilationOutputs ccCompilationOutputs,
+      ObjcProvider objcProvider,
+      CompilationArtifacts compilationArtifacts) {
+    // PIC is not used for Obj-C builds, if that changes this method will need to change
+    if (!isHeaderThinningEnabled() || ccCompilationOutputs.getObjectFiles(false).isEmpty()) {
+      return;
+    }
+
+    ImmutableList.Builder<ObjcHeaderThinningInfo> headerThinningInfos = ImmutableList.builder();
+    AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
+    for (Artifact objectFile : ccCompilationOutputs.getObjectFiles(false)) {
+      ActionAnalysisMetadata generatingAction =
+          analysisEnvironment.getLocalGeneratingAction(objectFile);
+      if (generatingAction instanceof CppCompileAction) {
+        CppCompileAction action = (CppCompileAction) generatingAction;
+        Artifact sourceFile = action.getSourceFile();
+        if (!sourceFile.isTreeArtifact()
+            && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
+          headerThinningInfos.add(
+              new ObjcHeaderThinningInfo(
+                  sourceFile,
+                  intermediateArtifacts.headersListFile(sourceFile),
+                  action.getCompilerOptions()));
+        }
+      }
+    }
+    registerHeaderScanningActions(headerThinningInfos.build(), objcProvider, compilationArtifacts);
   }
 
   /**

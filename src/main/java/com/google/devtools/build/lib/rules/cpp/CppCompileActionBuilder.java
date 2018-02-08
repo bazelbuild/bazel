@@ -261,7 +261,7 @@ public class CppCompileActionBuilder {
     } else if (CppFileTypes.CPP_MODULE.matches(sourcePath)) {
       return CppCompileAction.CPP_MODULE_CODEGEN;
     }
-    // CcLibraryHelper ensures CppCompileAction only gets instantiated for supported file types.
+    // CcCompilationHelper ensures CppCompileAction only gets instantiated for supported file types.
     throw new IllegalStateException();
   }
 
