@@ -292,15 +292,9 @@ toolchain {
     }
   }
 
-  # This feature is just for enabling flag_set in action_config for -c and -o options during the transitional period
-  feature {
-    name: 'compile_action_flags_in_flag_set'
-  }
-
   feature {
     name: 'has_configured_linker_path'
   }
-
 
   # This feature indicates strip is not supported, building stripped binary will just result a copy of orignial binary
   feature {

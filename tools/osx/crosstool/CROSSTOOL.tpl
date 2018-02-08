@@ -1164,6 +1164,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -1202,6 +1256,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -1220,6 +1276,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -1238,6 +1296,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -1256,6 +1316,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -1274,6 +1336,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -1292,6 +1356,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -1306,6 +1372,8 @@ toolchain {
         flag: "x86_64"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -1336,6 +1404,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -1365,6 +1435,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -1383,6 +1455,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -2804,6 +2878,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -2842,6 +2970,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -2860,6 +2990,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -2878,6 +3010,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -2896,6 +3030,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -2914,6 +3050,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -2932,6 +3070,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -2946,6 +3086,8 @@ toolchain {
         flag: "x86_64"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -2977,6 +3119,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -3007,6 +3151,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -3025,6 +3171,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -4448,6 +4596,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -4486,6 +4688,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -4504,6 +4708,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -4522,6 +4728,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -4540,6 +4748,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -4558,6 +4768,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -4576,6 +4788,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -4590,6 +4804,8 @@ toolchain {
         flag: "i386"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -4621,6 +4837,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -4651,6 +4869,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -4669,6 +4889,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -6112,6 +6334,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -6150,6 +6426,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -6169,6 +6447,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -6188,6 +6468,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -6206,6 +6488,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -6225,6 +6509,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -6244,6 +6530,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -6259,6 +6547,8 @@ toolchain {
         flag: "x86_64"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -6290,6 +6580,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -6320,6 +6612,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -6339,6 +6633,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -7763,6 +8059,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -7801,6 +8151,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -7819,6 +8171,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -7837,6 +8191,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -7855,6 +8211,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -7873,6 +8231,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -7891,6 +8251,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -7905,6 +8267,8 @@ toolchain {
         flag: "i386"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -7936,6 +8300,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -7966,6 +8332,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -7984,6 +8352,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -9395,6 +9765,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -9433,6 +9857,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -9451,6 +9877,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -9469,6 +9897,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -9487,6 +9917,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -9505,6 +9937,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -9523,6 +9957,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -9537,6 +9973,8 @@ toolchain {
         flag: "armv7"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -9567,6 +10005,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -9596,6 +10036,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -9614,6 +10056,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -11027,6 +11471,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -11065,6 +11563,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -11083,6 +11583,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -11101,6 +11603,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -11119,6 +11623,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -11137,6 +11643,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -11155,6 +11663,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -11169,6 +11679,8 @@ toolchain {
         flag: "armv7k"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -11199,6 +11711,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -11228,6 +11742,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -11246,6 +11762,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -12679,6 +13197,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -12717,6 +13289,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -12736,6 +13310,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -12755,6 +13331,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -12773,6 +13351,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -12792,6 +13372,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -12811,6 +13393,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -12826,6 +13410,8 @@ toolchain {
         flag: "arm64"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -12856,6 +13442,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -12885,6 +13473,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -12904,6 +13494,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "unfiltered_cxx_flags"
   }
   action_config {
@@ -14318,6 +14910,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -14356,6 +15002,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -14374,6 +15022,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -14392,6 +15042,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -14410,6 +15062,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -14428,6 +15082,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -14446,6 +15102,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -14460,6 +15118,8 @@ toolchain {
         flag: "arm64"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -14490,6 +15150,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -14519,6 +15181,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -14537,6 +15201,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"
@@ -15951,6 +16617,60 @@ toolchain {
       expand_if_all_available: "linker_param_file"
     }
   }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_object_file}"
+        expand_if_all_available: "output_object_file"
+      }
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_assembly_file}"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        flag: "-o"
+        flag: "%{output_preprocess_file}"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
   action_config {
     config_name: "strip"
     action_name: "strip"
@@ -15989,6 +16709,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-compile"
@@ -16007,6 +16729,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "linkstamp-compile"
@@ -16025,6 +16749,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-module-compile"
@@ -16043,6 +16769,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-parsing"
@@ -16061,6 +16789,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "c++-header-preprocessing"
@@ -16079,6 +16809,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-compile"
@@ -16093,6 +16825,8 @@ toolchain {
         flag: "<architecture>"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "objc_actions"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
@@ -16123,6 +16857,8 @@ toolchain {
         flag: "-std=gnu++11"
       }
     }
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
     implies: "apply_default_compiler_flags"
     implies: "apply_default_warnings"
     implies: "framework_paths"
@@ -16152,6 +16888,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "preprocess-assemble"
@@ -16170,6 +16908,8 @@ toolchain {
     implies: "user_compile_flags"
     implies: "sysroot"
     implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
   }
   action_config {
     config_name: "objc-archive"

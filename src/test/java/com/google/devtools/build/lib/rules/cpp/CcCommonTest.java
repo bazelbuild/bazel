@@ -376,19 +376,19 @@ public class CcCommonTest extends BuildViewTestCase {
         "           srcs = [ 'library.cc' ],",
         "           nocopts = '-fPIC')");
 
-    assertThat(getCppCompileAction("//a:pic").getArgv()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:libpic.so").getArgv()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:piclib").getArgv()).contains("-fPIC");
-    assertThat(getCppCompileAction("//a:nopic").getArgv()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:libnopic.so").getArgv()).doesNotContain("-fPIC");
-    assertThat(getCppCompileAction("//a:nopiclib").getArgv()).doesNotContain("-fPIC");
+    assertThat(getCppCompileAction("//a:pic").getArguments()).contains("-fPIC");
+    assertThat(getCppCompileAction("//a:libpic.so").getArguments()).contains("-fPIC");
+    assertThat(getCppCompileAction("//a:piclib").getArguments()).contains("-fPIC");
+    assertThat(getCppCompileAction("//a:nopic").getArguments()).doesNotContain("-fPIC");
+    assertThat(getCppCompileAction("//a:libnopic.so").getArguments()).doesNotContain("-fPIC");
+    assertThat(getCppCompileAction("//a:nopiclib").getArguments()).doesNotContain("-fPIC");
   }
 
   @Test
   public void testPicModeAssembly() throws Exception {
     useConfiguration("--cpu=k8");
     scratch.file("a/BUILD", "cc_library(name='preprocess', srcs=['preprocess.S'])");
-    List<String> argv = getCppCompileAction("//a:preprocess").getArgv();
+    List<String> argv = getCppCompileAction("//a:preprocess").getArguments();
     assertThat(argv).contains("-fPIC");
   }
 

@@ -207,14 +207,12 @@ public class FakeCppCompileAction extends CppCompileAction {
     // line to write to $TEST_TMPDIR instead.
     final String outputPrefix = "$TEST_TMPDIR/";
     String argv =
-        getArgv(outputFile.getExecPath())
+        getArguments()
             .stream()
             .map(
                 input -> {
                   String result = ShellEscaper.escapeString(input);
-                  // Once -c and -o options are added into action_config, the argument of
-                  // getArgv(outputFile.getExecPath()) won't be used anymore. There will always be
-                  // -c <tempOutputFile>, but here it has to be outputFile, so we replace it.
+                  // Replace -c <tempOutputFile> so it's -c <outputFile>.
                   if (input.equals(tempOutputFile.getPathString())) {
                     result =
                         outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());

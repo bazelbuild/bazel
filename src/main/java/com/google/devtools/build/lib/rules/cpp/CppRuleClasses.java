@@ -147,13 +147,6 @@ public class CppRuleClasses {
   public static final String RANDOM_SEED = "random_seed";
 
   /**
-   * A string constant for the compile_action_flags_in_flag_set feature. This feature is just a
-   * transitional feature which helps telling whether -c and -o options are already in flag_set of
-   * action_config in CROSSTOOL file. Once the transition is done, it should be removed.
-   */
-  public static final String COMPILE_ACTION_FLAGS_IN_FLAG_SET = "compile_action_flags_in_flag_set";
-
-  /**
    * A string constant for the dependency_file feature. This feature generates the .d file.
    */
   public static final String DEPENDENCY_FILE = "dependency_file";

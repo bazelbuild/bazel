@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.List;
 
@@ -33,5 +34,6 @@ public interface CommandAction extends Action, ExecutionInfoSpecifier {
   ImmutableMap<String, String> getEnvironment();
 
   /** Returns inputs to this action, including inputs that may be pruned. */
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   Iterable<Artifact> getPossibleInputsForTesting();
 }

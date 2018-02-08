@@ -322,7 +322,6 @@ public class CppCompileAction extends AbstractAction
     this.compileCommandLine =
         CompileCommandLine.builder(
                 sourceFile,
-                outputFile,
                 coptsFilter,
                 actionName,
                 crosstoolTopPathFragment,
@@ -624,7 +623,7 @@ public class CppCompileAction extends AbstractAction
   @Override
   public List<String> getCmdlineIncludes() {
     ImmutableList.Builder<String> cmdlineIncludes = ImmutableList.builder();
-    List<String> args = getArgv();
+    List<String> args = getArguments();
     for (Iterator<String> argi = args.iterator(); argi.hasNext();) {
       String arg = argi.next();
       if (arg.equals("-include") && argi.hasNext()) {
@@ -686,21 +685,9 @@ public class CppCompileAction extends AbstractAction
     return ImmutableMap.copyOf(environment);
   }
 
-  /**
-   * Returns a new, mutable list of command and arguments (argv) to be passed
-   * to the gcc subprocess.
-   */
-  public final List<String> getArgv() {
-    return getArgv(getInternalOutputFile());
-  }
-
-  protected final List<String> getArgv(PathFragment outputFile) {
-    return compileCommandLine.getArgv(outputFile, overwrittenVariables);
-  }
-
   @Override
   public List<String> getArguments() {
-    return getArgv();
+    return compileCommandLine.getArguments(overwrittenVariables);
   }
 
   @Override
@@ -1050,7 +1037,8 @@ public class CppCompileAction extends AbstractAction
   public ResourceSet estimateResourceConsumptionLocal() {
     // We use a local compile, so much of the time is spent waiting for IO,
     // but there is still significant CPU; hence we estimate 50% cpu usage.
-    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/200, /*cpuUsage=*/0.5, /*ioUsage=*/0.0);
+    return ResourceSet.createWithRamCpuIo(
+        /* memoryMb= */ 200, /* cpuUsage= */ 0.5, /* ioUsage= */ 0.0);
   }
 
   @Override
@@ -1067,10 +1055,10 @@ public class CppCompileAction extends AbstractAction
     // itself is fully determined by the input source files and module maps.
     // A better long-term solution would be to make the compiler to find them automatically and
     // never hand in the .pcm files explicitly on the command line in the first place.
-    f.addStrings(compileCommandLine.getArgv(getInternalOutputFile(), null));
+    f.addStrings(compileCommandLine.getArguments(/* overwrittenVariables= */ null));
 
     /*
-     * getArgv() above captures all changes which affect the compilation
+     * getArguments() above captures all changes which affect the compilation
      * command and hence the contents of the object file.  But we need to
      * also make sure that we reexecute the action if any of the fields
      * that affect whether validateIncludes() will report an error or warning
@@ -1313,9 +1301,9 @@ public class CppCompileAction extends AbstractAction
     message.append(getProgressMessage());
     message.append('\n');
     // Outputting one argument per line makes it easier to diff the results.
-    // The first element in getArgv() is actually the command to execute.
+    // The first element in getArguments() is actually the command to execute.
     String legend = "  Command: ";
-    for (String argument : ShellEscaper.escapeAll(getArgv())) {
+    for (String argument : ShellEscaper.escapeAll(getArguments())) {
       message.append(legend);
       message.append(argument);
       message.append('\n');

@@ -41,17 +41,18 @@ public class SpawnGccStrategy implements CppCompileActionContext {
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     Iterable<Artifact> inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
-    Spawn spawn = new SimpleSpawn(
-        action,
-        ImmutableList.copyOf(action.getArgv()),
-        ImmutableMap.copyOf(action.getEnvironment()),
-        ImmutableMap.copyOf(action.getExecutionInfo()),
-        EmptyRunfilesSupplier.INSTANCE,
-        ImmutableList.<Artifact>copyOf(inputs),
-        /*tools=*/ImmutableList.<Artifact>of(),
-        /*filesetManifests=*/ImmutableList.<Artifact>of(),
-        action.getOutputs().asList(),
-        action.estimateResourceConsumptionLocal());
+    Spawn spawn =
+        new SimpleSpawn(
+            action,
+            ImmutableList.copyOf(action.getArguments()),
+            ImmutableMap.copyOf(action.getEnvironment()),
+            ImmutableMap.copyOf(action.getExecutionInfo()),
+            EmptyRunfilesSupplier.INSTANCE,
+            ImmutableList.copyOf(inputs),
+            /* tools= */ ImmutableList.of(),
+            /* filesetManifests= */ ImmutableList.of(),
+            action.getOutputs().asList(),
+            action.estimateResourceConsumptionLocal());
 
     List<SpawnResult> spawnResults =
         actionExecutionContext

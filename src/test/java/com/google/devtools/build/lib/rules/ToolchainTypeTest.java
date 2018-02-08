@@ -125,7 +125,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
             .write();
     CppCompileAction compileAction =
         (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cclib/cclib/a.o", cclibrary));
-    assertThat(compileAction.getArgv()).contains("foobarpiii");
+    assertThat(compileAction.getArguments()).contains("foobarpiii");
 
     ConfiguredTarget ccbinary =
         ScratchAttributeWriter.fromLabelString(this, "cc_binary", "//ccbin")
@@ -134,7 +134,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
             .write();
     compileAction =
         (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/ccbin/ccbin/a.o", ccbinary));
-    assertThat(compileAction.getArgv()).contains("foobarpiii");
+    assertThat(compileAction.getArguments()).contains("foobarpiii");
 
     ConfiguredTarget cctest =
         ScratchAttributeWriter.fromLabelString(this, "cc_test", "//cctest")
@@ -143,6 +143,6 @@ public class ToolchainTypeTest extends BuildViewTestCase {
             .write();
     compileAction =
         (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cctest/cctest/a.o", cctest));
-    assertThat(compileAction.getArgv()).contains("foobarpiii");
+    assertThat(compileAction.getArguments()).contains("foobarpiii");
   }
 }
