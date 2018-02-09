@@ -32,6 +32,7 @@ java_test(
     srcs = ["LazyClassEntryStateTest.java"],
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:import_deps_checker",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
