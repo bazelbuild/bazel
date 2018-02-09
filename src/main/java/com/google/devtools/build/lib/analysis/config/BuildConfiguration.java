@@ -34,13 +34,13 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.BuildConfigurationInterface;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingPatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -94,30 +94,32 @@ import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
- * Instances of BuildConfiguration represent a collection of context
- * information which may affect a build (for example: the target platform for
- * compilation, or whether or not debug tables are required).  In fact, all
- * "environmental" information (e.g. from the tool's command-line, as opposed
- * to the BUILD file) that can affect the output of any build tool should be
- * explicitly represented in the BuildConfiguration instance.
+ * Instances of BuildConfiguration represent a collection of context information which may affect a
+ * build (for example: the target platform for compilation, or whether or not debug tables are
+ * required). In fact, all "environmental" information (e.g. from the tool's command-line, as
+ * opposed to the BUILD file) that can affect the output of any build tool should be explicitly
+ * represented in the BuildConfiguration instance.
  *
- * <p>A single build may require building tools to run on a variety of
- * platforms: when compiling a server application for production, we must build
- * the build tools (like compilers) to run on the host platform, but cross-compile
- * the application for the production environment.
+ * <p>A single build may require building tools to run on a variety of platforms: when compiling a
+ * server application for production, we must build the build tools (like compilers) to run on the
+ * host platform, but cross-compile the application for the production environment.
  *
- * <p>There is always at least one BuildConfiguration instance in any build:
- * the one representing the host platform. Additional instances may be created,
- * in a cross-compilation build, for example.
+ * <p>There is always at least one BuildConfiguration instance in any build: the one representing
+ * the host platform. Additional instances may be created, in a cross-compilation build, for
+ * example.
  *
  * <p>Instances of BuildConfiguration are canonical:
+ *
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
-@SkylarkModule(name = "configuration",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Data required for the analysis of a target that comes from targets that "
-        + "depend on it and not targets that it depends on.")
-public class BuildConfiguration implements BuildEvent {
+@SkylarkModule(
+  name = "configuration",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "Data required for the analysis of a target that comes from targets that "
+          + "depend on it and not targets that it depends on."
+)
+public class BuildConfiguration implements BuildConfigurationInterface {
   public static final InjectingObjectCodec<BuildConfiguration, FileSystemProvider> CODEC =
       new BuildConfigurationCodec();
 
