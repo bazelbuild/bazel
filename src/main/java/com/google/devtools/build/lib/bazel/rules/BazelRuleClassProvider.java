@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRu
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
-import com.google.devtools.build.lib.bazel.rules.genrule.BazelGenRuleRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoAspect;
@@ -75,7 +73,6 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
-import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
@@ -106,21 +103,6 @@ public class BazelRuleClassProvider {
       ruleSet.init(builder);
     }
   }
-
-  public static final RuleSet TOOLCHAIN_RULES =
-      new RuleSet() {
-        @Override
-        public void init(Builder builder) {
-          builder.addRuleDefinition(new BazelToolchainTypeRule());
-          builder.addRuleDefinition(new GenRuleBaseRule());
-          builder.addRuleDefinition(new BazelGenRuleRule());
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of();
-        }
-      };
 
   public static final RuleSet BAZEL_SETUP =
       new RuleSet() {
@@ -326,5 +308,5 @@ public class BazelRuleClassProvider {
           VARIOUS_WORKSPACE_RULES,
           // This rule set is a little special: it needs to depend on every configuration fragment
           // that has Make variables, so we put it last.
-          TOOLCHAIN_RULES);
+          ToolchainRules.INSTANCE);
 }

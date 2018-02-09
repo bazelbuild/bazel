@@ -148,4 +148,9 @@ public class BazelRuleClassProviderTest {
   public void variousWorkspaceConsistency() {
     checkModule(BazelRuleClassProvider.VARIOUS_WORKSPACE_RULES);
   }
+
+  @Test
+  public void toolchainConsistency() {
+    checkModule(ToolchainRules.INSTANCE);
+  }
 }
