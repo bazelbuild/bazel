@@ -36,6 +36,14 @@ bool StripClass(u1*& classdata_out, const u1* classdata_in, size_t in_length);
 const char* CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
 
+const char *MANIFEST_HEADER =
+    "Manifest-Version: 1.0\n"
+    "Created-By: bazel\n";
+// These attributes are used by JavaBuilder, Turbine, and ijar.
+// They must all be kept in sync.
+const char *TARGET_LABEL_KEY = "Target-Label: ";
+const char *INJECTING_RULE_KIND_KEY = "Injecting-Rule-Kind: ";
+
 // ZipExtractorProcessor that select only .class file and use
 // StripClass to generate an interface class, storing as a new file
 // in the specified ZipBuilder.
@@ -105,9 +113,39 @@ void JarStripperProcessor::Process(const char* filename, const u4 attr,
   }
 }
 
+// Copies the string into the buffer without the null terminator, returns length
+static size_t WriteStr(u1 *buf, const char *str) {
+  size_t len = strlen(str);
+  memcpy(buf, str, len);
+  return len;
+}
+
+static void WriteManifest(ZipBuilder *out, const char *target_label,
+                          const char *injecting_rule_kind) {
+  if (target_label == NULL) {
+    return;
+  }
+  out->WriteEmptyFile("META-INF/");
+  u1 *start = out->NewFile("META-INF/MANIFEST.MF", 0);
+  u1 *buf = start;
+  buf += WriteStr(buf, MANIFEST_HEADER);
+  buf += WriteStr(buf, TARGET_LABEL_KEY);
+  buf += WriteStr(buf, target_label);
+  *buf++ = '\n';
+  if (injecting_rule_kind) {
+    buf += WriteStr(buf, INJECTING_RULE_KIND_KEY);
+    buf += WriteStr(buf, injecting_rule_kind);
+    *buf++ = '\n';
+  }
+  size_t total_len = buf - start;
+  out->FinishFile(total_len);
+}
+
 // Opens "file_in" (a .jar file) for reading, and writes an interface
 // .jar to "file_out".
-void OpenFilesAndProcessJar(const char *file_out, const char *file_in) {
+static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
+                                   const char *target_label,
+                                   const char *injecting_rule_kind) {
   JarStripperProcessor processor;
   std::unique_ptr<ZipExtractor> in(ZipExtractor::Create(file_in, &processor));
   if (in.get() == NULL) {
@@ -129,6 +167,7 @@ void OpenFilesAndProcessJar(const char *file_out, const char *file_in) {
     fprintf(stderr, "%s\n", in->GetError());
     abort();
   }
+  WriteManifest(out.get(), target_label, injecting_rule_kind);
 
   // Add dummy file, since javac doesn't like truly empty jars.
   if (out->GetNumberFiles() == 0) {
@@ -148,25 +187,39 @@ void OpenFilesAndProcessJar(const char *file_out, const char *file_in) {
             static_cast<int>(100.0 * out_length / in_length));
   }
 }
-
 }  // namespace devtools_ijar
 
 //
 // main method
 //
 static void usage() {
-  fprintf(stderr, "Usage: ijar [-v] x.jar [x_interface.jar>]\n");
+  fprintf(stderr,
+          "Usage: ijar "
+          "[-v] [--target label label] [--injecting_rule_kind kind] "
+          "x.jar [x_interface.jar>]\n");
   fprintf(stderr, "Creates an interface jar from the specified jar file.\n");
   exit(1);
 }
 
 int main(int argc, char **argv) {
+  const char *target_label = NULL;
+  const char *injecting_rule_kind = NULL;
   const char *filename_in = NULL;
   const char *filename_out = NULL;
 
   for (int ii = 1; ii < argc; ++ii) {
     if (strcmp(argv[ii], "-v") == 0) {
       devtools_ijar::verbose = true;
+    } else if (strcmp(argv[ii], "--target_label") == 0) {
+      if (++ii >= argc) {
+        usage();
+      }
+      target_label = argv[ii];
+    } else if (strcmp(argv[ii], "--injecting_rule_kind") == 0) {
+      if (++ii >= argc) {
+        usage();
+      }
+      injecting_rule_kind = argv[ii];
     } else if (filename_in == NULL) {
       filename_in = argv[ii];
     } else if (filename_out == NULL) {
@@ -199,6 +252,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "INFO: writing to '%s'.\n", filename_out);
   }
 
-  devtools_ijar::OpenFilesAndProcessJar(filename_out, filename_in);
+  devtools_ijar::OpenFilesAndProcessJar(filename_out, filename_in, target_label,
+                                        injecting_rule_kind);
   return 0;
 }
