@@ -218,7 +218,11 @@ public class BazelRepositoryModule extends BlazeModule {
             repoOptions
                 .experimentalDistdir
                 .stream()
-                .map(filesystem::getPath)
+                .map(
+                    path ->
+                        path.isAbsolute()
+                            ? filesystem.getPath(path)
+                            : env.getBlazeWorkspace().getWorkspace().getRelative(path))
                 .collect(Collectors.toList()));
       }
 
