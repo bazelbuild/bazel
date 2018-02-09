@@ -596,7 +596,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return Optional.empty();
   }
 
-  private static TypeSpec.Builder buildClassWithPolymorphicStrategy(
+  private TypeSpec.Builder buildClassWithPolymorphicStrategy(
       TypeElement encodedType, @Nullable TypeElement dependency) {
     if (!encodedType.getModifiers().contains(Modifier.ABSTRACT)) {
       throw new IllegalArgumentException(
@@ -609,16 +609,19 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return codecClassBuilder;
   }
 
-  private static MethodSpec buildPolymorphicSerializeMethod(
+  private MethodSpec buildPolymorphicSerializeMethod(
       TypeElement encodedType, @Nullable TypeElement dependency) {
     MethodSpec.Builder builder =
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, dependency);
+    TypeName polyClass = TypeName.get(env.getTypeUtils().erasure(encodedType.asType()));
     if (dependency == null) {
-      builder.addStatement("$T.serialize(input, codedOut, null)", PolymorphicHelper.class);
+      builder.addStatement(
+          "$T.serialize(input, $T.class, codedOut, null)", PolymorphicHelper.class, polyClass);
     } else {
       builder.addStatement(
-          "$T.serialize(input, codedOut, $T.ofNullable(dependency))",
+          "$T.serialize(input, $T.class, codedOut, $T.ofNullable(dependency))",
           PolymorphicHelper.class,
+          polyClass,
           Optional.class);
     }
     return builder.build();

@@ -192,7 +192,6 @@ java_test(
         ":local_and_anonymous-interface.jar",
         ":module_info-interface.jar",
         "//third_party/java/jdk/langtools:javac_jar",
-        ":interface_ijar_testlib_with_target_label",
     ],
     jvm_flags = [
         # Simulates how Bazel invokes javac

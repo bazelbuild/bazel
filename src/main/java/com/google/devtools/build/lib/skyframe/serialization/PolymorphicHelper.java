@@ -36,12 +36,16 @@ public class PolymorphicHelper {
    */
   @SuppressWarnings("unchecked")
   public static void serialize(
-      Object input, CodedOutputStream codedOut, @Nullable Optional<?> dependency)
+      Object input,
+      Class<?> baseClass,
+      CodedOutputStream codedOut,
+      @Nullable Optional<?> dependency)
       throws IOException, SerializationException {
     if (input != null) {
-      Class<?> clazz = input.getClass();
       try {
-        Object codec = getCodec(clazz);
+        ClassAndCodec classAndCodec = getClassAndCodecInClassHierarchy(input, baseClass);
+        Class<?> clazz = classAndCodec.clazz;
+        Object codec = classAndCodec.codec;
         codedOut.writeBoolNoTag(true);
         StringCodecs.asciiOptimized().serialize(clazz.getName(), codedOut);
         if (codec instanceof ObjectCodec) {
@@ -100,11 +104,46 @@ public class PolymorphicHelper {
     return deserialized;
   }
 
+  private static ClassAndCodec getClassAndCodecInClassHierarchy(Object input, Class<?> baseClass)
+      throws SerializationException, IllegalAccessException {
+    Class<?> clazz = input.getClass();
+    Field codecField = null;
+    while (!clazz.equals(baseClass)) {
+      try {
+        codecField = getCodecField(clazz);
+        break;
+      } catch (NoSuchFieldException e) {
+        clazz = clazz.getSuperclass();
+      }
+    }
+    if (clazz.equals(baseClass)) {
+      throw new SerializationException("Could not find codec for " + input.getClass());
+    }
+    return new ClassAndCodec(clazz, getValueOfField(codecField));
+  }
+
+  private static Field getCodecField(Class<?> clazz) throws NoSuchFieldException {
+    return clazz.getDeclaredField("CODEC");
+  }
+
+  private static Object getValueOfField(Field field) throws IllegalAccessException {
+    field.setAccessible(true);
+    return field.get(null);
+  }
+
   /** Returns the static CODEC instance for {@code clazz}. */
   private static Object getCodec(Class<?> clazz)
       throws NoSuchFieldException, IllegalAccessException {
-    Field codecField = clazz.getDeclaredField("CODEC");
-    codecField.setAccessible(true);
-    return codecField.get(null);
+    return getValueOfField(getCodecField(clazz));
+  }
+
+  private static class ClassAndCodec {
+    final Class<?> clazz;
+    final Object codec;
+
+    ClassAndCodec(Class<?> clazz, Object codec) {
+      this.clazz = clazz;
+      this.codec = codec;
+    }
   }
 }
