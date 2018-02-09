@@ -1,0 +1,22 @@
+Incompatible changes:
+
+  - ctx.fragments.jvm is not available anymore.
+
+Important changes:
+
+  - The --[no]experimental_disable_jvm command line option is not
+    supported anymore.
+  - Allow expanding TreeArtifacts for libraries_to_link
+  - Proguarded Android binaries can be built with incremental dexing.
+  - aar_import now supports assets.
+  - Crash in OutputJar::Close has been fixed
+  - generator_* attributes are nonconfigurable.
+  - Introduces --[no]keep_state_after_build
+  - Add support for merged object files needed for -flto-unit.
+  - Fix how libraries to link is specified to archiver actions.
+  - Replace //tools/defaults:android_jar with
+    @bazel_tools//tools/android:android_jar.
+    //tools/defaults:android_jar will be removed in a future release.
+  - java_common.compile supports neverlink
+  - Resolved an issue where a failure in the remote cache would not
+    trigger local re-execution of an action.
