@@ -189,7 +189,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
     private NestedSet<Artifact> classpathEntries =
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.<Artifact>of();
-    @Nullable private String ruleKind;
     @Nullable private Label targetLabel;
     private PathFragment tempDirectory;
     private BuildConfiguration.StrictDepsMode strictJavaDeps
@@ -282,12 +281,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
     public Builder addProcessorNames(Collection<String> processorNames) {
       checkNotNull(processorNames, "processorNames must not be null");
       this.processorNames.addAll(processorNames);
-      return this;
-    }
-
-    /** Sets the kind of the build rule being compiled (e.g. {@code java_library}). */
-    public Builder setRuleKind(@Nullable String ruleKind) {
-      this.ruleKind = ruleKind;
       return this;
     }
 
@@ -555,9 +548,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
         result.add("--");
       }
 
-      if (ruleKind != null) {
-        result.add("--rule_kind", ruleKind);
-      }
       if (targetLabel != null) {
         result.add("--target_label");
         if (targetLabel.getPackageIdentifier().getRepository().isDefault()

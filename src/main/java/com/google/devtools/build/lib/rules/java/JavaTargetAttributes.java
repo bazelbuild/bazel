@@ -93,7 +93,6 @@ public class JavaTargetAttributes {
     private final NestedSetBuilder<Artifact> directJars = NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.stableOrder();
-    private String ruleKind;
     private Label targetLabel;
 
     private final NestedSetBuilder<Artifact> excludedArtifacts =
@@ -173,12 +172,6 @@ public class JavaTargetAttributes {
     public Builder addCompileTimeClassPathEntries(NestedSet<Artifact> entries) {
       Preconditions.checkArgument(!built);
       compileTimeClassPath.addTransitive(entries);
-      return this;
-    }
-
-    public Builder setRuleKind(String ruleKind) {
-      Preconditions.checkArgument(!built);
-      this.ruleKind = ruleKind;
       return this;
     }
 
@@ -373,7 +366,6 @@ public class JavaTargetAttributes {
           additionalOutputs,
           directJars.build(),
           compileTimeDependencyArtifacts.build(),
-          ruleKind,
           targetLabel,
           excludedArtifacts,
           strictJavaDeps);
@@ -444,7 +436,6 @@ public class JavaTargetAttributes {
 
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> compileTimeDependencyArtifacts;
-  private final String ruleKind;
   private final Label targetLabel;
 
   private final NestedSet<Artifact> excludedArtifacts;
@@ -470,7 +461,6 @@ public class JavaTargetAttributes {
       Set<Artifact> additionalOutputs,
       NestedSet<Artifact> directJars,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
-      String ruleKind,
       Label targetLabel,
       NestedSetBuilder<Artifact> excludedArtifacts,
       BuildConfiguration.StrictDepsMode strictJavaDeps) {
@@ -496,7 +486,6 @@ public class JavaTargetAttributes {
     this.classPathResources = ImmutableList.copyOf(classPathResources);
     this.additionalOutputs = ImmutableSet.copyOf(additionalOutputs);
     this.compileTimeDependencyArtifacts = compileTimeDependencyArtifacts;
-    this.ruleKind = ruleKind;
     this.targetLabel = targetLabel;
     this.excludedArtifacts = excludedArtifacts.build();
     this.strictJavaDeps = strictJavaDeps;
@@ -629,10 +618,6 @@ public class JavaTargetAttributes {
 
   public boolean hasMessages() {
     return !messages.isEmpty();
-  }
-
-  public String getRuleKind() {
-    return ruleKind;
   }
 
   public Label getTargetLabel() {

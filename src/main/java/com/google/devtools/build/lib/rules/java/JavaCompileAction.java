@@ -492,7 +492,6 @@ public final class JavaCompileAction extends SpawnAction {
     private PathFragment classDirectory;
     private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private final List<String> processorNames = new ArrayList<>();
-    private String ruleKind;
     private Label targetLabel;
 
     /**
@@ -713,9 +712,6 @@ public final class JavaCompileAction extends SpawnAction {
         result.addAll("--javacopts", ImmutableList.copyOf(javacOpts));
         // terminate --javacopts with `--` to support javac flags that start with `--`
         result.add("--");
-      }
-      if (ruleKind != null) {
-        result.add("--rule_kind", ruleKind);
       }
       if (targetLabel != null) {
         result.add("--target_label");
@@ -997,11 +993,6 @@ public final class JavaCompileAction extends SpawnAction {
 
     public Builder setArtifactForExperimentalCoverage(Artifact artifactForExperimentalCoverage) {
       this.artifactForExperimentalCoverage = artifactForExperimentalCoverage;
-      return this;
-    }
-
-    public Builder setRuleKind(String ruleKind) {
-      this.ruleKind = ruleKind;
       return this;
     }
 

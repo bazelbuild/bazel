@@ -175,7 +175,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         (JavaCompileAction) getGeneratingActionForLabel("//java/android:liba.jar");
 
     String commandLine = Iterables.toString(javacAction.buildCommandLine());
-    assertThat(commandLine).contains("--rule_kind, android_library");
     assertThat(commandLine).contains("--target_label, //java/android:a");
   }
 

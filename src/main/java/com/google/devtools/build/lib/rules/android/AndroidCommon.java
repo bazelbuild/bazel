@@ -591,7 +591,6 @@ public class AndroidCommon {
             /*disableStrictDeps=*/ useDataBinding);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
 
     JavaCommon.validateConstraint(

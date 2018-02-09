@@ -639,7 +639,6 @@ public class JavaCommon {
 
     addPlugins(javaTargetAttributes);
 
-    javaTargetAttributes.setRuleKind(ruleContext.getRule().getRuleClass());
     javaTargetAttributes.setTargetLabel(ruleContext.getLabel());
 
     return javaTargetAttributes;
