@@ -37,7 +37,6 @@ public class RootedPath implements Serializable {
 
   private final Root root;
   private final PathFragment rootRelativePath;
-  private final Path path;
 
   /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
   private RootedPath(Root root, PathFragment rootRelativePath) {
@@ -48,7 +47,6 @@ public class RootedPath implements Serializable {
         root);
     this.root = root;
     this.rootRelativePath = rootRelativePath;
-    this.path = root.getRelative(this.rootRelativePath);
   }
 
   /** Returns a rooted path representing {@code rootRelativePath} relative to {@code root}. */
@@ -89,11 +87,7 @@ public class RootedPath implements Serializable {
   }
 
   public Path asPath() {
-    // Ideally, this helper method would not be needed. But Skyframe's FileFunction and
-    // DirectoryListingFunction need to do filesystem operations on the absolute path and
-    // Path#getRelative(relPath) is O(relPath.segmentCount()). Therefore we precompute the absolute
-    // path represented by this relative path.
-    return path;
+    return root.getRelative(rootRelativePath);
   }
 
   public Root getRoot() {
