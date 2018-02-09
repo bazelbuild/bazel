@@ -1095,6 +1095,79 @@ EOF
   expect_log '@ext//:foo'
 }
 
+function test_repository_cache_relative_path() {
+  # Verify that --experimental_repository_cache works for query and caches soly
+  # based on the predicted hash, for a repository-cache location given as path
+  # relative to the WORKSPACE
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+)
+genrule(
+  name="bar",
+  outs=["bar.txt"],
+  srcs=[":foo"],
+  cmd="cp $< $@",
+)
+EOF
+  zip ext.zip ext/*
+  rm -rf ext
+  sha256=$(sha256sum ext.zip | head -c 64)
+
+  rm -rf cache
+  mkdir cache
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${WRKDIR}/ext.zip"],
+  sha256="${sha256}",
+)
+EOF
+  # Use the external repository once to make sure it is cached.
+  bazel build --experimental_repository_cache="../cache" '@ext//:bar' \
+      || fail "expected sucess"
+
+  # Now "go offline" and clean local resources.
+  rm -f "${WRKDIR}/ext.zip"
+  bazel clean --expunge
+  bazel query 'deps("@ext//:bar")' && fail "Couldn't clean local cache" || :
+
+  # The value should still be available from the repository cache
+  bazel query 'deps("@ext//:bar")' \
+        --experimental_repository_cache="../cache" > "${TEST_log}" \
+      || fail "Expected success"
+  expect_log '@ext//:foo'
+
+  # Clean again.
+  bazel clean --expunge
+  # Even with a different source URL, the cache sould be consulted.
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["http://doesnotexist.example.com/invalidpath/othername.zip"],
+  sha256="${sha256}",
+)
+EOF
+  bazel query 'deps("@ext//:bar")' \
+        --experimental_repository_cache="../cache" > "${TEST_log}" \
+      || fail "Expected success"
+  expect_log '@ext//:foo'
+}
+
 function test_repository_cache() {
   # Verify that --experimental_repository_cache works for query and caches soly
   # based on the predicted hash.
