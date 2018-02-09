@@ -5,6 +5,12 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    testonly = False,
+    srcs = glob(["**"]) + ["//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:srcs"],
+)
+
 java_test(
     name = "ClassInfoTest",
     srcs = ["ClassInfoTest.java"],
@@ -32,7 +38,7 @@ java_test(
     srcs = ["LazyClassEntryStateTest.java"],
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:import_deps_checker",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -52,10 +58,10 @@ java_test(
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members",
-        "//third_party/java/jdk:jdk8_rt_jar",
+        "@local_jdk//:jre/lib/rt.jar",
     ],
     jvm_flags = [
-        "-Dclasscache.test.bootclasspath=$(location //third_party/java/jdk:jdk8_rt_jar)",
+        "-Dclasscache.test.bootclasspath=$(location @local_jdk//:jre/lib/rt.jar)",
         "-Dclasscache.test.Client=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_client)",
         "-Dclasscache.test.Library=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library)",
         "-Dclasscache.test.Library_no_members=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members)",
@@ -66,6 +72,7 @@ java_test(
     test_class = "com.google.devtools.build.importdeps.ClassCacheTest",
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:import_deps_checker",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -85,10 +92,10 @@ java_test(
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members",
-        "//third_party/java/jdk:jdk8_rt_jar",
+        "@local_jdk//:jre/lib/rt.jar",
     ],
     jvm_flags = [
-        "-Dclasscache.test.bootclasspath=$(location //third_party/java/jdk:jdk8_rt_jar)",
+        "-Dclasscache.test.bootclasspath=$(location @local_jdk//:jre/lib/rt.jar)",
         "-Dclasscache.test.Client=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_client)",
         "-Dclasscache.test.Library=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library)",
         "-Dclasscache.test.Library_no_members=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members)",
@@ -103,7 +110,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/java/jdk:jdk8_rt_jar",
+        "@local_jdk//:jre/lib/rt.jar",
     ],
 )
 
@@ -113,49 +120,70 @@ create_golden_test(
     name = "bootclasspath_missing_golden_test",
     golden_file = "golden_bootclasspath_missing.txt",
     has_bootclasspath = False,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = None,
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
 create_golden_test(
     name = "library_exception_missing_golden_test",
     golden_file = "golden_library_exception_missing.txt",
     has_bootclasspath = True,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryException",
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
 create_golden_test(
     name = "library_annotation_missing_golden_test",
     golden_file = "golden_library_annotation_missing.txt",
     has_bootclasspath = True,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryAnnotations",
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
 create_golden_test(
     name = "library_missing_golden_test",
     golden_file = "golden_library_missing.txt",
     has_bootclasspath = True,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
 create_golden_test(
     name = "library_interface_missing_golden_test",
     golden_file = "golden_library_interface_missing.txt",
     has_bootclasspath = True,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryInterface",
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
 create_golden_test(
     name = "library_members_missing_golden_test",
     golden_file = "golden_library_members_missing.txt",
     has_bootclasspath = True,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",
     replacing_jar = "testdata_lib_Library_no_members",
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
 create_golden_test(
     name = "complete_classpath_golden_test",
     golden_file = "golden_complete_classpath.txt",
     has_bootclasspath = True,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = None,
     replacing_jar = None,
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )

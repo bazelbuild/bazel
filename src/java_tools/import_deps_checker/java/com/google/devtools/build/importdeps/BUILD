@@ -5,6 +5,11 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
 java_library(
     name = "import_deps_checker",
     srcs = glob(
@@ -13,11 +18,12 @@ java_library(
     ),
     deps = [
         "//third_party:asm",
+        "//third_party:asm-commons",
+        "//third_party:asm-tree",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/asm:asm-commons",
-        "//third_party/java/asm:asm-tree",
+        "//third_party:junit4",
     ],
 )
 

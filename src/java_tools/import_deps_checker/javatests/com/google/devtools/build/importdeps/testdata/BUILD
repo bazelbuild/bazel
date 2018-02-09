@@ -2,7 +2,15 @@
 #   Test data for testing dependency checking.
 package(
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:__subpackages__"],
+)
+
+licenses(["notice"])  # Apache 2.0
+
+filegroup(
+    name = "srcs",
+    testonly = False,
+    srcs = glob(["**"]),
 )
 
 java_library(

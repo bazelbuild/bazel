@@ -13,7 +13,9 @@
 # limitations under the License.
 '''Helpers to create golden tests, to minimize code duplication.'''
 
-def create_golden_test(name, golden_file, has_bootclasspath, missing_jar = None, replacing_jar = None):
+def create_golden_test(name, golden_file, has_bootclasspath, testdata_pkg,
+                       import_deps_checker, rt_jar, missing_jar = None,
+                       replacing_jar = None):
   '''Create a golden test for the dependency checker.'''
   all_dep_jars = [
       "testdata_client",
@@ -22,13 +24,11 @@ def create_golden_test(name, golden_file, has_bootclasspath, missing_jar = None,
       "testdata_lib_LibraryException",
       "testdata_lib_LibraryInterface",
       ]
-  testdata_pkg = "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata"
-  import_deps_checker = "//third_party/bazel/src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker"
   client_jar = testdata_pkg + ":testdata_client"
   data = [
       golden_file,
       import_deps_checker,
-      "//third_party/java/jdk:jdk8_rt_jar"
+      rt_jar,
       ] + [testdata_pkg + ":" + x for x in all_dep_jars]
   if (replacing_jar):
     data.append(testdata_pkg + ":" + replacing_jar)
@@ -39,7 +39,7 @@ def create_golden_test(name, golden_file, has_bootclasspath, missing_jar = None,
       ]
   args.append("--bootclasspath_entry")
   if has_bootclasspath:
-    args.append("$(location //third_party/java/jdk:jdk8_rt_jar)")
+    args.append("$(location %s)" % rt_jar)
   else:
     args.append("$(location %s)" % client_jar) # Fake bootclasspath.
 
