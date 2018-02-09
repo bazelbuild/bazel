@@ -75,6 +75,23 @@ public class CoreLibrarySupportTest {
   }
 
   @Test
+  public void testIsEmulatedCoreClassOrInterface() throws Exception {
+    CoreLibrarySupport support =
+        new CoreLibrarySupport(
+            new CoreLibraryRewriter(""),
+            Thread.currentThread().getContextClassLoader(),
+            ImmutableList.of("java/util/concurrent/"),
+            ImmutableList.of("java/util/Map"));
+    assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map")).isTrue();
+    assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map$$Lambda$17")).isFalse();
+    assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map$$CC")).isFalse();
+    assertThat(support.isEmulatedCoreClassOrInterface("java/util/HashMap")).isTrue();
+    assertThat(support.isEmulatedCoreClassOrInterface("java/util/concurrent/ConcurrentMap"))
+        .isFalse(); // false for renamed prefixes
+    assertThat(support.isEmulatedCoreClassOrInterface("com/google/Map")).isFalse();
+  }
+
+  @Test
   public void testIsEmulatedCoreLibraryInvocation() throws Exception {
     CoreLibrarySupport support =
         new CoreLibrarySupport(

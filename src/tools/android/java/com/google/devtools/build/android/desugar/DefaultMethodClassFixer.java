@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeSet;
+import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -44,6 +45,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private final ClassReaderFactory bootclasspath;
   private final ClassLoader targetLoader;
   private final DependencyCollector depsCollector;
+  @Nullable private final CoreLibrarySupport coreLibrarySupport;
   private final HashSet<String> instanceMethods = new HashSet<>();
 
   private boolean isInterface;
@@ -57,10 +59,12 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       ClassVisitor dest,
       ClassReaderFactory classpath,
       DependencyCollector depsCollector,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassReaderFactory bootclasspath,
       ClassLoader targetLoader) {
     super(Opcodes.ASM6, dest);
     this.classpath = classpath;
+    this.coreLibrarySupport = coreLibrarySupport;
     this.bootclasspath = bootclasspath;
     this.targetLoader = targetLoader;
     this.depsCollector = depsCollector;
@@ -88,7 +92,9 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
   @Override
   public void visitEnd() {
-    if (!isInterface && defaultMethodsDefined(directInterfaces)) {
+    if (!isInterface
+        && (mayNeedInterfaceStubsForEmulatedSuperclass()
+            || defaultMethodsDefined(directInterfaces))) {
       // Inherited methods take precedence over default methods, so visit all superclasses and
       // figure out what methods they declare before stubbing in any missing default methods.
       recordInheritedMethods();
@@ -190,6 +196,12 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     return super.visitMethod(access, name, desc, signature, exceptions);
   }
 
+  private boolean mayNeedInterfaceStubsForEmulatedSuperclass() {
+    return coreLibrarySupport != null
+        && !coreLibrarySupport.isEmulatedCoreClassOrInterface(internalName)
+        && coreLibrarySupport.isEmulatedCoreClassOrInterface(superName);
+  }
+
   private void stubMissingDefaultAndBridgeMethods() {
     TreeSet<Class<?>> allInterfaces = new TreeSet<>(InterfaceComparator.INSTANCE);
     for (String direct : directInterfaces) {
@@ -203,17 +215,49 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     }
 
     Class<?> superclass = loadFromInternal(superName);
+    boolean mayNeedStubsForSuperclass = mayNeedInterfaceStubsForEmulatedSuperclass();
+    if (mayNeedStubsForSuperclass) {
+      // Collect interfaces inherited from emulated superclasses as well, to handle things like
+      // extending AbstractList without explicitly implementing List.
+      for (Class<?> clazz = superclass; clazz != null; clazz = clazz.getSuperclass()) {
+        for (Class<?> itf : superclass.getInterfaces()) {
+          collectInterfaces(itf, allInterfaces);
+        }
+      }
+    }
     for (Class<?> interfaceToVisit : allInterfaces) {
       // if J extends I, J is allowed to redefine I's default methods.  The comparator we used
       // above makes sure we visit J before I in that case so we can use J's definition.
-      if (superclass != null && interfaceToVisit.isAssignableFrom(superclass)) {
-        // superclass already implements this interface, so we must skip it.  The superclass will
-        // be similarly rewritten or comes from the bootclasspath; either way we don't need to and
-        // shouldn't stub default methods for this interface.
+      if (!mayNeedStubsForSuperclass && interfaceToVisit.isAssignableFrom(superclass)) {
+        // superclass is also rewritten and already implements this interface, so we _must_ skip it.
         continue;
       }
       stubMissingDefaultAndBridgeMethods(interfaceToVisit.getName().replace('.', '/'));
     }
+  }
+
+  private void stubMissingDefaultAndBridgeMethods(String implemented) {
+    ClassReader bytecode;
+    boolean isBootclasspath;
+    if (bootclasspath.isKnown(implemented)) {
+      if (coreLibrarySupport != null
+          && (coreLibrarySupport.isRenamedCoreLibrary(implemented)
+              || coreLibrarySupport.isEmulatedCoreClassOrInterface(implemented))) {
+        bytecode = checkNotNull(bootclasspath.readIfKnown(implemented), implemented);
+        isBootclasspath = true;
+      } else {
+        // Default methods from interfaces on the bootclasspath that we're not renaming or emulating
+        // are assumed available at runtime, so just ignore them.
+        return;
+      }
+    } else {
+      bytecode =
+          checkNotNull(
+              classpath.readIfKnown(implemented),
+              "Couldn't find interface %s implemented by %s", implemented, internalName);
+      isBootclasspath = false;
+    }
+    bytecode.accept(new DefaultMethodStubber(isBootclasspath), ClassReader.SKIP_DEBUG);
   }
 
   private Class<?> loadFromInternal(String internalName) {
@@ -313,25 +357,37 @@ public class DefaultMethodClassFixer extends ClassVisitor {
    */
   private boolean defaultMethodsDefined(ImmutableList<String> interfaces) {
     for (String implemented : interfaces) {
+      ClassReader bytecode;
       if (bootclasspath.isKnown(implemented)) {
-        continue;
-      }
-      ClassReader bytecode = classpath.readIfKnown(implemented);
-      if (bytecode == null) {
-        // Interface isn't on the classpath, which indicates incomplete classpaths. Record missing
-        // dependency so we can check it later.  If we don't check then we may get runtime failures
-        // or wrong behavior from default methods that should've been stubbed in.
-        // TODO(kmb): Print a warning so people can start fixing their deps?
-        depsCollector.missingImplementedInterface(internalName, implemented);
-      } else {
-        // Class in classpath and bootclasspath is a bad idea but in any event, assume the
-        // bootclasspath will take precedence like in a classloader.
-        // We can skip code attributes as we just need to find default methods to stub.
-        DefaultMethodFinder finder = new DefaultMethodFinder();
-        bytecode.accept(finder, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
-        if (finder.foundDefaultMethods()) {
-          return true;
+        if (coreLibrarySupport != null
+            && coreLibrarySupport.isEmulatedCoreClassOrInterface(implemented)) {
+          return true; // need to stub in emulated interface methods such as Collection.stream()
+        } else if (coreLibrarySupport != null
+            && coreLibrarySupport.isRenamedCoreLibrary(implemented)) {
+          // Check default methods of renamed interfaces
+          bytecode = checkNotNull(bootclasspath.readIfKnown(implemented), implemented);
+        } else {
+          continue;
         }
+      } else {
+        bytecode = classpath.readIfKnown(implemented);
+        if (bytecode == null) {
+          // Interface isn't on the classpath, which indicates incomplete classpaths. Record missing
+          // dependency so we can check it later.  If we don't check then we may get runtime
+          // failures or wrong behavior from default methods that should've been stubbed in.
+          // TODO(kmb): Print a warning so people can start fixing their deps?
+          depsCollector.missingImplementedInterface(internalName, implemented);
+          continue;
+        }
+      }
+
+      // Class in classpath and bootclasspath is a bad idea but in any event, assume the
+      // bootclasspath will take precedence like in a classloader.
+      // We can skip code attributes as we just need to find default methods to stub.
+      DefaultMethodFinder finder = new DefaultMethodFinder();
+      bytecode.accept(finder, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
+      if (finder.foundDefaultMethods()) {
+        return true;
       }
     }
     return false;
@@ -365,30 +421,18 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         && !instanceMethods.contains(name + ":" + desc);
   }
 
-  private void stubMissingDefaultAndBridgeMethods(String implemented) {
-    if (bootclasspath.isKnown(implemented)) {
-      // Default methods on the bootclasspath will be available at runtime, so just ignore them.
-      return;
-    }
-    ClassReader bytecode =
-        checkNotNull(
-            classpath.readIfKnown(implemented),
-            "Couldn't find interface %s implemented by %s",
-            implemented,
-            internalName);
-    bytecode.accept(new DefaultMethodStubber(), ClassReader.SKIP_DEBUG);
-  }
-
   /**
    * Visitor for interfaces that produces delegates in the class visited by the outer {@link
    * DefaultMethodClassFixer} for every default method encountered.
    */
   private class DefaultMethodStubber extends ClassVisitor {
 
+    private final boolean isBootclasspathInterface;
     private String stubbedInterfaceName;
 
-    public DefaultMethodStubber() {
+    public DefaultMethodStubber(boolean isBootclasspathInterface) {
       super(Opcodes.ASM6);
+      this.isBootclasspathInterface = isBootclasspathInterface;
     }
 
     @Override
@@ -413,8 +457,11 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         // definitions conflict, but see stubMissingDefaultMethods() for how we deal with default
         // methods redefined in interfaces extending another.
         recordIfInstanceMethod(access, name, desc);
-        depsCollector.assumeCompanionClass(
-            internalName, InterfaceDesugaring.getCompanionClassName(stubbedInterfaceName));
+        if (!isBootclasspathInterface) {
+          // Don't record these dependencies, as we can't check them
+          depsCollector.assumeCompanionClass(
+              internalName, InterfaceDesugaring.getCompanionClassName(stubbedInterfaceName));
+        }
 
         // Add this method to the class we're desugaring and stub in a body to call the default
         // implementation in the interface's companion class. ijar omits these methods when setting
@@ -444,6 +491,10 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         return null;
       } else if (shouldStubAsBridgeDefaultMethod(access, name, desc)) {
         recordIfInstanceMethod(access, name, desc);
+        // If we're visiting a bootclasspath interface then we most likely don't have the code.
+        // That means we can't just copy the method bodies as we're trying to do below.
+        checkState(!isBootclasspathInterface,
+            "TODO stub bridge methods for core interfaces if ever needed");
         // For bridges we just copy their bodies instead of going through the companion class.
         // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
         // interface methods are correctly handled.
@@ -454,7 +505,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
             depsCollector,
             internalName);
       } else {
-        return null; // we don't care about the actual code in these methods
+        return null; // not a default or bridge method or the class already defines this method.
       }
     }
   }
@@ -529,6 +580,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
+      // TODO(kmb): what if this method only exists on some devices, e.g., ArrayList.spliterator?
       recordIfInstanceMethod(access, name, desc);
       return null;
     }

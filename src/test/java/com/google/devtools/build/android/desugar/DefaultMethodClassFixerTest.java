@@ -102,6 +102,7 @@ public class DefaultMethodClassFixerTest {
             writer,
             classpathReader,
             DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING,
+            /*coreLibrarySupport=*/ null,
             bootclassPath,
             classLoader);
     reader.accept(fixer, 0);
