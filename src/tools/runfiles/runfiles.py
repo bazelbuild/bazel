@@ -40,7 +40,7 @@ right environment variables for them:
   r = runfiles.Create()
   env = {}
   ...
-  env.update(r.EnvVar())
+  env.update(r.EnvVars())
   p = subprocess.Popen([r.Rlocation("path/to/binary")], env, ...)
 """
 
@@ -132,19 +132,18 @@ class _Runfiles(object):
       raise ValueError("path is absolute: \"%s\"" % path)
     return self._strategy.RlocationChecked(path)
 
-  def EnvVar(self):
-    """Returns an environment variable for subprocesses.
+  def EnvVars(self):
+    """Returns environment variables for subprocesses.
 
-    The caller should set the returned key-value pair in the environment of
+    The caller should set the returned key-value pairs in the environment of
     subprocesses in case those subprocesses are also Bazel-built binaries that
     need to use runfiles.
 
     Returns:
-      {string: string}; a single-entry dict; key is an environment variable
-      name (either "RUNFILES_MANIFEST_FILE" or "RUNFILES_DIR"), value is the
-      value for this environment variable
+      {string: string}; a dict; keys are environment variable names, values are
+      the values for these environment variables
     """
-    return self._strategy.EnvVar()
+    return self._strategy.EnvVars()
 
 
 class _ManifestBased(object):
@@ -176,7 +175,7 @@ class _ManifestBased(object):
             result[tokens[0]] = tokens[1]
     return result
 
-  def EnvVar(self):
+  def EnvVars(self):
     return {"RUNFILES_MANIFEST_FILE": self._path}
 
 
@@ -196,5 +195,5 @@ class _DirectoryBased(object):
     # runfiles strategy on those platforms.
     return posixpath.join(self._runfiles_root, path)
 
-  def EnvVar(self):
+  def EnvVars(self):
     return {"RUNFILES_DIR": self._runfiles_root}

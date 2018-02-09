@@ -52,7 +52,7 @@ def main():
     env = {"SYSTEMROOT": os.environ["SYSTEMROOT"]}
   else:
     env = {}
-  env.update(r.EnvVar())
+  env.update(r.EnvVars())
   p = subprocess.Popen(
       [r.Rlocation(ChildBinaryName("py"))],
       env=env,

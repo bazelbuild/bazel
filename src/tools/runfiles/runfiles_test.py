@@ -50,7 +50,7 @@ class RunfilesTest(unittest.TestCase):
       })
       self.assertEqual(r.Rlocation("a/b"), "c/d")
       self.assertIsNone(r.Rlocation("foo"))
-      self.assertDictEqual(r.EnvVar(), {"RUNFILES_MANIFEST_FILE": mf.Path()})
+      self.assertDictEqual(r.EnvVars(), {"RUNFILES_MANIFEST_FILE": mf.Path()})
 
   def testCreatesDirectoryBasedRunfiles(self):
     r = runfiles.Create({
@@ -59,7 +59,7 @@ class RunfilesTest(unittest.TestCase):
     })
     self.assertEqual(r.Rlocation("a/b"), "runfiles/dir/a/b")
     self.assertEqual(r.Rlocation("foo"), "runfiles/dir/foo")
-    self.assertDictEqual(r.EnvVar(), {"RUNFILES_DIR": "runfiles/dir"})
+    self.assertDictEqual(r.EnvVars(), {"RUNFILES_DIR": "runfiles/dir"})
 
   def testFailsToCreateManifestBasedBecauseManifestDoesNotExist(self):
 
@@ -93,7 +93,7 @@ class RunfilesTest(unittest.TestCase):
       self.assertEqual(
           r.Rlocation("Foo/Bar/runfile3"), "D:\\the path\\run file 3.txt")
       self.assertIsNone(r.Rlocation("unknown"))
-      self.assertDictEqual(r.EnvVar(), {"RUNFILES_MANIFEST_FILE": mf.Path()})
+      self.assertDictEqual(r.EnvVars(), {"RUNFILES_MANIFEST_FILE": mf.Path()})
 
   def testDirectoryBasedRlocation(self):
     # The _DirectoryBased strategy simply joins the runfiles directory and the
@@ -101,7 +101,7 @@ class RunfilesTest(unittest.TestCase):
     # nor does it check that the path exists.
     r = runfiles.CreateDirectoryBased("foo/bar baz//qux/")
     self.assertEqual(r.Rlocation("arg"), "foo/bar baz//qux/arg")
-    self.assertDictEqual(r.EnvVar(), {"RUNFILES_DIR": "foo/bar baz//qux/"})
+    self.assertDictEqual(r.EnvVars(), {"RUNFILES_DIR": "foo/bar baz//qux/"})
 
   @staticmethod
   def IsWindows():
