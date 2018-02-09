@@ -105,32 +105,12 @@ public final class BinTools {
   }
 
   /**
-   * Populates the _bin directory by symlinking the necessary files from the given
-   * srcDir, and returns the corresponding BinTools.
+   * Returns a BinTools instance. Before calling this method, you have to populate the
+   * {@link BlazeDirectories#getEmbeddedBinariesRoot} directory.
    */
   @VisibleForTesting
   public static BinTools forIntegrationTesting(
-      BlazeDirectories directories, String srcDir, Iterable<String> tools, String repositoryName)
-      throws IOException {
-    Path srcPath = directories.getOutputBase().getFileSystem().getPath(srcDir);
-    for (String embedded : tools) {
-      Path runfilesPath = srcPath.getRelative(embedded);
-      if (!runfilesPath.isFile()) {
-        // The file isn't there - nothing to symlink!
-        //
-        // Note: This path is usually taken by the tests using the in-memory
-        // file system. They can't run the embedded scripts anyhow, so there isn't
-        // much point in creating a symlink to a non-existent binary here.
-        continue;
-      }
-      Path outputPath = directories.getExecRoot(repositoryName).getChild("_bin").getChild(embedded);
-      if (outputPath.exists()) {
-        outputPath.delete();
-      }
-      FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
-      outputPath.createSymbolicLink(runfilesPath);
-    }
-
+      BlazeDirectories directories, Iterable<String> tools, String repositoryName) {
     return new BinTools(directories, ImmutableList.copyOf(tools)).setBinDir(repositoryName);
   }
 
@@ -176,7 +156,7 @@ public final class BinTools {
   public void setupBuildTools(String workspaceName) throws ExecException {
     setBinDir(workspaceName);
     try {
-      FileSystemUtils.createDirectoryAndParents(binDir);
+      binDir.createDirectoryAndParents();
     } catch (IOException e) {
       throw new EnvironmentalExecException("could not create directory '" + binDir  + "'", e);
     }

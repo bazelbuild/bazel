@@ -145,7 +145,7 @@ public class StandaloneSpawnStrategyTest {
                         LocalEnvProvider.UNMODIFIED))),
             ImmutableList.<ActionContextProvider>of());
 
-    executor.getExecRoot().createDirectory();
+    executor.getExecRoot().createDirectoryAndParents();
   }
 
   private Spawn createSpawn(String... arguments) {
