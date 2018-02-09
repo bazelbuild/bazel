@@ -25,6 +25,7 @@ public class StandaloneModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     builder.addActionContextProvider(new StandaloneActionContextProvider(env));
+    builder.addActionContextProvider(new DummyIncludeScanningContextProvider(env));
     builder.addActionContextConsumer(new StandaloneActionContextConsumer());
   }
 }
