@@ -83,6 +83,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -202,6 +203,15 @@ public class BazelRepositoryModule extends BlazeModule {
         repositoryCache.setRepositoryCachePath(repositoryCachePath);
       } else {
         repositoryCache.setRepositoryCachePath(null);
+      }
+
+      if (repoOptions.experimentalDistdir != null) {
+        httpDownloader.setDistdir(
+            repoOptions
+                .experimentalDistdir
+                .stream()
+                .map(filesystem::getPath)
+                .collect(Collectors.toList()));
       }
 
       if (repoOptions.repositoryOverrides != null) {

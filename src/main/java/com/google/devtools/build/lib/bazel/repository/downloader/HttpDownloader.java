@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -58,9 +59,14 @@ public class HttpDownloader {
   private static final Semaphore semaphore = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
 
   protected final RepositoryCache repositoryCache;
+  private List<Path> distdir = ImmutableList.of();
 
   public HttpDownloader(RepositoryCache repositoryCache) {
     this.repositoryCache = repositoryCache;
+  }
+
+  public void setDistdir(List<Path> distdir) {
+    this.distdir = ImmutableList.copyOf(distdir);
   }
 
   /** Validates native repository rule attributes and calls the other download method. */
@@ -180,6 +186,19 @@ public class HttpDownloader {
         if (cachedDestination != null) {
           // Cache hit!
           return cachedDestination;
+        }
+      }
+
+      for (Path dir : distdir) {
+        Path candidate = dir.getRelative(destination.getBaseName());
+        if (RepositoryCache.getChecksum(KeyType.SHA256, candidate).equals(sha256)) {
+          // Found the archive in one of the distdirs, no need to download.
+          if (isCaching) {
+            repositoryCache.put(sha256, candidate, KeyType.SHA256);
+          }
+          FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
+          FileSystemUtils.copyFile(candidate, destination);
+          return destination;
         }
       }
     }
