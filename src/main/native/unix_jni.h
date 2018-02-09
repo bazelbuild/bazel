@@ -83,13 +83,17 @@ int StatSeconds(const portable_stat_struct &statbuf, StatTimes t);
 // Returns nanoseconds from a stat buffer.
 int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t);
 
-// Runs getxattr(2), if available. If not, sets errno to ENOSYS.
+// Runs getxattr(2). If the attribute is not found, returns -1 and sets
+// attr_not_found to true. For all other errors, returns -1, sets attr_not_found
+// to false and leaves errno set to the error code returned by the system.
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
-                          size_t size);
+                          size_t size, bool *attr_not_found);
 
-// Run lgetxattr(2), if available. If not, sets errno to ENOSYS.
+// Runs lgetxattr(2). If the attribute is not found, returns -1 and sets
+// attr_not_found to true. For all other errors, returns -1, sets attr_not_found
+// to false and leaves errno set to the error code returned by the system.
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
-                           size_t size);
+                           size_t size, bool *attr_not_found);
 
 // Run sysctlbyname(3), only available on darwin
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);

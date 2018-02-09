@@ -104,13 +104,17 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
 }
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
-                          size_t size) {
-  return getxattr(path, name, value, size, 0, 0);
+                          size_t size, bool *attr_not_found) {
+  ssize_t result = getxattr(path, name, value, size, 0, 0);
+  *attr_not_found = (errno == ENOATTR);
+  return result;
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
-                           size_t size) {
-  return getxattr(path, name, value, size, 0, XATTR_NOFOLLOW);
+                           size_t size, bool *attr_not_found) {
+  ssize_t result = getxattr(path, name, value, size, 0, XATTR_NOFOLLOW);
+  *attr_not_found = (errno == ENOATTR);
+  return result;
 }
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {

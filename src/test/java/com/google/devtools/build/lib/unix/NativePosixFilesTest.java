@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -26,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -110,5 +115,44 @@ public class NativePosixFilesTest {
       // When running in a sandbox, /bin might actually be a read-only file system.
       assertThat(e).hasMessage(foo + " (Read-only file system)");
     }
+  }
+
+  /** Skips the test if the file system does not support extended attributes. */
+  private static void assumeXattrsSupported() throws Exception {
+    // The standard file systems on macOS support extended attributes by default, so we can assume
+    // that the test will work on that platform. For other systems, we currently don't have a
+    // mechanism to validate this so the tests are skipped unconditionally.
+    assumeTrue(OS.getCurrent() == OS.DARWIN);
+  }
+
+  @Test
+  public void testGetxattr_AttributeFound() throws Exception {
+    assumeXattrsSupported();
+
+    String myfile = Files.createTempFile("getxattrtest", null).toString();
+    Runtime.getRuntime().exec("xattr -w foo bar " + myfile).waitFor();
+
+    assertThat(new String(NativePosixFiles.getxattr(myfile, "foo"), UTF_8)).isEqualTo("bar");
+    assertThat(new String(NativePosixFiles.lgetxattr(myfile, "foo"), UTF_8)).isEqualTo("bar");
+  }
+
+  @Test
+  public void testGetxattr_AttributeNotFoundReturnsNull() throws Exception {
+    assumeXattrsSupported();
+
+    String myfile = Files.createTempFile("getxattrtest", null).toString();
+
+    assertThat(NativePosixFiles.getxattr(myfile, "foo")).isNull();
+    assertThat(NativePosixFiles.lgetxattr(myfile, "foo")).isNull();
+  }
+
+  @Test
+  public void testGetxattr_FileNotFound() throws Exception {
+    String nonexistentFile = workingDir.getChild("nonexistent").toString();
+
+    assertThrows(
+        FileNotFoundException.class, () -> NativePosixFiles.getxattr(nonexistentFile, "foo"));
+    assertThrows(
+        FileNotFoundException.class, () -> NativePosixFiles.lgetxattr(nonexistentFile, "foo"));
   }
 }
