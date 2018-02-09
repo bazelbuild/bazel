@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.graph;
 
-import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -46,7 +46,7 @@ public final class Node<T> {
   // - null for size = 0.
   // - Collections$SingletonList for size = 1.
   // - ArrayList(6) for size = [2..6].
-  // - HashSet(12) for size > 6.
+  // - CompactHashSet(12) for size > 6.
   // These numbers were chosen based on profiling.
 
   private final T label;
@@ -164,8 +164,8 @@ public final class Node<T> {
       set.add(value);
       return true;
   } else if (previousSize == ARRAYLIST_THRESHOLD) {
-      // ArrayList -> HashSet
-      Collection<Node<T>> newSet = Sets.newHashSetWithExpectedSize(INITIAL_HASHSET_CAPACITY);
+      // ArrayList -> CompactHashSet
+      Collection<Node<T>> newSet = CompactHashSet.createWithExpectedSize(INITIAL_HASHSET_CAPACITY);
       newSet.addAll(set);
       newSet.add(value);
       return updateField(predecessorSet, newSet);
