@@ -7,6 +7,16 @@ filegroup(
     srcs = ["test-setup.sh"],
 )
 
+filegroup(
+    name = "test_setup",
+    srcs = ["test-setup.sh"],
+)
+
+filegroup(
+    name = "collect_coverage",
+    srcs = ["collect_coverage.sh"],
+)
+
 java_binary(
     name = "LcovMerger",
     srcs = glob(["LcovMerger/java/**/*.java"]),

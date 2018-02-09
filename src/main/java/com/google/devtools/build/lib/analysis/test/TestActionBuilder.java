@@ -202,10 +202,16 @@ public final class TestActionBuilder {
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
         && instrumentedFiles != null;
 
+    Artifact testSetupScript = ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
+    inputsBuilder.add(testSetupScript);
+
+    Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
+      collectCoverageScript = ruleContext.getHostPrerequisiteArtifact("$collect_coverage_script");
+      inputsBuilder.add(collectCoverageScript);
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
       // exec paths of all source files that should be included into the code coverage output.
@@ -301,7 +307,8 @@ public final class TestActionBuilder {
         }
 
         env.registerAction(new TestRunnerAction(
-            ruleContext.getActionOwner(), inputs, testRuntime,
+            ruleContext.getActionOwner(), inputs,
+            testSetupScript, collectCoverageScript,
             testLog, cacheStatus,
             coverageArtifact,
             testProperties, extraTestEnv, executionSettings,

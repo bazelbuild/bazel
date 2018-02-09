@@ -32,13 +32,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -71,7 +69,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
 
-  private final NestedSet<Artifact> runtime;
+  private final Artifact testSetupScript;
+  private final Artifact collectCoverageScript;
   private final BuildConfiguration configuration;
   private final TestConfiguration testConfiguration;
   private final Artifact testLog;
@@ -133,7 +132,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   TestRunnerAction(
       ActionOwner owner,
       Iterable<Artifact> inputs,
-      NestedSet<Artifact> runtime,   // Must be a subset of inputs
+      Artifact testSetupScript,  // Must be in inputs
+      @Nullable Artifact collectCoverageScript,  // Must be in inputs, if not null
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
@@ -151,7 +151,9 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         // Note that this action only cares about the runfiles, not the mapping.
         new RunfilesSupplierImpl(PathFragment.create("runfiles"), executionSettings.getRunfiles()),
         list(testLog, cacheStatus, coverageArtifact));
-    this.runtime = runtime;
+    Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
+    this.testSetupScript = testSetupScript;
+    this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(TestConfiguration.class));
@@ -693,14 +695,12 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return getOutputs();
   }
 
-  public Artifact getRuntimeArtifact(String basename) throws ExecException {
-    for (Artifact runtimeArtifact : runtime) {
-      if (runtimeArtifact.getExecPath().getBaseName().equals(basename)) {
-        return runtimeArtifact;
-      }
-    }
+  public Artifact getTestSetupScript() {
+    return testSetupScript;
+  }
 
-    throw new UserExecException("'" + basename + "' not found in test runtime");
+  @Nullable public Artifact getCollectCoverageScript() {
+    return collectCoverageScript;
   }
 
   public PathFragment getShExecutable() {

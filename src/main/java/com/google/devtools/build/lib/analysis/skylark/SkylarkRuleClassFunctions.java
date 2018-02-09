@@ -190,6 +190,14 @@ public class SkylarkRuleClassFunctions {
                 .value(
                     ImmutableList.of(
                         labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
+        .add(attr("$test_setup_script", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .singleArtifact()
+            .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_setup")))
+        .add(attr("$collect_coverage_script", LABEL)
+            .cfg(HostTransition.INSTANCE)
+            .singleArtifact()
+            .value(labelCache.getUnchecked(toolsRepository + "//tools/test:collect_coverage")))
         // Input files for test actions collecting code coverage
         .add(
             attr("$coverage_support", LABEL)

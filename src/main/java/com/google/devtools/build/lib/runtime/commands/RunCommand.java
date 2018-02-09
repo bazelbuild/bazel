@@ -461,7 +461,7 @@ public class RunCommand implements BlazeCommand  {
         // It's unfortunate that this method requires the path to the coverage collection script.
         // Fortunately, this is "blaze run" and not "blaze coverage", so it's okay unless someone
         // calls "blaze run --collect_code_coverage".
-        cmdLine = TestStrategy.getArgs("dummy-coverage-script", testAction);
+        cmdLine = TestStrategy.getArgs(testAction);
       } catch (ExecException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
