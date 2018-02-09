@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -155,7 +154,7 @@ public final class TargetCompleteEvent
       // For tests, announce all the test actions that will minimally happen (except for
       // interruption). If after the result of a test action another attempt is necessary,
       // it will be announced with the action that made the new attempt necessary.
-      Label label = target.getTarget().getLabel();
+      Label label = target.getLabel();
       TestProvider.TestParams params = target.getProvider(TestProvider.class).getTestParams();
       for (int run = 0; run < Math.max(params.getRuns(), 1); run++) {
         for (int shard = 0; shard < Math.max(params.getShards(), 1); shard++) {
@@ -187,15 +186,8 @@ public final class TargetCompleteEvent
         BuildEventStreamProtos.TargetComplete.newBuilder();
 
     builder.setSuccess(!failed());
-    builder.setTargetKind(target.getTarget().getTargetKind());
     builder.addAllTag(getTags());
     builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
-
-    if (isTest) {
-      builder.setTestSize(
-          TargetConfiguredEvent.bepTestSize(
-              TestSize.getTestSize(target.getTarget().getAssociatedRule())));
-    }
 
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer
     // need it.
