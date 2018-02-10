@@ -242,6 +242,7 @@ sh_test(
 sh_test(
     name = "build_event_stream_test",
     size = "medium",
+    timeout = "long",
     srcs = ["build_event_stream_test.sh"],
     data = [":test-deps"],
     shard_count = 2,
