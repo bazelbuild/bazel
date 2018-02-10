@@ -412,7 +412,9 @@ class Desugar {
           interfaceLambdaMethodCollector.build(),
           bridgeMethodReader);
 
-      desugarAndWriteGeneratedClasses(outputFileProvider, bootclasspathReader, coreLibrarySupport);
+      desugarAndWriteGeneratedClasses(
+          outputFileProvider, loader, bootclasspathReader, coreLibrarySupport);
+
       copyThrowableExtensionClass(outputFileProvider);
 
       byte[] depsInfo = depsCollector.toByteArray();
@@ -586,6 +588,7 @@ class Desugar {
 
   private void desugarAndWriteGeneratedClasses(
       OutputFileProvider outputFileProvider,
+      ClassLoader loader,
       ClassReaderFactory bootclasspathReader,
       @Nullable CoreLibrarySupport coreLibrarySupport)
       throws IOException {
@@ -603,6 +606,26 @@ class Desugar {
       if (coreLibrarySupport != null) {
         visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
         visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+      }
+
+      if (!allowTryWithResources) {
+        CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
+        generated.getValue().accept(closeResourceMethodScanner);
+        visitor =
+            new TryWithResourcesRewriter(
+                visitor,
+                loader,
+                visitedExceptionTypes,
+                numOfTryWithResourcesInvoked,
+                closeResourceMethodScanner.hasCloseResourceMethod());
+      }
+      if (!allowCallsToObjectsNonNull) {
+        // Not sure whether there will be implicit null check emitted by javac, so we rerun
+        // the inliner again
+        visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+      }
+      if (!allowCallsToLongCompare) {
+        visitor = new LongCompareMethodRewriter(visitor, rewriter);
       }
 
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
@@ -651,10 +674,10 @@ class Desugar {
     if (!allowCallsToObjectsNonNull) {
       // Not sure whether there will be implicit null check emitted by javac, so we rerun
       // the inliner again
-      visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
+      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
     }
     if (!allowCallsToLongCompare) {
-      visitor = new LongCompareMethodRewriter(visitor);
+      visitor = new LongCompareMethodRewriter(visitor, rewriter);
     }
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
@@ -730,10 +753,10 @@ class Desugar {
               closeResourceMethodScanner.hasCloseResourceMethod());
     }
     if (!allowCallsToObjectsNonNull) {
-      visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
+      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
     }
     if (!allowCallsToLongCompare) {
-      visitor = new LongCompareMethodRewriter(visitor);
+      visitor = new LongCompareMethodRewriter(visitor, rewriter);
     }
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
@@ -840,7 +863,7 @@ class Desugar {
     return dumpDirectory;
   }
 
-  private static DesugarOptions parseCommandLineOptions(String[] args) throws IOException {
+  private static DesugarOptions parseCommandLineOptions(String[] args) {
     OptionsParser parser = OptionsParser.newOptionsParser(DesugarOptions.class);
     parser.setAllowResidue(false);
     parser.enableParamsFileSupport(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
