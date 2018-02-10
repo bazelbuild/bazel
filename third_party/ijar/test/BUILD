@@ -188,6 +188,7 @@ java_test(
         "UseRestrictedAnnotation.java",
         "package-info.java",
         ":interface_ijar_testlib",
+        ":interface_ijar_testlib_with_target_label",
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
         ":module_info-interface.jar",
