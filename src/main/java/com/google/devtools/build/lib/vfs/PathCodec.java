@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.protobuf.CodedInputStream;
@@ -39,7 +41,7 @@ public class PathCodec implements ObjectCodec<Path> {
   }
 
   @Override
-  public void serialize(Path path, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, Path path, CodedOutputStream codedOut)
       throws IOException, SerializationException {
     Preconditions.checkState(
         path.getFileSystem() == fileSystem,
@@ -47,11 +49,12 @@ public class PathCodec implements ObjectCodec<Path> {
         path.getFileSystem(),
         fileSystem,
         path);
-    stringCodec.serialize(path.getPathString(), codedOut);
+    stringCodec.serialize(context, path.getPathString(), codedOut);
   }
 
   @Override
-  public Path deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
-    return fileSystem.getPath(stringCodec.deserialize(codedIn));
+  public Path deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws IOException, SerializationException {
+    return fileSystem.getPath(stringCodec.deserialize(context, codedIn));
   }
 }

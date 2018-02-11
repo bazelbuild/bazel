@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -63,12 +65,14 @@ class FastStringCodec implements ObjectCodec<String> {
   }
 
   @Override
-  public void serialize(String string, CodedOutputStream codedOut) throws IOException {
+  public void serialize(SerializationContext context, String string, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeStringNoTag(string);
   }
 
   @Override
-  public String deserialize(CodedInputStream codedIn) throws IOException {
+  public String deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws IOException {
     int length = codedIn.readInt32();
     if (length == 0) {
       return EMPTY_STRING;

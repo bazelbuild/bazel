@@ -53,14 +53,16 @@ public class SingletonCodec<T> implements ObjectCodec<T> {
   }
 
   @Override
-  public void serialize(T t, CodedOutputStream codedOut) throws IOException {
+  public void serialize(SerializationContext context, T t, CodedOutputStream codedOut)
+      throws IOException {
     // TODO(michajlo): See how usefuly mnemonic actually winds up being for debugging, we may
     // want to just toss it and trust that the classifier for this value is good enough.
     codedOut.writeByteArrayNoTag(mnemonic);
   }
 
   @Override
-  public T deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+  public T deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException, IOException {
     // Get ByteBuffer instead of raw bytes, as it may be a direct view of the data and not a copy,
     // which is much more efficient.
     ByteBuffer readMnemonic = codedIn.readByteBuffer();

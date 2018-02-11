@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
@@ -337,22 +339,23 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     @Override
-    public void serialize(BuildOptions buildOptions, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationContext context, BuildOptions buildOptions, CodedOutputStream codedOut)
         throws IOException, SerializationException {
       Collection<FragmentOptions> fragmentOptions = buildOptions.getOptions();
       codedOut.writeInt32NoTag(fragmentOptions.size());
       for (FragmentOptions options : buildOptions.getOptions()) {
-        FragmentOptions.CODEC.serialize(options, codedOut);
+        FragmentOptions.CODEC.serialize(context, options, codedOut);
       }
     }
 
     @Override
-    public BuildOptions deserialize(CodedInputStream codedIn)
+    public BuildOptions deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws IOException, SerializationException {
       BuildOptions.Builder builder = BuildOptions.builder();
       int length = codedIn.readInt32();
       for (int i = 0; i < length; ++i) {
-        builder.add(FragmentOptions.CODEC.deserialize(codedIn));
+        builder.add(FragmentOptions.CODEC.deserialize(context, codedIn));
       }
       return builder.build();
     }

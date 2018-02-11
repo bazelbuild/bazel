@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
@@ -109,7 +110,9 @@ public class ObjectCodecTester<T> {
   /** Runs junk-data recognition tests. */
   void testDeserializeJunkData() {
     try {
-      underTest.deserialize(CodedInputStream.newInstance("junk".getBytes(StandardCharsets.UTF_8)));
+      underTest.deserialize(
+          DeserializationContext.create(),
+          CodedInputStream.newInstance("junk".getBytes(StandardCharsets.UTF_8)));
       fail("Expected exception");
     } catch (SerializationException | IOException e) {
       // Expected.

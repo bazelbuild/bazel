@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -106,6 +108,7 @@ class AutoCodecUtil {
       builder.addParameter(TypeName.get(dependency.asType()), "dependency");
     }
     return builder
+        .addParameter(SerializationContext.class, "context")
         .addParameter(TypeName.get(encodedType.asType()), "input")
         .addParameter(CodedOutputStream.class, "codedOut");
   }
@@ -136,7 +139,9 @@ class AutoCodecUtil {
     if (dependency != null) {
       builder.addParameter(TypeName.get(dependency.asType()), "dependency");
     }
-    return builder.addParameter(CodedInputStream.class, "codedIn");
+    return builder
+        .addParameter(DeserializationContext.class, "context")
+        .addParameter(CodedInputStream.class, "codedIn");
   }
 
   /**

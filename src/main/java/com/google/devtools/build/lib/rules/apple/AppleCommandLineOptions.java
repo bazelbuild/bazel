@@ -24,8 +24,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -508,13 +510,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
     return host;
   }
 
-  void serialize(CodedOutputStream out) throws IOException, SerializationException {
-    CODEC.serialize(this, out);
+  void serialize(SerializationContext context, CodedOutputStream out)
+      throws IOException, SerializationException {
+    CODEC.serialize(context, this, out);
   }
 
-  static AppleCommandLineOptions deserialize(CodedInputStream in)
+  static AppleCommandLineOptions deserialize(DeserializationContext context, CodedInputStream in)
       throws IOException, SerializationException {
-    return CODEC.deserialize(in);
+    return CODEC.deserialize(context, in);
   }
 
   /** Converter for the Apple configuration distinguisher. */

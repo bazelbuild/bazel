@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -30,7 +32,9 @@ public class RepositoryNameCodec implements ObjectCodec<RepositoryName> {
   }
 
   @Override
-  public void serialize(RepositoryName repoName, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationContext context, RepositoryName repoName, CodedOutputStream codedOut)
+      throws IOException {
     boolean isMain = repoName.isMain();
     // Main is by far the most common. Use boolean to short-circuit string encoding on
     // serialization and byte[]/ByteString creation on deserialization.
@@ -41,7 +45,7 @@ public class RepositoryNameCodec implements ObjectCodec<RepositoryName> {
   }
 
   @Override
-  public RepositoryName deserialize(CodedInputStream codedIn)
+  public RepositoryName deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     boolean isMain = codedIn.readBool();
     if (isMain) {

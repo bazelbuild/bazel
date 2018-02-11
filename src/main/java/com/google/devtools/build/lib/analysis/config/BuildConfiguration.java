@@ -53,8 +53,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
@@ -2189,30 +2191,35 @@ public class BuildConfiguration implements BuildConfigurationInterface {
 
     @Override
     public void serialize(
-        FileSystemProvider fsProvider, BuildConfiguration obj, CodedOutputStream codedOut)
+        FileSystemProvider fsProvider,
+        SerializationContext context,
+        BuildConfiguration obj,
+        CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      BlazeDirectories.CODEC.serialize(fsProvider, obj.directories, codedOut);
+      BlazeDirectories.CODEC.serialize(fsProvider, context, obj.directories, codedOut);
       codedOut.writeInt32NoTag(obj.fragments.size());
       for (Fragment fragment : obj.fragments.values()) {
-        Fragment.CODEC.serialize(fsProvider, fragment, codedOut);
+        Fragment.CODEC.serialize(fsProvider, context, fragment, codedOut);
       }
-      BuildOptions.CODEC.serialize(obj.buildOptions, codedOut);
-      StringCodecs.asciiOptimized().serialize(obj.repositoryName, codedOut);
+      BuildOptions.CODEC.serialize(context, obj.buildOptions, codedOut);
+      StringCodecs.asciiOptimized().serialize(context, obj.repositoryName, codedOut);
     }
 
     @Override
-    public BuildConfiguration deserialize(FileSystemProvider fsProvider, CodedInputStream codedIn)
+    public BuildConfiguration deserialize(
+        FileSystemProvider fsProvider, DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      BlazeDirectories blazeDirectories = BlazeDirectories.CODEC.deserialize(fsProvider, codedIn);
+      BlazeDirectories blazeDirectories =
+          BlazeDirectories.CODEC.deserialize(fsProvider, context, codedIn);
       int length = codedIn.readInt32();
       ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> builder =
           new ImmutableSortedMap.Builder<>(lexicalFragmentSorter);
       for (int i = 0; i < length; ++i) {
-        Fragment fragment = Fragment.CODEC.deserialize(fsProvider, codedIn);
+        Fragment fragment = Fragment.CODEC.deserialize(fsProvider, context, codedIn);
         builder.put(fragment.getClass(), fragment);
       }
-      BuildOptions options = BuildOptions.CODEC.deserialize(codedIn);
-      String repositoryName = StringCodecs.asciiOptimized().deserialize(codedIn);
+      BuildOptions options = BuildOptions.CODEC.deserialize(context, codedIn);
+      String repositoryName = StringCodecs.asciiOptimized().deserialize(context, codedIn);
       return new BuildConfiguration(blazeDirectories, builder.build(), options, repositoryName);
     }
   }

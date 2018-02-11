@@ -41,13 +41,14 @@ public class InjectingObjectCodecAdapter<T, D> implements ObjectCodec<T> {
   }
 
   @Override
-  public void serialize(T obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, T obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    codec.serialize(dependency, obj, codedOut);
+    codec.serialize(dependency, context, obj, codedOut);
   }
 
   @Override
-  public T deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
-    return codec.deserialize(dependency, codedIn);
+  public T deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException, IOException {
+    return codec.deserialize(dependency, context, codedIn);
   }
 }

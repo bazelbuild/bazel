@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -42,7 +44,8 @@ public class PrecomputedValueCodec implements ObjectCodec<PrecomputedValue> {
   }
 
   @Override
-  public void serialize(PrecomputedValue obj, CodedOutputStream codedOut)
+  public void serialize(
+      SerializationContext context, PrecomputedValue obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     ObjectCodecs objectCodecs = objectCodecsSupplier.get();
     Object val = obj.get();
@@ -55,7 +58,7 @@ public class PrecomputedValueCodec implements ObjectCodec<PrecomputedValue> {
   }
 
   @Override
-  public PrecomputedValue deserialize(CodedInputStream codedIn)
+  public PrecomputedValue deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     ObjectCodecs objectCodecs = objectCodecsSupplier.get();
     Object val = objectCodecs.deserialize(codedIn.readBytes(), codedIn);

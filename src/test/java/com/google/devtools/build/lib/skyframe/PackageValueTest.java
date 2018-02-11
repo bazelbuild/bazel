@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageCodecDependencies.SimplePackageCodecDependencies;
 import com.google.devtools.build.lib.packages.PackageDeserializationException;
 import com.google.devtools.build.lib.packages.PackageDeserializerInterface;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -62,7 +63,7 @@ public class PackageValueTest {
         .thenReturn(mockPackage);
 
     CodedInputStream codedIn = CodedInputStream.newInstance(new byte[] {1, 2, 3, 4});
-    PackageValue result = underTest.deserialize(codedIn);
+    PackageValue result = underTest.deserialize(DeserializationContext.create(), codedIn);
 
     assertThat(result.getPackage()).isSameAs(mockPackage);
   }
@@ -73,7 +74,8 @@ public class PackageValueTest {
     doThrow(staged).when(mockDeserializer).deserialize(any(CodedInputStream.class));
 
     try {
-      underTest.deserialize(CodedInputStream.newInstance(new byte[] {1, 2, 3, 4}));
+      underTest.deserialize(
+          DeserializationContext.create(), CodedInputStream.newInstance(new byte[] {1, 2, 3, 4}));
       fail("Expected exception");
     } catch (IllegalStateException e) {
       assertThat(e)

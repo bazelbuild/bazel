@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -138,17 +140,18 @@ public class RootedPath implements Serializable {
     }
 
     @Override
-    public void serialize(RootedPath rootedPath, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationContext context, RootedPath rootedPath, CodedOutputStream codedOut)
         throws IOException, SerializationException {
-      rootCodec.serialize(rootedPath.getRoot(), codedOut);
-      PathFragment.CODEC.serialize(rootedPath.getRootRelativePath(), codedOut);
+      rootCodec.serialize(context, rootedPath.getRoot(), codedOut);
+      PathFragment.CODEC.serialize(context, rootedPath.getRootRelativePath(), codedOut);
     }
 
     @Override
-    public RootedPath deserialize(CodedInputStream codedIn)
+    public RootedPath deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws IOException, SerializationException {
-      Root root = rootCodec.deserialize(codedIn);
-      PathFragment rootRelativePath = PathFragment.CODEC.deserialize(codedIn);
+      Root root = rootCodec.deserialize(context, codedIn);
+      PathFragment rootRelativePath = PathFragment.CODEC.deserialize(context, codedIn);
       return toRootedPath(root, rootRelativePath);
     }
   }

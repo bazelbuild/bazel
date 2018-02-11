@@ -41,13 +41,15 @@ public class EnumCodec<T extends Enum<T>> implements ObjectCodec<T> {
   }
 
   @Override
-  public void serialize(T value, CodedOutputStream codedOut) throws IOException {
+  public void serialize(SerializationContext context, T value, CodedOutputStream codedOut)
+      throws IOException {
     Preconditions.checkNotNull(value, "Enum value for %s is null", enumClass);
     codedOut.writeEnumNoTag(value.ordinal());
   }
 
   @Override
-  public T deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+  public T deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException, IOException {
     int ordinal = codedIn.readEnum();
     try {
       return values.get(ordinal);

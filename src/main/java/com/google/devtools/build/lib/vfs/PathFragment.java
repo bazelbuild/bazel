@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
@@ -732,15 +734,16 @@ public final class PathFragment
     }
 
     @Override
-    public void serialize(PathFragment pathFragment, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationContext context, PathFragment pathFragment, CodedOutputStream codedOut)
         throws IOException, SerializationException {
-      stringCodec.serialize(pathFragment.getPathString(), codedOut);
+      stringCodec.serialize(context, pathFragment.getPathString(), codedOut);
     }
 
     @Override
-    public PathFragment deserialize(CodedInputStream codedIn)
+    public PathFragment deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws IOException, SerializationException {
-      return PathFragment.createAlreadyNormalized(stringCodec.deserialize(codedIn));
+      return PathFragment.createAlreadyNormalized(stringCodec.deserialize(context, codedIn));
     }
   }
 

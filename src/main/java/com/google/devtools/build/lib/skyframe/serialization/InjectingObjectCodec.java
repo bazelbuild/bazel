@@ -31,7 +31,7 @@ public interface InjectingObjectCodec<T, D> extends BaseCodec<T> {
    * @throws SerializationException on failure to serialize
    * @throws IOException on {@link IOException} during serialization
    */
-  void serialize(D dependency, T obj, CodedOutputStream codedOut)
+  void serialize(D dependency, SerializationContext context, T obj, CodedOutputStream codedOut)
       throws SerializationException, IOException;
 
   /**
@@ -43,5 +43,6 @@ public interface InjectingObjectCodec<T, D> extends BaseCodec<T> {
    * @throws SerializationException on failure to deserialize
    * @throws IOException on {@link IOException} during deserialization
    */
-  T deserialize(D dependency, CodedInputStream codedIn) throws SerializationException, IOException;
+  T deserialize(D dependency, DeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException, IOException;
 }

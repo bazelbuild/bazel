@@ -19,7 +19,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifierCodec;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -181,22 +183,23 @@ public final class GlobDescriptor implements SkyKey {
     }
 
     @Override
-    public void serialize(GlobDescriptor globDesc, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationContext context, GlobDescriptor globDesc, CodedOutputStream codedOut)
         throws IOException, SerializationException {
-      packageIdCodec.serialize(globDesc.getPackageId(), codedOut);
-      rootCodec.serialize(globDesc.getPackageRoot(), codedOut);
-      PathFragment.CODEC.serialize(globDesc.getSubdir(), codedOut);
-      stringCodec.serialize(globDesc.getPattern(), codedOut);
+      packageIdCodec.serialize(context, globDesc.getPackageId(), codedOut);
+      rootCodec.serialize(context, globDesc.getPackageRoot(), codedOut);
+      PathFragment.CODEC.serialize(context, globDesc.getSubdir(), codedOut);
+      stringCodec.serialize(context, globDesc.getPattern(), codedOut);
       codedOut.writeBoolNoTag(globDesc.excludeDirs());
     }
 
     @Override
-    public GlobDescriptor deserialize(CodedInputStream codedIn)
+    public GlobDescriptor deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      PackageIdentifier packageId = packageIdCodec.deserialize(codedIn);
-      Root packageRoot = rootCodec.deserialize(codedIn);
-      PathFragment pathFragment = PathFragment.CODEC.deserialize(codedIn);
-      String pattern = stringCodec.deserialize(codedIn);
+      PackageIdentifier packageId = packageIdCodec.deserialize(context, codedIn);
+      Root packageRoot = rootCodec.deserialize(context, codedIn);
+      PathFragment pathFragment = PathFragment.CODEC.deserialize(context, codedIn);
+      String pattern = stringCodec.deserialize(context, codedIn);
       boolean excludeDirs = codedIn.readBool();
       return GlobDescriptor.create(packageId, packageRoot, pathFragment, pattern, excludeDirs);
     }

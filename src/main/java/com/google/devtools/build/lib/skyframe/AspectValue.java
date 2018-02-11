@@ -35,8 +35,10 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ImmutableListCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -277,25 +279,25 @@ public final class AspectValue extends ActionLookupValue {
     }
 
     @Override
-    public void serialize(AspectKey obj, CodedOutputStream codedOut)
+    public void serialize(SerializationContext context, AspectKey obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      Label.CODEC.serialize(obj.label, codedOut);
-      ConfiguredTargetKey.CODEC.serialize(obj.baseConfiguredTargetKey, codedOut);
-      listCodec.serialize(obj.baseKeys, codedOut);
-      AspectDescriptor.CODEC.serialize(obj.aspectDescriptor, codedOut);
-      Key.CODEC.serialize(obj.aspectConfigurationKey, codedOut);
+      Label.CODEC.serialize(context, obj.label, codedOut);
+      ConfiguredTargetKey.CODEC.serialize(context, obj.baseConfiguredTargetKey, codedOut);
+      listCodec.serialize(context, obj.baseKeys, codedOut);
+      AspectDescriptor.CODEC.serialize(context, obj.aspectDescriptor, codedOut);
+      Key.CODEC.serialize(context, obj.aspectConfigurationKey, codedOut);
       codedOut.writeBoolNoTag(obj.aspectConfigurationIsHost());
     }
 
     @Override
-    public AspectKey deserialize(CodedInputStream codedIn)
+    public AspectKey deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       return createAspectKey(
-          Label.CODEC.deserialize(codedIn),
-          ConfiguredTargetKey.CODEC.deserialize(codedIn),
-          listCodec.deserialize(codedIn),
-          AspectDescriptor.CODEC.deserialize(codedIn),
-          Key.CODEC.deserialize(codedIn),
+          Label.CODEC.deserialize(context, codedIn),
+          ConfiguredTargetKey.CODEC.deserialize(context, codedIn),
+          listCodec.deserialize(context, codedIn),
+          AspectDescriptor.CODEC.deserialize(context, codedIn),
+          Key.CODEC.deserialize(context, codedIn),
           codedIn.readBool());
     }
   }

@@ -52,13 +52,13 @@ public class ObjectCodecsTest {
     }
 
     @Override
-    public void serialize(Integer obj, CodedOutputStream codedOut)
+    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       codedOut.writeInt32NoTag(obj);
     }
 
     @Override
-    public Integer deserialize(CodedInputStream codedIn)
+    public Integer deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       return codedIn.readInt32();
     }
@@ -93,15 +93,17 @@ public class ObjectCodecsTest {
             new Answer<Void>() {
               @Override
               public Void answer(InvocationOnMock invocation) throws IOException {
-                CodedOutputStream codedOutArg = (CodedOutputStream) invocation.getArguments()[1];
+                CodedOutputStream codedOutArg = (CodedOutputStream) invocation.getArguments()[2];
                 codedOutArg.writeInt32NoTag(42);
                 return null;
               }
             })
         .when(spyObjectCodec)
-        .serialize(eq(original), any(CodedOutputStream.class));
+        .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
     ArgumentCaptor<CodedInputStream> captor = ArgumentCaptor.forClass(CodedInputStream.class);
-    doReturn(original).when(spyObjectCodec).deserialize(captor.capture());
+    doReturn(original)
+        .when(spyObjectCodec)
+        .deserialize(any(DeserializationContext.class), captor.capture());
 
     ByteString serialized = underTest.serialize(KNOWN_CLASSIFIER, original);
     Object deserialized = underTest.deserialize(KNOWN_CLASSIFIER_BYTES, serialized);
@@ -128,8 +130,11 @@ public class ObjectCodecsTest {
     Object deserialized = underTest.deserialize(UNKNOWN_CLASSIFIER_BYTES, serialized);
     assertThat(deserialized).isEqualTo(original);
 
-    verify(spyObjectCodec, never()).serialize(any(Integer.class), any(CodedOutputStream.class));
-    verify(spyObjectCodec, never()).deserialize(any(CodedInputStream.class));
+    verify(spyObjectCodec, never())
+        .serialize(
+            any(SerializationContext.class), any(Integer.class), any(CodedOutputStream.class));
+    verify(spyObjectCodec, never())
+        .deserialize(any(DeserializationContext.class), any(CodedInputStream.class));
   }
 
   @Test
@@ -137,7 +142,9 @@ public class ObjectCodecsTest {
     Integer original = Integer.valueOf(12345);
 
     SerializationException staged = new SerializationException("BECAUSE FAIL");
-    doThrow(staged).when(spyObjectCodec).serialize(eq(original), any(CodedOutputStream.class));
+    doThrow(staged)
+        .when(spyObjectCodec)
+        .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
     try {
       underTest.serialize(KNOWN_CLASSIFIER, original);
       fail("Expected exception");
@@ -152,7 +159,9 @@ public class ObjectCodecsTest {
     Integer original = Integer.valueOf(12345);
 
     IOException staged = new IOException("BECAUSE FAIL");
-    doThrow(staged).when(spyObjectCodec).serialize(eq(original), any(CodedOutputStream.class));
+    doThrow(staged)
+        .when(spyObjectCodec)
+        .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
     try {
       underTest.serialize(KNOWN_CLASSIFIER, original);
       fail("Expected exception");
@@ -164,7 +173,9 @@ public class ObjectCodecsTest {
   @Test
   public void testDeserializePropagatesSerializationExceptionFromCustomCodec() throws Exception {
     SerializationException staged = new SerializationException("BECAUSE FAIL");
-    doThrow(staged).when(spyObjectCodec).deserialize(any(CodedInputStream.class));
+    doThrow(staged)
+        .when(spyObjectCodec)
+        .deserialize(any(DeserializationContext.class), any(CodedInputStream.class));
     try {
       underTest.deserialize(KNOWN_CLASSIFIER_BYTES, ByteString.EMPTY);
       fail("Expected exception");
@@ -177,7 +188,9 @@ public class ObjectCodecsTest {
   public void testDeserializePropagatesIOExceptionFromCustomCodecAsSerializationException()
       throws Exception {
     IOException staged = new IOException("BECAUSE FAIL");
-    doThrow(staged).when(spyObjectCodec).deserialize(any(CodedInputStream.class));
+    doThrow(staged)
+        .when(spyObjectCodec)
+        .deserialize(any(DeserializationContext.class), any(CodedInputStream.class));
     try {
       underTest.deserialize(KNOWN_CLASSIFIER_BYTES, ByteString.EMPTY);
       fail("Expected exception");
@@ -213,9 +226,9 @@ public class ObjectCodecsTest {
   public void testSerializeFailsWhenNoCustomCodecAndFallbackDisabled() throws Exception {
     ObjectCodecs underTest = new ObjectCodecs(
         ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build());
-    SerializationException.NoCodecException expected = expectThrows(
-        SerializationException.NoCodecException.class,
-        () -> underTest.serialize("X", "Y"));
+    SerializationException.NoCodecException expected =
+        expectThrows(
+            SerializationException.NoCodecException.class, () -> underTest.serialize("X", "Y"));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("No codec available for X and default fallback disabled");
@@ -226,9 +239,10 @@ public class ObjectCodecsTest {
     ByteString serialized = ByteString.copyFromUtf8("doesn't matter");
     ObjectCodecs underTest = new ObjectCodecs(
         ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build());
-    SerializationException.NoCodecException expected = expectThrows(
-        SerializationException.NoCodecException.class,
-        () -> underTest.deserialize(ByteString.copyFromUtf8("X"), serialized));
+    SerializationException.NoCodecException expected =
+        expectThrows(
+            SerializationException.NoCodecException.class,
+            () -> underTest.deserialize(ByteString.copyFromUtf8("X"), serialized));
 
     assertThat(expected)
         .hasMessageThat()

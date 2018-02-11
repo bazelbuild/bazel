@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.protobuf.CodedInputStream;
@@ -35,16 +37,17 @@ public class LabelCodec implements ObjectCodec<Label> {
   }
 
   @Override
-  public void serialize(Label label, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, Label label, CodedOutputStream codedOut)
       throws IOException, SerializationException {
-    packageIdCodec.serialize(label.getPackageIdentifier(), codedOut);
-    stringCodec.serialize(label.getName(), codedOut);
+    packageIdCodec.serialize(context, label.getPackageIdentifier(), codedOut);
+    stringCodec.serialize(context, label.getName(), codedOut);
   }
 
   @Override
-  public Label deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
-    PackageIdentifier packageId = packageIdCodec.deserialize(codedIn);
-    String name = stringCodec.deserialize(codedIn);
+  public Label deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException, IOException {
+    PackageIdentifier packageId = packageIdCodec.deserialize(context, codedIn);
+    String name = stringCodec.deserialize(context, codedIn);
     return Label.createUnvalidated(packageId, name);
   }
 }

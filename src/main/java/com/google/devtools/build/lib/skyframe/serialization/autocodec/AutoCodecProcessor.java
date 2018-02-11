@@ -411,8 +411,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
           break;
         case DECLARED:
           marshallers.writeSerializationCode(
-              new Marshaller.Context(
-                  serializeBuilder, (DeclaredType) parameter.asType(), paramAccessor));
+              new Marshaller.Context(serializeBuilder, parameter.asType(), paramAccessor));
           break;
         default:
           throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
@@ -446,7 +445,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
           break;
         case DECLARED:
           marshallers.writeDeserializationCode(
-              new Marshaller.Context(builder, (DeclaredType) parameter.asType(), paramName));
+              new Marshaller.Context(builder, parameter.asType(), paramName));
           break;
         default:
           throw new IllegalArgumentException("Unimplemented or invalid kind: " + typeKind);
@@ -616,10 +615,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
     TypeName polyClass = TypeName.get(env.getTypeUtils().erasure(encodedType.asType()));
     if (dependency == null) {
       builder.addStatement(
-          "$T.serialize(input, $T.class, codedOut, null)", PolymorphicHelper.class, polyClass);
+          "$T.serialize(context, input, $T.class, codedOut, null)",
+          PolymorphicHelper.class,
+          polyClass);
     } else {
       builder.addStatement(
-          "$T.serialize(input, $T.class, codedOut, $T.ofNullable(dependency))",
+          "$T.serialize(context, input, $T.class, codedOut, $T.ofNullable(dependency))",
           PolymorphicHelper.class,
           polyClass,
           Optional.class);
@@ -633,12 +634,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, dependency);
     if (dependency == null) {
       builder.addStatement(
-          "return ($T) $T.deserialize(codedIn, null)",
+          "return ($T) $T.deserialize(context, codedIn, null)",
           TypeName.get(encodedType.asType()),
           PolymorphicHelper.class);
     } else {
       builder.addStatement(
-          "return ($T) $T.deserialize(codedIn, $T.ofNullable(dependency))",
+          "return ($T) $T.deserialize(context, codedIn, $T.ofNullable(dependency))",
           TypeName.get(encodedType.asType()),
           PolymorphicHelper.class,
           Optional.class);

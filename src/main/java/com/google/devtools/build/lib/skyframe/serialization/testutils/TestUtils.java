@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.syntax.Environment.Frame;
@@ -35,7 +37,7 @@ public class TestUtils {
       throws IOException, SerializationException {
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
-    codec.serialize(value, codedOut);
+    codec.serialize(SerializationContext.create(), value, codedOut);
     codedOut.flush();
     return bytes.toByteArray();
   }
@@ -43,7 +45,7 @@ public class TestUtils {
   /** Deserialize a value from a byte array. */
   public static <T> T fromBytes(ObjectCodec<T> codec, byte[] bytes)
       throws SerializationException, IOException {
-    return codec.deserialize(CodedInputStream.newInstance(bytes));
+    return codec.deserialize(DeserializationContext.create(), CodedInputStream.newInstance(bytes));
   }
 
   /**
@@ -77,15 +79,15 @@ public class TestUtils {
     }
 
     @Override
-    public void serialize(String value, CodedOutputStream codedOut)
+    public void serialize(SerializationContext context, String value, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      stringCodec.serialize("dummy", codedOut);
+      stringCodec.serialize(context, "dummy", codedOut);
     }
 
     @Override
-    public String deserialize(CodedInputStream codedIn)
+    public String deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      stringCodec.deserialize(codedIn);
+      stringCodec.deserialize(context, codedIn);
       return "dummy";
     }
   }

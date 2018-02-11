@@ -1584,13 +1584,19 @@ public class Package {
 
     @Override
     public void serialize(
-        PackageCodecDependencies codecDeps, Package input, CodedOutputStream codedOut)
+        PackageCodecDependencies codecDeps,
+        com.google.devtools.build.lib.skyframe.serialization.SerializationContext context,
+        Package input,
+        CodedOutputStream codedOut)
         throws IOException, SerializationException {
       codecDeps.getPackageSerializer().serialize(input, codedOut);
     }
 
     @Override
-    public Package deserialize(PackageCodecDependencies codecDeps, CodedInputStream codedIn)
+    public Package deserialize(
+        PackageCodecDependencies codecDeps,
+        com.google.devtools.build.lib.skyframe.serialization.DeserializationContext context,
+        CodedInputStream codedIn)
         throws SerializationException, IOException {
       try {
         return codecDeps.getPackageDeserializer().deserialize(codedIn);

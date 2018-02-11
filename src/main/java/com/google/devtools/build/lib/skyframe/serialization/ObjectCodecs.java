@@ -94,7 +94,7 @@ public class ObjectCodecs {
     // in some situations, bypassing a copy.
     codedIn.enableAliasing(true);
     try {
-      Object result = codec.deserialize(codedIn);
+      Object result = codec.deserialize(DeserializationContext.create(), codedIn);
       if (result == null) {
         throw new NullPointerException(
             "ObjectCodec " + codec + " for " + classifier.toStringUtf8() + " returned null");
@@ -110,7 +110,8 @@ public class ObjectCodecs {
       String classifier, ObjectCodec<T> codec, Object subject, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     try {
-      codec.serialize(codec.getEncodedClass().cast(subject), codedOut);
+      codec.serialize(
+          SerializationContext.create(), codec.getEncodedClass().cast(subject), codedOut);
     } catch (ClassCastException e) {
       throw new SerializationException(
           "Codec "

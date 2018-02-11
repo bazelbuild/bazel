@@ -25,23 +25,29 @@ import java.io.IOException;
 public interface ObjectCodec<T> extends BaseCodec<T> {
 
   /**
-   * Serializes {@code obj}, inverse of {@link #deserialize(CodedInputStream)}.
+   * Serializes {@code obj}, inverse of {@link #deserialize}.
    *
+   * @param context {@link SerializationContext} providing additional information to the
+   *     serialization process
    * @param obj the object to serialize
    * @param codedOut the {@link CodedOutputStream} to write this object into. Implementations need
    *     not call {@link CodedOutputStream#flush()}, this should be handled by the caller.
    * @throws SerializationException on failure to serialize
    * @throws IOException on {@link IOException} during serialization
    */
-  void serialize(T obj, CodedOutputStream codedOut) throws SerializationException, IOException;
+  void serialize(SerializationContext context, T obj, CodedOutputStream codedOut)
+      throws SerializationException, IOException;
 
   /**
-   * Deserializes from {@code codedIn}, inverse of {@link #serialize(Object, CodedOutputStream)}.
+   * Deserializes from {@code codedIn}, inverse of {@link #serialize}.
    *
+   * @param context {@link DeserialiationContext} for providing additional information to the
+   *     deserialization process.
    * @param codedIn the {@link CodedInputStream} to read the serialized object from
    * @return the object deserialized from {@code codedIn}
    * @throws SerializationException on failure to deserialize
    * @throws IOException on {@link IOException} during deserialization
    */
-  T deserialize(CodedInputStream codedIn) throws SerializationException, IOException;
+  T deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException, IOException;
 }

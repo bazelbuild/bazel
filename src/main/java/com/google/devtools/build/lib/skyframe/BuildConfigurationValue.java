@@ -21,8 +21,10 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -134,20 +136,21 @@ public class BuildConfigurationValue implements SkyValue {
       }
 
       @Override
-      public void serialize(Key obj, CodedOutputStream codedOut)
+      public void serialize(SerializationContext context, Key obj, CodedOutputStream codedOut)
           throws SerializationException, IOException {
-        BuildOptions.CODEC.serialize(obj.buildOptions, codedOut);
+        BuildOptions.CODEC.serialize(context, obj.buildOptions, codedOut);
         codedOut.writeInt32NoTag(obj.fragments.fragmentClasses().size());
         for (Class<? extends BuildConfiguration.Fragment> fragment :
             obj.fragments.fragmentClasses()) {
-          StringCodecs.asciiOptimized().serialize(fragment.getName(), codedOut);
+          StringCodecs.asciiOptimized().serialize(context, fragment.getName(), codedOut);
         }
       }
 
       @Override
       @SuppressWarnings("unchecked") // Class<? extends...> cast
-      public Key deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
-        BuildOptions buildOptions = BuildOptions.CODEC.deserialize(codedIn);
+      public Key deserialize(DeserializationContext context, CodedInputStream codedIn)
+          throws SerializationException, IOException {
+        BuildOptions buildOptions = BuildOptions.CODEC.deserialize(context, codedIn);
         int fragmentsSize = codedIn.readInt32();
         ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
             ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
@@ -155,7 +158,7 @@ public class BuildConfigurationValue implements SkyValue {
           try {
             fragmentsBuilder.add(
                 (Class<? extends BuildConfiguration.Fragment>)
-                    Class.forName(StringCodecs.asciiOptimized().deserialize(codedIn)));
+                    Class.forName(StringCodecs.asciiOptimized().deserialize(context, codedIn)));
           } catch (ClassNotFoundException e) {
             throw new SerializationException(
                 "Couldn't deserialize BuildConfigurationValue$Key fragment class", e);

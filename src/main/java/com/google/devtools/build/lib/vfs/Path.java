@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
@@ -915,17 +917,22 @@ public class Path
     }
 
     @Override
-    public void serialize(FileSystemProvider fsProvider, Path path, CodedOutputStream codedOut)
+    public void serialize(
+        FileSystemProvider fsProvider,
+        SerializationContext context,
+        Path path,
+        CodedOutputStream codedOut)
         throws IOException, SerializationException {
       Preconditions.checkArgument(path.getFileSystem() == fsProvider.getFileSystem());
-      stringCodec.serialize(path.getPathString(), codedOut);
+      stringCodec.serialize(context, path.getPathString(), codedOut);
     }
 
     @Override
-    public Path deserialize(FileSystemProvider fsProvider, CodedInputStream codedIn)
+    public Path deserialize(
+        FileSystemProvider fsProvider, DeserializationContext context, CodedInputStream codedIn)
         throws IOException, SerializationException {
       return Path.createAlreadyNormalized(
-          stringCodec.deserialize(codedIn), fsProvider.getFileSystem());
+          stringCodec.deserialize(context, codedIn), fsProvider.getFileSystem());
     }
   }
 }

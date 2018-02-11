@@ -33,7 +33,7 @@ class JavaSerializableCodec implements ObjectCodec<Object> {
   }
 
   @Override
-  public void serialize(Object obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     ByteString.Output out = ByteString.newOutput();
     ObjectOutputStream objOut = new ObjectOutputStream(out);
@@ -49,7 +49,8 @@ class JavaSerializableCodec implements ObjectCodec<Object> {
   }
 
   @Override
-  public Object deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+  public Object deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException, IOException {
     try {
       // Get the ByteBuffer as it is potentially a view of the underlying bytes (not a copy), which
       // is more efficient.

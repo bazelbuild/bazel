@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.protobuf.CodedInputStream;
@@ -211,24 +213,27 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     }
 
     @Override
-    public void serialize(ConfiguredTargetKey obj, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationContext context, ConfiguredTargetKey obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      Label.CODEC.serialize(obj.label, codedOut);
+      Label.CODEC.serialize(context, obj.label, codedOut);
       if (obj.configurationKey == null) {
         codedOut.writeBoolNoTag(false);
       } else {
         codedOut.writeBoolNoTag(true);
-        BuildConfigurationValue.Key.CODEC.serialize(obj.configurationKey, codedOut);
+        BuildConfigurationValue.Key.CODEC.serialize(context, obj.configurationKey, codedOut);
       }
       codedOut.writeBoolNoTag(obj.isHostConfiguration());
     }
 
     @Override
-    public ConfiguredTargetKey deserialize(CodedInputStream codedIn)
+    public ConfiguredTargetKey deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       return of(
-          Label.CODEC.deserialize(codedIn),
-          codedIn.readBool() ? BuildConfigurationValue.Key.CODEC.deserialize(codedIn) : null,
+          Label.CODEC.deserialize(context, codedIn),
+          codedIn.readBool()
+              ? BuildConfigurationValue.Key.CODEC.deserialize(context, codedIn)
+              : null,
           codedIn.readBool());
     }
   }

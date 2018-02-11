@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -263,11 +265,15 @@ public interface Root extends Comparable<Root>, Serializable {
     }
 
     @Override
-    public void serialize(FileSystemProvider dependency, Root obj, CodedOutputStream codedOut)
+    public void serialize(
+        FileSystemProvider dependency,
+        SerializationContext context,
+        Root obj,
+        CodedOutputStream codedOut)
         throws SerializationException, IOException {
       if (obj instanceof PathRoot) {
         codedOut.writeBoolNoTag(false);
-        Path.CODEC.serialize(dependency, ((PathRoot) obj).path, codedOut);
+        Path.CODEC.serialize(dependency, context, ((PathRoot) obj).path, codedOut);
       } else if (obj instanceof AbsoluteRoot) {
         Preconditions.checkArgument(((AbsoluteRoot) obj).fileSystem == dependency.getFileSystem());
         codedOut.writeBoolNoTag(true);
@@ -277,13 +283,14 @@ public interface Root extends Comparable<Root>, Serializable {
     }
 
     @Override
-    public Root deserialize(FileSystemProvider dependency, CodedInputStream codedIn)
+    public Root deserialize(
+        FileSystemProvider dependency, DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       boolean isAbsolute = codedIn.readBool();
       if (isAbsolute) {
         return dependency.getFileSystem().getAbsoluteRoot();
       } else {
-        Path path = Path.CODEC.deserialize(dependency, codedIn);
+        Path path = Path.CODEC.deserialize(dependency, context, codedIn);
         return new PathRoot(path);
       }
     }
