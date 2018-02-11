@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -109,6 +111,23 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    deps = extra_deps",
         "    manifest = 'NotAndroidManifest.xml')");
     assertNoEvents();
+  }
+
+  @Test
+  public void testCustomPackage() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "android_local_test(name = 'dummyTest',",
+        "    srcs = ['test.java'],",
+        "    custom_package = 'custom.pkg',",
+        "    test_class = 'test',",
+        "    deps = extra_deps)");
+    ConfiguredTarget target = getConfiguredTarget("//a:dummyTest");
+    Artifact resourcesClassJar =
+        getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
+    List<String> args = getGeneratingSpawnActionArgs(resourcesClassJar);
+    MoreAsserts.assertContainsSublist(args, "--packageForR", "custom.pkg");
   }
 
   @Override

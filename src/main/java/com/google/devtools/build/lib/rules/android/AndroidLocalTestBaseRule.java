@@ -129,6 +129,12 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         the libraries under test have a <code>minSdkVersion</code> tag in them.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("manifest", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(custom_package) -->
+        Java package in which the R class will be generated. By default the package is inferred
+        from the directory where the BUILD file containing the rule is. If you use this attribute,
+        you will likely need to use <code>test_class</code> as well.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("custom_package", STRING))
         .add(
             attr("resource_files", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
