@@ -1,6 +1,6 @@
 package com.google.testing.junit.runner.model;
 
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
@@ -16,14 +16,29 @@ public class AntXmlResultWriterTest {
     private static final long NOW = 1;
     private static TestSuiteNode root;
     private static XmlWriter writer;
-    private static AntXmlResultWriter resultWriter = new AntXmlResultWriter();
+    private static AntXmlResultWriter resultWriter;
     private static StringWriter stringWriter;
 
-    @BeforeClass
-    public static void createDescriptions() {
+    @Before
+    public void before() {
         stringWriter = new StringWriter();
         writer = XmlWriter.createForTesting(stringWriter);
+        resultWriter = new AntXmlResultWriter();
         root = new TestSuiteNode(Description.createSuiteDescription("root"));
+    }
+
+    @Test
+    public void allPassingTestCasesWritten() throws IOException {
+        TestSuiteNode parent = createTestSuite();
+        TestCaseNode test1 = createTestCase(parent);
+        TestCaseNode test2 = createTestCase(parent);
+        runToCompletion(test1);
+        runToCompletion(test2);
+
+        resultWriter.writeTestSuites(writer, root.getResult());
+        String resultXml = stringWriter.toString();
+        assertThat(resultXml).contains("<testcase name='testCase1'");
+        assertThat(resultXml).contains("<testcase name='testCase2'");
     }
 
     @Test
@@ -37,15 +52,13 @@ public class AntXmlResultWriterTest {
         resultWriter.writeTestSuites(writer, root.getResult());
 
         String resultXml = stringWriter.toString();
-        assertThat(resultXml)
-                .contains("<testcase name='testCase1' classname='com.google.testing.junit.runner.model.TestCaseNodeTest$TestSuite'");
-        assertThat(resultXml)
-                .doesNotContain("<testcase name='testCase2' classname='com.google.testing.junit.runner.model.TestCaseNodeTest$TestSuite'");
+        assertThat(resultXml).contains("<testcase name='testCase1'");
+        assertThat(resultXml).doesNotContain("<testcase name='testCase2'");
     }
 
-    private void runToCompletion(TestCaseNode test1) {
-        test1.started(NOW);
-        test1.finished(NOW + 1);
+    private void runToCompletion(TestCaseNode test) {
+        test.started(NOW);
+        test.finished(NOW + 1);
     }
 
     private TestCaseNode createTestCase(TestSuiteNode parent) {
