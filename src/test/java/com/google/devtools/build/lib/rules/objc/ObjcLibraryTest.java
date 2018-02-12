@@ -1971,4 +1971,16 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testObjcSourcesFeatureObjcPlusPlus() throws Exception {
      assertThat(containsObjcFeature("c.mm")).isTrue();
   }
+
+  @Test
+  public void testHeaderPassedToCcLib() throws Exception {
+    createLibraryTargetWriter("//objc:lib").setList("hdrs", "objc_hdr.h").write();
+    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc:lib")
+        .setList("srcs", "a.cc")
+        .setList("deps", "//objc:lib")
+        .write();
+    CommandAction compileAction = compileAction("//cc:lib", "a.o");
+    assertThat(Artifact.toRootRelativePaths(compileAction.getPossibleInputsForTesting()))
+        .contains("objc/objc_hdr.h");
+  }
 }

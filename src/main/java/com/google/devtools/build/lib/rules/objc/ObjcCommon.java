@@ -90,7 +90,7 @@ import java.util.Set;
 public final class ObjcCommon {
 
   /** Filters fileset artifacts out of a group of artifacts. */
-  public static Iterable<Artifact> filterFileset(Iterable<Artifact> artifacts) {
+  public static ImmutableList<Artifact> filterFileset(Iterable<Artifact> artifacts) {
     ImmutableList.Builder<Artifact> inputs = ImmutableList.<Artifact>builder();
     for (Artifact artifact : artifacts) {
       if (!artifact.isFileset()) {
