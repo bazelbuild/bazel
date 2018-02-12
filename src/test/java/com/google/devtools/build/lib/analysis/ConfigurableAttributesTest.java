@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment.TargetProviderEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -434,14 +434,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     // Configuration a:
     useConfiguration("--test_arg=a");
-    ConfiguredTarget binary = getConfiguredTarget("//test:the_rule");
-    AttributeMap attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
+    ConfiguredTargetAndTarget binary = getConfiguredTargetAndTarget("//test:the_rule");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(binary);
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("a2");
 
     // configuration b:
     useConfiguration("--test_arg=b");
-    binary = getConfiguredTarget("//test:the_rule");
-    attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
+    binary = getConfiguredTargetAndTarget("//test:the_rule");
+    attributes = getMapperFromConfiguredTargetAndTarget(binary);
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("b2");
   }
 
@@ -1080,8 +1080,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
 
     useConfiguration("--test_arg=a");
-    ConfiguredTarget binary = getConfiguredTarget("//srctest:gen");
-    AttributeMap attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
+    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget("//srctest:gen");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctat);
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }
 
@@ -1099,8 +1099,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    boolean_attr = 1)");
 
     useConfiguration("--test_arg=a");
-    ConfiguredTarget binary = getConfiguredTarget("//foo:rule");
-    AttributeMap attributes = ((RuleConfiguredTarget) binary).getAttributeMapper();
+    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget("//foo:rule");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctat);
     assertThat(attributes.get("dep", BuildType.LABEL)).isEqualTo(
         Label.parseAbsolute("//foo:default"));
   }

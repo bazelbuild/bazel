@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -56,7 +57,9 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .build();
     aspectAttributes = ImmutableMap.<String, Attribute>of(aspectAttr.getName(), aspectAttr);
-    mapper = new AspectAwareAttributeMapper(ct.getAttributeMapper(), aspectAttributes);
+    mapper =
+        new AspectAwareAttributeMapper(
+            ConfiguredAttributeMapper.of(rule, ct.getConfigConditions()), aspectAttributes);
   }
 
   @Test
