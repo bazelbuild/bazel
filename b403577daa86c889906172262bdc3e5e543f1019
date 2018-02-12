@@ -1,0 +1,4 @@
+Important changes:
+
+  - Resolved an issue where a failure in the remote cache would not
+    trigger local re-execution of an action.
