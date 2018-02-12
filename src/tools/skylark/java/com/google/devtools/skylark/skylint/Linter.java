@@ -45,6 +45,7 @@ public class Linter {
           .put("naming", NamingConventionsChecker::check)
           .put("no-effect", StatementWithoutEffectChecker::check)
           .put("usage", UsageChecker::check)
+          .put("bad-recursive-glob", NativeRecursiveGlobChecker::check)
           .build();
   /** Map of all multi-file checks and their names. */
   private static final ImmutableMap<String, MultiFileCheck> nameToMultiFileCheck =
