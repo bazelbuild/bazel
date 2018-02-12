@@ -72,6 +72,11 @@ public final class TargetCompleteEvent
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
 
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
+    Label label = getTarget().getLabel();
+    if (target instanceof AliasConfiguredTarget) {
+      label = ((AliasConfiguredTarget) target).getOriginalLabel();
+    }
+    postedAfterBuilder.add(BuildEventId.targetConfigured(label));
     for (Cause cause : getRootCauses()) {
       postedAfterBuilder.add(BuildEventId.fromCause(cause));
     }

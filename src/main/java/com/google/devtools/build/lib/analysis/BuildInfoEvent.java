@@ -16,16 +16,16 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import java.util.Collection;
 import java.util.Map;
 
 /** This event is fired once build info data is available. */
-public final class BuildInfoEvent implements BuildEvent {
+public final class BuildInfoEvent implements BuildEventWithOrderConstraint {
   private final Map<String, String> buildInfoMap;
 
   /**
@@ -50,6 +50,11 @@ public final class BuildInfoEvent implements BuildEvent {
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.<BuildEventId>of();
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return ImmutableList.<BuildEventId>of(BuildEventId.buildStartedId());
   }
 
   @Override
