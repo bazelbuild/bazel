@@ -109,15 +109,10 @@ import javax.annotation.Nullable;
       "<p>This type represents a file or directory used by the build system. It can be "
           + "either a source file or a derived file produced by a rule.</p>"
           + "<p>The File constructor is private, so you cannot call it directly to create new "
-          + "Files. If you have a Skylark rule that needs to create a new File, "
-          + "you have two options:"
-          + "<ul>"
-          + "<li>use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> "
-          + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a> to "
-          + "declare a new file in the rule implementation.</li>"
-          + "<li>add the label to the attrs (if it's an input) or the outputs (if it's an output)."
-          + " Then you can access the File through the rule's "
-          + "<a href='ctx.html#outputs'>ctx.outputs</a>."
+          + "Files. You typically get a File object from a "
+          + "<a href='Target.html'>Target</a>, or using "
+          + "<a href='actions.html#declare_file'>ctx.actions.declare_file</a>, "
+          + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a>."
 )
 @AutoCodec(dependency = FileSystemProvider.class)
 public class Artifact

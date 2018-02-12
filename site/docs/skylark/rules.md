@@ -135,6 +135,8 @@ files. For each generated file, there must be one and only one generating
 action, and each action must generate one or more output files. Bazel will throw
 an error otherwise.
 
+A file is represented with the [File](lib/File.html) object.
+
 ## Targets
 
 Every build rule corresponds to exactly one target. A target can create
