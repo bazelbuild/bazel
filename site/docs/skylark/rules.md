@@ -200,8 +200,8 @@ for accessing declared outputs.
 
 The rule can also create extra output files during the analysis phase using the
 [ctx.actions.declare_file](lib/actions.html#declare_file) function. This is
-more flexible, but those files are not declared: they don't have any associated
-label.
+more flexible, but those files are not declared outputs: they don't have any
+associated labels.
 
 ## Default outputs
 
