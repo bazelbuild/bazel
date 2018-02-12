@@ -27,6 +27,7 @@ make builds significantly faster.
     * [Exclude specific targets from using the remote cache](#exclude-specific-targets-from-using-the-remote-cache)
     * [Delete content from the remote cache](#delete-content-from-the-remote-cache)
 * [Known Issues](#known-issues)
+* [External Links](#external-links)
 * [Bazel remote execution (in development)](#bazel-remote-execution-in-development)
 
 ## Remote caching overview
@@ -336,6 +337,11 @@ two users with different compilers installed will wrongly share cache hits
 because the outputs are different but they have the same action hash. Please
 watch [issue #4558] for updates.
 
+## External Links
+
+* **Your Build in a Datacenter:** The Bazel team gave a [talk](https://fosdem.org/2018/schedule/event/datacenter_build/) about remote caching and execution at FOSDEM 2018.
+
+* **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html) in which he benchmarks remote caching in Bazel.
 
 ## Bazel remote execution (in development)
 
