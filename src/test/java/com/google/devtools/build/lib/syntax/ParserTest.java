@@ -305,16 +305,16 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testSlice() throws Exception {
-    evalSlice("'0123'[:]", Runtime.NONE, Runtime.NONE, 1);
-    evalSlice("'0123'[1:]", 1, Runtime.NONE, 1);
-    evalSlice("'0123'[:3]", Runtime.NONE, 3, 1);
-    evalSlice("'0123'[::]", Runtime.NONE, Runtime.NONE, 1);
-    evalSlice("'0123'[1::]", 1, Runtime.NONE, 1);
-    evalSlice("'0123'[:3:]", Runtime.NONE, 3, 1);
-    evalSlice("'0123'[::-1]", Runtime.NONE, Runtime.NONE, -1);
-    evalSlice("'0123'[1:3:]", 1, 3, 1);
-    evalSlice("'0123'[1::-1]", 1, Runtime.NONE, -1);
-    evalSlice("'0123'[:3:-1]", Runtime.NONE, 3, -1);
+    evalSlice("'0123'[:]", "", "", "");
+    evalSlice("'0123'[1:]", 1, "", "");
+    evalSlice("'0123'[:3]", "", 3, "");
+    evalSlice("'0123'[::]", "", "", "");
+    evalSlice("'0123'[1::]", 1, "", "");
+    evalSlice("'0123'[:3:]", "", 3, "");
+    evalSlice("'0123'[::-1]", "", "", -1);
+    evalSlice("'0123'[1:3:]", 1, 3, "");
+    evalSlice("'0123'[1::-1]", 1, "", -1);
+    evalSlice("'0123'[:3:-1]", "", 3, -1);
     evalSlice("'0123'[1:3:-1]", 1, 3, -1);
 
     Expression slice = parseExpression("'0123'[1:3:-1]");
@@ -325,9 +325,13 @@ public class ParserTest extends EvaluationTestCase {
     SliceExpression e = (SliceExpression) parseExpression(statement);
 
     // There is no way to evaluate the expression here, so we rely on string comparison.
-    assertThat(e.getStart().toString()).isEqualTo(expectedArgs[0].toString());
-    assertThat(e.getEnd().toString()).isEqualTo(expectedArgs[1].toString());
-    assertThat(e.getStep().toString()).isEqualTo(expectedArgs[2].toString());
+    String start = e.getStart() == null ? "" : e.getStart().toString();
+    String end = e.getEnd() == null ? "" : e.getEnd().toString();
+    String step = e.getStep() == null ? "" : e.getStep().toString();
+
+    assertThat(start).isEqualTo(expectedArgs[0].toString());
+    assertThat(end).isEqualTo(expectedArgs[1].toString());
+    assertThat(step).isEqualTo(expectedArgs[2].toString());
   }
 
   @Test
@@ -469,7 +473,7 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testPrettyPrintFunctions() throws Exception {
     assertThat(parseFile("x[1:3]").toString()).isEqualTo("[x[1:3]\n]");
-    assertThat(parseFile("x[1:3:1]").toString()).isEqualTo("[x[1:3]\n]");
+    assertThat(parseFile("x[1:3:1]").toString()).isEqualTo("[x[1:3:1]\n]");
     assertThat(parseFile("x[1:3:2]").toString()).isEqualTo("[x[1:3:2]\n]");
     assertThat(parseFile("x[1::2]").toString()).isEqualTo("[x[1::2]\n]");
     assertThat(parseFile("x[1:]").toString()).isEqualTo("[x[1:]\n]");

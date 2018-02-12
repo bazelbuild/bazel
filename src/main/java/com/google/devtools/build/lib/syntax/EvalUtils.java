@@ -528,7 +528,6 @@ public final class EvalUtils {
     int step;
 
     if (stepObj == Runtime.NONE) {
-      // This case is excluded by the parser, but let's handle it for completeness.
       step = 1;
     } else if (stepObj instanceof Integer) {
       step = ((Integer) stepObj).intValue();
