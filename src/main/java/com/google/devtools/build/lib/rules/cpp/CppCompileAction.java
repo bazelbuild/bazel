@@ -182,6 +182,10 @@ public class CppCompileAction extends AbstractAction
   private final boolean usePic;
   private final boolean useHeaderModules;
   private final boolean isStrictSystemIncludes;
+  private final boolean needsDotdInputPruning;
+  protected final boolean needsIncludeValidation;
+  private final IncludeProcessing includeProcessing;
+
   private final CppCompilationContext context;
   private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
@@ -195,7 +199,6 @@ public class CppCompileAction extends AbstractAction
   private final String actionName;
 
   private final FeatureConfiguration featureConfiguration;
-  protected final CppSemantics cppSemantics;
 
   /**
    * Identifier for the actual execution time behavior of the action.
@@ -340,7 +343,10 @@ public class CppCompileAction extends AbstractAction
     this.mandatoryInputs = mandatoryInputs;
     this.prunableInputs = prunableInputs;
     this.builtinIncludeFiles = builtinIncludeFiles;
-    this.cppSemantics = cppSemantics;
+    this.needsDotdInputPruning = cppSemantics.needsDotdInputPruning();
+    this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
+    this.includeProcessing = cppSemantics.getIncludeProcessing();
+
     this.additionalIncludeScanningRoots = ImmutableList.copyOf(additionalIncludeScanningRoots);
     this.builtInIncludeDirectories =
         ImmutableList.copyOf(cppProvider.getBuiltInIncludeDirectories());
@@ -427,7 +433,7 @@ public class CppCompileAction extends AbstractAction
           actionExecutionContext
               .getContext(CppIncludeScanningContext.class)
               .findAdditionalInputs(
-                  this, actionExecutionContext, cppSemantics.getIncludeProcessing());
+                  this, actionExecutionContext, includeProcessing);
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Include scanning of rule '" + getOwner().getLabel() + "'",
@@ -1133,7 +1139,7 @@ public class CppCompileAction extends AbstractAction
     // hdrs_check: This cannot be switched off for C++ build actions,
     // because doing so would allow for incorrect builds.
     // HeadersCheckingMode.NONE should only be used for ObjC build actions.
-    if (cppSemantics.needsIncludeValidation()) {
+    if (needsIncludeValidation) {
       validateInclusions(
           discoveredInputs,
           actionExecutionContext.getArtifactExpander(),
@@ -1149,7 +1155,7 @@ public class CppCompileAction extends AbstractAction
       ShowIncludesFilter showIncludesFilterForStdout,
       ShowIncludesFilter showIncludesFilterForStderr)
       throws ActionExecutionException {
-    if (!cppSemantics.needsDotdInputPruning()) {
+    if (!needsDotdInputPruning) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     ImmutableList.Builder<Path> dependencies = new ImmutableList.Builder<>();
@@ -1163,7 +1169,7 @@ public class CppCompileAction extends AbstractAction
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
             .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
 
-    if (cppSemantics.needsIncludeValidation()) {
+    if (needsIncludeValidation) {
       discoveryBuilder.shouldValidateInclusions();
     }
 
@@ -1174,7 +1180,7 @@ public class CppCompileAction extends AbstractAction
   public NestedSet<Artifact> discoverInputsFromDotdFiles(
       Path execRoot, ArtifactResolver artifactResolver, Reply reply)
       throws ActionExecutionException {
-    if (!cppSemantics.needsDotdInputPruning() || getDotdFile() == null) {
+    if (!needsDotdInputPruning || getDotdFile() == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     HeaderDiscovery.Builder discoveryBuilder =
@@ -1185,7 +1191,7 @@ public class CppCompileAction extends AbstractAction
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
             .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
 
-    if (cppSemantics.needsIncludeValidation()) {
+    if (needsIncludeValidation) {
       discoveryBuilder.shouldValidateInclusions();
     }
 
@@ -1260,7 +1266,7 @@ public class CppCompileAction extends AbstractAction
     Iterable<Artifact> scannedIncludes;
     try {
       scannedIncludes = actionExecutionContext.getContext(CppIncludeScanningContext.class)
-          .findAdditionalInputs(this, actionExecutionContext,  cppSemantics.getIncludeProcessing());
+          .findAdditionalInputs(this, actionExecutionContext, includeProcessing);
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
     }

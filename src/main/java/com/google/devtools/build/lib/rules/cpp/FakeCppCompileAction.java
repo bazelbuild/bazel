@@ -161,7 +161,7 @@ public class FakeCppCompileAction extends CppCompileAction {
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
               .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
 
-      if (cppSemantics.needsIncludeValidation()) {
+      if (needsIncludeValidation) {
         discoveryBuilder.shouldValidateInclusions();
       }
 
