@@ -23,11 +23,11 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.bazel.BazelJavaCompiler;
 import java.io.File;
 import java.io.IOException;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
-import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -289,7 +289,7 @@ public class IjarTests {
       assertThat(attributes.getValue("Injecting-Rule-Kind")).isEqualTo("foo_library");
       assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
           .isEqualTo(
-              Instant.ofEpochMilli(new GregorianCalendar(1980, 0, 1, 0, 0, 0).getTimeInMillis()));
+              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
     }
   }
 }
