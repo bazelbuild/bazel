@@ -421,11 +421,19 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(
-    name = "which",
-    doc =
-        "Returns the path of the corresponding program or None "
-            + "if there is no such program in the path",
-    allowReturnNones = true
+      name = "which",
+      doc =
+          "Returns the path of the corresponding program or None "
+              + "if there is no such program in the path.",
+      allowReturnNones = true,
+      parameters = {
+          @Param(
+              name = "program",
+              type = String.class,
+              named = false,
+              doc = "Program to find in the path."
+          ),
+      }
   )
   public SkylarkPath which(String program) throws EvalException {
     if (program.contains("/") || program.contains("\\")) {
