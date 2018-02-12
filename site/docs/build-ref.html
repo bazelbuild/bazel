@@ -24,8 +24,6 @@ title: Concepts and Terminology
   </li>
   <li><a href="#BUILD_files">BUILD Files</a>
     <ul>
-      <li><a href="#core_build_language">The Core Build Language</a></li>
-
       <li><a href="#declaring_build_rules">Declaring Build Rules</a></li>
     </ul>
   </li>
@@ -419,136 +417,20 @@ testdata/input.txt
 
 <p>
   By definition, every package contains a BUILD file, which is a short
-  program written in the Build Language.  Most BUILD files
+  program.  Most BUILD files
   appear to be little more than a series of declarations of build
   rules; indeed, the declarative style is strongly encouraged when
   writing BUILD files.
 </p>
 
 <p>
-  However, the build language is in fact an imperative language, and
-  BUILD files are interpreted as a sequential list of statements.
-  Build rule functions, such as <code>cc_library</code>, are procedures whose
-  side-effect is to create an abstract build rule inside the build tool.
-</p>
+  However, BUILD files are evaluated using an imperative language,
 
-<p>
-  The concrete syntax of BUILD files is a subset of Python.
-  Originally, the syntax <i>was</i> that of Python, but experience
-  showed that users rarely used more than a tiny subset of Python's
-  features, and when they did, it often resulted in complex and
-  fragile BUILD files.  In many cases, the use of such features was
-  unnecessary, and the same result could be achieved by using an
-  external program, e.g. via a <code>genrule</code> build rule.
-</p>
-
-<p>
-  Crucially, programs in the build language are unable to perform
-  arbitrary I/O (though many users try!).  This invariant makes the
-  interpretation of BUILD files hermetic, i.e. dependent only on a
-  known set of inputs, which is essential for ensuring that builds are
-  reproducible.
-</p>
-
-<h3 id="core_build_language">The Core Build Language</h3>
-
-<p>
-  <b>Lexemes</b>: the lexical syntax of the core language is a strict
-  subset of Python 2.6, and we refer the reader to the <a
-  href='http://docs.python.org/reference/lexical_analysis.html'>Python
-  specification</a> for details.
-  Lexical features of Python that are not
-  supported include: floating-point literals, hexadecimal and Unicode
-  escapes within string literals.
-</p>
-
-<p>
-  BUILD files should be written using only ASCII characters,
-  although technically they are interpreted using the Latin-1
-  character set.  The use
-  of <a href='http://www.python.org/dev/peps/pep-0263/'><code>coding:</code></a>
-  declarations is forbidden.
-</p>
-
-<p>
-  <b>Grammar</b>: the grammar of the core language is shown below,
-  using EBNF notation.  Ambiguity is resolved using precedence, which
-  is defined as for Python.
-</p>
-
-<pre>
-file_input ::= (simple_stmt? '\n')*
-
-simple_stmt ::= small_stmt (';' small_stmt)* ';'?
-
-small_stmt ::= expr
-             | assign_stmt
-
-assign_stmt ::= IDENTIFIER assign_op expr
-
-assign_op ::= '=' | '+=' | '-=' | '*=' | '/=' | '%='
-
-expr ::= INTEGER
-       | STRING+
-       | IDENTIFIER
-       | expr '(' arg_list? ')'
-       | expr '.' IDENTIFIER
-       | '[' expr_list? ']'
-       | '[' expr ('for' IDENTIFIER 'in' expr | 'if' expr)+ ']'
-       | '(' expr_list? ')'
-       | '{' dict_entry_list? '}'
-       | '{' dict_entry ('for' IDENTIFIER 'in' expr | 'if' expr)+ '}'
-       | expr bin_op expr
-       | '-' expr
-       | 'not' expr
-       | expr '[' expr? ':' expr? ':' expr? ']'
-       | expr '[' expr? ':' expr? ']'
-       | expr '[' expr ']'
-
-bin_op ::= '+' | '-' | '*' | '/' | '//' | '%' | '|'
-         | 'and' | 'or' | '==' | '!=' | '&lt;' | '&lt;=' | '&gt;' | '&gt;=' | 'in' | 'not' 'in'
-
-expr_list ::= (expr ',')* expr ','?
-
-dict_entry_list ::= (dict_entry ',')* dict_entry ','?
-
-dict_entry ::= expr ':' expr
-
-arg_list ::= (arg ',')* arg ','?
-
-arg ::= IDENTIFIER '=' expr
-      | expr
-</pre>
-
-<p>
-  For each expression of the core language, the semantics are
-  identical to the corresponding Python semantics, except in the
-  following cases:
-</p>
-<ul>
-  <li>certain overloads of the binary <code>%</code> operator are not
-    supported.  Only the <code>int % int</code> and <code>str %
-    tuple</code> forms are supported.  Only the <code>%s</code>
-    and <code>%d</code> format specifiers may be
-    used; <code>%(var)s</code> is illegal.</li>
-
-</ul>
-
-<p>
-  Many Python features are missing: control-flow constructs (loops,
-  conditionals, exceptions), basic datatypes (floating-point numbers, big
-  integers), <code>import</code> and the module system, support for
-  definition of classes, some Python's built-in functions. Function
-  definitions and <code>for</code> statements are allowed only in
-  extension files (<code>.bzl</code>).
-
-  Available functions are documented in
-
-    the <a href="skylark/lib/globals.html">library section</a>.
+    <a href="skylark/language.html">Skylark</a>.
 <h3 id="declaring_build_rules">Declaring build rules</h3>
 
 <p>
-  The build language is an imperative language, so in general, order
+  BUILD files use an imperative language, so in general, order
   does matter: variables must be defined before they are used, for
   example.  However, most BUILD files consist only of declarations of
   build rules, and the relative order of these statements is
@@ -563,8 +445,8 @@ arg ::= IDENTIFIER '=' expr
   BUILD file authors are encouraged to use comments liberally to
   document the role of each build target, whether it is intended for
   public use, and anything else that would help users and future
-  maintainers, including a <code># Description:</code> comment at the
-  top, explaining the role of the package.
+  maintainers, including a comment at the top, explaining the role of the
+  package.
 </p>
 
 <p>
