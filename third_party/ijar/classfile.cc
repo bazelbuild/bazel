@@ -1547,8 +1547,9 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
 
   clazz->magic = get_u4be(p);
   if (clazz->magic != 0xCAFEBABE) {
-    fprintf(stderr, "Bad magic %" PRIx32 "\n", clazz->magic);
-    abort();
+    fprintf(stderr, "Bad magic %" PRIx32 ". Passing class through.\n", clazz->magic);
+    delete clazz;
+    return NULL;
   }
   clazz->major = get_u2be(p);
   clazz->minor = get_u2be(p);
