@@ -114,7 +114,8 @@ Python:
 
 * Recursion is not allowed.
 
-* Int type is limited to 32-bit signed integers.
+* Int type is limited to 32-bit signed integers (an overflow will throw an
+  error).
 
 * Lists and other mutable types may be stored in dictionary
   keys once they are frozen.
@@ -129,14 +130,17 @@ Python:
   declaration. However, it is fine to define `f()` before `g()`, even if `f()`
   calls `g()`.
 
-* The order comparison operators (<, <=, >=, >) are not defined across different
-  types of values, e.g., you can't compare `5 < 'foo'` (however you still can
-  compare them using == or !=). This is a difference with Python 2, but
-  consistent with Python 3. Note that this means you are unable to sort lists
-  that contain mixed types of values.
+* The comparison operators (`<`, `<=`, `>=`, `>`) are not defined across
+  different types of values, e.g., you can't compare `5 < 'foo'` (however you
+  still can compare them using `==` or `!=`). This is a difference with Python
+  2, but consistent with Python 3. Note that this means you are unable to sort
+  lists that contain mixed types of values.
 
 * Tuple syntax is more restrictive. You may use a trailing comma only when the
   tuple is between parentheses, e.g. write `(1,)` instead of `1,`.
+
+* Dictionary literals cannot have duplicated keys. For example, this is an
+  error: `{"a": 4, "b": 7, "a": 1}`.
 
 * Strings are represented with double-quotes (e.g. when you
   call [repr](lib/globals.html#repr)).
@@ -144,6 +148,7 @@ Python:
 The following Python features are not supported:
 
 *   implicit string concatenation (use explicit `+` operator)
+*   Chained comparisons (e.g. `1 < x < 5`)
 *   `class` (see [`struct`](lib/globals.html#struct) function)
 *   `import` (see [`load`](concepts.md#loading-an-extension) statement)
 *   `while`, `yield`
