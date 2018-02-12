@@ -1144,6 +1144,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -1627,6 +1648,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -1650,6 +1672,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -1666,6 +1689,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -1680,6 +1704,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -1694,6 +1719,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -1708,6 +1734,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -2858,6 +2885,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -3343,6 +3391,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -3366,6 +3415,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -3382,6 +3432,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -3396,6 +3447,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -3410,6 +3462,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -3424,6 +3477,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -4576,6 +4630,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -5061,6 +5136,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -5084,6 +5160,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -5100,6 +5177,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -5114,6 +5192,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -5128,6 +5207,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -5142,6 +5222,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -6314,6 +6395,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -6806,6 +6908,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -6830,6 +6933,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -6847,6 +6951,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -6861,6 +6966,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -6875,6 +6981,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -6889,6 +6996,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -8039,6 +8147,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -8524,6 +8653,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -8547,6 +8677,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -8563,6 +8694,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -8577,6 +8709,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -8591,6 +8724,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -8605,6 +8739,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -9745,6 +9880,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -10228,6 +10384,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -10251,6 +10408,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -10267,6 +10425,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -10281,6 +10440,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -10295,6 +10455,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -10309,6 +10470,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -11451,6 +11613,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -11934,6 +12117,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -11957,6 +12141,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -11973,6 +12158,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -11987,6 +12173,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -12001,6 +12188,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -12015,6 +12203,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -13177,6 +13366,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -13667,6 +13877,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -13691,6 +13902,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -13708,6 +13920,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -13722,6 +13935,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -13736,6 +13950,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -13750,6 +13965,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -14890,6 +15106,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -15373,6 +15610,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -15396,6 +15634,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -15412,6 +15651,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -15426,6 +15666,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -15440,6 +15681,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -15454,6 +15696,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -16597,6 +16840,27 @@ toolchain {
     }
   }
   feature {
+    name: "linkopts_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "@%{linkopts_file}"
+      }
+      expand_if_all_available: "linkopts_file"
+    }
+  }
+  feature {
     name: "linker_param_file"
     flag_set {
       action: "c++-link-executable"
@@ -17080,6 +17344,7 @@ toolchain {
     implies: "force_pic_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -17103,6 +17368,7 @@ toolchain {
     implies: "input_param_flags"
     implies: "legacy_link_flags"
     implies: "strip_debug_symbols"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "version_min"
     implies: "apple_env"
@@ -17119,6 +17385,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -17133,6 +17400,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -17147,6 +17415,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }
@@ -17161,6 +17430,7 @@ toolchain {
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
+    implies: "linkopts_file"
     implies: "linker_param_file"
     implies: "apple_env"
   }

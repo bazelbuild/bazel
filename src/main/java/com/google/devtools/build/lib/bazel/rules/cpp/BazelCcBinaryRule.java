@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.util.FileType;
 
 /** Rule definition for cc_binary rules. */
 public final class BazelCcBinaryRule implements RuleDefinition {
@@ -73,6 +75,11 @@ public final class BazelCcBinaryRule implements RuleDefinition {
             attr("linkshared", BOOLEAN)
                 .value(false)
                 .nonconfigurable("used to *determine* the rule's configuration"))
+        /*<!-- #BLAZE_RULE(cc_binary).ATTRIBUTE(linkopts_file) -->
+        A file with additional options to pass to the linker. The file can be generated during
+        execution.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("linkopts_file", LABEL).allowedFileTypes(FileType.of("linkopts_file")))
         .cfg(CppRuleClasses.LIPO_ON_DEMAND)
         .build();
   }

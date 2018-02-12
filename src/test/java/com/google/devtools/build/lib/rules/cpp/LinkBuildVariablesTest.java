@@ -105,6 +105,26 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
+  public void testLinkoptsFileIsExported() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    useConfiguration();
+
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.cc'],",
+        "    linkopts_file= 'bin.linkopts_file'",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
+    String variableValue =
+        getVariableValue(variables, CppLinkActionBuilder.LINK_OPTS_FILE_VARIABLE);
+    assertThat(variableValue).matches("x/bin.linkopts_file");
+  }
+
+  @Test
   public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration
     // (which it is not by default for some windows toolchains)

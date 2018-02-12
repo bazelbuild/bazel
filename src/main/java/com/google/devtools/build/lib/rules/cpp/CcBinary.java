@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -165,6 +167,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return CcBinary.init(semantics, context, /*fake =*/ false);
   }
 
+  // TODO(plf): Split up this method.
   public static ConfiguredTarget init(CppSemantics semantics, RuleContext ruleContext, boolean fake)
       throws InterruptedException, RuleErrorException {
     ruleContext.checkSrcsSamePackage(true);
@@ -286,6 +289,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             linkCompileOutputSeparately,
             semantics);
     linkActionBuilder.setUseTestOnlyFlags(ruleContext.isTestTarget());
+    if (ruleContext.isAttrDefined("linkopts_file", LABEL)) {
+      Artifact linkoptsFile = ruleContext.getPrerequisiteArtifact("linkopts_file", Mode.DONT_CHECK);
+      if (linkoptsFile != null) {
+        linkActionBuilder.setLinkoptsParamFile(linkoptsFile);
+      }
+    }
     if (linkStaticness == LinkStaticness.DYNAMIC) {
       linkActionBuilder.setRuntimeInputs(
           ArtifactCategory.DYNAMIC_LIBRARY,
