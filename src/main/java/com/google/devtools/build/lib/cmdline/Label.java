@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -189,7 +188,7 @@ public final class Label
    * arbitrary {@code targetName} inputs
    */
   public static Label createUnvalidated(PackageIdentifier packageId, String targetName) {
-    return LABEL_INTERNER.intern(new Label(packageId, StringCanonicalizer.intern(targetName)));
+    return LABEL_INTERNER.intern(new Label(packageId, targetName));
   }
 
   /**
