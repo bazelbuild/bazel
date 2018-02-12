@@ -17,7 +17,7 @@
 #    The API of this is largely the same as the native maven_jar rule,
 #    except for the server attribute, which is not implemented. The optional
 #    settings supports passing a custom Maven settings.xml to download the JAR.
-# 2) maven_aar(name, artifact, repository, sha1)
+# 2) maven_aar(name, artifact, sha1, settings)
 #    The API of this rule is the same as maven_jar except that the artifact must
 #    be the Maven coordinate of an AAR and it does not support the historical
 #    repository and server attributes.
