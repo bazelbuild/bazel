@@ -101,26 +101,6 @@ public final class FuncallExpression extends Expression {
                     if (callable == null) {
                       continue;
                     }
-                    Preconditions.checkArgument(
-                        callable.parameters().length == 0 || !callable.structField(),
-                        "Method "
-                            + method
-                            + " was annotated with both structField and parameters.");
-                    if (callable.parameters().length > 0 || callable.mandatoryPositionals() >= 0) {
-                      int nbArgs =
-                          callable.parameters().length
-                              + Math.max(0, callable.mandatoryPositionals());
-                      Preconditions.checkArgument(
-                          nbArgs == method.getParameterTypes().length,
-                          "Method "
-                              + method
-                              + " was annotated for "
-                              + nbArgs
-                              + " arguments "
-                              + "but accept only "
-                              + method.getParameterTypes().length
-                              + " arguments.");
-                    }
                     String name = callable.name();
                     if (name.isEmpty()) {
                       name = StringUtilities.toPythonStyleFunctionName(method.getName());
