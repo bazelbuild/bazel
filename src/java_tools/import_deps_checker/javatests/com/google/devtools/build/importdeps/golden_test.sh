@@ -34,22 +34,34 @@ else
 fi
 
 actual_file="${output}/actual_result.txt"
+checker_stderr="${output}/checker_stderr.txt"
+
 # Run the checker command.
-$@ --output "${actual_file}" &> ${output}/checker_output.txt
+$@ --output "${actual_file}" 2> ${checker_stderr}
 
 checker_ret=$?
-if [[ "${checker_ret}"  != 0 ]] ; then
+# The exit code 199 means the checker finds dependency issues.
+if [[ "${checker_ret}" != 0 ]] && [[ "${checker_ret}" != 199 ]]; then
   echo "Checker error!!! ${checker_ret}"
-  cat ${output}/checker_output.txt
+  cat ${checker_stderr}
   exit ${checker_ret}
 fi
 
 diff "${gold_file}" "${actual_file}"
+gold_actual_ret=$?
 
-ret=$?
-if [[ "${ret}" != 0 ]] ; then
+# The actual file and the stderr of the checker should be the same.
+diff "${actual_file}" "${checker_stderr}"
+checker_stderr_actual_ret=$?
+
+if [[ "${gold_actual_ret}" != 0 ]] || [[ "${checker_stderr_actual_ret}" != 0 ]]; then
   echo "============== Actual Output =============="
   cat "${actual_file}"
+  echo "" # New line.
+  echo "===========================================\n"
+
+  echo "============== Checker Stderr =============="
+  cat "${checker_stderr}"
   echo "" # New line.
   echo "==========================================="
 fi

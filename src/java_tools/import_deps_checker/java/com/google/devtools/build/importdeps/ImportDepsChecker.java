@@ -18,13 +18,10 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
-import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
@@ -34,7 +31,7 @@ import org.objectweb.asm.ClassReader;
  * Checker that checks the classes in the input jars have complete dependencies. If not, output the
  * missing dependencies to a file.
  */
-public class ImportDepsChecker implements Closeable {
+public final class ImportDepsChecker implements Closeable {
 
   private final ClassCache classCache;
   private final ResultCollector resultCollector;
@@ -56,7 +53,12 @@ public class ImportDepsChecker implements Closeable {
     this.inputJars = inputJars;
   }
 
-  public ImportDepsChecker check() throws IOException {
+  /**
+   * Checks for dependency problems in the given input jars agains the classpath.
+   *
+   * @return {@literal true} for no problems, {@literal false} otherwise.
+   */
+  public boolean check() throws IOException {
     for (Path path : inputJars) {
       try (ZipFile jarFile = new ZipFile(path.toFile())) {
         jarFile
@@ -78,72 +80,68 @@ public class ImportDepsChecker implements Closeable {
                 });
       }
     }
-    return this;
+    return resultCollector.isEmpty();
   }
 
   private static final String INDENT = "    ";
 
-  public void saveResult(Path resultFile) throws IOException {
-    if (!Files.exists(resultFile)) {
-      Files.createFile(resultFile); // Make sure the file exists.
+  public String computeResultOutput() throws IOException {
+    StringBuilder builder = new StringBuilder();
+    ImmutableList<String> missingClasses = resultCollector.getSortedMissingClassInternalNames();
+    for (String missing : missingClasses) {
+      builder.append("Missing ").append(missing.replace('/', '.')).append('\n');
     }
-    try (BufferedWriter writer = Files.newBufferedWriter(resultFile, StandardCharsets.UTF_8)) {
-      ImmutableList<String> missingClasses = resultCollector.getSortedMissingClassInternalNames();
-      for (String missing : missingClasses) {
-        writer.append("Missing ").append(missing.replace('/', '.')).append('\n');
-      }
 
-      ImmutableList<IncompleteState> incompleteClasses =
-          resultCollector.getSortedIncompleteClasses();
-      for (IncompleteState incomplete : incompleteClasses) {
-        writer
-            .append("Incomplete ancestor classpath for ")
-            .append(incomplete.classInfo().get().internalName().replace('/', '.'))
-            .append('\n');
+    ImmutableList<IncompleteState> incompleteClasses = resultCollector.getSortedIncompleteClasses();
+    for (IncompleteState incomplete : incompleteClasses) {
+      builder
+          .append("Incomplete ancestor classpath for ")
+          .append(incomplete.classInfo().get().internalName().replace('/', '.'))
+          .append('\n');
 
-        ImmutableList<String> failurePath = incomplete.getResolutionFailurePath();
-        checkState(!failurePath.isEmpty(), "The resolution failure path is empty. %s", failurePath);
-        writer
-            .append(INDENT)
-            .append("missing ancestor: ")
-            .append(failurePath.get(failurePath.size() - 1).replace('/', '.'))
-            .append('\n');
-        writer
-            .append(INDENT)
-            .append("resolution failure path: ")
-            .append(
-                failurePath
-                    .stream()
-                    .map(internalName -> internalName.replace('/', '.'))
-                    .collect(Collectors.joining(" -> ")))
-            .append('\n');
-      }
-      ImmutableList<MemberInfo> missingMembers = resultCollector.getSortedMissingMembers();
-      for (MemberInfo missing : missingMembers) {
-        writer
-            .append("Missing member '")
-            .append(missing.memberName())
-            .append("' in class ")
-            .append(missing.owner().replace('/', '.'))
-            .append(" : name=")
-            .append(missing.memberName())
-            .append(", descriptor=")
-            .append(missing.descriptor())
-            .append('\n');
-      }
-      if (missingClasses.size() + incompleteClasses.size() + missingMembers.size() != 0) {
-        writer
-            .append("===Total===\n")
-            .append("missing=")
-            .append(String.valueOf(missingClasses.size()))
-            .append('\n')
-            .append("incomplete=")
-            .append(String.valueOf(incompleteClasses.size()))
-            .append('\n')
-            .append("missing_members=")
-            .append(String.valueOf(missingMembers.size()));
-      }
+      ImmutableList<String> failurePath = incomplete.getResolutionFailurePath();
+      checkState(!failurePath.isEmpty(), "The resolution failure path is empty. %s", failurePath);
+      builder
+          .append(INDENT)
+          .append("missing ancestor: ")
+          .append(failurePath.get(failurePath.size() - 1).replace('/', '.'))
+          .append('\n');
+      builder
+          .append(INDENT)
+          .append("resolution failure path: ")
+          .append(
+              failurePath
+                  .stream()
+                  .map(internalName -> internalName.replace('/', '.'))
+                  .collect(Collectors.joining(" -> ")))
+          .append('\n');
     }
+    ImmutableList<MemberInfo> missingMembers = resultCollector.getSortedMissingMembers();
+    for (MemberInfo missing : missingMembers) {
+      builder
+          .append("Missing member '")
+          .append(missing.memberName())
+          .append("' in class ")
+          .append(missing.owner().replace('/', '.'))
+          .append(" : name=")
+          .append(missing.memberName())
+          .append(", descriptor=")
+          .append(missing.descriptor())
+          .append('\n');
+    }
+    if (missingClasses.size() + incompleteClasses.size() + missingMembers.size() != 0) {
+      builder
+          .append("===Total===\n")
+          .append("missing=")
+          .append(missingClasses.size())
+          .append('\n')
+          .append("incomplete=")
+          .append(incompleteClasses.size())
+          .append('\n')
+          .append("missing_members=")
+          .append(missingMembers.size());
+    }
+    return builder.toString();
   }
 
   @Override

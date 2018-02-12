@@ -52,6 +52,11 @@ public class ResultCollector {
     }
   }
 
+  /** Returns {@literal true} if there is NO dependency issue, {@literal false} otherwise. */
+  public boolean isEmpty() {
+    return missingClasss.isEmpty() && incompleteClasses.isEmpty() && missingMembers.isEmpty();
+  }
+
   public void addMissingMember(MemberInfo member) {
     missingMembers.add(member);
   }

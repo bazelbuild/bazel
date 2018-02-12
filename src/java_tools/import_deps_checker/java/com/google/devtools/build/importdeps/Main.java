@@ -14,6 +14,8 @@
 package com.google.devtools.build.importdeps;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.io.Files.asCharSink;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
@@ -25,6 +27,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -91,15 +94,33 @@ public class Main {
     public Path output;
   }
 
+  /**
+   * A randomly picked large exit code to avoid collision with other common exit codes.
+   */
+  private static final int DEPS_ERROR_EXIT_CODE = 199;
+
   public static void main(String[] args) throws IOException {
     Options options = parseCommandLineOptions(args);
+
+    if (!Files.exists(options.output)) {
+      Files.createFile(options.output); // Make sure the output file always exists.
+    }
+
+    int exitCode = 0;
     try (ImportDepsChecker checker =
         new ImportDepsChecker(
             ImmutableList.copyOf(options.bootclasspath),
             ImmutableList.copyOf(options.classpath),
             ImmutableList.copyOf(options.inputJars))) {
-      checker.check().saveResult(options.output);
+      if (!checker.check()) {
+        String result = checker.computeResultOutput();
+        checkState(!result.isEmpty(), "The result should NOT be empty.");
+        exitCode = DEPS_ERROR_EXIT_CODE;
+        System.err.println(result);
+        asCharSink(options.output.toFile(), StandardCharsets.UTF_8).write(result);
+      }
     }
+    System.exit(exitCode);
   }
 
   private static Options parseCommandLineOptions(String[] args) throws IOException {
