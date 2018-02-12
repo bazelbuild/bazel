@@ -13,13 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.
@@ -33,9 +37,31 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 public class AndroidInstrumentationInfo extends NativeInfo {
 
   private static final String SKYLARK_NAME = "AndroidInstrumentationInfo";
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /*numMandatoryPositionals=*/ 0,
+              /*numOptionalPositionals=*/ 0,
+              /*numMandatoryNamedOnly*/ 2,
+              /*starArg=*/ false,
+              /*kwArg=*/ false,
+              "target_apk",
+              "instrumentation_apk"),
+          /*defaultValues=*/ null,
+          /*types=*/ ImmutableList.of(
+              SkylarkType.of(Artifact.class),   // target_apk
+              SkylarkType.of(Artifact.class))); // instrumentation_apk
   public static final NativeProvider<AndroidInstrumentationInfo> PROVIDER =
       new NativeProvider<AndroidInstrumentationInfo>(
-          AndroidInstrumentationInfo.class, SKYLARK_NAME) {};
+          AndroidInstrumentationInfo.class, SKYLARK_NAME, SIGNATURE) {
+        @Override
+        protected AndroidInstrumentationInfo createInstanceFromSkylark(
+            Object[] args, Location loc) {
+          return new AndroidInstrumentationInfo(
+              /*targetApk=*/ (Artifact) args[0],
+              /*instrumentationApk=*/ (Artifact) args[1]);
+        }
+      };
 
   private final Artifact targetApk;
   private final Artifact instrumentationApk;

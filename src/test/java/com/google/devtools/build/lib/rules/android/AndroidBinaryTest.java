@@ -4078,6 +4078,35 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testInstrumentationInfoCreatableFromSkylark() throws Exception {
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "load(':instr.bzl', 'instr')",
+        "android_binary(name = 'b1',",
+        "               srcs = ['b1.java'],",
+        "               instruments = ':b2',",
+        "               manifest = 'AndroidManifest.xml')",
+        "android_binary(name = 'b2',",
+        "               srcs = ['b2.java'],",
+        "               manifest = 'AndroidManifest.xml')",
+        "instr(name = 'instr', dep = ':b1')");
+    scratch.file(
+        "java/com/google/android/instr/instr.bzl",
+        "def _impl(ctx):",
+        "  target = ctx.attr.dep[AndroidInstrumentationInfo].target_apk",
+        "  instr = ctx.attr.dep[AndroidInstrumentationInfo].instrumentation_apk",
+        "  return [AndroidInstrumentationInfo(target_apk=target,instrumentation_apk=instr)]",
+        "instr = rule(implementation=_impl,",
+        "             attrs={'dep': attr.label(providers=[AndroidInstrumentationInfo])})");
+    ConfiguredTarget instr = getConfiguredTarget("//java/com/google/android/instr");
+    assertThat(instr).isNotNull();
+    assertThat(instr.get(AndroidInstrumentationInfo.PROVIDER).getTargetApk().prettyPrint())
+        .isEqualTo("java/com/google/android/instr/b2.apk");
+    assertThat(instr.get(AndroidInstrumentationInfo.PROVIDER).getInstrumentationApk().prettyPrint())
+        .isEqualTo("java/com/google/android/instr/b1.apk");
+  }
+
+  @Test
   public void testInstrumentationInfoProviderHasApks() throws Exception {
     scratch.file(
         "java/com/google/android/instr/BUILD",
