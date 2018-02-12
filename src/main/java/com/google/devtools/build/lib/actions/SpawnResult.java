@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.shell.TerminationStatus;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
@@ -181,6 +182,17 @@ public interface SpawnResult {
   /** Returns an optional custom failure message for the result. */
   default String getFailureMessage() {
     return "";
+  }
+
+  /**
+   * SpawnResults can optionally support returning outputs in-memory. Such outputs can be obtained
+   * from this method if so.
+   *
+   * @param output
+   */
+  @Nullable
+  default InputStream getInMemoryOutput(ActionInput output) {
+    return null;
   }
 
   String getDetailMessage(
