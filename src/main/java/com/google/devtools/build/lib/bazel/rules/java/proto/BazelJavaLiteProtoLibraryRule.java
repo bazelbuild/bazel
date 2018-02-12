@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.getProtoToolchainLabel;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
 /** Declaration of the {@code java_lite_proto_library} rule. */
@@ -68,7 +68,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
                 .aspect(javaProtoAspect, aspectParameters))
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .add(
-            attr(PROTO_TOOLCHAIN_ATTR, LABEL)
+            attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                         ProtoLangToolchainProvider.class))

@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
@@ -115,7 +115,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           ":android_sdk",
           "aidl_lib", // for the aidl runtime in the android_sdk rule
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
-          JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR, "runtime");
+          JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, "runtime");
 
   private static final FlagMatcher DEXOPTS_SUPPORTED_IN_DEXBUILDER =
       new FlagMatcher(

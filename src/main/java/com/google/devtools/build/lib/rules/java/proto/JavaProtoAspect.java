@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -28,11 +27,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,19 +42,14 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
@@ -68,7 +60,6 @@ import javax.annotation.Nullable;
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
-  private static final String SPEED_PROTO_TOOLCHAIN_ATTR = ":aspect_java_proto_toolchain";
   private final LabelLateBoundDefault<?> hostJdkAttribute;
 
   private static LabelLateBoundDefault<?> getSpeedProtoToolchainLabel(String defaultValue) {
@@ -112,7 +103,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         checkNotNull(ctatBase.getConfiguredTarget().getProvider(ProtoSupportDataProvider.class))
             .getSupportData();
 
-    Impl impl = new Impl(ruleContext, supportData, javaSemantics, rpcSupport);
+    JavaProtoAspectCommon aspectCommon =
+        JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
+    Impl impl = new Impl(ruleContext, supportData, aspectCommon, rpcSupport);
     if (impl.shouldGenerateCode()
         && ActionReuser.reuseExistingActions(ctatBase.getConfiguredTarget(), ruleContext, aspect)) {
       return aspect.build();
@@ -131,7 +124,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(ImmutableList.of(JavaSkylarkApiProvider.PROTO_NAME))
             .add(
-                attr(SPEED_PROTO_TOOLCHAIN_ATTR, LABEL)
+                attr(JavaProtoAspectCommon.SPEED_PROTO_TOOLCHAIN_ATTR, LABEL)
                     // TODO(carmi): reinstate mandatoryNativeProviders(ProtoLangToolchainProvider)
                     // once it's in a Bazel release.
                     .legacyAllowAnyFileType()
@@ -160,7 +153,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     private final SupportData supportData;
 
     private final RpcSupport rpcSupport;
-    private final JavaSemantics javaSemantics;
+    private final JavaProtoAspectCommon aspectCommon;
 
     /**
      * Compilation-args from all dependencies, merged together. This is typically the input to a
@@ -171,14 +164,14 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     private final Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders;
 
     Impl(
-        final RuleContext ruleContext,
-        final SupportData supportData,
-        JavaSemantics javaSemantics,
+        RuleContext ruleContext,
+        SupportData supportData,
+        JavaProtoAspectCommon aspectCommon,
         RpcSupport rpcSupport) {
       this.ruleContext = ruleContext;
       this.supportData = supportData;
-      this.javaSemantics = javaSemantics;
       this.rpcSupport = rpcSupport;
+      this.aspectCommon = aspectCommon;
       this.javaProtoLibraryAspectProviders =
           ruleContext.getPrerequisites(
               "deps", RuleConfiguredTarget.Mode.TARGET, JavaProtoLibraryAspectProvider.class);
@@ -205,11 +198,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           new TransitiveInfoProviderMapBuilder();
 
       if (shouldGenerateCode()) {
-        Artifact sourceJar = getSourceJarArtifact();
+        Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
-        Artifact outputJar = getOutputJarArtifact();
+        Artifact outputJar = aspectCommon.getOutputJarArtifact();
 
-        generatedCompilationArgsProvider = createJavaCompileAction(sourceJar, outputJar);
+        generatedCompilationArgsProvider =
+            aspectCommon.createJavaCompileAction(sourceJar, outputJar, dependencyCompilationArgs);
 
         NestedSet<Artifact> javaSourceJars =
             NestedSetBuilder.<Artifact>stableOrder().add(sourceJar).build();
@@ -236,7 +230,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       }
 
       javaProvidersBuilder.add(generatedCompilationArgsProvider);
-      javaProvidersBuilder.add(createCcLinkParamsStore(ruleContext, getProtoRuntimeDeps()));
+      javaProvidersBuilder.add(createCcLinkParamsStore(
+          ruleContext, aspectCommon.getProtoRuntimeDeps()));
       TransitiveInfoProviderMap javaProviders = javaProvidersBuilder.build();
       aspect
           .addSkylarkTransitiveInfo(
@@ -249,7 +244,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                   createNonStrictCompilationArgsProvider(
                       javaProtoLibraryAspectProviders,
                       generatedCompilationArgsProvider.getJavaCompilationArgs(),
-                      getProtoRuntimeDeps())));
+                      aspectCommon.getProtoRuntimeDeps())));
     }
 
     /**
@@ -263,7 +258,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       final ProtoSourceFileBlacklist protoBlackList;
       NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
-      blacklistedProtos.addTransitive(getProtoToolchainProvider().blacklistedProtos());
+      blacklistedProtos.addTransitive(aspectCommon.getProtoToolchainProvider().blacklistedProtos());
       blacklistedProtos.addTransitive(rpcSupport.getBlacklist(ruleContext));
 
       protoBlackList = new ProtoSourceFileBlacklist(ruleContext, blacklistedProtos.build());
@@ -275,7 +270,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
       invocations.add(
           new ToolchainInvocation(
-              "java", checkNotNull(getProtoToolchainProvider()), sourceJar.getExecPathString()));
+              "java", aspectCommon.getProtoToolchainProvider(), sourceJar.getExecPathString()));
       invocations.addAll(rpcSupport.getToolchainInvocation(ruleContext, sourceJar));
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
@@ -287,58 +282,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           ImmutableList.of(sourceJar),
           "Java (Immutable)",
           rpcSupport.allowServices(ruleContext));
-    }
-
-    private JavaCompilationArgsProvider createJavaCompileAction(
-        Artifact sourceJar, Artifact outputJar) {
-      JavaLibraryHelper helper =
-          new JavaLibraryHelper(ruleContext)
-              .setOutput(outputJar)
-              .addSourceJars(sourceJar)
-              .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
-      helper.addDep(dependencyCompilationArgs).setCompilationStrictDepsMode(StrictDepsMode.OFF);
-      for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {
-        JavaCompilationArgsProvider provider =
-            JavaInfo.getProvider(JavaCompilationArgsProvider.class, t);
-        if (provider != null) {
-          helper.addDep(provider);
-        }
-      }
-
-      return helper.buildCompilationArgsProvider(
-          helper.build(
-              javaSemantics,
-              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-              JavaRuntimeInfo.forHost(ruleContext),
-              JavaCompilationHelper.getInstrumentationJars(ruleContext),
-              JavaRuleOutputJarsProvider.builder(),
-              /*createOutputSourceJar*/ false,
-              /*outputSourceJar=*/ null),
-          /*isReportedAsStrict=*/ true,
-          /*isNeverlink=*/ false);
-    }
-
-    private ImmutableList<TransitiveInfoCollection> getProtoRuntimeDeps() {
-      ImmutableList.Builder<TransitiveInfoCollection> result = ImmutableList.builder();
-      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
-      if (runtime != null) {
-        result.add(runtime);
-      }
-      result.addAll(rpcSupport.getRuntimes(ruleContext));
-      return result.build();
-    }
-
-    private ProtoLangToolchainProvider getProtoToolchainProvider() {
-      return ruleContext.getPrerequisite(
-          SPEED_PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class);
-    }
-
-    private Artifact getSourceJarArtifact() {
-      return ruleContext.getGenfilesArtifact(ruleContext.getLabel().getName() + "-speed-src.jar");
-    }
-
-    private Artifact getOutputJarArtifact() {
-      return ruleContext.getBinArtifact("lib" + ruleContext.getLabel().getName() + "-speed.jar");
     }
   }
 }

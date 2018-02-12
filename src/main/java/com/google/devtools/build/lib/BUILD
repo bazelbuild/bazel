@@ -811,6 +811,7 @@ java_library(
         "rules/java/proto/JavaLiteProtoAspect.java",
         "rules/java/proto/JavaLiteProtoLibrary.java",
         "rules/java/proto/JavaProtoAspect.java",
+        "rules/java/proto/JavaProtoAspectCommon.java",
         "rules/java/proto/JavaProtoLibrary.java",
         "rules/java/proto/JavaProtoLibraryAspectProvider.java",
         "rules/java/proto/JavaProtoSkylarkCommon.java",

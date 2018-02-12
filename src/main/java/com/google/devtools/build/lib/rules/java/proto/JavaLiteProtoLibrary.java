@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.constructJcapFromAspectDeps;
 
@@ -45,7 +43,6 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoAspectProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
 /** Implementation of the java_lite_proto_library rule. */
 public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
@@ -114,7 +111,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> specs =
         new ProguardLibrary(ruleContext).collectProguardSpecs(ImmutableMultimap.<Mode, String>of());
 
-    TransitiveInfoCollection runtime = getProtoToolchainProvider(ruleContext).runtime();
+    TransitiveInfoCollection runtime =
+        JavaProtoAspectCommon.getLiteProtoToolchainProvider(ruleContext).runtime();
     if (runtime == null) {
       return new ProguardSpecProvider(specs);
     }
@@ -128,11 +126,5 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.fromNestedSet(specs)
             .addTransitive(specProvider.getTransitiveProguardSpecs())
             .build());
-  }
-
-  private ProtoLangToolchainProvider getProtoToolchainProvider(RuleContext ruleContext) {
-    return checkNotNull(
-        ruleContext.getPrerequisite(
-            PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class));
   }
 }
