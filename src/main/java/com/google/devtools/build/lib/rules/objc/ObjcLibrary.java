@@ -44,7 +44,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDefines(ruleContext.getExpander().withDataLocations().tokenized("defines"))
         .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
-        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
