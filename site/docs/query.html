@@ -4,6 +4,16 @@ title: Query Language
 ---
 <h1>The Bazel Query Reference</h1>
 
+
+<ul clas="toc">
+  <li><a href="examples">Examples</a></li>
+  <li><a href="tokens">Tokens: The Lexical Syntax</a></li>
+  <li><a href="concepts">Bazel Query Language Concepts</a></li>
+  <li><a href="expressions">Expressions: Syntax and Semantics of the Grammar</a></li>
+  <li><a href="functions">Functions</a></li>
+  <li><a href="output-formats">Output Formats</a></li>
+</ul>
+
 <p>
   When you use <code>bazel query</code> to analyze build
   dependencies, you use a little language, the <em>Bazel Query
@@ -12,7 +22,7 @@ title: Query Language
   formats <code>bazel query</code> supports.
 </p>
 
-<h2>Examples</h2>
+<h2 id='examples'>Examples</h2>
 
 <p>
   How do people use <code>bazel query</code>?  Here are typical examples:
@@ -30,7 +40,7 @@ title: Query Language
   <pre>kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo:foo_bin))</pre>
 
 
-<h2>Tokens: the lexical syntax</h2>
+<h2 id='tokens'>Tokens: The Lexical Syntax</h2>
 
 <p>
   Expressions in the query language are composed of the following
@@ -245,7 +255,7 @@ title: Query Language
   it is faster and uses less memory.
 </p>
 
-<h2>Expressions: syntax and semantics of the grammar</h2>
+<h2 id='expressions'>Expressions: Syntax and Semantics of the Grammar</h2>
 
 <p>
   This is the grammar of the Bazel query language, expressed in EBNF
@@ -491,7 +501,7 @@ x intersect (y union z)</pre>
   section below for more detail.
 </p>
 
-<h3 id="functions">Functions</h3>
+<h2 id="functions">Functions</h2>
 <pre>expr ::= <var>word</var> '(' <var>int</var> | <var>word</var> | <var>expr</var> ... ')'</pre>
 <p>
   The query language defines several functions. The name of the function
@@ -1059,7 +1069,7 @@ genrule(
   .bzl files that are referenced from its BUILD files.
 </p>
 
-<h2 id='output-formats'>Output formats</h2>
+<h2 id='output-formats'>Output Formats</h2>
 
 <p>
   <code>bazel query</code> generates a graph.
