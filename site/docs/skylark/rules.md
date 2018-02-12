@@ -55,7 +55,8 @@ will be run in the execution phase, if their output is needed for the build.
 ## Attributes
 
 An attribute is a rule argument, such as `srcs` or `deps`. You must list
-the attributes and their types when you define a rule.
+the attributes and their types when you define a rule. Create attributes using
+the [attr](lib/attr.html) module.
 
 ```python
 sum = rule(
@@ -72,29 +73,34 @@ The following attributes are implicitly added to every rule: `deprecation`,
 following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
 `timeout`.
 
-Labels listed in `attr` will be inputs to the rule.
+In a `BUILD` file, call the rule to create targets of this type:
 
-To access an attribute in a rule's implementation, use `ctx.attr.<attribute_name>`.
-This field will have the type given in the rule's `attrs` dictionary corresponding to
-`<attribute_name>`.
+```python
+sum(
+    name = "my-target",
+    deps = [":other-target"],
+)
 
-The name and the package of a rule are available
-with `ctx.label.name` and `ctx.label.package`.
+sum(
+    name = "other-target",
+)
+```
 
-See [an example](https://github.com/bazelbuild/examples/blob/master/rules/attributes/printer.bzl)
-of using `attr` in a rule.
+Label attributes like `deps` above are used to declare dependencies. The target
+whose label is mentioned becomes a dependency of the target with the attribute.
+Therefore, `other-target` will be analyzed before `my-target`.
+
 
 ### <a name="private-attributes"></a> Private Attributes
 
-In Skylark, functions starting with a leading underscore (`_`) are not exported.
-Similarly, when an attribute name starts with `_`, the attribute is private and
-users of the rule cannot set it.
-It is useful in particular for label attributes (your rule will have an
-implicit dependency on this label).
+Attribute names that start with an underscore (`_`) are private; users of the
+rule cannot set it when creating targets. Instead, it takes its value from the
+default given by the rule's declaration. This is used for creating *implicit
+dependencies*:
 
 ```python
-metal_compile = rule(
-    implementation = _impl,
+metal_binary = rule(
+    implementation = _metal_binary_impl,
     attrs = {
         "srcs": attr.label_list(),
         "_compiler": attr.label(
@@ -106,27 +112,43 @@ metal_compile = rule(
 )
 ```
 
+In this example, every target of type `metal_binary` will have an implicit
+dependency on the target `//tools:metalc`. This allows the rule implementation
+to generate actions that invoke the compiler, without requiring users to know
+and specify the compiler's label.
+
 ## Implementation function
 
-Every rule requires an `implementation` function. It contains the actual logic
-of the rule and is executed strictly in the
-[analysis phase](concepts.md#evaluation-model). The function has exactly one
-input parameter, `ctx`, and it may return a list of
-[providers](#providers) of the rule. The input parameter `ctx` can be used
-to access attribute values, outputs and dependent targets, and files. It also
-has some helper functions. See [the library](lib/ctx.html) for more context.
-Example:
+Every rule requires an `implementation` function. This function contains the
+actual logic of the rule and is executed strictly in the
+[analysis phase](concepts.md#evaluation-model). As such, the function is not
+able to actually read or write files. Rather, its main job is to emit
+[actions](#actions) that will run later during the execution phase.
 
-```python
-def _impl(ctx):
-  ...
-  return [DefaultInfo(runfiles=...),  MyInfo(...)]
+Implementation functions take exactly one parameter: a [rule
+context](lib/ctx.html), conventionally named `ctx`. It can be used to:
 
-my_rule = rule(
-    implementation = _impl,
-    ...
-)
-```
+* access attribute values and obtain handles on declared input and output files;
+
+* create actions; and
+
+* pass information to other targets that depend on this one, via
+  [providers](#providers).
+
+The most common way to access attribute values is by using
+`ctx.attr.<attribute_name>`, though there are several other fields besides
+`attr` that provide more convenient ways of accessing file handles, such as
+`ctx.file` and `ctx.outputs`. The name and the package of a rule are available
+with `ctx.label.name` and `ctx.label.package`. The `ctx` object also contains
+some helper functions. See its [documentation](lib/ctx.html) for a complete
+list.
+
+Rule implementation functions are usually private (i.e., named with a leading
+underscore) because they tend not to be reused. Conventionally, they are named
+the same as their rule, but suffixed with `_impl`.
+
+See [an example](https://github.com/bazelbuild/examples/blob/master/rules/attributes/printer.bzl)
+of declaring and accessing attributes.
 
 ## Files
 
@@ -139,13 +161,9 @@ A file is represented with the [File](lib/File.html) object.
 
 ## Targets
 
-Every build rule corresponds to exactly one target. A target can create
-[actions](#actions), can have dependencies (which can be files or
-other build rules), [output files](#output-files) (generated by
-its actions), and [providers](#providers).
-
-A target `y` depends on target `x` if `y` has a label or label list type
-attribute where `x` is declared:
+Every call to a build rule corresponds to exactly one target. A target `y`
+depends on target `x` if `y` has a label- or label-list-type attribute
+that contains `x`'s label:
 
 ```python
 my_rule(
@@ -158,22 +176,11 @@ my_rule(
 )
 ```
 
-In the above case, it's possible to access targets declared in `my_rule.deps`:
-
-```python
-def _impl(ctx):
-  for dep in ctx.attr.deps:
-    # Do something with dep
-  ...
-
-my_rule = rule(
-    implementation = _impl,
-    attrs = {
-        "deps": attr.label_list(),
-    },
-    ...
-)
-```
+In a rule's implementation function, the current target's dependencies can be
+accessed like any other attribute value by using `ctx.attr`. However, each label
+is replaced by a resolved [Target](lib/Target.html) object, which contains the
+additional information obtained during that dependency's analysis step. In
+particular, it contains the [providers](#providers) returned by that dependency.
 
 ## <a name="output-files"></a> Output files
 
