@@ -119,6 +119,11 @@ Args:
   build_file_content: The content for the BUILD file for this repository.
     Either build_file or build_file_content must be specified.
 
+  tag: tag in the remote repository to checked out
+
+  commit: specific commit to be checked out
+    Either tag or commit must be specified.
+
   init_submodules: Whether to clone submodules in the repository.
 
   remote: The URI of the remote Git repository.
@@ -141,6 +146,12 @@ Args:
   init_submodules: Whether to clone submodules in the repository.
 
   remote: The URI of the remote Git repository.
+
+  tag: tag in the remote repository to checked out
+
+  commit: specific commit to be checked out
+    Either tag or commit must be specified.
+
 
   strip_prefix: A directory prefix to strip from the extracted files.
 """
