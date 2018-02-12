@@ -53,7 +53,10 @@ public interface AndroidSemantics {
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMLINKED_MANIFEST);
       SymlinkAction symlinkAction =
           new SymlinkAction(
-              ruleContext.getActionOwner(), manifest, manifestSymlink, "Renaming Android manifest");
+              ruleContext.getActionOwner(),
+              manifest,
+              manifestSymlink,
+              "Renaming Android manifest for " + ruleContext.getLabel());
       ruleContext.registerAction(symlinkAction);
       return ApplicationManifest.fromExplicitManifest(ruleContext, manifestSymlink);
     }
