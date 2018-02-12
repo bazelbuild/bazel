@@ -80,6 +80,9 @@ public final class CqueryCommand implements BlazeCommand {
     for (QueryFunction queryFunction : QueryEnvironment.DEFAULT_QUERY_FUNCTIONS) {
       functions.put(queryFunction.getName(), queryFunction);
     }
+    for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
     QueryExpression expr;
     try {
       expr = QueryParser.parse(query, functions);
