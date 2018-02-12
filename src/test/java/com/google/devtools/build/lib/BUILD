@@ -1210,6 +1210,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//third_party:api_client",
+        "//third_party:auth",
         "//third_party:mockito",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",

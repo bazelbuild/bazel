@@ -102,7 +102,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
     ch.writeInbound(response);
     assertThat(writePromise.isDone()).isTrue();
     assertThat(writePromise.cause()).isInstanceOf(HttpException.class);
-    assertThat(((HttpException) writePromise.cause()).status())
+    assertThat(((HttpException) writePromise.cause()).response().status())
         .isEqualTo(HttpResponseStatus.NOT_FOUND);
     // No data should have been written to the OutputStream and it should have been closed.
     assertThat(out.size()).isEqualTo(0);

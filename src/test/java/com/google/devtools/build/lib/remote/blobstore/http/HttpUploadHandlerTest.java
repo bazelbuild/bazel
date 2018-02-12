@@ -102,7 +102,7 @@ public class HttpUploadHandlerTest extends AbstractHttpHandlerTest {
 
     assertThat(writePromise.isDone()).isTrue();
     assertThat(writePromise.cause()).isInstanceOf(HttpException.class);
-    assertThat(((HttpException) writePromise.cause()).status())
+    assertThat(((HttpException) writePromise.cause()).response().status())
         .isEqualTo(HttpResponseStatus.FORBIDDEN);
     assertThat(ch.isOpen()).isFalse();
   }
