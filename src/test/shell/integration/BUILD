@@ -166,6 +166,7 @@ sh_test(
 sh_test(
     name = "incompatible_changes_conflict_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["incompatible_changes_conflict_test.sh"],
     data = [":test-deps"],
 )
