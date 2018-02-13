@@ -15,6 +15,7 @@
 package com.google.devtools.skylark.skylint;
 
 import com.google.common.truth.Truth;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import java.util.List;
 import org.junit.Test;
@@ -23,15 +24,18 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ControlFlowCheckerTest {
-  private static List<Issue> findIssues(String... lines) {
+  private static List<Issue> findIssues(EventHandler eventHandler, String... lines) {
     String content = String.join("\n", lines);
-    BuildFileAST ast =
-        BuildFileAST.parseString(
-            event -> {
-              throw new IllegalArgumentException(event.getMessage());
-            },
-            content);
+    BuildFileAST ast = BuildFileAST.parseString(eventHandler, content);
     return ControlFlowChecker.check(ast);
+  }
+
+  private static List<Issue> findIssues(String... lines) {
+    return findIssues(
+        event -> {
+          throw new IllegalArgumentException(event.getMessage());
+        },
+        lines);
   }
 
   @Test
@@ -57,6 +61,18 @@ public class ControlFlowCheckerTest {
                 + " If you know these cannot happen,"
                 + " add the statement `fail('unreachable')` to them."
                 + " For more details, have a look at the documentation. [missing-return-value]");
+  }
+
+  @Test
+  public void testNestedFunction() {
+    Truth.assertThat(
+            findIssues(event -> {}, "def foo():", "  def bar():", "    pass", "  return")
+                .toString())
+        .contains(
+            "2:3-3:8: bar is a nested function which is not allowed."
+                + " Consider inlining it or moving it to top-level."
+                + " For more details, have a look at the Skylark documentation."
+                + " [nested-function]");
   }
 
   @Test
