@@ -224,7 +224,11 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(
-            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
+            spawn.getEnvironment(),
+            execRoot,
+            getLocalTmpRoot(),
+            tmpDir.getPathString(),
+            productName);
 
     final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);

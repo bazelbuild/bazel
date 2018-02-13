@@ -27,28 +27,40 @@ import org.junit.runners.JUnit4;
 public final class PosixLocalEnvProviderTest {
 
   private static Map<String, String> rewriteEnv(
-      PosixLocalEnvProvider p, ImmutableMap<String, String> env) {
-    return p.rewriteLocalEnv(env, null, null, null);
+      PosixLocalEnvProvider p,
+      ImmutableMap<String, String> env,
+      String localTmpRoot,
+      String fallbackDir) {
+    return p.rewriteLocalEnv(env, null, localTmpRoot, fallbackDir, null);
   }
 
-  /** Should use the client environment's TMPDIR envvar if specified. */
   @Test
-  public void testRewriteEnvWithClientTmpdir() throws Exception {
-    PosixLocalEnvProvider p =
-        new PosixLocalEnvProvider(ImmutableMap.of("TMPDIR", "client-env/tmp"));
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1")))
-        .isEqualTo(ImmutableMap.of("key1", "value1", "TMPDIR", "client-env/tmp"));
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1", "TMPDIR", "ignored")))
-        .isEqualTo(ImmutableMap.of("key1", "value1", "TMPDIR", "client-env/tmp"));
-  }
+  public void testRewriteEnv() throws Exception {
+    // localTmpRoot is specified, so ignore everything else.
+    assertThat(
+            rewriteEnv(
+                new PosixLocalEnvProvider(ImmutableMap.of("TMPDIR", "client/env/tmpdir")),
+                ImmutableMap.of("key1", "value1", "TMPDIR", "spawn/tmpdir"),
+                "local/tmp",
+                "fallback/dir"))
+        .isEqualTo(ImmutableMap.of("key1", "value1", "TMPDIR", "local/tmp"));
 
-  /** Should use the default temp dir when the client env doesn't define TMPDIR. */
-  @Test
-  public void testRewriteEnvWithDefaultTmpdir() throws Exception {
-    PosixLocalEnvProvider p = new PosixLocalEnvProvider(ImmutableMap.<String, String>of());
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1")))
-        .isEqualTo(ImmutableMap.of("key1", "value1", "TMPDIR", "/tmp"));
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1", "TMPDIR", "ignored")))
+    // localTmpRoot is empty, fall back to the client environment's TMPDIR.
+    assertThat(
+            rewriteEnv(
+                new PosixLocalEnvProvider(ImmutableMap.of("TMPDIR", "client/tmpdir")),
+                ImmutableMap.of("key1", "value1", "TMPDIR", "spawn/tmpdir"),
+                "",
+                "fallback/dir"))
+        .isEqualTo(ImmutableMap.of("key1", "value1", "TMPDIR", "client/tmpdir"));
+
+    // localTmpRoot and the client environment's TMPDIR are empty, fall back to /tmp.
+    assertThat(
+            rewriteEnv(
+                new PosixLocalEnvProvider(ImmutableMap.of("TMPDIR", "")),
+                ImmutableMap.of("key1", "value1", "TMPDIR", "spawn/tmpdir"),
+                "",
+                "fallback/dir"))
         .isEqualTo(ImmutableMap.of("key1", "value1", "TMPDIR", "/tmp"));
   }
 }

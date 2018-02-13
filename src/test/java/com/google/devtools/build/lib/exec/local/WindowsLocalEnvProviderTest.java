@@ -27,76 +27,53 @@ import org.junit.runners.JUnit4;
 public final class WindowsLocalEnvProviderTest {
 
   private static Map<String, String> rewriteEnv(
-      WindowsLocalEnvProvider p, ImmutableMap<String, String> env) {
-    return p.rewriteLocalEnv(env, null, null, null);
+      WindowsLocalEnvProvider p,
+      ImmutableMap<String, String> env,
+      String localTmpRoot,
+      String fallbackDir) {
+    return p.rewriteLocalEnv(env, null, localTmpRoot, fallbackDir, null);
   }
 
-  private static Map<String, String> rewriteEnv(
-      WindowsLocalEnvProvider p, ImmutableMap<String, String> env, String fallback) {
-    return p.rewriteLocalEnv(env, null, fallback, null);
-  }
-
-  /** Should use the client environment's TMP envvar if specified. */
   @Test
-  public void testRewriteEnvWithClientTmp() throws Exception {
-    WindowsLocalEnvProvider p =
-        new WindowsLocalEnvProvider(
-            ImmutableMap.of("TMP", "client-env/tmp", "TEMP", "ignore/when/tmp/is/present"));
-
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1", "TMP", "ignore", "TEMP", "ignore")))
-        .isEqualTo(
-            ImmutableMap.of("key1", "value1", "TMP", "client-env\\tmp", "TEMP", "client-env\\tmp"));
-
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1", "TMP", "ignore")))
-        .isEqualTo(
-            ImmutableMap.of("key1", "value1", "TMP", "client-env\\tmp", "TEMP", "client-env\\tmp"));
-
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1")))
-        .isEqualTo(
-            ImmutableMap.of("key1", "value1", "TMP", "client-env\\tmp", "TEMP", "client-env\\tmp"));
-  }
-
-  /** Should use the client environment's TEMP envvar if TMP is unspecified. */
-  @Test
-  public void testRewriteEnvWithoutClientTmpWithClientTemp() throws Exception {
-    WindowsLocalEnvProvider p =
-        new WindowsLocalEnvProvider(ImmutableMap.of("TEMP", "client-env/temp"));
-
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1", "TMP", "ignore", "TEMP", "ignore")))
-        .isEqualTo(
-            ImmutableMap.of(
-                "key1", "value1", "TMP", "client-env\\temp", "TEMP", "client-env\\temp"));
-
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1", "TMP", "ignore")))
-        .isEqualTo(
-            ImmutableMap.of(
-                "key1", "value1", "TMP", "client-env\\temp", "TEMP", "client-env\\temp"));
-
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1")))
-        .isEqualTo(
-            ImmutableMap.of(
-                "key1", "value1", "TMP", "client-env\\temp", "TEMP", "client-env\\temp"));
-  }
-
-  /** Should use the fallback temp dir when the client env defines neither TMP nor TEMP. */
-  @Test
-  public void testRewriteEnvWithFallbackTmp() throws Exception {
-    WindowsLocalEnvProvider p = new WindowsLocalEnvProvider(ImmutableMap.<String, String>of());
-
+  public void testRewriteEnv() throws Exception {
+    // localTmpRoot is specified, so ignore everything else.
     assertThat(
             rewriteEnv(
-                p,
-                ImmutableMap.of("key1", "value1", "TMP", "ignore", "TEMP", "ignore"),
-                "fallback/tmp"))
-        .isEqualTo(
-            ImmutableMap.of("key1", "value1", "TMP", "fallback\\tmp", "TEMP", "fallback\\tmp"));
+                new WindowsLocalEnvProvider(
+                    ImmutableMap.of("TMP", "client/env/tmp", "TEMP", "client/env/temp")),
+                ImmutableMap.of("key1", "value1", "TMP", "spawn/tmp", "TEMP", "spawn/temp"),
+                "local/tmp",
+                "fallback/dir"))
+        .isEqualTo(ImmutableMap.of("key1", "value1", "TMP", "local\\tmp", "TEMP", "local\\tmp"));
 
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1", "TMP", "ignore"), "fallback/tmp"))
-        .isEqualTo(
-            ImmutableMap.of("key1", "value1", "TMP", "fallback\\tmp", "TEMP", "fallback\\tmp"));
+    // localTmpRoot is empty, fall back to the client environment's TMP.
+    assertThat(
+            rewriteEnv(
+                new WindowsLocalEnvProvider(
+                    ImmutableMap.of("TMP", "client/tmp", "TEMP", "client/temp")),
+                ImmutableMap.of("key1", "value1", "TMP", "spawn/tmp", "TEMP", "spawn/temp"),
+                "",
+                "fallback/dir"))
+        .isEqualTo(ImmutableMap.of("key1", "value1", "TMP", "client\\tmp", "TEMP", "client\\tmp"));
 
-    assertThat(rewriteEnv(p, ImmutableMap.of("key1", "value1"), "fallback/tmp"))
+    // localTmpRoot and the client environment's TMP are empty, fall back to TEMP.
+    assertThat(
+            rewriteEnv(
+                new WindowsLocalEnvProvider(ImmutableMap.of("TMP", "", "TEMP", "client/temp")),
+                ImmutableMap.of("key1", "value1", "TMP", "spawn/tmp", "TEMP", "spawn/temp"),
+                "",
+                "fallback/dir"))
         .isEqualTo(
-            ImmutableMap.of("key1", "value1", "TMP", "fallback\\tmp", "TEMP", "fallback\\tmp"));
+            ImmutableMap.of("key1", "value1", "TMP", "client\\temp", "TEMP", "client\\temp"));
+
+    // localTmpRoot and the client environment's TMP and TEMP are empty, fall back to fallbackDir.
+    assertThat(
+            rewriteEnv(
+                new WindowsLocalEnvProvider(ImmutableMap.of("TMP", "", "TEMP", "")),
+                ImmutableMap.of("key1", "value1", "TMP", "spawn/tmp", "TEMP", "spawn/temp"),
+                "",
+                "fallback/dir"))
+        .isEqualTo(
+            ImmutableMap.of("key1", "value1", "TMP", "fallback\\dir", "TEMP", "fallback\\dir"));
   }
 }

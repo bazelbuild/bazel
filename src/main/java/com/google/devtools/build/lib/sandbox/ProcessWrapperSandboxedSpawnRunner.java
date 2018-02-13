@@ -107,7 +107,11 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
 
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(
-            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
+            spawn.getEnvironment(),
+            execRoot,
+            getLocalTmpRoot(),
+            tmpDir.getPathString(),
+            productName);
 
     Duration timeout = policy.getTimeout();
     ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =

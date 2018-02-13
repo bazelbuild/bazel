@@ -626,6 +626,8 @@ public class LocalSpawnRunnerTest {
     LocalEnvProvider localEnvProvider = mock(LocalEnvProvider.class);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.localTmpRoot = "local-tmp-root";
+
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -646,6 +648,7 @@ public class LocalSpawnRunnerTest {
         .rewriteLocalEnv(
             any(),
             eq(fs.getPath("/execroot")),
+            eq("local-tmp-root"),
             matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"),
             eq("product-name"));
   }

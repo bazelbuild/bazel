@@ -60,4 +60,21 @@ public class LocalExecutionOptions extends OptionsBase {
             + "locally executed actions which don't use sandboxing"
   )
   public boolean collectLocalExecutionStatistics;
+
+  @Option(
+    name = "local_tmp_root",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "Sets the TMPDIR environment variable's value for locally executed actions. If this flag's "
+            + "value is not empty, Bazel exports TMPDIR (on Linux/macOS) or TMP and TEMP (on "
+            + "Windows) with this value for locally executed actions. (This doesn't influence "
+            + "action caching, as TMPDIR/TMP/TEMP are not part of the action's cache key.) If this "
+            + "flag's value is empty, then Bazel picks up the user-defined TMPDIR (on Linux/macOS) "
+            + "or TMP/TEMP (on Windows) and exports that for local actions; and if that value is "
+            + "also empty, Bazel exports \"/tmp\" (on Linux/macOS) or a directory in the execroot "
+            + "(on Windows)."
+  )
+  public String localTmpRoot;
 }

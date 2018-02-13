@@ -39,6 +39,7 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
    * TEMP (or adds them if not present in {@code env}) by the same value, which is:
    *
    * <ul>
+   *   <li>the value of {@code localTmpRoot}, or if that's empty or null, then
    *   <li>the value of {@code clientEnv.get("TMP")}, or if that's empty or null, then
    *   <li>the value of {@code clientEnv.get("TEMP")}, or if that's empty or null, then
    *   <li>the value of {@code fallbackTmpDir}.
@@ -48,14 +49,21 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
    */
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName) {
+      Map<String, String> env,
+      Path execRoot,
+      String localTmpRoot,
+      String fallbackTmpDir,
+      String productName) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMP") && !k.equals("TEMP")));
-    String p = clientEnv.get("TMP");
+    String p = localTmpRoot;
     if (Strings.isNullOrEmpty(p)) {
-      p = clientEnv.get("TEMP");
+      p = clientEnv.get("TMP");
       if (Strings.isNullOrEmpty(p)) {
-        p = fallbackTmpDir;
+        p = clientEnv.get("TEMP");
+        if (Strings.isNullOrEmpty(p)) {
+          p = fallbackTmpDir;
+        }
       }
     }
     p = p.replace('/', '\\');

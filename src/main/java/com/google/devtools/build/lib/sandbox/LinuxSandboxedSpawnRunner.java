@@ -183,7 +183,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(
-            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
+            spawn.getEnvironment(),
+            execRoot,
+            getLocalTmpRoot(),
+            tmpDir.getPathString(),
+            productName);
 
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);

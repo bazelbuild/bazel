@@ -27,7 +27,11 @@ public interface LocalEnvProvider {
       new LocalEnvProvider() {
         @Override
         public Map<String, String> rewriteLocalEnv(
-            Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName) {
+            Map<String, String> env,
+            Path execRoot,
+            String localTmpRoot,
+            String fallbackTmpDir,
+            String productName) {
           return env;
         }
       };
@@ -37,13 +41,25 @@ public interface LocalEnvProvider {
    *
    * @param env the Spawn's environment to rewrite
    * @param execRoot the path where the Spawn is executed
-   * @param fallbackTmpDir an absolute path to a temp directory that the Spawn could use. The
-   *     particular implementation of {@link LocalEnvProvider} may choose to use some other path,
-   *     typically the "TMPDIR" environment variable in the Bazel client's environment, but if
-   *     that's unavailable, the implementation may decide to use this {@code fallbackTmpDir}.
+   * @param localTmpRoot an absolute path to a temp directory that the Spawn could use. Whether the
+   *     particular implementation of {@link LocalEnvProvider} chooses to use this path, or {@code
+   *     fallbackTmpDir}, or some other value, is up to the implementation. Typically the
+   *     implementations will use {@code localTmpRoot}, or if empty then use the Bazel client's
+   *     environment's TMPDIR/TMP/TEMP value (depending on the host OS), or if empty then use the
+   *     {@code fallbackTmpDir} or some other value (typically "/tmp").
+   * @param fallbackTmpDir an absolute path to a temp directory that the Spawn could use. Whether
+   *     the particular implementation of {@link LocalEnvProvider} chooses to use this path, or
+   *     {@code localTmpRoot}, or some other value, is up to the implementation. Typically the
+   *     implementations will use {@code localTmpRoot}, or if empty then use the Bazel client's
+   *     environment's TMPDIR/TMP/TEMP value (depending on the host OS), or if empty then use the
+   *     {@code fallbackTmpDir} or some other value (typically "/tmp").
    * @param productName name of the Bazel binary, e.g. "bazel"
    */
   Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName)
+      Map<String, String> env,
+      Path execRoot,
+      String localTmpRoot,
+      String fallbackTmpDir,
+      String productName)
       throws IOException;
 }
