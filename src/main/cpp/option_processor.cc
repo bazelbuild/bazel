@@ -37,7 +37,6 @@ extern char **environ;
 
 namespace blaze {
 
-using std::list;
 using std::map;
 using std::set;
 using std::string;
