@@ -209,7 +209,8 @@ public class AndroidResourceMergingAction {
     Preconditions.checkNotNull(options.primaryManifest);
 
     try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("android_resource_merge_tmp")) {
+            new ScopedTemporaryDirectory("android_resource_merge_tmp");
+        ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       Path tmp = scopedTmp.getPath();
       Path mergedAssets = tmp.resolve("merged_assets");
       Path mergedResources = tmp.resolve("merged_resources");
@@ -243,7 +244,8 @@ public class AndroidResourceMergingAction {
               packageType,
               options.symbolsBinOut,
               resourceClassWriter,
-              options.throwOnResourceConflict);
+              options.throwOnResourceConflict,
+              executorService);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

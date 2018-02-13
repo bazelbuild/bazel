@@ -18,12 +18,9 @@ import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.PngCruncher;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
-import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -65,11 +62,10 @@ public class AndroidResourceMerger {
       @Nullable final Path symbolsOut,
       @Nullable AndroidResourceClassWriter rclassWriter,
       AndroidDataDeserializer deserializer,
-      boolean throwOnResourceConflict) {
+      boolean throwOnResourceConflict,
+      ListeningExecutorService executorService) {
     Stopwatch timer = Stopwatch.createStarted();
-    final ListeningExecutorService executorService =
-        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
-    try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+    try {
       UnwrittenMergedAndroidData merged =
           mergeData(
               executorService,
@@ -148,7 +144,7 @@ public class AndroidResourceMerger {
       @Nullable final Path symbolsOut,
       final List<String> filteredResources,
       boolean throwOnResourceConflict) {
-    try {
+    try (ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       final ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primary);
       return mergeData(
           parsedPrimary,
@@ -162,7 +158,8 @@ public class AndroidResourceMerger {
           symbolsOut,
           null /* rclassWriter */,
           AndroidParsedDataDeserializer.withFilteredResources(filteredResources),
-          throwOnResourceConflict);
+          throwOnResourceConflict,
+          executorService);
     } catch (IOException e) {
       throw MergingException.wrapException(e);
     }
@@ -183,7 +180,8 @@ public class AndroidResourceMerger {
       final VariantType type,
       @Nullable final Path symbolsOut,
       @Nullable final AndroidResourceClassWriter rclassWriter,
-      boolean throwOnResourceConflict) {
+      boolean throwOnResourceConflict,
+      ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
     final AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     primary.deserialize(deserializer, primaryBuilder.consumers());
@@ -200,7 +198,8 @@ public class AndroidResourceMerger {
         symbolsOut,
         rclassWriter,
         deserializer,
-        throwOnResourceConflict);
+        throwOnResourceConflict,
+        executorService);
   }
 
   /**
@@ -213,15 +212,14 @@ public class AndroidResourceMerger {
       final List<? extends SerializedAndroidData> direct,
       final List<? extends SerializedAndroidData> transitive,
       @Nullable final AndroidResourceClassWriter rclassWriter,
-      boolean throwOnResourceConflict) {
+      boolean throwOnResourceConflict,
+      ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
     final AndroidDataDeserializer deserializer = AndroidCompiledDataDeserializer.create();
     primary.deserialize(deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
-
     Stopwatch timer = Stopwatch.createStarted();
-    final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
-    try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+    try {
       UnwrittenMergedAndroidData merged =
           mergeData(
               executorService,

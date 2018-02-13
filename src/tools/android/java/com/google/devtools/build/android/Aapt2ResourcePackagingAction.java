@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.toList;
 
 import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidResourceProcessingAction.Options;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
@@ -29,7 +28,6 @@ import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
-import java.io.Closeable;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -73,7 +71,8 @@ public class Aapt2ResourcePackagingAction {
     options = optionsParser.getOptions(Options.class);
 
     try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("android_resources_tmp")) {
+            new ScopedTemporaryDirectory("android_resources_tmp");
+        ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       final Path tmp = scopedTmp.getPath();
       final Path mergedAssets = tmp.resolve("merged_assets");
       final Path mergedResources = tmp.resolve("merged_resources");
@@ -87,10 +86,15 @@ public class Aapt2ResourcePackagingAction {
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
 
-
-      // TODO(b/72995408): Remove the densitiesForManifest option once it is no longer being passed.
-      final List<String> densities =
-          options.densities.isEmpty() ? options.densitiesForManifest : options.densities;
+      final List<String> densities;
+      if (options.densities.isEmpty()) {
+        // aapt2 always needs to filter on densities, as the resource filtering from analysis is
+        // disregarded.
+        // TODO(b/70335064): Remove this once we never filter in analysis when building for aapt2.
+        densities = options.densitiesForManifest;
+      } else {
+        densities = options.densities;
+      }
 
       profiler.recordEndOf("setup").startTask("merging");
 
@@ -113,15 +117,15 @@ public class Aapt2ResourcePackagingAction {
                   options.symbolsOut,
                   null /* rclassWriter */,
                   dataDeserializer,
-                  options.throwOnResourceConflict)
+                  options.throwOnResourceConflict,
+                  executorService)
               .filter(
                   new DensitySpecificResourceFilter(densities, filteredResources, mergedResources),
                   new DensitySpecificManifestProcessor(densities, densityManifest));
 
       profiler.recordEndOf("merging");
 
-      final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
-      try (final Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+     
         profiler.startTask("compile");
         final ResourceCompiler compiler =
             ResourceCompiler.create(
@@ -201,5 +205,3 @@ public class Aapt2ResourcePackagingAction {
       }
     }
   }
-
-}
