@@ -249,25 +249,19 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       throws QueryException, InterruptedException {
     Set<SkyKey> roots = getGraphRootsFromExpression(expr);
 
-    if (graph == null || !graphFactory.isUpToDate(roots)) {
-      // If this environment is uninitialized or the graph factory needs to evaluate, do so. We
-      // assume here that this environment cannot be initialized-but-stale if the factory is up
-      // to date.
-      EvaluationResult<SkyValue> result;
-      try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", logger)) {
-        result = graphFactory.prepareAndGet(roots, loadingPhaseThreads, universeEvalEventHandler);
-      }
+    EvaluationResult<SkyValue> result;
+    try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", logger)) {
+      result = graphFactory.prepareAndGet(roots, loadingPhaseThreads, universeEvalEventHandler);
+    }
 
+    if (graph == null || graph != result.getWalkableGraph()) {
       checkEvaluationResult(roots, result);
-
       packageSemaphore = makeFreshPackageMultisetSemaphore();
       graph = result.getWalkableGraph();
       blacklistPatternsSupplier = InterruptibleSupplier.Memoize.of(new BlacklistSupplier(graph));
-
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
     }
-
 
     if (executor == null) {
       executor = MoreExecutors.listeningDecorator(

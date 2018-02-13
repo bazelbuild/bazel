@@ -48,11 +48,6 @@ public class SequentialBuildDriver implements BuildDriver {
   }
 
   @Override
-  public boolean alreadyEvaluated(Iterable<SkyKey> roots) {
-    return false;
-  }
-
-  @Override
   public MemoizingEvaluator getGraphForTesting() {
     return memoizingEvaluator;
   }
