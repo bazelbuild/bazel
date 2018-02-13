@@ -62,6 +62,8 @@ public final class JavaLibraryBuildRequest {
 
   private final Path outputJar;
   private final Path nativeHeaderOutput;
+  @Nullable private final String targetLabel;
+  @Nullable private final String injectingRuleKind;
 
   private final Path classDir;
   private final Path tempDir;
@@ -183,6 +185,8 @@ public final class JavaLibraryBuildRequest {
     this.sourceGenDir = asPath(optionsParser.getSourceGenDir());
     this.generatedSourcesOutputJar = asPath(optionsParser.getGeneratedSourcesOutputJar());
     this.generatedClassOutputJar = asPath(optionsParser.getManifestProtoPath());
+    this.targetLabel = optionsParser.getTargetLabel();
+    this.injectingRuleKind = optionsParser.getInjectingRuleKind();
   }
 
   private static ImmutableList<Path> asPaths(Collection<String> paths) {
@@ -286,6 +290,16 @@ public final class JavaLibraryBuildRequest {
 
   public ImmutableList<BlazeJavaCompilerPlugin> getPlugins() {
     return plugins;
+  }
+
+  @Nullable
+  public String getTargetLabel() {
+    return targetLabel;
+  }
+
+  @Nullable
+  public String getInjectingRuleKind() {
+    return injectingRuleKind;
   }
 
   public BlazeJavacArguments toBlazeJavacArguments(ImmutableList<Path> classPath) {

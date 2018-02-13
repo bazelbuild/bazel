@@ -32,6 +32,7 @@ import com.google.turbine.options.TurbineOptionsParser;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -47,6 +48,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.regex.Pattern;
 import java.util.zip.ZipOutputStream;
 import org.objectweb.asm.ClassReader;
@@ -63,6 +67,13 @@ import org.objectweb.asm.Opcodes;
  * real header compilation implementation.
  */
 public class JavacTurbine implements AutoCloseable {
+
+  // These attributes are used by JavaBuilder, Turbine, and ijar.
+  // They must all be kept in sync.
+  static final String MANIFEST_DIR = "META-INF/";
+  static final String MANIFEST_NAME = JarFile.MANIFEST_NAME;
+  static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
+  static final Attributes.Name INJECTING_RULE_KIND = new Attributes.Name("Injecting-Rule-Kind");
 
   public static void main(String[] args) throws IOException {
     System.exit(compile(TurbineOptionsParser.parse(Arrays.asList(args))).exitCode());
@@ -192,9 +203,7 @@ public class JavacTurbine implements AutoCloseable {
     if (sources.isEmpty()) {
       // accept compilations with an empty source list for compatibility with JavaBuilder
       emitClassJar(
-          Paths.get(turbineOptions.outputFile()),
-          /* files= */ ImmutableMap.of(),
-          /* transitive= */ ImmutableMap.of());
+          turbineOptions, /* files= */ ImmutableMap.of(), /* transitive= */ ImmutableMap.of());
       dependencyModule.emitDependencyInformation(
           /*classpath=*/ ImmutableList.of(), /*successful=*/ true);
       return Result.OK_WITH_REDUCED_CLASSPATH;
@@ -238,9 +247,7 @@ public class JavacTurbine implements AutoCloseable {
 
     if (result.ok()) {
       emitClassJar(
-          Paths.get(turbineOptions.outputFile()),
-          compileResult.files(),
-          transitive.collectTransitiveDependencies());
+          turbineOptions, compileResult.files(), transitive.collectTransitiveDependencies());
       dependencyModule.emitDependencyInformation(actualClasspath, compileResult.success());
     } else {
       out.print(compileResult.output());
@@ -292,8 +299,9 @@ public class JavacTurbine implements AutoCloseable {
 
   /** Write the class output from a successful compilation to the output jar. */
   private static void emitClassJar(
-      Path outputJar, Map<String, byte[]> files, Map<String, byte[]> transitive)
+      TurbineOptions turbineOptions, Map<String, byte[]> files, Map<String, byte[]> transitive)
       throws IOException {
+    Path outputJar = Paths.get(turbineOptions.outputFile());
     try (OutputStream fos = Files.newOutputStream(outputJar);
         ZipOutputStream zipOut =
             new ZipOutputStream(new BufferedOutputStream(fos, ZIPFILE_BUFFER_SIZE))) {
@@ -313,7 +321,31 @@ public class JavacTurbine implements AutoCloseable {
         }
         ZipUtil.storeEntry(name, bytes, zipOut);
       }
+
+      if (turbineOptions.targetLabel().isPresent()) {
+        ZipUtil.storeEntry(MANIFEST_DIR, new byte[] {}, zipOut);
+        ZipUtil.storeEntry(MANIFEST_NAME, manifestContent(turbineOptions), zipOut);
+      }
     }
+  }
+
+  private static byte[] manifestContent(TurbineOptions turbineOptions) throws IOException {
+    Manifest manifest = new Manifest();
+    Attributes attributes = manifest.getMainAttributes();
+    attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
+    Attributes.Name createdBy = new Attributes.Name("Created-By");
+    if (attributes.getValue(createdBy) == null) {
+      attributes.put(createdBy, "bazel");
+    }
+    if (turbineOptions.targetLabel().isPresent()) {
+      attributes.put(TARGET_LABEL, turbineOptions.targetLabel().get());
+    }
+    if (turbineOptions.injectingRuleKind().isPresent()) {
+      attributes.put(INJECTING_RULE_KIND, turbineOptions.injectingRuleKind().get());
+    }
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    manifest.write(out);
+    return out.toByteArray();
   }
 
   /**

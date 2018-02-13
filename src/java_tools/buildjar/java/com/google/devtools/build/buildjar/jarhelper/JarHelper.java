@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -46,6 +47,13 @@ public class JarHelper {
           .atZone(ZoneId.systemDefault())
           .toInstant()
           .toEpochMilli();
+  // These attributes are used by JavaBuilder, Turbine, and ijar.
+  // They must all be kept in sync.
+  public static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
+  public static final Attributes.Name INJECTING_RULE_KIND =
+      new Attributes.Name("Injecting-Rule-Kind");
+
+  public static final long DOS_EPOCH_IN_JAVA_TIME = 315561600000L;
 
   // ZIP timestamps have a resolution of 2 seconds.
   // see http://www.info-zip.org/FAQ.html#limits

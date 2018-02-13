@@ -16,6 +16,7 @@ package com.google.devtools.build.java.turbine.javac;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toSet;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -53,6 +54,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -61,9 +64,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
@@ -105,7 +110,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Hello.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("Hello.class");
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
@@ -136,7 +141,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Hello.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("Hello.class");
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
@@ -228,7 +233,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     compile();
 
     Map<String, byte[]> outputs = collectOutputs();
-    assertThat(outputs.keySet())
+    assertThat(filterManifestEntries(outputs.keySet()))
         .containsExactly(
             "Generated.class", "MyAnnotation.class", "Hello.class", "com/foo/hello.txt");
 
@@ -629,7 +634,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Const.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("Const.class");
 
     String text = textify(outputs.get("Const.class"));
     String[] expected = {
@@ -678,7 +683,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     compile();
     Map<String, byte[]> outputs = collectOutputs();
     // just don't crash; enum constants need to be preserved
-    assertThat(outputs.keySet()).containsExactly("TheEnum.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("TheEnum.class");
 
     String text = textify(outputs.get("TheEnum.class"));
     String[] expected = {
@@ -790,7 +795,8 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Super.class", "Hello.class");
+    assertThat(filterManifestEntries(outputs.keySet()))
+        .containsExactly("Super.class", "Hello.class");
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
@@ -825,7 +831,8 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Anno.class", "Hello.class");
+    assertThat(filterManifestEntries(outputs.keySet()))
+        .containsExactly("Anno.class", "Hello.class");
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
@@ -880,7 +887,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Hello.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("Hello.class");
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
@@ -953,7 +960,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     // don't set up any source files
     compile();
     Map<String, byte[]> outputs = collectOutputs();
-    assertThat(outputs.keySet()).isEmpty();
+    assertThat(filterManifestEntries(outputs.keySet())).isEmpty();
   }
 
   /** An annotation processor that violates the contract. */
@@ -1067,7 +1074,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     compile();
     Map<String, byte[]> outputs = collectOutputs();
-    assertThat(outputs.keySet()).containsExactly("Hello.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("Hello.class");
   }
 
   public static class Lib {}
@@ -1115,7 +1122,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Hello.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("Hello.class");
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
@@ -1148,7 +1155,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     Map<String, byte[]> outputs = collectOutputs();
 
-    assertThat(outputs.keySet()).containsExactly("Bridge.class");
+    assertThat(filterManifestEntries(outputs.keySet())).containsExactly("Bridge.class");
 
     String text = textify(outputs.get("Bridge.class"));
     String[] expected = {
@@ -1325,6 +1332,32 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
     assertThat(javacopts).contains("--release");
     assertThat(javacopts).containsNoneOf("-source", "-target");
+  }
+
+  @Test
+  public void testManifestEntries() throws Exception {
+    optionsBuilder.setTargetLabel("//foo:foo");
+    optionsBuilder.setInjectingRuleKind("foo_library");
+    compile();
+    try (JarFile jarFile = new JarFile(output.toFile())) {
+      Manifest manifest = jarFile.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertThat(attributes.getValue("Injecting-Rule-Kind")).isEqualTo("foo_library");
+      assertThat(jarFile.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
+          .isEqualTo(
+              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneId.systemDefault()).toInstant());
+    }
+  }
+
+  private static Set<String> filterManifestEntries(Set<String> entries) {
+    return entries
+        .stream()
+        .filter(
+            name ->
+                !(name.equals(JavacTurbine.MANIFEST_DIR)
+                    || name.equals(JavacTurbine.MANIFEST_NAME)))
+        .collect(toSet());
   }
 }
 

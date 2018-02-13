@@ -45,6 +45,8 @@ public class JarCreator extends JarHelper {
   private final TreeMap<String, Path> jarEntries = new TreeMap<>();
   private String manifestFile;
   private String mainClass;
+  private String targetLabel;
+  private String injectingRuleKind;
 
   /** @deprecated use {@link JarCreator(Path)} instead */
   @Deprecated
@@ -182,6 +184,11 @@ public class JarCreator extends JarHelper {
     this.mainClass = mainClass;
   }
 
+  public void setJarOwner(String targetLabel, String injectingRuleKind) {
+    this.targetLabel = targetLabel;
+    this.injectingRuleKind = injectingRuleKind;
+  }
+
   /**
    * Sets filename for the manifest content. If this is set the manifest will be read from this file
    * otherwise the manifest content will get generated on the fly.
@@ -207,10 +214,16 @@ public class JarCreator extends JarHelper {
     attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
     Attributes.Name createdBy = new Attributes.Name("Created-By");
     if (attributes.getValue(createdBy) == null) {
-      attributes.put(createdBy, "blaze");
+      attributes.put(createdBy, "bazel");
     }
     if (mainClass != null) {
       attributes.put(Attributes.Name.MAIN_CLASS, mainClass);
+    }
+    if (targetLabel != null) {
+      attributes.put(JarHelper.TARGET_LABEL, targetLabel);
+    }
+    if (injectingRuleKind != null) {
+      attributes.put(JarHelper.INJECTING_RULE_KIND, injectingRuleKind);
     }
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     manifest.write(out);
