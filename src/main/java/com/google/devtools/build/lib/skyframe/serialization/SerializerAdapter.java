@@ -38,7 +38,7 @@ public class SerializerAdapter<T> extends Serializer<T> {
       ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
       CodedOutputStream codedOut = CodedOutputStream.newInstance(byteOutput);
       // TODO(shahan): Determine if there's any context we can/should pass along from kryo.
-      codec.serialize(SerializationContext.create(), object, codedOut);
+      codec.serialize(SerializationContext.UNTHREADED_PLEASE_FIX, object, codedOut);
       codedOut.flush();
       byte[] byteData = byteOutput.toByteArray();
       output.writeInt(byteData.length, true);
@@ -54,7 +54,7 @@ public class SerializerAdapter<T> extends Serializer<T> {
       byte[] byteData = input.readBytes(input.readInt(true));
       // TODO(shahan): Determine if there's any context we can/should pass along from kryo.
       return codec.deserialize(
-          DeserializationContext.create(), CodedInputStream.newInstance(byteData));
+          DeserializationContext.UNTHREADED_PLEASE_FIX, CodedInputStream.newInstance(byteData));
     } catch (SerializationException | IOException e) {
       throw new KryoException(e);
     }

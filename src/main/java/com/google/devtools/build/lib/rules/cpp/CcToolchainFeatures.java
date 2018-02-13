@@ -38,13 +38,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.WithFeatureSet;
@@ -1129,9 +1127,9 @@ public class CcToolchainFeatures implements Serializable {
    * instance could serve as a top level View used to expand all flag_groups.
    */
   @Immutable
-  @AutoCodec(dependency = FileSystemProvider.class)
+  @AutoCodec
   public static class Variables {
-    public static final InjectingObjectCodec<Variables, FileSystemProvider> CODEC =
+    public static final ObjectCodec<Variables> CODEC =
         new CcToolchainFeatures_Variables_AutoCodec();
 
     /** An empty variables instance. */
@@ -1165,9 +1163,9 @@ public class CcToolchainFeatures implements Serializable {
      * <p>Implementations must be immutable and without any side-effects. They will be expanded and
      * queried multiple times.
      */
-    @AutoCodec(strategy = Strategy.POLYMORPHIC, dependency = FileSystemProvider.class)
+    @AutoCodec(strategy = Strategy.POLYMORPHIC)
     interface VariableValue {
-      public static final InjectingObjectCodec<VariableValue, FileSystemProvider> CODEC =
+      public static final ObjectCodec<VariableValue> CODEC =
           new CcToolchainFeatures_Variables_VariableValue_AutoCodec();
 
       /**
@@ -1381,9 +1379,9 @@ public class CcToolchainFeatures implements Serializable {
      * significantly reduces memory overhead.
      */
     @Immutable
-    @AutoCodec(dependency = FileSystemProvider.class)
+    @AutoCodec
     public static class LibraryToLinkValue extends VariableValueAdapter {
-      public static final InjectingObjectCodec<LibraryToLinkValue, FileSystemProvider> CODEC =
+      public static final ObjectCodec<LibraryToLinkValue> CODEC =
           new CcToolchainFeatures_Variables_LibraryToLinkValue_AutoCodec();
 
       public static final String OBJECT_FILES_FIELD_NAME = "object_files";
@@ -1514,10 +1512,10 @@ public class CcToolchainFeatures implements Serializable {
 
     /** Sequence of arbitrary VariableValue objects. */
     @Immutable
-    @AutoCodec(dependency = FileSystemProvider.class)
+    @AutoCodec
     @VisibleForSerialization
     static final class Sequence extends VariableValueAdapter {
-      public static final InjectingObjectCodec<Sequence, FileSystemProvider> CODEC =
+      public static final ObjectCodec<Sequence> CODEC =
           new CcToolchainFeatures_Variables_Sequence_AutoCodec();
 
       private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
@@ -1550,10 +1548,10 @@ public class CcToolchainFeatures implements Serializable {
      * significantly reduces memory overhead.
      */
     @Immutable
-    @AutoCodec(dependency = FileSystemProvider.class)
+    @AutoCodec
     @VisibleForSerialization
     static final class StructureSequence extends VariableValueAdapter {
-      public static final InjectingObjectCodec<StructureSequence, FileSystemProvider> CODEC =
+      public static final ObjectCodec<StructureSequence> CODEC =
           new CcToolchainFeatures_Variables_StructureSequence_AutoCodec();
 
       private final ImmutableList<ImmutableMap<String, VariableValue>> values;
@@ -1627,10 +1625,10 @@ public class CcToolchainFeatures implements Serializable {
      * memory overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
      */
     @Immutable
-    @AutoCodec(dependency = FileSystemProvider.class)
+    @AutoCodec
     @VisibleForSerialization
     static final class StructureValue extends VariableValueAdapter {
-      public static final InjectingObjectCodec<StructureValue, FileSystemProvider> CODEC =
+      public static final ObjectCodec<StructureValue> CODEC =
           new CcToolchainFeatures_Variables_StructureValue_AutoCodec();
 
       private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";

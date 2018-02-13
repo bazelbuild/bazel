@@ -14,21 +14,33 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+
 /** Stateful class for providing additional context to a single deserialization "session". */
 // TODO(bazel-team): This class is just a shell, fill in.
 public class DeserializationContext {
-  // TODO(bazel-team): Replace with real stateless implementation when we start adding
-  // functionality.
-  private static final DeserializationContext EMPTY_STATELESS = new DeserializationContext();
 
-  public static DeserializationContext create() {
-    return new DeserializationContext();
+  /**
+   * This is a stub for context where it is less straightforward to thread from the top-level
+   * invocation.
+   *
+   * <p>This is a bug waiting to happen because it is very easy to accidentally modify a codec to
+   * use this context which won't contain any of the expected state.
+   */
+  // TODO(bazel-team): delete this and all references to it.
+  public static final DeserializationContext UNTHREADED_PLEASE_FIX =
+      new DeserializationContext(ImmutableMap.of());
+
+  private final ImmutableMap<Class<?>, Object> dependencies;
+
+  public DeserializationContext(ImmutableMap<Class<?>, Object> dependencies) {
+    this.dependencies = dependencies;
   }
 
-  /** Returns an empty instance which doesn't retain any state. */
-  public static DeserializationContext stateless() {
-    return EMPTY_STATELESS;
+  @SuppressWarnings("unchecked")
+  public <T> T getDependency(Class<T> type) {
+    Preconditions.checkNotNull(type);
+    return (T) dependencies.get(type);
   }
-
-  private DeserializationContext() {}
 }

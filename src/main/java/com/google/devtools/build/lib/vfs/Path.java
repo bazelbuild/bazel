@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -62,8 +61,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class Path
     implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
-  public static final InjectingObjectCodec<Path, FileSystemProvider> CODEC =
-      new PathCodecWithInjectedFileSystem();
+  public static final ObjectCodec<Path> CODEC = new Codec();
 
   private static FileSystem fileSystemForSerialization;
 
@@ -907,8 +905,7 @@ public class Path
     driveStrLength = OS.getDriveStrLength(path);
   }
 
-  private static class PathCodecWithInjectedFileSystem
-      implements InjectingObjectCodec<Path, FileSystemProvider> {
+  private static class Codec implements ObjectCodec<Path> {
     private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
 
     @Override
@@ -918,21 +915,23 @@ public class Path
 
     @Override
     public void serialize(
-        FileSystemProvider fsProvider,
         SerializationContext context,
         Path path,
         CodedOutputStream codedOut)
         throws IOException, SerializationException {
-      Preconditions.checkArgument(path.getFileSystem() == fsProvider.getFileSystem());
+      Preconditions.checkArgument(
+          path.getFileSystem() == context.getDependency(FileSystem.class),
+          "%s != %s",
+          path.getFileSystem(),
+          context.getDependency(FileSystem.class));
       stringCodec.serialize(context, path.getPathString(), codedOut);
     }
 
     @Override
-    public Path deserialize(
-        FileSystemProvider fsProvider, DeserializationContext context, CodedInputStream codedIn)
+    public Path deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws IOException, SerializationException {
       return Path.createAlreadyNormalized(
-          stringCodec.deserialize(context, codedIn), fsProvider.getFileSystem());
+          stringCodec.deserialize(context, codedIn), context.getDependency(FileSystem.class));
     }
   }
 }

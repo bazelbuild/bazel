@@ -18,8 +18,6 @@ import com.google.common.hash.Hashing;
 import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -48,10 +46,6 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
 
   public NestedSetCodec(ObjectCodec<T> objectCodec) {
     this.objectCodec = objectCodec;
-  }
-
-  public <D> NestedSetCodec(InjectingObjectCodec<T, D> injectingObjectCodec, D dependency) {
-    this.objectCodec = new InjectingObjectCodecAdapter<>(injectingObjectCodec, dependency);
   }
 
   @SuppressWarnings("unchecked")

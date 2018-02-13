@@ -18,7 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -77,13 +79,15 @@ public abstract class AbstractObjectCodecTest<T> {
     objectCodecTester.testDeserializeJunkData();
   }
 
-  protected T fromBytes(byte[] bytes) throws SerializationException, IOException {
-    return TestUtils.fromBytes(underTest, bytes);
+  protected T fromBytes(DeserializationContext context, byte[] bytes)
+      throws SerializationException, IOException {
+    return TestUtils.fromBytes(context, underTest, bytes);
   }
 
   /** Serialize subject using the {@link ObjectCodec} under test. */
-  protected byte[] toBytes(T subject) throws IOException, SerializationException {
-    return TestUtils.toBytes(underTest, subject);
+  protected byte[] toBytes(SerializationContext context, T subject)
+      throws IOException, SerializationException {
+    return TestUtils.toBytes(context, underTest, subject);
   }
 
   protected void verifyDeserialization(T deserialized, T subject) {

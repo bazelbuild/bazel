@@ -17,9 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
@@ -32,9 +32,7 @@ public class GlobDescriptorTest {
 
   @Test
   public void testSerialization() throws Exception {
-    ObjectCodecTester.newBuilder(
-            GlobDescriptor.getCodec(
-                new InjectingObjectCodecAdapter<>(Root.CODEC, () -> FsUtils.TEST_FILESYSTEM)))
+    ObjectCodecTester.newBuilder(GlobDescriptor.CODEC)
         .addSubjects(
             GlobDescriptor.create(
                 PackageIdentifier.create("@foo", PathFragment.create("//bar")),
@@ -48,6 +46,7 @@ public class GlobDescriptorTest {
                 PathFragment.create("anotherSubdir"),
                 "pattern",
                 /*excludeDirs=*/ true))
+        .addDependency(FileSystem.class, FsUtils.TEST_FILESYSTEM)
         .verificationFunction((orig, deserialized) -> assertThat(deserialized).isSameAs(orig))
         .buildAndRunTests();
   }

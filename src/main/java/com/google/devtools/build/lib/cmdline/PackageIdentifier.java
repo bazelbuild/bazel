@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
@@ -36,6 +37,8 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class PackageIdentifier
     implements Comparable<PackageIdentifier>, Serializable, SkylarkValue {
+
+  public static final ObjectCodec<PackageIdentifier> CODEC = new PackageIdentifierCodec();
 
   private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
 

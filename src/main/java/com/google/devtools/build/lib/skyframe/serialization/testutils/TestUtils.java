@@ -33,19 +33,19 @@ public class TestUtils {
   private TestUtils() {}
 
   /** Serialize a value to a new byte array. */
-  public static <T> byte[] toBytes(ObjectCodec<T> codec, T value)
+  public static <T> byte[] toBytes(SerializationContext context, ObjectCodec<T> codec, T value)
       throws IOException, SerializationException {
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
-    codec.serialize(SerializationContext.create(), value, codedOut);
+    codec.serialize(context, value, codedOut);
     codedOut.flush();
     return bytes.toByteArray();
   }
 
   /** Deserialize a value from a byte array. */
-  public static <T> T fromBytes(ObjectCodec<T> codec, byte[] bytes)
+  public static <T> T fromBytes(DeserializationContext context, ObjectCodec<T> codec, byte[] bytes)
       throws SerializationException, IOException {
-    return codec.deserialize(DeserializationContext.create(), CodedInputStream.newInstance(bytes));
+    return codec.deserialize(context, CodedInputStream.newInstance(bytes));
   }
 
   /**

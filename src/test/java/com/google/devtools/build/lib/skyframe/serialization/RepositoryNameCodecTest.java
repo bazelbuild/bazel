@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.RepositoryNameCodec;
@@ -47,7 +48,7 @@ public class RepositoryNameCodecTest extends AbstractObjectCodecTest<RepositoryN
   @Test
   public void testDeserializeBadDataThrowsSerializationException() {
     try {
-      fromBytes(INVALID_ENCODED_REPOSITORY_NAME);
+      fromBytes(new DeserializationContext(ImmutableMap.of()), INVALID_ENCODED_REPOSITORY_NAME);
       fail("Expected exception");
     } catch (SerializationException | IOException e) {
       // Expected.

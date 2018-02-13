@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.common.options.Options;
@@ -84,7 +87,10 @@ public class SkylarkSemanticsConsistencyTest {
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       SkylarkSemantics semantics = buildRandomSemantics(new Random(i));
       SkylarkSemantics deserialized =
-          TestUtils.fromBytes(codec, TestUtils.toBytes(codec, semantics));
+          TestUtils.fromBytes(
+              new DeserializationContext(ImmutableMap.of()),
+              codec,
+              TestUtils.toBytes(new SerializationContext(ImmutableMap.of()), codec, semantics));
       assertThat(deserialized).isEqualTo(semantics);
     }
   }

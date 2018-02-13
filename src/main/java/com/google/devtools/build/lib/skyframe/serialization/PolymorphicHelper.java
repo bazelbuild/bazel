@@ -51,13 +51,6 @@ public class PolymorphicHelper {
         StringCodecs.asciiOptimized().serialize(context, clazz.getName(), codedOut);
         if (codec instanceof ObjectCodec) {
           ((ObjectCodec) codec).serialize(context, input, codedOut);
-        } else if (codec instanceof InjectingObjectCodec) {
-          if (dependency == null) {
-            throw new SerializationException(
-                clazz.getCanonicalName() + " serialize parent class lacks required dependency.");
-          }
-          ((InjectingObjectCodec) codec)
-              .serialize(dependency.orElse(null), context, input, codedOut);
         } else {
           throw new SerializationException(
               clazz.getCanonicalName()
@@ -90,13 +83,6 @@ public class PolymorphicHelper {
         Object codec = getCodec(Class.forName(className));
         if (codec instanceof ObjectCodec) {
           return ((ObjectCodec) codec).deserialize(context, codedIn);
-        } else if (codec instanceof InjectingObjectCodec) {
-          if (dependency == null) {
-            throw new SerializationException(
-                className + " deserialize parent class lacks required dependency.");
-          }
-          return ((InjectingObjectCodec) codec)
-              .deserialize(dependency.orElse(null), context, codedIn);
         } else {
           throw new SerializationException(
               className + ".CODEC has unexpected type " + codec.getClass().getCanonicalName());

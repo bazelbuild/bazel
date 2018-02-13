@@ -58,13 +58,12 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1337,15 +1336,15 @@ public class CppCompileAction extends AbstractAction
 
   /**
    * A reference to a .d file. There are two modes:
+   *
    * <ol>
    *   <li>an Artifact that represents a real on-disk file
    *   <li>just an execPath that refers to a virtual .d file that is not written to disk
    * </ol>
    */
-  @AutoCodec(dependency = FileSystemProvider.class)
+  @AutoCodec
   public static class DotdFile {
-    public static final InjectingObjectCodec<DotdFile, FileSystemProvider> CODEC =
-        new CppCompileAction_DotdFile_AutoCodec();
+    public static final ObjectCodec<DotdFile> CODEC = new CppCompileAction_DotdFile_AutoCodec();
 
     private final Artifact artifact;
     private final PathFragment execPath;

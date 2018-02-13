@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelCodec;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -30,13 +31,15 @@ public class PrecomputedValueCodecTest extends AbstractObjectCodecTest<Precomput
   public PrecomputedValueCodecTest() {
     super(
         new PrecomputedValueCodec(
-            () -> new ObjectCodecs(
-                ObjectCodecRegistry.newBuilder()
-                    .asClassKeyedBuilder()
-                    // Note no PathFragmentCodec.
-                    .add(String.class, StringCodecs.asciiOptimized())
-                    .add(Label.class, LabelCodec.INSTANCE)
-                    .build())),
+            () ->
+                new ObjectCodecs(
+                    ObjectCodecRegistry.newBuilder()
+                        .asClassKeyedBuilder()
+                        // Note no PathFragmentCodec.
+                        .add(String.class, StringCodecs.asciiOptimized())
+                        .add(Label.class, LabelCodec.INSTANCE)
+                        .build(),
+                    ImmutableMap.of())),
         new PrecomputedValue(PathFragment.create("java serializable 1")),
         new PrecomputedValue(PathFragment.create("java serializable 2")),
         new PrecomputedValue("first string"),

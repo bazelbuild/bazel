@@ -19,9 +19,8 @@ import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -33,11 +32,10 @@ import javax.annotation.Nullable;
  * <p>The <code>installBase</code> is the directory where the Blaze binary has been installed. The
  * <code>outputBase</code> is the directory below which Blaze puts all its state.
  */
-@AutoCodec(dependency = FileSystemProvider.class)
+@AutoCodec
 @Immutable
 public final class ServerDirectories {
-  public static final InjectingObjectCodec<ServerDirectories, FileSystemProvider> CODEC =
-      new ServerDirectories_AutoCodec();
+  public static final ObjectCodec<ServerDirectories> CODEC = new ServerDirectories_AutoCodec();
 
   /** Where Blaze gets unpacked. */
   private final Path installBase;

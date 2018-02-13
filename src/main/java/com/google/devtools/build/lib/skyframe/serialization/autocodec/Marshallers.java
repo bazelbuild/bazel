@@ -28,7 +28,6 @@ import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetCodec;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
@@ -806,24 +805,13 @@ class Marshallers {
           typeParameter);
       return;
     }
-
-    if (matchesErased(typeParameterCodec.get().asType(), InjectingObjectCodec.class)) {
-            context.builder.addStatement(
-                "$T<$T> $L = new $T<>($T.CODEC, dependency)",
-                NestedSetCodec.class,
-                typeParameter,
-                nestedSetCodec,
-                NestedSetCodec.class,
-                typeParameter);
-          } else {
-            context.builder.addStatement(
-                "$T<$T> $L = new $T<>($T.CODEC)",
-                NestedSetCodec.class,
-                typeParameter,
-                nestedSetCodec,
-                NestedSetCodec.class,
-                typeParameter);
-          }
+    context.builder.addStatement(
+        "$T<$T> $L = new $T<>($T.CODEC)",
+        NestedSetCodec.class,
+        typeParameter,
+        nestedSetCodec,
+        NestedSetCodec.class,
+        typeParameter);
     context.builder.addStatement(
         "$L.serialize(context, ($T<$T>) $L, codedOut)",
         nestedSetCodec,
@@ -848,24 +836,13 @@ class Marshallers {
           typeParameter);
       return;
     }
-
-    if (matchesErased(typeParameterCodec.get().asType(), InjectingObjectCodec.class)) {
-            context.builder.addStatement(
-                "$T<$T> $L = new $T<>($T.CODEC, dependency)",
-                NestedSetCodec.class,
-                typeParameter,
-                nestedSetCodec,
-                NestedSetCodec.class,
-                typeParameter);
-          } else {
-            context.builder.addStatement(
-                "$T<$T> $L = new $T<>($T.CODEC)",
-                NestedSetCodec.class,
-                typeParameter,
-                nestedSetCodec,
-                NestedSetCodec.class,
-                typeParameter);
-          }
+    context.builder.addStatement(
+        "$T<$T> $L = new $T<>($T.CODEC)",
+        NestedSetCodec.class,
+        typeParameter,
+        nestedSetCodec,
+        NestedSetCodec.class,
+        typeParameter);
     context.builder.addStatement(
         "$L = $L.deserialize(context, codedIn)", context.name, nestedSetCodec);
   }
@@ -906,16 +883,11 @@ class Marshallers {
           if (isSubtypeErased(codecType, ObjectCodec.class)) {
             context.builder.addStatement(
                 "$T.CODEC.serialize(context, $L, codedOut)", context.getTypeName(), context.name);
-          } else if (isSubtypeErased(codecType, InjectingObjectCodec.class)) {
-            context.builder.addStatement(
-                "$T.CODEC.serialize(dependency, context, $L, codedOut)",
-                context.getTypeName(),
-                context.name);
           } else {
             throw new IllegalArgumentException(
                 "CODEC field of "
                     + ((TypeElement) context.getDeclaredType().asElement()).getQualifiedName()
-                    + " is neither ObjectCodec nor InjectingCodec");
+                    + " is not ObjectCodec");
           }
         }
 
@@ -925,16 +897,11 @@ class Marshallers {
           if (isSubtypeErased(codecType, ObjectCodec.class)) {
             context.builder.addStatement(
                 "$L = $T.CODEC.deserialize(context, codedIn)", context.name, context.getTypeName());
-          } else if (isSubtypeErased(codecType, InjectingObjectCodec.class)) {
-            context.builder.addStatement(
-                "$L = $T.CODEC.deserialize(dependency, context, codedIn)",
-                context.name,
-                context.getTypeName());
           } else {
             throw new IllegalArgumentException(
                 "CODEC field of "
                     + ((TypeElement) context.getDeclaredType().asElement()).getQualifiedName()
-                    + " is neither ObjectCodec nor InjectingCodec");
+                    + " is neither ObjectCodec");
           }
         }
       };

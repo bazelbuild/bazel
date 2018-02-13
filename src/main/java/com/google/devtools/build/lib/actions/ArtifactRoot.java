@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -56,11 +55,10 @@ import java.util.Objects;
           + "together into a single directory tree to form the execution environment."
 )
 @Immutable
-@AutoCodec(dependency = FileSystemProvider.class)
+@AutoCodec
 public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, SkylarkValue {
 
-  public static final InjectingObjectCodec<ArtifactRoot, FileSystemProvider> CODEC =
-      new ArtifactRoot_AutoCodec();
+  public static final ObjectCodec<ArtifactRoot> CODEC = new ArtifactRoot_AutoCodec();
 
   // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.

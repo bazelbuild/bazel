@@ -26,6 +26,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -79,10 +80,10 @@ public class ObjectCodecsTest {
   @Before
   public final void setup() {
     spyObjectCodec = spy(new IntegerCodec());
-    this.underTest = new ObjectCodecs(
-        ObjectCodecRegistry.newBuilder()
-            .add(KNOWN_CLASSIFIER, spyObjectCodec)
-            .build());
+    this.underTest =
+        new ObjectCodecs(
+            ObjectCodecRegistry.newBuilder().add(KNOWN_CLASSIFIER, spyObjectCodec).build(),
+            ImmutableMap.of());
   }
 
   @Test
@@ -224,8 +225,10 @@ public class ObjectCodecsTest {
 
   @Test
   public void testSerializeFailsWhenNoCustomCodecAndFallbackDisabled() throws Exception {
-    ObjectCodecs underTest = new ObjectCodecs(
-        ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build());
+    ObjectCodecs underTest =
+        new ObjectCodecs(
+            ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build(),
+            ImmutableMap.of());
     SerializationException.NoCodecException expected =
         expectThrows(
             SerializationException.NoCodecException.class, () -> underTest.serialize("X", "Y"));
@@ -237,8 +240,10 @@ public class ObjectCodecsTest {
   @Test
   public void testDeserializeFailsWhenNoCustomCodecAndFallbackDisabled() throws Exception {
     ByteString serialized = ByteString.copyFromUtf8("doesn't matter");
-    ObjectCodecs underTest = new ObjectCodecs(
-        ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build());
+    ObjectCodecs underTest =
+        new ObjectCodecs(
+            ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build(),
+            ImmutableMap.of());
     SerializationException.NoCodecException expected =
         expectThrows(
             SerializationException.NoCodecException.class,

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -26,13 +27,19 @@ import java.io.IOException;
 public class ObjectCodecs {
 
   private final ObjectCodecRegistry codecRegistry;
+  // TODO(shahan): when per-invocation state is needed, for example, memoization, these may
+  // need to be constructed each time.
+  private final SerializationContext serializationContext;
+  private final DeserializationContext deserializationContext;
 
   /**
-   * Creates an instance using the supplied {@link ObjectCodecRegistry} for looking up
-   * {@link ObjectCodec}s.
+   * Creates an instance using the supplied {@link ObjectCodecRegistry} for looking up {@link
+   * ObjectCodec}s.
    */
-  ObjectCodecs(ObjectCodecRegistry codecRegistry) {
+  ObjectCodecs(ObjectCodecRegistry codecRegistry, ImmutableMap<Class<?>, Object> dependencies) {
     this.codecRegistry = codecRegistry;
+    serializationContext = new SerializationContext(dependencies);
+    deserializationContext = new DeserializationContext(dependencies);
   }
 
   /**
@@ -94,7 +101,7 @@ public class ObjectCodecs {
     // in some situations, bypassing a copy.
     codedIn.enableAliasing(true);
     try {
-      Object result = codec.deserialize(DeserializationContext.create(), codedIn);
+      Object result = codec.deserialize(deserializationContext, codedIn);
       if (result == null) {
         throw new NullPointerException(
             "ObjectCodec " + codec + " for " + classifier.toStringUtf8() + " returned null");
@@ -106,12 +113,11 @@ public class ObjectCodecs {
     }
   }
 
-  private static <T> void doSerialize(
+  private <T> void doSerialize(
       String classifier, ObjectCodec<T> codec, Object subject, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     try {
-      codec.serialize(
-          SerializationContext.create(), codec.getEncodedClass().cast(subject), codedOut);
+      codec.serialize(serializationContext, codec.getEncodedClass().cast(subject), codedOut);
     } catch (ClassCastException e) {
       throw new SerializationException(
           "Codec "

@@ -21,12 +21,13 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageCodecDependencies;
 import com.google.devtools.build.lib.packages.PackageCodecDependencies.SimplePackageCodecDependencies;
 import com.google.devtools.build.lib.packages.PackageDeserializationException;
 import com.google.devtools.build.lib.packages.PackageDeserializerInterface;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
@@ -43,13 +44,13 @@ public class PackageValueTest {
 
   private PackageDeserializerInterface mockDeserializer;
   private ObjectCodec<PackageValue> underTest;
+  SimplePackageCodecDependencies codecDeps;
 
   @Before
   public void setUp() {
     this.mockDeserializer = mock(PackageDeserializerInterface.class);
-    this.underTest =
-        new InjectingObjectCodecAdapter<>(
-            PackageValue.CODEC, new SimplePackageCodecDependencies(null, mockDeserializer));
+    this.underTest = PackageValue.CODEC;
+    this.codecDeps = new SimplePackageCodecDependencies(null, mockDeserializer);
   }
 
   @Test
@@ -63,7 +64,10 @@ public class PackageValueTest {
         .thenReturn(mockPackage);
 
     CodedInputStream codedIn = CodedInputStream.newInstance(new byte[] {1, 2, 3, 4});
-    PackageValue result = underTest.deserialize(DeserializationContext.create(), codedIn);
+    PackageValue result =
+        underTest.deserialize(
+            new DeserializationContext(ImmutableMap.of(PackageCodecDependencies.class, codecDeps)),
+            codedIn);
 
     assertThat(result.getPackage()).isSameAs(mockPackage);
   }
@@ -75,7 +79,8 @@ public class PackageValueTest {
 
     try {
       underTest.deserialize(
-          DeserializationContext.create(), CodedInputStream.newInstance(new byte[] {1, 2, 3, 4}));
+          new DeserializationContext(ImmutableMap.of(PackageCodecDependencies.class, codecDeps)),
+          CodedInputStream.newInstance(new byte[] {1, 2, 3, 4}));
       fail("Expected exception");
     } catch (IllegalStateException e) {
       assertThat(e)

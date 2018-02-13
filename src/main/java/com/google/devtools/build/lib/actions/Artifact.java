@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -114,7 +113,7 @@ import javax.annotation.Nullable;
           + "<a href='actions.html#declare_file'>ctx.actions.declare_file</a>, "
           + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a>."
 )
-@AutoCodec(dependency = FileSystemProvider.class)
+@AutoCodec
 public class Artifact
     implements FileType.HasFileType,
         ActionInput,
@@ -122,8 +121,7 @@ public class Artifact
         Comparable<Object>,
         CommandLineItem {
 
-  public static final InjectingObjectCodec<Artifact, FileSystemProvider> CODEC =
-      new Artifact_AutoCodec();
+  public static final ObjectCodec<Artifact> CODEC = new Artifact_AutoCodec();
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
@@ -451,10 +449,10 @@ public class Artifact
    */
   @Immutable
   @VisibleForTesting
-  @AutoCodec(dependency = FileSystemProvider.class)
+  @AutoCodec
   public static final class SpecialArtifact extends Artifact {
 
-    public static final InjectingObjectCodec<SpecialArtifact, FileSystemProvider> CODEC =
+    public static final ObjectCodec<SpecialArtifact> CODEC =
         new Artifact_SpecialArtifact_AutoCodec();
 
     private final SpecialArtifactType type;
@@ -512,9 +510,9 @@ public class Artifact
    * around the extra fields for the rest we save some memory.
    */
   @Immutable
-  @AutoCodec(dependency = FileSystemProvider.class)
+  @AutoCodec
   public static final class TreeFileArtifact extends Artifact {
-    public static final InjectingObjectCodec<TreeFileArtifact, FileSystemProvider> CODEC =
+    public static final ObjectCodec<TreeFileArtifact> CODEC =
         new Artifact_TreeFileArtifact_AutoCodec();
 
     private final SpecialArtifact parentTreeArtifact;

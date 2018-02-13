@@ -14,14 +14,8 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -35,13 +29,18 @@ import java.util.Objects;
  * <p>TODO(bazel-team): use an opaque root representation so as to not expose the absolute path to
  * clients via #asPath or #getRoot.
  */
+@AutoCodec
 public class RootedPath implements Serializable {
+
+  public static final ObjectCodec<RootedPath> CODEC = new RootedPath_AutoCodec();
 
   private final Root root;
   private final PathFragment rootRelativePath;
 
   /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
-  private RootedPath(Root root, PathFragment rootRelativePath) {
+  @AutoCodec.Instantiator
+  @AutoCodec.VisibleForSerialization
+  RootedPath(Root root, PathFragment rootRelativePath) {
     Preconditions.checkState(
         rootRelativePath.isAbsolute() == root.isAbsolute(),
         "rootRelativePath: %s root: %s",
@@ -122,37 +121,5 @@ public class RootedPath implements Serializable {
   @Override
   public String toString() {
     return "[" + root + "]/[" + rootRelativePath + "]";
-  }
-
-  /** Custom serialization for {@link RootedPath}s. */
-  public static class RootedPathCodec implements ObjectCodec<RootedPath> {
-
-    private final ObjectCodec<Root> rootCodec;
-
-    /** Create an instance which will deserialize RootedPaths on {@code fileSystem}. */
-    public RootedPathCodec(FileSystem fileSystem) {
-      this.rootCodec = new InjectingObjectCodecAdapter<>(Root.CODEC, () -> fileSystem);
-    }
-
-    @Override
-    public Class<RootedPath> getEncodedClass() {
-      return RootedPath.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, RootedPath rootedPath, CodedOutputStream codedOut)
-        throws IOException, SerializationException {
-      rootCodec.serialize(context, rootedPath.getRoot(), codedOut);
-      PathFragment.CODEC.serialize(context, rootedPath.getRootRelativePath(), codedOut);
-    }
-
-    @Override
-    public RootedPath deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      Root root = rootCodec.deserialize(context, codedIn);
-      PathFragment rootRelativePath = PathFragment.CODEC.deserialize(context, codedIn);
-      return toRootedPath(root, rootRelativePath);
-    }
   }
 }

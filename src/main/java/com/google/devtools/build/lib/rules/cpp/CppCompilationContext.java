@@ -29,11 +29,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.vfs.FileSystemProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,9 +45,9 @@ import javax.annotation.Nullable;
  * Immutable store of information needed for C++ compilation that is aggregated across dependencies.
  */
 @Immutable
-@AutoCodec(dependency = FileSystemProvider.class)
+@AutoCodec
 public final class CppCompilationContext implements TransitiveInfoProvider {
-  public static final InjectingObjectCodec<CppCompilationContext, FileSystemProvider> CODEC =
+  public static final ObjectCodec<CppCompilationContext> CODEC =
       new CppCompilationContext_AutoCodec();
 
   /** An empty compilation context. */
@@ -782,9 +780,9 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * either gather data on PIC or on no-PIC .pcm files.
    */
   @Immutable
-  @AutoCodec(dependency = FileSystemProvider.class)
+  @AutoCodec
   public static final class ModuleInfo {
-    public static final InjectingObjectCodec<ModuleInfo, FileSystemProvider> CODEC =
+    public static final ObjectCodec<ModuleInfo> CODEC =
         new CppCompilationContext_ModuleInfo_AutoCodec();
 
     /**
@@ -918,9 +916,9 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
 
   /** Collects data for a specific module in a special format that makes pruning easy. */
   @Immutable
-  @AutoCodec(dependency = FileSystemProvider.class)
+  @AutoCodec
   public static final class TransitiveModuleHeaders {
-    public static final InjectingObjectCodec<TransitiveModuleHeaders, FileSystemProvider> CODEC =
+    public static final ObjectCodec<TransitiveModuleHeaders> CODEC =
         new CppCompilationContext_TransitiveModuleHeaders_AutoCodec();
 
     /**

@@ -25,10 +25,10 @@ import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.skyframe.serialization.InjectingObjectCodecAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -336,8 +336,7 @@ public class ArtifactTest {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(
-            new InjectingObjectCodecAdapter<>(Artifact.CODEC, () -> scratch.getFileSystem()))
+    ObjectCodecTester.newBuilder(Artifact.CODEC)
         .addSubjects(
             new Artifact(PathFragment.create("src/a"), rootDir),
             new Artifact(
@@ -347,6 +346,7 @@ public class ArtifactTest {
                     scratch.getFileSystem().getPath("/"), scratch.dir("/src")),
                 PathFragment.create("src/c"),
                 new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"))))
+        .addDependency(FileSystem.class, scratch.getFileSystem())
         .buildAndRunTests();
   }
 
