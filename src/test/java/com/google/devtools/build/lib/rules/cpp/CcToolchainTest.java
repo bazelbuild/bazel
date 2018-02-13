@@ -699,4 +699,92 @@ public class CcToolchainTest extends BuildViewTestCase {
         "cc_toolchain_alias(name='ref')");
     assertThat(reference.get(ToolchainInfo.PROVIDER.getKey())).isNotNull();
   }
+
+  @Test
+  public void testFdoOptimizeInvalidUseGeneratedArtifact() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "filegroup(",
+        "    name = 'banana',",
+        "    srcs = ['banana1', 'banana2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':banana',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])",
+        "genrule(",
+        "    name ='gen_artifact',",
+        "    outs=['profile.profdata'],",
+        "    cmd='touch $@')");
+    useConfiguration("-c", "opt", "--fdo_optimize=//a:gen_artifact");
+    assertThat(getConfiguredTarget("//a:b")).isNull();
+    assertContainsEvent("--fdo_optimize points to a target that is not an input file");
+  }
+
+  @Test
+  public void testFdoOptimizeUnexpectedExtension() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "filegroup(",
+        "    name = 'banana',",
+        "    srcs = ['banana1', 'banana2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':banana',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])",
+        "exports_files(['profile.unexpected'])");
+    scratch.file("a/profile.unexpected", "");
+    useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.unexpected");
+    assertThat(getConfiguredTarget("//a:b")).isNull();
+    assertContainsEvent("invalid extension for FDO profile file");
+  }
+
+  @Test
+  public void testFdoOptimizeNotInputFile() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "filegroup(",
+        "    name = 'banana',",
+        "    srcs = ['banana1', 'banana2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':banana',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])",
+        "filegroup(",
+        "    name ='profile',",
+        "    srcs=['my_profile.afdo'])");
+    scratch.file("my_profile.afdo", "");
+    useConfiguration("-c", "opt", "--fdo_optimize=//a:profile");
+    assertThat(getConfiguredTarget("//a:b")).isNull();
+    assertContainsEvent("--fdo_optimize points to a target that is not an input file");
+  }
 }

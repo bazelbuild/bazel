@@ -1140,20 +1140,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testMissingFdoOptimize() throws Exception {
-    // The fdo_optimize flag uses a different code path, because it also accepts paths.
-    useConfiguration("--fdo_optimize=//does/not/exist");
-    reporter.removeHandler(failFastHandler);
-    try {
-      update(defaultFlags().with(Flag.KEEP_GOING));
-      fail();
-    } catch (InvalidConfigurationException e) {
-      assertContainsEvent(
-          "no such package 'does/not/exist': BUILD file not found on package path");
-    }
-  }
-
-  @Test
   public void testVisibilityReferencesNonexistentPackage() throws Exception {
     scratch.file("z/a/BUILD",
         "py_library(name='a', visibility=['//nonexistent:nothing'])");

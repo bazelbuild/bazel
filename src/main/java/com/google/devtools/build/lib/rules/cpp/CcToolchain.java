@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -334,9 +335,42 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       toolchainInfo = cppConfiguration.getCppToolchainInfo();
     }
 
-    Path fdoZip = ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT
-        ? cppConfiguration.getFdoZip()
-        : null;
+    Path fdoZip = null;
+    if (ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT) {
+      if (cppConfiguration.getFdoProfileAbsolutePath() != null) {
+        fdoZip = cppConfiguration.getFdoProfileAbsolutePath();
+      } else if (cppConfiguration.getFdoProfileLabel() != null) {
+        Artifact fdoArtifact = ruleContext.getPrerequisiteArtifact(":fdo_optimize", Mode.TARGET);
+        if (fdoArtifact != null) {
+          if (!fdoArtifact.isSourceArtifact()) {
+            ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
+            return null;
+          }
+          Label fdoLabel = ruleContext.getPrerequisite(":fdo_optimize", Mode.TARGET).getLabel();
+          if (!fdoLabel
+              .getPackageIdentifier()
+              .getPathUnderExecRoot()
+              .getRelative(fdoLabel.getName())
+              .equals(fdoArtifact.getExecPath())) {
+            ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
+            return null;
+          }
+          fdoZip = fdoArtifact.getPath();
+        }
+      }
+    }
+
+    FileTypeSet validExtensions =
+        FileTypeSet.of(
+            CppFileTypes.GCC_AUTO_PROFILE,
+            CppFileTypes.LLVM_PROFILE,
+            CppFileTypes.LLVM_PROFILE_RAW,
+            FileType.of(".zip"));
+    if (fdoZip != null && !validExtensions.matches(fdoZip.getPathString())) {
+      ruleContext.ruleError("invalid extension for FDO profile file.");
+      return null;
+    }
+
     SkyKey fdoKey =
         FdoSupportValue.key(
             cppConfiguration.getLipoMode(),

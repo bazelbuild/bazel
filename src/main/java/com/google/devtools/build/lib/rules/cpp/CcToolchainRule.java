@@ -54,6 +54,12 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getSysrootLabel());
 
+  private static final LabelLateBoundDefault<?> FDO_LABEL =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
+
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     final Label zipper = env.getToolsLabel("//tools/zip:zipper");
@@ -126,6 +132,7 @@ public final class CcToolchainRule implements RuleDefinition {
                         (rule, attributes, cppConfig) ->
                             cppConfig.isLLVMOptimizedFdo() ? zipper : null)))
         .add(attr(":libc_top", LABEL).value(LIBC_TOP))
+        .add(attr(":fdo_optimize", LABEL).singleArtifact().value(FDO_LABEL))
         .add(
             attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
                 .cfg(LipoContextCollectorTransition.INSTANCE)
