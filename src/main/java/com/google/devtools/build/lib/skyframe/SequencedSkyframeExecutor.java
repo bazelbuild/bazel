@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -645,6 +646,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
     topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
     topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
+    // This is to prevent throwing away Packages we may need during execution.
+    ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
+    packageSetBuilder.addAll(
+        Collections2.transform(
+            topLevelTargets, (target) -> target.getLabel().getPackageIdentifier()));
+    packageSetBuilder.addAll(
+        Collections2.transform(
+            topLevelAspects, (aspect) -> aspect.getLabel().getPackageIdentifier()));
+    ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
       lastAnalysisDiscarded = true;
       Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
@@ -657,6 +667,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         }
         SkyKey key = keyAndEntry.getKey();
         SkyFunctionName functionName = key.functionName();
+        // Keep packages for top-level targets and aspects in memory to get the target from later.
+        if (functionName.equals(SkyFunctions.PACKAGE)
+            && topLevelPackages.contains((key.argument()))) {
+          continue;
+        }
         if (!tracksStateForIncrementality() && LOADING_TYPES.contains(functionName)) {
           it.remove();
           continue;
