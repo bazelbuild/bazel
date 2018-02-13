@@ -74,6 +74,19 @@ public final class CompileCommandLine {
     return featureConfiguration.getEnvironmentVariables(actionName, variables);
   }
 
+  /** Returns the tool path for the compilation based on the current feature configuration. */
+  @VisibleForTesting
+  public String getToolPath() {
+    Preconditions.checkArgument(
+        featureConfiguration.actionIsConfigured(actionName),
+        "Expected action_config for '%s' to be configured",
+        actionName);
+    return featureConfiguration
+        .getToolForAction(actionName)
+        .getToolPath(crosstoolTopPathFragment)
+        .getPathString();
+  }
+
   /**
    * @param overwrittenVariables: Variables that will overwrite original build variables. When null,
    *     unmodified original variables are used.
@@ -83,14 +96,7 @@ public final class CompileCommandLine {
     List<String> commandLine = new ArrayList<>();
 
     // first: The command name.
-    Preconditions.checkArgument(
-        featureConfiguration.actionIsConfigured(actionName),
-        String.format("Expected action_config for '%s' to be configured", actionName));
-    commandLine.add(
-        featureConfiguration
-            .getToolForAction(actionName)
-            .getToolPath(crosstoolTopPathFragment)
-            .getPathString());
+    commandLine.add(getToolPath());
 
     // second: The compiler options.
     commandLine.addAll(getCompilerOptions(overwrittenVariables));
