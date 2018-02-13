@@ -31,9 +31,8 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -125,7 +124,8 @@ public final class Environment implements Freezable {
     @Nullable
     private Label label;
 
-    private final Map<String, Object> bindings;
+    /** Bindings are maintained in order of creation. */
+    private final LinkedHashMap<String, Object> bindings;
 
     /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
     public Frame() {
@@ -222,6 +222,9 @@ public final class Environment implements Freezable {
     /**
      * Returns a map of direct bindings of this {@code Frame}, ignoring parents.
      *
+     * <p>The bindings are returned in a deterministic order (for a given sequence of initial values
+     * and updates).
+     *
      * <p>For efficiency an unmodifiable view is returned. Callers should assume that the view is
      * invalidated by any subsequent modification to the {@code Frame}'s bindings.
      */
@@ -233,16 +236,19 @@ public final class Environment implements Freezable {
     /**
      * Returns a map containing all bindings of this {@code Frame} and of its transitive parents,
      * taking into account shadowing precedence.
+     *
+     * <p>The bindings are returned in a deterministic order (for a given sequence of initial values
+     * and updates).
      */
     public Map<String, Object> getTransitiveBindings() {
       checkInitialized();
       // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
-      HashMap<String, Object> collectedBindings = new HashMap<>();
+      LinkedHashMap<String, Object> collectedBindings = new LinkedHashMap<>();
       accumulateTransitiveBindings(collectedBindings);
       return collectedBindings;
     }
 
-    private void accumulateTransitiveBindings(Map<String, Object> accumulator) {
+    private void accumulateTransitiveBindings(LinkedHashMap<String, Object> accumulator) {
       checkInitialized();
       // Put parents first, so child bindings take precedence.
       if (parent != null) {
@@ -328,7 +334,7 @@ public final class Environment implements Freezable {
     final Frame globalFrame;
 
     /** The set of known global variables of the caller. */
-    @Nullable final Set<String> knownGlobalVariables;
+    @Nullable final LinkedHashSet<String> knownGlobalVariables;
 
     Continuation(
         Continuation continuation,
@@ -336,7 +342,7 @@ public final class Environment implements Freezable {
         FuncallExpression caller,
         Frame lexicalFrame,
         Frame globalFrame,
-        Set<String> knownGlobalVariables) {
+        LinkedHashSet<String> knownGlobalVariables) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
@@ -377,6 +383,7 @@ public final class Environment implements Freezable {
       return transitiveContentHashCode;
     }
 
+    /** Retrieves all bindings, in a deterministic order. */
     public ImmutableMap<String, Object> getBindings() {
       return bindings;
     }
@@ -507,7 +514,7 @@ public final class Environment implements Freezable {
    * reads a global variable after which a local variable with the same name is assigned an
    * Exception needs to be thrown.
    */
-  @Nullable private Set<String> knownGlobalVariables;
+  @Nullable private LinkedHashSet<String> knownGlobalVariables;
 
   /**
    * When in a lexical (Skylark) frame, this lists the names of the functions in the call stack.
@@ -537,7 +544,7 @@ public final class Environment implements Freezable {
     // parent?
     lexicalFrame = new Frame(mutability(), null);
     globalFrame = globals;
-    knownGlobalVariables = new HashSet<>();
+    knownGlobalVariables = new LinkedHashSet<>();
   }
 
   /**
@@ -592,14 +599,12 @@ public final class Environment implements Freezable {
     return dynamicFrame.mutability();
   }
 
-  /** @return the current Frame, in which variable side-effects happen. */
+  /** Returns the current Frame, in which variable side-effects happen. */
   private Frame currentFrame() {
     return isGlobal() ? globalFrame : lexicalFrame;
   }
 
-  /**
-   * @return the global variables for the Environment (not including dynamic bindings).
-   */
+  /** Returns the global variables for the Environment (not including dynamic bindings). */
   public Frame getGlobals() {
     return globalFrame;
   }
@@ -755,7 +760,7 @@ public final class Environment implements Freezable {
     public Environment build() {
       Preconditions.checkArgument(!mutability.isFrozen());
       if (parent != null) {
-        Preconditions.checkArgument(parent.mutability().isFrozen());
+        Preconditions.checkArgument(parent.mutability().isFrozen(), "parent frame must be frozen");
       }
       Frame globalFrame = new Frame(mutability, parent);
       Frame dynamicFrame = new Frame(mutability, null);
@@ -907,7 +912,7 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * @return the value from the environment whose name is "varname" if it exists, otherwise null.
+   * Returns the value from the environment whose name is "varname" if it exists, otherwise null.
    */
   public Object lookup(String varname) {
     // Lexical frame takes precedence, then globals, then dynamics.
@@ -932,8 +937,8 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * @return true if varname is a known global variable,
-   * because it has been read in the context of the current function.
+   * Returns true if varname is a known global variable (i.e., it has been read in the context of
+   * the current function).
    */
   boolean isKnownGlobalVariable(String varname) {
     return knownGlobalVariables != null && knownGlobalVariables.contains(varname);
@@ -947,9 +952,12 @@ public final class Environment implements Freezable {
     eventHandler.handle(event);
   }
 
-  /** Returns a set of all names of variables that are accessible in this {@code Environment}. */
+  /**
+   * Returns a set of all names of variables that are accessible in this {@code Environment}, in a
+   * deterministic order.
+   */
   public Set<String> getVariableNames() {
-    Set<String> vars = new HashSet<>();
+    LinkedHashSet<String> vars = new LinkedHashSet<>();
     if (lexicalFrame != null) {
       vars.addAll(lexicalFrame.getTransitiveBindings().keySet());
     }
@@ -1016,6 +1024,10 @@ public final class Environment implements Freezable {
     }
   }
 
+  /**
+   * Computes a deterministic hash for the given base hash code and extension map (the map's order
+   * does not matter).
+   */
   private static String computeTransitiveContentHashCode(
       @Nullable String baseHashCode, Map<String, Extension> importedExtensions) {
     // Calculate a new hash from the hash of the loaded Extension-s.

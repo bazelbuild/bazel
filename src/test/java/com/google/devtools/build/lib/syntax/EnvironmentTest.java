@@ -274,6 +274,54 @@ public class EnvironmentTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testVarOrderDeterminism() throws Exception {
+    Mutability parentMutability = Mutability.create("parent env");
+    Environment parentEnv = Environment.builder(parentMutability)
+        .useDefaultSemantics()
+        .build();
+    parentEnv.update("a", 1);
+    parentEnv.update("c", 2);
+    parentEnv.update("b", 3);
+    Environment.Frame parentFrame = parentEnv.getGlobals();
+    parentMutability.freeze();
+    Mutability mutability = Mutability.create("testing");
+    Environment env = Environment.builder(mutability)
+        .useDefaultSemantics()
+        .setGlobals(parentFrame)
+        .build();
+    env.update("x", 4);
+    env.update("z", 5);
+    env.update("y", 6);
+    // The order just has to be deterministic, but for definiteness this test spells out the exact
+    // order returned by the implementation: parent frame before current environment, and bindings
+    // within a frame ordered by when they were added.
+    assertThat(env.getVariableNames())
+        .containsExactly("a", "c", "b", "x", "z", "y").inOrder();
+    assertThat(env.getGlobals().getTransitiveBindings())
+        .containsExactly("a", 1, "c", 2, "b", 3, "x", 4, "z", 5, "y", 6).inOrder();
+  }
+
+  @Test
+  public void testTransitiveHashCodeDeterminism() throws Exception {
+    // As a proxy for determinism, test that changing the order of imports doesn't change the hash
+    // code (within any one execution).
+    Extension a = new Extension(ImmutableMap.of(), "a123");
+    Extension b = new Extension(ImmutableMap.of(), "b456");
+    Extension c = new Extension(ImmutableMap.of(), "c789");
+    Environment env1 = Environment.builder(Mutability.create("testing1"))
+        .useDefaultSemantics()
+        .setImportedExtensions(ImmutableMap.of("a", a, "b", b, "c", c))
+        .setFileContentHashCode("z")
+        .build();
+    Environment env2 = Environment.builder(Mutability.create("testing2"))
+        .useDefaultSemantics()
+        .setImportedExtensions(ImmutableMap.of("c", c, "b", b, "a", a))
+        .setFileContentHashCode("z")
+        .build();
+    assertThat(env1.getTransitiveContentHashCode()).isEqualTo(env2.getTransitiveContentHashCode());
+  }
+
+  @Test
   public void testExtensionEqualityDebugging_RhsIsNull() {
     assertCheckStateFailsWithMessage(
         new Extension(ImmutableMap.of(), "abc"),
