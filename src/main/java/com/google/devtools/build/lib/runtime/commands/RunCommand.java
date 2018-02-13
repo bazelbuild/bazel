@@ -89,6 +89,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -467,7 +468,10 @@ public class RunCommand implements BlazeCommand  {
         return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       }
     } else {
-      runEnvironment = env.getClientEnv();
+      runEnvironment = new TreeMap<>();
+      runEnvironment.putAll(env.getClientEnv());
+      runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
+      runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
       workingDir = runfilesDir;
       cmdLine = new ArrayList<>();
       List<String> prettyCmdLine = new ArrayList<>();
