@@ -270,18 +270,24 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
             LittleEndianDataInputStream dataInputStream =
                 new LittleEndianDataInputStream(resourceFileStream);
 
-            // Magic number (4 bytes), Format version (4 bytes), Number of entries (4 bytes).
-            Preconditions.checkArgument(dataInputStream.skipBytes(12) == 12);
-
+            int magicNumber = dataInputStream.readInt();
+            int formatVersion = dataInputStream.readInt();
+            int numberOfEntries = dataInputStream.readInt();
             int resourceType = dataInputStream.readInt();
+
             if (resourceType == 0) { // 0 is a resource table
               readResourceTable(dataInputStream, consumers, fqnFactory);
             } else if (resourceType == 1) { // 1 is a resource file
               readCompiledFile(dataInputStream, consumers, fqnFactory);
             } else {
-              throw new RuntimeException(
-                  String.format(
-                      "Invalid resource type enum: %s from %s", resourceType, fileZipPath));
+              throw new DeserializationException("aapt2 version mismatch.",
+                  new DeserializationException(String.format(
+                  "Unexpected tag for resourceType %s expected 0 or 1 in %s."
+                      + "\n Last known good values:"
+                      + "\n\tmagicNumber 1414545729 (is %s)"
+                      + "\n\tformatVersion 1 (is %s)"
+                      + "\n\tnumberOfEntries 1 (is %s)",
+                      resourceType, fileZipPath, magicNumber, formatVersion, numberOfEntries)));
             }
           }
         }
