@@ -98,3 +98,73 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = android_local_test, TYPE = TEST, FAMILY = Android) -->
+
+<p>
+This rule is for unit testing <code>android_library</code> rules locally
+(as opposed to on a device).
+It works with the Android Robolectric testing framework.
+See the <a href="http://robolectric.org/">Android Robolectric</a> site for details about
+writing Robolectric tests.
+</p>
+
+${IMPLICIT_OUTPUTS}
+
+<h4 id="android_local_test_examples">Examples</h4>
+
+<p>
+To use Robolectric with <code>android_local_test</code>, add
+<a href="https://github.com/robolectric/robolectric/tree/master/bazel">Robolectric's repository</a>
+to your <code>WORKSPACE</code> file:
+<pre class="code">
+http_archive(
+ name = "robolectric",
+ urls = ["https://github.com/robolectric/robolectric/archive/<COMMIT>.tar.gz"],
+ strip_prefix = "robolectric-<COMMIT>",
+ sha256 = "<HASH>",
+)
+load("@robolectric//bazel:robolectric.bzl", "robolectric_repositories")
+robolectric_repositories()
+</pre>
+
+This pulls in the <code>maven_jar</code> rules needed for Robolectric.
+
+Then each <code>android_local_test</code> rule should depend on
+<code>@robolectric//bazel:robolectric</code>. See example below.
+
+</p>
+
+<pre class="code">
+android_local_test(
+    name = "SampleTest",
+    srcs = [
+        "SampleTest.java",
+    ],
+    manifest = "LibManifest.xml",
+    deps = [
+        ":sample_test_lib",
+        "@robolectric//bazel:robolectric",
+    ],
+)
+
+android_library(
+    name = "sample_test_lib",
+    srcs = [
+         "Lib.java",
+    ]
+    resource_files = glob(["res/**"]),
+    manifest = "AndroidManifest.xml",
+)
+</pre>
+
+<!-- #END_BLAZE_RULE --> */
+
+
+/* <!-- #BLAZE_RULE(android_local_test).IMPLICIT_OUTPUTS -->
+<ul>
+  <li><code><var>name</var>.jar</code>: A Java archive of the test.</li>
+  <li><code><var>name</var>-src.jar</code>: An archive containing the sources
+    ("source jar").</li>
+</ul>
+<!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */

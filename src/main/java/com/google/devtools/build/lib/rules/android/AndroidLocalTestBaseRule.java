@@ -50,7 +50,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         <p>
         The list of allowed rules in <code>deps</code> are <code>android_library</code>,
         <code>aar_import</code>, <code>java_import</code>, <code>java_library</code>,
-        <code>java_lite_proto_library</code>, and <code>proto_library</code>.
+        and <code>java_lite_proto_library</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
 
         /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(srcs) -->
