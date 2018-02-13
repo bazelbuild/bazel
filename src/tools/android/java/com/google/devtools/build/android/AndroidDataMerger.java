@@ -23,7 +23,6 @@ import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -263,139 +262,137 @@ class AndroidDataMerger {
       Path primaryManifest,
       boolean allowPrimaryOverrideAll,
       boolean throwOnResourceConflict) {
-    try {
-      // Create the builders for the final parsed data.
-      final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
-      final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
-      final KeyValueConsumers transitiveConsumers = transitiveBuilder.consumers();
-      final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
-      final Set<MergeConflict> conflicts = new HashSet<>();
 
-      // Find all internal conflicts.
-      conflicts.addAll(parsedPrimary.conflicts());
-      for (MergeConflict conflict : Iterables.concat(direct.conflicts(), transitive.conflicts())) {
-        if (allowPrimaryOverrideAll
-            && (parsedPrimary.containsOverwritable(conflict.dataKey())
-                || parsedPrimary.containsAsset(conflict.dataKey()))) {
-          continue;
-        }
-        conflicts.add(conflict);
-      }
+    // Create the builders for the final parsed data.
+    final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
+    final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
+    final KeyValueConsumers transitiveConsumers = transitiveBuilder.consumers();
+    final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
+    final Set<MergeConflict> conflicts = new HashSet<>();
 
-      // overwriting resources
-      for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateOverwritableEntries()) {
-        if (direct.containsOverwritable(entry.getKey())) {
-          primaryConsumers.overwritingConsumer.accept(
-              entry.getKey(), entry.getValue().overwrite(direct.getOverwritable(entry.getKey())));
-        } else {
-          primaryConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
-        }
+    // Find all internal conflicts.
+    conflicts.addAll(parsedPrimary.conflicts());
+    for (MergeConflict conflict : Iterables.concat(direct.conflicts(), transitive.conflicts())) {
+      if (allowPrimaryOverrideAll
+          && (parsedPrimary.containsOverwritable(conflict.dataKey())
+              || parsedPrimary.containsAsset(conflict.dataKey()))) {
+        continue;
       }
+      conflicts.add(conflict);
+    }
 
-      for (Map.Entry<DataKey, DataResource> entry : direct.iterateOverwritableEntries()) {
-        // Direct dependencies are simply overwritten, no conflict.
-        if (!parsedPrimary.containsOverwritable(entry.getKey())) {
-          transitiveConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
-        }
+    // overwriting resources
+    for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateOverwritableEntries()) {
+      if (direct.containsOverwritable(entry.getKey())) {
+        primaryConsumers.overwritingConsumer.accept(
+            entry.getKey(), entry.getValue().overwrite(direct.getOverwritable(entry.getKey())));
+      } else {
+        primaryConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
       }
-      for (Map.Entry<DataKey, DataResource> entry : transitive.iterateOverwritableEntries()) {
-        // If the primary is considered to be intentional (usually at the binary level),
-        // skip.
-        if (allowPrimaryOverrideAll && parsedPrimary.containsOverwritable(entry.getKey())) {
-          continue;
-        }
-        // If a transitive value is in the direct map, report a conflict, as it is commonly
-        // unintentional.
-        if (direct.containsOverwritable(entry.getKey())) {
-          conflicts.add(direct.foundResourceConflict(entry.getKey(), entry.getValue()));
-        } else if (parsedPrimary.containsOverwritable(entry.getKey())) {
-          // If overwriting a transitive value with a primary map, assume it's an unintentional
-          // override, unless allowPrimaryOverrideAll is set. At which point, this code path
-          // should not be reached.
-          conflicts.add(parsedPrimary.foundResourceConflict(entry.getKey(), entry.getValue()));
-        } else {
-          // If it's in none of the of sources, add it.
-          transitiveConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
-        }
-      }
+    }
 
-      // combining resources
-      for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateCombiningEntries()) {
+    for (Map.Entry<DataKey, DataResource> entry : direct.iterateOverwritableEntries()) {
+      // Direct dependencies are simply overwritten, no conflict.
+      if (!parsedPrimary.containsOverwritable(entry.getKey())) {
+        transitiveConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
+      }
+    }
+    for (Map.Entry<DataKey, DataResource> entry : transitive.iterateOverwritableEntries()) {
+      // If the primary is considered to be intentional (usually at the binary level),
+      // skip.
+      if (allowPrimaryOverrideAll && parsedPrimary.containsOverwritable(entry.getKey())) {
+        continue;
+      }
+      // If a transitive value is in the direct map, report a conflict, as it is commonly
+      // unintentional.
+      if (direct.containsOverwritable(entry.getKey())) {
+        conflicts.add(direct.foundResourceConflict(entry.getKey(), entry.getValue()));
+      } else if (parsedPrimary.containsOverwritable(entry.getKey())) {
+        // If overwriting a transitive value with a primary map, assume it's an unintentional
+        // override, unless allowPrimaryOverrideAll is set. At which point, this code path
+        // should not be reached.
+        conflicts.add(parsedPrimary.foundResourceConflict(entry.getKey(), entry.getValue()));
+      } else {
+        // If it's in none of the of sources, add it.
+        transitiveConsumers.overwritingConsumer.accept(entry.getKey(), entry.getValue());
+      }
+    }
+
+    // combining resources
+    for (Entry<DataKey, DataResource> entry : parsedPrimary.iterateCombiningEntries()) {
+      primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
+    }
+    for (Map.Entry<DataKey, DataResource> entry : direct.iterateCombiningEntries()) {
+      if (parsedPrimary.containsCombineable(entry.getKey())) {
+        // If it is in the primary, add it to the primary to be combined.
         primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
+      } else {
+        // If the combining asset is not in the primary, put it into the transitive.
+        transitiveConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
       }
-      for (Map.Entry<DataKey, DataResource> entry : direct.iterateCombiningEntries()) {
-        if (parsedPrimary.containsCombineable(entry.getKey())) {
-          // If it is in the primary, add it to the primary to be combined.
-          primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
-        } else {
-          // If the combining asset is not in the primary, put it into the transitive.
-          transitiveConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
-        }
+    }
+    for (Map.Entry<DataKey, DataResource> entry : transitive.iterateCombiningEntries()) {
+      if (parsedPrimary.containsCombineable(entry.getKey())) {
+        primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
+      } else {
+        transitiveConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
       }
-      for (Map.Entry<DataKey, DataResource> entry : transitive.iterateCombiningEntries()) {
-        if (parsedPrimary.containsCombineable(entry.getKey())) {
-          primaryConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
-        } else {
-          transitiveConsumers.combiningConsumer.accept(entry.getKey(), entry.getValue());
-        }
-      }
+    }
 
-      // assets
-      for (Entry<DataKey, DataAsset> entry : parsedPrimary.iterateAssetEntries()) {
-        if (direct.containsAsset(entry.getKey())) {
-          primaryConsumers.assetConsumer.accept(
-              entry.getKey(), entry.getValue().overwrite(direct.getAsset(entry.getKey())));
-        } else {
-          primaryConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
-        }
+    // assets
+    for (Entry<DataKey, DataAsset> entry : parsedPrimary.iterateAssetEntries()) {
+      if (direct.containsAsset(entry.getKey())) {
+        primaryConsumers.assetConsumer.accept(
+            entry.getKey(), entry.getValue().overwrite(direct.getAsset(entry.getKey())));
+      } else {
+        primaryConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
       }
+    }
 
-      for (Map.Entry<DataKey, DataAsset> entry : direct.iterateAssetEntries()) {
-        // Direct dependencies are simply overwritten, no conflict.
-        if (!parsedPrimary.containsAsset(entry.getKey())) {
-          transitiveConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
-        }
+    for (Map.Entry<DataKey, DataAsset> entry : direct.iterateAssetEntries()) {
+      // Direct dependencies are simply overwritten, no conflict.
+      if (!parsedPrimary.containsAsset(entry.getKey())) {
+        transitiveConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
       }
-      for (Map.Entry<DataKey, DataAsset> entry : transitive.iterateAssetEntries()) {
-        // If the primary is considered to be intentional (usually at the binary level),
-        // skip.
-        if (allowPrimaryOverrideAll && parsedPrimary.containsAsset(entry.getKey())) {
-          continue;
-        }
-        // If a transitive value is in the direct map report a conflict, as it is commonly
-        // unintentional.
-        if (direct.containsAsset(entry.getKey())) {
-          conflicts.add(direct.foundAssetConflict(entry.getKey(), entry.getValue()));
-        } else if (parsedPrimary.containsAsset(entry.getKey())) {
-          // If overwriting a transitive value with a primary map, assume it's an unintentional
-          // override, unless allowPrimaryOverrideAll is set. At which point, this code path
-          // should not be reached.
-          conflicts.add(parsedPrimary.foundAssetConflict(entry.getKey(), entry.getValue()));
-        } else {
-          // If it's in none of the of sources, add it.
-          transitiveConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
-        }
+    }
+    for (Map.Entry<DataKey, DataAsset> entry : transitive.iterateAssetEntries()) {
+      // If the primary is considered to be intentional (usually at the binary level),
+      // skip.
+      if (allowPrimaryOverrideAll && parsedPrimary.containsAsset(entry.getKey())) {
+        continue;
       }
+      // If a transitive value is in the direct map report a conflict, as it is commonly
+      // unintentional.
+      if (direct.containsAsset(entry.getKey())) {
+        conflicts.add(direct.foundAssetConflict(entry.getKey(), entry.getValue()));
+      } else if (parsedPrimary.containsAsset(entry.getKey())) {
+        // If overwriting a transitive value with a primary map, assume it's an unintentional
+        // override, unless allowPrimaryOverrideAll is set. At which point, this code path
+        // should not be reached.
+        conflicts.add(parsedPrimary.foundAssetConflict(entry.getKey(), entry.getValue()));
+      } else {
+        // If it's in none of the of sources, add it.
+        transitiveConsumers.assetConsumer.accept(entry.getKey(), entry.getValue());
+      }
+    }
+    final UnwrittenMergedAndroidData unwrittenMergedAndroidData = UnwrittenMergedAndroidData.of(
+        primaryManifest, primaryBuilder.build(), transitiveBuilder.build(), conflicts);
 
-      if (!conflicts.isEmpty()) {
-        List<String> messages = new ArrayList<>();
-        for (MergeConflict conflict : conflicts) {
-          if (conflict.isValidWith(deDuplicator)) {
-            messages.add(conflict.toConflictMessage());
-          }
-        }
-        if (!messages.isEmpty()) {
-          String conflictMessage = Joiner.on("").join(messages);
-          if (throwOnResourceConflict) {
-            throw MergeConflictException.withMessage(conflictMessage);
-          }
-          logger.warning(conflictMessage);
+    try {
+      List<String> messages = unwrittenMergedAndroidData
+          .asConflictMessagesIfValidWith(deDuplicator);
+
+      if (!messages.isEmpty()) {
+        if (throwOnResourceConflict) {
+          throw MergeConflictException.withMessage(Joiner.on("\n").join(messages));
+        } else {
+          logger.warning(Joiner.on("\n").join(messages));
         }
       }
-      return UnwrittenMergedAndroidData.of(
-          primaryManifest, primaryBuilder.build(), transitiveBuilder.build());
     } catch (IOException e) {
       throw MergingException.wrapException(e);
     }
+
+    return unwrittenMergedAndroidData;
   }
 }
