@@ -250,7 +250,16 @@ EOF
       || fail "should build watch binary"
 
   cat bazel-genfiles/package/lipo_out | grep "armv7k" \
-    || fail "expected output binary to be for armv7k architecture"
+      || fail "expected output binary to be for armv7k architecture"
+
+  bazel build --verbose_failures //package:lipo_out \
+      --apple_crosstool_transition \
+      --watchos_cpus=i386 \
+      --xcode_version=$XCODE_VERSION \
+      || fail "should build watch binary"
+
+  cat bazel-genfiles/package/lipo_out | grep "i386" \
+      || fail "expected output binary to be for i386 architecture"
 }
 
 function test_xcode_config_select() {

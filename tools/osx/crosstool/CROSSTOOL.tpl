@@ -3593,7 +3593,7 @@ toolchain {
   linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
-  linker_flag: "i386-apple-ios"
+  linker_flag: "i386-apple-watchos"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   compilation_mode_flags {
