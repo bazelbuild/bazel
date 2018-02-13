@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.CommonQueryOptions;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -77,7 +77,7 @@ public final class CqueryCommand implements BlazeCommand {
     }
     String query = Joiner.on(' ').join(options.getResidue());
     HashMap<String, QueryFunction> functions = new HashMap<>();
-    for (QueryFunction queryFunction : QueryEnvironment.DEFAULT_QUERY_FUNCTIONS) {
+    for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
       functions.put(queryFunction.getName(), queryFunction);
     }
     for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
