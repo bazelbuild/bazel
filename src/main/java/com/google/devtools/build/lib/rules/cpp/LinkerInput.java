@@ -54,4 +54,9 @@ public interface LinkerInput {
    * legal to call this only when {@link #containsObjectFiles()} returns true.
    */
   Iterable<Artifact> getObjectFiles();
+
+  /**
+   * Returns whether we must keep debug symbols for this input.
+   */
+  boolean isMustKeepDebug();
 }

@@ -209,6 +209,7 @@ public class CppLinkActionBuilder {
   private boolean isNativeDeps;
   private boolean useTestOnlyFlags;
   private boolean wholeArchive;
+  private boolean mustKeepDebug = false;
   private LinkArtifactFactory linkArtifactFactory = CppLinkAction.DEFAULT_ARTIFACT_FACTORY;
 
   private boolean isLtoIndexing = false;
@@ -929,7 +930,8 @@ public class CppLinkActionBuilder {
                 // If we reached here, then allowLtoIndexing must be true (checked above).
                 /* allowLtoIndexing= */ true,
                 /* interfaceLibraryBuilder= */ null,
-                /* interfaceLibraryOutput= */ null)
+                /* interfaceLibraryOutput= */ null,
+                mustKeepDebug)
             : new CppLinkVariablesExtension(
                 configuration,
                 needWholeArchive,
@@ -943,7 +945,8 @@ public class CppLinkActionBuilder {
                 /* ltoOutputRootPrefix= */ PathFragment.EMPTY_FRAGMENT,
                 allowLtoIndexing,
                 toolchain.getInterfaceSoBuilder(),
-                interfaceOutput);
+                interfaceOutput,
+                mustKeepDebug);
     variablesExtension.addVariables(buildVariablesBuilder);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
@@ -1314,6 +1317,9 @@ public class CppLinkActionBuilder {
     Preconditions.checkArgument(
         input.getArtifact().isTreeArtifact() || Link.OBJECT_FILETYPES.matches(name), name);
     this.objectFiles.add(input);
+    if (input.isMustKeepDebug()) {
+      this.mustKeepDebug = true;
+    }
   }
 
   /**
@@ -1383,6 +1389,9 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder addLibrary(LibraryToLink input) {
     checkLibrary(input);
     libraries.add(input);
+    if (input.isMustKeepDebug()) {
+      mustKeepDebug = true;
+    }
     return this;
   }
 
@@ -1393,6 +1402,9 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder addLibraries(NestedSet<LibraryToLink> inputs) {
     for (LibraryToLink input : inputs) {
       checkLibrary(input);
+      if (input.isMustKeepDebug()) {
+        mustKeepDebug = true;
+      }
     }
     this.libraries.addTransitive(inputs);
     return this;
@@ -1613,6 +1625,7 @@ public class CppLinkActionBuilder {
     private final Artifact thinltoMergedObjectFile;
     private final PathFragment ltoOutputRootPrefix;
     private final boolean allowLtoIndexing;
+    private final boolean mustKeepDebug;
 
     private final LinkArgCollector linkArgCollector = new LinkArgCollector();
 
@@ -1629,7 +1642,8 @@ public class CppLinkActionBuilder {
         PathFragment ltoOutputRootPrefix,
         boolean allowLtoIndexing,
         Artifact interfaceLibraryBuilder,
-        Artifact interfaceLibraryOutput) {
+        Artifact interfaceLibraryOutput,
+        boolean mustKeepDebug) {
       this.configuration = configuration;
       this.needWholeArchive = needWholeArchive;
       this.linkerInputs = linkerInputs;
@@ -1643,6 +1657,7 @@ public class CppLinkActionBuilder {
       this.thinltoMergedObjectFile = thinltoMergedObjectFile;
       this.ltoOutputRootPrefix = ltoOutputRootPrefix;
       this.allowLtoIndexing = allowLtoIndexing;
+      this.mustKeepDebug = mustKeepDebug;
 
       addInputFileLinkOptions(linkArgCollector);
     }
@@ -1661,7 +1676,7 @@ public class CppLinkActionBuilder {
         buildVariables.addStringVariable(FORCE_PIC_VARIABLE, "");
       }
 
-      if (cppConfiguration.shouldStripBinaries()) {
+      if (!mustKeepDebug && cppConfiguration.shouldStripBinaries()) {
         buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS_VARIABLE, "");
       }
 
