@@ -206,42 +206,49 @@ public class AutoCodecProcessor extends AbstractProcessor {
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType);
     for (VariableElement parameter : fields) {
       TypeKind typeKind = parameter.asType().getKind();
-      switch (typeKind) {
-        case BOOLEAN:
-          serializeBuilder.addStatement(
-              "codedOut.writeBoolNoTag($T.getInstance().getBoolean(input, $L_offset))",
-              UnsafeProvider.class,
-              parameter.getSimpleName());
-          break;
-        case INT:
-          serializeBuilder.addStatement(
-              "codedOut.writeInt32NoTag($T.getInstance().getInt(input, $L_offset))",
-              UnsafeProvider.class,
-              parameter.getSimpleName());
-          break;
-        case ARRAY:
-          // fall through
-        case DECLARED:
-          serializeBuilder.addStatement(
-              "$T unsafe_$L = ($T) $T.getInstance().getObject(input, $L_offset)",
-              parameter.asType(),
-              parameter.getSimpleName(),
-              parameter.asType(),
-              UnsafeProvider.class,
-              parameter.getSimpleName());
-          marshallers.writeSerializationCode(
-              new Marshaller.Context(
-                  serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
-          break;
-        default:
-          throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
+      Optional<FieldValueAndClass> hasField =
+          getFieldByNameRecursive(encodedType, parameter.getSimpleName().toString());
+      if (hasField.isPresent()) {
+        switch (typeKind) {
+          case BOOLEAN:
+            serializeBuilder.addStatement(
+                "codedOut.writeBoolNoTag($T.getInstance().getBoolean(input, $L_offset))",
+                UnsafeProvider.class,
+                parameter.getSimpleName());
+            break;
+          case INT:
+            serializeBuilder.addStatement(
+                "codedOut.writeInt32NoTag($T.getInstance().getInt(input, $L_offset))",
+                UnsafeProvider.class,
+                parameter.getSimpleName());
+            break;
+          case ARRAY:
+            // fall through
+          case DECLARED:
+            serializeBuilder.addStatement(
+                "$T unsafe_$L = ($T) $T.getInstance().getObject(input, $L_offset)",
+                parameter.asType(),
+                parameter.getSimpleName(),
+                parameter.asType(),
+                UnsafeProvider.class,
+                parameter.getSimpleName());
+            marshallers.writeSerializationCode(
+                new Marshaller.Context(
+                    serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
+            break;
+          default:
+            throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
+        }
+      } else {
+        addSerializeParameterWithGetter(encodedType, parameter, serializeBuilder);
       }
     }
     return serializeBuilder.build();
   }
 
-  private String findGetterForAutoValue(VariableElement parameter, TypeElement type) {
-    List<ExecutableElement> methods = ElementFilter.methodsIn(type.getEnclosedElements());
+  private String findGetterForClass(VariableElement parameter, TypeElement type) {
+    List<ExecutableElement> methods =
+        ElementFilter.methodsIn(env.getElementUtils().getAllMembers(type));
 
     ImmutableList.Builder<String> possibleGetterNamesBuilder =
         ImmutableList.<String>builder().add(parameter.getSimpleName().toString());
@@ -262,7 +269,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
 
     throw new IllegalArgumentException(
-        "No AutoValue getter found corresponding to parameter " + parameter.getSimpleName());
+        type + ": No getter found corresponding to parameter " + parameter.getSimpleName());
   }
 
   private String addCamelCasePrefix(String name, String prefix) {
@@ -273,29 +280,34 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
   }
 
+  private void addSerializeParameterWithGetter(
+      TypeElement encodedType, VariableElement parameter, MethodSpec.Builder serializeBuilder) {
+    TypeKind typeKind = parameter.asType().getKind();
+    String getter = "input." + findGetterForClass(parameter, encodedType) + "()";
+    switch (typeKind) {
+      case BOOLEAN:
+        serializeBuilder.addStatement("codedOut.writeBoolNoTag($L)", getter);
+        break;
+      case INT:
+        serializeBuilder.addStatement("codedOut.writeInt32NoTag($L)", getter);
+        break;
+      case ARRAY:
+        // fall through
+      case DECLARED:
+        marshallers.writeSerializationCode(
+            new Marshaller.Context(serializeBuilder, parameter.asType(), getter));
+        break;
+      default:
+        throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
+    }
+  }
+
   private MethodSpec buildSerializeMethodWithInstantiatorForAutoValue(
       TypeElement encodedType, List<? extends VariableElement> fields) {
     MethodSpec.Builder serializeBuilder =
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType);
     for (VariableElement parameter : fields) {
-      TypeKind typeKind = parameter.asType().getKind();
-      String getter = "input." + findGetterForAutoValue(parameter, encodedType) + "()";
-      switch (typeKind) {
-        case BOOLEAN:
-          serializeBuilder.addStatement("codedOut.writeBoolNoTag($L)", getter);
-          break;
-        case INT:
-          serializeBuilder.addStatement("codedOut.writeInt32NoTag($L)", getter);
-          break;
-        case ARRAY:
-          // fall through
-        case DECLARED:
-          marshallers.writeSerializationCode(
-              new Marshaller.Context(serializeBuilder, parameter.asType(), getter));
-          break;
-        default:
-          throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
-      }
+      addSerializeParameterWithGetter(encodedType, parameter, serializeBuilder);
     }
     return serializeBuilder.build();
   }
@@ -462,7 +474,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
       List<? extends VariableElement> parameters) {
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
     for (VariableElement param : parameters) {
-      FieldValueAndClass field = getFieldByName(encodedType, param.getSimpleName().toString());
+      Optional<FieldValueAndClass> field =
+          getFieldByNameRecursive(encodedType, param.getSimpleName().toString());
+      if (!field.isPresent()) {
+        // Will attempt to use a getter for this field instead.
+        continue;
+      }
       builder.addField(
           TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
       constructor.beginControlFlow("try");
@@ -470,7 +487,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
           "this.$L_offset = $T.getInstance().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
           param.getSimpleName(),
           UnsafeProvider.class,
-          ClassName.get(field.declaringClassType),
+          ClassName.get(field.get().declaringClassType),
           param.getSimpleName());
       constructor.nextControlFlow("catch ($T e)", NoSuchFieldException.class);
       constructor.addStatement("throw new $T(e)", IllegalStateException.class);
@@ -488,19 +505,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
       this.value = value;
       this.declaringClassType = declaringClassType;
     }
-  }
-
-  /**
-   * Returns the VariableElement for the field named {@code name}.
-   *
-   * <p>Throws IllegalArgumentException if no such field is found.
-   */
-  private FieldValueAndClass getFieldByName(TypeElement type, String name) {
-    return getFieldByNameRecursive(type, name)
-        .orElseThrow(
-            () ->
-                new IllegalArgumentException(
-                    type.getQualifiedName() + ": no field with name matching " + name));
   }
 
   private Optional<FieldValueAndClass> getFieldByNameRecursive(TypeElement type, String name) {
