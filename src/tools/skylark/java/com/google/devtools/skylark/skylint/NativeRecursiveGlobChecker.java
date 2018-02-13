@@ -73,10 +73,9 @@ public class NativeRecursiveGlobChecker extends AstVisitorWithNameResolution {
             Issue.create(
                 BAD_RECURSIVE_GLOB,
                 "go/build-style#globs "
-                + "Do not use recursive globs for Java source files. glob() on "
-                + "multiple directories is error prone, it can lead to import "
-                + "cycles between Java packages that are hard to break.",
-                exp.getLocation()));
+                    + "Do not use recursive globs for Java source files. glob() on multiple "
+                    + "directories is error prone and can cause serious maintenance problems for "
+                    + "BUILD files.", exp.getLocation()));
       }
     } else if (exp.kind() == Expression.Kind.IDENTIFIER) {
       Identifier id = (Identifier) exp;
