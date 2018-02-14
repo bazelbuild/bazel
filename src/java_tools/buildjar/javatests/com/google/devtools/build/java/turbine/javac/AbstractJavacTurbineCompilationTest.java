@@ -75,8 +75,7 @@ public abstract class AbstractJavacTurbineCompilationTest {
             JavacBootclasspath.asPaths().stream().map(Path::toString).collect(toImmutableList()))
         .setOutputDeps(outputDeps.toString())
         .addAllJavacOpts(Arrays.asList("-source", "8", "-target", "8"))
-        .setTargetLabel("//test")
-        .setRuleKind("java_library");
+        .setTargetLabel("//test");
   }
 
   protected void addSourceLines(String path, String... lines) throws IOException {
