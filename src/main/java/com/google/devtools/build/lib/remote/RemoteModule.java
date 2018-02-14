@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.Channel;
+import io.grpc.ClientInterceptors;
 import java.io.IOException;
 import java.util.logging.Logger;
 
@@ -129,7 +130,7 @@ public final class RemoteModule extends BlazeModule {
       } else if (grpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
-        Channel ch = GoogleAuthUtils.newChannel(target, authAndTlsOptions);
+        Channel ch = ClientInterceptors.intercept(GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions), new LoggingInterceptor());
         cache =
             new GrpcRemoteCache(
                 ch,
@@ -145,7 +146,7 @@ public final class RemoteModule extends BlazeModule {
       if (remoteOptions.remoteExecutor != null) {
         executor =
             new GrpcRemoteExecutor(
-                GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions),
+                ClientInterceptors.intercept(GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions), new LoggingInterceptor()),
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
                 remoteOptions.remoteTimeout,
                 retrier);
