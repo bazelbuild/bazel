@@ -65,46 +65,5 @@ class PyTest(test_base.TestBase):
                     .endswith('/a/b.py'))
 
 
-class TestInitPyFiles(test_base.TestBase):
-
-  def createSimpleFiles(self, create_init=True):
-    self.ScratchFile('WORKSPACE')
-
-    self.ScratchFile('src/a/BUILD', [
-        'py_binary(name="a", srcs=["a.py"], deps=[":b"], legacy_create_init=%s)'
-        % create_init,
-        'py_library(name="b", srcs=["b.py"])',
-    ])
-
-    self.ScratchFile('src/a/a.py', [
-        'from src.a import b',
-        'b.Hello()',
-    ])
-
-    self.ScratchFile('src/a/b.py', [
-        'def Hello():',
-        '    print("Hello, World")',
-    ])
-
-  def testInitPyFilesCreated(self):
-    self.createSimpleFiles()
-    exit_code, _, stderr = self.RunBazel(['build', '//src/a:a'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertTrue(
-        os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/__init__.py'))
-    self.assertTrue(
-        os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/a/__init__.py'))
-
-
-def testInitPyFilesNotCreatedWhenLegacyCreateInitIsSet(self):
-  self.createSimpleFiles(create_init=False)
-  exit_code, _, stderr = self.RunBazel(['build', '//src/a:a'])
-  self.AssertExitCode(exit_code, 0, stderr)
-  self.assertFalse(
-      os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/__init__.py'))
-  self.assertFalse(
-      os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/a/__init__.py'))
-
-
 if __name__ == '__main__':
   unittest.main()

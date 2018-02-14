@@ -10,7 +10,6 @@ filegroup(
 py_binary(
     name = "bin",
     srcs = ["bin.py"],
-    legacy_create_init = False,
     deps = [
         ":lib",
         "//examples/py_native/fibonacci",
@@ -25,7 +24,6 @@ py_library(
 py_test(
     name = "test",
     srcs = ["test.py"],
-    legacy_create_init = False,
     deps = [
         ":lib",
         "//examples/py_native/fibonacci",
@@ -35,6 +33,5 @@ py_test(
 py_test(
     name = "fail",
     srcs = ["fail.py"],
-    legacy_create_init = False,
     deps = [":lib"],
 )

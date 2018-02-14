@@ -1449,9 +1449,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.file(
         "test/BUILD",
         "load('//test:rule.bzl', 'skylark_rule')",
-        "py_binary(name = 'lib', srcs = ['lib.py', 'lib2.py'])",
+        "py_library(name = 'lib', srcs = ['a.py', 'b.py'])",
         "skylark_rule(name = 'foo', dep = ':lib')",
-        "py_binary(name = 'lib_with_init', srcs = ['lib_with_init.py', 'lib2.py', '__init__.py'])",
+        "py_library(name = 'lib_with_init', srcs = ['a.py', 'b.py', '__init__.py'])",
         "skylark_rule(name = 'foo_with_init', dep = ':lib_with_init')");
 
     SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
@@ -1460,7 +1460,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             ruleContext, "[f.short_path for f in ruleContext.attr.dep.default_runfiles.files]");
     assertThat(filenames).isInstanceOf(SkylarkList.class);
     SkylarkList filenamesList = (SkylarkList) filenames;
-    assertThat(filenamesList).containsExactly("test/lib", "test/lib.py", "test/lib2.py");
+    assertThat(filenamesList).containsExactly("test/a.py", "test/b.py").inOrder();
     Object emptyFilenames =
         evalRuleContextCode(
             ruleContext, "list(ruleContext.attr.dep.default_runfiles.empty_filenames)");
