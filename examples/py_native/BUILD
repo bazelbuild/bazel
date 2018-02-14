@@ -14,6 +14,7 @@ py_binary(
         ":lib",
         "//examples/py_native/fibonacci",
     ],
+    legacy_create_init = False,
 )
 
 py_library(
@@ -28,10 +29,12 @@ py_test(
         ":lib",
         "//examples/py_native/fibonacci",
     ],
+    legacy_create_init = False,
 )
 
 py_test(
     name = "fail",
     srcs = ["fail.py"],
     deps = [":lib"],
+    legacy_create_init = False,
 )

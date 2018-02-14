@@ -1,7 +1,7 @@
 """A tiny example binary for the native Python rules of Bazel."""
 
 import unittest
-from examples.py_native.lib import GetNumber
+from lib import GetNumber
 from fib import Fib
 
 
