@@ -38,6 +38,6 @@ Supply like `--params="/option:'value' ..."` ([see docs for --params](https://gi
     </dependencies>
   </metadata>
   <files>
-    <file src="tools\**" target="tools" />
+    <file src="tools/**" target="tools" />
   </files>
 </package>

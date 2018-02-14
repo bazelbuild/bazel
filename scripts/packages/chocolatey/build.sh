@@ -14,7 +14,8 @@ if [[ -n "${PACKAGE_FIX_VERSION}" ]]; then PACKAGE_FIX_VERSION=".${PACKAGE_FIX_V
 pushd "bazel-package"
   package_name="bazel"
   # clean slate
-  rm -rf "tools/LICENSE" "tools/params.txt" "${package_name}.nuspec" "${package_name}*.nupkg"
+  rm -rf "tools/LICENSE" "tools/params.txt" "${package_name}.nuspec" "${package_name}.${VERSION}.nupkg"
+  ls -al
 
   # expand the bazel.nuspec.template file & write that to bazel.nuspec
   sed -e "s|\$(\$tvVersion)|${VERSION}|" < "${package_name}.nuspec.template" \
@@ -33,17 +34,22 @@ EOMultiLine
   # adjust the license to have the header
   echo -e "From: https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE\n\n$(cat tools/LICENSE)" > "tools/LICENSE"
 
-  echo "running 'choco pack ./bazel.nuspec' inside docker..."
-  docker run \
-    --rm \
-    --mount "type=bind,src=$(pwd),dst=/work" \
-    linuturk/mono-choco \
-    pack --verbose --debug "/work/${package_name}.nuspec" --outputdirectory "/work"
+  ls -al
+  pwd
 
-  echo "running 'choco push <package> --key <key>' inside docker..."
+  echo "running 'choco pack ./bazel.nuspec' inside docker..."
+  # $ docker run --rm --volume $PWD:$PWD -w $PWD linuturk/mono-choco pack bazel.nuspec
   docker run \
     --rm \
-    --mount "type=bind,src=$(pwd),dst=/work" \
-    linuturk/mono-choco \
-    push --verbose --debug "${package_name}.${VERSION}${PACKAGE_FIX_VERSION}.nupkg" --timeout "30" --apikey="${CHOCOLATEY_API_KEY}"
+    --volume "${PWD}:${PWD}" \
+    --workdir "${PWD}" \
+    choco \
+    pack "${package_name}.nuspec"
+
+  # echo "running 'choco push <package> --key <key>' inside docker..."
+  # docker run \
+  #   --rm \
+  #   --mount "type=bind,src=$(pwd),dst=/work" \
+  #   choco \
+  #   push --verbose --debug "/work/${package_name}.${VERSION}${PACKAGE_FIX_VERSION}.nupkg" --timeout "30" --apikey="${CHOCOLATEY_API_KEY}"
 popd
