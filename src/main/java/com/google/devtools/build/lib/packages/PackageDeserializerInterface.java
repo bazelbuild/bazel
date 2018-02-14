@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 
@@ -34,6 +35,6 @@ public interface PackageDeserializerInterface {
    * @throws IOException on failures reading from {@code codedIn}
    * @throws InterruptedException
    */
-  Package deserialize(CodedInputStream codedIn)
+  Package deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws PackageDeserializationException, IOException, InterruptedException;
 }

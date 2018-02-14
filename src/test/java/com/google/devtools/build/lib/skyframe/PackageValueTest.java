@@ -36,7 +36,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
 
 /** Basic tests for {@link PackageValue}. */
 @RunWith(JUnit4.class)
@@ -60,8 +59,8 @@ public class PackageValueTest {
     // Mock because all we need is to verify that we're properly delegating to Package deserializer.
     Package mockPackage = mock(Package.class);
 
-    when(mockDeserializer.deserialize(ArgumentCaptor.forClass(CodedInputStream.class).capture()))
-        .thenReturn(mockPackage);
+    when(mockDeserializer.deserialize(
+        any(DeserializationContext.class), any(CodedInputStream.class))).thenReturn(mockPackage);
 
     CodedInputStream codedIn = CodedInputStream.newInstance(new byte[] {1, 2, 3, 4});
     PackageValue result =
@@ -75,7 +74,8 @@ public class PackageValueTest {
   @Test
   public void testInterruptedExceptionRaisesIllegalStateException() throws Exception {
     InterruptedException staged = new InterruptedException("Stop that!");
-    doThrow(staged).when(mockDeserializer).deserialize(any(CodedInputStream.class));
+    doThrow(staged).when(mockDeserializer)
+    .deserialize(any(DeserializationContext.class), any(CodedInputStream.class));
 
     try {
       underTest.deserialize(
