@@ -32,13 +32,13 @@ def success_target(ctx, msg):
   """
   exe = ctx.outputs.executable
   dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
-  ctx.file_action(
+  ctx.actions.write(
       output=dat,
       content=msg)
-  ctx.file_action(
+  ctx.actions.write(
       output=exe,
       content="cat " + dat.path + " ; echo",
-      executable=True)
+      is_executable=True)
   return struct(runfiles=ctx.runfiles([exe, dat]))
 
 def _successful_test_impl(ctx):
