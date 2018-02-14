@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -36,12 +35,12 @@ public abstract class ToolchainResolutionValue implements SkyValue {
 
   // A key representing the input data.
   public static SkyKey key(
-      BuildConfiguration configuration,
+      BuildConfigurationValue.Key configurationKey,
       Label toolchainType,
       PlatformInfo targetPlatform,
       List<PlatformInfo> availableExecutionPlatforms) {
     return ToolchainResolutionKey.create(
-        configuration, toolchainType, targetPlatform, availableExecutionPlatforms);
+        configurationKey, toolchainType, targetPlatform, availableExecutionPlatforms);
   }
 
   /** {@link SkyKey} implementation used for {@link ToolchainResolutionFunction}. */
@@ -52,16 +51,16 @@ public abstract class ToolchainResolutionValue implements SkyValue {
       return SkyFunctions.TOOLCHAIN_RESOLUTION;
     }
 
-    public abstract BuildConfiguration configuration();
+    abstract BuildConfigurationValue.Key configurationKey();
 
     public abstract Label toolchainType();
 
     public abstract PlatformInfo targetPlatform();
 
-    public abstract ImmutableList<PlatformInfo> availableExecutionPlatforms();
+    abstract ImmutableList<PlatformInfo> availableExecutionPlatforms();
 
-    public static ToolchainResolutionKey create(
-        BuildConfiguration configuration,
+    static ToolchainResolutionKey create(
+        BuildConfigurationValue.Key configuration,
         Label toolchainType,
         PlatformInfo targetPlatform,
         List<PlatformInfo> availableExecutionPlatforms) {

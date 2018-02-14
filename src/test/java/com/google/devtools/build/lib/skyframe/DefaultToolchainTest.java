@@ -32,7 +32,7 @@ import org.junit.runners.JUnit4;
 public class DefaultToolchainTest extends ToolchainTestCase {
   @Test
   public void testDefaultCcToolchainIsPresent() throws Exception {
-    SkyKey toolchainKey = RegisteredToolchainsValue.key(targetConfig);
+    SkyKey toolchainKey = RegisteredToolchainsValue.key(targetConfigKey);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainKey);
     ImmutableList<DeclaredToolchainInfo> declaredToolchains =

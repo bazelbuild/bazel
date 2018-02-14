@@ -49,7 +49,13 @@ public class ToolchainResolutionFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     ToolchainResolutionKey key = (ToolchainResolutionKey) skyKey.argument();
 
-    BuildConfiguration configuration = key.configuration();
+    // This call could be combined with the call below, but this SkyFunction is evaluated so rarely
+    // it's not worth optimizing.
+    BuildConfigurationValue value = (BuildConfigurationValue) env.getValue(key.configurationKey());
+    if (env.valuesMissing()) {
+      return null;
+    }
+    BuildConfiguration configuration = value.getConfiguration();
 
     // Get all toolchains.
     RegisteredToolchainsValue toolchains;
@@ -57,7 +63,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       toolchains =
           (RegisteredToolchainsValue)
               env.getValueOrThrow(
-                  RegisteredToolchainsValue.key(configuration),
+                  RegisteredToolchainsValue.key(key.configurationKey()),
                   InvalidToolchainLabelException.class,
                   EvalException.class);
       if (toolchains == null) {

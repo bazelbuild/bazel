@@ -357,7 +357,8 @@ public final class AspectFunction implements SkyFunction {
                     aspect.getDescriptor().getDescription(),
                     associatedConfiguredTargetAndTarget.getTarget().toString()),
                 requiredToolchains,
-                aspectConfiguration);
+                aspectConfiguration,
+                key.getAspectConfigurationKey());
       } catch (ToolchainContextException e) {
         // TODO(katre): better error handling
         throw new AspectCreationException(e.getMessage());

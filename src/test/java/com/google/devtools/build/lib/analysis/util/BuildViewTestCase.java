@@ -124,6 +124,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
@@ -202,6 +203,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private MutableActionGraph mutableActionGraph;
 
   private LoadingOptions customLoadingOptions = null;
+  protected BuildConfigurationValue.Key targetConfigKey;
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
@@ -465,6 +467,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         + configsMode.toString().toLowerCase();
     masterConfig = createConfigurations(actualArgs);
     targetConfig = getTargetConfiguration();
+    targetConfigKey =
+        BuildConfigurationValue.key(targetConfig.fragmentClasses(), targetConfig.getOptions());
     configurationArgs = Arrays.asList(actualArgs);
     createBuildView();
   }

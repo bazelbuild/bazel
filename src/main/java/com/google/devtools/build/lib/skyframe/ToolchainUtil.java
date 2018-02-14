@@ -55,11 +55,12 @@ public class ToolchainUtil {
       Environment env,
       String targetDescription,
       Set<Label> requiredToolchains,
-      @Nullable BuildConfiguration configuration)
+      @Nullable BuildConfiguration configuration,
+      BuildConfigurationValue.Key configurationKey)
       throws ToolchainContextException, InterruptedException {
 
     // In some cases this is called with a missing configuration, so we skip toolchain context.
-    if (configuration == null) {
+    if (configurationKey == null) {
       return null;
     }
 
@@ -78,7 +79,7 @@ public class ToolchainUtil {
 
     ImmutableBiMap<Label, Label> resolvedLabels =
         resolveToolchainLabels(
-            env, requiredToolchains, configuration, executionPlatform, targetPlatform);
+            env, requiredToolchains, executionPlatform, targetPlatform, configurationKey);
     if (resolvedLabels == null) {
       return null;
     }
@@ -173,9 +174,9 @@ public class ToolchainUtil {
   private static ImmutableBiMap<Label, Label> resolveToolchainLabels(
       Environment env,
       Set<Label> requiredToolchains,
-      BuildConfiguration configuration,
       PlatformInfo executionPlatform,
-      PlatformInfo targetPlatform)
+      PlatformInfo targetPlatform,
+      BuildConfigurationValue.Key configurationKey)
       throws InterruptedException, ToolchainContextException {
 
     // If there are no required toolchains, bail out early.
@@ -188,7 +189,10 @@ public class ToolchainUtil {
     for (Label toolchainType : requiredToolchains) {
       registeredToolchainKeys.add(
           ToolchainResolutionValue.key(
-              configuration, toolchainType, targetPlatform, ImmutableList.of(executionPlatform)));
+              configurationKey,
+              toolchainType,
+              targetPlatform,
+              ImmutableList.of(executionPlatform)));
     }
 
     Map<

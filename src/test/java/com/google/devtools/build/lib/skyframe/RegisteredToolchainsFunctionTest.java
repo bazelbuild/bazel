@@ -34,7 +34,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   @Test
   public void testRegisteredToolchains() throws Exception {
     // Request the toolchains.
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfig);
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -93,7 +93,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_1')");
     useConfiguration("--extra_toolchains=//extra:extra_toolchain");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfig);
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -111,7 +111,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     scratch.file("error/BUILD", "filegroup(name = 'not_a_toolchain')");
 
     // Request the toolchains.
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfig);
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result)
@@ -127,7 +127,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   public void testRegisteredToolchains_reload() throws Exception {
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_1')");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfig);
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -137,7 +137,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_2')");
 
-    toolchainsKey = RegisteredToolchainsValue.key(targetConfig);
+    toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
     result = requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))

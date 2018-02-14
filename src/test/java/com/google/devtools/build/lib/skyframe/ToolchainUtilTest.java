@@ -212,7 +212,14 @@ public class ToolchainUtilTest extends ToolchainTestCase {
       try {
         toolchainContext =
             ToolchainUtil.createToolchainContext(
-                env, key.targetDescription(), key.requiredToolchains(), key.configuration());
+                env,
+                key.targetDescription(),
+                key.requiredToolchains(),
+                key.configuration(),
+                key.configuration() == null
+                    ? null
+                    : BuildConfigurationValue.key(
+                        key.configuration().fragmentClasses(), key.configuration().getOptions()));
         if (toolchainContext == null) {
           return null;
         }

@@ -246,7 +246,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               rule.getRuleClassObject().getRequiredToolchains();
           toolchainContext =
               ToolchainUtil.createToolchainContext(
-                  env, rule.toString(), requiredToolchains, configuration);
+                  env,
+                  rule.toString(),
+                  requiredToolchains,
+                  configuration,
+                  configuredTargetKey.getConfigurationKey());
           if (env.valuesMissing()) {
             return null;
           }
