@@ -29,10 +29,10 @@ public class CycleInfoSubject extends Subject<CycleInfoSubject, CycleInfo> {
 
   public IterableSubject hasPathToCycleThat() {
     return Truth.assertThat(getSubject().getPathToCycle())
-        .named("Path to cycle in " + getDisplaySubject());
+        .named("Path to cycle in " + actualAsString());
   }
 
   public IterableSubject hasCycleThat() {
-    return Truth.assertThat(getSubject().getCycle()).named("Cycle in " + getDisplaySubject());
+    return Truth.assertThat(getSubject().getCycle()).named("Cycle in " + actualAsString());
   }
 }
