@@ -172,6 +172,8 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   }
 
   private static class HostConfiguredTargetKey extends ConfiguredTargetKey {
+    public static final ObjectCodec<ConfiguredTargetKey> CODEC = ConfiguredTargetKey.CODEC;
+
     private HostConfiguredTargetKey(
         Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
       super(label, configurationKey);

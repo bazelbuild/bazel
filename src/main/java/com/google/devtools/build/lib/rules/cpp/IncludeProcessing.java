@@ -18,10 +18,16 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import javax.annotation.Nullable;
 
 /** Used as an interface to thin header inputs to compile actions for C++-like compiles. */
+@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface IncludeProcessing {
+  ObjectCodec<IncludeProcessing> CODEC = new IncludeProcessing_AutoCodec();
+
   /** Performs include processing actions and returns the processed set of resulting headers. */
   Iterable<Artifact> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,

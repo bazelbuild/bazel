@@ -86,9 +86,11 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
+@AutoCodec
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction
     implements IncludeScannable, ExecutionInfoSpecifier, CommandAction {
+  public static final ObjectCodec<CppCompileAction> CODEC = new CppCompileAction_AutoCodec();
 
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
@@ -259,7 +261,7 @@ public class CppCompileAction extends AbstractAction
    * @param cppSemantics C++ compilation semantics
    * @param cppProvider - CcToolchainProvider with configuration-dependent information.
    */
-  protected CppCompileAction(
+  CppCompileAction(
       ActionOwner owner,
       NestedSet<Artifact> allInputs,
       FeatureConfiguration featureConfiguration,
@@ -291,61 +293,125 @@ public class CppCompileAction extends AbstractAction
       String actionName,
       CppSemantics cppSemantics,
       CcToolchainProvider cppProvider) {
-    super(
+    this(
         owner,
         allInputs,
-        CollectionUtils.asListWithoutNulls(
+        CollectionUtils.asSetWithoutNulls(
             outputFile,
-            (dotdFile == null ? null : dotdFile.artifact()),
+            dotdFile == null ? null : dotdFile.artifact(),
             gcnoFile,
             dwoFile,
-            ltoIndexingFile));
+            ltoIndexingFile),
+        localShellEnvironment,
+        Preconditions.checkNotNull(outputFile),
+        sourceFile,
+        optionalSourceFile,
+        // We do not need to include the middleman artifact since it is a generated
+        // artifact and will definitely exist prior to this action execution.
+        mandatoryInputs,
+        prunableInputs,
+        // inputsKnown begins as the logical negation of shouldScanIncludes.
+        // When scanning includes, the inputs begin as not known, and become
+        // known after inclusion scanning. When *not* scanning includes,
+        // the inputs are as declared, hence known, and remain so.
+        shouldScanIncludes,
+        shouldPruneModules,
+        usePic,
+        useHeaderModules,
+        isStrictSystemIncludes,
+        context,
+        lipoScannables,
+        builtinIncludeFiles,
+        ImmutableList.copyOf(additionalIncludeScanningRoots),
+        CompileCommandLine.builder(
+                sourceFile, coptsFilter, actionName, crosstoolTopPathFragment, dotdFile)
+            .setFeatureConfiguration(featureConfiguration)
+            .setVariables(variables)
+            .build(),
+        executionInfo,
+        environment,
+        actionName,
+        featureConfiguration,
+        actionClassId,
+        shouldScanIncludes || cppSemantics.needsDotdInputPruning(),
+        ImmutableList.copyOf(cppProvider.getBuiltInIncludeDirectories()),
+        /*additionalInputs=*/ null,
+        /*usedModules=*/ null,
+        /*topLevelModules=*/ null,
+        /*overwrittenVariables=*/ null,
+        cppSemantics.needsDotdInputPruning(),
+        cppSemantics.needsIncludeValidation(),
+        cppSemantics.getIncludeProcessing());
+    Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  CppCompileAction(
+      ActionOwner owner,
+      NestedSet<Artifact> inputs,
+      ImmutableSet<Artifact> outputs,
+      ImmutableMap<String, String> localShellEnvironment,
+      Artifact outputFile,
+      Artifact sourceFile,
+      Artifact optionalSourceFile,
+      NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> prunableInputs,
+      boolean shouldScanIncludes,
+      boolean shouldPruneModules,
+      boolean usePic,
+      boolean useHeaderModules,
+      boolean isStrictSystemIncludes,
+      CppCompilationContext context,
+      Iterable<IncludeScannable> lipoScannables,
+      ImmutableList<Artifact> builtinIncludeFiles,
+      ImmutableList<Artifact> additionalIncludeScanningRoots,
+      CompileCommandLine compileCommandLine,
+      ImmutableMap<String, String> executionInfo,
+      ImmutableMap<String, String> environment,
+      String actionName,
+      FeatureConfiguration featureConfiguration,
+      UUID actionClassId,
+      boolean discoversInputs,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
+      Iterable<Artifact> additionalInputs,
+      Collection<Artifact> usedModules,
+      Iterable<Artifact> topLevelModules,
+      CcToolchainFeatures.Variables overwrittenVariables,
+      boolean needsDotdInputPruning,
+      boolean needsIncludeValidation,
+      IncludeProcessing includeProcessing) {
+    super(owner, inputs, outputs);
     this.localShellEnvironment = localShellEnvironment;
+    this.outputFile = outputFile;
     this.sourceFile = sourceFile;
-    this.outputFile = Preconditions.checkNotNull(outputFile);
     this.optionalSourceFile = optionalSourceFile;
-    this.context = context;
-    this.featureConfiguration = featureConfiguration;
-    // inputsKnown begins as the logical negation of shouldScanIncludes.
-    // When scanning includes, the inputs begin as not known, and become
-    // known after inclusion scanning. When *not* scanning includes,
-    // the inputs are as declared, hence known, and remain so.
+    this.mandatoryInputs = mandatoryInputs;
+    this.prunableInputs = prunableInputs;
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
-    // We can only prune modules if include scanning is enabled.
-    Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes, this);
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.isStrictSystemIncludes = isStrictSystemIncludes;
-    this.discoversInputs = shouldScanIncludes || cppSemantics.needsDotdInputPruning();
-    this.compileCommandLine =
-        CompileCommandLine.builder(
-                sourceFile,
-                coptsFilter,
-                actionName,
-                crosstoolTopPathFragment,
-                dotdFile)
-            .setFeatureConfiguration(featureConfiguration)
-            .setVariables(variables)
-            .build();
+    this.context = context;
     this.lipoScannables = lipoScannables;
-    this.actionClassId = actionClassId;
+    this.builtinIncludeFiles = builtinIncludeFiles;
+    this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
+    this.compileCommandLine = compileCommandLine;
     this.executionInfo = executionInfo;
     this.environment = environment;
     this.actionName = actionName;
-
-    // We do not need to include the middleman artifact since it is a generated
-    // artifact and will definitely exist prior to this action execution.
-    this.mandatoryInputs = mandatoryInputs;
-    this.prunableInputs = prunableInputs;
-    this.builtinIncludeFiles = builtinIncludeFiles;
-    this.needsDotdInputPruning = cppSemantics.needsDotdInputPruning();
-    this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
-    this.includeProcessing = cppSemantics.getIncludeProcessing();
-
-    this.additionalIncludeScanningRoots = ImmutableList.copyOf(additionalIncludeScanningRoots);
-    this.builtInIncludeDirectories =
-        ImmutableList.copyOf(cppProvider.getBuiltInIncludeDirectories());
+    this.featureConfiguration = featureConfiguration;
+    this.needsDotdInputPruning = needsDotdInputPruning;
+    this.needsIncludeValidation = needsIncludeValidation;
+    this.includeProcessing = includeProcessing;
+    this.actionClassId = actionClassId;
+    this.discoversInputs = discoversInputs;
+    this.builtInIncludeDirectories = builtInIncludeDirectories;
+    this.additionalInputs = additionalInputs;
+    this.usedModules = usedModules;
+    this.topLevelModules = topLevelModules;
+    this.overwrittenVariables = overwrittenVariables;
   }
 
   /**

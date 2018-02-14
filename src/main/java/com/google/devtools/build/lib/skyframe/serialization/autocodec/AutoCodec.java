@@ -94,6 +94,6 @@ public @interface AutoCodec {
    *
    * <p>TODO(janakr): Add an ErrorProne checker to enforce this.
    */
-  @Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR})
+  @Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
   @interface VisibleForSerialization {}
 }

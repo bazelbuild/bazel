@@ -39,7 +39,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   private final IncludeProcessing includeProcessing;
 
   private BazelCppSemantics() {
-    this.includeProcessing = new NoProcessing();
+    this.includeProcessing = NoProcessing.INSTANCE;
   }
 
   @Override

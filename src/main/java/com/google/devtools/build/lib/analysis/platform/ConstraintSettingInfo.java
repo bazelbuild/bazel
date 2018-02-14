@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -35,7 +38,10 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
   category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
+@AutoCodec
 public class ConstraintSettingInfo extends NativeInfo {
+  public static final ObjectCodec<ConstraintSettingInfo> CODEC =
+      new ConstraintSettingInfo_AutoCodec();
 
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintSettingInfo";
@@ -67,7 +73,8 @@ public class ConstraintSettingInfo extends NativeInfo {
 
   private final Label label;
 
-  private ConstraintSettingInfo(Label label, Location location) {
+  @VisibleForSerialization
+  ConstraintSettingInfo(Label label, Location location) {
     super(PROVIDER, ImmutableMap.<String, Object>of("label", label), location);
 
     this.label = label;

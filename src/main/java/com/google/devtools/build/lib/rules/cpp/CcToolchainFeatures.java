@@ -167,15 +167,18 @@ public class CcToolchainFeatures implements Serializable {
       return Objects.hash(text);
     }
   }
-  
-  /**
-   * A chunk of a string value into which a variable should be expanded.
-   */
+
+  /** A chunk of a string value into which a variable should be expanded. */
   @Immutable
-  private static class VariableChunk implements StringChunk, Serializable {
+  @AutoCodec
+  static class VariableChunk implements StringChunk, Serializable {
+    public static final ObjectCodec<VariableChunk> CODEC =
+        new CcToolchainFeatures_VariableChunk_AutoCodec();
+
     private final String variableName;
-    
-    private VariableChunk(String variableName) {
+
+    @VisibleForSerialization
+    VariableChunk(String variableName) {
       this.variableName = variableName;
     }
 

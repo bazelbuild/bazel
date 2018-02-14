@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -57,7 +58,7 @@ public abstract class Info implements ClassObject, SkylarkValue, Serializable {
    *
    * <p>Built-in provider instances may use {@link Location#BUILTIN}.
    */
-  private final Location location;
+  @VisibleForSerialization protected final Location location;
 
   /**
    * Constructs an {@link Info}.

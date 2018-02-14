@@ -1179,7 +1179,7 @@ public class CppLinkActionBuilder {
     return new ImmutableList.Builder<Artifact>()
         .add(primaryOutput)
         .addAll(outputList)
-        .addAll(CollectionUtils.asListWithoutNulls(outputs))
+        .addAll(CollectionUtils.asSetWithoutNulls(outputs))
         .build();
   }
 

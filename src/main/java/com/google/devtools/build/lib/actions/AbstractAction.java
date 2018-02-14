@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -77,7 +78,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    * AbstractAction itself. The appropriate getter methods should be used instead. This has to be
    * done due to the fact that the getter methods can be overridden in subclasses.
    */
-  private final ActionOwner owner;
+  @VisibleForSerialization protected final ActionOwner owner;
 
   /**
    * Tools are a subset of inputs and used by the WorkerSpawnStrategy to determine whether a
@@ -103,11 +104,12 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   @GuardedBy("this")
-  private Iterable<Artifact> inputs;
+  @VisibleForSerialization
+  protected Iterable<Artifact> inputs;
 
   protected final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
-  private final ImmutableSet<Artifact> outputs;
+  @VisibleForSerialization protected final ImmutableSet<Artifact> outputs;
 
   private String cachedKey;
 

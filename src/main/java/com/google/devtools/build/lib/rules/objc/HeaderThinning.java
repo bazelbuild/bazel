@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -42,7 +44,9 @@ import javax.annotation.Nullable;
  * <p>Reads the .headers_list output file if one was generated for the actions source file and
  * returns the Artifact objects associated with the headers that were found.
  */
+@AutoCodec
 public class HeaderThinning implements IncludeProcessing {
+  public static final ObjectCodec<HeaderThinning> CODEC = new HeaderThinning_AutoCodec();
 
   private final Iterable<Artifact> potentialInputs;
 

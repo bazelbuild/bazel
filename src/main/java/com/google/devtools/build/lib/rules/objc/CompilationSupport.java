@@ -300,7 +300,7 @@ public class CompilationSupport {
       }
       return new HeaderThinning(potentialInputs);
     } else {
-      return new NoProcessing();
+      return NoProcessing.INSTANCE;
     }
   }
 
