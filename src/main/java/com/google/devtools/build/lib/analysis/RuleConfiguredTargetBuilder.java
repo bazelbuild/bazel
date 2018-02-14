@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -170,7 +169,7 @@ public final class RuleConfiguredTargetBuilder {
         ConstraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
       EnvironmentCollection.Builder refinedEnvironments = new EnvironmentCollection.Builder();
-      Map<Label, Target> removedEnvironmentCulprits = new LinkedHashMap<>();
+      Map<Label, LabelAndLocation> removedEnvironmentCulprits = new LinkedHashMap<>();
       ConstraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
           removedEnvironmentCulprits);
       add(SupportedEnvironmentsProvider.class,
