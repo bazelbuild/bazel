@@ -444,12 +444,11 @@ public class TestAspects {
     }
   }
 
-  private static final ParametrizedDefinitionAspect PARAMETRIZED_DEFINITION_ASPECT =
+  static final ParametrizedDefinitionAspect PARAMETRIZED_DEFINITION_ASPECT =
       new ParametrizedDefinitionAspect();
 
-  private static final AspectRequiringProvider ASPECT_REQUIRING_PROVIDER =
-      new AspectRequiringProvider();
-  private static final AspectRequiringProviderSets ASPECT_REQUIRING_PROVIDER_SETS =
+  static final AspectRequiringProvider ASPECT_REQUIRING_PROVIDER = new AspectRequiringProvider();
+  static final AspectRequiringProviderSets ASPECT_REQUIRING_PROVIDER_SETS =
       new AspectRequiringProviderSets();
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER)

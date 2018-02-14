@@ -16,15 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 
 /** A natively-defined aspect that is may be referenced by skylark attribute definitions. */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public abstract class SkylarkNativeAspect extends NativeAspectClass implements SkylarkAspect {
-  public static final ObjectCodec<SkylarkNativeAspect> CODEC = new SkylarkNativeAspect_AutoCodec();
-
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<native aspect>");
