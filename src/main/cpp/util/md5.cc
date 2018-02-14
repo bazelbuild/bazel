@@ -39,13 +39,13 @@
 
 #include "src/main/cpp/util/md5.h"
 
+#include <stddef.h>  // for offsetof
 #include <string.h>  // for memcpy
-#include <stddef.h>  // for ofsetof
 
 #include <cinttypes>
 
 #if !_STRING_ARCH_unaligned
-# ifdef _LP64
+#if defined(_LP64) || defined(_WIN64)
 #  define UNALIGNED_P(p) (reinterpret_cast<uint64_t>(p) % \
                           __alignof__(uint32_t) != 0)  // NOLINT
 # else
