@@ -47,12 +47,14 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.regex.Pattern;
 import java.util.zip.ZipOutputStream;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -233,8 +235,7 @@ public class JavacTurbine implements AutoCloseable {
       }
     }
 
-    if (compileResult == null
-        || (!compileResult.success() && hasRecognizedError(compileResult.output()))) {
+    if (compileResult == null || shouldFallBack(compileResult)) {
       // fall back to transitive classpath
       actualClasspath = originalClasspath;
       requestBuilder.setClassPath(actualClasspath);
@@ -250,6 +251,9 @@ public class JavacTurbine implements AutoCloseable {
           turbineOptions, compileResult.files(), transitive.collectTransitiveDependencies());
       dependencyModule.emitDependencyInformation(actualClasspath, compileResult.success());
     } else {
+      for (Diagnostic<? extends JavaFileObject> diagnostic : compileResult.diagnostics()) {
+        out.println(diagnostic.getMessage(Locale.getDefault()));
+      }
       out.print(compileResult.output());
     }
     return result;
@@ -450,21 +454,33 @@ public class JavacTurbine implements AutoCloseable {
     return fs;
   }
 
-  private static final Pattern MISSING_PACKAGE =
-      Pattern.compile("error: package ([\\p{javaJavaIdentifierPart}\\.]+) does not exist");
-
   /**
    * The compilation failed with an error that may indicate that the reduced class path was too
    * aggressive.
    *
    * <p>WARNING: keep in sync with ReducedClasspathJavaLibraryBuilder.
    */
-  // TODO(cushon): use a diagnostic listener and match known codes instead
-  private static boolean hasRecognizedError(String javacOutput) {
-    return javacOutput.contains("error: cannot access")
-        || javacOutput.contains("error: cannot find symbol")
-        || javacOutput.contains("com.sun.tools.javac.code.Symbol$CompletionFailure")
-        || MISSING_PACKAGE.matcher(javacOutput).find();
+  private static boolean shouldFallBack(JavacTurbineCompileResult result) {
+    if (result.success()) {
+      return false;
+    }
+    for (Diagnostic<? extends JavaFileObject> diagnostic : result.diagnostics()) {
+      String code = diagnostic.getCode();
+      if (code.contains("doesnt.exist")
+          || code.contains("cant.resolve")
+          || code.contains("cant.access")) {
+        return true;
+      }
+      // handle -Xdoclint:reference errors, which don't have a diagnostic code
+      // TODO(cushon): this is locale-dependent
+      if (diagnostic.getMessage(Locale.getDefault()).contains("error: reference not found")) {
+        return true;
+      }
+    }
+    if (result.output().contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
+      return true;
+    }
+    return false;
   }
 
   @Override
