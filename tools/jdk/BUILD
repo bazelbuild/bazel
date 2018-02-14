@@ -193,7 +193,7 @@ genrule(
     outs = ["platformclasspath-impl.jar"],
     cmd = """
 set -eu
-TMPDIR=$$(mktemp -d)
+TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
 $(JAVABASE)/bin/javac $< -d $$TMPDIR
 $(JAVA) -cp $$TMPDIR DumpPlatformClassPath 8 $@
 rm -rf $$TMPDIR
