@@ -53,8 +53,13 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
       PackageSpecificationProvider provider = include == null ? null
           : include.getProvider(PackageSpecificationProvider.class);
       if (provider == null) {
-        targetContext.getAnalysisEnvironment().getEventHandler().handle(Event.error(getTarget().getLocation(),
-            String.format("label '%s' does not refer to a package group", label)));
+        targetContext
+            .getAnalysisEnvironment()
+            .getEventHandler()
+            .handle(
+                Event.error(
+                    targetContext.getTarget().getLocation(),
+                    String.format("label '%s' does not refer to a package group", label)));
         continue;
       }
 
@@ -63,11 +68,6 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
 
     builder.add(packageGroup.getPackageSpecifications());
     packageSpecifications = builder.build();
-  }
-
-  @Override
-  public PackageGroup getTarget() {
-    return (PackageGroup) super.getTarget();
   }
 
   @Override

@@ -46,15 +46,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
   String FILES_FIELD = "files";
 
   /**
-   * Returns the {@link Target} with which this {@link ConfiguredTarget} is associated.
-   *
-   * <p>Do not add new usages if possible. Prefer {@link #getLabel}, or use {@code
-   * ConfiguredTargetAndTarget} objects.
-   */
-  @Deprecated
-  Target getTarget();
-
-  /**
    * <p>Returns the {@link BuildConfiguration} for which this {@link ConfiguredTarget} is
    * defined. Configuration is defined for all configured targets with exception
    * of the {@link InputFileConfiguredTarget} for which it is always

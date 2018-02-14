@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.util.FileType;
@@ -66,11 +65,6 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     this.providers = builder.build();
   }
 
-  @Override
-  public FileTarget getTarget() {
-    return (FileTarget) super.getTarget();
-  }
-
   public Artifact getArtifact() {
     return artifact;
   }
@@ -79,7 +73,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
    *  Returns the file name of this file target.
    */
   public String getFilename() {
-    return getTarget().getFilename();
+    return getLabel().getName();
   }
 
   @Override

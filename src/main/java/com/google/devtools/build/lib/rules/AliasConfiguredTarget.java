@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -91,11 +90,6 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   @Override
   public boolean containsKey(Object key, Location loc) throws EvalException {
     return actual.containsKey(key, loc);
-  }
-
-  @Override
-  public Target getTarget() {
-    return actual.getTarget();
   }
 
   @Override

@@ -36,11 +36,11 @@ public class ConfiguredTargetAndTarget {
     this.configuredTarget = configuredTarget;
     this.target = target;
     Preconditions.checkState(
-        configuredTarget.getTarget().equals(target),
-        "%s %s %s",
-        configuredTarget,
-        target,
-        configuredTarget.getTarget());
+        configuredTarget.getLabel().equals(target.getLabel()),
+        "Unable to construct ConfiguredTargetAndTarget:"
+            + " ConfiguredTarget's label %s is not equal to Target's label %s",
+        configuredTarget.getLabel(),
+        target.getLabel());
   }
 
   /**

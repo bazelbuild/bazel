@@ -31,11 +31,6 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   }
 
   @Override
-  public EnvironmentGroup getTarget() {
-    return (EnvironmentGroup) super.getTarget();
-  }
-
-  @Override
   protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
     return null;
   }
