@@ -261,15 +261,15 @@ function assert_linux_sandbox_exec_time() {
 }
 
 function test_stats_high_user_time() {
-  assert_linux_sandbox_exec_time 10 11 0 1
+  assert_linux_sandbox_exec_time 10 12 0 2
 }
 
 function test_stats_high_system_time() {
-  assert_linux_sandbox_exec_time 0 1 10 11
+  assert_linux_sandbox_exec_time 0 2 10 12
 }
 
 function test_stats_high_user_time_and_high_system_time() {
-  assert_linux_sandbox_exec_time 10 11 10 11
+  assert_linux_sandbox_exec_time 10 12 10 12
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
