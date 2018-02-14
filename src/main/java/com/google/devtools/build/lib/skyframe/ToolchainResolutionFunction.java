@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -51,8 +50,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ToolchainResolutionKey key = (ToolchainResolutionKey) skyKey.argument();
 
     BuildConfiguration configuration = key.configuration();
-    PlatformConfiguration platformConfiguration =
-        configuration.getFragment(PlatformConfiguration.class);
 
     // Get all toolchains.
     RegisteredToolchainsValue toolchains;
@@ -60,7 +57,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       toolchains =
           (RegisteredToolchainsValue)
               env.getValueOrThrow(
-                  RegisteredToolchainsValue.key(key.configuration()),
+                  RegisteredToolchainsValue.key(configuration),
                   InvalidToolchainLabelException.class,
                   EvalException.class);
       if (toolchains == null) {
