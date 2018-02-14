@@ -14,29 +14,188 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.base.Preconditions;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
-/** Scans the classpath to find codec instances. */
+/**
+ * Scans the classpath to find {@link ObjectCodec} and {@link CodecRegisterer} instances.
+ *
+ * <p>To avoid loading classes unnecessarily, the scanner filters by class name before loading.
+ * {@link ObjectCodec} implementation class names should end in "Codec" while {@link
+ * CodecRegisterer} implementation class names should end in "CodecRegisterer".
+ *
+ * <p>See {@link CodecRegisterer} for more details.
+ */
 public class CodecScanner {
 
+  private static final Logger log = Logger.getLogger(CodecScanner.class.getName());
+
   /**
-   * Returns a stream of likely codec implementations.
+   * Initializes an {@link ObjectCodecRegistry} builder by scanning a given package prefix.
+   *
+   * @param packagePrefix processes only classes in packages having this prefix
+   * @see CodecRegisterer
+   */
+  @SuppressWarnings("unchecked")
+  public static ObjectCodecRegistry.Builder initializeCodecRegistry(String packagePrefix)
+      throws IOException, ReflectiveOperationException {
+    ArrayList<Class<? extends ObjectCodec<?>>> codecs = new ArrayList<>();
+    ArrayList<Class<? extends CodecRegisterer<?>>> registerers = new ArrayList<>();
+    scanCodecs(packagePrefix)
+        .forEach(
+            type -> {
+              if (!ObjectCodec.class.equals(type) && ObjectCodec.class.isAssignableFrom(type)) {
+                codecs.add((Class<? extends ObjectCodec<?>>) type);
+              }
+              if (!CodecRegisterer.class.equals(type)
+                  && CodecRegisterer.class.isAssignableFrom(type)) {
+                registerers.add((Class<? extends CodecRegisterer<?>>) type);
+              }
+            });
+
+    ObjectCodecRegistry.Builder builder = ObjectCodecRegistry.newBuilder();
+    HashSet<Class<? extends ObjectCodec<?>>> alreadyRegistered =
+        runRegisterers(builder, registerers);
+
+    applyDefaultRegistration(builder, alreadyRegistered, codecs);
+    return builder;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static HashSet<Class<? extends ObjectCodec<?>>> runRegisterers(
+      ObjectCodecRegistry.Builder builder,
+      ArrayList<Class<? extends CodecRegisterer<?>>> registerers)
+      throws ReflectiveOperationException {
+    HashSet<Class<? extends ObjectCodec<?>>> registered = new HashSet<>();
+    for (Class<? extends CodecRegisterer<?>> registererType : registerers) {
+      Class<? extends ObjectCodec<?>> objectCodecType = getObjectCodecType(registererType);
+      Preconditions.checkState(
+          !registered.contains(objectCodecType),
+          "%s has multiple associated CodecRegisterer definitions!",
+          objectCodecType);
+      registered.add(objectCodecType);
+      Constructor<CodecRegisterer<?>> constructor =
+          (Constructor<CodecRegisterer<?>>) registererType.getDeclaredConstructor();
+      constructor.setAccessible(true);
+      constructor.newInstance().register(builder);
+    }
+    return registered;
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  private static void applyDefaultRegistration(
+      ObjectCodecRegistry.Builder builder,
+      HashSet<Class<? extends ObjectCodec<?>>> alreadyRegistered,
+      ArrayList<Class<? extends ObjectCodec<?>>> codecs)
+      throws ReflectiveOperationException {
+    for (Class<? extends ObjectCodec<?>> codecType : codecs) {
+      if (alreadyRegistered.contains(codecType)) {
+        continue;
+      }
+      Class<?> serializedType = getSerializedType(codecType);
+      if (serializedType == null) {
+        log.log(
+            Level.FINE,
+            "Skipping registration of "
+                + codecType
+                + " because it's generic parameter is not reified.");
+        continue;
+      }
+      try {
+        Constructor constructor = codecType.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        builder.add((Class) serializedType, (ObjectCodec) constructor.newInstance());
+      } catch (NoSuchMethodException e) {
+        log.log(
+            Level.FINE,
+            "Skipping registration of " + codecType + " because it had no default constructor.");
+      }
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Class<? extends ObjectCodec<?>> getObjectCodecType(
+      Class<? extends CodecRegisterer<?>> registererType) throws ReflectiveOperationException {
+    Type typeArg =
+        ((ParameterizedType)
+                registererType.getGenericInterfaces()[getCodecRegistererIndex(registererType)])
+            .getActualTypeArguments()[0];
+    // This occurs when the generic parameter of CodecRegisterer is not reified, for example:
+    //   class MyCodecRegisterer<T> implements CodecRegisterer<T>
+    Preconditions.checkArgument(
+        typeArg instanceof Class,
+        "Illegal CodecRegisterer definition: %s"
+            + "\nCodecRegisterer generic parameter must be reified.",
+        registererType);
+    return (Class<? extends ObjectCodec<?>>) typeArg;
+  }
+
+  private static int getCodecRegistererIndex(Class<? extends CodecRegisterer<?>> registererType) {
+    Class<?>[] interfaces = registererType.getInterfaces();
+    for (int i = 0; i < interfaces.length; ++i) {
+      if (CodecRegisterer.class.equals(interfaces[i])) {
+        return i;
+      }
+    }
+    // The following line is reached when there are multiple layers of inheritance involving
+    // CodecRegisterer, which is prohibited.
+    throw new IllegalStateException(registererType + " doesn't directly implement CodecRegisterer");
+  }
+
+  /** Returns the serialized class if available and null otherwise. */
+  @Nullable
+  private static Class<?> getSerializedType(Class<? extends ObjectCodec<?>> codecType) {
+    int objectCodecIndex = getObjectCodecIndex(codecType);
+    if (objectCodecIndex < 0) {
+      // This occurs if ObjectCodec is implemented by a superclass of codecType. There's no clear
+      // way to get the generic type parameter in this case.
+      return null;
+    }
+    Type typeArg =
+        ((ParameterizedType) codecType.getGenericInterfaces()[objectCodecIndex])
+            .getActualTypeArguments()[0];
+    if (!(typeArg instanceof Class)) {
+      return null;
+    }
+    return (Class<?>) typeArg;
+  }
+
+  private static int getObjectCodecIndex(Class<? extends ObjectCodec<?>> codecType) {
+    Class<?>[] interfaces = codecType.getInterfaces();
+    for (int i = 0; i < interfaces.length; ++i) {
+      if (ObjectCodec.class.equals(interfaces[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Returns a stream of likely codec and registerer implementations.
    *
    * <p>Caller should do additional checks as this method only performs string matching.
    *
    * @param packagePrefix emits only classes in packages having this prefix
    */
-  public static Stream<Class<?>> scanCodecs(String packagePrefix) throws IOException {
+  private static Stream<Class<?>> scanCodecs(String packagePrefix) throws IOException {
     return ClassPath.from(ClassLoader.getSystemClassLoader())
         .getResources()
         .stream()
         .filter(r -> r instanceof ClassInfo)
         .map(r -> (ClassInfo) r)
         .filter(c -> c.getPackageName().startsWith(packagePrefix))
-        .filter(c -> c.getSimpleName().endsWith("Codec"))
+        .filter(c -> c.getName().endsWith("Codec") || c.getName().endsWith("CodecRegisterer"))
         .map(c -> c.load());
   }
 }

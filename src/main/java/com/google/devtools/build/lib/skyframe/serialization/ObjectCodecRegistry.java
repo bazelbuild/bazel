@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
  * classifiers and assigned deterministic numeric identifiers for more compact on-the-wire
  * representation if desired.
  */
-class ObjectCodecRegistry {
+public class ObjectCodecRegistry {
 
   static Builder newBuilder() {
     return new Builder();
@@ -46,6 +46,7 @@ class ObjectCodecRegistry {
       nextTag++;
     }
     this.stringMappedCodecs = codecMappingsBuilder.build();
+
     this.byteStringMappedCodecs = makeByteStringMappedCodecs(stringMappedCodecs);
 
     this.defaultCodecDescriptor = allowDefaultCodec
@@ -79,6 +80,18 @@ class ObjectCodecRegistry {
     } else {
       throw new SerializationException.NoCodecException(
           "No codec available for " + classifier.toStringUtf8() + " and default fallback disabled");
+    }
+  }
+
+  public CodecDescriptor getCodecDescriptor(Class<?> type)
+      throws SerializationException.NoCodecException {
+    CodecDescriptor result =
+        stringMappedCodecs.getOrDefault(type.getName(), defaultCodecDescriptor);
+    if (result != null) {
+      return result;
+    } else {
+      throw new SerializationException.NoCodecException(
+          "No codec available for " + type + " and default fallback disabled");
     }
   }
 
@@ -121,7 +134,7 @@ class ObjectCodecRegistry {
   }
 
   /** Builder for {@link ObjectCodecRegistry}. */
-  static class Builder {
+  public static class Builder {
     private final ImmutableMap.Builder<String, ObjectCodec<?>> codecsBuilder =
         ImmutableMap.builder();
     private boolean allowDefaultCodec = true;
@@ -136,6 +149,11 @@ class ObjectCodecRegistry {
      */
     Builder add(String classifier, ObjectCodec<?> codec) {
       codecsBuilder.put(classifier, codec);
+      return this;
+    }
+
+    public <T> Builder add(Class<? extends T> type, ObjectCodec<T> codec) {
+      add(type.getName(), codec);
       return this;
     }
 
@@ -166,7 +184,7 @@ class ObjectCodecRegistry {
     }
 
     public <T> ClassKeyedBuilder add(Class<? extends T> clazz, ObjectCodec<T> codec) {
-      underlying.add(clazz.getName(), codec);
+      underlying.add(clazz, codec);
       return this;
     }
 

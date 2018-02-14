@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import java.util.logging.Logger;
 
 /** Utility for accessing (potentially platform-specific) {@link String} {@link ObjectCodec}s. */
@@ -63,5 +65,33 @@ public final class StringCodecs {
    */
   public static ObjectCodec<String> simple() {
     return stringCodec;
+  }
+
+  /**
+   * Registers a codec for {@link String}.
+   *
+   * <p>Needed to resolve ambiguity between {@link StringCodec} and {@link FastStringCodec}.
+   */
+  static class StringCodecRegisterer implements CodecRegisterer<StringCodec> {
+    @Override
+    public void register(ObjectCodecRegistry.Builder builder) {
+      if (!supportsOptimizedAscii()) {
+        builder.add(String.class, simple());
+      }
+    }
+  }
+
+  /**
+   * Registers a codec for {@link String}.
+   *
+   * <p>Needed to resolve ambiguity between {@link StringCodec} and {@link FastStringCodec}.
+   */
+  static class FastStringCodecRegisterer implements CodecRegisterer<FastStringCodec> {
+    @Override
+    public void register(ObjectCodecRegistry.Builder builder) {
+      if (supportsOptimizedAscii()) {
+        builder.add(String.class, asciiOptimized());
+      }
+    }
   }
 }
