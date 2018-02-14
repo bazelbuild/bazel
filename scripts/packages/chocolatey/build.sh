@@ -37,19 +37,19 @@ EOMultiLine
   ls -al
   pwd
 
-  echo "running 'choco pack ./bazel.nuspec' inside docker..."
-  # $ docker run --rm --volume $PWD:$PWD -w $PWD linuturk/mono-choco pack bazel.nuspec
+  echo "running 'choco pack bazel.nuspec' inside docker..."
   docker run \
     --rm \
     --volume "${PWD}:${PWD}" \
     --workdir "${PWD}" \
-    choco \
+    linuturk/mono-choco \
     pack "${package_name}.nuspec"
 
-  # echo "running 'choco push <package> --key <key>' inside docker..."
-  # docker run \
-  #   --rm \
-  #   --mount "type=bind,src=$(pwd),dst=/work" \
-  #   choco \
-  #   push --verbose --debug "/work/${package_name}.${VERSION}${PACKAGE_FIX_VERSION}.nupkg" --timeout "30" --apikey="${CHOCOLATEY_API_KEY}"
+  echo "running 'choco push <package> --key <key>' inside docker..."
+  docker run \
+    --rm \
+    --volume "${PWD}:${PWD}" \
+    --workdir "${PWD}" \
+    linuturk/mono-choco \
+    push "${package_name}.${VERSION}${PACKAGE_FIX_VERSION}.nupkg" --timeout "30" --apikey="${CHOCOLATEY_API_KEY}"
 popd
