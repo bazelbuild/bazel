@@ -18,6 +18,7 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -102,6 +103,8 @@ public final class RepositoryName implements Serializable {
       throw new IllegalStateException(e);
     }
   }
+
+  public static final ObjectCodec<RepositoryName> CODEC = new RepositoryNameCodec();
 
   /**
    * Makes sure that name is a valid repository name and creates a new RepositoryName using it.

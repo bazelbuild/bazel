@@ -16,11 +16,14 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 
-/**
- * Provider class for configured targets that have a visibility.
- */
+/** Provider class for configured targets that have a visibility. */
+@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface VisibilityProvider extends TransitiveInfoProvider {
+  ObjectCodec<VisibilityProvider> CODEC = new VisibilityProvider_AutoCodec();
 
   /** Returns the visibility specification. */
   NestedSet<PackageGroupContents> getVisibility();

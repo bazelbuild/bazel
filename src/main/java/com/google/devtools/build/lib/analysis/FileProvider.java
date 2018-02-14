@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -34,7 +36,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
   doc = "An interface for rules that provide files.",
   category = SkylarkModuleCategory.PROVIDER
 )
+@AutoCodec
 public final class FileProvider implements TransitiveInfoProvider {
+  public static final ObjectCodec<FileProvider> CODEC = new FileProvider_AutoCodec();
+
   public static final FileProvider EMPTY =
       new FileProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 

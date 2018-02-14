@@ -20,6 +20,10 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.stream.Stream;
 
@@ -27,10 +31,10 @@ import java.util.stream.Stream;
  * Represents one of the following:
  *
  * <ul>
- * <li>A single package (e.g. "//foo/bar")
- * <li>All transitive subpackages of a package, inclusive (e.g. "//foo/bar/...", which includes
- *     "//foo/bar")
- * <li>All packages (i.e. "//...")
+ *   <li>A single package (e.g. "//foo/bar")
+ *   <li>All transitive subpackages of a package, inclusive (e.g. "//foo/bar/...", which includes
+ *       "//foo/bar")
+ *   <li>All packages (i.e. "//...")
  * </ul>
  *
  * <p>Typically (exclusively?) used for package visibility, as part of a {@link PackageGroup}
@@ -39,7 +43,11 @@ import java.util.stream.Stream;
  * <p>A package specification is specific to a single {@link RepositoryName} unless it is the "all
  * packages" specification.
  */
+@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public abstract class PackageSpecification {
+  public static final ObjectCodec<PackageSpecification> CODEC =
+      new PackageSpecification_AutoCodec();
+
   private static final String PACKAGE_LABEL = "__pkg__";
   private static final String SUBTREE_LABEL = "__subpackages__";
   private static final String ALL_BENEATH_SUFFIX = "/...";
@@ -159,11 +167,17 @@ public abstract class PackageSpecification {
     return AllPackages.EVERYTHING;
   }
 
-  private static class SinglePackage extends PackageSpecification {
+  @AutoCodec
+  @VisibleForSerialization
+  static class SinglePackage extends PackageSpecification {
+    public static final ObjectCodec<SinglePackage> CODEC =
+        new PackageSpecification_SinglePackage_AutoCodec();
+
     private PackageIdentifier singlePackageName;
 
-    private SinglePackage(PackageIdentifier packageName) {
-      this.singlePackageName = packageName;
+    @VisibleForSerialization
+    SinglePackage(PackageIdentifier singlePackageName) {
+      this.singlePackageName = singlePackageName;
     }
 
     @Override
@@ -199,10 +213,16 @@ public abstract class PackageSpecification {
     }
   }
 
-  private static class AllPackagesBeneath extends PackageSpecification {
+  @AutoCodec
+  @VisibleForSerialization
+  static class AllPackagesBeneath extends PackageSpecification {
+    public static final ObjectCodec<AllPackagesBeneath> CODEC =
+        new PackageSpecification_AllPackagesBeneath_AutoCodec();
+
     private PackageIdentifier prefix;
 
-    private AllPackagesBeneath(PackageIdentifier prefix) {
+    @VisibleForSerialization
+    AllPackagesBeneath(PackageIdentifier prefix) {
       this.prefix = prefix;
     }
 
@@ -244,11 +264,15 @@ public abstract class PackageSpecification {
   }
 
   /** A package specification for a negative match, e.g. {@code -//pkg/sub/...}. */
-  private static class NegativePackageSpecification extends PackageSpecification {
+  @AutoCodec
+  @VisibleForSerialization
+  static class NegativePackageSpecification extends PackageSpecification {
+    public static final ObjectCodec<NegativePackageSpecification> CODEC =
+        new PackageSpecification_NegativePackageSpecification_AutoCodec();
 
     private final PackageSpecification delegate;
 
-    private NegativePackageSpecification(PackageSpecification delegate) {
+    NegativePackageSpecification(PackageSpecification delegate) {
       this.delegate = delegate;
     }
 
@@ -287,7 +311,11 @@ public abstract class PackageSpecification {
     }
   }
 
-  private static class AllPackages extends PackageSpecification {
+  @AutoCodec
+  @VisibleForSerialization
+  static class AllPackages extends PackageSpecification {
+    public static final ObjectCodec<AllPackages> CODEC =
+        new PackageSpecification_AllPackages_AutoCodec();
 
     private static final PackageSpecification EVERYTHING = new AllPackages();
 
@@ -329,11 +357,15 @@ public abstract class PackageSpecification {
    * testing a given package for containment (see {@link #containedPackages()}}.
    */
   @Immutable
+  @AutoCodec
   public static final class PackageGroupContents {
+    public static final ObjectCodec<PackageGroupContents> CODEC =
+        new PackageSpecification_PackageGroupContents_AutoCodec();
 
     private final ImmutableList<PackageSpecification> packageSpecifications;
 
-    private PackageGroupContents(ImmutableList<PackageSpecification> packageSpecifications) {
+    @VisibleForSerialization
+    PackageGroupContents(ImmutableList<PackageSpecification> packageSpecifications) {
       this.packageSpecifications = packageSpecifications;
     }
 

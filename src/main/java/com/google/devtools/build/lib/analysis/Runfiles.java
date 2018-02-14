@@ -31,6 +31,10 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -67,7 +71,10 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.NONE,
   doc = "An interface for a set of runfiles."
 )
+@AutoCodec
 public final class Runfiles {
+  public static ObjectCodec<Runfiles> CODEC = new Runfiles_AutoCodec();
+
   private static final Function<SymlinkEntry, Artifact> TO_ARTIFACT =
       new Function<SymlinkEntry, Artifact>() {
         @Override
@@ -76,13 +83,21 @@ public final class Runfiles {
         }
       };
 
+  @AutoCodec(strategy = Strategy.SINGLETON)
+  @VisibleForSerialization
+  static class DummyEmptyFilesSupplier implements EmptyFilesSupplier {
+    public static final ObjectCodec<DummyEmptyFilesSupplier> CODEC =
+        new Runfiles_DummyEmptyFilesSupplier_AutoCodec();
+    public static final DummyEmptyFilesSupplier INSTANCE = new DummyEmptyFilesSupplier();
+
+    @Override
+    public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
+      return ImmutableList.of();
+    }
+  }
+
   private static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER =
-      new EmptyFilesSupplier() {
-        @Override
-        public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
-          return ImmutableList.of();
-        }
-      };
+      DummyEmptyFilesSupplier.INSTANCE;
 
   private static final Function<Artifact, PathFragment> GET_ROOT_RELATIVE_PATH =
       new Function<Artifact, PathFragment>() {
@@ -129,11 +144,16 @@ public final class Runfiles {
   // equals to the third one if they are not the same instance (which they almost never are)
   //
   // Goodnight, prince(ss)?, and sweet dreams.
-  private static final class SymlinkEntry implements SkylarkValue {
+  @AutoCodec
+  @VisibleForSerialization
+  static final class SymlinkEntry implements SkylarkValue {
+    public static final ObjectCodec<SymlinkEntry> CODEC = new Runfiles_SymlinkEntry_AutoCodec();
+
     private final PathFragment path;
     private final Artifact artifact;
 
-    private SymlinkEntry(PathFragment path, Artifact artifact) {
+    @VisibleForSerialization
+    SymlinkEntry(PathFragment path, Artifact artifact) {
       this.path = Preconditions.checkNotNull(path);
       this.artifact = Preconditions.checkNotNull(artifact);
     }
@@ -210,7 +230,9 @@ public final class Runfiles {
    * Interface used for adding empty files to the runfiles at the last minute. Mainly to support
    * python-related rules adding __init__.py files.
    */
+  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   public interface EmptyFilesSupplier {
+    ObjectCodec<EmptyFilesSupplier> CODEC = new Runfiles_EmptyFilesSupplier_AutoCodec();
     /** Calculate additional empty files to add based on the existing manifest paths. */
     Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths);
   }
@@ -239,12 +261,12 @@ public final class Runfiles {
   private ConflictPolicy conflictPolicy = ConflictPolicy.IGNORE;
 
   /**
-   * Defines a set of artifacts that may or may not be included in the runfiles directory and
-   * a manifest file that makes that determination. These are applied on top of any artifacts
+   * Defines a set of artifacts that may or may not be included in the runfiles directory and a
+   * manifest file that makes that determination. These are applied on top of any artifacts
    * specified in {@link #unconditionalArtifacts}.
    *
-   * <p>The incentive behind this is to enable execution-phase "pruning" of runfiles. Anything
-   * set in unconditionalArtifacts is hard-set in Blaze's analysis phase, and thus unchangeable in
+   * <p>The incentive behind this is to enable execution-phase "pruning" of runfiles. Anything set
+   * in unconditionalArtifacts is hard-set in Blaze's analysis phase, and thus unchangeable in
    * response to execution phase results. This isn't always convenient. For example, say we have an
    * action that consumes a set of "possible" runtime dependencies for a source file, parses that
    * file for "import a.b.c" statements, and outputs a manifest of the actual dependencies that are
@@ -256,7 +278,11 @@ public final class Runfiles {
    * superset of the pruned dependencies, so undeclared inclusions (which can break build
    * correctness) aren't possible.
    */
+  @AutoCodec
   public static class PruningManifest {
+    public static final ObjectCodec<PruningManifest> CODEC =
+        new Runfiles_PruningManifest_AutoCodec();
+
     private final NestedSet<Artifact> candidateRunfiles;
     private final Artifact manifestFile;
 
@@ -294,9 +320,11 @@ public final class Runfiles {
    */
   private final boolean legacyExternalRunfiles;
 
-  private Runfiles(
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  Runfiles(
       PathFragment suffix,
-      NestedSet<Artifact> artifacts,
+      NestedSet<Artifact> unconditionalArtifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
@@ -305,7 +333,7 @@ public final class Runfiles {
       ConflictPolicy conflictPolicy,
       boolean legacyExternalRunfiles) {
     this.suffix = suffix;
-    this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
+    this.unconditionalArtifacts = Preconditions.checkNotNull(unconditionalArtifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
     this.extraMiddlemen = Preconditions.checkNotNull(extraMiddlemen);
