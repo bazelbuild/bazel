@@ -480,15 +480,13 @@ public class CppCompileAction extends AbstractAction
     return Iterables.concat(getInputs(), prunableInputs);
   }
 
-  @Nullable
-  @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  /**
+   * Returns the results of include scanning or, when that is null, all prunable inputs and header
+   * modules.
+   */
+  private Iterable<Artifact> findAdditionalInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Iterable<Artifact> initialResult;
-
-    actionExecutionContext
-        .getEventBus()
-        .post(ActionStatusMessage.analysisStrategy(this));
     try {
       initialResult =
           actionExecutionContext
@@ -512,9 +510,21 @@ public class CppCompileAction extends AbstractAction
         result.addTransitive(context.getTransitiveModules(usePic));
       }
       result.addTransitive(prunableInputs);
-      additionalInputs = result.build();
-      return additionalInputs;
+      return result.build();
+    } else {
+      return initialResult;
     }
+  }
+
+  @Nullable
+  @Override
+  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    actionExecutionContext
+        .getEventBus()
+        .post(ActionStatusMessage.analysisStrategy(this));
+
+    Iterable<Artifact> initialResult = findAdditionalInputs(actionExecutionContext);
 
     if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
@@ -1324,20 +1334,10 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> scannedIncludes;
-    try {
-      scannedIncludes = actionExecutionContext.getContext(CppIncludeScanningContext.class)
-          .findAdditionalInputs(this, actionExecutionContext, includeProcessing);
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
-    }
-
-    if (scannedIncludes == null) {
-      return ImmutableList.of();
-    }
-
+    Iterable<Artifact> discoveredInputs = findAdditionalInputs(actionExecutionContext);
     return Sets.<Artifact>difference(
-        ImmutableSet.<Artifact>copyOf(scannedIncludes), ImmutableSet.<Artifact>copyOf(getInputs()));
+        ImmutableSet.<Artifact>copyOf(discoveredInputs),
+        ImmutableSet.<Artifact>copyOf(getInputs()));
   }
 
   @Override
