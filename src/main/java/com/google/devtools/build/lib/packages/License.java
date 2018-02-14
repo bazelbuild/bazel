@@ -27,21 +27,24 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Support for license and distribution checking.
- */
-@Immutable @ThreadSafe
+/** Support for license and distribution checking. */
+@Immutable
+@ThreadSafe
+@AutoCodec
 public final class License {
+  public static final ObjectCodec<License> CODEC = new License_AutoCodec();
 
-  private final Set<LicenseType> licenseTypes;
-  private final Set<Label> exceptions;
+  private final ImmutableSet<LicenseType> licenseTypes;
+  private final ImmutableSet<Label> exceptions;
 
   /**
    * The error that's thrown if a build file contains an invalid license string.
@@ -84,11 +87,11 @@ public final class License {
   }
 
   /**
-   * An instance of LicenseType.None with no exceptions, used for packages
-   * outside of third_party which have no license clause in their BUILD files.
+   * An instance of LicenseType.None with no exceptions, used for packages outside of third_party
+   * which have no license clause in their BUILD files.
    */
   public static final License NO_LICENSE =
-      new License(ImmutableSet.of(LicenseType.NONE), Collections.<Label>emptySet());
+      new License(ImmutableSet.of(LicenseType.NONE), ImmutableSet.of());
 
   /**
    * A default instance of Distributions which is used for packages which
@@ -171,15 +174,17 @@ public final class License {
     return ImmutableTable.copyOf(result);
   }
 
-  private License(Set<LicenseType> licenseTypes, Set<Label> exceptions) {
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  License(ImmutableSet<LicenseType> licenseTypes, ImmutableSet<Label> exceptions) {
     // Defensive copy is done in .of()
     this.licenseTypes = licenseTypes;
     this.exceptions = exceptions;
   }
 
   public static License of(Collection<LicenseType> licenses, Collection<Label> exceptions) {
-    Set<LicenseType> licenseSet = ImmutableSet.copyOf(licenses);
-    Set<Label> exceptionSet = ImmutableSet.copyOf(exceptions);
+    ImmutableSet<LicenseType> licenseSet = ImmutableSet.copyOf(licenses);
+    ImmutableSet<Label> exceptionSet = ImmutableSet.copyOf(exceptions);
 
     if (exceptionSet.isEmpty() && licenseSet.equals(ImmutableSet.of(LicenseType.NONE))) {
       return License.NO_LICENSE;
