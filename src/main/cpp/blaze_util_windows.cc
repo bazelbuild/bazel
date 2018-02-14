@@ -469,7 +469,7 @@ static HANDLE CreateJvmOutputFile(const wstring& path,
     if (handle != INVALID_HANDLE_VALUE) {
       if (daemon_out_append
           && !SetFilePointerEx(handle, {0}, NULL, FILE_END)) {
-        fprintf(stderr, "Could not seek to end of file (%s)\n", path.c_str());
+        fprintf(stderr, "Could not seek to end of file (%ls)\n", path.c_str());
         return INVALID_HANDLE_VALUE;
       }
       return handle;
