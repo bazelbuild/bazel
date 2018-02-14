@@ -53,6 +53,9 @@ function assert_binary_run_from_subdir() {
     cd x &&
     unset JAVA_RUNFILES &&
     unset TEST_SRCDIR &&
+    unset RUNFILES_MANIFEST_FILE &&
+    unset RUNFILES_MANIFEST_ONLY &&
+    unset RUNFILES_DIR &&
     assert_binary_run "../$1" "$2" )
 }
 

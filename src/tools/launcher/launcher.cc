@@ -44,27 +44,48 @@ BinaryLauncherBase::BinaryLauncherBase(
   ParseManifestFile(&this->manifest_file_map, this->manifest_file);
 }
 
-string BinaryLauncherBase::FindManifestFile(const char* argv0) {
-  // Get the name of the binary
-  string binary = GetBinaryPathWithExtension(argv0);
+static bool FindManifestFileImpl(const char* argv0, string* result) {
+  // If this binary X runs as the data-dependency of some other binary Y, then
+  // X has no runfiles manifest/directory and should use Y's.
+  if (GetEnv("RUNFILES_MANIFEST_FILE", result) &&
+      DoesFilePathExist(result->c_str())) {
+    return true;
+  }
 
+  string directory;
+  if (GetEnv("RUNFILES_DIR", &directory)) {
+    *result = directory + "/MANIFEST";
+    if (DoesFilePathExist(result->c_str())) {
+      return true;
+    }
+  }
+
+  // If this binary X runs by itself (not as a data-dependency of another
+  // binary), then look for the manifest in a runfiles directory next to the
+  // main binary, then look for it (the manifest) next to the main binary.
+  directory = GetBinaryPathWithExtension(argv0) + ".runfiles";
+  *result = directory + "/MANIFEST";
+  if (DoesFilePathExist(result->c_str())) {
+    return true;
+  }
+
+  *result = directory + "_manifest";
+  if (DoesFilePathExist(result->c_str())) {
+    return true;
+  }
+
+  return false;
+}
+
+string BinaryLauncherBase::FindManifestFile(const char* argv0) {
+  string manifest_file;
+  if (!FindManifestFileImpl(argv0, &manifest_file)) {
+    die("Couldn't find runfiles manifest file.");
+  }
   // The path will be set as the RUNFILES_MANIFEST_FILE envvar and used by the
   // shell script, so let's convert backslashes to forward slashes.
-  std::replace(binary.begin(), binary.end(), '\\', '/');
-
-  // Try to find <path to binary>.runfiles/MANIFEST
-  string manifest_file = binary + ".runfiles/MANIFEST";
-  if (DoesFilePathExist(manifest_file.c_str())) {
-    return manifest_file;
-  }
-
-  // Also try to check if <path to binary>.runfiles_manifest exists
-  manifest_file = binary + ".runfiles_manifest";
-  if (DoesFilePathExist(manifest_file.c_str())) {
-    return manifest_file;
-  }
-
-  die("Couldn't find MANIFEST file under %s.runfiles\\", binary.c_str());
+  std::replace(manifest_file.begin(), manifest_file.end(), '\\', '/');
+  return manifest_file;
 }
 
 string BinaryLauncherBase::GetRunfilesPath() const {
