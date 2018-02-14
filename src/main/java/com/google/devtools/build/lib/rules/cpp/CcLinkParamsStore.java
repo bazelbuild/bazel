@@ -16,16 +16,19 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
  * A cache of C link parameters.
  *
- * <p>The cache holds instances of {@link CcLinkParams} for combinations of
- * linkingStatically and linkShared. If a requested value is not available in
- * the cache, it is computed and then stored.
+ * <p>The cache holds instances of {@link CcLinkParams} for combinations of linkingStatically and
+ * linkShared. If a requested value is not available in the cache, it is computed and then stored.
  *
- * <p>Typically this class is used on targets that may be linked in as C
- * libraries as in the following example:
+ * <p>Typically this class is used on targets that may be linked in as C libraries as in the
+ * following example:
  *
  * <pre>
  * class SomeTarget implements CcLinkParamsInfo {
@@ -44,7 +47,9 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
  * }
  * </pre>
  */
+@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public abstract class CcLinkParamsStore {
+  public static final ObjectCodec<CcLinkParamsStore> CODEC = new CcLinkParamsStore_AutoCodec();
 
   private CcLinkParams staticSharedParams;
   private CcLinkParams staticNoSharedParams;
@@ -108,14 +113,18 @@ public abstract class CcLinkParamsStore {
   protected abstract void collect(CcLinkParams.Builder builder, boolean linkingStatically,
                                   boolean linkShared);
 
-  /**
-   * An empty CcLinkParamStore.
-   */
-  public static final CcLinkParamsStore EMPTY = new CcLinkParamsStore() {
+  @AutoCodec
+  @VisibleForSerialization
+  static class EmptyCcLinkParamsStore extends CcLinkParamsStore {
+    public static final ObjectCodec<EmptyCcLinkParamsStore> CODEC =
+        new CcLinkParamsStore_EmptyCcLinkParamsStore_AutoCodec();
 
     @Override
     protected void collect(Builder builder, boolean linkingStatically, boolean linkShared) {}
-  };
+  }
+
+  /** An empty CcLinkParamStore. */
+  public static final CcLinkParamsStore EMPTY = new EmptyCcLinkParamsStore();
 
   /**
    * An implementation class for the CcLinkParamsStore.
