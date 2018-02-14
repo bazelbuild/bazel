@@ -361,7 +361,7 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "hello");
     FileSystemUtils.writeContentAsLatin1(out2.getPath(), "fizzlepop");
 
-    SkyKey actionLookupKey =
+    ActionLookupKey actionLookupKey =
         new ActionLookupKey() {
           @Override
           public SkyFunctionName functionName() {
@@ -440,7 +440,7 @@ public class FilesystemValueCheckerTest {
     SpecialArtifact last = createTreeArtifact("zzzzzzzzzz");
     FileSystemUtils.createDirectoryAndParents(last.getPath());
 
-    SkyKey actionLookupKey =
+    ActionLookupKey actionLookupKey =
         new ActionLookupKey() {
           @Override
           public SkyFunctionName functionName() {

@@ -19,10 +19,10 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
@@ -132,9 +132,8 @@ public class ActionExecutionValue implements SkyValue {
    */
   @ThreadSafe
   @VisibleForTesting
-  public static SkyKey key(SkyKey lookupKey, int index) {
-    return LegacySkyKey.create(
-        SkyFunctions.ACTION_EXECUTION, new ActionLookupData(lookupKey, index));
+  public static SkyKey key(ActionLookupValue.ActionLookupKey lookupKey, int index) {
+    return ActionLookupData.create(lookupKey, index);
   }
 
   @Override

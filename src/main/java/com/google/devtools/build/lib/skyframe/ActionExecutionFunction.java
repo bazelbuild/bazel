@@ -101,7 +101,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     ActionLookupValue actionLookupValue =
-        (ActionLookupValue) env.getValue(actionLookupData.getActionLookupNode());
+        (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
     int actionIndex = actionLookupData.getActionIndex();
     Action action = actionLookupValue.getAction(actionIndex);
     skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);

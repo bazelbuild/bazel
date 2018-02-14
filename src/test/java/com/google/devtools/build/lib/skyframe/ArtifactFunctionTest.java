@@ -347,7 +347,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       Map<Artifact, FileArtifactValue> additionalOutputData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
-          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupNode());
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       Artifact output = Iterables.getOnlyElement(action.getOutputs());
 
