@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -57,8 +59,11 @@ import javax.annotation.Nullable;
  * not mentioned on the output.
  */
 @Immutable
+@AutoCodec
 public final class OutputGroupInfo extends NativeInfo
     implements SkylarkIndexable, Iterable<String> {
+  public static ObjectCodec<OutputGroupInfo> CODEC = new OutputGroupInfo_AutoCodec();
+
   public static final String SKYLARK_NAME = "output_groups";
 
   public static NativeProvider<OutputGroupInfo> SKYLARK_CONSTRUCTOR = new Constructor();
