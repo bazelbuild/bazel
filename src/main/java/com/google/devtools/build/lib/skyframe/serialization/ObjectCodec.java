@@ -41,7 +41,7 @@ public interface ObjectCodec<T> extends BaseCodec<T> {
   /**
    * Deserializes from {@code codedIn}, inverse of {@link #serialize}.
    *
-   * @param context {@link DeserialiationContext} for providing additional information to the
+   * @param context {@link DeserializationContext} for providing additional information to the
    *     deserialization process.
    * @param codedIn the {@link CodedInputStream} to read the serialized object from
    * @return the object deserialized from {@code codedIn}
