@@ -19,18 +19,23 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * Runfiles provider for C++ targets.
  *
- * <p>Contains two {@link Runfiles} objects: one for the eventual statically linked binary and
- * one for the one that uses shared libraries. Data dependencies are present in both.
+ * <p>Contains two {@link Runfiles} objects: one for the eventual statically linked binary and one
+ * for the one that uses shared libraries. Data dependencies are present in both.
  */
 @Immutable
+@AutoCodec
 public final class CppRunfilesProvider implements TransitiveInfoProvider {
+  public static final ObjectCodec<CppRunfilesProvider> CODEC = new CppRunfilesProvider_AutoCodec();
   private final Runfiles staticRunfiles;
   private final Runfiles sharedRunfiles;
 
+  @AutoCodec.Instantiator
   public CppRunfilesProvider(Runfiles staticRunfiles, Runfiles sharedRunfiles) {
     this.staticRunfiles = staticRunfiles;
     this.sharedRunfiles = sharedRunfiles;

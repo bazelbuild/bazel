@@ -34,10 +34,15 @@ public abstract class LinkerInputs {
    * object file.
    */
   @ThreadSafety.Immutable
+  @AutoCodec
   public static class SimpleLinkerInput implements LinkerInput {
+    public static final ObjectCodec<SimpleLinkerInput> CODEC =
+        new LinkerInputs_SimpleLinkerInput_AutoCodec();
+
     private final Artifact artifact;
     private final ArtifactCategory category;
 
+    @AutoCodec.Instantiator
     public SimpleLinkerInput(Artifact artifact, ArtifactCategory category) {
       String basename = artifact.getFilename();
       switch (category) {
