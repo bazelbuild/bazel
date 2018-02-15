@@ -162,6 +162,27 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setDefaults("c").make();
   }
 
+  @Test
+  public void packageErrorOnEnvironmentGroupWithMissingEnvironments() throws Exception {
+    scratch.file("buildenv/envs/BUILD",
+        "environment(name = 'env1')",
+        "environment(name = 'env2')",
+        "environment_group(",
+        "    name = 'envs',",
+        "    environments = [':env1', ':en2'],",
+        "    defaults = [':env1'])");
+    reporter.removeHandler(failFastHandler);
+    assertThat(scratchConfiguredTarget("foo", "g",
+        "genrule("
+            + "    name = 'g',"
+            + "    srcs = [],"
+            + "    outs = ['g.out'],"
+            + "    cmd = '',"
+            + "    restricted_to = ['//buildenv/envs:env1'])"))
+        .isNull();
+    assertContainsEvent("environment //buildenv/envs:en2 does not exist");
+  }
+
   /**
    * By default, a rule *implicitly* supports all defaults, meaning the explicitly known
    * environment set is empty.

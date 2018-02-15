@@ -629,15 +629,15 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
-    for (Postable post : pkgBuilder.getPosts()) {
-      env.getListener().post(post);
-    }
-
     if (packageShouldBeConsideredInError) {
       pkgBuilder.setContainsErrors();
     }
     Package pkg = pkgBuilder.finishBuild();
+
+    Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
+    for (Postable post : pkgBuilder.getPosts()) {
+      env.getListener().post(post);
+    }
 
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
