@@ -21,17 +21,6 @@ import com.google.common.collect.ImmutableMap;
 // TODO(bazel-team): This class is just a shell, fill in.
 public class DeserializationContext {
 
-  /**
-   * This is a stub for context where it is less straightforward to thread from the top-level
-   * invocation.
-   *
-   * <p>This is a bug waiting to happen because it is very easy to accidentally modify a codec to
-   * use this context which won't contain any of the expected state.
-   */
-  // TODO(bazel-team): delete this and all references to it.
-  public static final DeserializationContext UNTHREADED_PLEASE_FIX =
-      new DeserializationContext(ImmutableMap.of());
-
   private final ImmutableMap<Class<?>, Object> dependencies;
 
   public DeserializationContext(ImmutableMap<Class<?>, Object> dependencies) {
