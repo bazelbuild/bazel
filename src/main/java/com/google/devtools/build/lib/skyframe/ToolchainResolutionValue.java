@@ -37,10 +37,10 @@ public abstract class ToolchainResolutionValue implements SkyValue {
   public static SkyKey key(
       BuildConfigurationValue.Key configurationKey,
       Label toolchainType,
-      PlatformInfo targetPlatform,
-      List<PlatformInfo> availableExecutionPlatforms) {
+      ConfiguredTargetKey targetPlatformKey,
+      List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
     return ToolchainResolutionKey.create(
-        configurationKey, toolchainType, targetPlatform, availableExecutionPlatforms);
+        configurationKey, toolchainType, targetPlatformKey, availableExecutionPlatformKeys);
   }
 
   /** {@link SkyKey} implementation used for {@link ToolchainResolutionFunction}. */
@@ -55,20 +55,20 @@ public abstract class ToolchainResolutionValue implements SkyValue {
 
     public abstract Label toolchainType();
 
-    public abstract PlatformInfo targetPlatform();
+    abstract ConfiguredTargetKey targetPlatformKey();
 
-    abstract ImmutableList<PlatformInfo> availableExecutionPlatforms();
+    abstract ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys();
 
     static ToolchainResolutionKey create(
         BuildConfigurationValue.Key configuration,
         Label toolchainType,
-        PlatformInfo targetPlatform,
-        List<PlatformInfo> availableExecutionPlatforms) {
+        ConfiguredTargetKey targetPlatformKey,
+        List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
       return new AutoValue_ToolchainResolutionValue_ToolchainResolutionKey(
           configuration,
           toolchainType,
-          targetPlatform,
-          ImmutableList.copyOf(availableExecutionPlatforms));
+          targetPlatformKey,
+          ImmutableList.copyOf(availableExecutionPlatformKeys));
     }
   }
 

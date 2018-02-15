@@ -16,12 +16,18 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -33,9 +39,34 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ToolchainResolutionValue} and {@link ToolchainResolutionFunction}. */
 @RunWith(JUnit4.class)
 public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
+  private static final ConfiguredTargetKey LINUX_CTKEY =
+      ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//linux:key"), null, false);
+  private static final ConfiguredTargetKey MAC_CTKEY =
+      ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//mac:key"), null, false);
+
+  private static ConfiguredTargetValue createConfiguredTargetValue(
+      ConfiguredTarget configuredTarget) {
+    return new ConfiguredTargetValue(
+        configuredTarget,
+        new Actions.GeneratingActions(ImmutableList.of(), ImmutableMap.of()),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*removeActionsAfterEvaluation=*/ false);
+  }
 
   private EvaluationResult<ToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
       throws InterruptedException {
+    ConfiguredTarget mockLinuxTarget = mock(ConfiguredTarget.class);
+    when(mockLinuxTarget.get(PlatformInfo.SKYLARK_CONSTRUCTOR)).thenReturn(linuxPlatform);
+    ConfiguredTarget mockMacTarget = mock(ConfiguredTarget.class);
+    when(mockMacTarget.get(PlatformInfo.SKYLARK_CONSTRUCTOR)).thenReturn(macPlatform);
+    getSkyframeExecutor()
+        .getDifferencerForTesting()
+        .inject(
+            ImmutableMap.of(
+                LINUX_CTKEY,
+                createConfiguredTargetValue(mockLinuxTarget),
+                MAC_CTKEY,
+                createConfiguredTargetValue(mockMacTarget)));
 
     try {
       getSkyframeExecutor().getSkyframeBuildView().enableAnalysis(true);
@@ -50,7 +81,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void testResolution_singleExecutionPlatform() throws Exception {
     SkyKey key =
         ToolchainResolutionValue.key(
-            targetConfigKey, testToolchainType, linuxPlatform, ImmutableList.of(macPlatform));
+            targetConfigKey, testToolchainType, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
@@ -78,8 +109,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ToolchainResolutionValue.key(
             targetConfigKey,
             testToolchainType,
-            linuxPlatform,
-            ImmutableList.of(linuxPlatform, macPlatform));
+            LINUX_CTKEY,
+            ImmutableList.of(LINUX_CTKEY, MAC_CTKEY));
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result).hasNoError();
@@ -100,7 +131,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SkyKey key =
         ToolchainResolutionValue.key(
-            targetConfigKey, testToolchainType, linuxPlatform, ImmutableList.of(macPlatform));
+            targetConfigKey, testToolchainType, LINUX_CTKEY, ImmutableList.of(MAC_CTKEY));
     EvaluationResult<ToolchainResolutionValue> result = invokeToolchainResolution(key);
 
     assertThatEvaluationResult(result)
