@@ -1,3 +1,42 @@
+## Release 0.10.1 (2018-02-15)
+
+```
+Baseline: 22c2f9a7722e8c8b7fdf8f5d30a40f1c4118e993
+
+Cherry picks:
+   + f6ca78808722c8c119affdb33400838ee92d44b6:
+     isable_presubmit
+   + 65c13dd5a4c1b4b5a072f7680b8f1cf3c5079b52:
+     Fix StreamResourceLeak error
+   + e5436745e1732f5e43fc55f0deb5b19e23ce8524:
+     windows: fix --symlink_prefix=/ throwing exception
+   + 22ccdd1ebe1dc495e05d894a3325f6b05e681fb3:
+     Fix turbine command lines with empty javacopts
+   + 96c654d43eb2906177325cbc2fc2b1e90dbcc792:
+     Remove EOL'd Linux flavours, bump CentOS to 6.9.
+   + f0bec36864f10370cbbda4caa8beac2e0c5ee45b:
+     Automated rollback of commit
+     2aeaeba66857c561dd6d63c79a213f1cabc3650d.
+   + 860af5be10b6bad68144d9d2d34173e86b40268c:
+     Consolidate Error Prone resource handling
+   + 2e631c99495f75270d2639542cefb531ec262d67:
+     sandbox: properly add `tmpDir` to `writablePaths`
+   + 5bfa5844d0d16d71e88002956e88402bfec88ef7:
+     actions,temp: respect TMPDIR envvar
+   + 6cc2ad8676d1ae0542b351a07a05ddbe5efac165:
+     sandbox: add env[TMPDIR] instead of `tmpDir`
+   + 40c757f4ab90214f95935672532a495c4551490a:
+     Change git clone to pull all history, so all needed commits can
+     be accessed.
+   + 56aeb04a064218b845ecc193d530c341c6ec854d:
+     Fixing #4585: broken re-execution of orphaned actions.
+```
+
+Important changes:
+
+  - Resolved an issue where a failure in the remote cache would not
+    trigger local re-execution of an action.
+
 ## Release 0.10.0 (2018-02-01)
 
 ```
@@ -2382,6 +2421,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
