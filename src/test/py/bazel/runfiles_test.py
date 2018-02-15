@@ -79,6 +79,8 @@ class RunfilesTest(test_base.TestBase):
         ("bar/BUILD.mock", "bar/BUILD"),
         ("bar/bar.py", "bar/bar.py"),
         ("bar/bar-py-data.txt", "bar/bar-py-data.txt"),
+        ("bar/Bar.java", "bar/Bar.java"),
+        ("bar/bar-java-data.txt", "bar/bar-java-data.txt"),
     ]:
       self.CopyFile(
           self.Rlocation(
@@ -101,14 +103,20 @@ class RunfilesTest(test_base.TestBase):
     exit_code, stdout, stderr = self.RunProgram(
         [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
     self.AssertExitCode(exit_code, 0, stderr)
-    if len(stdout) < 4:
+    if len(stdout) != 6:
       self.fail("stdout: %s" % stdout)
+
     self.assertEqual(stdout[0], "Hello Python Foo!")
     six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
     self.assertNotIn("__ignore_me__", stdout[1])
+
     self.assertEqual(stdout[2], "Hello Python Bar!")
     six.assertRegex(self, stdout[3], "^rloc=.*/bar/bar-py-data.txt")
     self.assertNotIn("__ignore_me__", stdout[3])
+
+    self.assertEqual(stdout[4], "Hello Java Bar!")
+    six.assertRegex(self, stdout[5], "^rloc=.*/bar/bar-java-data.txt")
+    self.assertNotIn("__ignore_me__", stdout[5])
 
     with open(stdout[1].split("=", 1)[1], "r") as f:
       lines = [l.strip() for l in f.readlines()]
@@ -121,6 +129,12 @@ class RunfilesTest(test_base.TestBase):
     if len(lines) != 1:
       self.fail("lines: %s" % lines)
     self.assertEqual(lines[0], "data for bar.py")
+
+    with open(stdout[5].split("=", 1)[1], "r") as f:
+      lines = [l.strip() for l in f.readlines()]
+    if len(lines) != 1:
+      self.fail("lines: %s" % lines)
+    self.assertEqual(lines[0], "data for Bar.java")
 
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
     for s, t in [

@@ -4,6 +4,7 @@ py_binary(
     data = [
         "datadep/hello.txt",
         "//bar:bar-py",
+        "//bar:bar-java",
     ],
     main = "runfiles.py",
     deps = ["@bazel_tools//tools/runfiles:py-runfiles"],

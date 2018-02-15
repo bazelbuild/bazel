@@ -175,8 +175,23 @@ class _ManifestBased(object):
             result[tokens[0]] = tokens[1]
     return result
 
+  def _GetRunfilesDir(self):
+    if self._path.endswith("/MANIFEST") or self._path.endswith("\\MANIFEST"):
+      return self._path[:-len("/MANIFEST")]
+    elif self._path.endswith(".runfiles_manifest"):
+      return self._path[:-len("_manifest")]
+    else:
+      return ""
+
   def EnvVars(self):
-    return {"RUNFILES_MANIFEST_FILE": self._path}
+    directory = self._GetRunfilesDir()
+    return {
+        "RUNFILES_MANIFEST_FILE": self._path,
+        "RUNFILES_DIR": directory,
+        # TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
+        # pick up RUNFILES_DIR.
+        "JAVA_RUNFILES": directory,
+    }
 
 
 class _DirectoryBased(object):
@@ -196,4 +211,9 @@ class _DirectoryBased(object):
     return posixpath.join(self._runfiles_root, path)
 
   def EnvVars(self):
-    return {"RUNFILES_DIR": self._runfiles_root}
+    return {
+        "RUNFILES_DIR": self._runfiles_root,
+        # TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
+        # pick up RUNFILES_DIR.
+        "JAVA_RUNFILES": self._runfiles_root,
+    }

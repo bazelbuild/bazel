@@ -53,18 +53,20 @@ def main():
   else:
     env = {}
   env.update(r.EnvVars())
-  p = subprocess.Popen(
-      [r.Rlocation(ChildBinaryName("py"))],
-      env=env,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE)
-  out, err = p.communicate()
-  out = SplitToLines(out)
-  if len(out) >= 2:
-    print(out[0])  # e.g. "Hello Python Bar!"
-    print(out[1])  # e.g. "rloc=/tmp/foo_ws/bar/bar-py-data.txt"
-  else:
-    raise Exception("ERROR: error running bar-py: %s" % SplitToLines(err))
+  for lang in ["py", "java"]:
+    p = subprocess.Popen(
+        [r.Rlocation(ChildBinaryName(lang))],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    out = SplitToLines(out)
+    if len(out) >= 2:
+      print(out[0])  # e.g. "Hello Python Bar!"
+      print(out[1])  # e.g. "rloc=/tmp/foo_ws/bar/bar-py-data.txt"
+    else:
+      raise Exception("ERROR: error running bar-%s: %s" % (lang,
+                                                           SplitToLines(err)))
 
 
 if __name__ == "__main__":
