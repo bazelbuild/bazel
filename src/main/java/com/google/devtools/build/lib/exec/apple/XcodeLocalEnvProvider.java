@@ -43,7 +43,7 @@ import java.util.Map;
  * path, but, when selecting which SDK to resolve, the version number comes from build
  * configuration.
  */
-public final class XCodeLocalEnvProvider implements LocalEnvProvider {
+public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   private static final String XCRUN_CACHE_FILENAME = "__xcruncache";
   private static final String XCODE_LOCATOR_CACHE_FILENAME = "__xcodelocatorcache";
 
@@ -51,11 +51,11 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
   private final Map<String, String> clientEnv;
 
   /**
-   * Creates a new {@link XCodeLocalEnvProvider}.
+   * Creates a new {@link XcodeLocalEnvProvider}.
    *
    * @param clientEnv a map of the current Bazel command's environment
    */
-  public XCodeLocalEnvProvider(String productName, Map<String, String> clientEnv) {
+  public XcodeLocalEnvProvider(String productName, Map<String, String> clientEnv) {
     this.productName = productName;
     this.clientEnv = clientEnv;
   }

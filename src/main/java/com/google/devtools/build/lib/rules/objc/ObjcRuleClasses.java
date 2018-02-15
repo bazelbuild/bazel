@@ -350,7 +350,7 @@ public class ObjcRuleClasses {
    * Files that are already compiled.
    */
   static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
-  
+
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
@@ -437,7 +437,7 @@ public class ObjcRuleClasses {
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
-          <p>Note that in the generated XCode project file, all files in the top directory of
+          <p>Note that in the generated Xcode project file, all files in the top directory of
           the specified files will be included in the Xcode-generated app bundle. So
           specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
           directory <code>res</code>.

@@ -60,7 +60,7 @@ The binary installers are on Bazel's [GitHub releases page](https://github.com/b
 The installer contains the Bazel binary and the required JDK. Some additional
 libraries must also be installed for Bazel to work.
 
-### 1. Install XCode command line tools
+### 1. Install Xcode command line tools
 
 Xcode can be downloaded from the [Apple Developer
 Site](https://developer.apple.com/xcode/downloads/) (this link redirects to
@@ -69,7 +69,7 @@ their App Store).
 For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with iOS
 SDK 8.1 installed on your system.
 
-Once XCode is installed, you can agree to the license agreement for all users with
+Once Xcode is installed, you can agree to the license agreement for all users with
 the following command:
 
 ```
