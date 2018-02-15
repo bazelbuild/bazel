@@ -20,8 +20,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.EnvironmentGroup;
-
+import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import java.util.Map;
 
 /**
@@ -29,9 +28,9 @@ import java.util.Map;
  */
 @Immutable
 public class EnvironmentCollection {
-  private final ImmutableMultimap<EnvironmentGroup, Label> map;
+  private final ImmutableMultimap<EnvironmentLabels, Label> map;
 
-  private EnvironmentCollection(ImmutableMultimap<EnvironmentGroup, Label> map) {
+  private EnvironmentCollection(ImmutableMultimap<EnvironmentLabels, Label> map) {
     this.map = map;
   }
 
@@ -40,11 +39,12 @@ public class EnvironmentCollection {
    */
   @AutoValue
   abstract static class EnvironmentWithGroup {
-    static EnvironmentWithGroup create(Label environment, EnvironmentGroup group) {
+    static EnvironmentWithGroup create(Label environment, EnvironmentLabels group) {
       return new AutoValue_EnvironmentCollection_EnvironmentWithGroup(environment, group);
     }
     abstract Label environment();
-    abstract EnvironmentGroup group();
+
+    abstract EnvironmentLabels group();
   }
 
   /**
@@ -56,10 +56,10 @@ public class EnvironmentCollection {
   }
 
   /**
-   * Returns the set of groups the environments in this collection belong to, ordered by
-   * their insertion order in {@link Builder}
+   * Returns the set of groups the environments in this collection belong to, ordered by their
+   * insertion order in {@link Builder}
    */
-  ImmutableSet<EnvironmentGroup> getGroups() {
+  ImmutableSet<EnvironmentLabels> getGroups() {
     return map.keySet();
   }
 
@@ -69,46 +69,39 @@ public class EnvironmentCollection {
    */
   ImmutableCollection<EnvironmentWithGroup> getGroupedEnvironments() {
     ImmutableSet.Builder<EnvironmentWithGroup> builder = ImmutableSet.builder();
-    for (Map.Entry<EnvironmentGroup, Label> entry : map.entries()) {
+    for (Map.Entry<EnvironmentLabels, Label> entry : map.entries()) {
       builder.add(EnvironmentWithGroup.create(entry.getValue(), entry.getKey()));
     }
     return builder.build();
   }
 
   /**
-   * Returns the environments in this collection that belong to the given group, ordered by
-   * their insertion order in {@link Builder}. If no environments belong to the given group,
-   * returns an empty collection.
+   * Returns the environments in this collection that belong to the given group, ordered by their
+   * insertion order in {@link Builder}. If no environments belong to the given group, returns an
+   * empty collection.
    */
-  ImmutableCollection<Label> getEnvironments(EnvironmentGroup group) {
+  ImmutableCollection<Label> getEnvironments(EnvironmentLabels group) {
     return map.get(group);
   }
 
-  /**
-   * An empty collection.
-   */
-  static final EnvironmentCollection EMPTY =
-      new EnvironmentCollection(ImmutableMultimap.<EnvironmentGroup, Label>of());
+  /** An empty collection. */
+  static final EnvironmentCollection EMPTY = new EnvironmentCollection(ImmutableMultimap.of());
 
   /**
    * Builder for {@link EnvironmentCollection}.
    */
   public static class Builder {
-    private final ImmutableMultimap.Builder<EnvironmentGroup, Label> mapBuilder =
+    private final ImmutableMultimap.Builder<EnvironmentLabels, Label> mapBuilder =
         ImmutableMultimap.builder();
 
-    /**
-     * Inserts the given environment / owning group pair.
-     */
-    public Builder put(EnvironmentGroup group, Label environment) {
+    /** Inserts the given environment / owning group pair. */
+    public Builder put(EnvironmentLabels group, Label environment) {
       mapBuilder.put(group, environment);
       return this;
     }
 
-    /**
-     * Inserts the given set of environments, all belonging to the specified group.
-     */
-    public Builder putAll(EnvironmentGroup group, Iterable<Label> environments) {
+    /** Inserts the given set of environments, all belonging to the specified group. */
+    public Builder putAll(EnvironmentLabels group, Iterable<Label> environments) {
       mapBuilder.putAll(group, environments);
       return this;
     }

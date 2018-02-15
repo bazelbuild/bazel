@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
+import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -149,7 +150,7 @@ public class ConstraintSemantics {
    * Provides a set of default environments for a given environment group.
    */
   private interface DefaultsProvider {
-    Collection<Label> getDefaults(EnvironmentGroup group);
+    Collection<Label> getDefaults(EnvironmentLabels group);
   }
 
   /**
@@ -157,7 +158,7 @@ public class ConstraintSemantics {
    */
   private static class GroupDefaultsProvider implements DefaultsProvider {
     @Override
-    public Collection<Label> getDefaults(EnvironmentGroup group) {
+    public Collection<Label> getDefaults(EnvironmentLabels group) {
       return group.getDefaults();
     }
   }
@@ -177,7 +178,7 @@ public class ConstraintSemantics {
     }
 
     @Override
-    public Collection<Label> getDefaults(EnvironmentGroup group) {
+    public Collection<Label> getDefaults(EnvironmentLabels group) {
       if (ruleClassDefaults.getGroups().contains(group)) {
         return ruleClassDefaults.getEnvironments(group);
       } else {
@@ -244,10 +245,11 @@ public class ConstraintSemantics {
      * appropriate errors if there are any problems.
      */
     boolean validateEnvironmentSpecifications() {
-      ImmutableCollection<EnvironmentGroup> restrictionGroups = restrictionEnvironments.getGroups();
+      ImmutableCollection<EnvironmentLabels> restrictionGroups =
+          restrictionEnvironments.getGroups();
       boolean hasErrors = false;
 
-      for (EnvironmentGroup group : compatibilityEnvironments.getGroups()) {
+      for (EnvironmentLabels group : compatibilityEnvironments.getGroups()) {
         if (restrictionGroups.contains(group)) {
           // To avoid error-spamming the user, when we find a conflict we only report one example
           // environment from each attribute for that group.
@@ -288,7 +290,7 @@ public class ConstraintSemantics {
         EnvironmentCollection.Builder supportedEnvironments) {
       EnvironmentCollection compatibilityEnvironments =
           collectEnvironments(compatibilityAttr, supportedEnvironments);
-      for (EnvironmentGroup group : compatibilityEnvironments.getGroups()) {
+      for (EnvironmentLabels group : compatibilityEnvironments.getGroups()) {
         supportedEnvironments.putAll(group, defaultsProvider.getDefaults(group));
       }
       return compatibilityEnvironments;
@@ -445,7 +447,7 @@ public class ConstraintSemantics {
       EnvironmentCollection environments, EnvironmentCollection toAdd) {
     EnvironmentCollection.Builder builder = new EnvironmentCollection.Builder();
     builder.putAll(environments);
-    for (EnvironmentGroup candidateGroup : toAdd.getGroups()) {
+    for (EnvironmentLabels candidateGroup : toAdd.getGroups()) {
       if (!environments.getGroups().contains(candidateGroup)) {
         builder.putAll(candidateGroup, toAdd.getEnvironments(candidateGroup));
       }
@@ -513,7 +515,8 @@ public class ConstraintSemantics {
    *     this collection, the rule is assumed to support the defaults for that group.
    * @param refinedEnvironments a builder for populating this rule's refined environments
    * @param removedEnvironmentCulprits a builder for populating the core dependencies that trigger
-   *     pruning away environments through refinement. If multiple dependencies qualify (e.g.
+   *     pruning away environments through refinement. If multiple dependencies qualify (e.g. two
+   *     direct deps under the current rule), one is arbitrarily chosen.
    */
   public static void checkConstraints(
       RuleContext ruleContext,
@@ -523,7 +526,7 @@ public class ConstraintSemantics {
     Set<EnvironmentWithGroup> refinedEnvironmentsSoFar = new LinkedHashSet<>();
     // Start with the full set of static environments:
     refinedEnvironmentsSoFar.addAll(staticEnvironments.getGroupedEnvironments());
-    Set<EnvironmentGroup> groupsWithEnvironmentsRemoved = new LinkedHashSet<>();
+    Set<EnvironmentLabels> groupsWithEnvironmentsRemoved = new LinkedHashSet<>();
     // Maps the label results of getUnsupportedEnvironments() to EnvironmentWithGroups. We can't
     // have that method just return EnvironmentWithGroups because it also collects group defaults,
     // which we only have labels for.
@@ -583,7 +586,7 @@ public class ConstraintSemantics {
       TransitiveInfoCollection dep,
       Map<Label, EnvironmentWithGroup> labelsToEnvironments,
       Set<EnvironmentWithGroup> refinedEnvironmentsSoFar,
-      Set<EnvironmentGroup> groupsWithEnvironmentsRemoved,
+      Set<EnvironmentLabels> groupsWithEnvironmentsRemoved,
       Map<Label, LabelAndLocation> removedEnvironmentCulprits) {
 
     SupportedEnvironmentsProvider depEnvironments =
@@ -641,18 +644,19 @@ public class ConstraintSemantics {
    */
   private static void checkRefinedConstraints(
       RuleContext ruleContext,
-      Set<EnvironmentGroup> groupsWithEnvironmentsRemoved,
+      Set<EnvironmentLabels> groupsWithEnvironmentsRemoved,
       Set<EnvironmentWithGroup> refinedEnvironmentsSoFar,
       EnvironmentCollection.Builder refinedEnvironments,
       Map<Label, LabelAndLocation> removedEnvironmentCulprits) {
-    Set<EnvironmentGroup> refinedGroups = new LinkedHashSet<>();
+    Set<EnvironmentLabels> refinedGroups = new LinkedHashSet<>();
     for (EnvironmentWithGroup envWithGroup : refinedEnvironmentsSoFar) {
       refinedEnvironments.put(envWithGroup.group(), envWithGroup.environment());
       refinedGroups.add(envWithGroup.group());
     }
-    Set<EnvironmentGroup> newlyEmptyGroups = groupsWithEnvironmentsRemoved.isEmpty()
-        ? ImmutableSet.<EnvironmentGroup>of()
-        : Sets.difference(groupsWithEnvironmentsRemoved, refinedGroups);
+    Set<EnvironmentLabels> newlyEmptyGroups =
+        groupsWithEnvironmentsRemoved.isEmpty()
+            ? ImmutableSet.of()
+            : Sets.difference(groupsWithEnvironmentsRemoved, refinedGroups);
     if (!newlyEmptyGroups.isEmpty()) {
       ruleContext.ruleError(getOverRefinementError(newlyEmptyGroups, removedEnvironmentCulprits));
     }
@@ -663,11 +667,11 @@ public class ConstraintSemantics {
    * environment groups due to refining.
    */
   private static String getOverRefinementError(
-      Set<EnvironmentGroup> newlyEmptyGroups,
+      Set<EnvironmentLabels> newlyEmptyGroups,
       Map<Label, LabelAndLocation> removedEnvironmentCulprits) {
     StringBuilder message = new StringBuilder("the current command-line flags disqualify "
         + "all supported environments because of incompatible select() paths:");
-    for (EnvironmentGroup group : newlyEmptyGroups) {
+    for (EnvironmentLabels group : newlyEmptyGroups) {
       if (newlyEmptyGroups.size() > 1) {
         message.append("\n\nenvironment group: " + group.getLabel() + ":");
       }
@@ -688,7 +692,6 @@ public class ConstraintSemantics {
    *
    * <p>For example, say we have R -> D1 -> D2 and all rules support environment E. If the
    * refinement happens because D2 has
-   *
    * <pre>
    *   deps = select({":foo": ["restricted_to_E"], ":bar": ["restricted_to_F"]}}  # Choose F.
    * </pre>
@@ -709,8 +712,8 @@ public class ConstraintSemantics {
    */
   private static Collection<EnvironmentWithGroup> getDefaults(Label env,
       EnvironmentCollection allEnvironments) {
-    EnvironmentGroup group = null;
-    for (EnvironmentGroup candidateGroup : allEnvironments.getGroups()) {
+    EnvironmentLabels group = null;
+    for (EnvironmentLabels candidateGroup : allEnvironments.getGroups()) {
       if (candidateGroup.getDefaults().contains(env)) {
         group = candidateGroup;
         break;
@@ -726,17 +729,17 @@ public class ConstraintSemantics {
 
   /**
    * Given a collection of environments and a collection of expected environments, returns the
-   * missing environments that would cause constraint expectations to be violated. Includes
-   * the effects of environment group defaults.
+   * missing environments that would cause constraint expectations to be violated. Includes the
+   * effects of environment group defaults.
    */
-  public static Collection<Label> getUnsupportedEnvironments(
+  static Collection<Label> getUnsupportedEnvironments(
       EnvironmentCollection actualEnvironments, EnvironmentCollection expectedEnvironments) {
     Set<Label> missingEnvironments = new LinkedHashSet<>();
     Collection<Label> actualEnvironmentLabels = actualEnvironments.getEnvironments();
 
     // Check if each explicitly expected environment is satisfied.
     for (EnvironmentWithGroup expectedEnv : expectedEnvironments.getGroupedEnvironments()) {
-      EnvironmentGroup group = expectedEnv.group();
+      EnvironmentLabels group = expectedEnv.group();
       Label environment = expectedEnv.environment();
       boolean isSatisfied = false;
       if (actualEnvironments.getGroups().contains(group)) {
@@ -763,7 +766,7 @@ public class ConstraintSemantics {
     // For any environment group not referenced by the expected environments, its defaults are
     // implicitly expected. We can ignore this if the actual environments also don't reference the
     // group (since in that case the same defaults apply), otherwise we have to check.
-    for (EnvironmentGroup group : actualEnvironments.getGroups()) {
+    for (EnvironmentLabels group : actualEnvironments.getGroups()) {
       if (!expectedEnvironments.getGroups().contains(group)) {
         for (Label expectedDefault : group.getDefaults()) {
           if (!actualEnvironmentLabels.contains(expectedDefault)

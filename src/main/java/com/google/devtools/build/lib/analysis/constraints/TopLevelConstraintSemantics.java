@@ -187,7 +187,8 @@ public class TopLevelConstraintSemantics {
     for (Label envLabel : expectedEnvironmentLabels) {
       try {
         Target env = packageManager.getTarget(eventHandler, envLabel);
-        expectedEnvironmentsBuilder.put(ConstraintSemantics.getEnvironmentGroup(env), envLabel);
+        expectedEnvironmentsBuilder.put(
+            ConstraintSemantics.getEnvironmentGroup(env).getEnvironmentLabels(), envLabel);
       } catch (NoSuchPackageException | NoSuchTargetException
           | ConstraintSemantics.EnvironmentLookupException e) {
         throw new ViewCreationFailedException("invalid target environment", e);

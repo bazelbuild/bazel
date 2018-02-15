@@ -45,7 +45,8 @@ public class Environment implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    EnvironmentCollection env = new EnvironmentCollection.Builder().put(group, label).build();
+    EnvironmentCollection env =
+        new EnvironmentCollection.Builder().put(group.getEnvironmentLabels(), label).build();
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(SupportedEnvironmentsProvider.class,
             new SupportedEnvironments(env, env, ImmutableMap.of()))
