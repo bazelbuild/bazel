@@ -82,6 +82,9 @@ com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithDefaultMet
 com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithDefaultMethod.class
 com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithDuplicateMethods$ClassWithDuplicateMethods.class
 com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithDuplicateMethods.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithInheritedMethods$Impl.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithInheritedMethods$Passthrough.class
+com/google/devtools/build/android/desugar/testdata/java8/InterfaceWithInheritedMethods.class
 com/google/devtools/build/android/desugar/testdata/java8/Java7InterfaceWithBridges$AbstractClassOne.class
 com/google/devtools/build/android/desugar/testdata/java8/Java7InterfaceWithBridges$ClassAddOne.class
 com/google/devtools/build/android/desugar/testdata/java8/Java7InterfaceWithBridges$ClassAddTwo.class

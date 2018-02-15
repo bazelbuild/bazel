@@ -697,6 +697,7 @@ class Desugar {
                 interfaceCache,
                 depsCollector,
                 bootclasspathReader,
+                loader,
                 store,
                 options.legacyJacocoFix);
       }
@@ -776,6 +777,7 @@ class Desugar {
                   interfaceCache,
                   depsCollector,
                   bootclasspathReader,
+                  loader,
                   store,
                   options.legacyJacocoFix);
         }

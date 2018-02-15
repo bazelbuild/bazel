@@ -502,6 +502,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
             DefaultMethodClassFixer.this.visitMethod(access, name, desc, (String) null, exceptions),
             stubbedInterfaceName,
             bootclasspath,
+            targetLoader,
             depsCollector,
             internalName);
       } else {
