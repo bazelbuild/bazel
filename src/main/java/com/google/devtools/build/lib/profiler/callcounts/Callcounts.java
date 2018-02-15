@@ -208,7 +208,6 @@ public class Callcounts {
             Function fn =
                 Function.newBuilder().setId(index).setName(stringTable.get(function)).build();
             profile.addFunction(fn);
-            table.put(key, index);
             return index++;
           });
     }
@@ -239,7 +238,6 @@ public class Callcounts {
                             .build())
                     .build();
             profile.addLocation(location);
-            table.put(key, index);
             return index++;
           });
     }
