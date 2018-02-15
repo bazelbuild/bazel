@@ -85,7 +85,6 @@ public abstract class OutputFormatter implements Serializable {
     GRAPH,
     XML,
     PROTO,
-    RECORD,
   }
 
   /**
