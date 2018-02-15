@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.actions;
+package com.google.devtools.build.lib.actions;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 

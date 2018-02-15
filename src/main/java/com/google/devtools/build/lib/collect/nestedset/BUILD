@@ -47,8 +47,8 @@ java_library(
     ],
     deps = [
         ":nestedset",
-        "//src/main/java/com/google/devtools/build/lib:commandline_item",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//third_party:guava",
     ],
 )
