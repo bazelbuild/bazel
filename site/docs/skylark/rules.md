@@ -19,7 +19,7 @@ user-provided inputs to a rule, but also all of the tools and libraries required
 to execute the actions (called _implicit inputs_).
 
 Before creating or modifying any rule, make sure you are familiar with the
-[extensibility model](concepts.md) (understand the three phases and the
+[evaluation model](concepts.md) (understand the three phases of execution and the
 differences between macros and rules).
 
 <!-- [TOC] -->
