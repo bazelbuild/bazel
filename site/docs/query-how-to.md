@@ -216,7 +216,9 @@ bazel query 'kind("generated file", //foo:*)'
 <a name="What_s_the_set_of_BUILD_files_ne"></a>
 #### What's the set of BUILD files needed to build `//foo`?
 
+```sh
 bazel query 'buildfiles(deps(//foo))' --output location | cut -f1 -d:
+```
 
 <a name="What_are_the_individual_tests_th"></a>
 #### What are the individual tests that a `test_suite` expands to?
