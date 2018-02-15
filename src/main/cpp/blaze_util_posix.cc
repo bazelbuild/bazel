@@ -404,6 +404,8 @@ int ExecuteDaemon(const string& exe,
     DieAfterFork("Cannot execute daemon");
     return -1;
   }
+//This will never get called
+return -1;
 }
 
 static string RunProgram(const string& exe,
