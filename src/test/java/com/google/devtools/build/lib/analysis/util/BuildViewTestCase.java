@@ -95,7 +95,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -183,7 +182,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;
   protected ActionKeyContext actionKeyContext;
-  protected BinTools binTools;
 
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationCollection masterConfig;
@@ -214,7 +212,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             rootDirectory,
             analysisMock.getProductName());
     actionKeyContext = new ActionKeyContext();
-    binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());

@@ -85,6 +85,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
 
@@ -142,6 +143,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     executionOptions.testOutput = TestOutputFormat.ERRORS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
 
@@ -242,6 +244,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     executionOptions.testOutput = TestOutputFormat.ALL;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
 
