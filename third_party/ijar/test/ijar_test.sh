@@ -126,8 +126,7 @@ function tear_down() {
 
 function run_ijar_and_extract_to() {
     mkdir -p $3 || fail "could not ensure output dir"
-#    ${IJAR} $1 $2 || fail "ijar failed"
-    cp $1 $2 # TODO replace with previous line
+    ${IJAR} $1 $2 || fail "ijar failed"
     pushd $3
         ${JAR} xf $2 || fail "could not extract jar contents"
     popd
