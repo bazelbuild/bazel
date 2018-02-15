@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.Objects;
@@ -115,7 +114,7 @@ public final class PackageIdentifier
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
     this.repository = Preconditions.checkNotNull(repository);
-    this.pkgName = Canonicalizer.fragments().intern(Preconditions.checkNotNull(pkgName));
+    this.pkgName = Preconditions.checkNotNull(pkgName);
     this.hashCode = Objects.hash(repository, pkgName);
   }
 
