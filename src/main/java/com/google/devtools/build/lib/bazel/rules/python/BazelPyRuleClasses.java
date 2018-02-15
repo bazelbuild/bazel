@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
@@ -135,14 +136,14 @@ public final class BazelPyRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       return builder
-         /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(data) -->
-         The list of files needed by this binary at runtime.
-         See general comments about <code>data</code> at
-         <a href="${link common-definitions#common-attributes}">
-         Attributes common to all build rules</a>.
-         Also see the <a href="${link py_library.data}"><code>data</code></a> argument of
-         the <a href="${link py_library}"><code>py_library</code></a> rule for details.
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(data) -->
+          The list of files needed by this binary at runtime.
+          See general comments about <code>data</code> at
+          <a href="${link common-definitions#common-attributes}">
+          Attributes common to all build rules</a>.
+          Also see the <a href="${link py_library.data}"><code>data</code></a> argument of
+          the <a href="${link py_library}"><code>py_library</code></a> rule for details.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
 
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(main) -->
           The name of the source file that is the main entry point of the application.
@@ -157,11 +158,13 @@ public final class BazelPyRuleClasses {
           Valid values are <code>"PY2"</code> (default) or <code>"PY3"</code>.
           Python 3 support is experimental.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("default_python_version", STRING)
-               .value(PythonVersion.defaultTargetPythonVersion().toString())
-               .allowedValues(new AllowedValueSet(PythonVersion.getTargetPythonValues()))
-               .nonconfigurable("read by PythonUtils.getNewPythonVersion, which doesn't have access"
-                   + " to configuration keys"))
+          .add(
+              attr("default_python_version", STRING)
+                  .value(PythonVersion.defaultTargetPythonVersion().toString())
+                  .allowedValues(new AllowedValueSet(PythonVersion.getTargetPythonValues()))
+                  .nonconfigurable(
+                      "read by PythonUtils.getNewPythonVersion, which doesn't have access"
+                          + " to configuration keys"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(srcs) -->
           The list of source files that are processed to create the target.
           This includes all your checked-in code and any
@@ -170,11 +173,21 @@ public final class BazelPyRuleClasses {
           probably belong in <code>srcs</code> and library targets probably belong
           in <code>deps</code>, but don't worry about it too much.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("srcs", LABEL_LIST)
-              .mandatory()
-              .allowedFileTypes(PYTHON_SOURCE)
-              .direct_compile_time_input()
-              .allowedFileTypes(BazelPyRuleClasses.PYTHON_SOURCE))
+          .add(
+              attr("srcs", LABEL_LIST)
+                  .mandatory()
+                  .allowedFileTypes(PYTHON_SOURCE)
+                  .direct_compile_time_input()
+                  .allowedFileTypes(BazelPyRuleClasses.PYTHON_SOURCE))
+          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(legacy_create_init) -->
+          Whether to implicitly create empty __init__.py files in the runfiles tree.
+          These are created in every directory containing Python source code or
+          shared libraries, and every parent directory of those directories.
+          Default is true for backward compatibility.  If false, the user is responsible
+          for creating __init__.py files (empty or not) and adding them to `srcs` or `deps`
+          of Python targets as required.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("legacy_create_init", BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(stamp) -->
           Enable link stamping.
           Whether to encode build information into the binary. Possible values:
