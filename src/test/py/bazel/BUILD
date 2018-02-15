@@ -94,6 +94,7 @@ py_test(
 
 py_test(
     name = "runfiles_test",
+    timeout = "long",
     srcs = ["runfiles_test.py"],
     data = glob(["testdata/runfiles_test/**"]),
     deps = [
