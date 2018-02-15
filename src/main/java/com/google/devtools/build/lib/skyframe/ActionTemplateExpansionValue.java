@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /**
@@ -34,20 +36,29 @@ public final class ActionTemplateExpansionValue extends ActionLookupValue {
     super(actionKeyContext, ImmutableList.copyOf(expandedActions), removeActionsAfterEvaluation);
   }
 
-  private static final Interner<ActionTemplateExpansionKey> interner =
-      BlazeInterners.newWeakInterner();
-
   static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
-    return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
+    return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
   }
 
+  @AutoCodec
   static final class ActionTemplateExpansionKey extends ActionLookupKey {
+    static final ObjectCodec<ActionTemplateExpansionKey> CODEC =
+        new ActionTemplateExpansionValue_ActionTemplateExpansionKey_AutoCodec();
+    private static final Interner<ActionTemplateExpansionKey> interner =
+        BlazeInterners.newWeakInterner();
+
     private final ActionLookupKey actionLookupKey;
     private final int actionIndex;
 
     private ActionTemplateExpansionKey(ActionLookupKey actionLookupKey, int actionIndex) {
       this.actionLookupKey = actionLookupKey;
       this.actionIndex = actionIndex;
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
+      return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
     }
 
     @Override

@@ -17,7 +17,10 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * Value that stores the workspace status artifacts and their generating action. There should be
@@ -30,7 +33,7 @@ public class WorkspaceStatusValue extends ActionLookupValue {
   private final Artifact volatileArtifact;
 
   // There should only ever be one BuildInfo value in the graph.
-  public static final BuildInfoKey BUILD_INFO_KEY = new BuildInfoKey();
+  public static final BuildInfoKey BUILD_INFO_KEY = BuildInfoKey.INSTANCE;
 
   WorkspaceStatusValue(
       ActionKeyContext actionKeyContext,
@@ -51,7 +54,12 @@ public class WorkspaceStatusValue extends ActionLookupValue {
     return volatileArtifact;
   }
 
-  static class BuildInfoKey extends ActionLookupKey {
+  /** {@link SkyKey} for {@link WorkspaceStatusValue}. */
+  public static class BuildInfoKey extends ActionLookupKey {
+    private static final BuildInfoKey INSTANCE = new BuildInfoKey();
+    public static final ObjectCodec<BuildInfoKey> CODEC =
+        SingletonCodec.of(INSTANCE, "build_info_key");
+
     private BuildInfoKey() {}
 
     @Override

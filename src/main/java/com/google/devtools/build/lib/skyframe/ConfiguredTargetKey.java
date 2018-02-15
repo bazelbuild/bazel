@@ -171,7 +171,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
         System.identityHashCode(this));
   }
 
-  private static class HostConfiguredTargetKey extends ConfiguredTargetKey {
+  static class HostConfiguredTargetKey extends ConfiguredTargetKey {
     public static final ObjectCodec<ConfiguredTargetKey> CODEC = ConfiguredTargetKey.CODEC;
 
     private HostConfiguredTargetKey(
