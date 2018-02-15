@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.integration.util;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
