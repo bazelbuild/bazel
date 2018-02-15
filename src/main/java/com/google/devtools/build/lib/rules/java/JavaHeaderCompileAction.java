@@ -190,6 +190,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.<Artifact>of();
     @Nullable private Label targetLabel;
+    @Nullable private String injectingRuleKind;
     private PathFragment tempDirectory;
     private BuildConfiguration.StrictDepsMode strictJavaDeps
         = BuildConfiguration.StrictDepsMode.OFF;
@@ -287,6 +288,12 @@ public class JavaHeaderCompileAction extends SpawnAction {
     /** Sets the label of the target being compiled. */
     public Builder setTargetLabel(@Nullable Label targetLabel) {
       this.targetLabel = targetLabel;
+      return this;
+    }
+
+    /** Sets the injecting rule kind of the target being compiled. */
+    public Builder setInjectingRuleKind(@Nullable String injectingRuleKind) {
+      this.injectingRuleKind = injectingRuleKind;
       return this;
     }
 
@@ -558,6 +565,9 @@ public class JavaHeaderCompileAction extends SpawnAction {
           // so add an extra @ to escape it.
           result.addPrefixedLabel("@", targetLabel);
         }
+      }
+      if (injectingRuleKind != null) {
+        result.add("--injecting_rule_kind", injectingRuleKind);
       }
       result.addExecPaths("--classpath", classpathEntries);
       return result;

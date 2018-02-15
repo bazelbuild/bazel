@@ -60,6 +60,7 @@ public final class JavaLibraryHelper {
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
   private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
+  private String injectingRuleKind;
 
   public JavaLibraryHelper(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -140,6 +141,11 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  public JavaLibraryHelper setInjectingRuleKind(String injectingRuleKind) {
+    this.injectingRuleKind = injectingRuleKind;
+    return this;
+  }
+
   /**
    * When in strict mode, compiling the source-jars passed to this JavaLibraryHelper will break if
    * they depend on classes not in any of the {@link
@@ -187,6 +193,7 @@ public final class JavaLibraryHelper {
     addDepsToAttributes(attributes);
     attributes.setStrictJavaDeps(strictDepsMode);
     attributes.setTargetLabel(ruleContext.getLabel());
+    attributes.setInjectingRuleKind(injectingRuleKind);
     attributes.setSourcePath(sourcePathEntries);
     JavaCommon.addPlugins(attributes, plugins);
 

@@ -242,13 +242,16 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     ImmutableList.Builder<Artifact> interfaceJarsBuilder = ImmutableList.builder();
     boolean useIjar = ruleContext.getFragment(JavaConfiguration.class).getUseIjars();
     for (Artifact jar : jars) {
-      Artifact interfaceJar = useIjar
-          ? JavaCompilationHelper.createIjarAction(
-              ruleContext,
-              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-              jar,
-              true)
-          : jar;
+      Artifact interfaceJar =
+          useIjar
+              ? JavaCompilationHelper.createIjarAction(
+                  ruleContext,
+                  JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+                  jar,
+                  ruleContext.getLabel(),
+                  /* injectingRuleKind */ null,
+                  true)
+              : jar;
       interfaceJarsBuilder.add(interfaceJar);
       compilationToRuntimeJarMap.put(interfaceJar, jar);
     }

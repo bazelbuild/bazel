@@ -203,7 +203,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         Artifact outputJar = aspectCommon.getOutputJarArtifact();
 
         generatedCompilationArgsProvider =
-            aspectCommon.createJavaCompileAction(sourceJar, outputJar, dependencyCompilationArgs);
+            aspectCommon.createJavaCompileAction(
+                "java_proto_library", sourceJar, outputJar, dependencyCompilationArgs);
 
         NestedSet<Artifact> javaSourceJars =
             NestedSetBuilder.<Artifact>stableOrder().add(sourceJar).build();

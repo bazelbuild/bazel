@@ -115,13 +115,17 @@ public class JavaProtoAspectCommon {
    * Registers an action that compiles the given {@code sourceJar} and archives the compiled classes
    * into {@code outputJar}, using {@code dep} as information about the dependencies compilation.
    *
-   * @return a {@JavaCompilationArgsProvider} wrapping information about the compilation action
-   * that was registered.
+   * @return a {@JavaCompilationArgsProvider} wrapping information about the compilation action that
+   *     was registered.
    */
   public JavaCompilationArgsProvider createJavaCompileAction(
-      Artifact sourceJar, Artifact outputJar, JavaCompilationArgsProvider dep) {
+      String injectingRuleKind,
+      Artifact sourceJar,
+      Artifact outputJar,
+      JavaCompilationArgsProvider dep) {
     JavaLibraryHelper helper =
         new JavaLibraryHelper(ruleContext)
+            .setInjectingRuleKind(injectingRuleKind)
             .setOutput(outputJar)
             .addSourceJars(sourceJar)
             .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));

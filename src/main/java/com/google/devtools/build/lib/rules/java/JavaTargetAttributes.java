@@ -33,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An object that captures the temporary state we need to pass around while
@@ -94,6 +95,7 @@ public class JavaTargetAttributes {
     private final NestedSetBuilder<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.stableOrder();
     private Label targetLabel;
+    @Nullable private String injectingRuleKind;
 
     private final NestedSetBuilder<Artifact> excludedArtifacts =
         NestedSetBuilder.naiveLinkOrder();
@@ -178,6 +180,12 @@ public class JavaTargetAttributes {
     public Builder setTargetLabel(Label targetLabel) {
       Preconditions.checkArgument(!built);
       this.targetLabel = targetLabel;
+      return this;
+    }
+
+    public Builder setInjectingRuleKind(@Nullable String injectingRuleKind) {
+      Preconditions.checkArgument(!built);
+      this.injectingRuleKind = injectingRuleKind;
       return this;
     }
 
@@ -367,6 +375,7 @@ public class JavaTargetAttributes {
           directJars.build(),
           compileTimeDependencyArtifacts.build(),
           targetLabel,
+          injectingRuleKind,
           excludedArtifacts,
           strictJavaDeps);
     }
@@ -437,6 +446,7 @@ public class JavaTargetAttributes {
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> compileTimeDependencyArtifacts;
   private final Label targetLabel;
+  @Nullable private String injectingRuleKind;
 
   private final NestedSet<Artifact> excludedArtifacts;
   private final BuildConfiguration.StrictDepsMode strictJavaDeps;
@@ -462,6 +472,7 @@ public class JavaTargetAttributes {
       NestedSet<Artifact> directJars,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       Label targetLabel,
+      @Nullable String injectingRuleKind,
       NestedSetBuilder<Artifact> excludedArtifacts,
       BuildConfiguration.StrictDepsMode strictJavaDeps) {
     this.sourceFiles = ImmutableSet.copyOf(sourceFiles);
@@ -487,6 +498,7 @@ public class JavaTargetAttributes {
     this.additionalOutputs = ImmutableSet.copyOf(additionalOutputs);
     this.compileTimeDependencyArtifacts = compileTimeDependencyArtifacts;
     this.targetLabel = targetLabel;
+    this.injectingRuleKind = injectingRuleKind;
     this.excludedArtifacts = excludedArtifacts.build();
     this.strictJavaDeps = strictJavaDeps;
   }
@@ -622,6 +634,11 @@ public class JavaTargetAttributes {
 
   public Label getTargetLabel() {
     return targetLabel;
+  }
+
+  @Nullable
+  public String getInjectingRuleKind() {
+    return injectingRuleKind;
   }
 
   public BuildConfiguration.StrictDepsMode getStrictJavaDeps() {
