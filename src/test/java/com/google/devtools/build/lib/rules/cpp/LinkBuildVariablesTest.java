@@ -263,6 +263,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     ConfiguredTarget testTarget = getConfiguredTarget("//x:foo");
     Variables testVariables = getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
 
-    assertThat(testVariables.isAvailable(CppModel.SYSROOT_VARIABLE_NAME)).isTrue();
+    assertThat(testVariables.isAvailable(CcCommon.SYSROOT_VARIABLE_NAME)).isTrue();
   }
 }

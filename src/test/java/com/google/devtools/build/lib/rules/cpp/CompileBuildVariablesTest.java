@@ -59,9 +59,9 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     Variables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CppModel.SOURCE_FILE_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(CcCompilationHelper.SOURCE_FILE_VARIABLE_NAME))
         .contains("x/bin.cc");
-    assertThat(variables.getStringVariable(CppModel.OUTPUT_FILE_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(CcCompilationHelper.OUTPUT_FILE_VARIABLE_NAME))
         .contains("x/bin");
   }
 
@@ -76,7 +76,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     Variables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
-        Variables.toStringList(variables, CppModel.LEGACY_COMPILE_FLAGS_VARIABLE_NAME);
+        Variables.toStringList(variables, CcCompilationHelper.LEGACY_COMPILE_FLAGS_VARIABLE_NAME);
     assertThat(copts).contains("-foo");
   }
 
@@ -91,7 +91,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     Variables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
-        Variables.toStringList(variables, CppModel.USER_COMPILE_FLAGS_VARIABLE_NAME);
+        Variables.toStringList(variables, CcCompilationHelper.USER_COMPILE_FLAGS_VARIABLE_NAME);
     assertThat(copts).contains("-foo");
   }
 
@@ -108,7 +108,8 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     Variables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> unfilteredCompileFlags =
-        Variables.toStringList(variables, CppModel.UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME);
+        Variables.toStringList(
+            variables, CcCompilationHelper.UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME);
     assertThat(unfilteredCompileFlags).contains("--i_ll_live_forever");
   }
 
@@ -121,7 +122,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     Variables variables = getCompileBuildVariables("//x:bin", "bin");
 
     ImmutableList<String> copts =
-        Variables.toStringList(variables, CppModel.USER_COMPILE_FLAGS_VARIABLE_NAME);
+        Variables.toStringList(variables, CcCompilationHelper.USER_COMPILE_FLAGS_VARIABLE_NAME);
     assertThat(copts).containsExactly("-foo").inOrder();
   }
 
@@ -137,7 +138,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     Variables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CppModel.SYSROOT_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
         .isEqualTo("/usr/local/custom-sysroot");
   }
 }

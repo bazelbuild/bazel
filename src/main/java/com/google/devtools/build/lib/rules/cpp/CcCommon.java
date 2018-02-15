@@ -70,6 +70,21 @@ import javax.annotation.Nullable;
  */
 public final class CcCommon {
 
+  /** Name of the build variable for the sysroot path variable name. */
+  public static final String SYSROOT_VARIABLE_NAME = "sysroot";
+
+  /** Name of the build variable for the path to the input file being processed. */
+  public static final String INPUT_FILE_VARIABLE_NAME = "input_file";
+
+  /**
+   * Name of the build variable for includes that compiler needs to include into sources to be
+   * compiled.
+   */
+  public static final String INCLUDES_VARIABLE_NAME = "includes";
+
+  /** Name of the build variable for stripopts for the strip action. */
+  public static final String STRIPOPTS_VARIABLE_NAME = "stripopts";
+
   private static final String NO_COPTS_ATTRIBUTE = "nocopts";
 
   /**

@@ -792,7 +792,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     PathFragment sysroot = calculateSysroot(ruleContext, defaultSysroot);
     if (sysroot != null) {
-      variables.addStringVariable(CppModel.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
+      variables.addStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
     }
 
     addBuildVariables(ruleContext, variables);

@@ -945,10 +945,11 @@ public class CppHelper {
             featureConfiguration.getToolForAction(CppCompileAction.STRIP_ACTION_NAME));
     Variables variables =
         new Variables.Builder(toolchain.getBuildVariables())
-            .addStringVariable(CppModel.OUTPUT_FILE_VARIABLE_NAME, output.getExecPathString())
+            .addStringVariable(
+                CcCompilationHelper.OUTPUT_FILE_VARIABLE_NAME, output.getExecPathString())
             .addStringSequenceVariable(
-                CppModel.STRIPOPTS_VARIABLE_NAME, cppConfiguration.getStripOpts())
-            .addStringVariable(CppModel.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
+                CcCommon.STRIPOPTS_VARIABLE_NAME, cppConfiguration.getStripOpts())
+            .addStringVariable(CcCommon.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
             .build();
     ImmutableList<String> commandLine =
         ImmutableList.copyOf(

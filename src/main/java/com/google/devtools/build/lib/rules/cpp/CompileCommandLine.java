@@ -153,8 +153,9 @@ public final class CompileCommandLine {
    * explicit attribute, not using platform-dependent garbage bag that copts is).
    */
   public ImmutableList<String> getCopts() {
-    if (variables.isAvailable(CppModel.USER_COMPILE_FLAGS_VARIABLE_NAME)) {
-      return Variables.toStringList(variables, CppModel.USER_COMPILE_FLAGS_VARIABLE_NAME);
+    if (variables.isAvailable(CcCompilationHelper.USER_COMPILE_FLAGS_VARIABLE_NAME)) {
+      return Variables.toStringList(
+          variables, CcCompilationHelper.USER_COMPILE_FLAGS_VARIABLE_NAME);
     } else {
       return ImmutableList.of();
     }
