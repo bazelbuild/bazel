@@ -18,15 +18,21 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A wrapper class for {@link JavaRuntimeInfo} that can be used to expose it to the toolchain
  * resolution system.
  */
 @ThreadSafety.Immutable
+@AutoCodec
 public final class JavaRuntimeToolchainInfo extends ToolchainInfo {
+  public static final ObjectCodec<JavaRuntimeToolchainInfo> CODEC =
+      new JavaRuntimeToolchainInfo_AutoCodec();
   private final JavaRuntimeInfo javaRuntime;
 
+  @AutoCodec.Instantiator
   public JavaRuntimeToolchainInfo(JavaRuntimeInfo javaRuntime) {
     super(ImmutableMap.of(), Location.BUILTIN);
     this.javaRuntime = javaRuntime;

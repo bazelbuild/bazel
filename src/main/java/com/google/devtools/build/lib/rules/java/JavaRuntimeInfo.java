@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,7 +36,10 @@ import javax.annotation.Nullable;
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @SkylarkModule(name = "JavaRuntimeInfo", doc = "Information about the Java runtime being used.")
 @Immutable
+@AutoCodec
 public class JavaRuntimeInfo extends NativeInfo {
+  public static final ObjectCodec<JavaRuntimeInfo> CODEC = new JavaRuntimeInfo_AutoCodec();
+
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
   public static final NativeProvider<JavaRuntimeInfo> PROVIDER =
@@ -96,7 +102,9 @@ public class JavaRuntimeInfo extends NativeInfo {
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaBinaryRunfilesPath;
 
-  private JavaRuntimeInfo(
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs,
       NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,

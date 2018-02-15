@@ -16,15 +16,20 @@ package com.google.devtools.build.lib.rules.filegroup;
 
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-/**
- * A transitive info provider for dependent targets to query {@code path} attributes.
- */
+/** A transitive info provider for dependent targets to query {@code path} attributes. */
 @Immutable
+@AutoCodec
 public final class FilegroupPathProvider implements TransitiveInfoProvider {
+  public static final ObjectCodec<FilegroupPathProvider> CODEC =
+      new FilegroupPathProvider_AutoCodec();
+
   private final PathFragment pathFragment;
 
+  @AutoCodec.Instantiator
   public FilegroupPathProvider(PathFragment pathFragment) {
     this.pathFragment = pathFragment;
   }
