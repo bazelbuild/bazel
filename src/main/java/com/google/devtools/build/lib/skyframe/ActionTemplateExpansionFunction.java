@@ -20,13 +20,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -57,7 +57,12 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionTemplateExpansionFunctionException, InterruptedException {
     ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
-    ActionTemplate actionTemplate = key.getActionTemplate();
+    ActionLookupValue value = (ActionLookupValue) env.getValue(key.getActionLookupKey());
+    if (value == null) {
+      // Shouldn't actually happen in practice, but tolerate.
+      return null;
+    }
+    ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
     // Requests the TreeArtifactValue object for the input TreeArtifact.
     SkyKey artifactValueKey = ArtifactSkyKey.key(actionTemplate.getInputTreeArtifact(), true);

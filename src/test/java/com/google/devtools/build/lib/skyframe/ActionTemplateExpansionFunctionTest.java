@@ -24,6 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -33,18 +35,22 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -60,12 +66,14 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link ActionTemplateExpansionFunction}. */
 @RunWith(JUnit4.class)
 public final class ActionTemplateExpansionFunctionTest extends FoundationTestCase  {
   private Map<Artifact, TreeArtifactValue> artifactValueMap;
   private SequentialBuildDriver driver;
+  private SequencedRecordingDifferencer differencer;
 
   @Before
   public void setUp() throws Exception  {
@@ -76,7 +84,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
                 rootDirectory.getFileSystem().getPath("/outputbase"),
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
+    differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -103,7 +111,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     List<Action> actions = evaluate(spawnActionTemplate);
     assertThat(actions).hasSize(3);
 
-    ArtifactOwner owner = ActionTemplateExpansionValue.key(spawnActionTemplate);
+    ArtifactOwner owner = ActionTemplateExpansionValue.key(CTKEY, 0);
     int i = 0;
     for (Action action : actions) {
       String childName = "child" + i;
@@ -184,22 +192,41 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
   }
 
+  private static final ConfiguredTargetKey CTKEY =
+      ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//foo:foo"), null);
+
   private List<Action> evaluate(SpawnActionTemplate spawnActionTemplate) throws Exception {
-    SkyKey skyKey = ActionTemplateExpansionValue.key(spawnActionTemplate);
-    EvaluationResult<ActionTemplateExpansionValue> result = driver.evaluate(
-        ImmutableList.of(skyKey),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
+    ConfiguredTargetValue ctValue =
+        createConfiguredTargetValue(
+            spawnActionTemplate.getOutputTreeArtifact(), spawnActionTemplate);
+
+    differencer.inject(CTKEY, ctValue);
+    ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
+    EvaluationResult<ActionTemplateExpansionValue> result =
+        driver.evaluate(
+            ImmutableList.of(templateKey),
+            false,
+            SkyframeExecutor.DEFAULT_THREAD_COUNT,
+            NullEventHandler.INSTANCE);
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(skyKey);
+    ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(templateKey);
     ImmutableList.Builder<Action> actionList = ImmutableList.builder();
     for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
       actionList.add(actionTemplateExpansionValue.getAction(i));
     }
     return actionList.build();
+  }
+
+  private static ConfiguredTargetValue createConfiguredTargetValue(
+      Artifact artifact, ActionTemplate<?> actionTemplate) {
+    return new ConfiguredTargetValue(
+        Mockito.mock(ConfiguredTarget.class),
+        new Actions.GeneratingActions(
+            ImmutableList.of(actionTemplate), ImmutableMap.of(artifact, 0)),
+        NestedSetBuilder.<Package>stableOrder().build(),
+        /*removeActionsAfterEvaluation=*/ false);
   }
 
   private SpecialArtifact createTreeArtifact(String path) {

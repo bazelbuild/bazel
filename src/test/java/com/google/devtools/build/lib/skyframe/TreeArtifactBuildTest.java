@@ -22,10 +22,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
@@ -46,12 +44,10 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
-import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -754,10 +750,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, generateOutputAction,
-                actionTemplate, noGenerateOutputAction));
+            actionKeyContext, ImmutableList.of(generateOutputAction, noGenerateOutputAction));
 
     buildArtifact(artifact2);
   }
@@ -796,10 +789,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, generateOutputAction,
-                actionTemplate, noGenerateOutputAction));
+            actionKeyContext, ImmutableList.of(generateOutputAction, noGenerateOutputAction));
 
     try {
       buildArtifact(artifact2);
@@ -843,10 +833,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, generateOutputAction,
-                actionTemplate, throwingAction));
+            actionKeyContext, ImmutableList.of(generateOutputAction, throwingAction));
 
     try {
       buildArtifact(artifact2);
@@ -889,10 +876,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext,
-            ImmutableMultimap.<ActionTemplate<?>, Action>of(
-                actionTemplate, throwingAction,
-                actionTemplate, anotherThrowingAction));
+            actionKeyContext, ImmutableList.of(throwingAction, anotherThrowingAction));
 
     try {
       buildArtifact(artifact2);
@@ -1239,23 +1223,16 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   /** A dummy action template expansion function that just returns the injected actions */
   private static class DummyActionTemplateExpansionFunction implements SkyFunction {
     private final ActionKeyContext actionKeyContext;
-    private final Multimap<ActionTemplate<?>, Action> actionTemplateToActionMap;
+    private final List<Action> actions;
 
-    DummyActionTemplateExpansionFunction(
-        ActionKeyContext actionKeyContext,
-        Multimap<ActionTemplate<?>, Action> actionTemplateToActionMap) {
+    DummyActionTemplateExpansionFunction(ActionKeyContext actionKeyContext, List<Action> actions) {
       this.actionKeyContext = actionKeyContext;
-      this.actionTemplateToActionMap = actionTemplateToActionMap;
+      this.actions = actions;
     }
 
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
-      ActionTemplate<?> actionTemplate = key.getActionTemplate();
-      return new ActionTemplateExpansionValue(
-          actionKeyContext,
-          Preconditions.checkNotNull(actionTemplateToActionMap.get(actionTemplate)),
-          false);
+      return new ActionTemplateExpansionValue(actionKeyContext, actions, false);
     }
 
     @Override

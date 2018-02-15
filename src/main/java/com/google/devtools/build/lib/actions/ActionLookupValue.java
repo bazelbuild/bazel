@@ -122,18 +122,19 @@ public class ActionLookupValue implements SkyValue {
     return Preconditions.checkNotNull(actions.get(index), "null action: %s %s", index, this);
   }
 
+  public ActionTemplate<?> getActionTemplate(int index) {
+    ActionAnalysisMetadata result = getActionAnalysisMetadata(index);
+    Preconditions.checkState(
+        result instanceof ActionTemplate, "Not action template: %s %s %s", result, index, this);
+    return (ActionTemplate<?>) result;
+  }
+
   /**
-   * Returns the {@link ActionAnalysisMetadata} at index {@code index} if it is present and
-   * <i>not</i> an {@link Action}. Tree artifacts need their {@code ActionTemplate}s in order to
-   * generate the correct actions, but in general most actions are not needed after they are
-   * executed and may not even be available.
+   * Returns if the action at {@code index} is an {@link ActionTemplate} so that tree artifacts can
+   * take the proper action.
    */
-  public ActionAnalysisMetadata getIfPresentAndNotAction(int index) {
-    ActionAnalysisMetadata actionAnalysisMetadata = actions.get(index);
-    if (!(actionAnalysisMetadata instanceof Action)) {
-      return actionAnalysisMetadata;
-    }
-    return null;
+  public boolean isActionTemplate(int index) {
+    return actions.get(index) instanceof ActionTemplate;
   }
 
   /** To be used only when checking consistency of the action graph -- not by other values. */
