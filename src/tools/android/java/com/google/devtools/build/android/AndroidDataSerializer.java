@@ -98,7 +98,7 @@ public class AndroidDataSerializer {
     ByteArrayOutputStream valuesOutputStream = new ByteArrayOutputStream(2048);
     for (Map.Entry<DataKey, DataValue> entry : entries) {
       orderedValueSizes[valueSizeIndex++] =
-          entry.getValue().serializeTo(entry.getKey(), sourceTable, valuesOutputStream);
+          entry.getValue().serializeTo(sourceTable, valuesOutputStream);
     }
     // Serialize all the keys in sorted order
     valueSizeIndex = 0;

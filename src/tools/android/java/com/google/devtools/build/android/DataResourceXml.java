@@ -391,7 +391,7 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
-  public int serializeTo(DataKey key, DataSourceTable sourceTable, OutputStream outStream)
+  public int serializeTo(DataSourceTable sourceTable, OutputStream outStream)
       throws IOException {
     return xml.serializeTo(sourceTable.getSourceId(source), namespaces, outStream);
   }
