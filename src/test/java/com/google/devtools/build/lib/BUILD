@@ -863,6 +863,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:build_java_proto",
         "//third_party:jsr305",
+        "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
     ],
 )

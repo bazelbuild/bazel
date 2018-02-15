@@ -139,6 +139,9 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   private static void checkLangFilters(
       List<String> langFilterList, ExtendedEventHandler reporter, Set<String> allRuleNames) {
     for (String lang : langFilterList) {
+      if (lang.startsWith("-")) {
+        lang = lang.substring(1);
+      }
       if (!allRuleNames.contains(lang + "_test")) {
         reporter.handle(
             Event.warn("Unknown language '" + lang + "' in --test_lang_filters option"));
