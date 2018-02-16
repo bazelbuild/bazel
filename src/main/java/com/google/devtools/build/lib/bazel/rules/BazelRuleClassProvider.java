@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
 import com.google.devtools.build.lib.rules.android.DeviceBrokerInfo;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
+import com.google.devtools.build.lib.rules.android.NativeLibsZipsInfo;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
@@ -221,6 +222,8 @@ public class BazelRuleClassProvider {
               DeviceBrokerInfo.PROVIDER.getName(), DeviceBrokerInfo.PROVIDER);
           builder.addSkylarkAccessibleTopLevels(
               AndroidResourcesInfo.PROVIDER.getName(), AndroidResourcesInfo.PROVIDER);
+          builder.addSkylarkAccessibleTopLevels(
+              NativeLibsZipsInfo.PROVIDER.getName(), NativeLibsZipsInfo.PROVIDER);
 
           try {
             builder.addWorkspaceFilePrefix(

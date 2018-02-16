@@ -14,22 +14,41 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
  * APK.
  */
+@SkylarkModule(
+  name = "AndroidNativeLibsZipsInfo",
+  doc = "Native Libraries zips provided by a rule",
+  category = SkylarkModuleCategory.PROVIDER
+)
 @Immutable
-public final class NativeLibsZipsProvider implements TransitiveInfoProvider {
+public final class NativeLibsZipsInfo extends NativeInfo {
+
+  private static final String SKYLARK_NAME = "AndroidNativeLibsZipsInfo";
+  public static final NativeProvider<NativeLibsZipsInfo> PROVIDER =
+      new NativeProvider<NativeLibsZipsInfo>(NativeLibsZipsInfo.class, SKYLARK_NAME) {};
   private final NestedSet<Artifact> aarNativeLibs;
 
-  public NativeLibsZipsProvider(NestedSet<Artifact> aarNativeLibs) {
+  public NativeLibsZipsInfo(NestedSet<Artifact> aarNativeLibs) {
+    super(PROVIDER);
     this.aarNativeLibs = aarNativeLibs;
   }
 
+  @SkylarkCallable(
+    name = "native_libs_zips",
+    doc = "Returns the native libraries zip produced by the rule.",
+    structField = true
+  )
   public NestedSet<Artifact> getAarNativeLibs() {
     return aarNativeLibs;
   }

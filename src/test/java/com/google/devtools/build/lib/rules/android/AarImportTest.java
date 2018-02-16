@@ -127,7 +127,7 @@ public class AarImportTest extends BuildViewTestCase {
     ConfiguredTarget androidLibraryTarget = getConfiguredTarget("//java:lib");
 
     NestedSet<Artifact> nativeLibs =
-        androidLibraryTarget.getProvider(NativeLibsZipsProvider.class).getAarNativeLibs();
+        androidLibraryTarget.get(NativeLibsZipsInfo.PROVIDER).getAarNativeLibs();
     assertThat(nativeLibs).containsExactly(
         ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
         ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"),
