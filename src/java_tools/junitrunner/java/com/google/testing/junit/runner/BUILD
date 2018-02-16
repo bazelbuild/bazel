@@ -1,4 +1,6 @@
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = [
+    "//src/java_tools/junitrunner:junitrunner_package_group",
+])
 
 filegroup(
     name = "common_runner_java_files",
@@ -50,12 +52,20 @@ java_library(
 java_binary(
     name = "Runner",
     main_class = "com.google.testing.junit.runner.BazelTestRunner",
+    visibility = [
+        "//src:__subpackages__",
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
     runtime_deps = [":test_runner"],
 )
 
 java_binary(
     name = "ExperimentalRunner",
     main_class = "com.google.testing.junit.runner.ExperimentalTestRunner",
+    visibility = [
+        "//src:__pkg__",
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
     runtime_deps = [":experimental_test_runner"],
 )
 

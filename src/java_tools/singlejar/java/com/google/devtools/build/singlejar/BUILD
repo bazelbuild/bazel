@@ -1,17 +1,7 @@
 # Description:
 #   SingleJar combines multiple zip files and additional files
 #   into a single zip file.
-package(default_visibility = ["//src:__subpackages__"])
-
-package_group(
-    name = "packages",
-    packages = [
-        "//java/com/google/devtools/build/singlejar",
-        "//javatests/com/google/devtools/build/singlejar",
-        "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar",
-        "//src/java_tools/singlejar/javatests/com/google/devtools/build/singlejar",
-    ],
-)
+package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
 
 filegroup(
     name = "srcs",
@@ -29,6 +19,7 @@ java_library(
         "ZipCombiner.java",
         "ZipEntryFilter.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//third_party:jsr305",
@@ -52,6 +43,10 @@ java_binary(
     name = "bazel-singlejar",
     srcs = glob(["*.java"]),
     main_class = "com.google.devtools.build.singlejar.SingleJar",
+    visibility = [
+        "//:__subpackages__",
+        "//src/java_tools/singlejar:singlejar_package_group",
+    ],
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -84,6 +79,7 @@ bootstrap_java_binary(
     ],
     main_class = "com.google.devtools.build.singlejar.SingleJar",
     tags = ["manual"],
+    visibility = ["//visibility:public"],
     deps = [
         ":skylark-deps",
         "//src/main/java/com/google/devtools/build/lib/shell:shell-skylark",

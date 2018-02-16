@@ -3,7 +3,7 @@
 
 package(
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 # Libraries

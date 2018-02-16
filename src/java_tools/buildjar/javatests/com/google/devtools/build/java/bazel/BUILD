@@ -1,6 +1,6 @@
 # Description:
 #  Tests for tools for working with Java source code
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 java_test(
     name = "BazelJavaCompilerTest",

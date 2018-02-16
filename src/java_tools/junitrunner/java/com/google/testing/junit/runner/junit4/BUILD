@@ -1,4 +1,6 @@
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = [
+    "//src/java_tools/junitrunner:junitrunner_package_group",
+])
 
 # JUnit4 test runner core code.
 java_library(

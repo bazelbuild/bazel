@@ -4,7 +4,7 @@
 # This is not the source code for javac itself.
 
 package(
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
 )
 
 load(":build_defs.bzl", "default_javacopts")
@@ -26,6 +26,7 @@ java_library(
         ":javac-bootclasspath-locations",
     ],
     data = ["@bazel_tools//tools/jdk:bootclasspath"],
+    visibility = ["//visibility:public"],
     deps = ["//third_party:guava"],
 )
 
@@ -46,6 +47,7 @@ java_library(
         ":java-langtools-location",
     ],
     data = ["//third_party/java/jdk/langtools:javac_jar"],
+    visibility = ["//visibility:public"],
 )
 
 # Exports javacopts from the current java toolchain
@@ -62,6 +64,7 @@ java_library(
         "JavaBuilderConfig.java",
         "JavaBuilderJavacOpts.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",
         "//third_party:guava",
@@ -74,6 +77,7 @@ java_library(
     name = "BazelJavaCompiler",
     srcs = ["BazelJavaCompiler.java"],
     data = ["//third_party/java/jdk/langtools:javac_jar"],
+    visibility = ["//visibility:public"],
     deps = [
         ":JavaBuilderConfig",
         ":JavaLangtools",
@@ -87,6 +91,7 @@ java_library(
 java_library(
     name = "BazelJavac",
     srcs = ["BazelJavac.java"],
+    visibility = ["//visibility:public"],
     deps = [":BazelJavaCompiler"],
 )
 
@@ -95,6 +100,7 @@ java_binary(
     # Use same stack size as javac and JavaBuilder.
     jvm_flags = ["-Xss4m"],
     main_class = "com.google.devtools.build.java.bazel.BazelJavac",
+    visibility = ["//visibility:public"],
     runtime_deps = [":BazelJavac"],
 )
 

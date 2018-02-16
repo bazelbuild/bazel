@@ -1,7 +1,7 @@
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
 #   source code.
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 filegroup(
     name = "srcs",
@@ -48,6 +48,10 @@ java_library(
 alias(
     name = "jarhelper",
     actual = "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
+    visibility = [
+        "//src/java_tools/buildjar:buildjar_package_group",
+        "//src/tools/android:__subpackages__",
+    ],
 )
 
 # Bazel's BuildJar
@@ -64,6 +68,7 @@ java_library(
             "VanillaJavaBuilder.java",
         ],
     ),
+    visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
     deps = [
         ":JarOwner",
         ":invalid_command_line_exception",

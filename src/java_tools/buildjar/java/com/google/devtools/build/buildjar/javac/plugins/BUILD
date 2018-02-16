@@ -1,7 +1,7 @@
 # Description:
 #   Plugins for the Java library builders, which are used by Bazel to
 #   compile Java source code.
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
 java_library(
     name = "plugins",

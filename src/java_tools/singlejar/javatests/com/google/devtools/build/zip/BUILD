@@ -1,6 +1,6 @@
 # Description:
 #   Tests for Zip
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
 
 java_library(
     name = "zip_tests",
