@@ -424,7 +424,6 @@ toolchain {
     implies: 'input_param_flags'
     implies: 'legacy_link_flags'
     implies: 'linker_subsystem_flag'
-    implies: 'linkopts_file'
     implies: 'linker_param_file'
     implies: 'msvc_env'
     implies: 'use_linker'
@@ -444,7 +443,6 @@ toolchain {
     implies: 'input_param_flags'
     implies: 'legacy_link_flags'
     implies: 'linker_subsystem_flag'
-    implies: 'linkopts_file'
     implies: 'linker_param_file'
     implies: 'msvc_env'
     implies: 'use_linker'
@@ -462,7 +460,6 @@ toolchain {
     implies: 'nologo'
     implies: 'archiver_flags'
     implies: 'input_param_flags'
-    implies: 'linkopts_file'
     implies: 'linker_param_file'
     implies: 'msvc_env'
   }
@@ -476,7 +473,6 @@ toolchain {
     implies: 'nologo'
     implies: 'archiver_flags'
     implies: 'input_param_flags'
-    implies: 'linkopts_file'
     implies: 'linker_param_file'
     implies: 'msvc_env'
   }
@@ -492,7 +488,6 @@ toolchain {
     implies: 'nologo'
     implies: 'archiver_flags'
     implies: 'input_param_flags'
-    implies: 'linkopts_file'
     implies: 'linker_param_file'
     implies: 'msvc_env'
   }
@@ -506,7 +501,6 @@ toolchain {
     implies: 'nologo'
     implies: 'archiver_flags'
     implies: 'input_param_flags'
-    implies: 'linkopts_file'
     implies: 'linker_param_file'
     implies: 'msvc_env'
   }
@@ -518,7 +512,6 @@ toolchain {
       tool_path: '%{msvc_lib_path}'
     }
     implies: 'nologo'
-    implies: 'linkopts_file'
     implies: 'linker_param_file'
     implies: 'msvc_env'
   }
@@ -850,22 +843,6 @@ toolchain {
       flag_group {
         iterate_over: 'legacy_link_flags'
         flag: '%{legacy_link_flags}'
-      }
-    }
-  }
-
-  feature {
-    name: 'linkopts_file'
-    flag_set {
-      expand_if_all_available: 'linkopts_file'
-      action: 'c++-link-executable'
-      action: 'c++-link-dynamic-library'
-      action: 'c++-link-static-library'
-      action: 'c++-link-alwayslink-static-library'
-      action: 'c++-link-pic-static-library'
-      action: 'c++-link-alwayslink-pic-static-library'
-      flag_group {
-        flag: '@%{linkopts_file}'
       }
     }
   }
