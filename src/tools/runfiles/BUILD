@@ -65,6 +65,7 @@ sh_test(
     name = "runfiles_sh_test",
     srcs = select({
         "//src/conditions:windows": ["runfiles_windows_test.sh"],
+        "//src/conditions:windows_x86_32": ["runfiles_windows_test.sh"],
         "//conditions:default": ["runfiles_posix_test.sh"],
     }),
     deps = [":runfiles_sh_lib"],

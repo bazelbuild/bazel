@@ -84,6 +84,7 @@ java_library(
     resources = select({
         # todo(dslomov): Get rid of this whole library on Windows.
         "//src/conditions:windows": [],
+        "//src/conditions:windows_x86_32": [],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     deps = [

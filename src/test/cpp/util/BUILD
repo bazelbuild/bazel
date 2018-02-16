@@ -25,6 +25,9 @@ cc_test(
         "//src/conditions:windows": [
             "file_windows_test.cc",
         ],
+        "//src/conditions:windows_x86_32": [
+            "file_windows_test.cc",
+        ],
         "//conditions:default": [
             "file_posix_test.cc",
         ],
@@ -35,6 +38,10 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:windows": [
+            ":windows_test_util",
+            "//src/main/native/windows:lib-file",
+        ],
+        "//src/conditions:windows_x86_32": [
             ":windows_test_util",
             "//src/main/native/windows:lib-file",
         ],
@@ -78,10 +85,12 @@ cc_library(
     testonly = 1,
     srcs = select({
         "//src/conditions:windows": ["windows_test_util.cc"],
+        "//src/conditions:windows_x86_32": ["windows_test_util.cc"],
         "//conditions:default": [],
     }),
     hdrs = select({
         "//src/conditions:windows": ["windows_test_util.h"],
+        "//src/conditions:windows_x86_32": ["windows_test_util.h"],
         "//conditions:default": [],
     }),
     visibility = [
@@ -95,10 +104,15 @@ cc_test(
     size = "small",
     srcs = select({
         "//src/conditions:windows": ["windows_test_util_test.cc"],
+        "//src/conditions:windows_x86_32": ["windows_test_util_test.cc"],
         "//conditions:default": ["dummy_test.cc"],
     }),
     deps = select({
         "//src/conditions:windows": [
+            ":windows_test_util",
+            "@com_google_googletest//:gtest_main",
+        ],
+        "//src/conditions:windows_x86_32": [
             ":windows_test_util",
             "@com_google_googletest//:gtest_main",
         ],

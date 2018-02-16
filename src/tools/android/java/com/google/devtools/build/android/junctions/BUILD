@@ -31,6 +31,7 @@ java_library(
     srcs = glob(["*.java"]),
     data = select({
         "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
+        "//src/conditions:windows_x86_32": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": [],
     }),
     visibility = [

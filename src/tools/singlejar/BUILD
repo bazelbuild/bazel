@@ -6,6 +6,7 @@ JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
 
 JAR_TOOL_PATH_COPTS = select({
     "//src/conditions:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src/conditions:windows_x86_32": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
     "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
 })
 
@@ -348,6 +349,7 @@ cc_library(
     name = "mapped_file",
     srcs = select({
         "//src:windows": ["mapped_file_windows.inc"],
+        "//src:windows_x86_32": ["mapped_file_windows.inc"],
         "//conditions:default": ["mapped_file_posix.inc"],
     }),
     hdrs = ["mapped_file.h"],

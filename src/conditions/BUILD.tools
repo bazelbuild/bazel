@@ -23,8 +23,20 @@ config_setting(
 )
 
 config_setting(
+    name = "windows_x86_32",
+    values = {"cpu": "x86_32_windows"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "windows_msvc",
     values = {"cpu": "x64_windows_msvc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_msvc_x86_32",
+    values = {"cpu": "x86_32_windows_msvc"},
     visibility = ["//visibility:public"],
 )
 

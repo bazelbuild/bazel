@@ -20,6 +20,7 @@ cc_binary(
     name = "process-wrapper",
     srcs = select({
         "//src/conditions:windows": ["process-wrapper-windows.cc"],
+        "//src/conditions:windows_x86_32": ["process-wrapper-windows.cc"],
         "//conditions:default": [
             "process-wrapper.cc",
             "process-wrapper.h",
@@ -31,10 +32,12 @@ cc_binary(
     }),
     linkopts = select({
         "//src/conditions:windows": [],
+        "//src/conditions:windows_x86_32": [],
         "//conditions:default": ["-lm"],
     }),
     deps = select({
         "//src/conditions:windows": [],
+        "//src/conditions:windows_x86_32": [],
         "//conditions:default": [
             ":process-tools",
             ":logging",
@@ -46,6 +49,7 @@ cc_binary(
     name = "build-runfiles",
     srcs = select({
         "//src/conditions:windows": ["build-runfiles-windows.cc"],
+        "//src/conditions:windows_x86_32": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
     }),
 )
@@ -57,6 +61,7 @@ cc_binary(
         "//src/conditions:darwin_x86_64": ["dummy-sandbox.c"],
         "//src/conditions:freebsd": ["dummy-sandbox.c"],
         "//src/conditions:windows": ["dummy-sandbox.c"],
+        "//src/conditions:windows_x86_32": ["dummy-sandbox.c"],
         "//conditions:default": [
             "linux-sandbox.cc",
             "linux-sandbox.h",
@@ -72,6 +77,7 @@ cc_binary(
         "//src/conditions:darwin_x86_64": [],
         "//src/conditions:freebsd": [],
         "//src/conditions:windows": [],
+        "//src/conditions:windows_x86_32": [],
         "//conditions:default": [
             ":logging",
             ":process-tools",

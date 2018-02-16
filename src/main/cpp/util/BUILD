@@ -35,6 +35,9 @@ cc_library(
         "//src/conditions:windows": [
             "file_windows.cc",
         ],
+        "//src/conditions:windows_x86_32": [
+            "file_windows.cc",
+        ],
         "//conditions:default": [
             "file_posix.cc",
         ],

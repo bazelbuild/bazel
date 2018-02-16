@@ -15,6 +15,10 @@ filegroup(
 filegroup(
     name = "packages",
     srcs = select({
+        "//src/conditions:windows_x86_32": [
+            ":zip-bazel-exe",
+            ":zip-bazel-exe_with_jdk",
+        ],
         "//src/conditions:windows": [
             ":zip-bazel-exe",
             ":zip-bazel-exe_with_jdk",

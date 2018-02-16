@@ -29,6 +29,7 @@ filegroup(
     name = "java",
     srcs = select({
        ":windows" : ["bin/java.exe"],
+       ":windows_x86_32" : ["bin/java.exe"],
        "//conditions:default" : ["bin/java"],
     }),
     data = [":jdk"],
@@ -38,6 +39,7 @@ filegroup(
     name = "jar",
     srcs = select({
        ":windows" : ["bin/jar.exe"],
+       ":windows_x86_32" : ["bin/jar.exe"],
        "//conditions:default" : ["bin/jar"],
     }),
     data = [":jdk"],
@@ -47,6 +49,7 @@ filegroup(
     name = "javac",
     srcs = select({
         ":windows" : ["bin/javac.exe"],
+        ":windows_x86_32" : ["bin/javac.exe"],
         "//conditions:default" : ["bin/javac"],
     }),
     data = [":jdk"],
@@ -95,6 +98,7 @@ filegroup(
         # common antivirus software blocks access to npjp2.dll interfering with Bazel,
         # so do not include it in JRE on Windows.
         ":windows" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
+        ":windows_x86_32" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
         "//conditions:default" : glob(["jre/bin/**"])
     }),
 )
@@ -166,6 +170,12 @@ java_import(
     name = "langtools-neverlink",
     jars = ["lib/tools.jar"],
     neverlink = 1,
+)
+
+config_setting(
+    name = "windows_x86_32",
+    values = {"cpu": "x86_32_windows"},
+    visibility = ["//visibility:private"],
 )
 
 config_setting(

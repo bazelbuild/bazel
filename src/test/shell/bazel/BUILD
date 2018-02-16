@@ -46,6 +46,7 @@ filegroup(
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
         # is resolved, use cc implementation of singlejar on windows
         "//src/conditions:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src/conditions:windows_x86_32": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
         "//conditions:default": ["//src/tools/singlejar:singlejar"],
     }),
     visibility = [
@@ -190,6 +191,7 @@ sh_test(
         "//src/conditions:darwin": [],
         "//src/conditions:darwin_x86_64": [],
         "//src/conditions:windows": [],
+        "//src/conditions:windows_x86_32": [],
         "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
     }),
     tags = [

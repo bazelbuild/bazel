@@ -58,7 +58,13 @@ public class CrosstoolConfigurationHelper {
 
   public static String defaultCpu() {
     if (OS.getCurrent() == OS.WINDOWS) {
-      return "x64_windows";
+      switch (CPU.getCurrent()) {
+        case X86_32:
+          return "x86_32_windows";
+        case X86_64:
+          return "x64_windows";
+        default:
+          return "unknown";
     } else if (OS.getCurrent() == OS.LINUX) {
       switch (CPU.getCurrent()) {
         case X86_32:

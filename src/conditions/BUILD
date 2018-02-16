@@ -47,6 +47,12 @@ config_setting(
 )
 
 config_setting(
+    name = "windows_x86_32",
+    values = {"cpu": "x86_32_windows"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "arm",
     values = {"cpu": "arm"},
     visibility = ["//visibility:public"],

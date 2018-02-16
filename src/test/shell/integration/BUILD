@@ -360,6 +360,7 @@ cc_binary(
     testonly = 1,
     srcs = select({
         "//src/conditions:windows": ["spend_cpu_time_windows.cc"],
+        "//src/conditions:windows_x86_32": ["spend_cpu_time_windows.cc"],
         "//conditions:default": ["spend_cpu_time.cc"],
     }),
     visibility = [
