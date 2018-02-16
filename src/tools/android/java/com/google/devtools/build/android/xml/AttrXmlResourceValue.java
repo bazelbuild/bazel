@@ -404,23 +404,16 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
   }
 
-  @SuppressWarnings("deprecation")
   @Override
-  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
-      throws IOException {
-    SerializeFormat.DataValue.Builder builder =
-        XmlResourceValues.newSerializableDataValueBuilder(sourceId);
+  public void writeTo(OutputStream out) throws IOException {
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder();
-    xmlValueBuilder
-        .setType(SerializeFormat.DataValueXml.XmlType.ATTR)
-        .putAllNamespace(namespaces.asMap());
+    xmlValueBuilder.setType(SerializeFormat.DataValueXml.XmlType.ATTR);
     for (Entry<String, ResourceXmlAttrValue> entry : formats.entrySet()) {
       xmlValueBuilder.putMappedXmlValue(
-          entry.getKey(), entry.getValue().appendTo(builder.getXmlValueBuilder()));
+          entry.getKey(), entry.getValue().appendTo(SerializeFormat.DataValueXml.newBuilder()));
     }
-    builder.setXmlValue(xmlValueBuilder);
-    return XmlResourceValues.serializeProtoDataValue(output, builder);
+    xmlValueBuilder.build().writeDelimitedTo(out);
   }
 
   @Override

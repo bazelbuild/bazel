@@ -83,7 +83,7 @@ public class AndroidResourceParsingAction {
     logger.fine(String.format("Walked XML tree at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
     UnwrittenMergedAndroidData unwrittenData =
         UnwrittenMergedAndroidData.of(
-            null, parsedPrimary, ParsedAndroidData.from(ImmutableList.<DependencyAndroidData>of()));
+            null, parsedPrimary, ParsedAndroidData.from(ImmutableList.of()));
     AndroidDataSerializer serializer = AndroidDataSerializer.create();
     unwrittenData.serializeTo(serializer);
     serializer.flushTo(options.output);

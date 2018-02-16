@@ -19,13 +19,11 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
-import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -33,6 +31,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Represents an Android resource &lt;public&gt; xml tag.
@@ -139,23 +138,19 @@ public class PublicXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
-      throws IOException {
-    Map<String, String> assignments = Maps.newLinkedHashMapWithExpectedSize(typeToId.size());
-    for (Entry<ResourceType, Optional<Integer>> entry : typeToId.entrySet()) {
-      Optional<Integer> value = entry.getValue();
-      String stringValue = value.isPresent() ? value.get().toString() : MISSING_ID_VALUE;
-      assignments.put(entry.getKey().toString(), stringValue);
-    }
-    SerializeFormat.DataValue.Builder builder =
-        XmlResourceValues.newSerializableDataValueBuilder(sourceId);
-    builder.setXmlValue(
-        builder
-            .getXmlValueBuilder()
-            .setType(SerializeFormat.DataValueXml.XmlType.PUBLIC)
-            .putAllNamespace(namespaces.asMap())
-            .putAllMappedStringValue(assignments));
-    return XmlResourceValues.serializeProtoDataValue(output, builder);
+  public void writeTo(OutputStream out) throws IOException {
+    SerializeFormat.DataValueXml.newBuilder()
+        .setType(SerializeFormat.DataValueXml.XmlType.PUBLIC)
+        .putAllMappedStringValue(
+            typeToId
+                .entrySet()
+                .stream()
+                .collect(
+                    Collectors.toMap(
+                        e -> e.getKey().toString(),
+                        e -> e.getValue().transform(Object::toString).or(MISSING_ID_VALUE))))
+        .build()
+        .writeDelimitedTo(out);
   }
 
   @Override
@@ -178,7 +173,7 @@ public class PublicXmlResourceValue implements XmlResourceValue {
     }
     return of(combined);
   }
-  
+
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();

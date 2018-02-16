@@ -29,6 +29,8 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -45,14 +47,15 @@ import javax.xml.stream.events.XMLEvent;
 /**
  * Represents an Android resource array.
  *
- * There are two flavors of Android Resource arrays:
+ * <p>There are two flavors of Android Resource arrays:
+ *
  * <ul>
- * <li>Typed arrays (http://developer.android.com/guide/topics/resources/more-resources
- * .html#TypedArray) which which are indicated by a &lt;array&gt; tag.</li>
- * <li>Integer array (http://developer.android.com/guide/topics/resources/more-resources
- * .html#IntegerArray) which are indicated by &lt;integer-array&gt; tag.</li>
- * <li>String array (http://developer.android.com/guide/topics/resources/string-resource
- * .html#StringArray) which are indicated by &lt;string-array&gt; tag.</li>
+ *   <li>Typed arrays (http://developer.android.com/guide/topics/resources/more-resources
+ *       .html#TypedArray) which which are indicated by a &lt;array&gt; tag.
+ *   <li>Integer array (http://developer.android.com/guide/topics/resources/more-resources
+ *       .html#IntegerArray) which are indicated by &lt;integer-array&gt; tag.
+ *   <li>String array (http://developer.android.com/guide/topics/resources/string-resource
+ *       .html#StringArray) which are indicated by &lt;string-array&gt; tag.
  * </ul>
  *
  * Both of these are accessed by R.array.&lt;name&gt; in java.
@@ -62,9 +65,19 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   private static final QName TAG_INTEGER_ARRAY = QName.valueOf("integer-array");
   private static final QName TAG_ARRAY = QName.valueOf("array");
   private static final QName TAG_STRING_ARRAY = QName.valueOf("string-array");
-  /**
-   * Enumerates the different types of array parentTags.
-   */
+
+  @Override
+  public void writeTo(OutputStream out) throws IOException {
+    DataValueXml.newBuilder()
+        .addAllListValue(values)
+        .setType(XmlType.ARRAY)
+        .putAllAttribute(attributes)
+        .setValueType(arrayType.toString())
+        .build()
+        .writeDelimitedTo(out);
+  }
+
+  /** Enumerates the different types of array parentTags. */
   public enum ArrayType {
     INTEGER_ARRAY(TAG_INTEGER_ARRAY),
     ARRAY(TAG_ARRAY),
@@ -105,7 +118,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue of(ArrayType arrayType, List<String> values) {
-    return of(arrayType, values, ImmutableMap.<String, String>of());
+    return of(arrayType, values, ImmutableMap.of());
   }
 
   public static XmlResourceValue of(
@@ -138,20 +151,20 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       }
     }
 
-    return of(
-        ArrayType.ARRAY,
-        items,
-        ImmutableMap.of());
+    return of(ArrayType.ARRAY, items, ImmutableMap.of());
   }
 
   @Override
   public void write(
       FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter) {
-    ValuesResourceDefinition definition = mergedDataWriter.define(key).derivedFrom(source)
-        .startTag(arrayType.tagName)
-        .named(key)
-        .addAttributesFrom(attributes.entrySet())
-        .closeTag();
+    ValuesResourceDefinition definition =
+        mergedDataWriter
+            .define(key)
+            .derivedFrom(source)
+            .startTag(arrayType.tagName)
+            .named(key)
+            .addAttributesFrom(attributes.entrySet())
+            .closeTag();
     for (String value : values) {
       definition =
           definition
@@ -162,21 +175,6 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
               .addCharactersOf("\n");
     }
     definition.endTag().save();
-  }
-
-  @Override
-  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
-      throws IOException {
-    return XmlResourceValues.serializeProtoDataValue(
-        output,
-        XmlResourceValues.newSerializableDataValueBuilder(sourceId)
-            .setXmlValue(
-                SerializeFormat.DataValueXml.newBuilder()
-                    .addAllListValue(values)
-                    .setType(SerializeFormat.DataValueXml.XmlType.ARRAY)
-                    .putAllNamespace(namespaces.asMap())
-                    .putAllAttribute(attributes)
-                    .setValueType(arrayType.toString())));
   }
 
   @Override

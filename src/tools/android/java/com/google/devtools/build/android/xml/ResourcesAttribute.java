@@ -21,9 +21,7 @@ import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
-import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.Builder;
 import com.google.errorprone.annotations.Immutable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -40,13 +38,15 @@ public class ResourcesAttribute implements XmlResourceValue {
     public String combine(String first, String second);
   }
 
-  private static final Combiner COMMA_SEPARATED_COMBINER = new Combiner() {
-    private final Joiner joiner = Joiner.on(',');
-    @Override
-    public String combine(String first, String second) {
-      return joiner.join(first, second);
-    }
-  };
+  private static final Combiner COMMA_SEPARATED_COMBINER =
+      new Combiner() {
+        private final Joiner joiner = Joiner.on(',');
+
+        @Override
+        public String combine(String first, String second) {
+          return joiner.join(first, second);
+        }
+      };
 
   /**
    * Represents the semantic meaning of an xml attribute and how it is combined with other
@@ -92,9 +92,7 @@ public class ResourcesAttribute implements XmlResourceValue {
     Map.Entry<String, String> attribute =
         Iterables.getOnlyElement(proto.getAttributeMap().entrySet());
     return new ResourcesAttribute(
-        AttributeType.valueOf(proto.getValueType()),
-        attribute.getKey(),
-        attribute.getValue());
+        AttributeType.valueOf(proto.getValueType()), attribute.getKey(), attribute.getValue());
   }
 
   private final AttributeType type;
@@ -114,19 +112,13 @@ public class ResourcesAttribute implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
-      throws IOException {
-    SerializeFormat.DataValue.Builder builder =
-        XmlResourceValues.newSerializableDataValueBuilder(sourceId);
-    Builder xmlValueBuilder =
-        builder
-            .getXmlValueBuilder()
-            .putAllNamespace(namespaces.asMap())
-            .setType(SerializeFormat.DataValueXml.XmlType.RESOURCES_ATTRIBUTE)
-            .setValueType(type.name())
-            .putAttribute(name, value);
-    builder.setXmlValue(xmlValueBuilder);
-    return XmlResourceValues.serializeProtoDataValue(output, builder);
+  public void writeTo(OutputStream out) throws IOException {
+    SerializeFormat.DataValueXml.newBuilder()
+        .setType(SerializeFormat.DataValueXml.XmlType.RESOURCES_ATTRIBUTE)
+        .setValueType(type.name())
+        .putAttribute(name, value)
+        .build()
+        .writeDelimitedTo(out);
   }
 
   @Override

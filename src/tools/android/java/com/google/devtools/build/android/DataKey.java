@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import java.io.IOException;
-import java.io.OutputStream;
-
 /**
  * A general interface for resource and asset keys.
  *
@@ -26,16 +23,7 @@ import java.io.OutputStream;
  *
  * <p>For Assets, it is the asset path from the assets directory.
  */
-public interface DataKey extends Comparable<DataKey> {
-
-  /**
-   * Writes the Key and the value size to a stream.
-   *
-   * @param output The destination stream to serialize the key.
-   * @param valueSize The size, in bytes, of the serialized output for this key. The value size can
-   *     be used for calculating offsets of the value in the stream.
-   */
-  void serializeTo(OutputStream output, int valueSize) throws IOException;
+public interface DataKey extends Comparable<DataKey>, Writeable {
 
   /** Returns a human readable string representation of the key. */
   String toPrettyString();

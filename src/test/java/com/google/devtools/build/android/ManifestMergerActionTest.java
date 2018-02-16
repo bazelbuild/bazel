@@ -173,8 +173,8 @@ public class ManifestMergerActionTest {
         .getManifest();
 
     // libFoo manifest merging
-    List<String> args = generateArgs(libFooManifest, ImmutableMap.<Path, String>of(), true,
-        ImmutableMap.<String, String>of(), "", libFooOutput);
+    List<String> args =
+        generateArgs(libFooManifest, ImmutableMap.of(), true, ImmutableMap.of(), "", libFooOutput);
     ManifestMergerAction.main(args.toArray(new String[0]));
     assertThat(Joiner.on(" ")
         .join(Files.readAllLines(libFooOutput, UTF_8))
@@ -186,8 +186,14 @@ public class ManifestMergerActionTest {
             + "</manifest>");
 
     // libBar manifest merging
-    args = generateArgs(libBarManifest, ImmutableMap.<Path, String>of(), true,
-        ImmutableMap.<String, String>of(), "com.google.libbar", libBarOutput);
+    args =
+        generateArgs(
+            libBarManifest,
+            ImmutableMap.of(),
+            true,
+            ImmutableMap.of(),
+            "com.google.libbar",
+            libBarOutput);
     ManifestMergerAction.main(args.toArray(new String[0]));
     assertThat(Joiner.on(" ")
         .join(Files.readAllLines(libBarOutput, UTF_8))

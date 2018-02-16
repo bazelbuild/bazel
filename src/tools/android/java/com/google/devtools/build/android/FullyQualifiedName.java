@@ -264,17 +264,17 @@ public class FullyQualifiedName implements DataKey {
     return KeyType.FULL_QUALIFIED_NAME;
   }
 
-  @Override
-  public void serializeTo(OutputStream out, int valueSize) throws IOException {
-    toSerializedBuilder().setValueSize(valueSize).build().writeDelimitedTo(out);
-  }
-
   public SerializeFormat.DataKey.Builder toSerializedBuilder() {
     return SerializeFormat.DataKey.newBuilder()
         .setKeyPackage(pkg)
         .setResourceType(type.getName())
         .addAllQualifiers(qualifiers)
         .setKeyValue(name);
+  }
+
+  @Override
+  public void writeTo(OutputStream out) throws IOException {
+    toSerializedBuilder().build().writeDelimitedTo(out);
   }
 
   /** The non-resource {@link Type}s of a {@link FullyQualifiedName}. */
@@ -284,7 +284,7 @@ public class FullyQualifiedName implements DataKey {
     private final String name;
     private final String displayName;
 
-    private VirtualType(String name, String displayName) {
+    VirtualType(String name, String displayName) {
       this.name = name;
       this.displayName = displayName;
     }
@@ -349,31 +349,31 @@ public class FullyQualifiedName implements DataKey {
 
   /** Represents the type of a {@link FullyQualifiedName}. */
   public interface Type {
-    public String getName();
+    String getName();
 
-    public ConcreteType getType();
+    ConcreteType getType();
 
-    public boolean isOverwritable(FullyQualifiedName fqn);
+    boolean isOverwritable(FullyQualifiedName fqn);
 
-    public int compareTo(Type other);
-
-    @Override
-    public boolean equals(Object obj);
+    int compareTo(Type other);
 
     @Override
-    public int hashCode();
+    boolean equals(Object obj);
 
     @Override
-    public String toString();
+    int hashCode();
+
+    @Override
+    String toString();
 
     /**
      * The category of type that a {@link Type} can be.
      *
      * <p><em>Note:</em> used for strict ordering of {@link FullyQualifiedName}s.
      */
-    public enum ConcreteType {
+    enum ConcreteType {
       RESOURCE_TYPE,
-      VIRTUAL_TYPE;
+      VIRTUAL_TYPE
     }
   }
 
@@ -511,7 +511,7 @@ public class FullyQualifiedName implements DataKey {
 
       // This is fragile but better than the Gradle scheme of just dropping
       // entire subtrees.
-      Builder<String> builder = ImmutableList.<String>builder();
+      Builder<String> builder = ImmutableList.builder();
       addIfNotNull(config.getCountryCodeQualifier(), builder);
       addIfNotNull(config.getNetworkCodeQualifier(), builder);
       if (transformedLocaleQualifiers.isEmpty()) {

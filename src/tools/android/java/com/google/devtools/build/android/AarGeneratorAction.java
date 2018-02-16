@@ -169,7 +169,7 @@ public class AarGeneratorAction {
               null,
               VariantType.LIBRARY,
               null,
-              /* filteredResources= */ ImmutableList.<String>of(),
+              /* filteredResources= */ ImmutableList.of(),
               options.throwOnResourceConflict);
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

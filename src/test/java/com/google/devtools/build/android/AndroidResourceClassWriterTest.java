@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Rule;
@@ -45,7 +44,7 @@ public class AndroidResourceClassWriterTest {
   public final ExpectedException thrown = ExpectedException.none();
 
   private static final AndroidFrameworkAttrIdProvider mockAndroidFrameworkIds =
-      new MockAndroidFrameworkAttrIdProvider(ImmutableMap.<String, Integer>of());
+      new MockAndroidFrameworkAttrIdProvider(ImmutableMap.of());
 
   @Before
   public void createCleanEnvironment() {
@@ -100,17 +99,13 @@ public class AndroidResourceClassWriterTest {
             ImmutableMap.of(
                 "AdiosButton", 0x7f030000,
                 "HelloView", 0x7f030001),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+            ImmutableMap.of(),
+            false);
     assertAbout(paths)
         .that(target)
         .withClass("com.carroll.lewis.R$layout")
         .classContentsIsEqualTo(
-            ImmutableMap.of("some_layout", 0x7f020000),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+            ImmutableMap.of("some_layout", 0x7f020000), ImmutableMap.of(), false);
   }
 
   @Test
@@ -154,9 +149,8 @@ public class AndroidResourceClassWriterTest {
             ImmutableMap.of(
                 "light", 0x7f020000,
                 "patchface", 0x7f020001),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+            ImmutableMap.of(),
+            false);
   }
 
   @Test
@@ -207,9 +201,8 @@ public class AndroidResourceClassWriterTest {
                 "light18", 0x7f020001,
                 "light19", 0x7f020002,
                 "light20", 0x7f020003),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+            ImmutableMap.of(),
+            false);
   }
 
   @Test
@@ -314,9 +307,8 @@ public class AndroidResourceClassWriterTest {
                 "x_color", 0x7f010000,
                 "y_color", 0x7f010001,
                 "z_color", 0x7f010002),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+            ImmutableMap.of(),
+            false);
     assertAbout(paths)
         .that(target)
         .withClass("com.carroll.lewis.R$style")
@@ -324,9 +316,8 @@ public class AndroidResourceClassWriterTest {
             ImmutableMap.of(
                 "YStyle", 0x7f020000,
                 "ZStyle_ABC", 0x7f020001),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+            ImmutableMap.of(),
+            false);
     assertAbout(paths)
         .that(target)
         .withClass("com.carroll.lewis.R$styleable")
@@ -339,14 +330,12 @@ public class AndroidResourceClassWriterTest {
                 .put("com_google_android_Swirls_Fancy_y_color", 1)
                 .put("com_google_android_Swirls_Fancy_z_color", 2)
                 .build(),
-            ImmutableMap.<String, List<Integer>>of(
+            ImmutableMap.of(
                 "com_google_android_Dots",
                 ImmutableList.of(0x7f010000, 0x7f010001, 0x7f010002),
                 "com_google_android_Swirls_Fancy",
-                ImmutableList.of(0x7f010000, 0x7f010001, 0x7f010002)
-            ),
-            false
-        );
+                ImmutableList.of(0x7f010000, 0x7f010001, 0x7f010002)),
+            false);
   }
 
   @Test
@@ -429,18 +418,12 @@ public class AndroidResourceClassWriterTest {
             ImmutableMap.of(
                 "aaa", 0x7f010000,
                 "zzz", 0x7f010001),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+            ImmutableMap.of(),
+            false);
     assertAbout(paths)
         .that(target)
         .withClass("com.carroll.lewis.R$style")
-        .classContentsIsEqualTo(
-            ImmutableMap.of(
-                "YStyle", 0x7f020000),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+        .classContentsIsEqualTo(ImmutableMap.of("YStyle", 0x7f020000), ImmutableMap.of(), false);
     assertAbout(paths)
         .that(target)
         .withClass("com.carroll.lewis.R$styleable")
@@ -449,14 +432,11 @@ public class AndroidResourceClassWriterTest {
                 "com_google_android_Dots_android_textColor", 0,
                 "com_google_android_Dots_android_textSize", 1,
                 "com_google_android_Dots_aaa", 2,
-                "com_google_android_Dots_zzz", 3
-            ),
-            ImmutableMap.<String, List<Integer>>of(
+                "com_google_android_Dots_zzz", 3),
+            ImmutableMap.of(
                 "com_google_android_Dots",
-                ImmutableList.of(0x01000000, 0x01000010, 0x7f010000, 0x7f010001)
-            ),
-            false
-        );
+                ImmutableList.of(0x01000000, 0x01000010, 0x7f010000, 0x7f010001)),
+            false);
   }
 
   @Test
@@ -465,9 +445,7 @@ public class AndroidResourceClassWriterTest {
     Path source = fs.getPath("source");
     AndroidResourceClassWriter resourceClassWriter =
         AndroidResourceClassWriter.of(
-            new MockAndroidFrameworkAttrIdProvider(ImmutableMap.<String, Integer>of()),
-            target,
-            "com.carroll.lewis");
+            new MockAndroidFrameworkAttrIdProvider(ImmutableMap.of()), target, "com.carroll.lewis");
     ParsedAndroidData direct =
         AndroidDataBuilder.of(source)
             .addResource(
@@ -500,9 +478,7 @@ public class AndroidResourceClassWriterTest {
     Path source = fs.getPath("source");
     AndroidResourceClassWriter resourceClassWriter =
         AndroidResourceClassWriter.of(
-            new MockAndroidFrameworkAttrIdProvider(ImmutableMap.<String, Integer>of()),
-            target,
-            "com.carroll.lewis");
+            new MockAndroidFrameworkAttrIdProvider(ImmutableMap.of()), target, "com.carroll.lewis");
     ParsedAndroidData direct =
         AndroidDataBuilder.of(source)
             .addResource(
@@ -567,11 +543,7 @@ public class AndroidResourceClassWriterTest {
     assertAbout(paths)
         .that(target)
         .withClass("com.boop.R$drawable")
-        .classContentsIsEqualTo(
-            ImmutableMap.of("1", 0x7f020000),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+        .classContentsIsEqualTo(ImmutableMap.of("1", 0x7f020000), ImmutableMap.of(), false);
   }
 
   /**
@@ -613,11 +585,7 @@ public class AndroidResourceClassWriterTest {
     assertAbout(paths)
         .that(target)
         .withClass("com.boop.R$drawable")
-        .classContentsIsEqualTo(
-            ImmutableMap.of("c++", 0x7f020000),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+        .classContentsIsEqualTo(ImmutableMap.of("c++", 0x7f020000), ImmutableMap.of(), false);
   }
 
   /**
@@ -660,11 +628,7 @@ public class AndroidResourceClassWriterTest {
     assertAbout(paths)
         .that(target)
         .withClass("com.boop.R$integer")
-        .classContentsIsEqualTo(
-            ImmutableMap.of("c++", 0x7f020000),
-            ImmutableMap.<String, List<Integer>>of(),
-            false
-        );
+        .classContentsIsEqualTo(ImmutableMap.of("c++", 0x7f020000), ImmutableMap.of(), false);
   }
 
   private static class MockAndroidFrameworkAttrIdProvider

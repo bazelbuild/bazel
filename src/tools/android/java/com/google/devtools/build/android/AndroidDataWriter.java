@@ -654,7 +654,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
   }
 
   /** Base interface for writing information to a {@link Writer}. */
-  private static interface Segment {
+  private interface Segment {
     /**
      * Writes the segment contents to a Writer
      *

@@ -27,7 +27,6 @@ import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
-import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import java.io.IOException;
@@ -38,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -65,22 +65,11 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
 
   static final Function<Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>
       FULLY_QUALIFIED_NAME_TO_DATA_KEY =
-          new Function<Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>() {
-            @Override
-            public SerializeFormat.DataKey apply(Entry<FullyQualifiedName, Boolean> input) {
-              return input.getKey().toSerializedBuilder().setReference(input.getValue()).build();
-            }
-          };
+          input -> input.getKey().toSerializedBuilder().setReference(input.getValue()).build();
 
   static final Function<SerializeFormat.DataKey, Entry<FullyQualifiedName, Boolean>>
       DATA_KEY_TO_FULLY_QUALIFIED_NAME =
-          new Function<SerializeFormat.DataKey, Entry<FullyQualifiedName, Boolean>>() {
-            @Override
-            public Entry<FullyQualifiedName, Boolean> apply(SerializeFormat.DataKey input) {
-              FullyQualifiedName key = FullyQualifiedName.fromProto(input);
-              return new SimpleEntry<FullyQualifiedName, Boolean>(key, input.getReference());
-            }
-          };
+          input -> new SimpleEntry<>(FullyQualifiedName.fromProto(input), input.getReference());
 
   private final ImmutableMap<FullyQualifiedName, Boolean> attrs;
 
@@ -145,17 +134,17 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
-      throws IOException {
-    return XmlResourceValues.serializeProtoDataValue(
-        output,
-        XmlResourceValues.newSerializableDataValueBuilder(sourceId)
-            .setXmlValue(
-                SerializeFormat.DataValueXml.newBuilder()
-                    .setType(XmlType.STYLEABLE)
-                    .putAllNamespace(namespaces.asMap())
-                    .addAllReferences(
-                        Iterables.transform(attrs.entrySet(), FULLY_QUALIFIED_NAME_TO_DATA_KEY))));
+  public void writeTo(OutputStream out) throws IOException {
+    SerializeFormat.DataValueXml.newBuilder()
+        .setType(XmlType.STYLEABLE)
+        .addAllReferences(
+            attrs
+                .entrySet()
+                .stream()
+                .map(FULLY_QUALIFIED_NAME_TO_DATA_KEY)
+                .collect(Collectors.toSet()))
+        .build()
+        .writeDelimitedTo(out);
   }
 
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
@@ -202,12 +191,12 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   /**
    * Combines this instance with another {@link StyleableXmlResourceValue}.
    *
-   * Defining two Styleables (undocumented in the official Android Docs) with the same
-   * {@link FullyQualifiedName} results in a single Styleable containing a union of all the
-   * attribute references.
+   * <p>Defining two Styleables (undocumented in the official Android Docs) with the same {@link
+   * FullyQualifiedName} results in a single Styleable containing a union of all the attribute
+   * references.
    *
-   * @param value Another {@link StyleableXmlResourceValue} with the same
-   *     {@link FullyQualifiedName}.
+   * @param value Another {@link StyleableXmlResourceValue} with the same {@link
+   *     FullyQualifiedName}.
    * @return {@link StyleableXmlResourceValue} containing a sorted union of the attribute
    *     references.
    * @throws IllegalArgumentException if value is not an {@link StyleableXmlResourceValue}.

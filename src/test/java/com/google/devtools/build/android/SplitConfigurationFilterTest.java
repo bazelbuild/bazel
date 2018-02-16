@@ -34,8 +34,7 @@ public final class SplitConfigurationFilterTest {
   @Test
   public void mapFilenamesToSplitFlagsShouldReturnEmptyMapForEmptyInput()
       throws UnrecognizedSplitsException {
-    assertThat(mapFilenamesToSplitFlags(ImmutableList.<String>of(), ImmutableList.<String>of()))
-        .isEmpty();
+    assertThat(mapFilenamesToSplitFlags(ImmutableList.of(), ImmutableList.of())).isEmpty();
   }
 
   @Test

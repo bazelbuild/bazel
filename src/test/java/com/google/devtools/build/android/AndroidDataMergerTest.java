@@ -61,7 +61,7 @@ public class AndroidDataMergerTest {
   @Before
   public void setUp() throws Exception {
     fileSystem = Jimfs.newFileSystem();
-    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.<String>of());
+    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.of());
     mergerLogger = Logger.getLogger(AndroidDataMerger.class.getCanonicalName());
     loggingHandler = new TestLoggingHandler();
     mergerLogger.addHandler(loggingHandler);

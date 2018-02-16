@@ -16,8 +16,13 @@ package com.google.devtools.build.android.xml;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.DataResourceXml;
+import com.google.devtools.build.android.Writeable;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.XmlNamespaces;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,10 +44,22 @@ import javax.xml.stream.events.StartElement;
  * resources tag to combining multiple {@link DataResourceXml}s, the Namespaces must be tracked and
  * kept with each value.
  */
-public class Namespaces implements Iterable<Entry<String, String>> {
+public class Namespaces implements Iterable<Entry<String, String>>, Writeable {
   private static final Logger logger = Logger.getLogger(Namespaces.class.getCanonicalName());
   private static final Namespaces EMPTY_INSTANCE =
       new Namespaces(ImmutableMap.<String, String>of());
+
+  @Override
+  public void writeTo(OutputStream out) throws IOException {
+    SerializeFormat.XmlNamespaces.newBuilder()
+        .putAllNamespace(prefixToUri)
+        .build()
+        .writeDelimitedTo(out);
+  }
+
+  public static Namespaces fromProto(XmlNamespaces xmlNamespaces) {
+    return from(xmlNamespaces.getNamespaceMap());
+  }
 
   /** Collects prefix and uri pairs from elements. */
   public static class Collector {

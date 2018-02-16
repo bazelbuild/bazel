@@ -218,7 +218,7 @@ public final class Converters {
     @Override
     public List<DependencySymbolFileProvider> convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
-        return ImmutableList.<DependencySymbolFileProvider>of();
+        return ImmutableList.of();
       }
       try {
         ImmutableList.Builder<DependencySymbolFileProvider> builder = ImmutableList.builder();
@@ -473,7 +473,7 @@ public final class Converters {
 
     @Override
     public List<StaticLibrary> convert(String input) throws OptionsParsingException {
-      final Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
+      final Builder<StaticLibrary> builder = ImmutableList.builder();
       for (String path : SPLITTER.splitToList(input)) {
         builder.add(libraryConverter.convert(path));
       }

@@ -54,7 +54,7 @@ import java.util.logging.Logger;
  * </pre>
  */
 public class ResourceProcessorBusyBox {
-  static enum Tool {
+  enum Tool {
     PACKAGE() {
       @Override
       void call(String[] args) throws Exception {

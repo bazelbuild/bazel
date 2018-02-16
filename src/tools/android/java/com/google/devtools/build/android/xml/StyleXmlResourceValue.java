@@ -24,7 +24,6 @@ import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
-import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import java.io.IOException;
@@ -39,8 +38,7 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Represents an Android Style Resource.
  *
- * <p>
- * Styles (http://developer.android.com/guide/topics/resources/style-resource.html) define a look
+ * <p>Styles (http://developer.android.com/guide/topics/resources/style-resource.html) define a look
  * and feel for a layout or other ui construct. They are effectively a s set of values that
  * correspond to &lt;attr&gt; resources defined either in the base android framework or in other
  * resources. They also allow inheritance on other styles. For a style to valid in a given resource
@@ -154,19 +152,15 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
-      throws IOException {
+  public void writeTo(OutputStream out) throws IOException {
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder()
             .setType(XmlType.STYLE)
-            .putAllNamespace(namespaces.asMap())
             .putAllMappedStringValue(values);
     if (parent != null) {
       xmlValueBuilder.setValue(parent);
     }
-    return XmlResourceValues.serializeProtoDataValue(
-        output,
-        XmlResourceValues.newSerializableDataValueBuilder(sourceId).setXmlValue(xmlValueBuilder));
+    xmlValueBuilder.build().writeDelimitedTo(out);
   }
 
   @Override
@@ -195,7 +189,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   public XmlResourceValue combineWith(XmlResourceValue value) {
     throw new IllegalArgumentException(this + " is not a combinable resource.");
   }
-  
+
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();

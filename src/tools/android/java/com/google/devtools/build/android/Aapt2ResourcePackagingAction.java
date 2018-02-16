@@ -125,83 +125,82 @@ public class Aapt2ResourcePackagingAction {
 
       profiler.recordEndOf("merging");
 
-     
-        profiler.startTask("compile");
-        final ResourceCompiler compiler =
-            ResourceCompiler.create(
-                executorService,
-                compiledResources,
-                aaptConfigOptions.aapt2,
-                aaptConfigOptions.buildToolsVersion);
+      profiler.startTask("compile");
+      final ResourceCompiler compiler =
+          ResourceCompiler.create(
+              executorService,
+              compiledResources,
+              aaptConfigOptions.aapt2,
+              aaptConfigOptions.buildToolsVersion);
 
-        CompiledResources compiled =
-            options
-                .primaryData
-                .processDataBindings(
-                    options.dataBindingInfoOut, options.packageForR, databindingResourcesRoot)
-                .compile(compiler, compiledResources)
-                .processManifest(
-                    manifest ->
-                        AndroidManifestProcessor.with(STD_LOGGER)
-                            .processManifest(
-                                options.applicationId,
-                                options.versionCode,
-                                options.versionName,
-                                manifest,
-                                processedManifest))
-                .processManifest(
-                    manifest ->
-                        new DensitySpecificManifestProcessor(densities, densityManifest)
-                            .process(manifest));
-        profiler.recordEndOf("compile").startTask("link");
-        // Write manifestOutput now before the dummy manifest is created.
-        if (options.manifestOutput != null) {
-          AndroidResourceOutputs.copyManifestToOutput(compiled, options.manifestOutput);
-        }
+      CompiledResources compiled =
+          options
+              .primaryData
+              .processDataBindings(
+                  options.dataBindingInfoOut, options.packageForR, databindingResourcesRoot)
+              .compile(compiler, compiledResources)
+              .processManifest(
+                  manifest ->
+                      AndroidManifestProcessor.with(STD_LOGGER)
+                          .processManifest(
+                              options.applicationId,
+                              options.versionCode,
+                              options.versionName,
+                              manifest,
+                              processedManifest))
+              .processManifest(
+                  manifest ->
+                      new DensitySpecificManifestProcessor(densities, densityManifest)
+                          .process(manifest));
+      profiler.recordEndOf("compile").startTask("link");
+      // Write manifestOutput now before the dummy manifest is created.
+      if (options.manifestOutput != null) {
+        AndroidResourceOutputs.copyManifestToOutput(compiled, options.manifestOutput);
+      }
 
-        List<CompiledResources> compiledResourceDeps =
-            // Last defined dependencies will overwrite previous one, so always place direct
-            // after transitive.
-            concat(options.transitiveData.stream(), options.directData.stream())
-                .map(DependencyAndroidData::getCompiledSymbols)
-                .collect(toList());
+      List<CompiledResources> compiledResourceDeps =
+          // Last defined dependencies will overwrite previous one, so always place direct
+          // after transitive.
+          concat(options.transitiveData.stream(), options.directData.stream())
+              .map(DependencyAndroidData::getCompiledSymbols)
+              .collect(toList());
 
-        List<Path> assetDirs =
-            concat(options.transitiveData.stream(), options.directData.stream())
-                .flatMap(dep -> dep.assetDirs.stream())
-                .collect(toList());
-        assetDirs.addAll(options.primaryData.assetDirs);
+      List<Path> assetDirs =
+          concat(options.transitiveData.stream(), options.directData.stream())
+              .flatMap(dep -> dep.assetDirs.stream())
+              .collect(toList());
+      assetDirs.addAll(options.primaryData.assetDirs);
 
-        final PackagedResources packagedResources =
-            ResourceLinker.create(aaptConfigOptions.aapt2, linkedOut)
-                .profileUsing(profiler)
-                .customPackage(options.packageForR)
-                .outputAsProto(aaptConfigOptions.resourceTableAsProto)
-                .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
-                .include(compiledResourceDeps)
-                .withAssets(assetDirs)
-                .buildVersion(aaptConfigOptions.buildToolsVersion)
-                .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
-                .filterToDensity(densities)
-                .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
-                .link(compiled)
-                .copyPackageTo(options.packagePath)
-                .copyProguardTo(options.proguardOutput)
-                .copyMainDexProguardTo(options.mainDexProguardOutput)
-                .createSourceJar(options.srcJarOutput)
-                .copyRTxtTo(options.rOutput);
-        profiler.recordEndOf("link");
-        if (options.resourcesOutput != null) {
-          profiler.startTask("package");
-          // The compiled resources and the merged resources should be the same.
-          // TODO(corysmith): Decompile or otherwise provide the exact resources in the apk.
-          ResourcesZip.fromApk(
-                  mergedAndroidData.getResourceDir(),
-                  packagedResources.getApk(),
-                  packagedResources.getResourceIds())
-              .writeTo(options.resourcesOutput, false /* compress */);
-          profiler.recordEndOf("package");
-        }
+      final PackagedResources packagedResources =
+          ResourceLinker.create(aaptConfigOptions.aapt2, linkedOut)
+              .profileUsing(profiler)
+              .customPackage(options.packageForR)
+              .outputAsProto(aaptConfigOptions.resourceTableAsProto)
+              .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
+              .include(compiledResourceDeps)
+              .withAssets(assetDirs)
+              .buildVersion(aaptConfigOptions.buildToolsVersion)
+              .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
+              .filterToDensity(densities)
+              .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
+              .link(compiled)
+              .copyPackageTo(options.packagePath)
+              .copyProguardTo(options.proguardOutput)
+              .copyMainDexProguardTo(options.mainDexProguardOutput)
+              .createSourceJar(options.srcJarOutput)
+              .copyRTxtTo(options.rOutput);
+      profiler.recordEndOf("link");
+      if (options.resourcesOutput != null) {
+        profiler.startTask("package");
+        // The compiled resources and the merged resources should be the same.
+        // TODO(corysmith): Decompile or otherwise provide the exact resources in the apk.
+        ResourcesZip.fromApk(
+                mergedAndroidData.getResourceDir(),
+                packagedResources.getApk(),
+                packagedResources.getResourceIds())
+            .writeTo(options.resourcesOutput, false /* compress */);
+        profiler.recordEndOf("package");
       }
     }
   }
+}

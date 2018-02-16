@@ -41,8 +41,8 @@ public class UnvalidatedAndroidDirectories {
     }
     String[] parts = text.split(":");
     return new UnvalidatedAndroidDirectories(
-        parts.length > 0 ? splitPaths(parts[0], fileSystem) : ImmutableList.<Path>of(),
-        parts.length > 1 ? splitPaths(parts[1], fileSystem) : ImmutableList.<Path>of());
+        parts.length > 0 ? splitPaths(parts[0], fileSystem) : ImmutableList.of(),
+        parts.length > 1 ? splitPaths(parts[1], fileSystem) : ImmutableList.of());
   }
 
   protected static ImmutableList<Path> splitPaths(String pathsString, FileSystem fileSystem) {

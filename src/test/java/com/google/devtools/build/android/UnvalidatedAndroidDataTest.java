@@ -58,33 +58,19 @@ public class UnvalidatedAndroidDataTest {
   }
 
   @Test public void flagParseWithEmptyResources() throws Exception {
-    Truth.assertThat(
-        UnvalidatedAndroidData.valueOf(
-            ":assets:AndroidManifest.xml", fileSystem)
-        ).isEqualTo(
-            new UnvalidatedAndroidData(ImmutableList.<Path>of(),
-                ImmutableList.of(assets),
-                manifest));
+    Truth.assertThat(UnvalidatedAndroidData.valueOf(":assets:AndroidManifest.xml", fileSystem))
+        .isEqualTo(
+            new UnvalidatedAndroidData(ImmutableList.of(), ImmutableList.of(assets), manifest));
   }
 
   @Test public void flagParseWithEmptyAssets() throws Exception {
-    Truth.assertThat(
-        UnvalidatedAndroidData.valueOf(
-            "res::AndroidManifest.xml", fileSystem)
-        ).isEqualTo(
-            new UnvalidatedAndroidData(ImmutableList.of(res),
-                ImmutableList.<Path>of(),
-                manifest));
+    Truth.assertThat(UnvalidatedAndroidData.valueOf("res::AndroidManifest.xml", fileSystem))
+        .isEqualTo(new UnvalidatedAndroidData(ImmutableList.of(res), ImmutableList.of(), manifest));
   }
 
   @Test public void flagParseWithEmptyResourcesAndAssets() throws Exception {
-    Truth.assertThat(
-        UnvalidatedAndroidData.valueOf(
-            "::AndroidManifest.xml", fileSystem)
-        ).isEqualTo(
-            new UnvalidatedAndroidData(ImmutableList.<Path>of(),
-                ImmutableList.<Path>of(),
-                manifest));
+    Truth.assertThat(UnvalidatedAndroidData.valueOf("::AndroidManifest.xml", fileSystem))
+        .isEqualTo(new UnvalidatedAndroidData(ImmutableList.of(), ImmutableList.of(), manifest));
   }
 
   @Test public void flagNoManifestFails() {

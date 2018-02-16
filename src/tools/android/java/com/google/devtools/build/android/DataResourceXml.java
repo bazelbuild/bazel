@@ -20,13 +20,11 @@ import static com.android.resources.ResourceType.PUBLIC;
 import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.android.AndroidDataSerializer.SerializeEntryVisitor;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
 import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
-import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
@@ -40,7 +38,6 @@ import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -161,15 +158,6 @@ public class DataResourceXml implements DataResource {
     }
   }
 
-  @SuppressWarnings("deprecation")
-  // TODO(corysmith): Update proto to use get<>Map
-  public static DataValue from(SerializeFormat.DataValue protoValue, DataSource source)
-      throws InvalidProtocolBufferException {
-    DataValueXml xmlValue = protoValue.getXmlValue();
-    return createWithNamespaces(
-        source, valueFromProto(xmlValue), Namespaces.from(xmlValue.getNamespace()));
-  }
-
   public static DataResourceXml from(
       Value protoValue,
       DataSource source,
@@ -182,33 +170,6 @@ public class DataResourceXml implements DataResource {
             valueFromProto(protoValue, resourceType, fullyQualifiedNames),
             Namespaces.empty());
     return dataResourceXml;
-  }
-
-  private static XmlResourceValue valueFromProto(SerializeFormat.DataValueXml proto)
-      throws InvalidProtocolBufferException {
-    Preconditions.checkArgument(proto.hasType());
-    switch (proto.getType()) {
-      case ARRAY:
-        return ArrayXmlResourceValue.from(proto);
-      case SIMPLE:
-        return SimpleXmlResourceValue.from(proto);
-      case ATTR:
-        return AttrXmlResourceValue.from(proto);
-      case ID:
-        return IdXmlResourceValue.of();
-      case PLURAL:
-        return PluralXmlResourceValue.from(proto);
-      case PUBLIC:
-        return PublicXmlResourceValue.from(proto);
-      case STYLE:
-        return StyleXmlResourceValue.from(proto);
-      case STYLEABLE:
-        return StyleableXmlResourceValue.from(proto);
-      case RESOURCES_ATTRIBUTE:
-        return ResourcesAttribute.from(proto);
-      default:
-        throw new IllegalArgumentException();
-    }
   }
 
   private static XmlResourceValue valueFromProto(
@@ -327,7 +288,7 @@ public class DataResourceXml implements DataResource {
   }
 
   public static DataResourceXml createWithNoNamespace(Path sourcePath, XmlResourceValue xml) {
-    return createWithNamespaces(sourcePath, xml, ImmutableMap.<String, String>of());
+    return createWithNamespaces(sourcePath, xml, ImmutableMap.of());
   }
 
   public static DataResourceXml createWithNoNamespace(DataSource source, XmlResourceValue xml) {
@@ -391,9 +352,8 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
-  public int serializeTo(DataSourceTable sourceTable, OutputStream outStream)
-      throws IOException {
-    return xml.serializeTo(sourceTable.getSourceId(source), namespaces, outStream);
+  public SerializeEntryVisitor serializeTo(SerializeEntryVisitor visitor) {
+    return visitor.setXml(xml).setSource(source).setNamespaces(namespaces);
   }
 
   // TODO(corysmith): Clean up all the casting. The type structure is unclean.

@@ -20,11 +20,8 @@ import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
-import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.Builder;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
-import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Objects;
@@ -94,20 +91,8 @@ public class IdXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
-      throws IOException {
-    Builder xmlValue =
-        SerializeFormat.DataValueXml.newBuilder()
-            .setType(XmlType.ID)
-            .putAllNamespace(namespaces.asMap());
-    if (value != null) {
-      xmlValue.setValue(value);
-    }
-    SerializeFormat.DataValue dataValue =
-        XmlResourceValues.newSerializableDataValueBuilder(sourceId).setXmlValue(xmlValue).build();
-    dataValue.writeDelimitedTo(output);
-    return CodedOutputStream.computeUInt32SizeNoTag(dataValue.getSerializedSize())
-        + dataValue.getSerializedSize();
+  public void writeTo(OutputStream out) throws IOException {
+    SerializeFormat.DataValueXml.newBuilder().setType(XmlType.ID).build().writeDelimitedTo(out);
   }
 
   @Override

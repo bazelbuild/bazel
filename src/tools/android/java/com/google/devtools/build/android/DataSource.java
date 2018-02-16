@@ -17,17 +17,20 @@ import com.android.SdkConstants;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.ProtoSource;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
+import java.util.Set;
 
 /** Represents where the DataValue was derived from. */
-public class DataSource implements Comparable<DataSource> {
+public class DataSource implements Comparable<DataSource>, Writeable {
 
   public static DataSource from(ProtoSource protoSource, FileSystem currentFileSystem) {
     Path path = currentFileSystem.getPath(protoSource.getFilename());
@@ -35,7 +38,7 @@ public class DataSource implements Comparable<DataSource> {
   }
 
   public static DataSource of(Path sourcePath) {
-    return new DataSource(sourcePath, ImmutableSet.<DataSource>of());
+    return new DataSource(sourcePath, ImmutableSet.of());
   }
 
   private final Path path;
@@ -98,6 +101,9 @@ public class DataSource implements Comparable<DataSource> {
   }
 
   public DataSource overwrite(DataSource... sources) {
+    if (sources.length == 0) {
+      return this;
+    }
     ImmutableSet.Builder<DataSource> overridesBuilder =
         ImmutableSet.<DataSource>builder().addAll(this.overrides);
     for (DataSource dataSource : sources) {
@@ -136,5 +142,20 @@ public class DataSource implements Comparable<DataSource> {
   /** Returns a representation suitible for a conflict message. */
   public String asConflictString() {
     return path.toString();
+  }
+
+  @Override
+  public void writeTo(OutputStream out) throws IOException {
+    SerializeFormat.ProtoSource.newBuilder()
+        .setFilename(path.toString())
+        .build()
+        .writeDelimitedTo(out);
+  }
+
+  public boolean shouldFilter(Set<String> filteredResources) {
+    return filteredResources.contains(path.getParent().getFileName() + "/" + path.getFileName())
+        // Since the filtered resources short path could match multiple sources, check to make sure
+        // the source doesn't exist.
+        && !Files.exists(path);
   }
 }

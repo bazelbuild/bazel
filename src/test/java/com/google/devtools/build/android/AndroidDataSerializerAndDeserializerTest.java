@@ -47,7 +47,7 @@ public class AndroidDataSerializerAndDeserializerTest {
   @Before
   public void createCleanEnvironment() throws Exception {
     fs = Jimfs.newFileSystem();
-    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.<String>of());
+    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.of());
     source = Files.createDirectory(fs.getPath("source"));
     manifest = Files.createFile(source.resolve("AndroidManifest.xml"));
   }
@@ -80,8 +80,7 @@ public class AndroidDataSerializerAndDeserializerTest {
         UnwrittenMergedAndroidData.of(
             manifest,
             ParsedAndroidDataBuilder.buildOn(source, fqnFactory)
-                .combining(
-                    xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
+                .combining(xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
                 .build(),
             ParsedAndroidDataBuilder.empty());
     expected.serializeTo(serializer);
@@ -159,10 +158,7 @@ public class AndroidDataSerializerAndDeserializerTest {
             .createManifest("AndroidManifest.xml", "com.carroll.lewis", "")
             .buildParsed();
     UnwrittenMergedAndroidData expected =
-        UnwrittenMergedAndroidData.of(
-            manifest,
-            direct,
-            ParsedAndroidDataBuilder.empty());
+        UnwrittenMergedAndroidData.of(manifest, direct, ParsedAndroidDataBuilder.empty());
     expected.serializeTo(serializer);
     serializer.flushTo(binaryPath);
 
@@ -172,10 +168,8 @@ public class AndroidDataSerializerAndDeserializerTest {
     deserializer.read(
         binaryPath,
         KeyValueConsumers.of(
-            overwriting,
-            combining,
-            null // assets
-        ));
+            overwriting, combining, null // assets
+            ));
     Truth.assertThat(overwriting).isEqualTo(expected.getPrimary().getOverwritingResources());
     Truth.assertThat(combining).isEqualTo(expected.getPrimary().getCombiningResources());
   }
@@ -190,17 +184,17 @@ public class AndroidDataSerializerAndDeserializerTest {
             ParsedAndroidDataBuilder.buildOn(source, fqnFactory)
                 .overwritable(
                     file("layout/banker").source("layout/banker.xml"),
-                    xml("<resources>/foo").source("values/ids.xml")
-                        .value(ResourcesAttribute.of(
-                            fqnFactory.parse("<resources>/foo"), "foo", "fooVal")))
-                .combining(
-                    xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
+                    xml("<resources>/foo")
+                        .source("values/ids.xml")
+                        .value(
+                            ResourcesAttribute.of(
+                                fqnFactory.parse("<resources>/foo"), "foo", "fooVal")))
+                .combining(xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
                 .assets(file().source("hunting/of/the/boojum"))
                 .build(),
             ParsedAndroidDataBuilder.buildOn(source, fqnFactory)
                 .overwritable(file("layout/butcher").source("layout/butcher.xml"))
-                .combining(
-                    xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
+                .combining(xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
                 .assets(file().source("hunting/of/the/snark"))
                 .build());
     expected.serializeTo(serializer);
@@ -232,36 +226,43 @@ public class AndroidDataSerializerAndDeserializerTest {
             ParsedAndroidDataBuilder.buildOn(source, fqnFactory)
                 .overwritable(
                     file("layout/banker").source("layout/banker.xml"),
-                    xml("<resources>/foo").source("values/ids.xml")
-                        .value(ResourcesAttribute.of(
-                            fqnFactory.parse("<resources>/foo"), "foo", "fooVal")))
-                .combining(
-                    xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
+                    xml("<resources>/foo")
+                        .source("values/res.xml")
+                        .value(
+                            ResourcesAttribute.of(
+                                fqnFactory.parse("<resources>/foo"), "foo", "fooVal")))
+                .combining(xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
                 .assets(file().source("hunting/of/the/boojum"))
                 .build(),
             ParsedAndroidDataBuilder.buildOn(source, fqnFactory)
                 .overwritable(file("layout/butcher").source("layout/butcher.xml"))
-                .combining(
-                    xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
+                .combining(xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
                 .assets(file().source("hunting/of/the/snark"))
                 .build());
     expected.serializeTo(serializer);
     serializer.flushTo(binaryPath);
 
+    // Create a file to demonstrate an overmatched filtering
+    Files.createDirectories(source.resolve("res/values/ids.xml"));
+
     AndroidDataDeserializer deserializer =
         AndroidParsedDataDeserializer.withFilteredResources(
-            ImmutableList.of("the/boojum", "values/ids.xml", "layout/banker.xml"));
+            ImmutableList.of(
+                "the/boojum", "values/ids.xml", "layout/banker.xml", "values/res.xml"));
 
     KeyValueConsumers primary =
         KeyValueConsumers.of(
             TestMapConsumer.ofResources(), // overwriting
             TestMapConsumer.ofResources(), // combining
-            null // assets
+            TestMapConsumer.ofAssets() // assets
             );
 
     deserializer.read(binaryPath, primary);
     Truth.assertThat(primary.overwritingConsumer).isEqualTo(Collections.emptyMap());
-    Truth.assertThat(primary.combiningConsumer).isEqualTo(Collections.emptyMap());
+    Truth.assertThat(primary.combiningConsumer)
+        .named("Filtered resources that exist should not be filtered.")
+        .isEqualTo(expected.getPrimary().getCombiningResources());
+    Truth.assertThat(primary.assetConsumer).isEqualTo(Collections.emptyMap());
   }
 
   private static class TestMapConsumer<T extends DataValue>

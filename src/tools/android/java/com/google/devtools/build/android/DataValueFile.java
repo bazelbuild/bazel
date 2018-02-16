@@ -14,11 +14,10 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.android.AndroidDataSerializer.SerializeEntryVisitor;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -85,13 +84,8 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public int serializeTo(DataSourceTable sourceTable, OutputStream output)
-      throws IOException {
-    SerializeFormat.DataValue.Builder builder = SerializeFormat.DataValue.newBuilder();
-    SerializeFormat.DataValue value = builder.setSourceId(sourceTable.getSourceId(source)).build();
-    value.writeDelimitedTo(output);
-    return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())
-        + value.getSerializedSize();
+  public SerializeEntryVisitor serializeTo(SerializeEntryVisitor visitor) {
+    return visitor.setSource(source);
   }
 
   @Override

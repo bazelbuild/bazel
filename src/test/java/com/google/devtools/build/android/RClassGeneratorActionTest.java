@@ -109,7 +109,7 @@ public class RClassGeneratorActionTest {
     Path jarPath = tempDir.resolve("app_resources.jar");
 
     RClassGeneratorAction.main(
-        ImmutableList.<String>of(
+        ImmutableList.of(
                 "--primaryRTxt",
                 binarySymbols.toString(),
                 "--primaryManifest",
@@ -165,7 +165,7 @@ public class RClassGeneratorActionTest {
     Path jarPath = tempDir.resolve("app_resources.jar");
 
     RClassGeneratorAction.main(
-        ImmutableList.<String>of(
+        ImmutableList.of(
                 "--library",
                 libFooSymbols + "," + libFooManifest,
                 "--library",
@@ -212,11 +212,12 @@ public class RClassGeneratorActionTest {
 
     Path jarPath = tempDir.resolve("app_resources.jar");
 
-    RClassGeneratorAction.main(ImmutableList.<String>of(
-        "--primaryRTxt", binarySymbols.toString(),
-        "--primaryManifest", binaryManifest.toString(),
-        "--classJarOutput", jarPath.toString()
-    ).toArray(new String[0]));
+    RClassGeneratorAction.main(
+        ImmutableList.of(
+                "--primaryRTxt", binarySymbols.toString(),
+                "--primaryManifest", binaryManifest.toString(),
+                "--classJarOutput", jarPath.toString())
+            .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
     assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
@@ -239,9 +240,8 @@ public class RClassGeneratorActionTest {
   @Test
   public void noBinary() throws Exception {
     Path jarPath = tempDir.resolve("app_resources.jar");
-    RClassGeneratorAction.main(ImmutableList.<String>of(
-        "--classJarOutput", jarPath.toString()
-    ).toArray(new String[0]));
+    RClassGeneratorAction.main(
+        ImmutableList.of("--classJarOutput", jarPath.toString()).toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
     assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
@@ -271,7 +271,7 @@ public class RClassGeneratorActionTest {
         "int string ok 0x1");
     Path jarPath = tempDir.resolve("app_resources.jar");
     RClassGeneratorAction.main(
-        ImmutableList.<String>of(
+        ImmutableList.of(
                 "--primaryRTxt",
                 binarySymbols.toString(),
                 "--primaryManifest",
@@ -313,13 +313,13 @@ public class RClassGeneratorActionTest {
     Path binarySymbols = createFile("R.txt", "");
     Path jarPath = tempDir.resolve("app_resources.jar");
     RClassGeneratorAction.main(
-        ImmutableList.<String>of(
-            "--primaryRTxt",
-            binarySymbols.toString(),
-            "--primaryManifest",
-            binaryManifest.toString(),
-            "--classJarOutput",
-            jarPath.toString())
+        ImmutableList.of(
+                "--primaryRTxt",
+                binarySymbols.toString(),
+                "--primaryManifest",
+                binaryManifest.toString(),
+                "--classJarOutput",
+                jarPath.toString())
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();

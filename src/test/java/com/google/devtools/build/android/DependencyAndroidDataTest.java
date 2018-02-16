@@ -105,7 +105,7 @@ public class DependencyAndroidDataTest {
                 ":assets:AndroidManifest.xml:r.txt:symbols.bin", fileSystem))
         .isEqualTo(
             new DependencyAndroidData(
-                ImmutableList.<Path>of(), ImmutableList.of(assets), manifest, rTxt, symbols, null));
+                ImmutableList.of(), ImmutableList.of(assets), manifest, rTxt, symbols, null));
   }
 
   @Test public void flagParseWithEmptyAssets() throws Exception{
@@ -113,7 +113,7 @@ public class DependencyAndroidDataTest {
             DependencyAndroidData.valueOf("res::AndroidManifest.xml:r.txt:symbols.bin", fileSystem))
         .isEqualTo(
             new DependencyAndroidData(
-                ImmutableList.of(res), ImmutableList.<Path>of(), manifest, rTxt, symbols, null));
+                ImmutableList.of(res), ImmutableList.of(), manifest, rTxt, symbols, null));
   }
 
   @Test public void flagParseWithEmptyResourcesAndAssets() throws Exception{
@@ -121,7 +121,7 @@ public class DependencyAndroidDataTest {
             DependencyAndroidData.valueOf("::AndroidManifest.xml:r.txt:symbols.bin", fileSystem))
         .isEqualTo(
             new DependencyAndroidData(
-                ImmutableList.<Path>of(), ImmutableList.<Path>of(), manifest, rTxt, symbols, null));
+                ImmutableList.of(), ImmutableList.of(), manifest, rTxt, symbols, null));
   }
 
   @Test public void flagNoManifestFails() {
