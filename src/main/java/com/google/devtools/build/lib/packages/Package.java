@@ -66,6 +66,8 @@ import javax.annotation.Nullable;
  * as such. Note, however, that some member variables exposed via the public interface are not
  * strictly immutable, so until their types are guaranteed immutable we're not applying the
  * {@code @Immutable} annotation here.
+ *
+ * <p>When changing this class, make sure to make corresponding changes to serialization!
  */
 @SuppressWarnings("JavaLangClash")
 public class Package {
