@@ -575,8 +575,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDeviceBrokerInfoExposedToSkylark()
-      throws Exception {
+  public void testAndroidDeviceBrokerInfoExposedToSkylark() throws Exception {
     scratch.file(
         "tools/android/emulated_device/BUILD",
         "android_device(",
@@ -594,7 +593,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         "javatests/com/app/skylarktest/skylarktest.bzl",
         "mystring = provider(fields = ['content'])",
         "def _impl(ctx):",
-        "  return [mystring(content = ctx.attr.dep[DeviceBrokerInfo])]",
+        "  return [mystring(content = ctx.attr.dep[AndroidDeviceBrokerInfo])]",
         "skylarktest = rule(implementation=_impl, attrs = {'dep': attr.label()})");
     scratch.file(
         "javatests/com/app/skylarktest/BUILD",

@@ -128,17 +128,16 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         RunfilesSupport.withExecutable(ruleContext, runfiles, executable);
     NestedSet<Artifact> extraFilesToRun =
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman());
-    boolean cloudDex2oatEnabled = ruleContext.attributes().get(
-        "pregenerate_oat_files_for_tests", Type.BOOLEAN);
+    boolean dex2OatEnabled =
+        ruleContext.attributes().get("pregenerate_oat_files_for_tests", Type.BOOLEAN);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setRunfilesSupport(runfilesSupport, executable)
         .addFilesToRun(extraFilesToRun)
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))
-        .addNativeDeclaredProvider(new DeviceBrokerInfo(DEVICE_BROKER_TYPE))
-        .addProvider(
-            Dex2OatProvider.class, new Dex2OatProvider(cloudDex2oatEnabled))
+        .addNativeDeclaredProvider(new AndroidDeviceBrokerInfo(DEVICE_BROKER_TYPE))
+        .addNativeDeclaredProvider(new AndroidDex2OatInfo(dex2OatEnabled))
         .build();
   }
 

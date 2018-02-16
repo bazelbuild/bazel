@@ -44,7 +44,7 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
                 .exec()
                 .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(DeviceBrokerInfo.PROVIDER.id()))
+                .mandatoryProviders(AndroidDeviceBrokerInfo.PROVIDER.id()))
         .add(
             attr("support_apks", LABEL_LIST)
                 .allowedFileTypes(AndroidRuleClasses.APK)

@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
+import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceScriptFixtureRule;
 import com.google.devtools.build.lib.rules.android.AndroidHostServiceFixtureRule;
@@ -66,7 +67,6 @@ import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
-import com.google.devtools.build.lib.rules.android.DeviceBrokerInfo;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.android.NativeLibsZipsInfo;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
@@ -219,7 +219,7 @@ public class BazelRuleClassProvider {
           builder.addSkylarkAccessibleTopLevels(
               AndroidInstrumentationInfo.PROVIDER.getName(), AndroidInstrumentationInfo.PROVIDER);
           builder.addSkylarkAccessibleTopLevels(
-              DeviceBrokerInfo.PROVIDER.getName(), DeviceBrokerInfo.PROVIDER);
+              AndroidDeviceBrokerInfo.PROVIDER.getName(), AndroidDeviceBrokerInfo.PROVIDER);
           builder.addSkylarkAccessibleTopLevels(
               AndroidResourcesInfo.PROVIDER.getName(), AndroidResourcesInfo.PROVIDER);
           builder.addSkylarkAccessibleTopLevels(

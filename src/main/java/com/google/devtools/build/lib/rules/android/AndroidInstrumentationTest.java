@@ -287,7 +287,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
 
   private static String getDeviceBrokerType(RuleContext ruleContext) {
     return ruleContext
-        .getPrerequisite("target_device", Mode.HOST, DeviceBrokerInfo.PROVIDER)
+        .getPrerequisite("target_device", Mode.HOST, AndroidDeviceBrokerInfo.PROVIDER)
         .getDeviceBrokerType();
   }
 
