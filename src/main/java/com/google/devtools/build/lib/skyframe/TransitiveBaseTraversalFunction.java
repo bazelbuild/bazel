@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -61,7 +63,6 @@ import javax.annotation.Nullable;
  * return.
  */
 abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements SkyFunction {
-
   /**
    * Returns a {@link SkyKey} corresponding to the traversal of a target specified by {@code label}
    * and its transitive dependencies.
@@ -127,9 +128,9 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) loadTargetResults;
     TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
 
-    // Process deps from attributes.
-    Collection<SkyKey> labelDepKeys =
-        Collections2.transform(getLabelDeps(targetAndErrorIfAny.getTarget()), this::getKey);
+    // Process deps from attributes. It is essential that the last getValue(s) call we made to
+    // skyframe for building this node was for the corresponding PackageValue.
+    Collection<SkyKey> labelDepKeys = getLabelDepKeys(env, targetAndErrorIfAny);
 
     Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap =
         env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
@@ -139,9 +140,10 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
       return null;
     }
 
-    // Process deps from aspects.
+    // Process deps from attributes. It is essential that the second-to-last getValue(s) call we
+    // made to skyframe for building this node was for the corresponding PackageValue.
     Iterable<SkyKey> labelAspectKeys =
-        getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), depMap, env);
+        getStrictLabelAspectDepKeys(env, depMap, targetAndErrorIfAny);
     Set<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
         labelAspectEntries = env.getValuesOrThrow(labelAspectKeys, NoSuchPackageException.class,
         NoSuchTargetException.class).entrySet();
@@ -151,6 +153,60 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     }
 
     return computeSkyValue(targetAndErrorIfAny, processedTargets);
+  }
+
+  private Collection<SkyKey> getLabelDepKeys(
+      SkyFunction.Environment env, TargetAndErrorIfAny targetAndErrorIfAny)
+      throws InterruptedException {
+    // As a performance optimization we may already know the deps we are  about to request from
+    // last time #compute was called. By requesting these from the environment, we can avoid
+    // repeating the label visitation step. For TransitiveBaseTraversalFunction#compute, the label
+    // deps dependency group is requested immediately after the package.
+    Collection<SkyKey> oldDepKeys = getDepsAfterLastPackageDep(env, /*offset=*/ 1);
+    return oldDepKeys == null
+        ? Collections2.transform(getLabelDeps(targetAndErrorIfAny.getTarget()), this::getKey)
+        : oldDepKeys;
+  }
+
+  private Iterable<SkyKey> getStrictLabelAspectDepKeys(
+      SkyFunction.Environment env,
+      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
+      TargetAndErrorIfAny targetAndErrorIfAny)
+      throws InterruptedException {
+    // As a performance optimization we may already know the deps we are  about to request from
+    // last time #compute was called. By requesting these from the environment, we can avoid
+    // repeating the label visitation step. For TransitiveBaseTraversalFunction#compute, the label
+    // aspect deps dependency group is requested two groups after the package.
+    Collection<SkyKey> oldAspectDepKeys = getDepsAfterLastPackageDep(env, /*offset=*/ 2);
+    return oldAspectDepKeys == null
+        ? getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), depMap, env)
+        : oldAspectDepKeys;
+  }
+
+  @Nullable
+  private static Collection<SkyKey> getDepsAfterLastPackageDep(
+      SkyFunction.Environment env, int offset) {
+    GroupedList<SkyKey> temporaryDirectDeps = env.getTemporaryDirectDeps();
+    if (temporaryDirectDeps == null) {
+      return null;
+    }
+    int lastPackageDepIndex = getLastPackageValueIndex(temporaryDirectDeps);
+    if (lastPackageDepIndex == -1
+        || temporaryDirectDeps.listSize() <= lastPackageDepIndex + offset) {
+      return null;
+    }
+    return temporaryDirectDeps.get(lastPackageDepIndex + offset);
+  }
+
+  private static int getLastPackageValueIndex(GroupedList<SkyKey> directDeps) {
+    int directDepsNumGroups = directDeps.listSize();
+    for (int i = directDepsNumGroups - 1; i >= 0; i--) {
+      List<SkyKey> depGroup = directDeps.get(i);
+      if (depGroup.size() == 1 && depGroup.get(0).functionName().equals(SkyFunctions.PACKAGE)) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   @Override
@@ -269,14 +325,18 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     Target getTarget();
   }
 
-  private static class TargetAndErrorIfAnyImpl implements TargetAndErrorIfAny, LoadTargetResults {
+  @VisibleForTesting
+  static class TargetAndErrorIfAnyImpl implements TargetAndErrorIfAny, LoadTargetResults {
 
     private final boolean packageLoadedSuccessfully;
     @Nullable private final NoSuchTargetException errorLoadingTarget;
     private final Target target;
 
-    private TargetAndErrorIfAnyImpl(boolean packageLoadedSuccessfully,
-        @Nullable NoSuchTargetException errorLoadingTarget, Target target) {
+    @VisibleForTesting
+    TargetAndErrorIfAnyImpl(
+        boolean packageLoadedSuccessfully,
+        @Nullable NoSuchTargetException errorLoadingTarget,
+        Target target) {
       this.packageLoadedSuccessfully = packageLoadedSuccessfully;
       this.errorLoadingTarget = errorLoadingTarget;
       this.target = target;
@@ -304,7 +364,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     }
   }
 
-  private LoadTargetResults loadTarget(Environment env, Label label)
+  protected LoadTargetResults loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
     SkyKey targetKey = TargetMarkerValue.key(label);
