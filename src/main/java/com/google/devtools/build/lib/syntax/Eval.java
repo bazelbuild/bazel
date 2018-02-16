@@ -94,13 +94,10 @@ public class Eval {
       }
     }
 
+    // TODO(laurentlb): Could be moved to the Parser or the ValidationEnvironment?
     FunctionSignature sig = node.getSignature().getSignature();
-    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs()
-        && sig.getShape().getMandatoryNamedOnly() > 0) {
-      throw new EvalException(
-          node.getLocation(),
-          "Keyword-only argument is forbidden. You can temporarily disable this "
-              + "error using the flag --incompatible_disallow_keyword_only_args=false");
+    if (sig.getShape().getMandatoryNamedOnly() > 0) {
+      throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
     }
 
     env.update(

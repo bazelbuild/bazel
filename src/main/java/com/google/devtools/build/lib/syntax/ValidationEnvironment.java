@@ -143,13 +143,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(AbstractComprehension node) {
-    if (semantics.incompatibleComprehensionVariablesDoNotLeak()) {
-      openBlock();
-      super.visit(node);
-      closeBlock();
-    } else {
-      super.visit(node);
-    }
+    openBlock();
+    super.visit(node);
+    closeBlock();
   }
 
   @Override

@@ -44,14 +44,10 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
       throws SerializationException, IOException {
     // <== Add new options here in alphabetic order ==>
     codedOut.writeBoolNoTag(semantics.incompatibleBzlDisallowLoadAfterStatement());
-    codedOut.writeBoolNoTag(semantics.incompatibleCheckedArithmetic());
-    codedOut.writeBoolNoTag(semantics.incompatibleComprehensionVariablesDoNotLeak());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetIsNotIterable());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetUnion());
-    codedOut.writeBoolNoTag(semantics.incompatibleDictLiteralHasNoDuplicates());
     codedOut.writeBoolNoTag(semantics.incompatibleDisableGlobTracking());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowDictPlus());
-    codedOut.writeBoolNoTag(semantics.incompatibleDisallowKeywordOnlyArgs());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowToplevelIfStatement());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowUncalledSetConstructor());
     codedOut.writeBoolNoTag(semantics.incompatibleLoadArgumentIsLabel());
@@ -68,14 +64,10 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
 
     // <== Add new options here in alphabetic order ==>
     builder.incompatibleBzlDisallowLoadAfterStatement(codedIn.readBool());
-    builder.incompatibleCheckedArithmetic(codedIn.readBool());
-    builder.incompatibleComprehensionVariablesDoNotLeak(codedIn.readBool());
     builder.incompatibleDepsetIsNotIterable(codedIn.readBool());
     builder.incompatibleDepsetUnion(codedIn.readBool());
-    builder.incompatibleDictLiteralHasNoDuplicates(codedIn.readBool());
     builder.incompatibleDisableGlobTracking(codedIn.readBool());
     builder.incompatibleDisallowDictPlus(codedIn.readBool());
-    builder.incompatibleDisallowKeywordOnlyArgs(codedIn.readBool());
     builder.incompatibleDisallowToplevelIfStatement(codedIn.readBool());
     builder.incompatibleDisallowUncalledSetConstructor(codedIn.readBool());
     builder.incompatibleLoadArgumentIsLabel(codedIn.readBool());

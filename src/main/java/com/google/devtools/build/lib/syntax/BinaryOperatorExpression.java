@@ -201,7 +201,7 @@ public final class BinaryOperatorExpression extends Expression {
           return pipe(lhs, rhs, env, location);
 
         case MINUS:
-          return minus(lhs, rhs, env, location);
+          return minus(lhs, rhs, location);
 
         case MULT:
           return mult(lhs, rhs, env, location);
@@ -270,11 +270,7 @@ public final class BinaryOperatorExpression extends Expression {
       throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
-      if (env.getSemantics().incompatibleCheckedArithmetic()) {
-        return Math.addExact((Integer) lval, (Integer) rval);
-      } else {
-        return ((Integer) lval).intValue() + ((Integer) rval).intValue();
-      }
+      return Math.addExact((Integer) lval, (Integer) rval);
     }
 
     // string + string
@@ -358,14 +354,9 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.MINUS. */
-  private static Object minus(Object lval, Object rval, Environment env, Location location)
-      throws EvalException {
+  private static Object minus(Object lval, Object rval, Location location) throws EvalException {
     if (lval instanceof Integer && rval instanceof Integer) {
-      if (env.getSemantics().incompatibleCheckedArithmetic()) {
-        return Math.subtractExact((Integer) lval, (Integer) rval);
-      } else {
-        return ((Integer) lval).intValue() - ((Integer) rval).intValue();
-      }
+      return Math.subtractExact((Integer) lval, (Integer) rval);
     }
     throw typeException(lval, rval, Operator.MINUS, location);
   }
@@ -386,11 +377,7 @@ public final class BinaryOperatorExpression extends Expression {
 
     if (number != null) {
       if (otherFactor instanceof Integer) {
-        if (env.getSemantics().incompatibleCheckedArithmetic()) {
-          return Math.multiplyExact(number, (Integer) otherFactor);
-        } else {
-          return number * ((Integer) otherFactor);
-        }
+        return Math.multiplyExact(number, (Integer) otherFactor);
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number));

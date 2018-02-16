@@ -138,6 +138,10 @@ Python:
 * Dictionary literals cannot have duplicated keys. For example, this is an
   error: `{"a": 4, "b": 7, "a": 1}`.
 
+* Variable of a comprehension may not be used after the comprehension. This is
+  stricter than Python 2 and Python 3, which have different behavior (shadowing
+  vs reassignment).
+
 * Strings are represented with double-quotes (e.g. when you
   call [repr](lib/globals.html#repr)).
 

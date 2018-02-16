@@ -224,7 +224,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testCheckedArithmetic() throws Exception {
-    new SkylarkTest("--incompatible_checked_arithmetic=true")
+    new SkylarkTest()
         .testIfErrorContains("integer overflow", "2000000000 + 2000000000")
         .testIfErrorContains("integer overflow", "1234567890 * 987654321")
         .testIfErrorContains("integer overflow", "- 2000000000 - 2000000000")
@@ -384,15 +384,9 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictWithDuplicatedKey() throws Exception {
-    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=true")
+    new SkylarkTest()
         .testIfErrorContains(
             "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
-  }
-
-  @Test
-  public void testDictAllowDuplicatedKey() throws Exception {
-    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=false")
-        .testStatement("{'str': 1, 'x': 2, 'str': 3}", ImmutableMap.of("str", 3, "x", 2));
   }
 
   @Test

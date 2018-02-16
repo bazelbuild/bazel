@@ -120,14 +120,10 @@ public class SkylarkSemanticsConsistencyTest {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
-        "--incompatible_checked_arithmetic=" + rand.nextBoolean(),
-        "--incompatible_comprehension_variables_do_not_leak=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
-        "--incompatible_dict_literal_has_no_duplicates=" + rand.nextBoolean(),
         "--incompatible_disable_glob_tracking=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
-        "--incompatible_disallow_keyword_only_args=" + rand.nextBoolean(),
         "--incompatible_disallow_toplevel_if_statement=" + rand.nextBoolean(),
         "--incompatible_disallow_uncalled_set_constructor=" + rand.nextBoolean(),
         "--incompatible_load_argument_is_label=" + rand.nextBoolean(),
@@ -145,14 +141,10 @@ public class SkylarkSemanticsConsistencyTest {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
-        .incompatibleCheckedArithmetic(rand.nextBoolean())
-        .incompatibleComprehensionVariablesDoNotLeak(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
-        .incompatibleDictLiteralHasNoDuplicates(rand.nextBoolean())
         .incompatibleDisableGlobTracking(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
-        .incompatibleDisallowKeywordOnlyArgs(rand.nextBoolean())
         .incompatibleDisallowToplevelIfStatement(rand.nextBoolean())
         .incompatibleDisallowUncalledSetConstructor(rand.nextBoolean())
         .incompatibleLoadArgumentIsLabel(rand.nextBoolean())

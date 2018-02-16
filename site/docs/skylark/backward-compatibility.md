@@ -31,18 +31,14 @@ The following are the backward incompatible changes that are implemented and
 guarded behind flags in the current release:
 
 *   [Set constructor](#set-constructor)
-*   [Keyword-only arguments](#keyword-only-arguments)
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Load argument is a label](#load-argument-is-a-label)
 *   [Top level `if` statements](#top-level-if-statements)
-*   [Comprehensions variables](#comprehensions-variables)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
-*   [Dictionary literal has no duplicates](#dictionary-literal-has-no-duplicates)
 *   [New actions API](#new-actions-api)
-*   [Checked arithmetic](#checked-arithmetic)
 *   [Glob tracking](#glob-tracking)
 *   [Print statements](#print-statements)
 
@@ -60,30 +56,6 @@ called). Enable this flag to confirm that your code does not still refer to the
 old `set` constructor from unexecuted code.
 
 *   Flag: `--incompatible_disallow_uncalled_set_constructor`
-*   Default: `true`
-
-
-### Keyword-only arguments
-
-Keyword-only parameters are parameters that can be called only using their name.
-
-``` python
-def foo(arg1, *, arg2): pass
-
-foo(3, arg2=3)
-```
-
-``` python
-def bar(arg1, *rest, arg2): pass
-
-bar(3, arg2=3)
-```
-
-In both examples, `arg2` must be named at the call site. To preserve syntactic
-compatibility with Python 2, we are removing this feature (which we have never
-documented).
-
-*   Flag: `--incompatible_disallow_keyword_only_args`
 *   Default: `true`
 
 
@@ -130,43 +102,6 @@ value has a single declaration. This restriction is consistent with the idea
 that global values cannot be redefined.
 
 *   Flag: `--incompatible_disallow_toplevel_if_statement`
-*   Default: `true`
-
-
-### Comprehensions variables
-
-This change makes list and dict comprehensions follow Python 3's semantics
-instead of Python 2's. That is, comprehensions have their own local scopes, and
-variables bound by comprehensions are not accessible in the outer scope.
-
-As a temporary measure to help detect breakage, this change also causes
-variables defined in the immediate outer scope to become inaccessible if they
-are shadowed by any variables in a comprehension. This disallows any uses of the
-variable's name where its meaning would differ under the Python 2 and Python 3
-semantics. Variables above the immediate outer scope are not affected.
-
-``` python
-def fct():
-  x = 10
-  y = [x for x in range(3)]
-  return x
-```
-
-The meaning of this program depends on the flag:
-
- * Under Skylark without this flag: `x` is 10 before the
-   comprehension and 2 afterwards. (2 is the last value assigned to `x` while
-   evaluating the comprehension.)
-
- * Under Skylark with this flag: `x` becomes inaccessible after the
-   comprehension, so that `return x` is an error. If we moved the `x = 10` to
-   above the function, so that `x` became a global variable, then no error would
-   be raised, and the returned number would be 10.
-
-In other words, please do not refer to a loop variable outside the list or dict
-comprehension.
-
-*   Flag: `--incompatible_comprehension_variables_do_not_leak`
 *   Default: `true`
 
 
@@ -247,26 +182,6 @@ for i in range(len(my_string)):
 *   Default: `false`
 
 
-### Dictionary literal has no duplicates
-
-When the flag is set to true, duplicated keys are not allowed in the dictionary
-literal syntax.
-
-``` python
-{"a": 2, "b": 3, "a": 4}  # error
-```
-
-When the flag is false, the last value overrides the previous value (so the
-example above is equivalent to `{"a": 4, "b": 3}`. This behavior has been a
-source of bugs, which is why we are going to forbid it.
-
-If you really want to override a value, use a separate statement:
-`mydict["a"] = 4`.
-
-*   Flag: `--incompatible_dict_literal_has_no_duplicates`
-*   Default: `true`
-
-
 ### New actions API
 
 This change removes the old methods for registering actions within rules, and
@@ -286,15 +201,6 @@ replacements are as follows.
 
 *   Flag: `--incompatible_new_actions_api`
 *   Default: `false`
-
-
-### Checked arithmetic
-
-When set, arithmetic operations (`+`, `-`, `*`) will fail in case of overflow.
-All integers are stored using signed 32 bits.
-
-*   Flag: `--incompatible_checked_arithmetic`
-*   Default: `true`
 
 
 ### Glob tracking

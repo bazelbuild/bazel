@@ -279,10 +279,6 @@ public abstract class AbstractComprehension extends Expression {
     evalStep(env, collector, 0);
     Object result = collector.getResult(env);
 
-    if (!env.getSemantics().incompatibleComprehensionVariablesDoNotLeak()) {
-      return result;
-    }
-
     // Undefine loop variables (remove them from the environment).
     // This code is useful for the transition, to make sure no one relies on the old behavior
     // (where loop variables were leaking).

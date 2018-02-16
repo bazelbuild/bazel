@@ -300,13 +300,11 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordOnlyIsForbidden() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_keyword_only_args=true");
     checkEvalErrorContains("forbidden", "def foo(a, b, *, c): return a + b + c");
   }
 
   @Test
   public void testParamAfterStarArgs() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_keyword_only_args=true");
     checkEvalErrorContains("forbidden", "def foo(a, *b, c): return a");
   }
 
@@ -372,8 +370,7 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testIncompatibleStarParam() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_keyword_only_args=true");
+  public void testStarParam() throws Exception {
     eval("def f(name, value = '1', optional = '2', *rest):",
         "  r = name + value + optional + '|'",
         "  for x in rest: r += x",
