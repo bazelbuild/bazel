@@ -28,6 +28,9 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.Header;
+import com.google.devtools.build.android.xml.ResourcesAttribute.AttributeType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -77,8 +80,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   private void readResourceTable(
       LittleEndianDataInputStream resourceTableStream,
       KeyValueConsumers consumers,
-      Factory fqnFactory)
-      throws IOException {
+      Factory fqnFactory) throws IOException {
     long alignedSize = resourceTableStream.readLong();
     Preconditions.checkArgument(alignedSize <= Integer.MAX_VALUE);
 
@@ -111,27 +113,34 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
               new SimpleEntry<FullyQualifiedName, Boolean>(fqn, packageName.isEmpty()));
 
           List<ConfigValue> configValues = resource.getConfigValueList();
-          if (configValues.isEmpty() && resource.getVisibility().getLevel() == Level.PUBLIC) {
+          if (configValues.isEmpty()
+              && resource.getVisibility().getLevel() == Level.PUBLIC) {
             int sourceIndex = resource.getVisibility().getSource().getPathIdx();
 
             String source = sourcePool.get(sourceIndex);
             DataSource dataSource = DataSource.of(Paths.get(source));
 
-            DataResourceXml dataResourceXml =
-                DataResourceXml.fromPublic(dataSource, resourceType, resource.getEntryId().getId());
+            DataResourceXml dataResourceXml = DataResourceXml
+                .fromPublic(dataSource, resourceType, resource.getEntryId().getId());
             consumers.combiningConsumer.accept(fqn, dataResourceXml);
-          } else if (packageName.isEmpty()) { // This means this resource is not in the android sdk
+          } else if (packageName.isEmpty()) {// This means this resource is not in the android sdk
             Preconditions.checkArgument(configValues.size() == 1);
-            int sourceIndex = configValues.get(0).getValue().getSource().getPathIdx();
+            int sourceIndex =
+                configValues.get(0)
+                    .getValue()
+                    .getSource()
+                    .getPathIdx();
 
             String source = sourcePool.get(sourceIndex);
             DataSource dataSource = DataSource.of(Paths.get(source));
 
             Value resourceValue = resource.getConfigValue(0).getValue();
             DataResourceXml dataResourceXml =
-                DataResourceXml.from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
+                DataResourceXml
+                    .from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
 
-            if (resourceType == ResourceType.ID || resourceType == ResourceType.STYLEABLE) {
+            if (resourceType == ResourceType.ID
+                || resourceType == ResourceType.STYLEABLE) {
               consumers.combiningConsumer.accept(fqn, dataResourceXml);
             } else {
               consumers.overwritingConsumer.accept(fqn, dataResourceXml);
@@ -156,14 +165,13 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   private void readCompiledFile(
       LittleEndianDataInputStream compiledFileStream,
       KeyValueConsumers consumers,
-      Factory fqnFactory)
-      throws IOException {
-    // Skip aligned size. We don't need it here.
+      Factory fqnFactory) throws IOException {
+    //Skip aligned size. We don't need it here.
     Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
 
     int resFileHeaderSize = compiledFileStream.readInt();
 
-    // Skip data payload size. We don't need it here.
+    //Skip data payload size. We don't need it here.
     Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
 
     byte[] file = new byte[resFileHeaderSize];
@@ -193,10 +201,35 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   }
 
   private void readAttributesFile(
-      InputStream resourceFileStream, FileSystem fileSystem, KeyValueConsumers consumers)
-      throws IOException {
-    AndroidParsedDataDeserializer.deserializeEntries(
-        consumers, resourceFileStream, fileSystem, ImmutableSet.of());
+      InputStream resourceFileStream,
+      FileSystem fileSystem,
+      KeyValueConsumers consumers) throws IOException {
+
+    Header header = Header.parseDelimitedFrom(resourceFileStream);
+    List<DataKey> fullyQualifiedNames = new ArrayList<>();
+    for (int i = 0; i < header.getEntryCount(); i++) {
+      SerializeFormat.DataKey protoKey =
+          SerializeFormat.DataKey.parseDelimitedFrom(resourceFileStream);
+      fullyQualifiedNames.add(FullyQualifiedName.fromProto(protoKey));
+    }
+
+    DataSourceTable sourceTable = DataSourceTable.read(resourceFileStream, fileSystem, header);
+
+    for (DataKey fullyQualifiedName : fullyQualifiedNames) {
+      SerializeFormat.DataValue protoValue =
+          SerializeFormat.DataValue.parseDelimitedFrom(resourceFileStream);
+      DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
+      DataResourceXml dataResourceXml =
+          (DataResourceXml) DataResourceXml.from(protoValue, source);
+      AttributeType attributeType =
+          AttributeType.valueOf(protoValue.getXmlValue().getValueType());
+
+      if (attributeType.isCombining()) {
+        consumers.combiningConsumer.accept(fullyQualifiedName, dataResourceXml);
+      } else {
+        consumers.overwritingConsumer.accept(fullyQualifiedName, dataResourceXml);
+      }
+    }
   }
 
   @Override

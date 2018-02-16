@@ -31,14 +31,14 @@ class ParsedAndroidDataSubject extends Subject<ParsedAndroidDataSubject, ParsedA
 
   public void isEqualTo(ParsedAndroidData expectation) {
     List<String> errors = new ArrayList<>();
-    this.compareDataValues(
+    this.<DataAsset>compareDataValues(
         actual().iterateAssetEntries(), expectation.iterateAssetEntries(), errors, "assets");
-    this.compareDataValues(
+    this.<DataResource>compareDataValues(
         actual().iterateCombiningEntries(),
         expectation.iterateCombiningEntries(),
         errors,
         "combining");
-    this.compareDataValues(
+    this.<DataResource>compareDataValues(
         actual().iterateOverwritableEntries(),
         expectation.iterateOverwritableEntries(),
         errors,

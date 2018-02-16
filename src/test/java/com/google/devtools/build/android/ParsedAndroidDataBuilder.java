@@ -48,7 +48,10 @@ public class ParsedAndroidDataBuilder {
 
   public static ParsedAndroidData empty() {
     return ParsedAndroidData.of(
-        ImmutableSet.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+        ImmutableSet.<MergeConflict>of(),
+        ImmutableMap.<DataKey, DataResource>of(),
+        ImmutableMap.<DataKey, DataResource>of(),
+        ImmutableMap.<DataKey, DataAsset>of());
   }
 
   public static ParsedAndroidDataBuilder buildOn(

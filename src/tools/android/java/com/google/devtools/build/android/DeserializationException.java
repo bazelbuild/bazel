@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import java.io.IOException;
 
 /** Thrown when there is an error during deserialization. */
 public class DeserializationException extends RuntimeException {
@@ -29,7 +30,7 @@ public class DeserializationException extends RuntimeException {
     this.isLegacy = false;
   }
 
-  public DeserializationException(Throwable e) {
+  public DeserializationException(IOException e) {
     super(e);
     this.isLegacy = false;
   }

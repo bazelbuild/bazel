@@ -123,7 +123,7 @@ public class AndroidDataBuilder {
   }
 
   public AndroidDataBuilder createManifest(String path, String manifestPackage, String... lines) {
-    return createManifest(path, manifestPackage, ImmutableList.of(), lines);
+    return createManifest(path, manifestPackage, ImmutableList.<String>of(), lines);
   }
 
   public AndroidDataBuilder createManifest(

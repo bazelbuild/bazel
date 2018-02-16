@@ -47,7 +47,7 @@ public class ParsedAndroidDataTest {
   @Before
   public void createCleanEnvironment() {
     fs = Jimfs.newFileSystem();
-    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.of());
+    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.<String>of());
   }
 
   @Test
@@ -98,9 +98,10 @@ public class ParsedAndroidDataTest {
                 ImmutableSet.of(
                     MergeConflict.of(
                         key, DataValueFile.of(assetSource), DataValueFile.of(otherAssetSource))),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(key, DataValueFile.of(otherAssetSource.overwrite(assetSource)))));
+                ImmutableMap.<DataKey, DataResource>of(),
+                ImmutableMap.<DataKey, DataResource>of(),
+                ImmutableMap.<DataKey, DataAsset>of(
+                    key, DataValueFile.of(otherAssetSource.overwrite(assetSource)))));
   }
 
   @Test
@@ -141,7 +142,7 @@ public class ParsedAndroidDataTest {
                     .buildDependency()));
 
     FullyQualifiedName.Factory fqnFactory =
-        FullyQualifiedName.Factory.from(ImmutableList.of("hdpi", "v4"));
+        FullyQualifiedName.Factory.from(ImmutableList.<String>of("hdpi", "v4"));
     FullyQualifiedName drawable = fqnFactory.parse("drawable/seven_eight");
     assertThat(dataSet.getOverwritingResources())
         .containsExactly(
@@ -182,7 +183,9 @@ public class ParsedAndroidDataTest {
     ParsedAndroidData dataSet =
         ParsedAndroidData.from(
             new UnvalidatedAndroidData(
-                ImmutableList.of(root), ImmutableList.of(), root.resolve("AndroidManifest.xml")));
+                ImmutableList.of(root),
+                ImmutableList.<Path>of(),
+                root.resolve("AndroidManifest.xml")));
 
     FullyQualifiedName layoutFoo = fqnFactory.parse("layout/foo");
     FullyQualifiedName drawableMenu = fqnFactory.parse("drawable/menu");
@@ -359,7 +362,7 @@ public class ParsedAndroidDataTest {
                         DataResourceXml.createWithNoNamespace(
                             otherRootValuesPath,
                             ResourcesAttribute.of(attributeFoo, "foo", "fooVal")))),
-                ImmutableMap.of(
+                ImmutableMap.<DataKey, DataResource>of(
                     drawableMenu, // key
                     DataValueFile.of(
                         otherRootDrawableMenuPath.overwrite(rootDrawableMenuPath)), // value
@@ -373,12 +376,12 @@ public class ParsedAndroidDataTest {
                         SimpleXmlResourceValue.createWithValue(
                             SimpleXmlResourceValue.Type.STRING, "way out")) // value
                     ),
-                ImmutableMap.of(
+                ImmutableMap.<DataKey, DataResource>of(
                     idSomeId, // key
                     DataResourceXml.createWithNoNamespace(
                         rootValuesPath, IdXmlResourceValue.of()) // value
                     ),
-                ImmutableMap.of()));
+                ImmutableMap.<DataKey, DataAsset>of()));
   }
 
   @Test
@@ -544,7 +547,7 @@ public class ParsedAndroidDataTest {
             .createManifest("AndroidManifest.xml", "com.carroll.lewis", "")
             .buildParsed();
     FullyQualifiedName.Factory fqnV21Factory =
-        FullyQualifiedName.Factory.from(ImmutableList.of("v21"));
+        FullyQualifiedName.Factory.from(ImmutableList.<String>of("v21"));
     FullyQualifiedName drawableKey = fqnV21Factory.parse("drawable/some_drawable");
     Path drawablePath = root.resolve("res/drawable-v21/some_drawable.xml");
     assertThat(dataSet.getOverwritingResources())

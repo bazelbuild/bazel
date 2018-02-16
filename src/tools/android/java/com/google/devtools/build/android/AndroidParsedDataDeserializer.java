@@ -15,6 +15,7 @@ package com.google.devtools.build.android;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -23,9 +24,6 @@ import com.google.devtools.build.android.ParsedAndroidData.Builder;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
-import com.google.devtools.build.android.proto.SerializeFormat.ProtoSource;
-import com.google.devtools.build.android.proto.SerializeFormat.XmlNamespaces;
-import com.google.devtools.build.android.xml.Namespaces;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,11 +34,12 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /** Deserializes {@link DataKey}, {@link DataValue} entries from a binary file. */
 public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
@@ -88,7 +87,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
   }
 
   public static AndroidParsedDataDeserializer create() {
-    return new AndroidParsedDataDeserializer(ImmutableSet.of());
+    return new AndroidParsedDataDeserializer(ImmutableSet.<String>of());
   }
 
   private AndroidParsedDataDeserializer(ImmutableSet<String> filteredResources) {
@@ -109,8 +108,12 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     Stopwatch timer = Stopwatch.createStarted();
     try (InputStream in = Files.newInputStream(inPath, StandardOpenOption.READ)) {
       FileSystem currentFileSystem = inPath.getFileSystem();
-      deserializeEntries(consumers, in, currentFileSystem, filteredResources);
-    } catch (Throwable e) {
+      Header header = Header.parseDelimitedFrom(in);
+      if (header == null) {
+        throw new DeserializationException("No Header found in " + inPath);
+      }
+      readEntriesSegment(consumers, in, currentFileSystem, header);
+    } catch (IOException e) {
       throw new DeserializationException("Error deserializing " + inPath, e);
     } finally {
       logger.fine(
@@ -118,103 +121,59 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     }
   }
 
-  public static void deserializeEntries(
-      KeyValueConsumers consumers,
-      InputStream in,
-      FileSystem currentFileSystem,
-      ImmutableSet<String> filteredResources)
+  private void readEntriesSegment(
+      KeyValueConsumers consumers, InputStream in, FileSystem currentFileSystem, Header header)
       throws IOException {
-
-    /*
-      Serialization order:
-         header
-         keys
-         sources
-         values
-         xml
-         namespaces
-    */
-
-    Header header = Header.parseDelimitedFrom(in);
-    if (header == null) {
-      throw new DeserializationException("Invalid Format: no header");
+    int numberOfEntries = header.getEntryCount();
+    Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>> keys =
+        Maps.newLinkedHashMapWithExpectedSize(numberOfEntries);
+    for (int i = 0; i < numberOfEntries; i++) {
+      SerializeFormat.DataKey protoKey = SerializeFormat.DataKey.parseDelimitedFrom(in);
+      if (protoKey.hasResourceType()) {
+        FullyQualifiedName resourceName = FullyQualifiedName.fromProto(protoKey);
+        keys.put(
+            resourceName,
+            resourceName.isOverwritable()
+                ? consumers.overwritingConsumer
+                : consumers.combiningConsumer);
+      } else {
+        keys.put(RelativeAssetPath.fromProto(protoKey, currentFileSystem), consumers.assetConsumer);
+      }
     }
 
-    DataKey[] keys = new DataKey[header.getKeyCount()];
-    for (int i = 0; i < header.getKeyCount(); i++) {
-      final SerializeFormat.DataKey proto = SerializeFormat.DataKey.parseDelimitedFrom(in);
-      keys[i] =
-          proto.hasResourceType()
-              ? FullyQualifiedName.fromProto(proto)
-              : RelativeAssetPath.fromProto(proto, currentFileSystem);
-    }
+    // Read back the sources table.
+    DataSourceTable sourceTable = DataSourceTable.read(in, currentFileSystem, header);
 
-    DataSource[] sources = new DataSource[header.getSourceCount()];
-    for (int i = 0; i < header.getSourceCount(); i++) {
-      sources[i] = DataSource.from(ProtoSource.parseDelimitedFrom(in), currentFileSystem);
-    }
-
-    List<SerializeFormat.DataValue> values = new ArrayList<>(header.getValueCount());
-    for (int i = 0; i < header.getValueCount(); i++) {
-      final SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
-      if (sources[protoValue.getSourceId()].shouldFilter(filteredResources)) {
+    // TODO(corysmith): Make this a lazy read of the values.
+    for (Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
+      SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
+      DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
+      // Compose the `shortPath` manually to ensure it uses a forward slash.
+      // Using Path.subpath would return a backslash-using path on Windows.
+      String shortPath =
+          source.getPath().getParent().getFileName() + "/" + source.getPath().getFileName();
+      if (filteredResources.contains(shortPath) && !Files.exists(source.getPath())) {
+        // Skip files that were filtered out during analysis.
+        // TODO(asteinb): Properly filter out these files from android_library symbol files during
+        // analysis instead, and remove this list.
         continue;
       }
-      values.add(protoValue);
-    }
-
-    XmlResourceValue[] xml = new XmlResourceValue[header.getXmlCount()];
-    for (int i = 0; i < header.getXmlCount(); i++) {
-      xml[i] =
-          XmlResourceValues.valueFromProto(SerializeFormat.DataValueXml.parseDelimitedFrom(in));
-    }
-
-    Namespaces[] namespaces = new Namespaces[header.getNamespacesCount()];
-    for (int i = 0; i < header.getNamespacesCount(); i++) {
-      final XmlNamespaces proto = XmlNamespaces.parseDelimitedFrom(in);
-      namespaces[i] = Namespaces.fromProto(proto);
-    }
-
-    for (SerializeFormat.DataValue protoValue : values) {
-      final DataSource dataSource =
-          sources[protoValue.getSourceId()].overwrite(
-              protoValue
-                  .getOverwrittenSourceIdList()
-                  .stream()
-                  .map(sourceId -> sources[sourceId])
-                  .collect(Collectors.toList())
-                  .toArray(new DataSource[0]));
-
-      final DataKey dataKey = keys[protoValue.getKeyId()];
-
-      switch (dataKey.getKeyType()) {
-        case ASSET_PATH:
-          consumers.assetConsumer.accept(dataKey, DataValueFile.of(dataSource));
-          break;
-        case FULL_QUALIFIED_NAME:
-          final FullyQualifiedName fullyQualifiedName = (FullyQualifiedName) dataKey;
-
-          KeyValueConsumer<DataKey, DataResource> consumer =
-              fullyQualifiedName.isOverwritable()
-                  ? consumers.overwritingConsumer
-                  : consumers.combiningConsumer;
-
-          if (!protoValue.hasXmlId()) {
-            consumer.accept(dataKey, DataValueFile.of(dataSource));
-          } else {
-            consumer.accept(
-                fullyQualifiedName,
-                protoValue.hasNamespaceId()
-                    ? DataResourceXml.createWithNamespaces(
-                        dataSource,
-                        xml[protoValue.getXmlId()],
-                        namespaces[protoValue.getNamespaceId()])
-                    : DataResourceXml.createWithNoNamespace(
-                        dataSource, xml[protoValue.getXmlId()]));
-          }
-          break;
-        default:
-          throw new DeserializationException("Unknown key type " + dataKey);
+      if (protoValue.hasXmlValue()) {
+        // TODO(corysmith): Figure out why the generics are wrong.
+        // If I use Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>>, I can put
+        // consumers into the map, but I can't call accept.
+        // If I use Map<DataKey, KeyValueConsumer<DataKey, ? super DataValue>>, I can consume
+        // but I can't put.
+        // Same for below.
+        @SuppressWarnings("unchecked")
+        KeyValueConsumer<DataKey, DataValue> value =
+            (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
+        value.accept(entry.getKey(), DataResourceXml.from(protoValue, source));
+      } else {
+        @SuppressWarnings("unchecked")
+        KeyValueConsumer<DataKey, DataValue> value =
+            (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
+        value.accept(entry.getKey(), DataValueFile.of(source));
       }
     }
   }

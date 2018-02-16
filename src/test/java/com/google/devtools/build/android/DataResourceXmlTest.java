@@ -77,11 +77,12 @@ public class DataResourceXmlTest {
   @Before
   public void createCleanEnvironment() {
     fs = Jimfs.newFileSystem();
-    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.of());
+    fqnFactory = FullyQualifiedName.Factory.from(ImmutableList.<String>of());
   }
 
   private Path writeResourceXml(String... xml) throws IOException {
-    return writeResourceXml(ImmutableMap.of(), ImmutableMap.of(), xml);
+    return writeResourceXml(ImmutableMap.<String, String>of(), ImmutableMap.<String, String>of(),
+        xml);
   }
 
   private Path writeResourceXml(Map<String, String> namespaces, Map<String, String> attributes,
@@ -756,7 +757,7 @@ public class DataResourceXmlTest {
         .xmlContentsIsEqualTo(
             resourcesXmlFrom(
                 XLIFF_NAMESPACES,
-                ImmutableMap.of(),
+                ImmutableMap.<String, String>of(),
                 source,
                 "<string name=\"star_rating\">Check out our 5",
                 "    <xliff:g id=\"star\">\\u2605</xliff:g>",
@@ -791,7 +792,7 @@ public class DataResourceXmlTest {
         .xmlContentsIsEqualTo(
             resourcesXmlFrom(
                 ImmutableMap.of("ns1", "urn:oasis:names:tc:xliff:document:1.2"),
-                ImmutableMap.of(),
+                ImmutableMap.<String, String>of(),
                 source,
                 "<string name=\"star_rating\">Check out our 5    ",
                 "<ns1:g xmlns:foglebert=\"defogle\" " + "foglebert:id=\"star\">\\u2605</ns1:g>",
@@ -829,10 +830,11 @@ public class DataResourceXmlTest {
       "</string>"
     };
 
-    Path source = writeResourceXml(XLIFF_NAMESPACES, ImmutableMap.of(), xml);
+    Path source = writeResourceXml(XLIFF_NAMESPACES, ImmutableMap.<String, String>of(), xml);
     assertAbout(resourcePaths)
         .that(parsedAndWritten(source, fqn("string/AAP_SUGGEST_ACCEPT_SUGGESTION")))
-        .xmlContentsIsEqualTo(resourcesXmlFrom(XLIFF_NAMESPACES, ImmutableMap.of(), source, xml));
+        .xmlContentsIsEqualTo(
+            resourcesXmlFrom(XLIFF_NAMESPACES, ImmutableMap.<String, String>of(), source, xml));
   }
 
   @Test
@@ -1272,7 +1274,8 @@ public class DataResourceXmlTest {
   }
 
   private String[] resourcesXmlFrom(Path source, String... lines) {
-    return resourcesXmlFrom(ImmutableMap.of(), ImmutableMap.of(), source, lines);
+    return resourcesXmlFrom(ImmutableMap.<String, String>of(), ImmutableMap.<String, String>of(),
+        source, lines);
   }
 
   private String[] resourcesXmlFrom(Map<String, String> namespaces, Map<String, String> attributes,

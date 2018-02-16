@@ -54,7 +54,7 @@ class DependencyAndroidData extends SerializedAndroidData {
     // The local symbols.bin is optional -- if it is missing, we'll use the full R.txt
     Path rTxt = exists(fileSystem.getPath(parts[3]));
     ImmutableList<Path> assetDirs =
-        parts[1].length() == 0 ? ImmutableList.of() : splitPaths(parts[1], fileSystem);
+        parts[1].length() == 0 ? ImmutableList.<Path>of() : splitPaths(parts[1], fileSystem);
     CompiledResources compiledSymbols = null;
     Path symbolsBin = null;
 

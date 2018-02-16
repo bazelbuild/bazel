@@ -325,7 +325,7 @@ public class ResourceShrinkerAction {
           aaptConfigOptions.splits,
           new MergedAndroidData(
               shrunkResources, resourceFiles.resolve("assets"), options.primaryManifest),
-          ImmutableList.of() /* libraries */,
+          ImmutableList.<DependencyAndroidData>of() /* libraries */,
           generatedSources,
           options.shrunkApk,
           null /* proguardOutput */,

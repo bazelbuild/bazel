@@ -24,8 +24,10 @@ import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
+import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
@@ -155,13 +157,23 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeTo(OutputStream out) throws IOException {
-    SerializeFormat.DataValueXml.newBuilder()
-        .setType(XmlType.PLURAL)
-        .putAllAttribute(attributes)
-        .putAllMappedStringValue(values)
-        .build()
-        .writeDelimitedTo(out);
+  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
+      throws IOException {
+    SerializeFormat.DataValue.Builder builder =
+        XmlResourceValues.newSerializableDataValueBuilder(sourceId);
+    SerializeFormat.DataValue value =
+        builder
+            .setXmlValue(
+                builder
+                    .getXmlValueBuilder()
+                    .setType(XmlType.PLURAL)
+                    .putAllNamespace(namespaces.asMap())
+                    .putAllAttribute(attributes)
+                    .putAllMappedStringValue(values))
+            .build();
+    value.writeDelimitedTo(output);
+    return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())
+        + value.getSerializedSize();
   }
 
   @Override

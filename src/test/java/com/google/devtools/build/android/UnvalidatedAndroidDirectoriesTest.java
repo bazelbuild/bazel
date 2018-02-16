@@ -52,18 +52,30 @@ public class UnvalidatedAndroidDirectoriesTest {
   }
 
   @Test public void flagParseWithEmptyAssets() throws Exception {
-    Truth.assertThat(UnvalidatedAndroidDirectories.valueOf("res:", fileSystem))
-        .isEqualTo(new UnvalidatedAndroidDirectories(ImmutableList.of(res), ImmutableList.of()));
+    Truth.assertThat(
+        UnvalidatedAndroidDirectories.valueOf(
+            "res:", fileSystem)
+    ).isEqualTo(
+        new UnvalidatedAndroidDirectories(ImmutableList.of(res),
+            ImmutableList.<Path>of()));
   }
 
   @Test public void flagParseWithEmptyResources() throws Exception {
-    Truth.assertThat(UnvalidatedAndroidDirectories.valueOf(":assets", fileSystem))
-        .isEqualTo(new UnvalidatedAndroidDirectories(ImmutableList.of(), ImmutableList.of(assets)));
+    Truth.assertThat(
+        UnvalidatedAndroidDirectories.valueOf(
+            ":assets", fileSystem)
+    ).isEqualTo(
+        new UnvalidatedAndroidDirectories(ImmutableList.<Path>of(),
+            ImmutableList.of(assets)));
   }
 
   @Test public void flagParseWithEmptyResourcesAndAssets() throws Exception {
-    Truth.assertThat(UnvalidatedAndroidDirectories.valueOf(":", fileSystem))
-        .isEqualTo(new UnvalidatedAndroidDirectories(ImmutableList.of(), ImmutableList.of()));
+    Truth.assertThat(
+        UnvalidatedAndroidDirectories.valueOf(
+            ":", fileSystem)
+    ).isEqualTo(
+        new UnvalidatedAndroidDirectories(ImmutableList.<Path>of(),
+            ImmutableList.<Path>of()));
   }
 
 }

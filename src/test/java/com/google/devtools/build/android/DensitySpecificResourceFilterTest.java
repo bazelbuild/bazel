@@ -132,7 +132,8 @@ public class DensitySpecificResourceFilterTest {
   @Test public void testUnknownDensityFails() {
     try {
       checkTransformedResources(
-          ImmutableList.of(), ImmutableList.of(), ImmutableList.of("xxhdpi", "322dpi"));
+          ImmutableList.<String>of(), ImmutableList.<String>of(),
+          ImmutableList.of("xxhdpi", "322dpi"));
       fail("expected MergingException");
     } catch (MergingException expected) {
     }

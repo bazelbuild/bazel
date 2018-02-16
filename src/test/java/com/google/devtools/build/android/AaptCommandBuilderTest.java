@@ -111,7 +111,7 @@ public class AaptCommandBuilderTest {
 
   @Test
   public void testAddRepeatedWithEmptyValuesAddsNothing() {
-    assertThat(new AaptCommandBuilder(aapt).addRepeated("-0", ImmutableList.of()).build())
+    assertThat(new AaptCommandBuilder(aapt).addRepeated("-0", ImmutableList.<String>of()).build())
         .doesNotContain("-0");
   }
 

@@ -20,18 +20,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
-import com.google.devtools.build.android.xml.ResourcesAttribute;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import com.google.protobuf.CodedOutputStream;
-import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringWriter;
@@ -445,36 +442,5 @@ public class XmlResourceValues {
 
   public static boolean isSkip(StartElement start) {
     return isTag(start, TAG_SKIP);
-  }
-
-  /** Creates the value from a proto. */
-  public static XmlResourceValue valueFromProto(SerializeFormat.DataValueXml proto) {
-    try {
-      Preconditions.checkArgument(proto.hasType());
-      switch (proto.getType()) {
-        case ARRAY:
-          return ArrayXmlResourceValue.from(proto);
-        case SIMPLE:
-          return SimpleXmlResourceValue.from(proto);
-        case ATTR:
-          return AttrXmlResourceValue.from(proto);
-        case ID:
-          return IdXmlResourceValue.of();
-        case PLURAL:
-          return PluralXmlResourceValue.from(proto);
-        case PUBLIC:
-          return PublicXmlResourceValue.from(proto);
-        case STYLE:
-          return StyleXmlResourceValue.from(proto);
-        case STYLEABLE:
-          return StyleableXmlResourceValue.from(proto);
-        case RESOURCES_ATTRIBUTE:
-          return ResourcesAttribute.from(proto);
-        default:
-          throw new IllegalArgumentException();
-      }
-    } catch (InvalidProtocolBufferException e) {
-      throw new DeserializationException(e);
-    }
   }
 }

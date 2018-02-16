@@ -41,6 +41,7 @@ import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.TransformerFactoryConfigurationError;
@@ -161,8 +162,8 @@ public class ManifestMergerAction {
   private static Options options;
 
   private static Path removePermissions(Path manifest, Path outputDir)
-      throws IOException, ParserConfigurationException, TransformerException,
-          TransformerFactoryConfigurationError, SAXException {
+      throws IOException, ParserConfigurationException, TransformerConfigurationException,
+          TransformerException, TransformerFactoryConfigurationError, SAXException {
     DocumentBuilder docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
     Document doc = docBuilder.parse(manifest.toFile());
     for (String tag : PERMISSION_TAGS) {

@@ -54,10 +54,8 @@ public class DensitySpecificManifestProcessorTest {
         "<manifest xmlns:android='http://schemas.android.com/apk/res/android'",
         "          package='com.google.test'>",
         "</manifest>");
-    Path modified =
-        new DensitySpecificManifestProcessor(
-                ImmutableList.of(), tmp.resolve("manifest-filtered/AndroidManifest.xml"))
-            .process(manifest);
+    Path modified = new DensitySpecificManifestProcessor(ImmutableList.<String>of(),
+        tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
     assertThat((Object) modified).isEqualTo(manifest);
   }
 
@@ -142,7 +140,7 @@ public class DensitySpecificManifestProcessorTest {
     Path modified = new DensitySpecificManifestProcessor(densities,
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
     assertThat((Object) modified).isNotNull();
-    checkModification(modified, ImmutableList.of("ldpi", "xxhdpi"));
+    checkModification(modified, ImmutableList.<String>of("ldpi", "xxhdpi"));
   }
 
   @Test public void testMalformedManifest() throws Exception {

@@ -32,7 +32,6 @@ import java.util.Objects;
  * <p>Note: Assets have no qualifiers or packages.
  */
 public class RelativeAssetPath implements DataKey {
-
   /** A Factory that creates RelativeAssetsPath objects whose paths are relative to a given path. */
   public static class Factory {
     private final Path assetRoot;
@@ -111,11 +110,12 @@ public class RelativeAssetPath implements DataKey {
   }
 
   @Override
-  public void writeTo(OutputStream out) throws IOException {
+  public void serializeTo(OutputStream output, int valueSize) throws IOException {
     SerializeFormat.DataKey.newBuilder()
         .setKeyValue(relativeAssetPath.toString())
+        .setValueSize(valueSize)
         .build()
-        .writeDelimitedTo(out);
+        .writeDelimitedTo(output);
   }
 
   @Override

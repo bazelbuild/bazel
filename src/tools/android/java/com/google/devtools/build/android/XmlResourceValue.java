@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.devtools.build.android.xml.Namespaces;
+import java.io.IOException;
+import java.io.OutputStream;
+
 /** An {@link XmlResourceValue} is extracted from xml files in the resource 'values' directory. */
-public interface XmlResourceValue extends Writeable {
+public interface XmlResourceValue {
   /**
    * Each XmlValue is expected to write a valid representation in xml to the writer.
    *
@@ -23,6 +27,9 @@ public interface XmlResourceValue extends Writeable {
    * @param mergedDataWriter The target writer.
    */
   void write(FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter);
+
+  /** Serializes the resource value to the OutputStream and returns the bytes written. */
+  int serializeTo(int sourceId, Namespaces namespaces, OutputStream out) throws IOException;
 
   /**
    * Combines these xml values together and returns a single value.

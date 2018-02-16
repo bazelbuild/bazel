@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.devtools.build.android.AndroidDataSerializer.SerializeEntryVisitor;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * Represents the value associated with DataKey interface for resource and asset values.
@@ -28,8 +28,9 @@ public interface DataValue {
    */
   DataSource source();
 
-  /** Serializes the value to the entry visitor. */
-  SerializeEntryVisitor serializeTo(SerializeEntryVisitor visitor) throws IOException;
+  /** Serializes to a supplied stream and returns the number of bytes written. */
+  int serializeTo(
+      DataSourceTable sourceTable, OutputStream output) throws IOException;
 
   DataValue update(DataSource source);
 

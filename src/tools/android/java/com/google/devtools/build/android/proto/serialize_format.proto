@@ -24,29 +24,25 @@ option java_package = "com.google.devtools.build.android.proto";
 // See com.google.devtools.build.android.AndroidDataSerializer for details on
 // how these messages are used.
 message Header {
+  // The number of entries stored in a serialized buffer.
+  optional uint32 entry_count = 1;
   // The number of ProtoSource entries.
-  optional uint32 source_count = 1;
-  // The number of keys in the serialized buffer.
-  optional uint32 key_count = 2;
-  // The number of values in the serialized buffer.
-  optional uint32 value_count = 3;
-  // The number of xml definitions in the serialized buffer.
-  optional uint32 xml_count = 4;
-  // The number of xml namespace definitions in the serialized buffer.
-  optional uint32 namespaces_count = 5;
+  optional uint32 source_count = 2;
 }
 
 // The serialized format for a DataKey.
 message DataKey {
   // Used for both the FullyQualifiedName name and RelativeAssetPath path
-  // Required
-  optional string key_value = 1;
+  optional string key_value = 2;
   // The resource type for FullyQualifiedNames
-  optional string resource_type = 2;
-  optional string key_package = 3;
-  repeated string qualifiers = 4;
+  optional string resource_type = 3;
+  optional string key_package = 4;
+  repeated string qualifiers = 5;
+  // The size of the associated value. Useful for calculating an offset.
+  // Required
+  optional int32 value_size = 6;
   // Whether this DataKey is a reference to another DataKey.
-  optional bool reference = 5;
+  optional bool reference = 7;
 }
 
 // The serialized format for a DataValue.
@@ -55,41 +51,30 @@ message DataValue {
   // Required
   optional uint32 source_id = 1;
 
-  // Index of stored xml value
-  optional uint32 xml_id = 2;
-
-  // Index of stored key.
-  // Required
-  optional uint32 key_id = 3;
-
-  // Sources that have been overwritten.
-  repeated uint32 overwritten_source_id = 4;
-
-  optional uint32 namespace_id = 5;
+  // If xml_value is defined it's an xml value, otherwise, it's a file value.
+  optional DataValueXml xml_value= 2;
 }
 
 // A container for all the source information to be persisted.
 message ProtoSource {
   // Required
   optional string filename = 1;
-}
-
-message XmlNamespaces {
-  map<string, string> namespace = 1;
+  // The indexes of sources this source replaces.
+  repeated uint32 overwritten = 2;
 }
 
 // The container for a serialized xml value.
 message DataValueXml {
   enum XmlType {
-    ARRAY = 1;
-    ATTR = 2;
-    ID = 3;
-    PLURAL = 4;
-    PUBLIC = 5;
-    SIMPLE = 6;
-    STYLEABLE = 7;
-    STYLE = 8;
-    RESOURCES_ATTRIBUTE = 9;
+    ARRAY = 0;
+    ATTR = 1;
+    ID = 2;
+    PLURAL = 3;
+    PUBLIC = 4;
+    SIMPLE = 5;
+    STYLEABLE = 6;
+    STYLE = 7;
+    RESOURCES_ATTRIBUTE = 8;
   }
 
   optional XmlType type = 1;
@@ -100,4 +85,5 @@ message DataValueXml {
   optional string value_type = 6;
   repeated DataKey references = 7;
   map<string, string> attribute = 8;
+  map<string, string> namespace = 9;
 }

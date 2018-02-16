@@ -162,7 +162,7 @@ public class AndroidResourceValidatorAction {
           options.packageForR,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
-          ImmutableList.of(),
+          ImmutableList.<String>of(),
           dummyManifest,
           resources,
           assets,

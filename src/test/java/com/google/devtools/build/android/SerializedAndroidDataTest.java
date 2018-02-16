@@ -78,10 +78,11 @@ public class SerializedAndroidDataTest {
   @Test
   public void flagParseWithEmptyResources() throws Exception {
     Truth.assertThat(
-            SerializedAndroidData.valueOf(";assets;//some_target/foo:foo;symbols.bin", fileSystem))
+            SerializedAndroidData.valueOf(
+                ";assets;//some_target/foo:foo;symbols.bin", fileSystem))
         .isEqualTo(
             new SerializedAndroidData(
-                ImmutableList.of(), ImmutableList.of(assets), label, symbols));
+                ImmutableList.<Path>of(), ImmutableList.of(assets), label, symbols));
   }
 
   @Test
@@ -89,7 +90,8 @@ public class SerializedAndroidDataTest {
     Truth.assertThat(
             SerializedAndroidData.valueOf("res;;//some_target/foo:foo;symbols.bin", fileSystem))
         .isEqualTo(
-            new SerializedAndroidData(ImmutableList.of(res), ImmutableList.of(), label, symbols));
+            new SerializedAndroidData(
+                ImmutableList.of(res), ImmutableList.<Path>of(), label, symbols));
   }
 
   @Test
@@ -97,7 +99,8 @@ public class SerializedAndroidDataTest {
     Truth.assertThat(
             SerializedAndroidData.valueOf(";;//some_target/foo:foo;symbols.bin", fileSystem))
         .isEqualTo(
-            new SerializedAndroidData(ImmutableList.of(), ImmutableList.of(), label, symbols));
+            new SerializedAndroidData(
+                ImmutableList.<Path>of(), ImmutableList.<Path>of(), label, symbols));
   }
 
   @Test
