@@ -67,6 +67,11 @@ public abstract class ResourceContainer {
   @Nullable
   public abstract Artifact getApk();
 
+  @SkylarkCallable(
+    name = "manifest",
+    doc = "Returns the manifest for the target.",
+    structField = true
+  )
   public abstract Artifact getManifest();
 
   @Nullable
