@@ -279,6 +279,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           supportData.getDirectProtoSources(),
           supportData.getTransitiveImports(),
           supportData.getProtosInDirectDeps(),
+          supportData.getTransitiveProtoPathFlags(),
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "Java (Immutable)",

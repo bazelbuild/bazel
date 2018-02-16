@@ -359,7 +359,8 @@ public class ProtoCompileActionBuilder {
       NestedSet<Artifact> protosInDirectDeps,
       Artifact output,
       boolean allowServices,
-      NestedSet<Artifact> transitiveDescriptorSets) {
+      NestedSet<Artifact> transitiveDescriptorSets,
+      NestedSet<String> protoSourceRoots) {
     if (protosToCompile.isEmpty()) {
       ruleContext.registerAction(
           FileWriteAction.createEmptyWithInputs(
@@ -374,6 +375,7 @@ public class ProtoCompileActionBuilder {
             protosToCompile,
             transitiveSources,
             protosInDirectDeps,
+            protoSourceRoots,
             ruleContext.getLabel(),
             ImmutableList.of(output),
             "Descriptor Set",
@@ -420,6 +422,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       NestedSet<Artifact> protosInDirectDeps,
+      NestedSet<String> protoSourceRoots,
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -431,6 +434,7 @@ public class ProtoCompileActionBuilder {
             protosToCompile,
             transitiveSources,
             protosInDirectDeps,
+            protoSourceRoots,
             ruleLabel,
             outputs,
             flavorName,
@@ -447,6 +451,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
+      NestedSet<String> protoSourceRoots,
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -481,6 +486,7 @@ public class ProtoCompileActionBuilder {
                 toolchainInvocations,
                 protosToCompile,
                 transitiveSources,
+                protoSourceRoots,
                 areDepsStrict(ruleContext) ? protosInDirectDeps : null,
                 ruleLabel,
                 allowServices,
@@ -517,6 +523,7 @@ public class ProtoCompileActionBuilder {
       List<ToolchainInvocation> toolchainInvocations,
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
+      NestedSet<String> transitiveProtoPathFlags,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
       Label ruleLabel,
       boolean allowServices,
@@ -569,6 +576,8 @@ public class ProtoCompileActionBuilder {
     if (!allowServices) {
       cmdLine.add("--disallow_services");
     }
+
+    cmdLine.addAll(transitiveProtoPathFlags);
 
     return cmdLine.build();
   }

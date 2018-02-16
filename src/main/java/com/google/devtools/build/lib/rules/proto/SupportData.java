@@ -33,9 +33,11 @@ public abstract class SupportData {
       ImmutableList<Artifact> protoSources,
       NestedSet<Artifact> protosInDirectDeps,
       NestedSet<Artifact> transitiveImports,
+      NestedSet<String> transitiveProtoPathFlags,
       boolean hasProtoSources) {
     return new AutoValue_SupportData(
-        nonWeakDepsPredicate, protoSources, transitiveImports, protosInDirectDeps, hasProtoSources);
+        nonWeakDepsPredicate, protoSources, transitiveImports, protosInDirectDeps,
+        transitiveProtoPathFlags, hasProtoSources);
   }
 
   public abstract Predicate<TransitiveInfoCollection> getNonWeakDepsPredicate();
@@ -48,6 +50,12 @@ public abstract class SupportData {
    * .proto files in the direct dependencies of this proto_library. Used for strict deps checking.
    */
   public abstract NestedSet<Artifact> getProtosInDirectDeps();
+
+  /**
+   * Directories of .proto sources collected from the transitive closure, each prefixed with
+   * {@code --proto_path}. These flags will be passed to {@code protoc} in the specified oreder.
+   */
+  public abstract NestedSet<String> getTransitiveProtoPathFlags();
 
   public abstract boolean hasProtoSources();
 

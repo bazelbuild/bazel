@@ -82,6 +82,7 @@ public class ProtoCompileActionBuilderTest {
                 STABLE_ORDER,
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -92,6 +93,7 @@ public class ProtoCompileActionBuilderTest {
                 new ToolchainInvocation("pluginName", toolchainWithPlugin, "bar.srcjar")),
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>stableOrder().build(),
             null /* protosInDirectDeps */,
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -117,6 +119,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.of(derivedArtifact("//:dont-care", "source_file.proto")),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* transitiveImports */,
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -124,6 +127,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.<ToolchainInvocation>of() /* toolchainInvocations */,
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             null /* protosInDirectDeps */,
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -150,6 +154,7 @@ public class ProtoCompileActionBuilderTest {
                 STABLE_ORDER,
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -157,6 +162,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.of(new ToolchainInvocation("dontcare", toolchain, "foo.srcjar")),
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             supportData.getProtosInDirectDeps(),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -182,6 +188,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -189,6 +196,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.<ToolchainInvocation>of(),
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             supportData.getProtosInDirectDeps(),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             false /* allowServices */,
@@ -224,6 +232,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -231,6 +240,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.of(new ToolchainInvocation("pluginName", toolchain, outReplacement)),
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             supportData.getProtosInDirectDeps(),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -253,6 +263,7 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
+            /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
     ProtoLangToolchainProvider toolchain1 =
@@ -276,6 +287,7 @@ public class ProtoCompileActionBuilderTest {
               new ToolchainInvocation("pluginName", toolchain2, "outReplacement")),
           supportData.getDirectProtoSources(),
           supportData.getTransitiveImports(),
+          /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
           supportData.getProtosInDirectDeps(),
           Label.parseAbsoluteUnchecked("//foo:bar"),
           true /* allowServices */,

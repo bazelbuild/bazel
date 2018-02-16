@@ -85,6 +85,7 @@ public class JavaProtoSkylarkCommon {
         supportData.getDirectProtoSources(),
         supportData.getTransitiveImports(),
         supportData.getProtosInDirectDeps(),
+        supportData.getTransitiveProtoPathFlags(),
         skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",

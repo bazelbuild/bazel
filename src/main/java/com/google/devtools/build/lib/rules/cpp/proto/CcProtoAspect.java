@@ -341,6 +341,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           supportData.getDirectProtoSources(),
           supportData.getTransitiveImports(),
           supportData.getProtosInDirectDeps(),
+          supportData.getTransitiveProtoPathFlags(),
           ruleContext.getLabel(),
           outputs,
           "C++",
