@@ -281,7 +281,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "android_cpu",
-      defaultValue = "armeabi",
+      defaultValue = "armeabi-v7a",
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
