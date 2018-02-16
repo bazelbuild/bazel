@@ -78,6 +78,7 @@ def create_android_sdk_rules(
           for filename in ["android.jar", "framework.aidl"]
       ] + select({
           ":windows": windows_only_files,
+          ":windows_x86_32": windows_only_files,
           "//conditions:default": linux_only_files,
       }),
   )
@@ -97,21 +98,25 @@ def create_android_sdk_rules(
         proguard = "@bazel_tools//third_party/java/proguard",
         aapt = select({
             ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
+            ":windows_x86_32": "build-tools/%s/aapt.exe" % build_tools_directory,
             "//conditions:default": ":aapt_binary",
         }),
         aapt2 = select({
             ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
+            ":windows_x86_32": "build-tools/%s/aapt2.exe" % build_tools_directory,
             "//conditions:default": ":aapt2_binary",
         }),
         dx = ":dx_binary",
         main_dex_list_creator = ":main_dex_list_creator",
         adb = select({
             ":windows": "platform-tools/adb.exe",
+            ":windows_x86_32": "platform-tools/adb.exe",
             "//conditions:default": "platform-tools/adb",
         }),
         framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
         aidl = select({
             ":windows": "build-tools/%s/aidl.exe" % build_tools_directory,
+            ":windows_x86_32": "build-tools/%s/aidl.exe" % build_tools_directory,
             "//conditions:default": ":aidl_binary",
         }),
         android_jar = "platforms/android-%d/android.jar" % api_level,
@@ -120,6 +125,7 @@ def create_android_sdk_rules(
         apksigner = ":apksigner",
         zipalign = select({
             ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            ":windows_x86_32": "build-tools/%s/zipalign.exe" % build_tools_directory,
             "//conditions:default": ":zipalign_binary",
         }),
     )
@@ -189,6 +195,7 @@ def create_android_sdk_rules(
       name = "fail",
       srcs = select({
           ":windows": [":generate_fail_cmd"],
+          ":windows_x86_32": [":generate_fail_cmd"],
           "//conditions:default": [":generate_fail_sh"],
       }),
   )

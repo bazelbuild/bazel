@@ -152,7 +152,9 @@ def get_cpu_value(repository_ctx):
   if os_name.find("freebsd") != -1:
     return "freebsd"
   if os_name.find("windows") != -1:
-    return "x64_windows"
+    result = repository_ctx.execute(["uname", "-m"])
+    return "x64_windows" if result.stdout.strip() in ["amd64", "x86_64", "x64"] else "x86_32_windows"
+
   # Use uname to figure out whether we are on x86_32 or x86_64
   result = repository_ctx.execute(["uname", "-m"])
   if result.stdout.strip() in ["power", "ppc64le", "ppc", "ppc64"]:

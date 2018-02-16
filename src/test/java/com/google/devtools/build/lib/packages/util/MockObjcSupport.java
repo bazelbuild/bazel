@@ -263,6 +263,7 @@ public final class MockObjcSupport {
               // TODO(b/36471772): Remove 'k8' once unit tests do not require a host configuration
               // transition from the apple crosstool configuration.
               "x64_windows",
+              "x86_32_windows",
               "ios_x86_64",
               "ios_i386",
               "ios_armv7",

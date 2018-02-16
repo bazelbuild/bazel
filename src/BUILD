@@ -11,6 +11,7 @@ filegroup(
         "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
         "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
         "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
+        "//src/conditions:windows_x86_32": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [
@@ -169,6 +170,11 @@ py_binary(
             "//src/tools/launcher:launcher",
             "//third_party/def_parser:def_parser",
         ],
+        "//src/conditions:windows_x86_32": [
+            "//src/java_tools/singlejar:SingleJar_deploy.jar",
+            "//src/tools/launcher:launcher",
+            "//third_party/def_parser:def_parser",
+        ],
         "//src/conditions:arm": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
@@ -183,6 +189,9 @@ py_binary(
             "@openjdk_macos//file",
         ],
         "//src/conditions:windows": [
+            "@openjdk_win//file",
+        ],
+        "//src/conditions:windows_x86_32": [
             "@openjdk_win//file",
         ],
         "//conditions:default": [
@@ -399,5 +408,10 @@ test_suite(
 alias(
     name = "windows",
     actual = "//src/conditions:windows",
+    visibility = ["//visibility:public"],
+)
+alias(
+    name = "windows_x86_32",
+    actual = "//src/conditions:windows_x86_32",
     visibility = ["//visibility:public"],
 )

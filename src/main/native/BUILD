@@ -5,6 +5,7 @@ genrule(
         "//src/conditions:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
         "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
         "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
+        "//src/conditions:windows_x86_32": ["//tools/jdk:jni_md_header-windows"],
         "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],

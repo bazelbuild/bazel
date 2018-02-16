@@ -14,6 +14,7 @@ java_test(
     name = "RepositoryTests",
     srcs = select({
         "//src/conditions:windows": [":RepositoryTests_windows_srcs"],
+        "//src/conditions:windows_x86_64": [":RepositoryTests_windows_srcs"],
         "//conditions:default": glob(["*.java"]),
     }),
     data = ["test_decompress_archive.tar.gz"],

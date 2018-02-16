@@ -181,14 +181,15 @@ def _find_vcvarsall_bat_script(repository_ctx, vc_path):
 
   return vcvarsall
 
-def setup_vc_env_vars(repository_ctx, vc_path):
+def setup_vc_env_vars(repository_ctx, vc_path, architecture):
   """Get environment variables set by VCVARSALL.BAT. Doesn't %-escape the result!"""
   vcvarsall = _find_vcvarsall_bat_script(repository_ctx, vc_path)
   if not vcvarsall:
     return None
+  argument = "amd64" if architecture == "x64_windows" else ""
   repository_ctx.file("get_env.bat",
                       "@echo off\n" +
-                      "call \"" + vcvarsall + "\" amd64 > NUL \n" +
+                      "call \"" + vcvarsall + "\" " + argument + " > NUL \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB%,WINDOWSSDKDIR=%WINDOWSSDKDIR% \n", True)
   env = _add_system_root(repository_ctx,
                          {"PATH": "", "INCLUDE": "", "LIB": "", "WINDOWSSDKDIR": ""})
@@ -199,8 +200,12 @@ def setup_vc_env_vars(repository_ctx, vc_path):
     env_map[key] = escape_string(value.replace("\\", "\\\\"))
   return env_map
 
-def find_msvc_tool(repository_ctx, vc_path, tool):
+def find_msvc_tool(repository_ctx, vc_path, architecture, tool):
   """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
+  # Make some architecture-specific substitutions.
+  if architecture == "x64_windows":
+    if tool == "ml.exe":
+      tool = "ml64.exe"
   tool_path = ""
   if _is_vs_2017(vc_path):
     # For VS 2017, the tools are under a directory like:
@@ -210,44 +215,46 @@ def find_msvc_tool(repository_ctx, vc_path, tool):
       return None
     # Normally there should be only one child directory under %VC_PATH%\TOOLS\MSVC,
     # but iterate every directory to be more robust.
+    subfolder = "HostX64\\x64\\" if architecture == "x64_windows" else "HostX86\\x86\\"
     for path in dirs:
-      tool_path = str(path) + "\\bin\\HostX64\\x64\\" + tool
+      tool_path = str(path) + "\\bin\\" + subfolder + tool
       if repository_ctx.path(tool_path).exists:
         break
   else:
     # For VS 2015 and older version, the tools are under:
-    # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64
-    tool_path = vc_path + "\\bin\\amd64\\" + tool
+    # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin{,\amd64}
+    subfolder = "amd64\\" if architecture == "x64_windows" else ""
+    tool_path = vc_path + "\\bin\\" + subfolder + tool
 
   if not repository_ctx.path(tool_path).exists:
     return None
 
   return tool_path
 
-def _find_missing_vc_tools(repository_ctx, vc_path):
+def _find_missing_vc_tools(repository_ctx, vc_path, architecture):
   """Check if any required tool is missing under given VC path."""
   missing_tools = []
   if not _find_vcvarsall_bat_script(repository_ctx, vc_path):
     missing_tools.append("VCVARSALL.BAT")
 
-  for tool in ["cl.exe", "link.exe", "lib.exe", "ml64.exe"]:
-    if not find_msvc_tool(repository_ctx, vc_path, tool):
+  for tool in ["cl.exe", "link.exe", "lib.exe", "ml.exe"]:
+    if not find_msvc_tool(repository_ctx, vc_path, architecture, tool):
       missing_tools.append(tool)
 
   return missing_tools
 
-def _is_support_whole_archive(repository_ctx, vc_path):
+def _is_support_whole_archive(repository_ctx, vc_path, architecture):
   """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
   env = repository_ctx.os.environ
   if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
     return False
-  linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  linker = find_msvc_tool(repository_ctx, vc_path, architecture, "link.exe")
   result = execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/WHOLEARCHIVE") != -1
 
-def _is_support_debug_fastlink(repository_ctx, vc_path):
+def _is_support_debug_fastlink(repository_ctx, vc_path, architecture):
   """Run MSVC linker alone to see if it supports /DEBUG:FASTLINK."""
-  linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  linker = find_msvc_tool(repository_ctx, vc_path, architecture, "link.exe")
   result = execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
 
@@ -291,29 +298,25 @@ def _escaped_cuda_compute_capabilities(repository_ctx):
       auto_configure_fail("Invalid compute capability: %s" % capability)
   return capabilities
 
-def configure_windows_toolchain(repository_ctx):
-  """Configure C++ toolchain on Windows."""
-  repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static.windows"), "BUILD")
-
-  vc_path = find_vc_path(repository_ctx)
+def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_symlinks):
   missing_tools = None
-  vc_installation_error_script = "vc_installation_error.bat"
+  vc_installation_error_script = "vc_installation_error_%s.bat" % (architecture)
   if not vc_path:
-    tpl(repository_ctx, vc_installation_error_script, {"%{vc_error_message}" : ""})
+    tpl(repository_ctx, "vc_installation_error.bat", {"%{vc_error_message}" : ""}, out=vc_installation_error_script)
   else:
-    missing_tools = _find_missing_vc_tools(repository_ctx, vc_path)
+    missing_tools = _find_missing_vc_tools(repository_ctx, vc_path, architecture)
     if missing_tools:
-      tpl(repository_ctx, vc_installation_error_script, {
+      tpl(repository_ctx, "vc_installation_error.bat", {
         "%{vc_error_message}" : "\r\n".join([
           "echo. 1>&2",
           "echo Visual C++ build tools seems to be installed at %s 1>&2" % vc_path,
           "echo But Bazel can't find the following tools: 1>&2",
           "echo     %s 1>&2" % ", ".join(missing_tools),
           "echo. 1>&2",
-      ])})
+      ])}, out=vc_installation_error_script)
 
   if not vc_path or missing_tools:
-    tpl(repository_ctx, "CROSSTOOL", {
+    return {
         "%{cpu}": "x64_windows",
         "%{default_toolchain_name}": "msvc_x64",
         "%{toolchain_name}": "msys_x64",
@@ -335,24 +338,23 @@ def configure_windows_toolchain(repository_ctx):
         "%{link_content}": "",
         "%{cxx_builtin_include_directory}": "",
         "%{coverage}": "",
-    })
-    return
+    }
 
-  env = setup_vc_env_vars(repository_ctx, vc_path)
+  env = setup_vc_env_vars(repository_ctx, vc_path, architecture)
   escaped_paths = escape_string(env["PATH"])
   escaped_include_paths = escape_string(env["INCLUDE"])
   escaped_lib_paths = escape_string(env["LIB"])
   escaped_tmp_dir = escape_string(
       get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"))
-  msvc_cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
-  msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
-  msvc_link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
-  msvc_lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
+  msvc_cl_path = find_msvc_tool(repository_ctx, vc_path, architecture, "cl.exe").replace("\\", "/")
+  msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, architecture, "ml.exe").replace("\\", "/")
+  msvc_link_path = find_msvc_tool(repository_ctx, vc_path, architecture, "link.exe").replace("\\", "/")
+  msvc_lib_path = find_msvc_tool(repository_ctx, vc_path, architecture, "lib.exe").replace("\\", "/")
   escaped_cxx_include_directories = []
   compilation_mode_content = ""
 
   if _is_use_msvc_wrapper(repository_ctx):
-    if _is_support_whole_archive(repository_ctx, vc_path):
+    if _is_support_whole_archive(repository_ctx, vc_path, architecture):
       support_whole_archive = "True"
     else:
       support_whole_archive = "False"
@@ -362,24 +364,26 @@ def configure_windows_toolchain(repository_ctx):
     if cuda_path:
       escaped_paths = escape_string(cuda_path.replace("\\", "\\\\") + "/bin;") + escaped_paths
     escaped_compute_capabilities = _escaped_cuda_compute_capabilities(repository_ctx)
-    tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{lib_tool}": escape_string(msvc_lib_path),
-        "%{support_whole_archive}": support_whole_archive,
-        "%{cuda_compute_capabilities}": ", ".join(
-            ["\"%s\"" % c for c in escaped_compute_capabilities]),
-        "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
-    })
+    if initialize_symlinks:
+      tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
+          "%{lib_tool}": escape_string(msvc_lib_path),
+          "%{support_whole_archive}": support_whole_archive,
+          "%{cuda_compute_capabilities}": ", ".join(
+              ["\"%s\"" % c for c in escaped_compute_capabilities]),
+          "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
+      })
     # nvcc will generate some source files under %{nvcc_tmp_dir_name}
     # The generated files are guranteed to have unique name, so they can share the same tmp directory
     escaped_cxx_include_directories += [ "cxx_builtin_include_directory: \"%s\"" % nvcc_tmp_dir_name ]
-    msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
-    for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:
-      repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/" + f)
-    msvc_wrapper = msvc_wrapper.get_child("pydir")
-    for f in ["msvc_cl.py", "msvc_link.py"]:
-      repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
-    python_binary = _find_python(repository_ctx)
-    tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": escape_string(python_binary)})
+    if initialize_symlinks:
+      msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
+      for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:
+        repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/" + f)
+      msvc_wrapper = msvc_wrapper.get_child("pydir")
+      for f in ["msvc_cl.py", "msvc_link.py"]:
+        repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
+      python_binary = _find_python(repository_ctx)
+      tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": escape_string(python_binary)})
     msvc_cl_path = "wrapper/bin/msvc_cl.bat"
     msvc_link_path = "wrapper/bin/msvc_link.bat"
     msvc_lib_path = "wrapper/bin/msvc_link.bat"
@@ -389,12 +393,11 @@ def configure_windows_toolchain(repository_ctx):
     if path:
       escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
 
-  support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, vc_path)
-
-  tpl(repository_ctx, "CROSSTOOL", {
-      "%{cpu}": "x64_windows",
-      "%{default_toolchain_name}": "msvc_x64",
-      "%{toolchain_name}": "msys_x64",
+  support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, vc_path, architecture)
+  return {
+      "%{cpu}": architecture,
+      "%{default_toolchain_name}": "msvc_x64" if architecture == "x64_windows" else "msvc_x86_32",
+      "%{toolchain_name}": "msys_x64" if architecture == "x64_windows" else "msys_x86_32",
       "%{msvc_env_tmp}": escaped_tmp_dir,
       "%{msvc_env_path}": escaped_paths,
       "%{msvc_env_include}": escaped_include_paths,
@@ -412,5 +415,18 @@ def configure_windows_toolchain(repository_ctx):
       "%{dbg_content}": "",
       "%{link_content}": "",
       "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
-      "%{coverage}": "",
-  })
+      "%{coverage}": ""
+  }
+
+def configure_windows_toolchain(repository_ctx):
+  """Configure C++ toolchain on Windows."""
+  repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static.windows"), "BUILD")
+
+  vc_path = find_vc_path(repository_ctx)
+
+  all_options = _get_toolchain_options(repository_ctx, vc_path, "x64_windows", initialize_symlinks=True)
+  x86_32_options = _get_toolchain_options(repository_ctx, vc_path, "x86_32_windows", initialize_symlinks=False)
+  for option in x86_32_options:
+    all_options[option.replace('}', '_x86_32}')] = x86_32_options[option]
+
+  tpl(repository_ctx, "CROSSTOOL", all_options)

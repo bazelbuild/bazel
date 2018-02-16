@@ -72,14 +72,17 @@ py_test(
     size = "medium",
     srcs = select({
         "//src/conditions:windows": ["bazel_windows_test.py"],
+        "//src/conditions:windows_x86_32": ["bazel_windows_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_test.py",
+        "//src/conditions:windows_x86_32": "bazel_windows_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
+        "//src/conditions:windows_x86_32": [":test_base"],
         "//conditions:default": [],
     }),
 )
@@ -108,14 +111,17 @@ py_test(
     size = "large",
     srcs = select({
         "//src/conditions:windows": ["bazel_windows_cpp_test.py"],
+        "//src/conditions:windows_x86_32": ["bazel_windows_cpp_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_cpp_test.py",
+        "//src/conditions:windows_x86_32": "bazel_windows_cpp_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
         "//src/conditions:windows": [":test_base"],
+        "//src/conditions:windows_x86_32": [":test_base"],
         "//conditions:default": [],
     }),
 )

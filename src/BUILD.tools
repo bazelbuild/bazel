@@ -4,6 +4,11 @@ alias(
     actual = "//src/conditions:windows",
     visibility = ["//visibility:public"],
 )
+alias(
+    name = "windows_x86_32",
+    actual = "//src/conditions:windows_x86_32",
+    visibility = ["//visibility:public"],
+)
 
 # config_setting alias left here because bazel-only third_party code is pointing to it
 alias(

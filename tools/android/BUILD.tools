@@ -80,6 +80,7 @@ java_import(
     name = "singlejar_deploy",
     jars = select({
         "//src/conditions:windows": ["@bazel_tools//tools/jdk:singlejar"],
+        "//src/conditions:windows_x86_32": ["@bazel_tools//tools/jdk:singlejar"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
@@ -90,6 +91,7 @@ java_binary(
     main_class = "com.google.devtools.build.singlejar.SingleJar",
     runtime_deps = select({
         "//src/conditions:windows": [":singlejar_deploy"],
+        "//src/conditions:windows_x86_32": [":singlejar_deploy"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
@@ -119,11 +121,13 @@ genrule(
     ],
     tools = select({
         "//src/conditions:windows": [":singlejar_javabin"],
+        "//src/conditions:windows_x86_32": [":singlejar_javabin"],
         "//conditions:default": ["@bazel_tools//tools/jdk:singlejar"],
     }),
     outs = ["java_lang_extras.jar"],
     cmd = select({
         "//src/conditions:windows": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
+        "//src/conditions:windows_x86_32": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
         "//conditions:default": gen_java_lang_extras_jar_cmd % "@bazel_tools//tools/jdk:singlejar",
     }),
     visibility = ["//visibility:private"],

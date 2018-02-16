@@ -34,6 +34,7 @@ cc_toolchain_suite(
     name = "toolchain",
     toolchains = {
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
+        "x86_32_windows|msvc-cl": ":cc-compiler-x86_32_windows",
         "x64_windows|msvc-cl": ":cc-compiler-x64_windows",
         "x64_windows|msys-gcc": ":cc-compiler-x64_windows_msys",
         "x64_windows|mingw-gcc": ":cc-compiler-x64_windows_mingw",
@@ -154,6 +155,33 @@ toolchain(
 )
 
 cc_toolchain(
+    name = "cc-compiler-x86_32_windows",
+    all_files = ":every-file-x86_32_windows",
+    compiler_files = ":compile-x86_32_windows",
+    cpu = "x86_32_windows",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+toolchain(
+    name = "cc-toolchain-x86_32_windows",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:windows",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_32",
+        "@bazel_tools//platforms:windows",
+    ],
+    toolchain = ":cc-compiler-x86_32_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+cc_toolchain(
     name = "cc-compiler-ios_x86_64",
     all_files = ":empty",
     compiler_files = ":empty",
@@ -187,7 +215,22 @@ filegroup(
 )
 
 filegroup(
+    name = "every-file-x86_32_windows",
+    srcs = [
+        ":compile-x86_32_windows",
+    ],
+)
+
+filegroup(
     name = "compile-x64_windows",
+    srcs = glob([
+        "wrapper/bin/msvc_*",
+        "wrapper/bin/pydir/msvc*",
+    ]),
+)
+
+filegroup(
+    name = "compile-x86_32_windows",
     srcs = glob([
         "wrapper/bin/msvc_*",
         "wrapper/bin/pydir/msvc*",

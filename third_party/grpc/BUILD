@@ -12,6 +12,11 @@ config_setting(
     values = { "cpu": "x64_windows" },
 )
 
+config_setting(
+    name = "windows_x86_32",
+    values = { "cpu": "x86_32_windows" },
+)
+
 filegroup(
     name = "bootstrap-grpc-jars",
     srcs = [
@@ -436,6 +441,7 @@ cc_library(
             "-Wimplicit-function-declaration",
         ],
         ":windows": ["/we4013"],
+        ":windows_x86_32": ["/we4013"],
     }),
     includes = [
         ".",
