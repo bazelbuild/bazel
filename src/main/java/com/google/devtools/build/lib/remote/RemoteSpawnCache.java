@@ -135,7 +135,7 @@ final class RemoteSpawnCache implements SpawnCache {
       // There's an IO error. Fall back to local execution.
       reportOnce(
           Event.warn(
-              "Some artifacts failed be downloaded from the remote cache: " + e.getMessage()));
+              "Some artifacts failed to be downloaded from the remote cache: " + e.getMessage()));
     } finally {
       withMetadata.detach(previous);
     }
