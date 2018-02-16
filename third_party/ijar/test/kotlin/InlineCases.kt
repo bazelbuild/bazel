@@ -1,4 +1,4 @@
-fun freeInlineFun(op: () -> Unit) { op() }
+inline fun freeInlineFun(op: () -> Unit) { op() }
 
 class ClassWithInline {
     inline fun classInlineFun(op: () -> Unit) { op() }
