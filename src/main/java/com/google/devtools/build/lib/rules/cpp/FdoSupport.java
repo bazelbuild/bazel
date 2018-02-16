@@ -35,6 +35,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -131,14 +134,18 @@ import java.util.zip.ZipFile;
  * discarded after configured targets are created.
  */
 @Immutable
+@AutoCodec
 public class FdoSupport {
+  public static final ObjectCodec<FdoSupport> CODEC = new FdoSupport_AutoCodec();
+
   /**
    * The FDO mode we are operating in.
    *
    * LIPO can only be active if this is not <code>OFF</code>, but all of the modes below can work
    * with LIPO either off or on.
    */
-  private enum FdoMode {
+  @VisibleForSerialization
+  enum FdoMode {
     /** FDO is turned off. */
     OFF,
 
@@ -227,7 +234,9 @@ public class FdoSupport {
    * @param fdoProfile path to the profile file passed to --fdo_optimize option
    * @param lipoMode value of the --lipo_mode option
    */
-  private FdoSupport(
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  FdoSupport(
       FdoMode fdoMode,
       LipoMode lipoMode,
       ArtifactRoot fdoRoot,
@@ -260,6 +269,12 @@ public class FdoSupport {
 
   public Path getFdoProfile() {
     return fdoProfile;
+  }
+
+  @VisibleForSerialization
+  // This method only exists for serialization.
+  FdoZipContents getFdoZipContents() {
+      return gcdaFiles == null ? null : new FdoZipContents(gcdaFiles, imports);
   }
 
   /** Creates an initialized {@link FdoSupport} instance. */
@@ -328,11 +343,17 @@ public class FdoSupport {
   }
 
   @Immutable
-  private static class FdoZipContents {
+  @AutoCodec
+  static class FdoZipContents {
+    public static final ObjectCodec<FdoZipContents> CODEC =
+        new FdoSupport_FdoZipContents_AutoCodec();
+
     private final ImmutableSet<PathFragment> gcdaFiles;
     private final ImmutableMultimap<PathFragment, PathFragment> imports;
 
-    private FdoZipContents(ImmutableSet<PathFragment> gcdaFiles,
+    @VisibleForSerialization
+    @AutoCodec.Instantiator
+    FdoZipContents(ImmutableSet<PathFragment> gcdaFiles,
         ImmutableMultimap<PathFragment, PathFragment> imports) {
       this.gcdaFiles = gcdaFiles;
       this.imports = imports;

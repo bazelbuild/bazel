@@ -18,13 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(name = "TemplateVariables", doc = "Make variables exposed by the current target.")
 @Immutable
+@AutoCodec
 public final class TemplateVariableInfo extends NativeInfo {
+  public static final ObjectCodec<TemplateVariableInfo> CODEC =
+      new TemplateVariableInfo_AutoCodec();
+
   public static final String SKYLARK_NAME = "TemplateVariableInfo";
 
   public static final NativeProvider<TemplateVariableInfo> PROVIDER =
@@ -32,6 +38,7 @@ public final class TemplateVariableInfo extends NativeInfo {
 
   private final ImmutableMap<String, String> variables;
 
+  @AutoCodec.Instantiator
   public TemplateVariableInfo(ImmutableMap<String, String> variables) {
     super(PROVIDER);
     this.variables = variables;
