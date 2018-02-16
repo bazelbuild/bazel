@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
@@ -375,8 +376,12 @@ public class ConfiguredTargetQueryEnvironment
   private Collection<ConfiguredTarget> filterFwdDeps(
       ConfiguredTarget configTarget, Collection<ConfiguredTarget> rawFwdDeps)
       throws InterruptedException {
-    if (!(configTarget instanceof RuleConfiguredTarget) || settings.isEmpty()) {
+    if (settings.isEmpty()) {
       return rawFwdDeps;
+    }
+    if (configTarget instanceof AliasConfiguredTarget
+        && ((AliasConfiguredTarget) configTarget).getActual() instanceof RuleConfiguredTarget) {
+      return getAllowedDeps(((AliasConfiguredTarget) configTarget).getActual(), rawFwdDeps);
     }
     return getAllowedDeps(configTarget, rawFwdDeps);
   }
