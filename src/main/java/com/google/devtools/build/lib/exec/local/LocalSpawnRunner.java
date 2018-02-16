@@ -278,11 +278,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               new Command(
                   cmdLine.toArray(new String[0]),
                   localEnvProvider.rewriteLocalEnv(
-                      spawn.getEnvironment(),
-                      execRoot,
-                      LocalSpawnRunner.this.localExecutionOptions.localTmpRoot,
-                      commandTmpDir.getPathString(),
-                      productName),
+                      spawn.getEnvironment(), execRoot, commandTmpDir.getPathString(), productName),
                   execRoot.getPathFile());
         } else {
           stdOut = outErr.getOutputStream();
@@ -291,11 +287,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               new Command(
                   spawn.getArguments().toArray(new String[0]),
                   localEnvProvider.rewriteLocalEnv(
-                      spawn.getEnvironment(),
-                      execRoot,
-                      LocalSpawnRunner.this.localExecutionOptions.localTmpRoot,
-                      commandTmpDir.getPathString(),
-                      productName),
+                      spawn.getEnvironment(), execRoot, commandTmpDir.getPathString(), productName),
                   execRoot.getPathFile(),
                   policy.getTimeout());
         }

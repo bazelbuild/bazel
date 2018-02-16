@@ -60,11 +60,7 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
 
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env,
-      Path execRoot,
-      String localTmpRoot,
-      String fallbackTmpDir,
-      String productName)
+      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName)
       throws IOException {
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
     boolean containsAppleSdkVersion =
@@ -72,16 +68,13 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
 
     ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();
     newEnvBuilder.putAll(Maps.filterKeys(env, k -> !k.equals("TMPDIR")));
-    String p = localTmpRoot;
+    String p = clientEnv.get("TMPDIR");
     if (Strings.isNullOrEmpty(p)) {
-      p = clientEnv.get("TMPDIR");
-      if (Strings.isNullOrEmpty(p)) {
-        // Do not use `fallbackTmpDir`, use `/tmp` instead. This way if the user didn't export
-        // TMPDIR in their environment, Bazel will still set a TMPDIR that's Posixy enough and plays
-        // well with heavily path-length-limited scenarios, such as the socket creation scenario
-        // that motivated https://github.com/bazelbuild/bazel/issues/4376.
-        p = "/tmp";
-      }
+      // Do not use `fallbackTmpDir`, use `/tmp` instead. This way if the user didn't export TMPDIR
+      // in their environment, Bazel will still set a TMPDIR that's Posixy enough and plays well
+      // with heavily path-length-limited scenarios, such as the socket creation scenario that
+      // motivated https://github.com/bazelbuild/bazel/issues/4376.
+      p = "/tmp";
     }
     newEnvBuilder.put("TMPDIR", p);
 
