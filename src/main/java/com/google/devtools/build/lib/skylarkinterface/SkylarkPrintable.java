@@ -21,7 +21,7 @@ package com.google.devtools.build.lib.skylarkinterface;
 public interface SkylarkPrintable {
 
   /**
-   * Print an official representation of object x.
+   * Prints an official representation of object x.
    *
    * <p>For regular data structures, the value should be parsable back into an equal data structure.
    *
@@ -30,7 +30,7 @@ public interface SkylarkPrintable {
   void repr(SkylarkPrinter printer);
 
   /**
-   * Print an informal, human-readable representation of the value.
+   * Prints an informal, human-readable representation of the value.
    *
    * <p>By default dispatches to the {@code repr} method.
    *
@@ -38,5 +38,21 @@ public interface SkylarkPrintable {
    */
   default void str(SkylarkPrinter printer) {
     repr(printer);
+  }
+
+  /**
+   * Prints an informal debug representation of the value.
+   *
+   * <p>This debug representation is only ever printed to the terminal or to another out-of-band
+   * channel, and is never accessible to Skylark code. Therefore, it is safe for the debug
+   * representation to reveal properties of the value that are usually hidden for the sake of
+   * performance, determinism, or forward-compatibility.
+   *
+   * <p>By default dispatches to the {@code str} method.
+   *
+   * @param printer a printer to be used for formatting nested values.
+   */
+  default void debugPrint(SkylarkPrinter printer) {
+    str(printer);
   }
 }

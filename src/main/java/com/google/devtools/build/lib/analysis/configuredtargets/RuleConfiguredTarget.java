@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
@@ -170,5 +172,22 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<target " + getLabel() + ">");
+  }
+
+  @Override
+  public void debugPrint(SkylarkPrinter printer) {
+    // Show the names of the provider keys that this target propagates.
+    // Provider key names might potentially be *private* information, and thus a comprehensive
+    // list of provider keys should not be exposed in any way other than for debug information.
+    printer.append("<target " + getLabel() + ", keys:[");
+    ImmutableList.Builder<String> skylarkProviderKeyStrings = ImmutableList.builder();
+    for (int providerIndex = 0; providerIndex < providers.getProviderCount(); providerIndex++) {
+      Object providerKey = providers.getProviderKeyAt(providerIndex);
+      if (providerKey instanceof Provider.Key) {
+        skylarkProviderKeyStrings.add(providerKey.toString());
+      }
+    }
+    printer.append(Joiner.on(", ").join(skylarkProviderKeyStrings.build()));
+    printer.append("]>");
   }
 }

@@ -73,6 +73,13 @@ public class Printer {
   // These static methods proxy to the similar methods of BasePrinter
 
   /**
+   * Format an object with Skylark's {@code debugPrint}.
+   */
+  public static String debugPrint(Object x) {
+    return getPrinter().debugPrint(x).toString();
+  }
+
+  /**
    * Format an object with Skylark's {@code str}.
    */
   public static String str(Object x) {
@@ -280,6 +287,21 @@ public class Printer {
     @Override
     public String toString() {
       return buffer.toString();
+    }
+
+    /**
+     * Print an informal debug-only representation of object x.
+     *
+     * @param o the object
+     * @return the buffer, in fluent style
+     */
+    public BasePrinter debugPrint(Object o) {
+      if (o instanceof SkylarkValue) {
+        ((SkylarkValue) o).debugPrint(this);
+        return this;
+      }
+
+      return this.str(o);
     }
 
     /**
