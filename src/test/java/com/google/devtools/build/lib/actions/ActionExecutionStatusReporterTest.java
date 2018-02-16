@@ -16,15 +16,14 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -37,34 +36,11 @@ import org.mockito.Mockito;
 /** Test for the {@link ActionExecutionStatusReporter} class. */
 @RunWith(JUnit4.class)
 public class ActionExecutionStatusReporterTest {
-  private static final class MockClock implements Clock {
-    private long millis = 0;
-
-    public void advance() {
-      advanceBy(1000);
-    }
-
-    public void advanceBy(long millis) {
-      Preconditions.checkArgument(millis > 0);
-      this.millis += millis;
-    }
-
-    @Override
-    public long currentTimeMillis() {
-      return millis;
-    }
-
-    @Override
-    public long nanoTime() {
-      // There's no reason to use a nanosecond-precision for a mock clock.
-      return millis * 1000000L;
-    }
-  }
 
   private EventCollectionApparatus events;
   private ActionExecutionStatusReporter statusReporter;
   private EventBus eventBus;
-  private MockClock clock = new MockClock();
+  private ManualClock clock = new ManualClock();
 
   private Action mockAction(String progressMessage) {
     Action action = Mockito.mock(Action.class);
@@ -126,12 +102,12 @@ public class ActionExecutionStatusReporterTest {
     verifyNoOutput();
     verifyWarningOutput("There are no active jobs - stopping the build");
     setPreparing(mockAction("action1"));
-    clock.advance();
+    clock.advanceMillis(1000);
     verifyWarningOutput("Still waiting for unfinished jobs");
     setScheduling(mockAction("action2"));
-    clock.advance();
+    clock.advanceMillis(1000);
     setRunning(mockAction("action3"), "remote");
-    clock.advance();
+    clock.advanceMillis(1000);
     setRunning(mockAction("action4"), "something else");
     verifyOutput("Still waiting for 4 jobs to complete:",
         "Preparing:", "action1, 3 s",
@@ -150,16 +126,16 @@ public class ActionExecutionStatusReporterTest {
     Action action = mockAction("action1");
     verifyNoOutput();
     setPreparing(action);
-    clock.advanceBy(1200);
+    clock.advanceMillis(1200);
     verifyOutput("Still waiting for 1 job to complete:", "Preparing:", "action1, 1 s");
-    clock.advanceBy(5000);
+    clock.advanceMillis(5000);
 
     setScheduling(action);
-    clock.advanceBy(1200);
+    clock.advanceMillis(1200);
     // Only started *scheduling* 1200 ms ago, not 6200 ms ago.
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
     setRunning(action, "remote");
-    clock.advanceBy(3000);
+    clock.advanceMillis(3000);
     // Only started *running* 3000 ms ago, not 4200 ms ago.
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 3 s");
     statusReporter.remove(action);
@@ -171,15 +147,15 @@ public class ActionExecutionStatusReporterTest {
     Action action = mockAction("action1");
     verifyNoOutput();
     setPreparing(action);
-    clock.advance();
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Preparing:", "action1, 1 s");
     setScheduling(action);
-    clock.advance();
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
     setRunning(action, "remote");
-    clock.advance();
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 1 s");
-    clock.advance();
+    clock.advanceMillis(1000);
 
     eventBus.post(ActionStatusMessage.analysisStrategy(action));
     // Locality strategy was changed, so timer was reset to 0 s.
@@ -197,7 +173,7 @@ public class ActionExecutionStatusReporterTest {
 
     for (Action a : actions) {
       setScheduling(a);
-      clock.advance();
+      clock.advanceMillis(1000);
     }
 
     verifyOutput("Still waiting for 6 jobs to complete:",
@@ -207,7 +183,7 @@ public class ActionExecutionStatusReporterTest {
 
     for (Action a : actions) {
       setRunning(a, a.getProgressMessage().startsWith("remote") ? "remote" : "something else");
-      clock.advanceBy(2000);
+      clock.advanceMillis(2000);
     }
 
     // Timers got reset because now they are no longer scheduling but running.
@@ -229,7 +205,7 @@ public class ActionExecutionStatusReporterTest {
       Action a = mockAction("a" + i);
       actions.add(a);
       setScheduling(a);
-      clock.advance();
+      clock.advanceMillis(1000);
     }
     verifyOutput("Still waiting for 100 jobs to complete:", "Scheduling:",
         "a1, 100 s", "a2, 99 s", "a3, 98 s", "a4, 97 s", "a5, 96 s",
@@ -237,7 +213,7 @@ public class ActionExecutionStatusReporterTest {
 
     for (int i = 0; i < 5; i++) {
       setRunning(actions.get(i), "something else");
-      clock.advance();
+      clock.advanceMillis(1000);
     }
     verifyOutput("Still waiting for 100 jobs to complete:",
         "Running (something else):", "a1, 5 s", "a2, 4 s", "a3, 3 s", "a4, 2 s", "a5, 1 s",
@@ -249,13 +225,13 @@ public class ActionExecutionStatusReporterTest {
   public void testOrdering() throws Exception {
     verifyNoOutput();
     setScheduling(mockAction("a1"));
-    clock.advance();
+    clock.advanceMillis(1000);
     setPreparing(mockAction("b1"));
-    clock.advance();
+    clock.advanceMillis(1000);
     setPreparing(mockAction("b2"));
-    clock.advance();
+    clock.advanceMillis(1000);
     setScheduling(mockAction("a2"));
-    clock.advance();
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 4 jobs to complete:",
         "Preparing:", "b1, 3 s", "b2, 2 s",
         "Scheduling:", "a1, 4 s", "a2, 1 s");
