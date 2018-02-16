@@ -10,6 +10,14 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":ImportDepsChecker_deploy.jar",
+    ],
+)
+
 java_library(
     name = "import_deps_checker",
     srcs = glob(
@@ -31,6 +39,10 @@ java_binary(
     name = "ImportDepsChecker",
     srcs = ["Main.java"],
     main_class = "com.google.devtools.build.importdeps.Main",
+    visibility = [
+        "//src/java_tools/import_deps_checker:__subpackages__",
+        "//tools/android:__pkg__",
+    ],
     deps = [
         ":import_deps_checker",
         "//src/main/java/com/google/devtools/common/options",
