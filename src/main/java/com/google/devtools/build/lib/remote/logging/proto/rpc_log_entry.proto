@@ -21,24 +21,41 @@ import "google/longrunning/operations.proto";
 import "google/watcher/v1/watch.proto";
 import "google/rpc/status.proto";
 
-option java_package = "com.google.devtools.build.lib.remote";
+option java_package = "com.google.devtools.build.lib.remote.logging";
 
+// A single log entry for gRPC calls related to remote execution.
 message LogEntry {
+  // Log entry details for call
+  // [Remote Execution API][google.devtools.remoteexecution.v1test.Execution.Execute]
   message ExecuteEntry {
+    // [Remote Execution API][google.devtools.remoteexecution.v1test.ExecuteResponse]
+    // sent by the Execute call.
     google.devtools.remoteexecution.v1test.ExecuteRequest request = 1;
+    // The [google.longrunning.Operation][google.longrunning.Operation] received
+    // by the Execute call.
     google.longrunning.Operation operation = 2;
   }
 
+  // Log entry details for call [Watcher API][google.watcher.v1.Watcher.Watch].
   message WatchEntry {
+    // The [Watcher API][google.watcher.v1.Request] sent by the Watch call.
     google.watcher.v1.Request request = 1;
+    // A list of [Watcher API][google.watcher.v1.ChangeBatch] received (in
+    // stream) by the watch call.
     repeated google.watcher.v1.ChangeBatch change_batch = 2;
   }
 
+  // Request metadata included in call.
   google.devtools.remoteexecution.v1test.RequestMetadata metadata = 1;
+
+  // Status of the call on close.
   google.rpc.Status status = 2;
+
+  // Name of the method called.
   string method_name = 3;
 
-  oneof method_entry {
+  // Additional logged details for specific methods.
+  oneof details {
     ExecuteEntry execute_entry = 4;
     WatchEntry watch_entry = 5;
   }

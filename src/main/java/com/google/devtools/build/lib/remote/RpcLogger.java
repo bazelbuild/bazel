@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.remote.RpcLogEntry.LogEntry;
+import com.google.devtools.build.lib.remote.logging.RpcLogEntry.LogEntry;
 import java.io.IOException;
 import java.io.OutputStream;
 
