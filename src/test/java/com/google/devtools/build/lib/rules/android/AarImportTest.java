@@ -127,7 +127,7 @@ public class AarImportTest extends BuildViewTestCase {
     ConfiguredTarget androidLibraryTarget = getConfiguredTarget("//java:lib");
 
     NestedSet<Artifact> nativeLibs =
-        androidLibraryTarget.get(NativeLibsZipsInfo.PROVIDER).getAarNativeLibs();
+        androidLibraryTarget.get(AndroidNativeLibsInfo.PROVIDER).getNativeLibs();
     assertThat(nativeLibs).containsExactly(
         ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
         ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"),
@@ -135,7 +135,7 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testNativeLibsZipMakesItIntoApk() throws Exception {
+  public void testNativeLibsMakesItIntoApk() throws Exception {
     scratch.file("java/com/google/android/hello/BUILD",
         "aar_import(",
         "    name = 'my_aar',",

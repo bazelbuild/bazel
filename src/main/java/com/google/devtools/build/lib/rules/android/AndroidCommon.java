@@ -364,15 +364,14 @@ public class AndroidCommon {
     throw new IllegalArgumentException(String.format("%s was not found in %s", needle, haystack));
   }
 
-  public static NestedSetBuilder<Artifact> collectTransitiveNativeLibsZips(
-      RuleContext ruleContext) {
-    NestedSetBuilder<Artifact> transitiveAarNativeLibs = NestedSetBuilder.naiveLinkOrder();
-    Iterable<NativeLibsZipsInfo> infos =
-        getTransitivePrerequisites(ruleContext, Mode.TARGET, NativeLibsZipsInfo.PROVIDER);
-    for (NativeLibsZipsInfo nativeLibsZipsInfo : infos) {
-      transitiveAarNativeLibs.addTransitive(nativeLibsZipsInfo.getAarNativeLibs());
+  public static NestedSetBuilder<Artifact> collectTransitiveNativeLibs(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
+    Iterable<AndroidNativeLibsInfo> infos =
+        getTransitivePrerequisites(ruleContext, Mode.TARGET, AndroidNativeLibsInfo.PROVIDER);
+    for (AndroidNativeLibsInfo nativeLibsZipsInfo : infos) {
+      transitiveNativeLibs.addTransitive(nativeLibsZipsInfo.getNativeLibs());
     }
-    return transitiveAarNativeLibs;
+    return transitiveNativeLibs;
   }
 
   static boolean getExportsManifest(RuleContext ruleContext) {

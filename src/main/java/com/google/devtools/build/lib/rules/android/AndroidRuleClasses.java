@@ -570,7 +570,7 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel(AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
           .advertiseSkylarkProvider(AndroidResourcesInfo.PROVIDER.id())
-          .advertiseSkylarkProvider(NativeLibsZipsInfo.PROVIDER.id())
+          .advertiseSkylarkProvider(AndroidNativeLibsInfo.PROVIDER.id())
           .build();
     }
 

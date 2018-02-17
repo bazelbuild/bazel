@@ -163,8 +163,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addNativeDeclaredProvider(resourceApk.toResourceInfo(ruleContext.getLabel()))
         .addNativeDeclaredProvider(
-            new NativeLibsZipsInfo(
-                AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).add(nativeLibs).build()))
+            new AndroidNativeLibsInfo(
+                AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
         .addProvider(
             JavaRuntimeJarProvider.class, new JavaRuntimeJarProvider(ImmutableList.of(mergedJar)))
         .addNativeDeclaredProvider(javaInfo)

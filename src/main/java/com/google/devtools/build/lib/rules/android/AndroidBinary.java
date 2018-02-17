@@ -386,8 +386,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             derivedJarFunction,
             proguardOutputMap);
 
-    NestedSet<Artifact> nativeLibsZips =
-        AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).build();
+    NestedSet<Artifact> nativeLibsAar =
+        AndroidCommon.collectTransitiveNativeLibs(ruleContext).build();
 
     DexPostprocessingOutput dexPostprocessingOutput =
         androidSemantics.postprocessClassesDexZip(
@@ -461,7 +461,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setClassesDex(finalClassesDex)
         .addInputZip(resourceApk.getArtifact())
         .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
-        .addInputZips(nativeLibsZips)
+        .addInputZips(nativeLibsAar)
         .setNativeLibs(nativeLibs)
         .setUnsignedApk(unsignedApk)
         .setSignedApk(zipAlignedApk)
@@ -559,7 +559,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceApk,
           mobileInstallResourceApks,
           resourceExtractor,
-          nativeLibsZips,
+          nativeLibsAar,
           signingKey,
           additionalMergedManifests,
           applicationManifest);

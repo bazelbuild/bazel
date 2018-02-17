@@ -100,7 +100,7 @@ public final class AndroidBinaryMobileInstall {
       ResourceApk resourceApk,
       MobileInstallResourceApks mobileInstallResourceApks,
       FilesToRunProvider resourceExtractor,
-      NestedSet<Artifact> nativeLibsZips,
+      NestedSet<Artifact> nativeLibsAar,
       Artifact signingKey,
       ImmutableList<Artifact> additionalMergedManifests,
       ApplicationManifest applicationManifest)
@@ -147,7 +147,7 @@ public final class AndroidBinaryMobileInstall {
             .setClassesDex(stubDex)
             .addInputZip(mobileInstallResourceApks.incrementalResourceApk.getArtifact())
             .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
-            .addInputZips(nativeLibsZips)
+            .addInputZips(nativeLibsAar)
             .setJavaResourceFile(stubData)
             .setSignedApk(incrementalApk)
             .setSigningKey(signingKey);
@@ -259,7 +259,7 @@ public final class AndroidBinaryMobileInstall {
     ApkActionsBuilder.create("split main apk")
         .setClassesDex(splitStubDex)
         .addInputZip(splitMainApkResources)
-        .addInputZips(nativeLibsZips)
+        .addInputZips(nativeLibsAar)
         .setSignedApk(splitMainApk)
         .setSigningKey(signingKey)
         .registerActions(ruleContext);
