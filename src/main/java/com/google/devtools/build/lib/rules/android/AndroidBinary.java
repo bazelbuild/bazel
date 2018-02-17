@@ -1140,12 +1140,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (override == TriState.NO) {
       return false;
     }
-    if (isBinaryProguarded) {
-      // Require explicit opt-in for proguarded binaries, but no need to check dexopts since we'll
-      // be able to create dexbuilder actions with the appropriate flags as part of this rule.
-      return override == TriState.YES;
-    }
     if (override == TriState.YES || config.useIncrementalDexing()) {
+      if (isBinaryProguarded) {
+        return override == TriState.YES || config.incrementalDexingAfterProguardByDefault();
+      }
       Iterable<String> blacklistedDexopts =
           DexArchiveAspect.blacklistedDexopts(ruleContext, dexopts);
       if (Iterables.isEmpty(blacklistedDexopts)) {

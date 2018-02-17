@@ -458,6 +458,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean incrementalDexingUseDexSharder;
 
+    @Option(
+      name = "experimental_incremental_dexing_after_proguard_by_default",
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Whether to use incremental dexing for proguarded Android binaries by default.  "
+          + "Use incremental_dexing attribute to override default for a particular android_binary."
+    )
+    public boolean incrementalDexingAfterProguardByDefault;
+
     // TODO(b/31711689): Remove this flag when this optimization is proven to work globally.
     @Option(
       name = "experimental_android_assume_minsdkversion",
@@ -788,6 +799,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
       host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+      host.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
       host.assumeMinSdkVersion = assumeMinSdkVersion;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
@@ -831,6 +843,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
   private final boolean incrementalDexingUseDexSharder;
+  private final boolean incrementalDexingAfterProguardByDefault;
   private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
@@ -864,6 +877,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
     this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
+    this.incrementalDexingAfterProguardByDefault = options.incrementalDexingAfterProguardByDefault;
     this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
@@ -896,6 +910,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       throw new InvalidConfigurationException(
           "--experimental_incremental_dexing_after_proguard must be a positive number");
     }
+    if (incrementalDexingAfterProguardByDefault && incrementalDexingShardsAfterProguard == 0) {
+      throw new InvalidConfigurationException(
+          "--experimental_incremental_dexing_after_proguard_by_default requires "
+          + "--experimental_incremental_dexing_after_proguard to be at least 1");
+    }
     if (desugarJava8Libs && !desugarJava8) {
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
@@ -911,6 +930,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean incrementalDexing,
       int incrementalDexingShardsAfterProguard,
       boolean incrementalDexingUseDexSharder,
+      boolean incrementalDexingAfterProguardByDefault,
       boolean assumeMinSdkVersion,
       ImmutableList<String> dexoptsSupportedInIncrementalDexing,
       ImmutableList<String> targetDexoptsThatPreventIncrementalDexing,
@@ -942,6 +962,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.incrementalDexing = incrementalDexing;
     this.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
     this.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+    this.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
     this.assumeMinSdkVersion = assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
     this.targetDexoptsThatPreventIncrementalDexing = targetDexoptsThatPreventIncrementalDexing;
@@ -999,6 +1020,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   /** Whether to use a separate tool to shard classes before merging them into final dex files. */
   public boolean incrementalDexingUseDexSharder() {
     return incrementalDexingUseDexSharder;
+  }
+
+  /** Whether to use incremental dexing to build proguarded binaries by default. */
+  public boolean incrementalDexingAfterProguardByDefault() {
+    return incrementalDexingAfterProguardByDefault;
   }
 
   /**
