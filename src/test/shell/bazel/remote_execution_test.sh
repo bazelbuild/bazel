@@ -1,3 +1,4 @@
+
 #!/bin/bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
@@ -512,6 +513,90 @@ EOF
       && fail "Test failure expected" || true
   expect_not_log "test.log"
   expect_log "Remote connection/protocol failed"
+}
+
+
+# Bazel corrects outputs remote statistics
+function test_remote_stats() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"hello world\" > \"$@\"",
+)
+
+genrule(
+  name = "foo2",
+  srcs = ["foo.txt"],
+  outs = ["foo2.txt"],
+  cmd = "cat $(location foo.txt) > $@",
+)
+EOF
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to build //a:foo with remote execution"
+  expect_log "Remote stats" "Expected remote stats message"
+  # This is a clean build. We expect no cache hits and some remote executions.
+  expect_log " 0/[1-9][0-9]* remote actions cached"
+  expect_not_log "fallback"
+  
+
+  bazel clean --expunge >& $TEST_log
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      //a:foo >& $TEST_log \
+      || fail "Failed to rebuild //a:foo with remote execution"
+  expect_not_log " 0/[1-9][0-9]* remote actions cached"
+  # Should get no remote execution since everything is cached.
+  # So, should have the same number cached as uncached.
+  expect_log " \([1-9][0-9]*\)/\1 remote actions cached"
+  expect_not_log "fallback"
+
+  bazel clean --expunge >& $TEST_log
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      //a:foo2 >& $TEST_log \
+      || fail "Failed to build //a:foo2 with remote execution"
+  # foo2 depends on foo which is cached, but also adds new work.
+  # Expect a mixture of cached and remote actions: both numbers should be non-zero
+  # and they should not be the same.
+  expect_log " [1-9][0-9]*/[1-9][0-9]* remote actions cached"
+  expect_not_log " \([1-9][0-9]*\)/\1 remote actions cached"
+  expect_not_log "fallback"
+}
+
+# Bazel corrects outputs remote statistics
+function test_remote_stats() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"hello world\" > \"$@\"",
+)
+EOF
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=bazel-test-does-not-exist \
+      --remote_cache=bazel-test-does-not-exist \
+      --remote_local_fallback=true \
+      //a:foo >& $TEST_log \
+      || fail "Failed to build //a:foo with fallback"
+  expect_log "Remote stats" "Expected remote stats message"
+  # Could not reach remote worker. Expect no remote actions or cache hits. Expect non-zero
+  # fallback actions
+  expect_log " 0/0 remote actions cached"
+  expect_log " ([1-9][0-9]* fallback)"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

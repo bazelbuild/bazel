@@ -134,7 +134,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
         ActionResult.newBuilder().setExitCode(0).build()).build();
@@ -192,7 +193,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
-            digestUtil);
+            digestUtil,
+            null);
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
@@ -244,7 +246,8 @@ public class RemoteSpawnRunnerTest {
                 "command-id",
                 cache,
                 null,
-                digestUtil));
+                digestUtil,
+                null));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
@@ -292,7 +295,8 @@ public class RemoteSpawnRunnerTest {
                 "command-id",
                 cache,
                 null,
-                digestUtil));
+                digestUtil,
+                null));
 
     try {
       runner.exec(spawn, policy);
@@ -326,7 +330,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
-            digestUtil);
+            digestUtil,
+            null);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
@@ -377,7 +382,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
-            digestUtil);
+            digestUtil,
+            null);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
@@ -416,7 +422,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             null,
-            digestUtil);
+            digestUtil,
+            null);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
@@ -452,7 +459,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
@@ -490,7 +498,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
@@ -531,7 +540,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -567,7 +577,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -601,7 +612,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
@@ -641,7 +653,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
@@ -677,7 +690,8 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            digestUtil);
+            digestUtil,
+            null);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
 

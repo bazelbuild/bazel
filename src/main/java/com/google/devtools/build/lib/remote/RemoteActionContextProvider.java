@@ -37,16 +37,19 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final AbstractRemoteActionCache cache;
   private final GrpcRemoteExecutor executor;
   private final DigestUtil digestUtil;
+  private final RemoteStats stats;
 
   RemoteActionContextProvider(
       CommandEnvironment env,
       @Nullable AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      @Nullable RemoteStats stats) {
     this.env = env;
     this.executor = executor;
     this.cache = cache;
     this.digestUtil = digestUtil;
+    this.stats = stats;
   }
 
   @Override
@@ -81,7 +84,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               commandId,
               cache,
               executor,
-              digestUtil);
+              digestUtil,
+              stats);
       return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }
