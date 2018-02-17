@@ -1022,9 +1022,15 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.INSTANCE)
                   .exec()
                   .value(env.getToolsLabel("//tools/android:resource_extractor")))
+          /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(instruments) -->
+          <p>The <code>android_binary</code> target to instrument.</p>
+          <p>If this attribute is set, this <code>android_binary</code> will be treated as a test
+          application for instrumentation tests. An <code>android_instrumentation_test</code>
+          target can then specify this target in its
+           <a href="${link android_instrumentation_test.test_app}">test_app</a> attribute.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("instruments", LABEL)
-                  .undocumented("blocked by android_instrumentation_test")
                   .allowedRuleClasses("android_binary")
                   .allowedFileTypes(NO_FILE))
           .add(
