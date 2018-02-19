@@ -23,6 +23,12 @@ load(
     "tpl",
 )
 
+def _uniq(iterable):
+  """Remove duplicates from a list."""
+
+  unique_elements = {element: None for element in iterable}
+  return unique_elements.keys()
+
 def _prepare_include_path(repo_ctx, path):
   """Resolve and sanitize include path before outputting it into the crosstool.
 
@@ -123,9 +129,9 @@ def _cxx_inc_convert(path):
   return path
 
 
-def get_escaped_cxx_inc_directories(repository_ctx, cc):
+def get_escaped_cxx_inc_directories(repository_ctx, cc, additional_flags = []):
   """Compute the list of default %-escaped C++ include directories."""
-  result = repository_ctx.execute([cc, "-E", "-xc++", "-", "-v"])
+  result = repository_ctx.execute([cc, "-E", "-xc++", "-", "-v"] + additional_flags)
   index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
   if index1 == -1:
     return []
@@ -145,7 +151,7 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc):
           for p in inc_dirs.split("\n")]
 
 
-def _add_option_if_supported(repository_ctx, cc, option):
+def _is_option_supported(repository_ctx, cc, option):
   """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
   result = repository_ctx.execute([
       cc,
@@ -155,7 +161,12 @@ def _add_option_if_supported(repository_ctx, cc, option):
       "-c",
       str(repository_ctx.path("tools/cpp/empty.cc"))
   ])
-  return [option] if result.stderr.find(option) == -1 else []
+  return result.stderr.find(option) == -1
+
+
+def _add_option_if_supported(repository_ctx, cc, option):
+  """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
+  return [option] if _is_option_supported(repository_ctx, cc, option) else []
 
 
 def _is_gold_supported(repository_ctx, cc):
@@ -199,6 +210,11 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   else:
     # cc is inside the repository, don't set -B.
     bin_search_flag = []
+
+  escaped_cxx_include_directories = _uniq(
+      get_escaped_cxx_inc_directories(repository_ctx, cc) +
+      get_escaped_cxx_inc_directories(
+          repository_ctx, cc, _get_no_canonical_prefixes_opt(repository_ctx, cc)))
   return {
       "abi_version": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
       "abi_libc_version": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
@@ -242,7 +258,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
               # Have gcc return the exit code from ld.
               repository_ctx, cc, "-pass-exit-codes")
           ),
-      "cxx_builtin_include_directory": get_escaped_cxx_inc_directories(repository_ctx, cc),
+      "cxx_builtin_include_directory": escaped_cxx_include_directories,
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
           _get_no_canonical_prefixes_opt(repository_ctx, cc) + [
