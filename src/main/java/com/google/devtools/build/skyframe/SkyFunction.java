@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.GroupedList;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -273,16 +272,6 @@ public interface SkyFunction {
      * or progress messages during execution of {@link SkyFunction#compute}.
      */
     ExtendedEventHandler getListener();
-
-    /**
-     * A live view of deps known to have already been requested either through an earlier call to
-     * {@link SkyFunction#compute} or inferred during change pruning. Should return {@code null} if
-     * unknown.
-     */
-    @Nullable
-    default GroupedList<SkyKey> getTemporaryDirectDeps() {
-      return null;
-    }
 
     /** Returns whether we are currently in error bubbling. */
     @VisibleForTesting

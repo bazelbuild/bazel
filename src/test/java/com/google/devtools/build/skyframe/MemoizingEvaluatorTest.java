@@ -53,7 +53,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -212,33 +211,6 @@ public class MemoizingEvaluatorTest {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getRootCauses()).containsExactly(toSkyKey("badValue"));
     assertThat(result.keyNames()).isEmpty();
-  }
-
-  @Test
-  public void testEnvProvidesTemporaryDirectDeps() throws Exception {
-    AtomicInteger counter = new AtomicInteger();
-    List<SkyKey> deps = Collections.synchronizedList(new ArrayList<>());
-    SkyKey topKey = toSkyKey("top");
-    SkyKey bottomKey = toSkyKey("bottom");
-    SkyValue bottomValue = new StringValue("bottom");
-    tester
-        .getOrCreate(topKey)
-        .setBuilder(
-            new NoExtractorFunction() {
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                if (counter.getAndIncrement() > 0) {
-                  deps.addAll(env.getTemporaryDirectDeps().get(0));
-                } else {
-                  assertThat(env.getTemporaryDirectDeps().listSize()).isEqualTo(0);
-                }
-                return env.getValue(bottomKey);
-              }
-            });
-    tester.getOrCreate(bottomKey).setConstantValue(bottomValue);
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, "top");
-    assertThat(result.get(topKey)).isEqualTo(bottomValue);
-    assertThat(deps).containsExactly(bottomKey);
   }
 
   @Test

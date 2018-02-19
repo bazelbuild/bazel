@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.ValueOrExceptionUtils.BottomException;
 import java.util.Collections;
 import java.util.Map;
@@ -30,25 +29,10 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Environment {
   protected boolean valuesMissing = false;
-  @Nullable private final GroupedList<SkyKey> temporaryDirectDeps;
-
   private <E extends Exception> ValueOrException<E> getValueOrException(
       SkyKey depKey, Class<E> exceptionClass) throws InterruptedException {
     return ValueOrExceptionUtils.downconvert(
         getValueOrException(depKey, exceptionClass, BottomException.class), exceptionClass);
-  }
-
-  public AbstractSkyFunctionEnvironment(@Nullable GroupedList<SkyKey> temporaryDirectDeps) {
-    this.temporaryDirectDeps = temporaryDirectDeps;
-  }
-
-  public AbstractSkyFunctionEnvironment() {
-    this(null);
-  }
-
-  @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
-    return temporaryDirectDeps;
   }
 
   private <E1 extends Exception, E2 extends Exception>
