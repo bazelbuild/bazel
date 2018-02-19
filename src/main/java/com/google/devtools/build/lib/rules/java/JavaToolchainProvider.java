@@ -83,7 +83,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
-      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
+      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      JavaSemantics javaSemantics) {
     return new JavaToolchainProvider(
         label,
         bootclasspath,
@@ -106,7 +107,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
         ImmutableList.<String>builder().addAll(javacOptions).addAll(defaultJavacFlags).build(),
         jvmOptions,
         javacSupportsWorkers,
-        packageConfiguration);
+        packageConfiguration,
+        javaSemantics);
   }
 
   private final Label label;
@@ -129,6 +131,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
   private final ImmutableList<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
+  private final JavaSemantics javaSemantics;
 
   private JavaToolchainProvider(
       Label label,
@@ -150,7 +153,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       boolean javacSupportsWorkers,
-      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
+      ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
+      JavaSemantics javaSemantics) {
     super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
@@ -173,6 +177,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
+    this.javaSemantics = javaSemantics;
   }
 
   /** Returns the label for this {@code java_toolchain}. */
@@ -292,5 +297,9 @@ public class JavaToolchainProvider extends ToolchainInfo {
   /** Returns the global {@code java_plugin_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
     return packageConfiguration;
+  }
+
+  public JavaSemantics getJavaSemantics() {
+    return javaSemantics;
   }
 }

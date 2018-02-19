@@ -44,7 +44,13 @@ import java.util.Map;
 /**
  * Implementation for the {@code java_toolchain} rule.
  */
-public final class JavaToolchain implements RuleConfiguredTargetFactory {
+public class JavaToolchain implements RuleConfiguredTargetFactory {
+
+  private final JavaSemantics semantics;
+
+  protected JavaToolchain(JavaSemantics semantics) {
+    this.semantics = semantics;
+  }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
@@ -109,7 +115,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             timezoneData,
             ijar,
             compatibleJavacOptions,
-            packageConfiguration);
+            packageConfiguration,
+            semantics);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addSkylarkTransitiveInfo(
