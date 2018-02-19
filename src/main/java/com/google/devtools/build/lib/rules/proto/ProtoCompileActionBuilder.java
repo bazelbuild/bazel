@@ -530,6 +530,8 @@ public class ProtoCompileActionBuilder {
       ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
+    cmdLine.addAll(transitiveProtoPathFlags);
+
     // A set to check if there are multiple invocations with the same name.
     HashSet<String> invocationNames = new HashSet<>();
 
@@ -576,8 +578,6 @@ public class ProtoCompileActionBuilder {
     if (!allowServices) {
       cmdLine.add("--disallow_services");
     }
-
-    cmdLine.addAll(transitiveProtoPathFlags);
 
     return cmdLine.build();
   }
