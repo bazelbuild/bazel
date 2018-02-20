@@ -70,7 +70,7 @@ class RunfilesTest(test_base.TestBase):
       self.fail("lines: %s" % lines)
     self.assertEqual(lines[0], "world")
 
-  def testPythonRunfilesLibraryInBazelToolsRepo(self):
+  def _AssertPythonRunfilesLibraryInBazelToolsRepo(self, family, lang_name):
     for s, t in [
         ("WORKSPACE.mock", "WORKSPACE"),
         ("foo/BUILD.mock", "foo/BUILD"),
@@ -90,13 +90,13 @@ class RunfilesTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(["build", "//foo:runfiles-py"])
+    exit_code, _, stderr = self.RunBazel(["build", "//foo:runfiles-" + family])
     self.AssertExitCode(exit_code, 0, stderr)
 
     if test_base.TestBase.IsWindows():
-      bin_path = os.path.join(bazel_bin, "foo/runfiles-py.exe")
+      bin_path = os.path.join(bazel_bin, "foo/runfiles-%s.exe" % family)
     else:
-      bin_path = os.path.join(bazel_bin, "foo/runfiles-py")
+      bin_path = os.path.join(bazel_bin, "foo/runfiles-" + family)
 
     self.assertTrue(os.path.exists(bin_path))
 
@@ -106,17 +106,9 @@ class RunfilesTest(test_base.TestBase):
     if len(stdout) != 6:
       self.fail("stdout: %s" % stdout)
 
-    self.assertEqual(stdout[0], "Hello Python Foo!")
+    self.assertEqual(stdout[0], "Hello %s Foo!" % lang_name)
     six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
     self.assertNotIn("__ignore_me__", stdout[1])
-
-    self.assertEqual(stdout[2], "Hello Python Bar!")
-    six.assertRegex(self, stdout[3], "^rloc=.*/bar/bar-py-data.txt")
-    self.assertNotIn("__ignore_me__", stdout[3])
-
-    self.assertEqual(stdout[4], "Hello Java Bar!")
-    six.assertRegex(self, stdout[5], "^rloc=.*/bar/bar-java-data.txt")
-    self.assertNotIn("__ignore_me__", stdout[5])
 
     with open(stdout[1].split("=", 1)[1], "r") as f:
       lines = [l.strip() for l in f.readlines()]
@@ -124,17 +116,23 @@ class RunfilesTest(test_base.TestBase):
       self.fail("lines: %s" % lines)
     self.assertEqual(lines[0], "world")
 
-    with open(stdout[3].split("=", 1)[1], "r") as f:
-      lines = [l.strip() for l in f.readlines()]
-    if len(lines) != 1:
-      self.fail("lines: %s" % lines)
-    self.assertEqual(lines[0], "data for bar.py")
+    i = 2
+    for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java")]:
+      self.assertEqual(stdout[i], "Hello %s Bar!" % lang[1])
+      six.assertRegex(self, stdout[i + 1],
+                      "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
+      self.assertNotIn("__ignore_me__", stdout[i + 1])
 
-    with open(stdout[5].split("=", 1)[1], "r") as f:
-      lines = [l.strip() for l in f.readlines()]
-    if len(lines) != 1:
-      self.fail("lines: %s" % lines)
-    self.assertEqual(lines[0], "data for Bar.java")
+      with open(stdout[i + 1].split("=", 1)[1], "r") as f:
+        lines = [l.strip() for l in f.readlines()]
+      if len(lines) != 1:
+        self.fail("lines(%s): %s" % (lang[0], lines))
+      self.assertEqual(lines[0], "data for " + lang[2])
+
+      i += 2
+
+  def testPythonRunfilesLibraryInBazelToolsRepo(self):
+    self._AssertPythonRunfilesLibraryInBazelToolsRepo("py", "Python")
 
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
     for s, t in [
@@ -205,74 +203,79 @@ class RunfilesTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(
-        ["build", "--experimental_enable_runfiles=no", "//bar:bar-java"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    for lang in [("java", "Java")]:  # TODO(laszlocsomor): add "cc" when ready.
+      exit_code, _, stderr = self.RunBazel([
+          "build", "--experimental_enable_runfiles=no", "//bar:bar-" + lang[0]
+      ])
+      self.AssertExitCode(exit_code, 0, stderr)
 
-    if test_base.TestBase.IsWindows():
-      bin_path = os.path.join(bazel_bin, "bar/bar-java.exe")
-    else:
-      bin_path = os.path.join(bazel_bin, "bar/bar-java")
+      if test_base.TestBase.IsWindows():
+        bin_path = os.path.join(bazel_bin, "bar/bar-%s.exe" % lang[0])
+      else:
+        bin_path = os.path.join(bazel_bin, "bar/bar-" + lang[0])
 
-    manifest_path = bin_path + ".runfiles_manifest"
-    self.assertTrue(os.path.exists(bin_path))
-    self.assertTrue(os.path.exists(manifest_path))
+      manifest_path = bin_path + ".runfiles_manifest"
+      self.assertTrue(os.path.exists(bin_path))
+      self.assertTrue(os.path.exists(manifest_path))
 
-    # Create a copy of the runfiles manifest, replacing
-    # "bar/bar-java-data.txt" with a custom file.
-    mock_bar_dep = self.ScratchFile("bar-java-mockdata.txt", ["mock java data"])
-    if test_base.TestBase.IsWindows():
-      # Runfiles manifests use forward slashes as path separators, even on
-      # Windows.
-      mock_bar_dep = mock_bar_dep.replace("\\", "/")
-    manifest_key = "foo_ws/bar/bar-java-data.txt"
-    mock_manifest_line = manifest_key + " " + mock_bar_dep
-    with open(manifest_path, "rt") as f:
-      # Only rstrip newlines. Do not rstrip() completely, because that would
-      # remove spaces too. This is necessary in order to have at least one
-      # space in every manifest line.
-      # Some manifest entries don't have any path after this space, namely the
-      # "__init__.py" entries. (Bazel writes such manifests on every
-      # platform). The reason is that these files are never symlinks in the
-      # runfiles tree, Bazel actually creates empty __init__.py files (again
-      # on every platform). However to keep these manifest entries correct,
-      # they need to have a space character.
-      # We could probably strip thses lines completely, but this test doesn't
-      # aim to exercise what would happen in that case.
-      mock_manifest_data = [
-          mock_manifest_line
-          if line.split(" ", 1)[0] == manifest_key else line.rstrip("\n\r")
-          for line in f
-      ]
+      # Create a copy of the runfiles manifest, replacing
+      # "bar/bar-<lang>-data.txt" with a custom file.
+      mock_bar_dep = self.ScratchFile("bar-%s-mockdata.txt" % lang[0],
+                                      ["mock %s data" % lang[0]])
+      if test_base.TestBase.IsWindows():
+        # Runfiles manifests use forward slashes as path separators, even on
+        # Windows.
+        mock_bar_dep = mock_bar_dep.replace("\\", "/")
+      manifest_key = "foo_ws/bar/bar-%s-data.txt" % lang[0]
+      mock_manifest_line = manifest_key + " " + mock_bar_dep
+      with open(manifest_path, "rt") as f:
+        # Only rstrip newlines. Do not rstrip() completely, because that would
+        # remove spaces too. This is necessary in order to have at least one
+        # space in every manifest line.
+        # Some manifest entries don't have any path after this space, namely the
+        # "__init__.py" entries. (Bazel writes such manifests on every
+        # platform). The reason is that these files are never symlinks in the
+        # runfiles tree, Bazel actually creates empty __init__.py files (again
+        # on every platform). However to keep these manifest entries correct,
+        # they need to have a space character.
+        # We could probably strip thses lines completely, but this test doesn't
+        # aim to exercise what would happen in that case.
+        mock_manifest_data = [
+            mock_manifest_line
+            if line.split(" ", 1)[0] == manifest_key else line.rstrip("\n\r")
+            for line in f
+        ]
 
-    substitute_manifest = self.ScratchFile("mock-java.runfiles/MANIFEST",
-                                           mock_manifest_data)
+      substitute_manifest = self.ScratchFile(
+          "mock-%s.runfiles/MANIFEST" % lang[0], mock_manifest_data)
 
-    exit_code, stdout, stderr = self.RunProgram(
-        [bin_path],
-        env_remove=set(["RUNFILES_DIR"]),
-        env_add={
-            # On Linux/macOS, the Java launcher picks up JAVA_RUNFILES and
-            # ignores RUNFILES_MANIFEST_FILE.
-            "JAVA_RUNFILES": substitute_manifest[:-len("/MANIFEST")],
-            # On Windows, the Java launcher picks up RUNFILES_MANIFEST_FILE.
-            "RUNFILES_MANIFEST_FILE": substitute_manifest,
-            "RUNFILES_MANIFEST_ONLY": "1",
-            "TEST_SRCDIR": "__ignore_me__",
-        })
+      exit_code, stdout, stderr = self.RunProgram(
+          [bin_path],
+          env_remove=set(["RUNFILES_DIR"]),
+          env_add={
+              # On Linux/macOS, the Java launcher picks up JAVA_RUNFILES and
+              # ignores RUNFILES_MANIFEST_FILE.
+              "JAVA_RUNFILES": substitute_manifest[:-len("/MANIFEST")],
+              # On Windows, the Java launcher picks up RUNFILES_MANIFEST_FILE.
+              # The C++ runfiles library picks up RUNFILES_MANIFEST_FILE on all
+              # platforms.
+              "RUNFILES_MANIFEST_FILE": substitute_manifest,
+              "RUNFILES_MANIFEST_ONLY": "1",
+              "TEST_SRCDIR": "__ignore_me__",
+          })
 
-    self.AssertExitCode(exit_code, 0, stderr)
-    if len(stdout) < 2:
-      self.fail("stdout: %s" % stdout)
-    self.assertEqual(stdout[0], "Hello Java Bar!")
-    six.assertRegex(self, stdout[1], "^rloc=" + mock_bar_dep)
-    self.assertNotIn("__ignore_me__", stdout[1])
+      self.AssertExitCode(exit_code, 0, stderr)
+      if len(stdout) < 2:
+        self.fail("stdout: %s" % stdout)
+      self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
+      six.assertRegex(self, stdout[1], "^rloc=" + mock_bar_dep)
+      self.assertNotIn("__ignore_me__", stdout[1])
 
-    with open(stdout[1].split("=", 1)[1], "r") as f:
-      lines = [l.strip() for l in f.readlines()]
-    if len(lines) != 1:
-      self.fail("lines: %s" % lines)
-    self.assertEqual(lines[0], "mock java data")
+      with open(stdout[1].split("=", 1)[1], "r") as f:
+        lines = [l.strip() for l in f.readlines()]
+      if len(lines) != 1:
+        self.fail("lines: %s" % lines)
+      self.assertEqual(lines[0], "mock %s data" % lang[0])
 
 
 if __name__ == "__main__":
