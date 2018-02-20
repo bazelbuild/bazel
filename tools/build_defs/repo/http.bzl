@@ -47,6 +47,8 @@ def _patch(ctx):
 
 def _http_archive_impl(ctx):
   """Implementation of the http_archive rule."""
+  if not ctx.attr.url and not ctx.attr.urls:
+    ctx.fail("At least of of url and urls must be provided")
   if ctx.attr.build_file and ctx.attr.build_file_content:
     ctx.fail("Only one of build_file and build_file_content can be provided.")
 
@@ -62,7 +64,13 @@ def _http_archive_impl(ctx):
   for patchfile in ctx.attr.patches:
     print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
 
-  ctx.download_and_extract(ctx.attr.urls, "", ctx.attr.sha256, ctx.attr.type,
+  all_urls = []
+  if ctx.attr.urls:
+    all_urls = ctx.attr.urls
+  if ctx.attr.url:
+    all_urls = [ctx.attr.url] + all_urls
+
+  ctx.download_and_extract(all_urls, "", ctx.attr.sha256, ctx.attr.type,
                            ctx.attr.strip_prefix)
   _patch(ctx)
   ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name=ctx.name))
@@ -94,7 +102,8 @@ def _http_file_impl(ctx):
 
 
 _http_archive_attrs = {
-    "urls": attr.string_list(mandatory=True),
+    "url": attr.string(),
+    "urls": attr.string_list(),
     "sha256": attr.string(),
     "strip_prefix": attr.string(),
     "type": attr.string(),
@@ -198,9 +207,17 @@ Args:
     URL. If the file has no extension, you can explicitly specify one of the
     following: `"zip"`, `"jar"`, `"war"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`,
     or `tar.bz2`.
-  urls: A URL to a file that will be made available to Bazel.
+  url: A URL to a file that will be made available to Bazel.
 
     This must be an file, http or https URL. Redirections are followed.
+    Authentication is not supported.
+
+    This parameter is to simplify the transition from the native http_archive
+    rule. More flexibility can be achieved by the urls parameter that allows
+    to specify alternative URLs to fetch from.
+  urls: A list of URLs to a file that will be made available to Bazel.
+
+    Each entry must be an file, http or https URL. Redirections are followed.
     Authentication is not supported.
   patches: A list of files that are to be applied as patches after extracting
     the archive.
@@ -245,8 +262,8 @@ Args:
     to omit the SHA-256 as remote files can change._ At best omitting this
     field will make your build non-hermetic. It is optional to make development
     easier but should be set before shipping.
-  urls: A URL to a file that will be made available to Bazel.
+  urls: A list of URLs to a file that will be made available to Bazel.
 
-    This must be an file, http, or https URL. Redirections are followed.
+    Each entry must be an file, http or https URL. Redirections are followed.
     Authentication is not supported.
 """

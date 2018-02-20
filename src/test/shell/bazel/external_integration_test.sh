@@ -123,6 +123,7 @@ EOF
   cd ${WORKSPACE_DIR}
   if [[ $write_workspace = 0 ]]; then
     cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/$repo2_name',
@@ -181,6 +182,7 @@ function test_http_archive_zip() {
   # Test with the extension
   serve_file $repo2_zip
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/bleh',
@@ -206,6 +208,7 @@ function test_http_archive_tar_xz() {
 
 function test_http_archive_no_server() {
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
@@ -242,6 +245,7 @@ function test_http_archive_mismatched_sha256() {
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/repo.zip',
@@ -469,6 +473,7 @@ function test_empty_file() {
   serve_file x.tar.gz
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 new_http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
@@ -853,6 +858,7 @@ local_repository(
 )
 EOF
   cat > remote_ws <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     url = "http://127.0.0.1:$fileserver_port/repo.zip",
@@ -883,6 +889,7 @@ function test_sha256_weird() {
   cd -
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     sha256 = "a random string",
@@ -904,6 +911,7 @@ function test_sha256_incorrect() {
   cd -
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     sha256 = "61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0",
@@ -929,6 +937,7 @@ function test_same_name() {
   mkdir main
   cd main
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 new_http_archive(
   name="ext",
   strip_prefix="ext",
