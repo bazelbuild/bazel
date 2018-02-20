@@ -236,6 +236,7 @@ public class RemoteSpawnCacheTest {
             any(Boolean.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.isCacheHit()).isTrue();
     // We expect the CachedLocalSpawnRunner to _not_ write to outErr at all.
     assertThat(outErr.hasRecordedOutput()).isFalse();
     assertThat(outErr.hasRecordedStderr()).isFalse();

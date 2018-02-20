@@ -156,7 +156,9 @@ class RemoteSpawnRunner implements SpawnRunner {
                     + actionKey.getDigest());
           }
           try {
-            return downloadRemoteResults(cachedResult, policy.getFileOutErr());
+            return downloadRemoteResults(cachedResult, policy.getFileOutErr())
+                .setCacheHit(true)
+                .build();
           } catch (CacheNotFoundException e) {
             // No cache hit, so we fall through to local or remote execution.
             // We set acceptCachedResult to false in order to force the action re-execution.
@@ -193,7 +195,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       }
 
       try {
-        return downloadRemoteResults(result, policy.getFileOutErr());
+        return downloadRemoteResults(result, policy.getFileOutErr()).build();
       } catch (IOException e) {
         return execLocallyOrFail(spawn, policy, inputMap, actionKey, uploadLocalResults, e);
       }
@@ -202,14 +204,13 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private SpawnResult downloadRemoteResults(ActionResult result, FileOutErr outErr)
+  private SpawnResult.Builder downloadRemoteResults(ActionResult result, FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     remoteCache.download(result, execRoot, outErr);
     int exitCode = result.getExitCode();
     return new SpawnResult.Builder()
         .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
-        .setExitCode(exitCode)
-        .build();
+        .setExitCode(exitCode);
   }
 
   private SpawnResult execLocallyOrFail(
