@@ -244,6 +244,11 @@ class Marshallers {
         }
       };
 
+  private static void addStringDeserializationCode(Context context) {
+    context.builder.addStatement(
+        "$L = $T.asciiOptimized().deserialize(context, codedIn)", context.name, StringCodecs.class);
+  }
+
   private final Marshaller stringMarshaller =
       new Marshaller() {
         @Override
@@ -261,10 +266,28 @@ class Marshallers {
 
         @Override
         public void addDeserializationCode(Context context) {
+          addStringDeserializationCode(context);
+        }
+      };
+
+  private final Marshaller charSequenceMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesType(type, CharSequence.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
           context.builder.addStatement(
-              "$L = $T.asciiOptimized().deserialize(context, codedIn)",
-              context.name,
-              StringCodecs.class);
+              "$T.asciiOptimized().serialize(context, $L.toString(), codedOut)",
+              StringCodecs.class,
+              context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          addStringDeserializationCode(context);
         }
       };
 
@@ -913,6 +936,7 @@ class Marshallers {
       ImmutableList.of(
           enumMarshaller,
           stringMarshaller,
+          charSequenceMarshaller,
           optionalMarshaller,
           supplierMarshaller,
           uuidMarshller,
