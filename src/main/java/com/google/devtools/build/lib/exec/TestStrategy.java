@@ -28,10 +28,12 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -44,9 +46,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -79,27 +79,6 @@ public abstract class TestStrategy implements TestActionContext {
   protected void recreateDirectory(Path directory) throws IOException {
     FileSystemUtils.deleteTree(directory);
     FileSystemUtils.createDirectoryAndParents(directory);
-  }
-
-  /** Converter for the --flaky_test_attempts option. */
-  public static class TestAttemptsConverter extends RangeConverter {
-    public TestAttemptsConverter() {
-      super(1, 10);
-    }
-
-    @Override
-    public Integer convert(String input) throws OptionsParsingException {
-      if ("default".equals(input)) {
-        return -1;
-      } else {
-        return super.convert(input);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return super.getTypeDescription() + " or the string \"default\"";
-    }
   }
 
   /** An enum for specifying different formats of test output. */
@@ -223,18 +202,32 @@ public abstract class TestStrategy implements TestActionContext {
   @VisibleForTesting /* protected */
   public int getTestAttempts(TestRunnerAction action) {
     return action.getTestProperties().isFlaky()
-        ? getTestAttemptsForFlakyTest()
-        : getTestAttempts(/*defaultTestAttempts=*/ 1);
+        ? getTestAttemptsForFlakyTest(action)
+        : getTestAttempts(action, /*defaultTestAttempts=*/ 1);
   }
 
-  public int getTestAttemptsForFlakyTest() {
-    return getTestAttempts(/*defaultTestAttempts=*/ 3);
+  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
+    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
   }
 
-  private int getTestAttempts(int defaultTestAttempts) {
-    return executionOptions.testAttempts == -1
-        ? defaultTestAttempts
-        : executionOptions.testAttempts;
+  private int getTestAttempts(TestRunnerAction action, int defaultTestAttempts) {
+    Label testLabel = action.getOwner().getLabel();
+    return getTestAttemptsPerLabel(executionOptions, testLabel, defaultTestAttempts);
+  }
+
+  private static int getTestAttemptsPerLabel(
+      ExecutionOptions options, Label label, int defaultTestAttempts) {
+    // Check from the last provided, so that the last option provided takes precedence.
+    for (PerLabelOptions perLabelAttempts : Lists.reverse(options.testAttempts)) {
+      if (perLabelAttempts.isIncluded(label)) {
+        String attempts = Iterables.getOnlyElement(perLabelAttempts.getOptions());
+        if ("default".equals(attempts)) {
+          return defaultTestAttempts;
+        }
+        return Integer.parseInt(attempts);
+      }
+    }
+    return defaultTestAttempts;
   }
 
   /**

@@ -384,53 +384,6 @@ public class BuildConfiguration implements BuildConfigurationInterface {
     }
   }
 
-  /** TODO(bazel-team): document this */
-  public static class RunsPerTestConverter extends PerLabelOptions.PerLabelOptionsConverter {
-    @Override
-    public PerLabelOptions convert(String input) throws OptionsParsingException {
-      try {
-        return parseAsInteger(input);
-      } catch (NumberFormatException ignored) {
-        return parseAsRegex(input);
-      }
-    }
-
-    private PerLabelOptions parseAsInteger(String input)
-        throws NumberFormatException, OptionsParsingException {
-      int numericValue = Integer.parseInt(input);
-      if (numericValue <= 0) {
-        throw new OptionsParsingException("'" + input + "' should be >= 1");
-      } else {
-        RegexFilter catchAll = new RegexFilter(Collections.singletonList(".*"),
-            Collections.<String>emptyList());
-        return new PerLabelOptions(catchAll, Collections.singletonList(input));
-      }
-    }
-
-    private PerLabelOptions parseAsRegex(String input) throws OptionsParsingException {
-      PerLabelOptions testRegexps = super.convert(input);
-      if (testRegexps.getOptions().size() != 1) {
-        throw new OptionsParsingException(
-            "'" + input + "' has multiple runs for a single pattern");
-      }
-      String runsPerTest = Iterables.getOnlyElement(testRegexps.getOptions());
-      try {
-        int numericRunsPerTest = Integer.parseInt(runsPerTest);
-        if (numericRunsPerTest <= 0) {
-          throw new OptionsParsingException("'" + input + "' has a value < 1");
-        }
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' has a non-numeric value", e);
-      }
-      return testRegexps;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a positive integer or test_regex@runs. This flag may be passed more than once";
-    }
-  }
-
   /**
    * Values for the --strict_*_deps option
    */

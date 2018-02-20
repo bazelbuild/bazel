@@ -13,18 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
+import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -132,9 +136,10 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
     name = "flaky_test_attempts",
+    allowMultiple = true,
     defaultValue = "default",
     category = "testing",
-    converter = TestStrategy.TestAttemptsConverter.class,
+    converter = TestAttemptsConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -146,7 +151,7 @@ public class ExecutionOptions extends OptionsBase {
             + "will be made for regular tests and three for tests marked explicitly as flaky by "
             + "their rule (flaky=1 attribute)."
   )
-  public int testAttempts;
+  public List<PerLabelOptions> testAttempts;
 
   @Option(
     name = "test_tmpdir",
@@ -173,7 +178,7 @@ public class ExecutionOptions extends OptionsBase {
             + "(this will force tests to be executed locally one at a time regardless of "
             + "--test_strategy value)."
   )
-  public TestOutputFormat testOutput;
+  public TestStrategy.TestOutputFormat testOutput;
 
   @Option(
     name = "test_summary",
@@ -188,7 +193,7 @@ public class ExecutionOptions extends OptionsBase {
             + "unsuccessful tests that were run, 'detailed' to print detailed information about "
             + "failed test cases, and 'none' to omit the summary."
   )
-  public TestSummaryFormat testSummary;
+  public TestStrategy.TestSummaryFormat testSummary;
 
   @Option(
     name = "test_timeout",
@@ -303,4 +308,62 @@ public class ExecutionOptions extends OptionsBase {
             + " aggressive RAM optimizations in some cases."
   )
   public boolean enableCriticalPathProfiling;
+
+  /** Converter for the --flaky_test_attempts option. */
+  public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
+    private static final int MIN_VALUE = 1;
+    private static final int MAX_VALUE = 10;
+
+    private void validateInput(String input) throws OptionsParsingException {
+      if ("default".equals(input)) {
+        return;
+      } else {
+        Integer value = Integer.parseInt(input);
+        if (value < MIN_VALUE) {
+          throw new OptionsParsingException("'" + input + "' should be >= " + MIN_VALUE);
+        } else if (value < MIN_VALUE || value > MAX_VALUE) {
+          throw new OptionsParsingException("'" + input + "' should be <= " + MAX_VALUE);
+        }
+        return;
+      }
+    }
+
+    @Override
+    public PerLabelOptions convert(String input) throws OptionsParsingException {
+      try {
+        return parseAsInteger(input);
+      } catch (NumberFormatException ignored) {
+        return parseAsRegex(input);
+      }
+    }
+
+    private PerLabelOptions parseAsInteger(String input)
+        throws NumberFormatException, OptionsParsingException {
+      validateInput(input);
+      RegexFilter catchAll =
+          new RegexFilter(Collections.singletonList(".*"), Collections.<String>emptyList());
+      return new PerLabelOptions(catchAll, Collections.singletonList(input));
+    }
+
+    private PerLabelOptions parseAsRegex(String input) throws OptionsParsingException {
+      PerLabelOptions testRegexps = super.convert(input);
+      if (testRegexps.getOptions().size() != 1) {
+        throw new OptionsParsingException("'" + input + "' has multiple runs for a single pattern");
+      }
+      String runsPerTest = Iterables.getOnlyElement(testRegexps.getOptions());
+      try {
+        // Run this in order to catch errors.
+        validateInput(runsPerTest);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' has a non-numeric value", e);
+      }
+      return testRegexps;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a positive integer, the string \"default\", or test_regex@attempts. "
+          + "This flag may be passed more than once";
+    }
+  }
 }
