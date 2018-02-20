@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -34,10 +33,9 @@ public interface ArtifactOwner {
    * An {@link ArtifactOwner} that just returns null for its label. Only for use with resolved
    * source artifacts and tests.
    */
+  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   class NullArtifactOwner implements ArtifactOwner {
     @VisibleForTesting public static final NullArtifactOwner INSTANCE = new NullArtifactOwner();
-
-    static final ObjectCodec<NullArtifactOwner> CODEC = SingletonCodec.of(INSTANCE, "NULL_OWNER");
 
     private NullArtifactOwner() {}
 

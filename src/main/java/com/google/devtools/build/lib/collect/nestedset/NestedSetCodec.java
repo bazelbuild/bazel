@@ -42,11 +42,6 @@ import java.util.Map;
 public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
 
   private static final EnumCodec<Order> orderCodec = new EnumCodec<>(Order.class);
-  private final ObjectCodec<T> objectCodec;
-
-  public NestedSetCodec(ObjectCodec<T> objectCodec) {
-    this.objectCodec = objectCodec;
-  }
 
   @SuppressWarnings("unchecked")
   @Override
@@ -76,7 +71,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     int nestedSetCount = codedIn.readInt32();
     Preconditions.checkState(
         nestedSetCount >= 1,
-        "Should have at least serialized one nested set, got: %d",
+        "Should have at least serialized one nested set, got: %s",
         nestedSetCount);
     Order order = orderCodec.deserialize(context, codedIn);
     Object children = null;
@@ -131,7 +126,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
         childCodedOut.writeByteArrayNoTag(digest);
       } else {
         childCodedOut.writeBoolNoTag(false);
-        objectCodec.serialize(context, cast(child), childCodedOut);
+        context.serialize(cast(child), childCodedOut);
       }
     }
   }
@@ -141,7 +136,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
       throws IOException, SerializationException {
     childCodedOut.writeInt32NoTag(1);
     T singleChild = cast(children);
-    objectCodec.serialize(context, singleChild, childCodedOut);
+    context.serialize(singleChild, childCodedOut);
   }
 
   private Object deserializeOneNestedSet(
@@ -157,7 +152,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     if (childCount > 1) {
       result = deserializeMultipleItemChildArray(context, digestToChild, childCodedIn, childCount);
     } else if (childCount == 1) {
-      result = objectCodec.deserialize(context, childCodedIn);
+      result = context.deserialize(childCodedIn);
     } else {
       result = NestedSet.EMPTY_CHILDREN;
     }
@@ -179,7 +174,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
         children[i] =
             Preconditions.checkNotNull(digestToChild.get(digest), "Transitive nested set missing");
       } else {
-        children[i] = objectCodec.deserialize(context, childCodedIn);
+        children[i] = context.deserialize(childCodedIn);
       }
     }
     return children;

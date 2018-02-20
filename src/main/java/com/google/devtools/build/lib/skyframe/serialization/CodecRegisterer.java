@@ -40,5 +40,5 @@ package com.google.devtools.build.lib.skyframe.serialization;
  */
 public interface CodecRegisterer<T extends ObjectCodec<?>> {
 
-  void register(ObjectCodecRegistry.Builder builder);
+  default void register(ObjectCodecRegistry.Builder builder) {}
 }

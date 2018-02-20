@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
@@ -94,9 +93,7 @@ public class TestUtils {
     }
 
     /** Disables auto-registration of ConstantStringCodec. */
-    static class ConstantStringCodecRegisterer implements CodecRegisterer<ConstantStringCodec> {
-      @Override
-      public void register(ObjectCodecRegistry.Builder unusedBuilder) {}
-    }
+    private static class ConstantStringCodecRegisterer
+        implements CodecRegisterer<ConstantStringCodec> {}
   }
 }

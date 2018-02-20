@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProv
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,7 +72,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
-@AutoCodec
 public final class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "DexArchiveAspect";
 

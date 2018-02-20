@@ -16,6 +16,8 @@ java_library(
         # Generated classes have the following dependencies.
         ":unsafe-provider",
         "//third_party/protobuf:protobuf_java",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
     ],
 )

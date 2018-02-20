@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
@@ -38,20 +41,19 @@ public class ObjectCodecRegistry {
   @Nullable
   private final CodecDescriptor defaultCodecDescriptor;
 
-  private ObjectCodecRegistry(Map<String, ObjectCodec<?>> codecs, boolean allowDefaultCodec) {
+  private ObjectCodecRegistry(Map<String, CodecHolder> codecs, boolean allowDefaultCodec) {
     ImmutableMap.Builder<String, CodecDescriptor> codecMappingsBuilder = ImmutableMap.builder();
-    int nextTag = 0;
+    int nextTag = 1; // 0 is reserved for null.
     for (String classifier : ImmutableList.sortedCopyOf(codecs.keySet())) {
-      codecMappingsBuilder.put(classifier, new CodecDescriptor(nextTag, codecs.get(classifier)));
+      codecMappingsBuilder.put(classifier, codecs.get(classifier).createDescriptor(nextTag));
       nextTag++;
     }
     this.stringMappedCodecs = codecMappingsBuilder.build();
 
     this.byteStringMappedCodecs = makeByteStringMappedCodecs(stringMappedCodecs);
 
-    this.defaultCodecDescriptor = allowDefaultCodec
-        ? new CodecDescriptor(nextTag, new JavaSerializableCodec())
-        : null;
+    this.defaultCodecDescriptor =
+        allowDefaultCodec ? new TypedCodecDescriptor<>(nextTag, new JavaSerializableCodec()) : null;
     this.tagMappedCodecs = makeTagMappedCodecs(stringMappedCodecs, defaultCodecDescriptor);
   }
 
@@ -83,26 +85,37 @@ public class ObjectCodecRegistry {
     }
   }
 
+  /**
+   * Returns a {@link CodecDescriptor} for the given type.
+   *
+   * <p>Falls back to a codec for the nearest super type of type. Failing that, may fall back to the
+   * registry's default codec.
+   */
   public CodecDescriptor getCodecDescriptor(Class<?> type)
       throws SerializationException.NoCodecException {
-    CodecDescriptor result =
-        stringMappedCodecs.getOrDefault(type.getName(), defaultCodecDescriptor);
-    if (result != null) {
-      return result;
-    } else {
+    // TODO(blaze-team): consider caching this traversal.
+    for (Class<?> nextType = type; nextType != null; nextType = nextType.getSuperclass()) {
+      CodecDescriptor result = stringMappedCodecs.get(nextType.getName());
+      if (result != null) {
+        return result;
+      }
+    }
+    if (defaultCodecDescriptor == null) {
       throw new SerializationException.NoCodecException(
           "No codec available for " + type + " and default fallback disabled");
     }
+    return defaultCodecDescriptor;
   }
 
   /** Returns the {@link CodecDescriptor} associated with the supplied tag. */
   public CodecDescriptor getCodecDescriptorByTag(int tag)
       throws SerializationException.NoCodecException {
-    if (tag < 0 || tag > tagMappedCodecs.size()) {
+    int tagOffset = tag - 1;
+    if (tagOffset < 0 || tagOffset > tagMappedCodecs.size()) {
       throw new SerializationException.NoCodecException("No codec available for tag " + tag);
     }
 
-    CodecDescriptor result = tagMappedCodecs.get(tag);
+    CodecDescriptor result = tagMappedCodecs.get(tagOffset);
     if (result != null) {
       return result;
     } else {
@@ -111,32 +124,86 @@ public class ObjectCodecRegistry {
   }
 
   /** Describes encoding logic. */
-  static class CodecDescriptor {
-    private final int tag;
-    private final ObjectCodec<?> codec;
+  static interface CodecDescriptor {
+    void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
+        throws IOException, SerializationException;
 
-    private CodecDescriptor(int tag, ObjectCodec<?> codec) {
+    Object deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws IOException, SerializationException;
+
+    /**
+     * Unique identifier identifying the associated codec.
+     *
+     * <p>Intended to be used as a compact on-the-wire representation of an encoded object's type.
+     *
+     * <p>Returns a value ≥ 1.
+     *
+     * <p>0 is a special tag representing null while negative numbers are reserved for
+     * backreferences.
+     */
+    int getTag();
+
+    /**
+     * Returns the underlying codec.
+     *
+     * <p>For backwards compatibility. New callers should prefer the methods above.
+     */
+    ObjectCodec<?> getCodec();
+  }
+
+  private static class TypedCodecDescriptor<T> implements CodecDescriptor {
+    private final int tag;
+    private final ObjectCodec<T> codec;
+
+    private TypedCodecDescriptor(int tag, ObjectCodec<T> codec) {
       this.tag = tag;
       this.codec = codec;
     }
 
-    /**
-     * Unique identifier identifying the associated codec. Intended to be used as a compact
-     * on-the-wire representation of an encoded object's type.
-     */
-    int getTag() {
+    @Override
+    @SuppressWarnings("unchecked")
+    public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      codec.serialize(context, (T) obj, codedOut);
+    }
+
+    @Override
+    public T deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      return codec.deserialize(context, codedIn);
+    }
+
+    @Override
+    public int getTag() {
       return tag;
     }
 
-    ObjectCodec<?> getCodec() {
+    @Override
+    public ObjectCodec<T> getCodec() {
       return codec;
+    }
+  }
+
+  private interface CodecHolder {
+    CodecDescriptor createDescriptor(int tag);
+  }
+
+  private static class TypedCodecHolder<T> implements CodecHolder {
+    private final ObjectCodec<T> codec;
+
+    private TypedCodecHolder(ObjectCodec<T> codec) {
+      this.codec = codec;
+    }
+
+    @Override
+    public CodecDescriptor createDescriptor(int tag) {
+      return new TypedCodecDescriptor<T>(tag, codec);
     }
   }
 
   /** Builder for {@link ObjectCodecRegistry}. */
   public static class Builder {
-    private final ImmutableMap.Builder<String, ObjectCodec<?>> codecsBuilder =
-        ImmutableMap.builder();
+    private final ImmutableMap.Builder<String, CodecHolder> codecsBuilder = ImmutableMap.builder();
     private boolean allowDefaultCodec = true;
 
     private Builder() {}
@@ -147,8 +214,8 @@ public class ObjectCodecRegistry {
      * <p>Intended for package-internal usage only. Consider using the specialized build types
      * returned by {@link #asClassKeyedBuilder()} before using this method.
      */
-    Builder add(String classifier, ObjectCodec<?> codec) {
-      codecsBuilder.put(classifier, codec);
+    <T> Builder add(String classifier, ObjectCodec<T> codec) {
+      codecsBuilder.put(classifier, new TypedCodecHolder<>(codec));
       return this;
     }
 
@@ -208,11 +275,11 @@ public class ObjectCodecRegistry {
     CodecDescriptor[] codecTable =
         new CodecDescriptor[codecs.size() + (defaultCodecDescriptor != null ? 1 : 0)];
     for (Entry<String, CodecDescriptor> entry : codecs.entrySet()) {
-      codecTable[entry.getValue().getTag()] = entry.getValue();
+      codecTable[entry.getValue().getTag() - 1] = entry.getValue();
     }
 
     if (defaultCodecDescriptor != null) {
-      codecTable[defaultCodecDescriptor.getTag()] = defaultCodecDescriptor;
+      codecTable[defaultCodecDescriptor.getTag() - 1] = defaultCodecDescriptor;
     }
     return ImmutableList.copyOf(codecTable);
   }

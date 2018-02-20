@@ -25,11 +25,11 @@ import java.lang.annotation.Target;
  * <pre>{@code
  * @AutoCodec
  * class Target {
- *   public static final ObjectCodec<Target> CODEC = new Target_AutoCodec();
- * }
  * }</pre>
  *
  * The {@code _AutoCodec} suffix is added to the {@code Target} to obtain the generated class name.
+ * In the example, that results in a class named {@code Target_AutoCodec} but applications should
+ * not need to directly access the generated class.
  */
 @Target(ElementType.TYPE)
 public @interface AutoCodec {
@@ -46,7 +46,8 @@ public @interface AutoCodec {
      *
      * <ul>
      *   <li>a designated constructor or factory method to inspect to generate the codec
-     *   <li>the parameters must match member fields on name and type.
+     *   <li>each parameter must match a member field on name and the field will be interpreted as
+     *       an instance of the parameter type.
      * </ul>
      *
      * <p>If there is a unique constructor, @AutoCodec may select that as the default instantiator,
@@ -65,12 +66,13 @@ public @interface AutoCodec {
      *
      * <p>Uses reflection to determine the concrete subclass, stores the name of the subclass and
      * uses its codec to serialize the data.
+     *
+     * <p>This is no longer needed and only adds useless overhead.
      */
+    // TODO(shahan): delete this and all references to it
     POLYMORPHIC,
     /**
      * For use with classes that are singleton.
-     *
-     * <p>Commonly used with the POLYMORPHIC strategy.
      *
      * <p>The serialized class must have a codec accessible, static INSTANCE field.
      */

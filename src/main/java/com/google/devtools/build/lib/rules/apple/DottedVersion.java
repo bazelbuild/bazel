@@ -262,38 +262,36 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     printer.append(stringRepresentation);
   }
 
-  public static final ObjectCodec<DottedVersion> CODEC =
-      new ObjectCodec<DottedVersion>() {
-        @Override
-        public void serialize(
-            SerializationContext context, DottedVersion obj, CodedOutputStream codedOut)
-            throws IOException {
-          codedOut.writeInt32NoTag(obj.components.size());
-          for (Component component : obj.components) {
-            component.serialize(codedOut);
-          }
-          codedOut.writeStringNoTag(obj.stringRepresentation);
-          codedOut.writeInt32NoTag(obj.numOriginalComponents);
-        }
+  private static class DottedVersionCodec implements ObjectCodec<DottedVersion> {
+    @Override
+    public Class<DottedVersion> getEncodedClass() {
+      return DottedVersion.class;
+    }
 
-        @Override
-        public DottedVersion deserialize(DeserializationContext context, CodedInputStream codedIn)
-            throws IOException {
-          int numComponents = codedIn.readInt32();
-          // TODO(janakr: Presize this if/when https://github.com/google/guava/issues/196 is
-          // resolved.
-          ImmutableList.Builder<Component> components = ImmutableList.builder();
-          for (int i = 0; i < numComponents; i++) {
-            components.add(Component.deserialize(codedIn));
-          }
-          return new DottedVersion(components.build(), codedIn.readString(), codedIn.readInt32());
-        }
+    @Override
+    public void serialize(
+        SerializationContext context, DottedVersion obj, CodedOutputStream codedOut)
+        throws IOException {
+      codedOut.writeInt32NoTag(obj.components.size());
+      for (Component component : obj.components) {
+        component.serialize(codedOut);
+      }
+      codedOut.writeStringNoTag(obj.stringRepresentation);
+      codedOut.writeInt32NoTag(obj.numOriginalComponents);
+    }
 
-        @Override
-        public Class<DottedVersion> getEncodedClass() {
-          return DottedVersion.class;
-        }
-      };
+    @Override
+    public DottedVersion deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws IOException {
+      int numComponents = codedIn.readInt32();
+      // TODO(janakr: Presize this if/when https://github.com/google/guava/issues/196 is resolved.
+      ImmutableList.Builder<Component> components = ImmutableList.builder();
+      for (int i = 0; i < numComponents; i++) {
+        components.add(Component.deserialize(codedIn));
+      }
+      return new DottedVersion(components.build(), codedIn.readString(), codedIn.readInt32());
+    }
+  }
 
   private static final class Component implements Comparable<Component> {
     private final int firstNumber;

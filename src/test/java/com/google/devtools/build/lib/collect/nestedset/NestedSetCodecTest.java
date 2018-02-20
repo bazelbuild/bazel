@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.collect.nestedset;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializerTester;
 import org.junit.Test;
@@ -54,7 +53,7 @@ public class NestedSetCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(new NestedSetCodec<>(StringCodecs.simple()))
+    ObjectCodecTester.newBuilder(new NestedSetCodec<String>())
         .addSubjects(SUBJECTS)
         .verificationFunction(NestedSetCodecTest::verifyDeserialization)
         .buildAndRunTests();

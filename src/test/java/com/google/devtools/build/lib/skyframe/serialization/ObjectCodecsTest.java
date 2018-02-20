@@ -63,6 +63,9 @@ public class ObjectCodecsTest {
         throws SerializationException, IOException {
       return codedIn.readInt32();
     }
+
+    /** Disables auto-registration. */
+    private static class IntegerCodecRegisterer implements CodecRegisterer<IntegerCodec> {}
   }
 
   private static final String KNOWN_CLASSIFIER = "KNOWN_CLASSIFIER";

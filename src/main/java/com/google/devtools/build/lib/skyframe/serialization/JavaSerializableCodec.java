@@ -63,4 +63,8 @@ class JavaSerializableCodec implements ObjectCodec<Object> {
       throw new SerializationException("Java deserialization failed", e);
     }
   }
+
+  /** Disables auto-registration. */
+  private static class JavaSerializableCodecRegisterer
+      implements CodecRegisterer<JavaSerializableCodec> {}
 }
