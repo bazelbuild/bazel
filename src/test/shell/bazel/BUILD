@@ -249,6 +249,13 @@ sh_test(
 )
 
 sh_test(
+    name = "external_path_test",
+    size = "medium",
+    srcs = ["external_path_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "git_repository_test",
     size = "large",
     srcs = ["git_repository_test.sh"],
