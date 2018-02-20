@@ -92,7 +92,6 @@ public class LocalSpawnRunnerTest {
         ResourceManager resourceManager,
         boolean useProcessWrapper,
         OS localOs,
-        String productName,
         LocalEnvProvider localEnvProvider) {
       super(
           execRoot,
@@ -100,7 +99,6 @@ public class LocalSpawnRunnerTest {
           resourceManager,
           useProcessWrapper,
           localOs,
-          productName,
           localEnvProvider);
     }
 
@@ -310,7 +308,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -365,7 +362,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             NO_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -410,7 +406,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
@@ -456,7 +451,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
@@ -492,7 +486,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
@@ -543,7 +536,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -575,7 +567,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -602,7 +593,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -633,7 +623,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             localEnvProvider);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -646,8 +635,7 @@ public class LocalSpawnRunnerTest {
         .rewriteLocalEnv(
             any(),
             eq(fs.getPath("/execroot")),
-            matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"),
-            eq("product-name"));
+            matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"));
   }
 
   @Test
@@ -673,7 +661,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.WINDOWS,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -798,7 +785,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     Spawn spawn =
@@ -860,7 +846,6 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             USE_WRAPPER,
             OS.LINUX,
-            "product-name",
             LocalEnvProvider.UNMODIFIED);
 
     Spawn spawn =

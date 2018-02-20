@@ -100,14 +100,13 @@ final class SandboxActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider(env.getClientEnv())
+            ? new XCodeLocalEnvProvider(env.getRuntime().getProductName(), env.getClientEnv())
             : new PosixLocalEnvProvider(env.getClientEnv());
     return
         new LocalSpawnRunner(
             env.getExecRoot(),
             localExecutionOptions,
             ResourceManager.instance(),
-            env.getRuntime().getProductName(),
             localEnvProvider);
   }
 

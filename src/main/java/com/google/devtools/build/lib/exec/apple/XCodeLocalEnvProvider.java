@@ -47,6 +47,7 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
   private static final String XCRUN_CACHE_FILENAME = "__xcruncache";
   private static final String XCODE_LOCATOR_CACHE_FILENAME = "__xcodelocatorcache";
 
+  private final String productName;
   private final Map<String, String> clientEnv;
 
   /**
@@ -54,13 +55,14 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
    *
    * @param clientEnv a map of the current Bazel command's environment
    */
-  public XCodeLocalEnvProvider(Map<String, String> clientEnv) {
+  public XCodeLocalEnvProvider(String productName, Map<String, String> clientEnv) {
+    this.productName = productName;
     this.clientEnv = clientEnv;
   }
 
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName)
+      Map<String, String> env, Path execRoot, String fallbackTmpDir)
       throws IOException {
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
     boolean containsAppleSdkVersion =

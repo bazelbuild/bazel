@@ -99,7 +99,6 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
     return new LinuxSandboxedSpawnRunner(
         cmdEnv,
         sandboxBase,
-        productName,
         inaccessibleHelperFile,
         inaccessibleHelperDir,
         timeoutKillDelay);

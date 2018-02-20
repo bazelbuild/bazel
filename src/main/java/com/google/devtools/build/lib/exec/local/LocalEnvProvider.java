@@ -27,7 +27,7 @@ public interface LocalEnvProvider {
       new LocalEnvProvider() {
         @Override
         public Map<String, String> rewriteLocalEnv(
-            Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName) {
+            Map<String, String> env, Path execRoot, String fallbackTmpDir) {
           return env;
         }
       };
@@ -41,9 +41,8 @@ public interface LocalEnvProvider {
    *     particular implementation of {@link LocalEnvProvider} may choose to use some other path,
    *     typically the "TMPDIR" environment variable in the Bazel client's environment, but if
    *     that's unavailable, the implementation may decide to use this {@code fallbackTmpDir}.
-   * @param productName name of the Bazel binary, e.g. "bazel"
    */
   Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName)
+      Map<String, String> env, Path execRoot, String fallbackTmpDir)
       throws IOException;
 }

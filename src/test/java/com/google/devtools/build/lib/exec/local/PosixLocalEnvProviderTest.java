@@ -28,7 +28,7 @@ public final class PosixLocalEnvProviderTest {
 
   private static Map<String, String> rewriteEnv(
       PosixLocalEnvProvider p, ImmutableMap<String, String> env) {
-    return p.rewriteLocalEnv(env, null, null, null);
+    return p.rewriteLocalEnv(env, null, null);
   }
 
   /** Should use the client environment's TMPDIR envvar if specified. */

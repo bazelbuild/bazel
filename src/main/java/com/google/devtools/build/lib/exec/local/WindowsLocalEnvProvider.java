@@ -48,7 +48,7 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
    */
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir, String productName) {
+      Map<String, String> env, Path execRoot, String fallbackTmpDir) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMP") && !k.equals("TEMP")));
     String p = clientEnv.get("TMP");

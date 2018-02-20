@@ -141,7 +141,6 @@ public class StandaloneSpawnStrategyTest {
                         execRoot,
                         localExecutionOptions,
                         resourceManager,
-                        "mock-product-name",
                         LocalEnvProvider.UNMODIFIED))),
             ImmutableList.<ActionContextProvider>of());
 

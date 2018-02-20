@@ -150,7 +150,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.productName = productName;
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
-    this.localEnvProvider = new XCodeLocalEnvProvider(cmdEnv.getClientEnv());
+    this.localEnvProvider =
+        new XCodeLocalEnvProvider(cmdEnv.getRuntime().getProductName(), cmdEnv.getClientEnv());
     this.timeoutKillDelay = timeoutKillDelay;
   }
 
@@ -223,8 +224,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path tmpDir = sandboxExecRoot.getRelative("tmp");
 
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(
-            spawn.getEnvironment(), execRoot, tmpDir.getPathString(), productName);
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
 
     final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);

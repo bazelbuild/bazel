@@ -28,12 +28,12 @@ public final class WindowsLocalEnvProviderTest {
 
   private static Map<String, String> rewriteEnv(
       WindowsLocalEnvProvider p, ImmutableMap<String, String> env) {
-    return p.rewriteLocalEnv(env, null, null, null);
+    return p.rewriteLocalEnv(env, null, null);
   }
 
   private static Map<String, String> rewriteEnv(
       WindowsLocalEnvProvider p, ImmutableMap<String, String> env, String fallback) {
-    return p.rewriteLocalEnv(env, null, fallback, null);
+    return p.rewriteLocalEnv(env, null, fallback);
   }
 
   /** Should use the client environment's TMP envvar if specified. */
