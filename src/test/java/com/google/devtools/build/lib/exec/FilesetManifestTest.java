@@ -50,7 +50,7 @@ public class FilesetManifestTest {
 
   private void scratchFile(String file, String... lines) throws Exception {
     Path path = fs.getPath(file);
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeLinesAs(path, StandardCharsets.UTF_8, lines);
   }
 
@@ -218,6 +218,48 @@ public class FilesetManifestTest {
         .containsExactly(
             PathFragment.create("out/foo/bar"), "/foo/bar",
             PathFragment.create("out/foo/foo"), "/foo/bar");
+  }
+
+  @Test
+  public void testManifestWithResolvedRelativeSymlinkWithDotSlash() throws Exception {
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar ./foo",
+        "<some digest>",
+        "workspace/foo /foo/bar",
+        "<some digest>");
+
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    FilesetManifest manifest =
+        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", RESOLVE);
+    assertThat(manifest.getEntries())
+        .containsExactly(
+            PathFragment.create("out/foo/bar"), "/foo/bar",
+            PathFragment.create("out/foo/foo"), "/foo/bar");
+  }
+
+  @Test
+  public void testManifestWithResolvedRelativeSymlinkWithDotDotSlash() throws Exception {
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar/bar ../foo/foo",
+        "<some digest>",
+        "workspace/foo/foo /foo/bar",
+        "<some digest>");
+
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    FilesetManifest manifest =
+        FilesetManifest.parseManifestFile(artifact, execRoot, "workspace", RESOLVE);
+    assertThat(manifest.getEntries())
+        .containsExactly(
+            PathFragment.create("out/foo/bar/bar"), "/foo/bar",
+            PathFragment.create("out/foo/foo/foo"), "/foo/bar");
   }
 
   @Test
