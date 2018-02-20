@@ -262,4 +262,142 @@ EOF
       || fail "Expected output 'Hello World'"
 }
 
+repo_with_local_implicit_dependencies() {
+  # create, in the current working directory, a package called rule
+  # that has an implicit dependency on a target in the same repository;
+  # the point here is that this dependency can be named without knowlege
+  #  of the repository name.
+  mkdir -p rule
+  cat > rule/BUILD <<'EOF'
+exports_files(["to_upper.sh"])
+EOF
+  cat > rule/to_upper.sh <<'EOF'
+cat $1 | tr 'a-z' 'A-Z' > $2
+EOF
+  cat > rule/to_upper.bzl <<'EOF'
+def _to_upper_impl(ctx):
+  output = ctx.new_file(ctx.label.name + ".txt")
+  ctx.action(
+    inputs = ctx.files.src + ctx.files._toupper_sh,
+    outputs = [output],
+    command = ["/bin/sh"] + [f.path for f in ctx.files._toupper_sh] \
+              +  [f.path for f in ctx.files.src] + [output.path],
+    use_default_shell_env = True,
+    mnemonic = "ToUpper",
+    progress_message = "Uppercasing %s" % ctx.label,
+  )
+
+to_upper = rule(
+  implementation = _to_upper_impl,
+  attrs = {
+    "src" : attr.label(allow_files=True),
+    "_toupper_sh" : attr.label(cfg="host", allow_files=True,
+                               default = Label("//rule:to_upper.sh")),
+  },
+  outputs = {"upper": "%{name}.txt"},
+  )
+EOF
+}
+
+test_local_rules() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  cd main
+  touch WORKSPACE
+  repo_with_local_implicit_dependencies
+  mkdir call
+  echo hello world > call/hello.txt
+  cat > call/BUILD <<'EOF'
+load("//rule:to_upper.bzl", "to_upper")
+to_upper(
+  name = "upper_hello",
+  src = "hello.txt"
+)
+EOF
+
+  bazel build -s //call:upper_hello || fail "Expected success"
+  cat `bazel info bazel-bin`/call/upper_hello.txt | grep 'HELLO WORLD' \
+    || fail "not the expected output"
+
+}
+
+test_remote_rules() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir remote
+  (cd remote && repo_with_local_implicit_dependencies)
+  tar cvf remote.tar remote
+  rm -rf remote
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="r",
+  strip_prefix="remote",
+  urls=["file://${WRKDIR}/remote.tar"],
+)
+EOF
+  mkdir call
+  echo hello world > call/hello.txt
+  cat > call/BUILD <<'EOF'
+load("@r//rule:to_upper.bzl", "to_upper")
+to_upper(
+  name = "upper_hello",
+  src = "hello.txt"
+)
+EOF
+
+  bazel build -s //call:upper_hello || fail "Expected success"
+  cat `bazel info bazel-bin`/call/upper_hello.txt | grep 'HELLO WORLD' \
+    || fail "not the expected output"
+}
+
+test_remote_remote_rules() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir a
+  (cd a && repo_with_local_implicit_dependencies)
+  tar cvf a.tar a
+  rm -rf a
+
+  mkdir b
+  (cd b
+  mkdir call
+  echo hello world > call/hello.txt
+  cat > call/BUILD <<'EOF'
+load("@a//rule:to_upper.bzl", "to_upper")
+to_upper(
+  name = "upper_hello",
+  src = "hello.txt"
+)
+EOF
+  )
+  tar cvf b.tar b
+  rm -rf b
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="a",
+  strip_prefix="a",
+  urls=["file://${WRKDIR}/a.tar"],
+)
+http_archive(
+  name="b",
+  strip_prefix="b",
+  urls=["file://${WRKDIR}/b.tar"],
+)
+EOF
+
+  bazel build -s @b//call:upper_hello || fail "Expected success"
+}
+
 run_suite "path tests for multiple repositories"
