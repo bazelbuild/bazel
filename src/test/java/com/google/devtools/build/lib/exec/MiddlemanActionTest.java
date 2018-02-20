@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import org.junit.Before;
@@ -134,5 +136,20 @@ public class MiddlemanActionTest extends BuildViewTestCase {
         .isNotEqualTo(Sets.newHashSet(middlemanActionForC.getInputs()));
     assertThat(Sets.newHashSet(middlemanActionForD.getOutputs()))
         .isNotEqualTo(Sets.newHashSet(middlemanActionForC.getOutputs()));
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    ObjectCodecTester.newBuilder(MiddlemanAction.CODEC)
+        .addSubjects((MiddlemanAction) getGeneratingAction(middle))
+        .addDependency(FileSystem.class, scratch.getFileSystem())
+        .verificationFunction(
+            (first, second) -> {
+              assertThat(first.getActionType()).isEqualTo(second.getActionType());
+              assertThat(first.getInputs()).isEqualTo(second.getInputs());
+              assertThat(first.getOutputs()).isEqualTo(second.getOutputs());
+              assertThat(first.getOwner()).isEqualTo(second.getOwner());
+            })
+        .buildAndRunTests();
   }
 }

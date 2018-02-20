@@ -14,17 +14,23 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
- * An action that depends on a set of inputs and creates a single output file whenever it
- * runs. This is useful for bundling up a bunch of dependencies that are shared
- * between individual targets in the action graph; for example generated header files.
+ * An action that depends on a set of inputs and creates a single output file whenever it runs. This
+ * is useful for bundling up a bunch of dependencies that are shared between individual targets in
+ * the action graph; for example generated header files.
  */
 @Immutable
+@AutoCodec
 public final class MiddlemanAction extends AbstractAction {
+  public static final ObjectCodec<MiddlemanAction> CODEC = new MiddlemanAction_AutoCodec();
 
   public static final String MIDDLEMAN_MNEMONIC = "Middleman";
   private final String description;
@@ -43,9 +49,20 @@ public final class MiddlemanAction extends AbstractAction {
    */
   public MiddlemanAction(ActionOwner owner, Iterable<Artifact> inputs, Artifact stampFile,
       String description, MiddlemanType middlemanType) {
-    super(owner, inputs, ImmutableList.of(stampFile));
+    this(owner, inputs, ImmutableSet.of(stampFile), description, middlemanType);
+  }
+
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  MiddlemanAction(
+      ActionOwner owner,
+      Iterable<Artifact> inputs,
+      ImmutableSet<Artifact> outputs,
+      String description,
+      MiddlemanType middlemanType) {
+    super(owner, inputs, outputs);
     Preconditions.checkNotNull(middlemanType);
-    Preconditions.checkArgument(stampFile.isMiddlemanArtifact(), stampFile);
+    Preconditions.checkArgument(Iterables.getOnlyElement(outputs).isMiddlemanArtifact(), outputs);
     this.description = description;
     this.middlemanType = middlemanType;
   }
