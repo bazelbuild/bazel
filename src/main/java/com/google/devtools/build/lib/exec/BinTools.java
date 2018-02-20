@@ -17,15 +17,26 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hasher;
+import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * Initializes the &lt;execRoot>/_bin/ directory that contains auxiliary tools used during action
@@ -36,6 +47,7 @@ public final class BinTools {
   private final Path embeddedBinariesRoot;
   private final Path execrootParent;
   private final ImmutableList<String> embeddedTools;
+  private ImmutableMap<String, ActionInput> actionInputs;
 
   private Path binDir;  // the working bin directory under execRoot
 
@@ -59,6 +71,16 @@ public final class BinTools {
     }
     this.embeddedTools = builder.build();
     this.binDir = null;
+  }
+
+  private ImmutableMap<String, ActionInput> populateActionInputMap() {
+    ImmutableMap.Builder<String, ActionInput> result = ImmutableMap.builder();
+    for (String embeddedPath : embeddedTools) {
+      PathFragment execPath = getExecPath(embeddedPath);
+      Path path = binDir.getRelative(execPath.getBaseName());
+      result.put(embeddedPath, new PathActionInput(path, execPath));
+    }
+    return result.build();
   }
 
   /**
@@ -137,6 +159,16 @@ public final class BinTools {
     }
   }
 
+  /**
+   * Returns an action input for the given embedded tool.
+   */
+  public ActionInput getActionInput(String embeddedPath) {
+    if (actionInputs == null) {
+      actionInputs = populateActionInputMap();
+    }
+    return actionInputs.get(embeddedPath);
+  }
+
   public PathFragment getExecPath(String embedPath) {
     if (!embeddedTools.contains(embedPath)) {
       return null;
@@ -192,6 +224,68 @@ public final class BinTools {
       } catch (IOException e) {
         throw new EnvironmentalExecException("failed to copy '" + sourcePath + "'" , e);
       }
+    }
+  }
+
+  /** An ActionInput pointing at an absolute path. */
+  public static final class PathActionInput implements VirtualActionInput {
+    private final Path path;
+    private final PathFragment execPath;
+    private Metadata metadata;
+
+    public PathActionInput(Path path, PathFragment execPath) {
+      this.path = path;
+      this.execPath = execPath;
+    }
+
+    @Override
+    public void writeTo(OutputStream out) throws IOException {
+      try (InputStream in = path.getInputStream()) {
+        ByteStreams.copy(in, out);
+      }
+    }
+
+    @Override
+    public ByteString getBytes() throws IOException {
+      ByteString.Output out = ByteString.newOutput();
+      writeTo(out);
+      return out.toByteString();
+    }
+
+    @Override
+    public synchronized Metadata getMetadata() throws IOException {
+      // We intentionally delay hashing until it is necessary.
+      if (metadata == null) {
+        metadata = hash(path);
+      }
+      return metadata;
+    }
+
+    private static Metadata hash(Path path) throws IOException {
+      HashFunction hashFn = path.getFileSystem().getDigestFunction();
+      Hasher hasher = hashFn.getHash().newHasher();
+      int bytesCopied = 0;
+      try (InputStream in = path.getInputStream()) {
+        byte[] buffer = new byte[1024];
+        int len;
+        while ((len = in.read(buffer)) > 0) {
+          hasher.putBytes(buffer, 0, len);
+          bytesCopied += len;
+        }
+      }
+      return FileArtifactValue.createForVirtualActionInput(
+          hasher.hash().asBytes(),
+          bytesCopied);
+    }
+
+    @Override
+    public String getExecPathString() {
+      return execPath.getPathString();
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return execPath;
     }
   }
 }
