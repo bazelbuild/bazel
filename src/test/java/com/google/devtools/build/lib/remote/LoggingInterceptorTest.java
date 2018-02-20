@@ -51,6 +51,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+/** Tests for {@link LoggingInterceptor} */
 @RunWith(JUnit4.class)
 public class LoggingInterceptorTest {
   private final String fakeServerName = "fake server for " + getClass();
@@ -59,7 +60,7 @@ public class LoggingInterceptorTest {
 
   // This returns a logging interceptor where all calls are handled by the given handler.
   private LoggingInterceptor getInterceptorWithAlwaysThisHandler(LoggingHandler handler) {
-    return new LoggingInterceptor(new RpcLogger(System.out)) {
+    return new LoggingInterceptor() {
       @Override
       public LoggingHandler selectHandler(MethodDescriptor method) {
         return handler;
@@ -89,23 +90,23 @@ public class LoggingInterceptorTest {
     ReadResponse response =
         ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
 
-    serviceRegistry.addService(new ByteStreamImplBase() {
-      @Override
-      public void read(
-          ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
-      }
-    });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+          }
+        });
 
     @SuppressWarnings("unchecked")
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
     Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
 
     LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
-    Channel channel = ClientInterceptors.intercept(
-        InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
-        interceptor);
+    Channel channel =
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
 
     stub.read(request).next();
@@ -121,24 +122,24 @@ public class LoggingInterceptorTest {
         ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
     ReadResponse response2 =
         ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("def")).build();
-    serviceRegistry.addService(new ByteStreamImplBase() {
-      @Override
-      public void read(
-          ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-        responseObserver.onNext(response1);
-        responseObserver.onNext(response2);
-        responseObserver.onCompleted();
-      }
-    });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(response1);
+            responseObserver.onNext(response2);
+            responseObserver.onCompleted();
+          }
+        });
 
     @SuppressWarnings("unchecked")
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
     Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
 
     LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
-    Channel channel = ClientInterceptors.intercept(
-        InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
-        interceptor);
+    Channel channel =
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
 
     // Read both responses.
@@ -155,42 +156,45 @@ public class LoggingInterceptorTest {
 
   @Test
   public void testCallOkMultipleRequests() {
-    WriteRequest request1 = WriteRequest.newBuilder()
-        .setResourceName("test")
-        .setData(ByteString.copyFromUtf8("abc"))
-        .build();
-    WriteRequest request2 = WriteRequest.newBuilder()
-        .setResourceName("test")
-        .setData(ByteString.copyFromUtf8("def"))
-        .build();
+    WriteRequest request1 =
+        WriteRequest.newBuilder()
+            .setResourceName("test")
+            .setData(ByteString.copyFromUtf8("abc"))
+            .build();
+    WriteRequest request2 =
+        WriteRequest.newBuilder()
+            .setResourceName("test")
+            .setData(ByteString.copyFromUtf8("def"))
+            .build();
     WriteResponse response = WriteResponse.newBuilder().setCommittedSize(6).build();
-    serviceRegistry.addService(new ByteStreamImplBase() {
-      @Override
-      public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
-        return new StreamObserver<WriteRequest>() {
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
           @Override
-          public void onNext(WriteRequest writeRequest) {}
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
 
-          @Override
-          public void onError(Throwable throwable) {}
+              @Override
+              public void onError(Throwable throwable) {}
 
-          @Override
-          public void onCompleted() {
-            streamObserver.onNext(response);
-            streamObserver.onCompleted();
+              @Override
+              public void onCompleted() {
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+            };
           }
-        };
-      }
-    });
+        });
 
     @SuppressWarnings("unchecked")
     LoggingHandler<WriteRequest, WriteResponse> handler = Mockito.mock(LoggingHandler.class);
     Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
 
     LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
-    Channel channel = ClientInterceptors.intercept(
-        InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
-        interceptor);
+    Channel channel =
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamStub stub = ByteStreamGrpc.newStub(channel);
 
     @SuppressWarnings("unchecked")
@@ -215,22 +219,22 @@ public class LoggingInterceptorTest {
     ReadRequest request = ReadRequest.newBuilder().setResourceName("test").build();
     Status error = Status.NOT_FOUND.withDescription("not found");
 
-    serviceRegistry.addService(new ByteStreamImplBase() {
-      @Override
-      public void read(
-          ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-        responseObserver.onError(error.asRuntimeException());
-      }
-    });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onError(error.asRuntimeException());
+          }
+        });
 
     @SuppressWarnings("unchecked")
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
     Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
 
     LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
-    Channel channel = ClientInterceptors.intercept(
-        InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
-        interceptor);
+    Channel channel =
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
 
     assertThrows(StatusRuntimeException.class, () -> stub.read(request).next());
@@ -239,5 +243,4 @@ public class LoggingInterceptorTest {
     verify(handler, never()).handleResp(any());
     verify(handler).getEntry();
   }
-
 }

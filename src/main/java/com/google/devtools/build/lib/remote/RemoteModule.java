@@ -29,13 +29,11 @@ import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.Channel;
-import io.grpc.ClientInterceptors;
 import java.io.IOException;
 import java.util.logging.Logger;
 
@@ -119,15 +117,6 @@ public final class RemoteModule extends BlazeModule {
               remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, Retrier.ALLOW_ALL_CALLS);
       // TODO(davido): The naming is wrong here. "Remote"-prefix in RemoteActionCache class has no
       // meaning.
-
-      RpcLogger rpcLogger = null;
-      if (remoteOptions.experimentalRemoteExecutionLog != null) {
-        Path rpcLogPath =
-            FileSystemUtils.getWorkingDirectory(env.getRuntime().getFileSystem())
-                .getRelative(remoteOptions.experimentalRemoteExecutionLog);
-        rpcLogger = new RpcLogger(rpcLogPath.getOutputStream());
-      }
-
       final AbstractRemoteActionCache cache;
       if (remoteOrLocalCache) {
         cache =
@@ -140,10 +129,7 @@ public final class RemoteModule extends BlazeModule {
       } else if (grpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
-        Channel ch = GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions);
-        if (rpcLogger != null) {
-          ch = ClientInterceptors.intercept(ch, new LoggingInterceptor(rpcLogger));
-        }
+        Channel ch = GoogleAuthUtils.newChannel(target, authAndTlsOptions);
         cache =
             new GrpcRemoteCache(
                 ch,
@@ -157,13 +143,9 @@ public final class RemoteModule extends BlazeModule {
 
       final GrpcRemoteExecutor executor;
       if (remoteOptions.remoteExecutor != null) {
-        Channel ch = GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions);
-        if (rpcLogger != null) {
-          ch = ClientInterceptors.intercept(ch, new LoggingInterceptor(rpcLogger));
-        }
         executor =
             new GrpcRemoteExecutor(
-                ch,
+                GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions),
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
                 remoteOptions.remoteTimeout,
                 retrier);

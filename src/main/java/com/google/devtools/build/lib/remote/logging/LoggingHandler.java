@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.remote.logging;
 
 import com.google.devtools.build.lib.remote.logging.RpcLogEntry.LogEntry;
 
-/** An interface for building {@link LogEntry}s specialized for a specific gRPC call with specific
+/**
+ * An interface for building {@link LogEntry}s specialized for a specific gRPC call with specific
  * request and response types.
+ *
  * @param <ReqT> request type of the gRPC call
  * @param <RespT> response type of the gRPC call
  */
@@ -25,16 +27,18 @@ public interface LoggingHandler<ReqT, RespT> {
 
   /**
    * Handle logging for an issued message.
+   *
    * @param message the issued request message
    */
   void handleReq(ReqT message);
 
   /**
-   * Handle logging for an received response.
+   * Handle logging for a received response.
+   *
    * @param message the received response message
    */
   void handleResp(RespT message);
 
-  /** Returns a {@link LogEntry} based on the requests and responses handled by this handler **/
+  /** Returns a {@link LogEntry} based on the requests and responses handled by this handler * */
   LogEntry getEntry();
 }

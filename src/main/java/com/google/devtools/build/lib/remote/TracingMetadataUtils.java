@@ -42,11 +42,11 @@ public class TracingMetadataUtils {
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
 
   /**
-   * Returns a new gRPC context derived from the current context, with
-   * {@link RequestMetadata} accessible by the {@link fromCurrentContext()} method.
+   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
+   * accessible by the {@link fromCurrentContext()} method.
    *
-   * <p>The {@link RequestMetadata} is constructed using the provided arguments
-   * and the current tool version.
+   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
+   * version.
    */
   public static Context contextWithMetadata(
       String buildRequestId, String commandId, ActionKey actionKey) {
@@ -93,7 +93,7 @@ public class TracingMetadataUtils {
    *
    * @param headers
    * @throws {@link IllegalStateException} if a RequestMetadata could not be found in the given
-   * headers.
+   *     headers.
    */
   public static RequestMetadata extractRequestMetadata(Metadata headers) {
     RequestMetadata meta = headers.get(METADATA_KEY);
@@ -122,5 +122,4 @@ public class TracingMetadataUtils {
       return Contexts.interceptCall(ctx, call, headers, next);
     }
   }
-
 }

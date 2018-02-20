@@ -223,15 +223,4 @@ public final class RemoteOptions extends OptionsBase {
         + "writing of files, which could cause false positives."
   )
   public boolean experimentalGuardAgainstConcurrentChanges;
-
-
-  @Option(
-      name = "experimental_remote_execution_log",
-      defaultValue = "null",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Set a path to log gRPC call information to."
-  )
-  public String experimentalRemoteExecutionLog;
 }
