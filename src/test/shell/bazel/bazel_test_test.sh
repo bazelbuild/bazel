@@ -339,6 +339,41 @@ EOF
 \?\?\?\?\?<!CDATA\[\]\]>\]\]<!\[CDATA\[>\]\]></system-out>'
 }
 
+# Tests that the test.xml and test.log are correct and the test does not
+# hang when the test launches a subprocess.
+function test_subprocess_non_timeout() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+echo "Pretending to sleep..."
+sleep 600 &
+echo "Finished!" >&2
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    timeout = "short",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test --test_output=streamed --test_timeout=2 \
+     //dir:test &> $TEST_log || fail "expected success"
+
+  xml_log=bazel-testlogs/dir/test/test.xml
+  expect_log 'Pretending to sleep...'
+  expect_log 'Finished!'
+  [ -s "${xml_log}" ] || fail "${xml_log} was not present after test"
+  cp "${xml_log}" $TEST_log
+  expect_log_once "testcase"
+  expect_log 'Pretending to sleep...'
+  expect_log 'Finished!'
+}
+
 # Check that fallback xml output is correctly generated for sharded tests.
 function test_xml_fallback_for_sharded_test() {
   mkdir -p dir
