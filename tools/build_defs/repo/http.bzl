@@ -122,7 +122,7 @@ http_archive = repository_rule(
 """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`,
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"tar"`,
 `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
 
 Examples:
@@ -205,8 +205,8 @@ Args:
 
     By default, the archive type is determined from the file extension of the
     URL. If the file has no extension, you can explicitly specify one of the
-    following: `"zip"`, `"jar"`, `"war"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`,
-    or `tar.bz2`.
+    following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
+    `"tar.xz"`, or `tar.bz2`.
   url: A URL to a file that will be made available to Bazel.
 
     This must be an file, http or https URL. Redirections are followed.
