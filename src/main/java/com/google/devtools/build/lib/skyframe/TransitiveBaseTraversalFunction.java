@@ -125,7 +125,6 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
         loadTargetResultsType.equals(LoadTargetResultsType.TARGET_AND_ERROR_IF_ANY),
         loadTargetResultsType);
     TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) loadTargetResults;
-    TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
 
     // Process deps from attributes.
     Collection<SkyKey> labelDepKeys =
@@ -134,21 +133,22 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
     Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap =
         env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
             NoSuchTargetException.class);
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap.entrySet());
     if (env.valuesMissing()) {
       return null;
     }
-
     // Process deps from aspects.
     Iterable<SkyKey> labelAspectKeys =
         getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), depMap, env);
     Set<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
         labelAspectEntries = env.getValuesOrThrow(labelAspectKeys, NoSuchPackageException.class,
         NoSuchTargetException.class).entrySet();
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, labelAspectEntries);
     if (env.valuesMissing()) {
       return null;
     }
+
+    TProcessedTargets processedTargets = processTarget(label, targetAndErrorIfAny);
+    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap.entrySet());
+    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, labelAspectEntries);
 
     return computeSkyValue(targetAndErrorIfAny, processedTargets);
   }
