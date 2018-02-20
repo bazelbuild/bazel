@@ -44,9 +44,13 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> transitiveImports =
         ProtoCommon.collectTransitiveImports(ruleContext, protoSources);
-    NestedSet<String> protoPathFlags = ProtoCommon.collectTransitiveProtoPathFlags(ruleContext);
-
     NestedSet<Artifact> protosInDirectDeps = ProtoCommon.computeProtosInDirectDeps(ruleContext);
+
+    String protoSourceRoot = ProtoCommon.getProtoSourceRoot(ruleContext);
+    NestedSet<String> directProtoSourceRoots =
+        ProtoCommon.getProtoSourceRootsOfDirectDependencies(ruleContext, protoSourceRoot);
+    NestedSet<String> protoPathFlags =
+        ProtoCommon.collectTransitiveProtoPathFlags(ruleContext, protoSourceRoot);
 
     final SupportData supportData =
         SupportData.create(
@@ -55,6 +59,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             protosInDirectDeps,
             transitiveImports,
             protoPathFlags,
+            directProtoSourceRoots,
             !protoSources.isEmpty());
 
     Artifact descriptorSetOutput =
@@ -74,7 +79,8 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         descriptorSetOutput,
         true /* allowServices */,
         dependenciesDescriptorSets,
-        protoPathFlags);
+        protoPathFlags,
+        directProtoSourceRoots);
 
     Runfiles dataRunfiles =
         ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext)
@@ -90,7 +96,8 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             checkDepsProtoSources,
             descriptorSetOutput,
             transitiveDescriptorSetOutput,
-            protoPathFlags);
+            protoPathFlags,
+            protoSourceRoot);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput))

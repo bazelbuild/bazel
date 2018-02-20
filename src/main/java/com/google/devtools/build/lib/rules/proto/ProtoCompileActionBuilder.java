@@ -322,6 +322,7 @@ public class ProtoCompileActionBuilder {
     addIncludeMapArguments(
         result,
         areDepsStrict ? supportData.getProtosInDirectDeps() : null,
+        supportData.getDirectProtoSourceRoots(),
         supportData.getTransitiveImports());
 
     if (areDepsStrict) {
@@ -360,7 +361,8 @@ public class ProtoCompileActionBuilder {
       Artifact output,
       boolean allowServices,
       NestedSet<Artifact> transitiveDescriptorSets,
-      NestedSet<String> protoSourceRoots) {
+      NestedSet<String> protoSourceRoots,
+      NestedSet<String> directProtoSourceRoots) {
     if (protosToCompile.isEmpty()) {
       ruleContext.registerAction(
           FileWriteAction.createEmptyWithInputs(
@@ -376,6 +378,7 @@ public class ProtoCompileActionBuilder {
             transitiveSources,
             protosInDirectDeps,
             protoSourceRoots,
+            directProtoSourceRoots,
             ruleContext.getLabel(),
             ImmutableList.of(output),
             "Descriptor Set",
@@ -423,6 +426,7 @@ public class ProtoCompileActionBuilder {
       NestedSet<Artifact> transitiveSources,
       NestedSet<Artifact> protosInDirectDeps,
       NestedSet<String> protoSourceRoots,
+      NestedSet<String> directProtoSourceRoots,
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -435,6 +439,7 @@ public class ProtoCompileActionBuilder {
             transitiveSources,
             protosInDirectDeps,
             protoSourceRoots,
+            directProtoSourceRoots,
             ruleLabel,
             outputs,
             flavorName,
@@ -452,6 +457,7 @@ public class ProtoCompileActionBuilder {
       NestedSet<Artifact> transitiveSources,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
       NestedSet<String> protoSourceRoots,
+      NestedSet<String> directProtoSourceRoots,
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -487,6 +493,7 @@ public class ProtoCompileActionBuilder {
                 protosToCompile,
                 transitiveSources,
                 protoSourceRoots,
+                directProtoSourceRoots,
                 areDepsStrict(ruleContext) ? protosInDirectDeps : null,
                 ruleLabel,
                 allowServices,
@@ -524,11 +531,13 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       NestedSet<String> transitiveProtoPathFlags,
+      NestedSet<String> directProtoSourceRoots,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
       Label ruleLabel,
       boolean allowServices,
       ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
+    cmdLine.addAll(transitiveProtoPathFlags);
 
     cmdLine.addAll(transitiveProtoPathFlags);
 
@@ -565,7 +574,7 @@ public class ProtoCompileActionBuilder {
     cmdLine.addAll(protocOpts);
 
     // Add include maps
-    addIncludeMapArguments(cmdLine, protosInDirectDeps, transitiveSources);
+    addIncludeMapArguments(cmdLine, protosInDirectDeps, directProtoSourceRoots, transitiveSources);
 
     if (protosInDirectDeps != null) {
       cmdLine.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleLabel);
@@ -586,6 +595,7 @@ public class ProtoCompileActionBuilder {
   static void addIncludeMapArguments(
       CustomCommandLine.Builder commandLine,
       @Nullable NestedSet<Artifact> protosInDirectDependencies,
+      NestedSet<String> directProtoSourceRoots,
       NestedSet<Artifact> transitiveImports) {
     commandLine.addAll(
         VectorArg.of(transitiveImports)
@@ -596,7 +606,14 @@ public class ProtoCompileActionBuilder {
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(protosInDirectDependencies)
-                .mapped(ProtoCompileActionBuilder::expandToPathIgnoringRepository));
+                .mapped((Artifact proto, Consumer<String> args) -> {
+                    for (String directProtoSourceRoot : directProtoSourceRoots) {
+                      expandToPathIgnoringSourceRoot(proto, directProtoSourceRoot, args);
+                    }
+                    expandToPathIgnoringRepository(proto, args);
+                  })
+        );
+
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
         commandLine.add("--direct_dependencies=");
@@ -625,6 +642,20 @@ public class ProtoCompileActionBuilder {
         .relativeTo(
             artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot())
         .toString();
+  }
+
+  private static void expandToPathIgnoringSourceRoot(
+      Artifact artifact, String directProtoSourceRoot, Consumer<String> args) {
+    try {
+      String relativePath = artifact.getRootRelativePath()
+          .relativeTo(
+              artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot())
+          .relativeTo(directProtoSourceRoot)
+          .toString();
+      args.accept(relativePath);
+      } catch (IllegalArgumentException exception) {
+      // do nothing
+      }
   }
 
   /**
