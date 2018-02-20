@@ -227,10 +227,10 @@ tail -fq --pid $pid -s 0.001 /dev/null &> /dev/null || has_tail=false
 if [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   touch "${XML_OUTPUT_FILE}.log"
   if [ -z "$COVERAGE_DIR" ]; then
-    "${TEST_PATH}" "$@" &>"${XML_OUTPUT_FILE}.log" &
+    ("${TEST_PATH}" "$@" &>"${XML_OUTPUT_FILE}.log") &
     pid=$!
   else
-    "$1" "$TEST_PATH" "${@:3}" &> "${XML_OUTPUT_FILE}.log" &
+    ("$1" "$TEST_PATH" "${@:3}" &> "${XML_OUTPUT_FILE}.log") &
     pid=$!
   fi
   tail -fq --pid $pid -s 0.001 "${XML_OUTPUT_FILE}.log"
