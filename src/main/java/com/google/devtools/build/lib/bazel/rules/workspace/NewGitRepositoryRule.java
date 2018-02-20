@@ -132,9 +132,8 @@ the chances of being unable to download a dependency.
 <li>Speed - <code>new_http_archive</code> multiplexes downloads to get the fastest possible rate.
 You can also generally download a tarball that is a "shallow clone" of the repository, which
 decreases the size of the download.
-<li>Library issues - This implementation uses jGit, which we've discovered
-<a href="https://github.com/bazelbuild/bazel/issues/2802">several issues</a> with. It also lacks
-support for some authentication types you might use with your system git.
+<li>Library issues - This implementation uses an old version of jGit and since this rule is
+deprecated, we don't plan to upgrade it.
 </ul>
 
 <p>Many git repository hosts serve tarballs of the repository, so depend on those if possible.
