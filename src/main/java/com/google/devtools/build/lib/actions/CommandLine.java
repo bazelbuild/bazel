@@ -69,13 +69,13 @@ public abstract class CommandLine {
 
   @AutoCodec
   @VisibleForSerialization
-  static class ArgumentCommandLine extends CommandLine {
-    public static final ObjectCodec<ArgumentCommandLine> CODEC =
-        new CommandLine_ArgumentCommandLine_AutoCodec();
+  static class SimpleCommandLine extends CommandLine {
+    public static final ObjectCodec<SimpleCommandLine> CODEC =
+        new CommandLine_SimpleCommandLine_AutoCodec();
 
     private Iterable<String> args;
 
-    ArgumentCommandLine(Iterable<String> args) {
+    SimpleCommandLine(Iterable<String> args) {
       this.args = args;
     }
 
@@ -88,20 +88,20 @@ public abstract class CommandLine {
   /** Returns a {@link CommandLine} backed by a copy of the given list of arguments. */
   public static CommandLine of(Iterable<String> arguments) {
     final Iterable<String> immutableArguments = CollectionUtils.makeImmutable(arguments);
-    return new ArgumentCommandLine(immutableArguments);
+    return new SimpleCommandLine(immutableArguments);
   }
 
   @AutoCodec
   @VisibleForSerialization
-  static class ConcatenatedCommandLine extends CommandLine {
-    public static final ObjectCodec<ConcatenatedCommandLine> CODEC =
-        new CommandLine_ConcatenatedCommandLine_AutoCodec();
+  static class PrefixedCommandLine extends CommandLine {
+    public static final ObjectCodec<PrefixedCommandLine> CODEC =
+        new CommandLine_PrefixedCommandLine_AutoCodec();
 
     private ImmutableList<String> executableArgs;
     private CommandLine commandLine;
 
     @VisibleForSerialization
-    ConcatenatedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
+    PrefixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
       this.executableArgs = executableArgs;
       this.commandLine = commandLine;
     }
@@ -127,20 +127,20 @@ public abstract class CommandLine {
     if (executableArgs.isEmpty()) {
       return commandLine;
     }
-    return new ConcatenatedCommandLine(executableArgs, commandLine);
+    return new PrefixedCommandLine(executableArgs, commandLine);
   }
 
   @AutoCodec
   @VisibleForSerialization
-  static class ReverseConcatenatedCommandLine extends CommandLine {
-    public static final ObjectCodec<ReverseConcatenatedCommandLine> CODEC =
-        new CommandLine_ReverseConcatenatedCommandLine_AutoCodec();
+  static class SuffixedCommandLine extends CommandLine {
+    public static final ObjectCodec<SuffixedCommandLine> CODEC =
+        new CommandLine_SuffixedCommandLine_AutoCodec();
 
     private ImmutableList<String> executableArgs;
     private CommandLine commandLine;
 
     @VisibleForSerialization
-    ReverseConcatenatedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
+    SuffixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
       this.executableArgs = executableArgs;
       this.commandLine = commandLine;
     }
@@ -166,7 +166,7 @@ public abstract class CommandLine {
     if (args.isEmpty()) {
       return commandLine;
     }
-    return new ReverseConcatenatedCommandLine(args, commandLine);
+    return new SuffixedCommandLine(args, commandLine);
   }
 
   /**
