@@ -1830,12 +1830,12 @@ The default is <code>armeabi-v7a</code>.
   is to enable cross-compilation.
 </p>
 
-<h4 id='flag--javabase'><code class='flag'>--javabase (<var>path</var>|<var>label</var>)</code></h4>
+<h4 id='flag--javabase'><code class='flag'>--javabase (<var>label</var>)</code></h4>
 <p>
-  This option sets the <i>label</i> or the <i>path</i> of the base Java installation to
+  This option sets the <i>label</i> of the base Java installation to
   use for running JavaBuilder, SingleJar, for <i>bazel run</i> and <i>bazel
   test</i>, and for Java binaries built by <code>java_binary</code> and <code>java_test</code>
-  rules. A path must be to a JDK or JRE directory that contains <code>bin/java</code>.
+  rules.
   The various  <a href='be/make-variables.html'>"Make" variables</a> for
   Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
   <code>JAR</code>) are derived from this option.
