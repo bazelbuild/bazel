@@ -278,7 +278,7 @@ public class JavaSkylarkCommon {
         type = String.class,
         doc = "A string that specifies how to handle strict deps. Possible values: 'OFF', 'ERROR',"
           + "'WARN' and 'DEFAULT'. For more details see "
-          + "https://docs.bazel.build/versions/master/bazel-user-manual.html#flag--strict_java_deps"
+          + "https://docs.bazel.build/versions/master/user-manual.html#flag--strict_java_deps"
           + ". By default 'ERROR'."
       ),
       @Param(
