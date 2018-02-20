@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  */
 @AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface LinkerInput {
+  ObjectCodec<LinkerInput> CODEC = new LinkerInput_AutoCodec();
 
   /**
    * Returns the type of the linker input.

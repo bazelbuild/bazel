@@ -126,16 +126,31 @@ public abstract class CcLinkParamsStore {
   /** An empty CcLinkParamStore. */
   public static final CcLinkParamsStore EMPTY = new EmptyCcLinkParamsStore();
 
-  /**
-   * An implementation class for the CcLinkParamsStore.
-   */
+  /** An implementation class for the CcLinkParamsStore. */
+  @AutoCodec
   public static final class CcLinkParamsStoreImpl extends CcLinkParamsStore {
+    public static final ObjectCodec<CcLinkParamsStoreImpl> CODEC =
+        new CcLinkParamsStore_CcLinkParamsStoreImpl_AutoCodec();
 
     public CcLinkParamsStoreImpl(CcLinkParamsStore store) {
-      super.staticSharedParams = store.get(true, true);
-      super.staticNoSharedParams = store.get(true, false);
-      super.noStaticSharedParams = store.get(false, true);
-      super.noStaticNoSharedParams = store.get(false, false);
+      this(
+          store.get(true, true),
+          store.get(true, false),
+          store.get(false, true),
+          store.get(false, false));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Instantiator
+    CcLinkParamsStoreImpl(
+        CcLinkParams staticSharedParams,
+        CcLinkParams staticNoSharedParams,
+        CcLinkParams noStaticSharedParams,
+        CcLinkParams noStaticNoSharedParams) {
+      super.staticSharedParams = staticSharedParams;
+      super.staticNoSharedParams = staticNoSharedParams;
+      super.noStaticSharedParams = noStaticSharedParams;
+      super.noStaticNoSharedParams = noStaticNoSharedParams;
     }
 
     @Override

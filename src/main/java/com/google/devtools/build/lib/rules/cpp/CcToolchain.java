@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
+import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -598,24 +599,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (outputLicense != null && !outputLicense.equals(License.NO_LICENSE)) {
       final NestedSet<TargetLicense> license = NestedSetBuilder.create(Order.STABLE_ORDER,
           new TargetLicense(ruleContext.getLabel(), outputLicense));
-      LicensesProvider licensesProvider = new LicensesProvider() {
-        @Override
-        public NestedSet<TargetLicense> getTransitiveLicenses() {
-          return license;
-        }
-
-        @Override
-        public TargetLicense getOutputLicenses() {
-          return new TargetLicense(label, outputLicense);
-        }
-
-        @Override
-        public boolean hasOutputLicenses() {
-          return true;
-        }
-
-      };
-
+      LicensesProvider licensesProvider =
+          new LicensesProviderImpl(license, new TargetLicense(label, outputLicense));
       builder.add(LicensesProvider.class, licensesProvider);
     }
 

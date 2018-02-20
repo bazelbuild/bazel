@@ -53,6 +53,9 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -542,11 +545,13 @@ public final class CppLinkAction extends AbstractAction
     return binaryName.replaceName(binaryName.getBaseName() + ".sc");
   }
 
-  /**
-   * TransitiveInfoProvider for ELF link actions.
-   */
-  @Immutable @ThreadSafe
+  /** TransitiveInfoProvider for ELF link actions. */
+  @Immutable
+  @ThreadSafe
+  @AutoCodec
   public static final class Context implements TransitiveInfoProvider {
+    public static final ObjectCodec<Context> CODEC = new CppLinkAction_Context_AutoCodec();
+
     // Morally equivalent with {@link Builder}, except these are immutable.
     // Keep these in sync with {@link Builder}.
     final ImmutableSet<LinkerInput> objectFiles;
@@ -572,24 +577,63 @@ public final class CppLinkAction extends AbstractAction
      * @param builder a mutable {@link CppLinkActionBuilder} to clone from
      */
     public Context(CppLinkActionBuilder builder) {
-      this.objectFiles = ImmutableSet.copyOf(builder.getObjectFiles());
-      this.nonCodeInputs = ImmutableSet.copyOf(builder.getNonCodeInputs());
-      this.libraries = NestedSetBuilder.<LibraryToLink>linkOrder()
-          .addTransitive(builder.getLibraries().build()).build();
-      this.crosstoolInputs =
-          NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getCrosstoolInputs()).build();
-      this.ltoBitcodeFiles = ImmutableMap.copyOf(builder.getLtoBitcodeFiles());
-      this.runtimeMiddleman = builder.getRuntimeMiddleman();
-      this.runtimeInputs =
-          NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getRuntimeInputs()).build();
-      this.runtimeType = builder.getRuntimeType();
-      this.linkstamps = builder.getLinkstamps();
-      this.linkopts = ImmutableList.copyOf(builder.getLinkopts());
-      this.linkType = builder.getLinkType();
-      this.linkStaticness = builder.getLinkStaticness();
-      this.fake = builder.isFake();
-      this.isNativeDeps = builder.isNativeDeps();
-      this.useTestOnlyFlags = builder.useTestOnlyFlags();
+      this(
+          ImmutableSet.copyOf(builder.getObjectFiles()),
+          ImmutableSet.copyOf(builder.getNonCodeInputs()),
+          NestedSetBuilder.<LibraryToLink>linkOrder()
+              .addTransitive(builder.getLibraries().build())
+              .build(),
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(builder.getCrosstoolInputs())
+              .build(),
+          ImmutableMap.copyOf(builder.getLtoBitcodeFiles()),
+          builder.getRuntimeMiddleman(),
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(builder.getRuntimeInputs())
+              .build(),
+          builder.getRuntimeType(),
+          builder.getLinkstamps(),
+          ImmutableList.copyOf(builder.getLinkopts()),
+          builder.getLinkType(),
+          builder.getLinkStaticness(),
+          builder.isFake(),
+          builder.isNativeDeps(),
+          builder.useTestOnlyFlags());
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    Context(
+        ImmutableSet<LinkerInput> objectFiles,
+        ImmutableSet<Artifact> nonCodeInputs,
+        NestedSet<LibraryToLink> libraries,
+        NestedSet<Artifact> crosstoolInputs,
+        ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
+        Artifact runtimeMiddleman,
+        NestedSet<Artifact> runtimeInputs,
+        ArtifactCategory runtimeType,
+        ImmutableSet<Linkstamp> linkstamps,
+        ImmutableList<String> linkopts,
+        LinkTargetType linkType,
+        LinkStaticness linkStaticness,
+        boolean fake,
+        boolean isNativeDeps,
+        boolean useTestOnlyFlags) {
+      this.objectFiles = objectFiles;
+      this.nonCodeInputs = nonCodeInputs;
+      this.libraries = libraries;
+      this.crosstoolInputs = crosstoolInputs;
+      this.ltoBitcodeFiles = ltoBitcodeFiles;
+      this.runtimeMiddleman = runtimeMiddleman;
+      this.runtimeInputs = runtimeInputs;
+      this.runtimeType = runtimeType;
+      this.linkstamps = linkstamps;
+      this.linkopts = linkopts;
+      this.linkType = linkType;
+      this.linkStaticness = linkStaticness;
+      this.fake = fake;
+      this.isNativeDeps = isNativeDeps;
+      this.useTestOnlyFlags = useTestOnlyFlags;
     }
 
     /**

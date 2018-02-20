@@ -17,21 +17,24 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 
 /**
- * An extra library to include in a link.  The actual library is built
- * at link time.
+ * An extra library to include in a link. The actual library is built at link time.
  *
- * <p>This can be used for non-C++ inputs to a C++ link.  A class that
- * implements this interface will support transitively gathering all
- * inputs from link dependencies, and then combine them all together
- * into a set of C++ libraries.
+ * <p>This can be used for non-C++ inputs to a C++ link. A class that implements this interface will
+ * support transitively gathering all inputs from link dependencies, and then combine them all
+ * together into a set of C++ libraries.
  *
- * <p>Any implementations must be immutable (and therefore thread-safe),
- * because this is passed between rules and accessed in a multi-threaded
- * context.
+ * <p>Any implementations must be immutable (and therefore thread-safe), because this is passed
+ * between rules and accessed in a multi-threaded context.
  */
+@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface ExtraLinkTimeLibrary {
+  ObjectCodec<ExtraLinkTimeLibrary> CODEC = new ExtraLinkTimeLibrary_AutoCodec();
+
   /** Build the LibraryToLink inputs to pass to the C++ linker. */
   NestedSet<LibraryToLink> buildLibraries(RuleContext context) throws InterruptedException;
 

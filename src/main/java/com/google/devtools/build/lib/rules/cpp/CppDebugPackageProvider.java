@@ -19,21 +19,26 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
- * Provides the binary artifact and its associated .dwp files, if fission is enabled.
- * If Fission ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the
- * dwp file will be null.
+ * Provides the binary artifact and its associated .dwp files, if fission is enabled. If Fission
+ * ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the dwp file will be null.
  */
 @Immutable
+@AutoCodec
 public final class CppDebugPackageProvider implements TransitiveInfoProvider {
+  public static final ObjectCodec<CppDebugPackageProvider> CODEC =
+      new CppDebugPackageProvider_AutoCodec();
 
   private final Label targetLabel;
   private final Artifact strippedArtifact;
   private final Artifact unstrippedArtifact;
   @Nullable private final Artifact dwpArtifact;
 
+  @AutoCodec.Instantiator
   public CppDebugPackageProvider(
       Label targetLabel,
       Artifact strippedArtifact,
