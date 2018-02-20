@@ -65,9 +65,9 @@ public class FdoSupportFunction implements SkyFunction {
               key.getFdoInstrument(),
               key.getFdoZip(),
               key.getLipoMode(),
-              key.getLLVMFdo(),
               execRoot,
-              directories.getProductName());
+              directories.getProductName(),
+              key.getFdoMode());
       if (env.valuesMissing()) {
         return null;
       }

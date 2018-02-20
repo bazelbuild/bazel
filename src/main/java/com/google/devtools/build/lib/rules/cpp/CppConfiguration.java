@@ -1343,36 +1343,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   public ImmutableSet<String> configurationEnabledFeatures(
       RuleContext ruleContext, ImmutableSet<String> disabledFeatures) {
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
-    if (cppOptions.getFdoInstrument() != null) {
-      requestedFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
-    }
-
-    String fdoZip = null;
-    if (fdoProfileAbsolutePath != null) {
-      fdoZip = fdoProfileAbsolutePath.getPathString();
-    } else if (fdoProfileLabel != null) {
-      fdoZip = fdoProfileLabel.getName();
-    }
-    boolean isFdo = fdoZip != null && compilationMode == CompilationMode.OPT;
-    if (isFdo && !CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip)) {
-      requestedFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
-    }
-    if (isFdo && CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip)) {
-      requestedFeatures.add(CppRuleClasses.AUTOFDO);
-      // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
-      // explicitly disabled.
-      if (isLLVMCompiler() && !disabledFeatures.contains(CppRuleClasses.THIN_LTO)) {
-        requestedFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
-      }
-    }
-    if (isLipoOptimizationOrInstrumentation()) {
-      // Map LIPO to ThinLTO for LLVM builds.
-      if (isLLVMCompiler() && cppOptions.getFdoOptimize() != null) {
-        requestedFeatures.add(CppRuleClasses.THIN_LTO);
-      } else {
-        requestedFeatures.add(CppRuleClasses.LIPO);
-      }
-    }
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       requestedFeatures.add(CppRuleClasses.COVERAGE);
       if (useLLVMCoverageMap) {

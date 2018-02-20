@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
+import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -371,12 +372,20 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    FdoMode fdoMode;
+    if (fdoZip == null) {
+      fdoMode = FdoMode.OFF;
+    } else if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip.getBaseName())) {
+      fdoMode = FdoMode.AUTO_FDO;
+    } else if (cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler())) {
+      fdoMode = FdoMode.LLVM_FDO;
+    } else {
+      fdoMode = FdoMode.VANILLA;
+    }
+
     SkyKey fdoKey =
         FdoSupportValue.key(
-            cppConfiguration.getLipoMode(),
-            fdoZip,
-            cppConfiguration.getFdoInstrument(),
-            cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler()));
+            cppConfiguration.getLipoMode(), fdoZip, cppConfiguration.getFdoInstrument(), fdoMode);
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     FdoSupportValue fdoSupport;
@@ -562,7 +571,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
                 : null,
             getEnvironment(ruleContext),
             builtInIncludeDirectories,
-            sysroot);
+            sysroot,
+            fdoMode);
 
     TemplateVariableInfo templateVariableInfo =
         createMakeVariableProvider(cppConfiguration, sysroot);

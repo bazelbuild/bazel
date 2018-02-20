@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
@@ -79,7 +80,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
           null,
           ImmutableMap.<String, String>of(),
           ImmutableList.<PathFragment>of(),
-          null);
+          null,
+          FdoMode.OFF);
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final CppToolchainInfo toolchainInfo;
@@ -109,6 +111,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final ImmutableMap<String, String> environment;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
+  private final FdoMode fdoMode;
 
   public CcToolchainProvider(
       ImmutableMap<String, Object> skylarkToolchain,
@@ -139,7 +142,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
       Artifact linkDynamicLibraryTool,
       ImmutableMap<String, String> environment,
       ImmutableList<PathFragment> builtInIncludeDirectories,
-      @Nullable PathFragment sysroot) {
+      @Nullable PathFragment sysroot,
+      FdoMode fdoMode) {
     super(skylarkToolchain, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.toolchainInfo = toolchainInfo;
@@ -169,6 +173,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.environment = environment;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
+    this.fdoMode = fdoMode;
   }
 
   /** Returns c++ Make variables. */
@@ -780,6 +785,10 @@ public final class CcToolchainProvider extends ToolchainInfo {
 
   public final boolean isLLVMCompiler() {
     return toolchainInfo.isLLVMCompiler();
+  }
+
+  public FdoMode getFdoMode() {
+    return fdoMode;
   }
 
   // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
