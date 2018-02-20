@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import javax.annotation.Nullable;
@@ -92,7 +94,9 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
             ? new XCodeLocalEnvProvider(env.getClientEnv())
-            : LocalEnvProvider.UNMODIFIED;
+            : (OS.getCurrent() == OS.WINDOWS
+                ? new WindowsLocalEnvProvider(env.getClientEnv())
+                : new PosixLocalEnvProvider(env.getClientEnv()));
     return
         new LocalSpawnRunner(
             env.getExecRoot(),
