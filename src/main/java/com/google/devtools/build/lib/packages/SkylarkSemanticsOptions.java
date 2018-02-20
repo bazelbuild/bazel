@@ -171,6 +171,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNewActionsApi;
 
   @Option(
+    name = "incompatible_remove_native_http_archive",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, the native http_archive rules are disabled; only the skylark version "
+            + "will be available"
+  )
+  public boolean incompatibleRemoveNativeHttpArchive;
+
+  @Option(
     name = "incompatible_show_all_print_messages",
     defaultValue = "true",
     category = "incompatible changes",
@@ -219,6 +232,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowUncalledSetConstructor(incompatibleDisallowUncalledSetConstructor)
         .incompatibleLoadArgumentIsLabel(incompatibleLoadArgumentIsLabel)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
+        .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
         .incompatibleShowAllPrintMessages(incompatibleShowAllPrintMessages)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)

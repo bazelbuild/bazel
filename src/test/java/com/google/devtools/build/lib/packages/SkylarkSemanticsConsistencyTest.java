@@ -128,6 +128,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disallow_uncalled_set_constructor=" + rand.nextBoolean(),
         "--incompatible_load_argument_is_label=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
+        "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
         "--incompatible_show_all_print_messages=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
@@ -149,6 +150,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisallowUncalledSetConstructor(rand.nextBoolean())
         .incompatibleLoadArgumentIsLabel(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
+        .incompatibleRemoveNativeHttpArchive(rand.nextBoolean())
         .incompatibleShowAllPrintMessages(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())

@@ -52,6 +52,9 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleLoadArgumentIsLabel();
   public abstract boolean incompatibleNewActionsApi();
   public abstract boolean incompatibleShowAllPrintMessages();
+
+  public abstract boolean incompatibleRemoveNativeHttpArchive();
+
   public abstract boolean incompatibleStringIsNotIterable();
   public abstract boolean internalSkylarkFlagTestCanary();
 
@@ -79,10 +82,11 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowUncalledSetConstructor(true)
           .incompatibleLoadArgumentIsLabel(true)
           .incompatibleNewActionsApi(false)
+          .incompatibleRemoveNativeHttpArchive(false)
           .incompatibleShowAllPrintMessages(true)
-      .incompatibleStringIsNotIterable(false)
-      .internalSkylarkFlagTestCanary(false)
-      .build();
+          .incompatibleStringIsNotIterable(false)
+          .internalSkylarkFlagTestCanary(false)
+          .build();
 
   /** Builder for {@link SkylarkSemantics}. All fields are mandatory. */
   @AutoValue.Builder
@@ -101,6 +105,9 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowUncalledSetConstructor(boolean value);
     public abstract Builder incompatibleLoadArgumentIsLabel(boolean value);
     public abstract Builder incompatibleNewActionsApi(boolean value);
+
+    public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
+
     public abstract Builder incompatibleShowAllPrintMessages(boolean value);
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);

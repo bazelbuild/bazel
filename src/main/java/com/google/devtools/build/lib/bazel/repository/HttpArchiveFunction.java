@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -30,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Downloads a file over HTTP.
@@ -56,10 +59,32 @@ public class HttpArchiveFunction extends RepositoryFunction {
     }
   }
 
+  @Nullable
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData)
       throws RepositoryFunctionException, InterruptedException {
+    // Deprecation in favor of the Skylark variant.
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
+    if (skylarkSemantics.incompatibleRemoveNativeHttpArchive()) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              null,
+              "The native http_archive rule is deprecated."
+              + " load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_archive\") for a"
+              + " drop-in replacement."
+              + "\nUse --incompatible_remove_native_http_archive=false to temporarily continue"
+              + " using the native rule."),
+          Transience.PERSISTENT);
+    }
+
     // The output directory is always under output_base/external (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
     // remote repository rules. For example, suppose you had the following WORKSPACE file:
