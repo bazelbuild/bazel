@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.hamcrest.CoreMatchers.startsWith;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Rule;
@@ -232,12 +232,11 @@ public class SkylarkImportsTest {
 
   @Test
   public void serialization() throws Exception {
-    ObjectCodecTester.newBuilder(SkylarkImport.CODEC)
-        .addSubjects(
+    new SerializationTester(
             SkylarkImports.create("//some/skylark:file.bzl"),
             SkylarkImports.create("/some/skylark/file"),
             SkylarkImports.create(":subdirectory/containing/file.bzl"),
             SkylarkImports.create("file"))
-        .buildAndRunTests();
+        .runTests();
   }
 }

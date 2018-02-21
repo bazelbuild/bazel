@@ -139,10 +139,7 @@ public class BuildConfiguration implements BuildConfigurationInterface {
    * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
    * fragment instances may be shared across configurations.
    */
-  @AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
   public abstract static class Fragment {
-    public static final ObjectCodec<Fragment> CODEC = new BuildConfiguration_Fragment_AutoCodec();
-
     /**
      * Validates the options for this Fragment. Issues warnings for the
      * use of deprecated options, and warnings or errors for any option settings
@@ -2146,7 +2143,7 @@ public class BuildConfiguration implements BuildConfigurationInterface {
       BlazeDirectories.CODEC.serialize(context, obj.directories, codedOut);
       codedOut.writeInt32NoTag(obj.fragments.size());
       for (Fragment fragment : obj.fragments.values()) {
-        Fragment.CODEC.serialize(context, fragment, codedOut);
+        context.serialize(fragment, codedOut);
       }
       BuildOptions.CODEC.serialize(context, obj.buildOptions, codedOut);
       StringCodecs.asciiOptimized().serialize(context, obj.repositoryName, codedOut);
@@ -2160,7 +2157,7 @@ public class BuildConfiguration implements BuildConfigurationInterface {
       ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> builder =
           new ImmutableSortedMap.Builder<>(lexicalFragmentSorter);
       for (int i = 0; i < length; ++i) {
-        Fragment fragment = Fragment.CODEC.deserialize(context, codedIn);
+        Fragment fragment = context.deserialize(codedIn);
         builder.put(fragment.getClass(), fragment);
       }
       BuildOptions options = BuildOptions.CODEC.deserialize(context, codedIn);

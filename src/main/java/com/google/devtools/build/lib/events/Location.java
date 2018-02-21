@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.events;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,10 +32,7 @@ import java.util.Objects;
  * attribute access, as far more Locations are created during parsing than are ever used to display
  * error messages.
  */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public abstract class Location implements Serializable {
-  public static final ObjectCodec<Location> CODEC = new Location_AutoCodec();
-
   @AutoCodec
   @Immutable
   static final class LocationWithPathAndStartColumn extends Location {
@@ -302,11 +298,10 @@ public abstract class Location implements Serializable {
     }
   }
 
-  private static final class BuiltinLocation extends Location {
+  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
+  @AutoCodec.VisibleForSerialization
+  static final class BuiltinLocation extends Location {
     public static final BuiltinLocation INSTANCE = new BuiltinLocation();
-
-    public static final ObjectCodec<BuiltinLocation> CODEC =
-        SingletonCodec.of(INSTANCE, "BuiltinLocation");
 
     private BuiltinLocation() {
       super(0, 0);

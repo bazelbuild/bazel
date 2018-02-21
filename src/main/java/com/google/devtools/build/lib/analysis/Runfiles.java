@@ -230,9 +230,7 @@ public final class Runfiles {
    * Interface used for adding empty files to the runfiles at the last minute. Mainly to support
    * python-related rules adding __init__.py files.
    */
-  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   public interface EmptyFilesSupplier {
-    ObjectCodec<EmptyFilesSupplier> CODEC = new Runfiles_EmptyFilesSupplier_AutoCodec();
     /** Calculate additional empty files to add based on the existing manifest paths. */
     Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths);
   }

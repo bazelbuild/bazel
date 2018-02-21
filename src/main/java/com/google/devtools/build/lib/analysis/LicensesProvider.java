@@ -21,14 +21,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import java.util.Objects;
 
 /** A {@link ConfiguredTarget} that has licensed targets in its transitive closure. */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface LicensesProvider extends TransitiveInfoProvider {
-  ObjectCodec<LicensesProvider> CODEC = new LicensesProvider_AutoCodec();
-
   /**
    * The set of label - license associations in the transitive closure.
    *

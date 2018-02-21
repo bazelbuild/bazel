@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,11 +57,10 @@ public class LocationTest extends EventTestTemplate {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(Location.CODEC)
-        .addSubjects(
+    new SerializationTester(
             Location.fromPathFragment(path),
             Location.fromPathAndStartColumn(path, 0, 100, new Location.LineAndColumn(20, 25)),
             Location.BUILTIN)
-        .buildAndRunTests();
+        .runTests();
   }
 }

@@ -21,7 +21,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.PolymorphicHelper;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.squareup.javapoet.ClassName;
@@ -101,9 +100,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           break;
         case PUBLIC_FIELDS:
           codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType);
-          break;
-        case POLYMORPHIC:
-          codecClassBuilder = buildClassWithPolymorphicStrategy(encodedType);
           break;
         case SINGLETON:
           codecClassBuilder = buildClassWithSingletonStrategy(encodedType);
@@ -534,36 +530,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           name);
     }
     return Optional.empty();
-  }
-
-  private TypeSpec.Builder buildClassWithPolymorphicStrategy(TypeElement encodedType) {
-    if (!encodedType.getModifiers().contains(Modifier.ABSTRACT)) {
-      throw new IllegalArgumentException(
-          encodedType + " is not abstract, but POLYMORPHIC was selected as the strategy.");
-    }
-    TypeSpec.Builder codecClassBuilder = AutoCodecUtil.initializeCodecClassBuilder(encodedType);
-    codecClassBuilder.addMethod(buildPolymorphicSerializeMethod(encodedType));
-    codecClassBuilder.addMethod(buildPolymorphicDeserializeMethod(encodedType));
-    return codecClassBuilder;
-  }
-
-  private MethodSpec buildPolymorphicSerializeMethod(TypeElement encodedType) {
-    MethodSpec.Builder builder = AutoCodecUtil.initializeSerializeMethodBuilder(encodedType);
-    TypeName polyClass = TypeName.get(env.getTypeUtils().erasure(encodedType.asType()));
-      builder.addStatement(
-          "$T.serialize(context, input, $T.class, codedOut, null)",
-          PolymorphicHelper.class,
-          polyClass);
-    return builder.build();
-  }
-
-  private static MethodSpec buildPolymorphicDeserializeMethod(TypeElement encodedType) {
-    MethodSpec.Builder builder = AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType);
-      builder.addStatement(
-          "return ($T) $T.deserialize(context, codedIn, null)",
-          TypeName.get(encodedType.asType()),
-          PolymorphicHelper.class);
-    return builder.build();
   }
 
   private static TypeSpec.Builder buildClassWithSingletonStrategy(TypeElement encodedType) {

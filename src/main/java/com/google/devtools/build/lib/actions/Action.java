@@ -17,9 +17,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.profiler.Describable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -79,10 +76,7 @@ import javax.annotation.Nullable;
  * known set of fields is covered, not that all fields are covered), so carefully check all changes
  * to action subclasses.
  */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface Action extends ActionExecutionMetadata, Describable {
-  public static final ObjectCodec<Action> CODEC = new Action_AutoCodec();
-
   /**
    * Prepares for executing this action; called by the Builder prior to executing the Action itself.
    * This method should prepare the file system, so that the execution of the Action can write the

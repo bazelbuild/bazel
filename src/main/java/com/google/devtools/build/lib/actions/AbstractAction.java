@@ -29,9 +29,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -70,10 +67,7 @@ import javax.annotation.concurrent.GuardedBy;
           + "applicable for certain kinds of actions. Fields that are inapplicable are set to "
           + "<code>None</code>."
 )
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public abstract class AbstractAction implements Action, SkylarkValue {
-  public static final ObjectCodec<AbstractAction> CODEC = new AbstractAction_AutoCodec();
-
   /**
    * An arbitrary default resource set. Currently 250MB of memory, 50% CPU and 0% of total I/O.
    */

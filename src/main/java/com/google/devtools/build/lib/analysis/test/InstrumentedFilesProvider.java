@@ -17,16 +17,10 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.util.Pair;
 
 /** A provider of instrumented file sources and instrumentation metadata. */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
-  ObjectCodec<InstrumentedFilesProvider> CODEC = new InstrumentedFilesProvider_AutoCodec();
-
   /**
    * The transitive closure of instrumented source files.
    */

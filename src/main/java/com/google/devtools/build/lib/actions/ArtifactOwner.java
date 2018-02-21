@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -23,10 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  * internal {@link Artifact}-generators should implement this interface -- otherwise, {@code
  * ActionLookupKey} and its subclasses should be the only implementation.
  */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface ArtifactOwner {
-  ObjectCodec<ArtifactOwner> CODEC = new ArtifactOwner_AutoCodec();
-
   Label getLabel();
 
   /**

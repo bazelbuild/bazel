@@ -16,9 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
@@ -32,10 +29,7 @@ import javax.annotation.Nullable;
  * <p>This is useful for remote execution strategies to be able to compute the complete set of files
  * that must be distributed in order to execute such an action.
  */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public interface IncludeScannable {
-  public static final ObjectCodec<IncludeScannable> CODEC = new IncludeScannable_AutoCodec();
-
   /**
    * Returns the built-in list of system include paths for the toolchain compiler. All paths in this
    * list should be relative to the exec directory. They may be absolute if they are also installed

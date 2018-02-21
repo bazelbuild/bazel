@@ -62,16 +62,6 @@ public @interface AutoCodec {
      */
     PUBLIC_FIELDS,
     /**
-     * For use with abstract classes (enforced at compile time).
-     *
-     * <p>Uses reflection to determine the concrete subclass, stores the name of the subclass and
-     * uses its codec to serialize the data.
-     *
-     * <p>This is no longer needed and only adds useless overhead.
-     */
-    // TODO(shahan): delete this and all references to it
-    POLYMORPHIC,
-    /**
      * For use with classes that are singleton.
      *
      * <p>The serialized class must have a codec accessible, static INSTANCE field.

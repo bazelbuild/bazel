@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -118,9 +117,7 @@ public class CcToolchainFeatures implements Serializable {
    * %{var1}/%{var2}"). We split the string into chunks, where each chunk represents either a text
    * snippet, or a variable that is to be replaced.
    */
-  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   interface StringChunk {
-    ObjectCodec<StringChunk> CODEC = new CcToolchainFeatures_StringChunk_AutoCodec();
     /**
      * Expands this chunk.
      *
@@ -331,11 +328,7 @@ public class CcToolchainFeatures implements Serializable {
   }
 
   /** A flag or flag group that can be expanded under a set of variables. */
-  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   interface Expandable {
-
-    ObjectCodec<Expandable> CODEC = new CcToolchainFeatures_Expandable_AutoCodec();
-
     /**
      * Expands the current expandable under the given {@code view}, adding new flags to {@code
      * commandLine}.
@@ -1207,11 +1200,7 @@ public class CcToolchainFeatures implements Serializable {
      * <p>Implementations must be immutable and without any side-effects. They will be expanded and
      * queried multiple times.
      */
-    @AutoCodec(strategy = Strategy.POLYMORPHIC)
     interface VariableValue {
-      ObjectCodec<VariableValue> CODEC =
-          new CcToolchainFeatures_Variables_VariableValue_AutoCodec();
-
       /**
        * Returns string value of the variable, if the variable type can be converted to string (e.g.
        * StringValue), or throw exception if it cannot (e.g. Sequence).

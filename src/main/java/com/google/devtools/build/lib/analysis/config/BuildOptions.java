@@ -345,7 +345,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       Collection<FragmentOptions> fragmentOptions = buildOptions.getOptions();
       codedOut.writeInt32NoTag(fragmentOptions.size());
       for (FragmentOptions options : buildOptions.getOptions()) {
-        FragmentOptions.CODEC.serialize(context, options, codedOut);
+        context.serialize(options, codedOut);
       }
     }
 
@@ -355,7 +355,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       BuildOptions.Builder builder = BuildOptions.builder();
       int length = codedIn.readInt32();
       for (int i = 0; i < length; ++i) {
-        builder.add(FragmentOptions.CODEC.deserialize(context, codedIn));
+        builder.add(context.deserialize(codedIn));
       }
       return builder.build();
     }

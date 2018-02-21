@@ -16,14 +16,11 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 
 /**
  * An abstract class for adding a Skylark API for the native providers. Derived classes should
  * declare functions to be used from Skylark.
  */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public abstract class SkylarkApiProvider {
   private TransitiveInfoCollection info;
 

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
@@ -149,11 +148,7 @@ public abstract class LinkerInputs {
    * A library the user can link to. This is different from a simple linker input in that it also
    * has a library identifier.
    */
-  @AutoCodec(strategy = Strategy.POLYMORPHIC)
   public interface LibraryToLink extends LinkerInput {
-    public static final ObjectCodec<LibraryToLink> CODEC =
-        new LinkerInputs_LibraryToLink_AutoCodec();
-
     ImmutableMap<Artifact, Artifact> getLtoBitcodeFiles();
 
     /**

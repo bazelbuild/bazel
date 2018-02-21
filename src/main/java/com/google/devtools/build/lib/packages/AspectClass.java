@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A class of aspects.
@@ -92,10 +90,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.skyframe.AspectFunction
  */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface AspectClass {
-  ObjectCodec<AspectClass> CODEC = new AspectClass_AutoCodec();
-
   /**
    * Returns an aspect name.
    */

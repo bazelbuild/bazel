@@ -21,15 +21,11 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 /** A representation of a list of arguments. */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public abstract class CommandLine {
-  public static final ObjectCodec<CommandLine> CODEC = new CommandLine_AutoCodec();
-
   @AutoCodec
   @VisibleForSerialization
   static class EmptyCommandLine extends CommandLine {

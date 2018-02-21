@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.stream.Stream;
@@ -43,11 +42,7 @@ import java.util.stream.Stream;
  * <p>A package specification is specific to a single {@link RepositoryName} unless it is the "all
  * packages" specification.
  */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public abstract class PackageSpecification {
-  public static final ObjectCodec<PackageSpecification> CODEC =
-      new PackageSpecification_AutoCodec();
-
   private static final String PACKAGE_LABEL = "__pkg__";
   private static final String SUBTREE_LABEL = "__subpackages__";
   private static final String ALL_BENEATH_SUFFIX = "/...";

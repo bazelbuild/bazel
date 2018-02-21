@@ -18,14 +18,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Pluggable C++ compilation semantics. */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface CppSemantics {
-  public static final ObjectCodec<CppSemantics> CODEC = new CppSemantics_AutoCodec();
-
   /**
    * Called before a C++ compile action is built.
    *
@@ -61,7 +56,7 @@ public interface CppSemantics {
    * in the action graph.
    */
   boolean needsIncludeScanning(RuleContext ruleContext);
-  
+
   /** Returns true iff this build should perform .d input pruning. */
   boolean needsDotdInputPruning();
 

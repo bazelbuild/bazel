@@ -15,15 +15,11 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * An interface for {@code BuildConfiguration} that only exists so that {@link ActionOwner} can
  * refer to {@code BuildConfiguration}, which is in a dependent package. {@code BuildConfiguration}
  * must be the only implementation of this interface.
  */
-@AutoCodec(strategy = AutoCodec.Strategy.POLYMORPHIC)
 public interface BuildConfigurationInterface extends BuildEvent {
-  ObjectCodec<BuildConfigurationInterface> CODEC = new BuildConfigurationInterface_AutoCodec();
 }

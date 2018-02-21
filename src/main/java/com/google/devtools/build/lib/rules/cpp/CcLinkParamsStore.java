@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
@@ -47,10 +46,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  * }
  * </pre>
  */
-@AutoCodec(strategy = Strategy.POLYMORPHIC)
 public abstract class CcLinkParamsStore {
-  public static final ObjectCodec<CcLinkParamsStore> CODEC = new CcLinkParamsStore_AutoCodec();
-
   private CcLinkParams staticSharedParams;
   private CcLinkParams staticNoSharedParams;
   private CcLinkParams noStaticSharedParams;
