@@ -23,7 +23,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -106,22 +106,23 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'alias_proto', deps = [':foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
-    CppCompilationContext context =
-        getConfiguredTarget("//x:foo_cc_proto").getProvider(CppCompilationContext.class);
-    assertThat(prettyArtifactNames(context.getDeclaredIncludeSrcs())).containsExactly("x/foo.pb.h");
+    CcCompilationInfo ccCompilationInfo =
+        getConfiguredTarget("//x:foo_cc_proto").getProvider(CcCompilationInfo.class);
+    assertThat(prettyArtifactNames(ccCompilationInfo.getDeclaredIncludeSrcs()))
+        .containsExactly("x/foo.pb.h");
   }
 
   @Test
-  public void cppCompilationContext() throws Exception {
+  public void ccCompilationInfo() throws Exception {
     scratch.file(
         "x/BUILD",
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'], deps = [':bar_proto'])",
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
 
-    CppCompilationContext context =
-        getConfiguredTarget("//x:foo_cc_proto").getProvider(CppCompilationContext.class);
-    assertThat(prettyArtifactNames(context.getDeclaredIncludeSrcs()))
+    CcCompilationInfo ccCompilationInfo =
+        getConfiguredTarget("//x:foo_cc_proto").getProvider(CcCompilationInfo.class);
+    assertThat(prettyArtifactNames(ccCompilationInfo.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h", "x/bar.pb.h");
   }
 

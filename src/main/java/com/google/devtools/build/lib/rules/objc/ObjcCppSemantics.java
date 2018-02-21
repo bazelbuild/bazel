@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -122,12 +122,12 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public void setupCompilationContext(RuleContext ruleContext, Builder contextBuilder) {
+  public void setupCcCompilationInfo(RuleContext ruleContext, Builder ccCompilationInfoBuilder) {
     // The genfiles root of each child configuration must be added to the compile action so that
     // generated headers can be resolved.
     for (PathFragment iquotePath :
         ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration())) {
-      contextBuilder.addQuoteIncludeDir(iquotePath);
+      ccCompilationInfoBuilder.addQuoteIncludeDir(iquotePath);
     }
   }
 
@@ -168,13 +168,13 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   /**
-   * Gets the purpose for the compilation context.
+   * Gets the purpose for the {@code CcCompilationInfo}.
    *
-   * @see CppCompilationContext.Builder#setPurpose
+   * @see CcCompilationInfo.Builder#setPurpose
    */
   public String getPurpose() {
-    // ProtoSupport creates multiple compilation contexts for a single rule, potentially multiple
-    // archives per build configuration. This covers that worst case.
+    // ProtoSupport creates multiple {@code CcCompilationInfo}s for a single rule, potentially
+    // multiple archives per build configuration. This covers that worst case.
     return "ObjcCppSemantics_build_arch_"
         + buildConfiguration.getMnemonic()
         + "_with_suffix_"

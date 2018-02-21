@@ -310,13 +310,16 @@ public final class PrintActionCommand implements BlazeCommand {
    * C++ headers are not plain vanilla action inputs: they do not show up in Action.getInputs(),
    * since the actual set of header files is the one discovered during include scanning.
    *
-   * <p>However, since there is a scheduling dependency on the header files, we can use the
-   * system to implement said scheduling dependency to figure them out. Thus, we go a-fishing in
-   * the action graph reaching through error propagating middlemen: one of these exists for each
-   * {@code CppCompilationContext} in the transitive closure of the rule.
+   * <p>However, since there is a scheduling dependency on the header files, we can use the system
+   * to implement said scheduling dependency to figure them out. Thus, we go a-fishing in the action
+   * graph reaching through error propagating middlemen: one of these exists for each {@code
+   * CcCompilationInfo} in the transitive closure of the rule.
    */
-   private static void expandRecursiveHelper(ActionGraph actionGraph, Iterable<Artifact> artifacts,
-       Set<Artifact> visited, Set<Artifact> result) {
+  private static void expandRecursiveHelper(
+      ActionGraph actionGraph,
+      Iterable<Artifact> artifacts,
+      Set<Artifact> visited,
+      Set<Artifact> result) {
     for (Artifact artifact : artifacts) {
       if (!visited.add(artifact)) {
         continue;

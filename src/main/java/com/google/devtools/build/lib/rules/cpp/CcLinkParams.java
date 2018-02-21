@@ -326,12 +326,11 @@ public final class CcLinkParams {
       return this;
     }
 
-    /**
-     * Adds a collection of linkstamps.
-     */
-    public Builder addLinkstamps(NestedSet<Artifact> linkstamps, CppCompilationContext context) {
+    /** Adds a collection of linkstamps. */
+    public Builder addLinkstamps(
+        NestedSet<Artifact> linkstamps, CcCompilationInfo ccCompilationInfo) {
       for (Artifact linkstamp : linkstamps) {
-        linkstampsBuilder.add(new Linkstamp(linkstamp, context.getDeclaredIncludeSrcs()));
+        linkstampsBuilder.add(new Linkstamp(linkstamp, ccCompilationInfo.getDeclaredIncludeSrcs()));
       }
       return this;
     }

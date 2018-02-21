@@ -61,76 +61,75 @@ import java.util.zip.ZipFile;
  * Support class for FDO (feedback directed optimization) and LIPO (lightweight inter-procedural
  * optimization).
  *
- * <p>Here follows a quick run-down of how FDO/LIPO builds work (for non-FDO/LIPO builds, none
- * of this applies):
+ * <p>Here follows a quick run-down of how FDO/LIPO builds work (for non-FDO/LIPO builds, none of
+ * this applies):
  *
  * <p>{@link FdoSupport#create} is called from {@link FdoSupportFunction} (a {@link SkyFunction}),
  * which is requested from Skyframe by the {@code cc_toolchain} rule. It extracts the FDO .zip (in
  * case we work with an explicitly generated FDO profile file) or analyzes the .afdo.imports file
  * next to the .afdo file (if AutoFDO is in effect).
  *
- * <p>.afdo.imports files contain one import a line. A line is two paths separated by a colon,
- * with functions in the second path being referenced by functions in the first path. These are
- * then put into the imports map. If we do AutoFDO, we don't handle individual .gcda files, so
- * gcdaFiles will be empty.
+ * <p>.afdo.imports files contain one import a line. A line is two paths separated by a colon, with
+ * functions in the second path being referenced by functions in the first path. These are then put
+ * into the imports map. If we do AutoFDO, we don't handle individual .gcda files, so gcdaFiles will
+ * be empty.
  *
- * <p>Regular .fdo zip files contain .gcda files (which are added to gcdaFiles) and
- * .gcda.imports files. There is one .gcda.imports file for every source file and it contains one
- * path in every line, which can either be a path to a source file that contains a function
- * referenced by the original source file or the .gcda file for such a referenced file. They
- * both are added to the imports map.
+ * <p>Regular .fdo zip files contain .gcda files (which are added to gcdaFiles) and .gcda.imports
+ * files. There is one .gcda.imports file for every source file and it contains one path in every
+ * line, which can either be a path to a source file that contains a function referenced by the
+ * original source file or the .gcda file for such a referenced file. They both are added to the
+ * imports map.
  *
  * <p>If we do LIPO, we create an extra configuration that is called the "LIPO context collector",
- * whose job it is to collect information that every configured target compiled with LIPO needs.
- * The top-level target of this configuration is the LIPO context (always a cc_binary) and is an
+ * whose job it is to collect information that every configured target compiled with LIPO needs. The
+ * top-level target of this configuration is the LIPO context (always a cc_binary) and is an
  * implicit dependency of every cc_* rule through their :lipo_context_collector attribute. The
  * collected information is encapsulated in {@link LipoContextProvider}.
  *
  * <p>Note that the LIPO context can be different from the actual binary we are compiling because
- * it's beneficial to compile sources in a test in the exact same way as they would be compiled
- * for a particular {@code cc_binary} so that the code tested is the same as the one being run in
- * production. Thus, the {@code --lipo_context} command line flag, which takes the label of a
- * {@code cc_binary} rule as an argument which will be used as the LIPO context.
+ * it's beneficial to compile sources in a test in the exact same way as they would be compiled for
+ * a particular {@code cc_binary} so that the code tested is the same as the one being run in
+ * production. Thus, the {@code --lipo_context} command line flag, which takes the label of a {@code
+ * cc_binary} rule as an argument which will be used as the LIPO context.
  *
- * <p>In this case, it can happen that files are needed for the compilation (because code in them
- * is inlined) that are not in the transitive closure of the tests being run. To cover this case,
- * we have the otherwise unused {@code :lipo_context} attribute, which depends on the LIPO context
+ * <p>In this case, it can happen that files are needed for the compilation (because code in them is
+ * inlined) that are not in the transitive closure of the tests being run. To cover this case, we
+ * have the otherwise unused {@code :lipo_context} attribute, which depends on the LIPO context
  * without any configuration transition. Its purpose is to give a chance for the configured targets
- * containing the inlined code to run and thus create generating actions for the artifacts
- * {@link LipoContextProvider} contains. That is, configured targets in the LIPO context collector
+ * containing the inlined code to run and thus create generating actions for the artifacts {@link
+ * LipoContextProvider} contains. That is, configured targets in the LIPO context collector
  * configuration collect these artifacts but do not generate actions for them, and configured
  * targets under {@code :lipo_context} generate actions, but the artifacts they create are
- * discarded. This works because {@link Artifact} is a value object and the artifacts in
- * {@link LipoContextProvider} are {@code #equals()} to the ones created under
- * {@code :lipo_context}.
+ * discarded. This works because {@link Artifact} is a value object and the artifacts in {@link
+ * LipoContextProvider} are {@code #equals()} to the ones created under {@code :lipo_context}.
  *
  * <p>For each C++ compile action in the target configuration, {@link #configureCompilation} is
- * called, which adds command line options and input files required for the build. There are
- * three cases:
+ * called, which adds command line options and input files required for the build. There are three
+ * cases:
  *
  * <ul>
- * <li>If we do AutoFDO, the .afdo file and the source files containing the functions imported
- * by the original source file (as determined from the inputs map) are added.
- * <li>If we do FDO, the .gcda file corresponding to the source file is added.
- * <li>If we do LIPO, in addition to the .gcda file corresponding to the source file
- * (like for FDO) the source files that contain the functions referenced by the source file and
- * their .gcda files are added, too.
+ *   <li>If we do AutoFDO, the .afdo file and the source files containing the functions imported by
+ *       the original source file (as determined from the inputs map) are added.
+ *   <li>If we do FDO, the .gcda file corresponding to the source file is added.
+ *   <li>If we do LIPO, in addition to the .gcda file corresponding to the source file (like for
+ *       FDO) the source files that contain the functions referenced by the source file and their
+ *       .gcda files are added, too.
  * </ul>
  *
- * <p>If we do LIPO, the actual C++ compilation context for LIPO compilation actions is pieced
- * together from the CppCompileContext in LipoContextProvider and that of the rule being compiled.
- * (see {@link CppCompilationContext#mergeForLipo}) This is so that the include files for the
+ * <p>If we do LIPO, the actual {@code CcCompilationInfo} for LIPO compilation actions is pieced
+ * together from the {@code CcCompilationInfo} in LipoContextProvider and that of the rule being
+ * compiled. (see {@link CcCompilationInfo#mergeForLipo}) This is so that the include files for the
  * extra LIPO sources are found and is, strictly speaking, incorrect, since it also changes the
  * declared include directories of the main source file, which in theory can result in the
  * compilation passing even though it should fail with undeclared inclusion errors.
  *
  * <p>During the actual execution of the C++ compile action, the extra sources also need to be
- * include scanned, which is the reason why they are {@link IncludeScannable} objects and not
- * simple artifacts. We currently create these {@link IncludeScannable} objects by creating actual
- * C++ compile actions in the LIPO context collector configuration which are then never executed.
- * In fact, these C++ compile actions are never even registered with Skyframe. For this we
- * propagate a bit from {@code BuildConfiguration.isActionsEnabled} to
- * {@code CachingAnalysisEnvironment.allowRegisteringActions}, which causes actions to be silently
+ * include scanned, which is the reason why they are {@link IncludeScannable} objects and not simple
+ * artifacts. We currently create these {@link IncludeScannable} objects by creating actual C++
+ * compile actions in the LIPO context collector configuration which are then never executed. In
+ * fact, these C++ compile actions are never even registered with Skyframe. For this we propagate a
+ * bit from {@code BuildConfiguration.isActionsEnabled} to {@code
+ * CachingAnalysisEnvironment.allowRegisteringActions}, which causes actions to be silently
  * discarded after configured targets are created.
  */
 @Immutable

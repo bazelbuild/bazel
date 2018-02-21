@@ -63,7 +63,7 @@ public class CppCompileActionBuilder {
   private PathFragment tempOutputFile;
   private DotdFile dotdFile;
   private Artifact gcnoFile;
-  private CppCompilationContext context = CppCompilationContext.EMPTY;
+  private CcCompilationInfo ccCompilationInfo = CcCompilationInfo.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
@@ -144,7 +144,7 @@ public class CppCompileActionBuilder {
     this.tempOutputFile = other.tempOutputFile;
     this.dotdFile = other.dotdFile;
     this.gcnoFile = other.gcnoFile;
-    this.context = other.context;
+    this.ccCompilationInfo = other.ccCompilationInfo;
     this.pluginOpts.addAll(other.pluginOpts);
     this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
@@ -197,8 +197,8 @@ public class CppCompileActionBuilder {
     return sourceFile;
   }
 
-  public CppCompilationContext getContext() {
-    return context;
+  public CcCompilationInfo getCcCompilationInfo() {
+    return ccCompilationInfo;
   }
 
   public NestedSet<Artifact> getMandatoryInputs() {
@@ -333,7 +333,7 @@ public class CppCompileActionBuilder {
     NestedSet<Artifact> allInputs = buildAllInputs(realMandatoryInputs);
 
     NestedSetBuilder<Artifact> prunableInputBuilder = NestedSetBuilder.stableOrder();
-    prunableInputBuilder.addTransitive(context.getDeclaredIncludeSrcs());
+    prunableInputBuilder.addTransitive(ccCompilationInfo.getDeclaredIncludeSrcs());
     prunableInputBuilder.addTransitive(cppSemantics.getAdditionalPrunableIncludes());
 
     Iterable<IncludeScannable> lipoScannables = getLipoScannables(realMandatoryInputs);
@@ -376,7 +376,7 @@ public class CppCompileActionBuilder {
               tempOutputFile,
               dotdFile,
               localShellEnvironment,
-              context,
+              ccCompilationInfo,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               cppSemantics,
@@ -406,7 +406,7 @@ public class CppCompileActionBuilder {
               ltoIndexingFile,
               optionalSourceFile,
               localShellEnvironment,
-              context,
+              ccCompilationInfo,
               coptsFilter,
               getLipoScannables(realMandatoryInputs),
               additionalIncludeScanningRoots.build(),
@@ -440,11 +440,11 @@ public class CppCompileActionBuilder {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    realMandatoryInputsBuilder.addAll(context.getTransitiveCompilationPrerequisites());
+    realMandatoryInputsBuilder.addAll(ccCompilationInfo.getTransitiveCompilationPrerequisites());
     if (useHeaderModules() && !shouldPruneModules()) {
-      realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
+      realMandatoryInputsBuilder.addTransitive(ccCompilationInfo.getTransitiveModules(usePic));
     }
-    realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
+    realMandatoryInputsBuilder.addTransitive(ccCompilationInfo.getAdditionalInputs());
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
     return realMandatoryInputsBuilder.build();
   }
@@ -653,8 +653,8 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder setContext(CppCompilationContext context) {
-    this.context = context;
+  public CppCompileActionBuilder setCcCompilationInfo(CcCompilationInfo ccCompilationInfo) {
+    this.ccCompilationInfo = ccCompilationInfo;
     return this;
   }
 

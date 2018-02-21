@@ -57,11 +57,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -114,25 +114,25 @@ public class CppHelper {
    * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
    * using the ":stl" attribute.
    */
-  public static void mergeToolchainDependentContext(RuleContext ruleContext,
-      CcToolchainProvider toolchain, Builder contextBuilder) {
+  public static void mergeToolchainDependentCcCompilationInfo(
+      RuleContext ruleContext, CcToolchainProvider toolchain, Builder ccCompilationInfoBuilder) {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
         // TODO(bazel-team): Clean this up.
-        contextBuilder.addSystemIncludeDir(
+        ccCompilationInfoBuilder.addSystemIncludeDir(
             stl.getLabel().getPackageIdentifier().getPathUnderExecRoot().getRelative("gcc3"));
-        CppCompilationContext provider = stl.getProvider(CppCompilationContext.class);
+        CcCompilationInfo provider = stl.getProvider(CcCompilationInfo.class);
         if (provider == null) {
           ruleContext.ruleError("Unable to merge the STL '" + stl.getLabel()
               + "' and toolchain contexts");
           return;
         }
-        contextBuilder.mergeDependentContext(provider);
+        ccCompilationInfoBuilder.mergeDependentCcCompilationInfo(provider);
       }
     }
     if (toolchain != null) {
-      contextBuilder.mergeDependentContext(toolchain.getCppCompilationContext());
+      ccCompilationInfoBuilder.mergeDependentCcCompilationInfo(toolchain.getCcCompilationInfo());
     }
   }
 
@@ -679,8 +679,8 @@ public class CppHelper {
   }
 
   /**
-   * Emits a warning on the rule if there are identical linkstamp artifacts with different
-   * compilation contexts.
+   * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
+   * CcCompilationInfo}s.
    */
   public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();

@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.syntax.Type;
@@ -409,15 +409,13 @@ public class JavaCommon {
     );
   }
 
- /**
-   * Collects transitive C++ dependencies.
-   */
-  protected CppCompilationContext collectTransitiveCppDeps() {
-    CppCompilationContext.Builder builder = new CppCompilationContext.Builder(ruleContext);
+  /** Collects transitive C++ dependencies. */
+  protected CcCompilationInfo collectTransitiveCppDeps() {
+    CcCompilationInfo.Builder builder = new CcCompilationInfo.Builder(ruleContext);
     for (TransitiveInfoCollection dep : targetsTreatedAsDeps(ClasspathType.BOTH)) {
-      CppCompilationContext context = dep.getProvider(CppCompilationContext.class);
-      if (context != null) {
-        builder.mergeDependentContext(context);
+      CcCompilationInfo ccCompilationInfo = dep.getProvider(CcCompilationInfo.class);
+      if (ccCompilationInfo != null) {
+        builder.mergeDependentCcCompilationInfo(ccCompilationInfo);
       }
     }
     return builder.build();

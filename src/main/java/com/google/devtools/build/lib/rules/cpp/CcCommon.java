@@ -591,13 +591,12 @@ public final class CcCommon {
     return result;
   }
 
-  /**
-   * Collects compilation prerequisite artifacts.
-   */
+  /** Collects compilation prerequisite artifacts. */
   static NestedSet<Artifact> collectCompilationPrerequisites(
-      RuleContext ruleContext, CppCompilationContext context) {
-    // TODO(bazel-team): Use context.getCompilationPrerequisites() instead; note that this will
-    // need cleaning up the prerequisites, as the compilation context currently collects them
+      RuleContext ruleContext, CcCompilationInfo ccCompilationInfo) {
+    // TODO(bazel-team): Use ccCompilationInfo.getCompilationPrerequisites() instead; note that this
+    // will
+    // need cleaning up the prerequisites, as the {@code CcCompilationInfo} currently collects them
     // transitively (to get transitive headers), but source files are not transitive compilation
     // prerequisites.
     NestedSetBuilder<Artifact> prerequisites = NestedSetBuilder.stableOrder();
@@ -609,10 +608,10 @@ public final class CcCommon {
                 provider.getFilesToBuild(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
       }
     }
-    prerequisites.addTransitive(context.getDeclaredIncludeSrcs());
-    prerequisites.addTransitive(context.getAdditionalInputs());
-    prerequisites.addTransitive(context.getTransitiveModules(true));
-    prerequisites.addTransitive(context.getTransitiveModules(false));
+    prerequisites.addTransitive(ccCompilationInfo.getDeclaredIncludeSrcs());
+    prerequisites.addTransitive(ccCompilationInfo.getAdditionalInputs());
+    prerequisites.addTransitive(ccCompilationInfo.getTransitiveModules(true));
+    prerequisites.addTransitive(ccCompilationInfo.getTransitiveModules(false));
     return prerequisites.build();
   }
 
@@ -694,7 +693,7 @@ public final class CcCommon {
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
       unsupportedFeaturesBuilder.add(CppRuleClasses.PREPROCESS_HEADERS);
     }
-    if (toolchain.getCppCompilationContext().getCppModuleMap() == null) {
+    if (toolchain.getCcCompilationInfo().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();

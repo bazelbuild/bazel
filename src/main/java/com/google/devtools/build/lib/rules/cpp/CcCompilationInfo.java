@@ -46,15 +46,14 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class CppCompilationContext implements TransitiveInfoProvider {
-  public static final ObjectCodec<CppCompilationContext> CODEC =
-      new CppCompilationContext_AutoCodec();
+public final class CcCompilationInfo implements TransitiveInfoProvider {
+  public static final ObjectCodec<CcCompilationInfo> CODEC = new CcCompilationInfo_AutoCodec();
 
-  /** An empty compilation context. */
-  public static final CppCompilationContext EMPTY = new Builder(null).build();
+  /** An empty {@code CcCompilationInfo}. */
+  public static final CcCompilationInfo EMPTY = new Builder(null).build();
 
-  private final CommandLineContext commandLineContext;
-  
+  private final CommandLineCcCompilationInfo commandLineCcCompilationInfo;
+
   private final NestedSet<PathFragment> declaredIncludeDirs;
   private final NestedSet<PathFragment> declaredIncludeWarnDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
@@ -82,8 +81,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  CppCompilationContext(
-      CommandLineContext commandLineContext,
+  CcCompilationInfo(
+      CommandLineCcCompilationInfo commandLineCcCompilationInfo,
       ImmutableSet<Artifact> compilationPrerequisites,
       NestedSet<PathFragment> declaredIncludeDirs,
       NestedSet<PathFragment> declaredIncludeWarnDirs,
@@ -96,8 +95,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
-    Preconditions.checkNotNull(commandLineContext);
-    this.commandLineContext = commandLineContext;
+    Preconditions.checkNotNull(commandLineCcCompilationInfo);
+    this.commandLineCcCompilationInfo = commandLineCcCompilationInfo;
     this.declaredIncludeDirs = declaredIncludeDirs;
     this.declaredIncludeWarnDirs = declaredIncludeWarnDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
@@ -113,24 +112,23 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns the transitive compilation prerequisites consolidated into middlemen
-   * prerequisites, or an empty set if there are no prerequisites.
+   * Returns the transitive compilation prerequisites consolidated into middlemen prerequisites, or
+   * an empty set if there are no prerequisites.
    *
    * <p>Transitive compilation prerequisites are the prerequisites that will be needed by all
    * reverse dependencies; note that these do specifically not include any compilation prerequisites
-   * that are only needed by the rule itself (for example, compiled source files from the
-   * {@code srcs} attribute).
+   * that are only needed by the rule itself (for example, compiled source files from the {@code
+   * srcs} attribute).
    *
    * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
-   * prerequisites as a transitive dependency via a middleman.
-   * After they have been accumulated (using
-   * {@link Builder#addCompilationPrerequisites(Iterable)},
-   * {@link Builder#mergeDependentContext(CppCompilationContext)}, and
-   * {@link Builder#mergeDependentContexts(Iterable)}, they are consolidated
-   * into a single middleman Artifact when {@link Builder#build()} is called.
+   * prerequisites as a transitive dependency via a middleman. After they have been accumulated
+   * (using {@link Builder#addCompilationPrerequisites(Iterable)}, {@link
+   * Builder#mergeDependentCcCompilationInfo(CcCompilationInfo)}, and {@link
+   * Builder#mergeDependentCcCompilationInfos(Iterable)}, they are consolidated into a single
+   * middleman Artifact when {@link Builder#build()} is called.
    *
-   * <p>The returned set can be empty if there are no prerequisites. Usually it
-   * contains a single middleman, but if LIPO is used there can be two.
+   * <p>The returned set can be empty if there are no prerequisites. Usually it contains a single
+   * middleman, but if LIPO is used there can be two.
    */
   public ImmutableSet<Artifact> getTransitiveCompilationPrerequisites() {
     return compilationPrerequisites;
@@ -144,7 +142,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
    */
   public ImmutableList<PathFragment> getIncludeDirs() {
-    return commandLineContext.includeDirs;
+    return commandLineCcCompilationInfo.includeDirs;
   }
 
   /**
@@ -155,7 +153,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
    */
   public ImmutableList<PathFragment> getQuoteIncludeDirs() {
-    return commandLineContext.quoteIncludeDirs;
+    return commandLineCcCompilationInfo.quoteIncludeDirs;
   }
 
   /**
@@ -166,7 +164,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
    */
   public ImmutableList<PathFragment> getSystemIncludeDirs() {
-    return commandLineContext.systemIncludeDirs;
+    return commandLineCcCompilationInfo.systemIncludeDirs;
   }
 
   /**
@@ -266,80 +264,82 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * for the target. The order of the returned collection is deterministic.
    */
   public ImmutableList<String> getDefines() {
-    return commandLineContext.defines;
+    return commandLineCcCompilationInfo.defines;
   }
 
   /**
-   * Returns a context that is based on a given context but returns empty sets
-   * for {@link #getDeclaredIncludeDirs()} and {@link #getDeclaredIncludeWarnDirs()}.
+   * Returns a {@code CcCompilationInfo} that is based on a given {@code CcCompilationInfo} but
+   * returns empty sets for {@link #getDeclaredIncludeDirs()} and {@link
+   * #getDeclaredIncludeWarnDirs()}.
    */
-  public static CppCompilationContext disallowUndeclaredHeaders(CppCompilationContext context) {
-    return new CppCompilationContext(
-        context.commandLineContext,
-        context.compilationPrerequisites,
+  public static CcCompilationInfo disallowUndeclaredHeaders(CcCompilationInfo ccCompilationInfo) {
+    return new CcCompilationInfo(
+        ccCompilationInfo.commandLineCcCompilationInfo,
+        ccCompilationInfo.compilationPrerequisites,
         NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
-        context.declaredIncludeSrcs,
-        context.pregreppedHdrs,
-        context.nonCodeInputs,
-        context.moduleInfo,
-        context.picModuleInfo,
-        context.directModuleMaps,
-        context.cppModuleMap,
-        context.verificationModuleMap,
-        context.propagateModuleMapAsActionInput);
+        ccCompilationInfo.declaredIncludeSrcs,
+        ccCompilationInfo.pregreppedHdrs,
+        ccCompilationInfo.nonCodeInputs,
+        ccCompilationInfo.moduleInfo,
+        ccCompilationInfo.picModuleInfo,
+        ccCompilationInfo.directModuleMaps,
+        ccCompilationInfo.cppModuleMap,
+        ccCompilationInfo.verificationModuleMap,
+        ccCompilationInfo.propagateModuleMapAsActionInput);
   }
 
   /**
-   * Returns the context for a LIPO compile action. This uses the include dirs
-   * and defines of the library, but the declared inclusion dirs/srcs from both
-   * the library and the owner binary.
+   * Returns the context for a LIPO compile action. This uses the include dirs and defines of the
+   * library, but the declared inclusion dirs/srcs from both the library and the owner binary.
    *
    * <p>TODO(bazel-team): this might make every LIPO target have an unnecessary large set of
-   * inclusion dirs/srcs. The correct behavior would be to merge only the contexts
-   * of actual referred targets (as listed in .imports file).
+   * inclusion dirs/srcs. The correct behavior would be to merge only the contexts of actual
+   * referred targets (as listed in .imports file).
    *
-   * <p>Undeclared inclusion checking ({@link #getDeclaredIncludeDirs()},
-   * {@link #getDeclaredIncludeWarnDirs()}, and
-   * {@link #getDeclaredIncludeSrcs()}) needs to use the union of the contexts
-   * of the involved source files.
+   * <p>Undeclared inclusion checking ({@link #getDeclaredIncludeDirs()}, {@link
+   * #getDeclaredIncludeWarnDirs()}, and {@link #getDeclaredIncludeSrcs()}) needs to use the union
+   * of the contexts of the involved source files.
    *
-   * <p>For include and define command line flags ({@link #getIncludeDirs()}
-   * {@link #getQuoteIncludeDirs()}, {@link #getSystemIncludeDirs()}, and
-   * {@link #getDefines()}) LIPO compilations use the same values as non-LIPO
-   * compilation.
+   * <p>For include and define command line flags ({@link #getIncludeDirs()} {@link
+   * #getQuoteIncludeDirs()}, {@link #getSystemIncludeDirs()}, and {@link #getDefines()}) LIPO
+   * compilations use the same values as non-LIPO compilation.
    *
-   * <p>Include scanning is not handled by this method. See
-   * {@code IncludeScannable#getAuxiliaryScannables()} instead.
+   * <p>Include scanning is not handled by this method. See {@code
+   * IncludeScannable#getAuxiliaryScannables()} instead.
    *
-   * @param ownerContext the compilation context of the owner binary
-   * @param libContext the compilation context of the library
+   * @param ownerCcCompilationInfo the {@code CcCompilationInfo} of the owner binary
+   * @param libCcCompilationInfo the {@code CcCompilationInfo} of the library
    */
-  public static CppCompilationContext mergeForLipo(CppCompilationContext ownerContext,
-      CppCompilationContext libContext) {
+  public static CcCompilationInfo mergeForLipo(
+      CcCompilationInfo ownerCcCompilationInfo, CcCompilationInfo libCcCompilationInfo) {
     ImmutableSet.Builder<Artifact> prerequisites = ImmutableSet.builder();
-    prerequisites.addAll(ownerContext.compilationPrerequisites);
-    prerequisites.addAll(libContext.compilationPrerequisites);
+    prerequisites.addAll(ownerCcCompilationInfo.compilationPrerequisites);
+    prerequisites.addAll(libCcCompilationInfo.compilationPrerequisites);
     ModuleInfo.Builder moduleInfo = new ModuleInfo.Builder();
-    moduleInfo.merge(ownerContext.moduleInfo);
-    moduleInfo.merge(libContext.moduleInfo);
+    moduleInfo.merge(ownerCcCompilationInfo.moduleInfo);
+    moduleInfo.merge(libCcCompilationInfo.moduleInfo);
     ModuleInfo.Builder picModuleInfo = new ModuleInfo.Builder();
-    picModuleInfo.merge(ownerContext.picModuleInfo);
-    picModuleInfo.merge(libContext.picModuleInfo);
-    return new CppCompilationContext(
-        libContext.commandLineContext,
+    picModuleInfo.merge(ownerCcCompilationInfo.picModuleInfo);
+    picModuleInfo.merge(libCcCompilationInfo.picModuleInfo);
+    return new CcCompilationInfo(
+        libCcCompilationInfo.commandLineCcCompilationInfo,
         prerequisites.build(),
-        mergeSets(ownerContext.declaredIncludeDirs, libContext.declaredIncludeDirs),
-        mergeSets(ownerContext.declaredIncludeWarnDirs, libContext.declaredIncludeWarnDirs),
-        mergeSets(ownerContext.declaredIncludeSrcs, libContext.declaredIncludeSrcs),
-        mergeSets(ownerContext.pregreppedHdrs, libContext.pregreppedHdrs),
-        mergeSets(ownerContext.nonCodeInputs, libContext.nonCodeInputs),
+        mergeSets(
+            ownerCcCompilationInfo.declaredIncludeDirs, libCcCompilationInfo.declaredIncludeDirs),
+        mergeSets(
+            ownerCcCompilationInfo.declaredIncludeWarnDirs,
+            libCcCompilationInfo.declaredIncludeWarnDirs),
+        mergeSets(
+            ownerCcCompilationInfo.declaredIncludeSrcs, libCcCompilationInfo.declaredIncludeSrcs),
+        mergeSets(ownerCcCompilationInfo.pregreppedHdrs, libCcCompilationInfo.pregreppedHdrs),
+        mergeSets(ownerCcCompilationInfo.nonCodeInputs, libCcCompilationInfo.nonCodeInputs),
         moduleInfo.build(),
         picModuleInfo.build(),
-        mergeSets(ownerContext.directModuleMaps, libContext.directModuleMaps),
-        libContext.cppModuleMap,
-        libContext.verificationModuleMap,
-        libContext.propagateModuleMapAsActionInput);
+        mergeSets(ownerCcCompilationInfo.directModuleMaps, libCcCompilationInfo.directModuleMaps),
+        libCcCompilationInfo.cppModuleMap,
+        libCcCompilationInfo.verificationModuleMap,
+        libCcCompilationInfo.propagateModuleMapAsActionInput);
   }
 
   /**
@@ -363,21 +363,23 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   }
 
   /**
-   * The parts of the compilation context that influence the command line of compilation actions.
+   * The parts of the {@code CcCompilationInfo} that influence the command line of compilation
+   * actions.
    */
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class CommandLineContext {
-    public static final ObjectCodec<CommandLineContext> CODEC =
-        new CppCompilationContext_CommandLineContext_AutoCodec();
+  static class CommandLineCcCompilationInfo {
+    public static final ObjectCodec<CommandLineCcCompilationInfo> CODEC =
+        new CcCompilationInfo_CommandLineCcCompilationInfo_AutoCodec();
 
     private final ImmutableList<PathFragment> includeDirs;
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
     private final ImmutableList<String> defines;
 
-    CommandLineContext(ImmutableList<PathFragment> includeDirs,
+    CommandLineCcCompilationInfo(
+        ImmutableList<PathFragment> includeDirs,
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
         ImmutableList<String> defines) {
@@ -388,9 +390,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     }
   }
 
-  /**
-   * Builder class for {@link CppCompilationContext}.
-   */
+  /** Builder class for {@link CcCompilationInfo}. */
   public static class Builder {
     private String purpose;
     private final Set<Artifact> compilationPrerequisites = new LinkedHashSet<>();
@@ -417,22 +417,18 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     /** The rule that owns the context */
     private final RuleContext ruleContext;
 
-    /**
-     * Creates a new builder for a {@link CppCompilationContext} instance.
-     */
+    /** Creates a new builder for a {@link CcCompilationInfo} instance. */
     public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
     }
 
     /**
-     * Overrides the purpose of this context. This is useful if a Target
-     * needs more than one CppCompilationContext. (The purpose is used to
-     * construct the name of the prerequisites middleman for the context, and
-     * all artifacts for a given Target must have distinct names.)
+     * Overrides the purpose of this context. This is useful if a Target needs more than one
+     * CcCompilationInfo. (The purpose is used to construct the name of the prerequisites middleman
+     * for the context, and all artifacts for a given Target must have distinct names.)
      *
-     * @param purpose must be a string which is suitable for use as a filename.
-     * A single rule may have many middlemen with distinct purposes.
-     *
+     * @param purpose must be a string which is suitable for use as a filename. A single rule may
+     *     have many middlemen with distinct purposes.
      * @see MiddlemanFactory#createErrorPropagatingMiddleman
      */
     public Builder setPurpose(String purpose) {
@@ -445,41 +441,41 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     }
 
     /**
-     * Merges the context of a dependency into this one by adding the contents
-     * of all of its attributes.
+     * Merges the context of a dependency into this one by adding the contents of all of its
+     * attributes.
      */
-    public Builder mergeDependentContext(CppCompilationContext otherContext) {
-      Preconditions.checkNotNull(otherContext);
-      compilationPrerequisites.addAll(otherContext.getTransitiveCompilationPrerequisites());
-      includeDirs.addAll(otherContext.getIncludeDirs());
-      quoteIncludeDirs.addAll(otherContext.getQuoteIncludeDirs());
-      systemIncludeDirs.addAll(otherContext.getSystemIncludeDirs());
-      declaredIncludeDirs.addTransitive(otherContext.getDeclaredIncludeDirs());
-      declaredIncludeWarnDirs.addTransitive(otherContext.getDeclaredIncludeWarnDirs());
-      declaredIncludeSrcs.addTransitive(otherContext.getDeclaredIncludeSrcs());
-      pregreppedHdrs.addTransitive(otherContext.getPregreppedHeaders());
-      moduleInfo.addTransitive(otherContext.moduleInfo);
-      picModuleInfo.addTransitive(otherContext.picModuleInfo);
-      nonCodeInputs.addTransitive(otherContext.nonCodeInputs);
+    public Builder mergeDependentCcCompilationInfo(CcCompilationInfo otherCcCompilationInfo) {
+      Preconditions.checkNotNull(otherCcCompilationInfo);
+      compilationPrerequisites.addAll(
+          otherCcCompilationInfo.getTransitiveCompilationPrerequisites());
+      includeDirs.addAll(otherCcCompilationInfo.getIncludeDirs());
+      quoteIncludeDirs.addAll(otherCcCompilationInfo.getQuoteIncludeDirs());
+      systemIncludeDirs.addAll(otherCcCompilationInfo.getSystemIncludeDirs());
+      declaredIncludeDirs.addTransitive(otherCcCompilationInfo.getDeclaredIncludeDirs());
+      declaredIncludeWarnDirs.addTransitive(otherCcCompilationInfo.getDeclaredIncludeWarnDirs());
+      declaredIncludeSrcs.addTransitive(otherCcCompilationInfo.getDeclaredIncludeSrcs());
+      pregreppedHdrs.addTransitive(otherCcCompilationInfo.getPregreppedHeaders());
+      moduleInfo.addTransitive(otherCcCompilationInfo.moduleInfo);
+      picModuleInfo.addTransitive(otherCcCompilationInfo.picModuleInfo);
+      nonCodeInputs.addTransitive(otherCcCompilationInfo.nonCodeInputs);
 
       // All module maps of direct dependencies are inputs to the current compile independently of
       // the build type.
-      if (otherContext.getCppModuleMap() != null) {
-        directModuleMaps.add(otherContext.getCppModuleMap().getArtifact());
+      if (otherCcCompilationInfo.getCppModuleMap() != null) {
+        directModuleMaps.add(otherCcCompilationInfo.getCppModuleMap().getArtifact());
       }
 
-      defines.addAll(otherContext.getDefines());
+      defines.addAll(otherCcCompilationInfo.getDefines());
       return this;
     }
 
     /**
-     * Merges the context of some targets into this one by adding the contents
-     * of all of their attributes. Targets that do not implement
-     * {@link CppCompilationContext} are ignored.
+     * Merges the {@code CcCompilationInfo}s of some targets into this one by adding the contents of
+     * all of their attributes. Targets that do not implement {@link CcCompilationInfo} are ignored.
      */
-    public Builder mergeDependentContexts(Iterable<CppCompilationContext> targets) {
-      for (CppCompilationContext target : targets) {
-        mergeDependentContext(target);
+    public Builder mergeDependentCcCompilationInfos(Iterable<CcCompilationInfo> targets) {
+      for (CcCompilationInfo target : targets) {
+        mergeDependentCcCompilationInfo(target);
       }
       return this;
     }
@@ -681,17 +677,15 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       return this;
     }
 
-    /**
-     * Builds the {@link CppCompilationContext}.
-     */
-    public CppCompilationContext build() {
+    /** Builds the {@link CcCompilationInfo}. */
+    public CcCompilationInfo build() {
       return build(
           ruleContext == null ? null : ruleContext.getActionOwner(),
           ruleContext == null ? null : ruleContext.getAnalysisEnvironment().getMiddlemanFactory());
     }
 
-    @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-    public CppCompilationContext build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
+    @VisibleForTesting // productionVisibility = Visibility.PRIVATE
+    public CcCompilationInfo build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
       // We don't create middlemen in LIPO collector subtree, because some target CT
       // will do that instead.
       Artifact prerequisiteStampFile = (ruleContext != null
@@ -699,8 +693,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           ? getMiddlemanArtifact(middlemanFactory)
           : createMiddleman(owner, middlemanFactory);
 
-      return new CppCompilationContext(
-          new CommandLineContext(
+      return new CcCompilationInfo(
+          new CommandLineCcCompilationInfo(
               ImmutableList.copyOf(includeDirs),
               ImmutableList.copyOf(quoteIncludeDirs),
               ImmutableList.copyOf(systemIncludeDirs),
@@ -783,7 +777,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   @AutoCodec
   public static final class ModuleInfo {
     public static final ObjectCodec<ModuleInfo> CODEC =
-        new CppCompilationContext_ModuleInfo_AutoCodec();
+        new CcCompilationInfo_ModuleInfo_AutoCodec();
 
     /**
      * The module built for this context. If null, then no module is being compiled for this
@@ -919,7 +913,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   @AutoCodec
   public static final class TransitiveModuleHeaders {
     public static final ObjectCodec<TransitiveModuleHeaders> CODEC =
-        new CppCompilationContext_TransitiveModuleHeaders_AutoCodec();
+        new CcCompilationInfo_TransitiveModuleHeaders_AutoCodec();
 
     /**
      * The module that we are calculating information for.

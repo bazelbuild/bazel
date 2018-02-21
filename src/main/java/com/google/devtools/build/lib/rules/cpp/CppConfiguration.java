@@ -204,8 +204,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   private final boolean shouldProvideMakeVariables;
 
   /**
-   *  If true, the ConfiguredTarget is only used to get the necessary cross-referenced
-   *  CppCompilationContexts, but registering build actions is disabled.
+   * If true, the ConfiguredTarget is only used to get the necessary cross-referenced {@code
+   * CcCompilationInfo}s, but registering build actions is disabled.
    */
   private final boolean lipoContextCollector;
 

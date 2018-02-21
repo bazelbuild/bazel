@@ -283,7 +283,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CompilationInfo compilationInfo = compilationHelper.compile();
     LinkingInfo linkingInfo =
         linkingHelper.link(
-            compilationInfo.getCcCompilationOutputs(), compilationInfo.getCppCompilationContext());
+            compilationInfo.getCcCompilationOutputs(), compilationInfo.getCcCompilationInfo());
 
     /*
      * We always generate a static library, even if there aren't any source files.

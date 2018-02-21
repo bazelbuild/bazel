@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
@@ -88,22 +88,24 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
-    CppCompilationContext cppCompilationContext =
-        new CppCompilationContext.Builder(ruleContext)
-            .addDeclaredIncludeSrcs(CompilationAttributes.Builder
-                .fromRuleContext(ruleContext).build().hdrs().toCollection())
+    CcCompilationInfo ccCompilationInfo =
+        new CcCompilationInfo.Builder(ruleContext)
+            .addDeclaredIncludeSrcs(
+                CompilationAttributes.Builder.fromRuleContext(ruleContext)
+                    .build()
+                    .hdrs()
+                    .toCollection())
             .build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())
-        .addProvider(CppCompilationContext.class, cppCompilationContext)
+        .addProvider(CcCompilationInfo.class, ccCompilationInfo)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
-        .addNativeDeclaredProvider(
-            new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
+        .addNativeDeclaredProvider(new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
         .addOutputGroups(outputGroupCollector)
         .build();
   }

@@ -147,7 +147,7 @@ public final class CcLinkingHelper {
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<Artifact> linkActionInputs = new ArrayList<>();
-  private CppCompilationContext cppCompilationContext;
+  private CcCompilationInfo ccCompilationInfo;
 
   @Nullable private Artifact dynamicLibrary;
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
@@ -425,11 +425,10 @@ public final class CcLinkingHelper {
    *
    * @throws RuleErrorException
    */
-  public LinkingInfo link(
-      CcCompilationOutputs ccOutputs, CppCompilationContext cppCompilationContext)
+  public LinkingInfo link(CcCompilationOutputs ccOutputs, CcCompilationInfo ccCompilationInfo)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);
-    Preconditions.checkNotNull(cppCompilationContext);
+    Preconditions.checkNotNull(ccCompilationInfo);
 
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :
@@ -439,7 +438,7 @@ public final class CcLinkingHelper {
       }
     }
 
-    this.cppCompilationContext = cppCompilationContext;
+    this.ccCompilationInfo = ccCompilationInfo;
 
     // Create link actions (only if there are object files or if explicitly requested).
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
@@ -536,11 +535,11 @@ public final class CcLinkingHelper {
     if (emitCcSpecificLinkParamsProvider) {
       providers.add(
           new CcSpecificLinkParamsProvider(
-              createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
+              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationInfo, forcePic)));
     } else {
       providers.put(
           new CcLinkParamsInfo(
-              createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
+              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationInfo, forcePic)));
     }
     return new LinkingInfo(
         providers.build(), outputGroups, ccLinkingOutputs, originalLinkingOutputs);
@@ -621,13 +620,13 @@ public final class CcLinkingHelper {
 
   private CcLinkParamsStore createCcLinkParamsStore(
       final CcLinkingOutputs ccLinkingOutputs,
-      final CppCompilationContext cppCompilationContext,
+      final CcCompilationInfo ccCompilationInfo,
       final boolean forcePic) {
     return new CcLinkParamsStore() {
       @Override
       protected void collect(
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-        builder.addLinkstamps(linkstamps.build(), cppCompilationContext);
+        builder.addLinkstamps(linkstamps.build(), ccCompilationInfo);
         builder.addTransitiveTargets(
             deps, CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {
@@ -968,7 +967,7 @@ public final class CcLinkingHelper {
     return new CppLinkActionBuilder(
             ruleContext, outputArtifact, ccToolchain, fdoSupport, featureConfiguration, semantics)
         .setCrosstoolInputs(ccToolchain.getLink())
-        .addNonCodeInputs(cppCompilationContext.getTransitiveCompilationPrerequisites());
+        .addNonCodeInputs(ccCompilationInfo.getTransitiveCompilationPrerequisites());
   }
 
   /**

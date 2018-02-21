@@ -147,8 +147,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getConfiguration())
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
             .link(
-                compilationInfo.getCcCompilationOutputs(),
-                compilationInfo.getCppCompilationContext());
+                compilationInfo.getCcCompilationOutputs(), compilationInfo.getCcCompilationInfo());
 
     // cc_inc_library doesn't compile any file - no compilation outputs available.
     InstrumentedFilesProvider instrumentedFilesProvider =
