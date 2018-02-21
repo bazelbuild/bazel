@@ -36,7 +36,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 
 /**
  * Wrapper class for managing dependencies on top of {@link
@@ -70,6 +73,7 @@ public final class DependencyModule {
   }
 
   private final StrictJavaDeps strictJavaDeps;
+  private final FixTool fixDepsTool;
   private final ImmutableSet<Path> directJars;
   private final ImmutableMap<Path, JarOwner> jarsToTargets;
   private final boolean strictClasspathMode;
@@ -88,6 +92,7 @@ public final class DependencyModule {
 
   DependencyModule(
       StrictJavaDeps strictJavaDeps,
+      FixTool fixDepsTool,
       ImmutableSet<Path> directJars,
       ImmutableMap<Path, JarOwner> jarsToTargets,
       boolean strictClasspathMode,
@@ -99,6 +104,7 @@ public final class DependencyModule {
       FixMessage fixMessage,
       Set<String> exemptGenerators) {
     this.strictJavaDeps = strictJavaDeps;
+    this.fixDepsTool = fixDepsTool;
     this.directJars = directJars;
     this.jarsToTargets = jarsToTargets;
     this.strictClasspathMode = strictClasspathMode;
@@ -184,6 +190,11 @@ public final class DependencyModule {
   /** Returns the strict dependency checking (strictJavaDeps) setting. */
   public StrictJavaDeps getStrictJavaDeps() {
     return strictJavaDeps;
+  }
+
+  /** Returns which tool to use for adding missing dependencies. */
+  public FixTool getFixDepsTool() {
+    return fixDepsTool;
   }
 
   /** Returns the map collecting precise explicit dependency information. */
@@ -293,18 +304,47 @@ public final class DependencyModule {
     }
   }
 
-  /**
-   * A functional that formats a message for the user about a missing dependency that they should
-   * add to unbreak their build.
-   */
+  /** Emits a message to the user about missing dependencies to add to unbreak their build. */
   public interface FixMessage {
-    String get(Iterable<JarOwner> missing, String recipient, boolean useColor);
+
+    /**
+     * Gets a message describing what dependencies are missing and how to fix them.
+     *
+     * @param missing the missing dependencies to be added.
+     * @param recipient the target from which the dependencies are missing.
+     * @param dependencyModule {@link DependencyModule} instance for compilation context.
+     * @return the string message describing the dependency build issues, including fix.
+     */
+    String get(Iterable<JarOwner> missing, String recipient, DependencyModule dependencyModule);
+  }
+
+  /** Tool with which to fix dependency issues. */
+  public interface FixTool {
+
+    /**
+     * Applies this tool to find the missing import/dependency.
+     *
+     * @param diagnostic a full javac diagnostic, possibly containing an import for a class which
+     *     cannot be found on the classpath.
+     * @param javacopts list of all javac options/flags.
+     * @return the missing import or dependency as a String, or empty Optional if the diagnostic did
+     *     not contain exactly one unresolved import that we know how to fix.
+     */
+    Optional<String> resolveMissingImport(
+        Diagnostic<JavaFileObject> diagnostic, ImmutableList<String> javacopts);
+
+    /**
+     * Returns a command for this tool to fix {@code recipient} by adding all {@code missing}
+     * dependencies for this target.
+     */
+    String getFixCommand(Iterable<String> missing, String recipient);
   }
 
   /** Builder for {@link DependencyModule}. */
   public static class Builder {
 
     private StrictJavaDeps strictJavaDeps = StrictJavaDeps.OFF;
+    private FixTool fixDepsTool = null;
     private ImmutableSet<Path> directJars = ImmutableSet.of();
     private ImmutableMap<Path, JarOwner> jarsToTargets = ImmutableMap.of();
     private final Set<Path> depsArtifacts = new HashSet<>();
@@ -318,7 +358,7 @@ public final class DependencyModule {
 
     private static class DefaultFixMessage implements FixMessage {
       @Override
-      public String get(Iterable<JarOwner> missing, String recipient, boolean useColor) {
+      public String get(Iterable<JarOwner> missing, String recipient, DependencyModule depModule) {
         StringBuilder missingTargetsStr = new StringBuilder();
         for (JarOwner owner : missing) {
           missingTargetsStr.append(owner.label());
@@ -329,10 +369,7 @@ public final class DependencyModule {
             "%1$s ** Please add the following dependencies:%2$s \n  %3$s to %4$s \n"
                 + "%1$s ** You can use the following buildozer command:%2$s "
                 + "\nbuildozer 'add deps %3$s' %4$s \n\n",
-            useColor ? "\033[35m\033[1m" : "",
-            useColor ? "\033[0m" : "",
-            missingTargetsStr.toString(),
-            recipient);
+            "\033[35m\033[1m", "\033[0m", missingTargetsStr.toString(), recipient);
       }
     }
 
@@ -345,6 +382,7 @@ public final class DependencyModule {
     public DependencyModule build() {
       return new DependencyModule(
           strictJavaDeps,
+          fixDepsTool,
           directJars,
           jarsToTargets,
           strictClasspathMode,
@@ -365,6 +403,17 @@ public final class DependencyModule {
      */
     public Builder setStrictJavaDeps(String strictJavaDeps) {
       this.strictJavaDeps = StrictJavaDeps.valueOf(strictJavaDeps);
+      return this;
+    }
+
+    /**
+     * Sets which tool to use for fixing missing dependencies.
+     *
+     * @param fixDepsTool tool name
+     * @return this Builder instance
+     */
+    public Builder setFixDepsTool(FixTool fixDepsTool) {
+      this.fixDepsTool = fixDepsTool;
       return this;
     }
 

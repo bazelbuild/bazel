@@ -69,7 +69,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   static String targetMapping =
       "com/google/devtools/build/buildjar/javac/resources/target.properties";
 
-  public static final boolean USE_COLOR = true;
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
   private final DependencyModule dependencyModule;
@@ -214,7 +213,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       errWriter.print(
           dependencyModule
               .getFixMessage()
-              .get(canonicalizedMissing, canonicalizedLabel, USE_COLOR));
+              .get(canonicalizedMissing, canonicalizedLabel, dependencyModule));
     }
   }
 
