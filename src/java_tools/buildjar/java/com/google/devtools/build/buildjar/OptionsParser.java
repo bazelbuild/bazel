@@ -86,8 +86,6 @@ public final class OptionsParser {
   private String targetLabel;
   private String injectingRuleKind;
 
-  private boolean testOnly;
-
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
    * both compilation and annotation processing.
@@ -226,9 +224,6 @@ public final class OptionsParser {
           break;
         case "--injecting_rule_kind":
           injectingRuleKind = getArgument(argQueue, arg);
-          break;
-        case "--testonly":
-          testOnly = true;
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
@@ -539,9 +534,5 @@ public final class OptionsParser {
 
   public String getInjectingRuleKind() {
     return injectingRuleKind;
-  }
-
-  public boolean testOnly() {
-    return testOnly;
   }
 }
