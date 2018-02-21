@@ -791,6 +791,11 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexbuilder")))
           .add(
+              attr("$dexbuilder_after_proguard", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:dexbuilder_after_proguard")))
+          .add(
               attr("$dexsharder", LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .exec()

@@ -38,6 +38,11 @@ alias(
 )
 
 alias(
+    name = "dexbuilder_after_proguard",
+    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
+)
+
+alias(
     name = "dexmerger",
     actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
 )

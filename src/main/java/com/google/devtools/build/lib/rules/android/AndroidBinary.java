@@ -1072,6 +1072,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         // No need to shuffle, just run proguarded Jar through dexbuilder
         DexArchiveAspect.createDexArchiveAction(
             ruleContext,
+            "$dexbuilder_after_proguard",
             proguardedJar,
             DexArchiveAspect.topLevelDexbuilderDexopts(dexopts),
             dexArchives.get(0));
@@ -1401,6 +1402,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact dexArchive =
           DexArchiveAspect.createDexArchiveAction(
               ruleContext,
+              "$dexbuilder",
               derivedJarFunction.apply(jar),
               incrementalDexopts,
               ruleContext.getDerivedArtifact(
@@ -1495,6 +1497,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         checkState(!shuffleOutputs.get(i).equals(shards.get(i)));
         DexArchiveAspect.createDexArchiveAction(
             ruleContext,
+            "$dexbuilder_after_proguard",
             shuffleOutputs.get(i),
             DexArchiveAspect.topLevelDexbuilderDexopts(dexopts),
             shards.get(i));

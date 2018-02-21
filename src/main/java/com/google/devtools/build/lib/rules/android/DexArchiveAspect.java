@@ -416,23 +416,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   /**
-   * Creates a dex archive using an executable prerequisite called {@code "$dexbuilder"}. Rules
-   * calling this method must declare the appropriate prerequisite, similar to how {@link
-   * #getDefinition} does it for {@link DexArchiveAspect} under a different name.
+   * Creates a dexbuilder action with the given input, output, and flags. Flags must have been
+   * filtered and normalized to a set that the dexbuilder tool can understand.
    *
    * @return the artifact given as {@code result}, which can simplify calling code
    */
   // Package-private method for use in AndroidBinary
   static Artifact createDexArchiveAction(
-      RuleContext ruleContext, Artifact jar, Set<String> tokenizedDexopts, Artifact result) {
-    return createDexArchiveAction(ruleContext, "$dexbuilder", jar, tokenizedDexopts, result);
-  }
-
-  /**
-   * Creates a dexbuilder action with the given input, output, and flags. Flags must have been
-   * filtered and normalized to a set that the dexbuilder tool can understand.
-   */
-  private static Artifact createDexArchiveAction(
       RuleContext ruleContext,
       String dexbuilderPrereq,
       Artifact jar,

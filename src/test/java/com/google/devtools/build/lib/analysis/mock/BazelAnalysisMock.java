@@ -229,6 +229,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'aar_native_libs_zip_creator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resource_extractor', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'dexbuilder_after_proguard', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
