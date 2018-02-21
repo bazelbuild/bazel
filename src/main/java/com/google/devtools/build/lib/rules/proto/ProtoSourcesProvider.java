@@ -42,8 +42,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> checkDepsProtoSources,
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets,
-      NestedSet<String> protoPathFlags,
-      String protoSourceRoot) {
+      NestedSet<String> protoPathFlags) {
     return new AutoValue_ProtoSourcesProvider(
         transitiveImports,
         transitiveProtoSources,
@@ -51,8 +50,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
         checkDepsProtoSources,
         directDescriptorSet,
         transitiveDescriptorSets,
-        protoPathFlags,
-        protoSourceRoot);
+        protoPathFlags);
   }
 
   /**
@@ -136,11 +134,6 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
    * {@code --proto_path}. These flags will be passed to {@code protoc} in the specified oreder.
    */
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
-
-  /**
-   * The {@code proto_source_root} of the current library.
-   */
-  public abstract String getProtoSourceRoot();
 
   ProtoSourcesProvider() {}
 }

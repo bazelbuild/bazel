@@ -100,18 +100,21 @@ public class ProtoCommon {
   }
 
   /**
-   * Returns all proto source roots in this lib ({@code currentProtoSourceRoot}) and in its
-   * transitive dependencies, each prefixed by {@code --proto_path}.
+   * Returns all proto source roots in this lib and in its transitive dependencies, each prefixed
+   * by {@code --proto_path}.
    *
-   * Assumes {@code currentProtoSourceRoot} is the same as the package name.
+   * Build will fail if the {@code proto_source_root} of the current lib is different than the
+   * package name.
    */
-  public static NestedSet<String> collectTransitiveProtoPathFlags(
-      RuleContext ruleContext, String currentProtoSourceRoot) {
+  public static NestedSet<String> collectTransitiveProtoPathFlags(RuleContext ruleContext) {
     NestedSetBuilder<String> protoPathFlags = NestedSetBuilder.stableOrder();
 
     // first add the protoSourceRoot of the current target, if any
-    if (currentProtoSourceRoot != null && !currentProtoSourceRoot.isEmpty()) {
-      protoPathFlags.add("--proto_path=" + currentProtoSourceRoot);
+    String protoSourceRoot =
+        ruleContext.attributes().get("proto_source_root", Type.STRING);
+    if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
+      checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
+      protoPathFlags.add("--proto_path=" + protoSourceRoot);
     }
 
     for (ProtoSourcesProvider provider : ruleContext.getPrerequisites(
@@ -120,46 +123,6 @@ public class ProtoCommon {
     }
 
     return protoPathFlags.build();
-  }
-
-  /**
-   * Returns the {@code proto_source_root} of the current library or null if none is specified.
-   *
-   * Build will fail if the {@code proto_source_root} of the current library is different than the
-   * package name.
-   */
-  @Nullable
-  public static String getProtoSourceRoot(RuleContext ruleContext) {
-    String protoSourceRoot =
-        ruleContext.attributes().get("proto_source_root", Type.STRING);
-    if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
-      checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
-    }
-    return protoSourceRoot;
-  }
-
-  /**
-   * Returns a set of the {@code proto_source_root} collected from the current library and the
-   * direct dependencies.
-   *
-   * Assumes {@code currentProtoSourceRoot} is the same as the package name.
-   */
-  public static NestedSet<String> getProtoSourceRootsOfDirectDependencies(
-      RuleContext ruleContext, String currentProtoSourceRoot) {
-    NestedSetBuilder<String> protoSourceRoots = NestedSetBuilder.stableOrder();
-    if (currentProtoSourceRoot != null && !currentProtoSourceRoot.isEmpty()) {
-      protoSourceRoots.add(currentProtoSourceRoot);
-    }
-
-    for (ProtoSourcesProvider provider : ruleContext.getPrerequisites(
-        "deps", Mode.TARGET, ProtoSourcesProvider.class)) {
-      String protoSourceRoot = provider.getProtoSourceRoot();
-      if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
-        protoSourceRoots.add(provider.getProtoSourceRoot());
-      }
-    }
-
-    return protoSourceRoots.build();
   }
 
   private static void checkProtoSourceRootIsTheSameAsPackage(
