@@ -1,0 +1,35 @@
+steps:
+ - label: "Ubuntu 14.04"
+   command: "set -uo pipefail\n
+      echo '--- Cleanup'\n
+      bazel clean --expunge\n
+      rm -rf bep.json\n
+
+      echo '+++ Building'\n
+      bazel build --color=yes //src:bazel || exit $?\n
+
+      echo '+++ Testing'\n
+      bazel test --color=yes --build_event_json_file=bep.json //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
+      
+      TESTS_EXIT_STATUS=$?\n
+      
+      python3 .buildkite/failed_testlogs.py bep.json | while read logfile; do buildkite-agent artifact upload $logfile; done\n
+      
+      exit $TESTS_EXIT_STATUS\n"
+   agents:
+     - "os=ubuntu1404"
+
+ - label: "Ubuntu 16.04"
+   command: "echo '--- Cleanup'\n
+      bazel clean --expunge\n
+      rm -rf bep.json\n
+
+      echo '+++ Building'\n
+      bazel build --color=yes //src:bazel\n
+
+      echo '+++ Testing'\n
+      bazel test --color=yes --build_event_json_file=bep.json //scripts/... //src/test/... //third_party/ijar/... //tools/android/...\n
+      
+      python3 .buildkite/failed_testlogs.py bep.json | while read logfile; do buildkite-agent artifact upload $logfile; done"
+   agents:
+     - "os=ubuntu1604"

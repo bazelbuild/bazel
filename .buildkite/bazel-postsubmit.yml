@@ -1,0 +1,131 @@
+steps:
+ - label: "Bazel Ubuntu 14.04"
+   command: "echo '--- Cleanup'\n
+      bazel clean --expunge\n
+
+      echo '+++ Building'\n
+      bazel build --color=yes //src:bazel\n
+
+      echo '+++ Uploading Bazel Binary'\n
+      buildkite-agent artifact upload bazel-bin/src/bazel
+
+      echo '--- Cleanup'\n
+      bazel clean --expunge\n"
+   agents:
+     - "os=ubuntu1404"
+
+ - label: "Bazel Ubuntu 16.04"
+   command: "echo '--- Cleanup'\n
+      bazel clean --expunge\n
+
+      echo '+++ Building'\n
+      bazel build --color=yes //src:bazel\n
+
+      echo '+++ Uploading Bazel Binary'\n
+      buildkite-agent artifact upload bazel-bin/src/bazel
+
+      echo '--- Cleanup'\n
+      bazel clean --expunge\n"
+   agents:
+     - "os=ubuntu1604"
+ - wait
+
+ - label: "rules_go Ubuntu 14.04"
+   command: "echo '--- Cleanup'\n
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_go\n
+
+	echo '--- Downloading Bazel Binary'\n
+        mkdir stashed-outputs\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 14.04'\n
+        chmod +x stashed-outputs/bazel-bin/src/bazel\n
+
+        echo '--- Cloning'\n
+        git clone https://github.com/geheimspeicher/rules_go\n
+        cd rules_go\n
+
+        echo '+++ Building'\n
+        ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
+
+        echo '+++ Testing'\n
+        ../stashed-outputs/bazel-bin/src/bazel test --color=yes ...\n
+
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_go\n"
+   agents:
+     - "os=ubuntu1404"
+
+ - label: "rules_go Ubuntu 16.04"
+   command: "echo '--- Cleanup'\n
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_go\n
+
+	echo '--- Downloading Bazel Binary'\n
+        mkdir stashed-outputs\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 16.04'\n
+        chmod +x stashed-outputs/bazel-bin/src/bazel\n
+
+        echo '--- Cloning'\n
+        git clone https://github.com/geheimspeicher/rules_go\n
+        cd rules_go\n
+
+        echo '+++ Building'\n
+        ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
+
+        echo '+++ Testing'\n
+        ../stashed-outputs/bazel-bin/src/bazel test --color=yes ...\n
+
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_go\n"
+   agents:
+     - "os=ubuntu1604"
+
+ - label: "rules_python Ubuntu 14.04"
+   command: "echo '--- Cleanup'\n
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_python\n
+
+	echo '--- Downloading Bazel Binary'\n
+        mkdir stashed-outputs\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 14.04'\n
+        chmod +x stashed-outputs/bazel-bin/src/bazel\n
+
+        echo '--- Cloning'\n
+        git clone https://github.com/geheimspeicher/rules_python\n
+        cd rules_python\n
+
+        echo '+++ Building'\n
+        ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
+
+        echo '+++ Testing'\n
+        ../stashed-outputs/bazel-bin/src/bazel test --color=yes ...\n
+
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_python\n"
+   agents:
+     - "os=ubuntu1404"
+
+ - label: "rules_python Ubuntu 16.04"
+   command: "echo '--- Cleanup'\n
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_python\n
+
+	echo '--- Downloading Bazel Binary'\n
+        mkdir stashed-outputs\n
+        buildkite-agent artifact download bazel-bin/src/bazel stashed-outputs/ --step 'Bazel Ubuntu 16.04'\n
+        chmod +x stashed-outputs/bazel-bin/src/bazel\n
+
+        echo '--- Cloning'\n
+        git clone https://github.com/geheimspeicher/rules_python\n
+        cd rules_python\n
+
+        echo '+++ Building'\n
+        ../stashed-outputs/bazel-bin/src/bazel build --color=yes ...\n
+
+        echo '+++ Testing'\n
+        ../stashed-outputs/bazel-bin/src/bazel test --color=yes ...\n
+
+        bazel clean --expunge\n
+        rm -rf stashed-outputs rules_python\n"
+   agents:
+     - "os=ubuntu1604"
