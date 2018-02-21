@@ -50,6 +50,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /** Runs TestRunnerAction actions. */
 // TODO(bazel-team): add tests for this strategy.
@@ -100,13 +101,12 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     ResolvedPaths resolvedPaths = action.resolve(execRoot);
 
-    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    Map<String, String> executionInfo =
+        new TreeMap<>(action.getTestProperties().getExecutionInfo());
     if (!action.shouldCacheResult()) {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
-    // This key is only understood by StandaloneSpawnStrategy.
-    executionInfo.put("timeout", "" + getTimeout(action).getSeconds());
-    executionInfo.putAll(action.getTestProperties().getExecutionInfo());
+    executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
 
     ResourceSet localResourceUsage =
         action
@@ -119,7 +119,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             action,
             getArgs(action),
             ImmutableMap.copyOf(env),
-            executionInfo.build(),
+            ImmutableMap.copyOf(executionInfo),
             new RunfilesSupplierImpl(
                 runfilesDir.relativeTo(execRoot), action.getExecutionSettings().getRunfiles()),
             /*inputs=*/ ImmutableList.copyOf(action.getInputs()),
