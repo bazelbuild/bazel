@@ -1004,29 +1004,32 @@ public class CppLinkActionBuilder {
 
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 
-    for (Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
-      analysisEnvironment.registerAction(
-          CppLinkstampCompileHelper.createLinkstampCompileAction(
-              ruleContext,
-              linkstampEntry.getKey().getArtifact(),
-              linkstampEntry.getValue(),
-              linkstampEntry.getKey().getDeclaredIncludeSrcs(),
-              ImmutableSet.copyOf(nonCodeInputs),
-              buildInfoHeaderArtifacts,
-              additionalLinkstampDefines,
-              toolchain,
-              configuration.isCodeCoverageEnabled(),
-              cppConfiguration,
-              CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
-              featureConfiguration,
-              cppConfiguration.forcePic()
-                  || (linkType == LinkTargetType.DYNAMIC_LIBRARY && toolchain.toolchainNeedsPic()),
-              Matcher.quoteReplacement(
-                  isNativeDeps && cppConfiguration.shareNativeDeps()
-                      ? output.getExecPathString()
-                      : Label.print(getOwner().getLabel())),
-              Matcher.quoteReplacement(output.getExecPathString()),
-              cppSemantics));
+    if (!isLtoIndexing) {
+      for (Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
+        analysisEnvironment.registerAction(
+            CppLinkstampCompileHelper.createLinkstampCompileAction(
+                ruleContext,
+                linkstampEntry.getKey().getArtifact(),
+                linkstampEntry.getValue(),
+                linkstampEntry.getKey().getDeclaredIncludeSrcs(),
+                ImmutableSet.copyOf(nonCodeInputs),
+                buildInfoHeaderArtifacts,
+                additionalLinkstampDefines,
+                toolchain,
+                configuration.isCodeCoverageEnabled(),
+                cppConfiguration,
+                CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
+                featureConfiguration,
+                cppConfiguration.forcePic()
+                    || (linkType == LinkTargetType.DYNAMIC_LIBRARY
+                        && toolchain.toolchainNeedsPic()),
+                Matcher.quoteReplacement(
+                    isNativeDeps && cppConfiguration.shareNativeDeps()
+                        ? output.getExecPathString()
+                        : Label.print(getOwner().getLabel())),
+                Matcher.quoteReplacement(output.getExecPathString()),
+                cppSemantics));
+      }
     }
 
     // Compute the set of inputs - we only need stable order here.
