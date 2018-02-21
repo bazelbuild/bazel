@@ -73,6 +73,7 @@ public class MobileInstallCommand implements BlazeCommand {
    */
   public enum Mode {
     CLASSIC("classic", null),
+    CLASSIC_INTERNAL_TEST("classic_internal_test_DO_NOT_USE", null),
     SKYLARK("skylark", "MIASPECT"),
     SKYLARK_INCREMENTAL_RES("skylark_incremental_res", "MIRESASPECT");
 
@@ -172,12 +173,14 @@ public class MobileInstallCommand implements BlazeCommand {
     Options mobileInstallOptions = options.getOptions(Options.class);
     WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
 
-    if (mobileInstallOptions.mode == Mode.CLASSIC) {
-      // Notify internal users that classic mode is deprecated. Use mobile_install_aspect as a proxy
-      // for internal vs external users.
-      if (!mobileInstallOptions.mobileInstallAspect.startsWith("@")) {
-        env.getReporter().handle(Event.warn(
-            "mobile-install --mode=classic is deprecated. This option will go away soon."));
+    if (mobileInstallOptions.mode == Mode.CLASSIC
+        || mobileInstallOptions.mode == Mode.CLASSIC_INTERNAL_TEST) {
+      // Notify internal users that classic mode is no longer supported.
+      if (mobileInstallOptions.mode == Mode.CLASSIC
+          && !mobileInstallOptions.mobileInstallAspect.startsWith("@")) {
+        env.getReporter().handle(Event.error(
+            "mobile-install --mode=classic is no longer supported"));
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
       if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
         env.getReporter().handle(Event.warn(
@@ -323,7 +326,7 @@ public class MobileInstallCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {
     Options options = optionsParser.getOptions(Options.class);
     try {
-      if (options.mode == Mode.CLASSIC) {
+      if (options.mode == Mode.CLASSIC || options.mode == Mode.CLASSIC_INTERNAL_TEST) {
         String outputGroup =
             options.splitApks
                 ? "mobile_install_split" + INTERNAL_SUFFIX
