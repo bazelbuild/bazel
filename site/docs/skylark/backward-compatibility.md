@@ -209,7 +209,7 @@ When set, glob tracking is disabled. This is a legacy feature that we expect has
 no user-visible impact.
 
 *   Flag: `--incompatible_disable_glob_tracking`
-*   Default: `false`
+*   Default: `true`
 
 
 ### Print statements

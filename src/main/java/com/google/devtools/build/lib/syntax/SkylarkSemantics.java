@@ -76,7 +76,7 @@ public abstract class SkylarkSemantics {
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
-          .incompatibleDisableGlobTracking(false)
+          .incompatibleDisableGlobTracking(true)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowToplevelIfStatement(true)
           .incompatibleDisallowUncalledSetConstructor(true)
