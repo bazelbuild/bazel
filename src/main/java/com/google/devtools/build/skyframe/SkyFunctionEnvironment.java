@@ -85,7 +85,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private final GroupedListHelper<SkyKey> newlyRequestedDeps = new GroupedListHelper<>();
 
   /** The set of errors encountered while fetching children. */
-  private final Collection<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
+  private final Set<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
 
   private final StoredEventHandler eventHandler =
       new StoredEventHandler() {
