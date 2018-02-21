@@ -72,8 +72,12 @@ def fct(name, srcs):
   native.cc_library(
     name = name,
     srcs = filtered_srcs,
+    testonly = True,
   )
 ```
+
+* Prefer values `True` and `False` instead of `0` and `1` for boolean values
+  (e.g. when using a boolean attribute in a rule).
 
 * Do not use the `print()` function in production code; it is only intended for
   debugging, and will spam all direct and indirect users of your `.bzl` file.
