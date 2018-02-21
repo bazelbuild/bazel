@@ -882,7 +882,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CppHelper.usePic(ruleContext, toolchain, false));
     builder
         .setFilesToBuild(filesToBuild)
-        .addProvider(CcCompilationInfo.class, ccCompilationInfo)
+        .addNativeDeclaredProvider(ccCompilationInfo)
         .addProvider(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
         .addProvider(
             CcExecutionDynamicLibrariesProvider.class,

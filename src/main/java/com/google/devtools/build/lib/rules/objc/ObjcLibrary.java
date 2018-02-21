@@ -99,7 +99,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())
-        .addProvider(CcCompilationInfo.class, ccCompilationInfo)
+        .addNativeDeclaredProvider(ccCompilationInfo)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(

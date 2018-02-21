@@ -107,7 +107,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
     CcCompilationInfo ccCompilationInfo =
-        getConfiguredTarget("//x:foo_cc_proto").getProvider(CcCompilationInfo.class);
+        getConfiguredTarget("//x:foo_cc_proto").get(CcCompilationInfo.PROVIDER);
     assertThat(prettyArtifactNames(ccCompilationInfo.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h");
   }
@@ -121,7 +121,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
 
     CcCompilationInfo ccCompilationInfo =
-        getConfiguredTarget("//x:foo_cc_proto").getProvider(CcCompilationInfo.class);
+        getConfiguredTarget("//x:foo_cc_proto").get(CcCompilationInfo.PROVIDER);
     assertThat(prettyArtifactNames(ccCompilationInfo.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h", "x/bar.pb.h");
   }

@@ -214,7 +214,7 @@ public final class CcCompilationHelper {
   /** Function for extracting module maps from CppCompilationDependencies. */
   private static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
       dep -> {
-        CcCompilationInfo ccCompilationInfo = dep.getProvider(CcCompilationInfo.class);
+        CcCompilationInfo ccCompilationInfo = dep.get(CcCompilationInfo.PROVIDER);
         return ccCompilationInfo == null ? null : ccCompilationInfo.getCppModuleMap();
       };
 
@@ -790,10 +790,10 @@ public final class CcCompilationHelper {
     TransitiveInfoProviderMapBuilder providers =
         new TransitiveInfoProviderMapBuilder()
             .add(
-                ccCompilationInfo,
                 new CppDebugFileProvider(
                     dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()),
                 collectTransitiveLipoInfo(ccOutputs));
+    providers.put(ccCompilationInfo);
 
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     outputGroups.put(OutputGroupInfo.TEMP_FILES, getTemps(ccOutputs));
@@ -983,7 +983,7 @@ public final class CcCompilationHelper {
 
     if (useDeps) {
       ccCompilationInfoBuilder.mergeDependentCcCompilationInfos(
-          AnalysisUtils.getProviders(deps, CcCompilationInfo.class));
+          AnalysisUtils.getProviders(deps, CcCompilationInfo.PROVIDER));
       ccCompilationInfoBuilder.mergeDependentCcCompilationInfos(depCcCompilationInfos);
     }
     CppHelper.mergeToolchainDependentCcCompilationInfo(
@@ -1194,7 +1194,7 @@ public final class CcCompilationHelper {
         deps.stream().map(CPP_DEPS_TO_MODULES).collect(toCollection(ArrayList::new));
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       CcCompilationInfo stl =
-          ruleContext.getPrerequisite(":stl", Mode.TARGET, CcCompilationInfo.class);
+          ruleContext.getPrerequisite(":stl", Mode.TARGET, CcCompilationInfo.PROVIDER);
       if (stl != null) {
         result.add(stl.getCppModuleMap());
       }
@@ -2049,7 +2049,7 @@ public final class CcCompilationHelper {
       //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
       if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-          if (dep.getProvider(CcCompilationInfo.class) != null
+          if (dep.get(CcCompilationInfo.PROVIDER) != null
               && InstrumentedFilesCollector.shouldIncludeLocalSources(configuration, dep)) {
             return true;
           }

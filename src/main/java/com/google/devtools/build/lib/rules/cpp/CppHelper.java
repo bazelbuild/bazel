@@ -122,7 +122,7 @@ public class CppHelper {
         // TODO(bazel-team): Clean this up.
         ccCompilationInfoBuilder.addSystemIncludeDir(
             stl.getLabel().getPackageIdentifier().getPathUnderExecRoot().getRelative("gcc3"));
-        CcCompilationInfo provider = stl.getProvider(CcCompilationInfo.class);
+        CcCompilationInfo provider = stl.get(CcCompilationInfo.PROVIDER);
         if (provider == null) {
           ruleContext.ruleError("Unable to merge the STL '" + stl.getLabel()
               + "' and toolchain contexts");

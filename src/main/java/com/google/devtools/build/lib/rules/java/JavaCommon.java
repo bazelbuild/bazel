@@ -413,7 +413,7 @@ public class JavaCommon {
   protected CcCompilationInfo collectTransitiveCppDeps() {
     CcCompilationInfo.Builder builder = new CcCompilationInfo.Builder(ruleContext);
     for (TransitiveInfoCollection dep : targetsTreatedAsDeps(ClasspathType.BOTH)) {
-      CcCompilationInfo ccCompilationInfo = dep.getProvider(CcCompilationInfo.class);
+      CcCompilationInfo ccCompilationInfo = dep.get(CcCompilationInfo.PROVIDER);
       if (ccCompilationInfo != null) {
         builder.mergeDependentCcCompilationInfo(ccCompilationInfo);
       }

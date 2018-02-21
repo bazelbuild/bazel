@@ -184,7 +184,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
-        .add(CcCompilationInfo.class, transitiveCppDeps)
+        .addNativeDeclaredProvider(transitiveCppDeps)
         .add(JavaSourceInfoProvider.class, javaSourceInfoProvider)
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)

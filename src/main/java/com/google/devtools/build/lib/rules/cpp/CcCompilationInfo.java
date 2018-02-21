@@ -17,17 +17,19 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -46,8 +48,11 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class CcCompilationInfo implements TransitiveInfoProvider {
+public final class CcCompilationInfo extends NativeInfo {
   public static final ObjectCodec<CcCompilationInfo> CODEC = new CcCompilationInfo_AutoCodec();
+
+  public static final NativeProvider<CcCompilationInfo> PROVIDER =
+      new NativeProvider<CcCompilationInfo>(CcCompilationInfo.class, "CcCompilationInfo") {};
 
   /** An empty {@code CcCompilationInfo}. */
   public static final CcCompilationInfo EMPTY = new Builder(null).build();
@@ -95,6 +100,7 @@ public final class CcCompilationInfo implements TransitiveInfoProvider {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
+    super(PROVIDER, ImmutableMap.of());
     Preconditions.checkNotNull(commandLineCcCompilationInfo);
     this.commandLineCcCompilationInfo = commandLineCcCompilationInfo;
     this.declaredIncludeDirs = declaredIncludeDirs;

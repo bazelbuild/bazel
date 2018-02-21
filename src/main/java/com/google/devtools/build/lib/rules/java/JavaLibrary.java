@@ -250,7 +250,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
-        .addProvider(transitiveCppDeps)
+        .addNativeDeclaredProvider(transitiveCppDeps)
         .addNativeDeclaredProvider(ccLinkParamsInfo)
         .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .addProvider(JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))

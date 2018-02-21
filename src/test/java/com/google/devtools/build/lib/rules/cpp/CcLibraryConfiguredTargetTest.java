@@ -91,13 +91,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   private CppModuleMapAction getCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    CppModuleMap cppModuleMap = target.getProvider(CcCompilationInfo.class).getCppModuleMap();
+    CppModuleMap cppModuleMap = target.get(CcCompilationInfo.PROVIDER).getCppModuleMap();
     return (CppModuleMapAction) getGeneratingAction(cppModuleMap.getArtifact());
   }
 
   private void assertNoCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    assertThat(target.getProvider(CcCompilationInfo.class).getCppModuleMap()).isNull();
+    assertThat(target.get(CcCompilationInfo.PROVIDER).getCppModuleMap()).isNull();
   }
 
   @Test
@@ -105,7 +105,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget l = scratchConfiguredTarget("a", "l",
         "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
         "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
-    assertThat(l.getProvider(CcCompilationInfo.class).getDefines()).contains("V=BAR");
+    assertThat(l.get(CcCompilationInfo.PROVIDER).getDefines()).contains("V=BAR");
   }
 
   @Test

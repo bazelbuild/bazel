@@ -249,7 +249,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'defineslib',",
             "           srcs = ['defines.cc'],",
             "           defines = ['FOO', 'BAR'])");
-    assertThat(isolatedDefines.getProvider(CcCompilationInfo.class).getDefines())
+    assertThat(isolatedDefines.get(CcCompilationInfo.PROVIDER).getDefines())
         .containsExactly("FOO", "BAR")
         .inOrder();
   }
@@ -415,7 +415,7 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
 
     String includesRoot = "bang/bang_includes";
-    assertThat(foo.getProvider(CcCompilationInfo.class).getSystemIncludeDirs())
+    assertThat(foo.get(CcCompilationInfo.PROVIDER).getSystemIncludeDirs())
         .containsAllOf(
             PathFragment.create(includesRoot),
             targetConfig.getGenfilesFragment().getRelative(includesRoot));
@@ -442,11 +442,11 @@ public class CcCommonTest extends BuildViewTestCase {
     String includesRoot = "bang/bang_includes";
     List<PathFragment> expected =
         new ImmutableList.Builder<PathFragment>()
-            .addAll(noIncludes.getProvider(CcCompilationInfo.class).getSystemIncludeDirs())
+            .addAll(noIncludes.get(CcCompilationInfo.PROVIDER).getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
             .build();
-    assertThat(foo.getProvider(CcCompilationInfo.class).getSystemIncludeDirs())
+    assertThat(foo.get(CcCompilationInfo.PROVIDER).getSystemIncludeDirs())
         .containsExactlyElementsIn(expected);
   }
 
@@ -855,7 +855,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='a', hdrs=['v1/b/c.h'], strip_include_prefix='v1', include_prefix='lib')");
 
     ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
-    CcCompilationInfo ccCompilationInfo = lib.getProvider(CcCompilationInfo.class);
+    CcCompilationInfo ccCompilationInfo = lib.get(CcCompilationInfo.PROVIDER);
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationInfo.getDeclaredIncludeSrcs()))
         .containsExactly("third_party/a/_virtual_includes/a/lib/b/c.h");
     assertThat(ccCompilationInfo.getIncludeDirs())
@@ -895,9 +895,9 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='absolute', hdrs=['v1/b.h'], strip_include_prefix='/third_party')");
 
     CcCompilationInfo relative =
-        getConfiguredTarget("//third_party/a:relative").getProvider(CcCompilationInfo.class);
+        getConfiguredTarget("//third_party/a:relative").get(CcCompilationInfo.PROVIDER);
     CcCompilationInfo absolute =
-        getConfiguredTarget("//third_party/a:absolute").getProvider(CcCompilationInfo.class);
+        getConfiguredTarget("//third_party/a:absolute").get(CcCompilationInfo.PROVIDER);
 
     assertThat(ActionsTestUtil.prettyArtifactNames(relative.getDeclaredIncludeSrcs()))
         .containsExactly("third_party/a/_virtual_includes/relative/b.h");
@@ -925,7 +925,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='a', hdrs=['a.h'], include_prefix='third_party')");
 
     CcCompilationInfo ccCompilationInfo =
-        getConfiguredTarget("//third_party:a").getProvider(CcCompilationInfo.class);
+        getConfiguredTarget("//third_party:a").get(CcCompilationInfo.PROVIDER);
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationInfo.getDeclaredIncludeSrcs()))
         .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
   }

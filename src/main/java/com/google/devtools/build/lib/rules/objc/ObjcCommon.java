@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.Info;
@@ -260,10 +259,10 @@ public final class ObjcCommon {
       for (ConfiguredTargetAndTarget dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
         addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
-        addAnyProviders(cppDeps, depCT, CcCompilationInfo.class);
+        addAnyProviders(cppDeps, depCT, CcCompilationInfo.PROVIDER);
         if (isCcLibrary(dep)) {
           cppDepLinkParams.add(depCT.get(CcLinkParamsInfo.PROVIDER));
-          addDefines(depCT.getProvider(CcCompilationInfo.class).getDefines());
+          addDefines(depCT.get(CcCompilationInfo.PROVIDER).getDefines());
         }
       }
       addDepObjcProviders(propagatedObjcDeps.build());
@@ -286,17 +285,6 @@ public final class ObjcCommon {
       this.runtimeDepObjcProviders = Iterables.concat(
           this.runtimeDepObjcProviders, propagatedDeps.build());
       return this;
-    }
-
-    private <T extends TransitiveInfoProvider> ImmutableList.Builder<T> addAnyProviders(
-        ImmutableList.Builder<T> listBuilder,
-        TransitiveInfoCollection collection,
-        Class<T> providerClass) {
-      T provider = collection.getProvider(providerClass);
-      if (provider != null) {
-        listBuilder.add(provider);
-      }
-      return listBuilder;
     }
 
     private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
