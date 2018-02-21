@@ -51,7 +51,8 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       Class<?> coreInterface =
-          support.getEmulatedCoreLibraryInvocationTarget(opcode, owner, name, desc, itf);
+          support.getCoreInterfaceRewritingTarget(opcode, owner, name, desc, itf);
+
       if (coreInterface != null) {
         String coreInterfaceName = coreInterface.getName().replace('.', '/');
         name =
@@ -60,18 +61,17 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
         if (opcode == Opcodes.INVOKESTATIC) {
           checkState(owner.equals(coreInterfaceName));
         } else {
-          desc =
-              InterfaceDesugaring.companionDefaultMethodDescriptor(
-                  opcode == Opcodes.INVOKESPECIAL ? owner : coreInterfaceName, desc);
+          desc = InterfaceDesugaring.companionDefaultMethodDescriptor(coreInterfaceName, desc);
         }
 
         if (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL) {
           checkArgument(itf, "Expected interface to rewrite %s.%s : %s", owner, name, desc);
-          owner = InterfaceDesugaring.getCompanionClassName(owner);
+          owner = InterfaceDesugaring.getCompanionClassName(coreInterfaceName);
         } else {
           // TODO(kmb): Simulate dynamic dispatch instead of calling most general default method
           owner = InterfaceDesugaring.getCompanionClassName(coreInterfaceName);
         }
+
         opcode = Opcodes.INVOKESTATIC;
         itf = false;
       }

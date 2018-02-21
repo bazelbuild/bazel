@@ -494,7 +494,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         // If we're visiting a bootclasspath interface then we most likely don't have the code.
         // That means we can't just copy the method bodies as we're trying to do below.
         checkState(!isBootclasspathInterface,
-            "TODO stub bridge methods for core interfaces if ever needed");
+            "TODO stub core interface %s bridge methods in %s", stubbedInterfaceName, internalName);
         // For bridges we just copy their bodies instead of going through the companion class.
         // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
         // interface methods are correctly handled.

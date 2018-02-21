@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
@@ -37,8 +38,7 @@ class CoreLibrarySupport {
   private final ImmutableList<Class<?>> emulatedInterfaces;
 
   public CoreLibrarySupport(CoreLibraryRewriter rewriter, ClassLoader targetLoader,
-      ImmutableList<String> renamedPrefixes, ImmutableList<String> emulatedInterfaces)
-      throws ClassNotFoundException {
+      ImmutableList<String> renamedPrefixes, ImmutableList<String> emulatedInterfaces) {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
     checkArgument(
@@ -47,7 +47,7 @@ class CoreLibrarySupport {
     ImmutableList.Builder<Class<?>> classBuilder = ImmutableList.builder();
     for (String itf : emulatedInterfaces) {
       checkArgument(itf.startsWith("java/util/"), itf);
-      Class<?> clazz = targetLoader.loadClass((rewriter.getPrefix() + itf).replace('/', '.'));
+      Class<?> clazz = loadFromInternal(rewriter.getPrefix() + itf);
       checkArgument(clazz.isInterface(), itf);
       classBuilder.add(clazz);
     }
@@ -56,7 +56,7 @@ class CoreLibrarySupport {
 
   public boolean isRenamedCoreLibrary(String internalName) {
     String unprefixedName = rewriter.unprefix(internalName);
-    if (!unprefixedName.startsWith("java/")) {
+    if (!unprefixedName.startsWith("java/") || renamedPrefixes.isEmpty()) {
       return false; // shortcut
     }
     // Rename any classes desugar might generate under java/ (for emulated interfaces) as well as
@@ -81,26 +81,60 @@ class CoreLibrarySupport {
     return getEmulatedCoreClassOrInterface(internalName) != null;
   }
 
-  public boolean isEmulatedCoreLibraryInvocation(
-      int opcode, String owner, String name, String desc, boolean itf) {
-    return getEmulatedCoreLibraryInvocationTarget(opcode, owner, name, desc, itf) != null;
-  }
-
+  /**
+   * If the given invocation needs to go through a companion class of an emulated or renamed
+   * core interface, this methods returns that interface.  This is a helper method for
+   * {@link CoreLibraryInvocationRewriter}.
+   *
+   * <p>Always returns an interface (or {@code null}), even if {@code owner} is a class. Can only
+   * return non-{@code null} if {@code owner} is a core library type.
+   */
   @Nullable
-  public Class<?> getEmulatedCoreLibraryInvocationTarget(
+  public Class<?> getCoreInterfaceRewritingTarget(
       int opcode, String owner, String name, String desc, boolean itf) {
-    Class<?> clazz = getEmulatedCoreClassOrInterface(owner);
-    if (clazz == null) {
+    if (owner.contains("$$Lambda$") || owner.endsWith("$$CC")) {
+      // Regular desugaring handles generated classes, no emulation is needed
       return null;
     }
+    if (!itf && (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)) {
+      // Ignore staticly dispatched invocations on classes--they never need rewriting
+      return null;
+    }
+    Class<?> clazz;
+    if (isRenamedCoreLibrary(owner)) {
+      // For renamed invocation targets we just need to do what InterfaceDesugaring does, that is,
+      // only worry about invokestatic and invokespecial interface invocations; nothing to do for
+      // invokevirtual and invokeinterface.  InterfaceDesugaring ignores bootclasspath interfaces,
+      // so we have to do its work here for renamed interfaces.
+      if (itf
+          && (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)) {
+        clazz = loadFromInternal(owner);
+      } else {
+        return null;
+      }
+    } else {
+      // If not renamed, see if the owner needs emulation.
+      clazz = getEmulatedCoreClassOrInterface(owner);
+      if (clazz == null) {
+        return null;
+      }
+    }
+    checkArgument(itf == clazz.isInterface(), "%s expected to be interface: %s", owner, itf);
 
-    if (itf && opcode == Opcodes.INVOKESTATIC) {
-      return clazz; // static interface method
+    if (opcode == Opcodes.INVOKESTATIC) {
+      // Static interface invocation always goes to the given owner
+      checkState(itf); // we should've bailed out above.
+      return clazz;
     }
 
+    // See if the invoked method is a default method, which will need rewriting.  For invokespecial
+    // we can only get here if its a default method, and invokestatic we handled above.
     Method callee = findInterfaceMethod(clazz, name, desc);
     if (callee != null && callee.isDefault()) {
       return callee.getDeclaringClass();
+    } else {
+      checkArgument(opcode != Opcodes.INVOKESPECIAL,
+          "Couldn't resolve interface super call %s.super.%s : %s", owner, name, desc);
     }
     return null;
   }
@@ -117,17 +151,19 @@ class CoreLibrarySupport {
       }
     }
 
-    Class<?> clazz;
-    try {
-      clazz = targetLoader.loadClass(internalName.replace('/', '.'));
-    } catch (ClassNotFoundException e) {
-      throw (NoClassDefFoundError) new NoClassDefFoundError().initCause(e);
-    }
-
+    Class<?> clazz = loadFromInternal(internalName);
     if (emulatedInterfaces.stream().anyMatch(itf -> itf.isAssignableFrom(clazz))) {
       return clazz;
     }
     return null;
+  }
+
+  private Class<?> loadFromInternal(String internalName) {
+    try {
+      return targetLoader.loadClass(internalName.replace('/', '.'));
+    } catch (ClassNotFoundException e) {
+      throw (NoClassDefFoundError) new NoClassDefFoundError().initCause(e);
+    }
   }
 
   private static Method findInterfaceMethod(Class<?> clazz, String name, String desc) {
@@ -140,7 +176,6 @@ class CoreLibrarySupport {
         .findFirst()
         .orElse((Method) null);
   }
-
 
   private static Method findMethod(Class<?> clazz, String name, String desc) {
     for (Method m : clazz.getMethods()) {
