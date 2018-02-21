@@ -286,6 +286,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     Collections.sort(outputPaths);
     Collections.sort(outputDirectoryPaths);
     action.addAllOutputFiles(outputPaths);
+    action.addAllOutputDirectories(outputDirectoryPaths);
 
     // Get the remote platform properties.
     if (executionPlatform != null) {
