@@ -52,8 +52,18 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       Class<?> coreInterface =
           support.getCoreInterfaceRewritingTarget(opcode, owner, name, desc, itf);
+      String newOwner = support.getMoveTarget(owner, name);
 
-      if (coreInterface != null) {
+      if (newOwner != null) {
+        checkState(coreInterface == null,
+            "Can't move and use companion: %s.%s : %s", owner, name, desc);
+        if (opcode != Opcodes.INVOKESTATIC) {
+          // assuming a static method
+          desc = InterfaceDesugaring.companionDefaultMethodDescriptor(owner, desc);
+          opcode = Opcodes.INVOKESTATIC;
+        }
+        itf = false; // assuming a class
+      } else if (coreInterface != null) {
         String coreInterfaceName = coreInterface.getName().replace('.', '/');
         name =
             InterfaceDesugaring.normalizeInterfaceMethodName(

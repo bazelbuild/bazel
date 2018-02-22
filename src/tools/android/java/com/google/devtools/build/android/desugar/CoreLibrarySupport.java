@@ -16,9 +16,12 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Method;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -36,9 +39,12 @@ class CoreLibrarySupport {
   private final ImmutableList<String> renamedPrefixes;
   /** Internal names of interfaces whose default and static interface methods we'll emulate. */
   private final ImmutableList<Class<?>> emulatedInterfaces;
+  /** Map from {@code owner#name} core library members to their new owners. */
+  private final ImmutableMap<String, String> memberMoves;
 
   public CoreLibrarySupport(CoreLibraryRewriter rewriter, ClassLoader targetLoader,
-      ImmutableList<String> renamedPrefixes, ImmutableList<String> emulatedInterfaces) {
+      ImmutableList<String> renamedPrefixes, ImmutableList<String> emulatedInterfaces,
+      List<String> memberMoves) {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
     checkArgument(
@@ -52,6 +58,23 @@ class CoreLibrarySupport {
       classBuilder.add(clazz);
     }
     this.emulatedInterfaces = classBuilder.build();
+
+    // We can call isRenamed and rename below b/c we initialized the necessary fields above
+    ImmutableMap.Builder<String, String> movesBuilder = ImmutableMap.builder();
+    Splitter splitter = Splitter.on("->").trimResults().omitEmptyStrings();
+    for (String move : memberMoves) {
+      List<String> pair = splitter.splitToList(move);
+      checkArgument(pair.size() == 2, "Doesn't split as expected: %s", move);
+      checkArgument(pair.get(0).startsWith("java/"), "Unexpected member: %s", move);
+      int sep = pair.get(0).indexOf('#');
+      checkArgument(sep > 0 && sep == pair.get(0).lastIndexOf('#'), "invalid member: %s", move);
+      checkArgument(!isRenamedCoreLibrary(pair.get(0).substring(0, sep)),
+          "Original renamed, no need to move it: %s", move);
+      checkArgument(isRenamedCoreLibrary(pair.get(1)), "Target not renamed: %s", move);
+
+      movesBuilder.put(pair.get(0), renameCoreLibrary(pair.get(1)));
+    }
+    this.memberMoves = movesBuilder.build();
   }
 
   public boolean isRenamedCoreLibrary(String internalName) {
@@ -71,6 +94,11 @@ class CoreLibrarySupport {
     return (internalName.startsWith("java/"))
         ? "j$/" + internalName.substring(/* cut away "java/" prefix */ 5)
         : internalName;
+  }
+
+  @Nullable
+  public String getMoveTarget(String owner, String name) {
+    return memberMoves.get(rewriter.unprefix(owner) + '#' + name);
   }
 
   /**

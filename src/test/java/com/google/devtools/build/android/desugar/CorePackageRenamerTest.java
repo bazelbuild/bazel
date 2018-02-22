@@ -29,10 +29,15 @@ public class CorePackageRenamerTest {
   @Test
   public void testSymbolRewrite() throws Exception {
     MockClassVisitor out = new MockClassVisitor();
-    CorePackageRenamer renamer = new CorePackageRenamer(
-        out,
-        new CoreLibrarySupport(
-            new CoreLibraryRewriter(""), null, ImmutableList.of("java/time/"), ImmutableList.of()));
+    CorePackageRenamer renamer =
+        new CorePackageRenamer(
+            out,
+            new CoreLibrarySupport(
+                new CoreLibraryRewriter(""),
+                null,
+                ImmutableList.of("java/time/"),
+                ImmutableList.of(),
+                ImmutableList.of("java/util/A#m->java/time/B")));
     MethodVisitor mv = renamer.visitMethod(0, "test", "()V", null, null);
 
     mv.visitMethodInsn(
@@ -40,6 +45,13 @@ public class CorePackageRenamerTest {
     assertThat(out.mv.owner).isEqualTo("j$/time/Instant");
     assertThat(out.mv.desc).isEqualTo("()Lj$/time/Instant;");
 
+    // Ignore moved methods but not their descriptors
+    mv.visitMethodInsn(
+        Opcodes.INVOKESTATIC, "java/util/A", "m", "()Ljava/time/Instant;", false);
+    assertThat(out.mv.owner).isEqualTo("java/util/A");
+    assertThat(out.mv.desc).isEqualTo("()Lj$/time/Instant;");
+
+    // Ignore arbitrary other methods but not their descriptors
     mv.visitMethodInsn(
         Opcodes.INVOKESTATIC, "other/time/Instant", "now", "()Ljava/time/Instant;", false);
     assertThat(out.mv.owner).isEqualTo("other/time/Instant");

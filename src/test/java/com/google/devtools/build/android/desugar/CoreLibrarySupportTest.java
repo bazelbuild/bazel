@@ -32,7 +32,11 @@ public class CoreLibrarySupportTest {
   public void testIsRenamedCoreLibrary() throws Exception {
     CoreLibrarySupport support =
         new CoreLibrarySupport(
-            new CoreLibraryRewriter(""), null, ImmutableList.of("java/time/"), ImmutableList.of());
+            new CoreLibraryRewriter(""),
+            null,
+            ImmutableList.of("java/time/"),
+            ImmutableList.of(),
+            ImmutableList.of());
     assertThat(support.isRenamedCoreLibrary("java/time/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("java/time/y/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("java/io/X")).isFalse();
@@ -48,6 +52,7 @@ public class CoreLibrarySupportTest {
             new CoreLibraryRewriter("__/"),
             null,
             ImmutableList.of("java/time/"),
+            ImmutableList.of(),
             ImmutableList.of());
     assertThat(support.isRenamedCoreLibrary("__/java/time/X")).isTrue();
     assertThat(support.isRenamedCoreLibrary("__/java/time/y/X")).isTrue();
@@ -60,7 +65,11 @@ public class CoreLibrarySupportTest {
   public void testRenameCoreLibrary() throws Exception {
     CoreLibrarySupport support =
         new CoreLibrarySupport(
-            new CoreLibraryRewriter(""), null, ImmutableList.of(), ImmutableList.of());
+            new CoreLibraryRewriter(""),
+            null,
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of());
     assertThat(support.renameCoreLibrary("java/time/X")).isEqualTo("j$/time/X");
     assertThat(support.renameCoreLibrary("com/google/X")).isEqualTo("com/google/X");
   }
@@ -69,9 +78,28 @@ public class CoreLibrarySupportTest {
   public void testRenameCoreLibrary_prefixedLoader() throws Exception {
     CoreLibrarySupport support =
         new CoreLibrarySupport(
-            new CoreLibraryRewriter("__/"), null, ImmutableList.of(), ImmutableList.of());
+            new CoreLibraryRewriter("__/"),
+            null,
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of());
     assertThat(support.renameCoreLibrary("__/java/time/X")).isEqualTo("j$/time/X");
     assertThat(support.renameCoreLibrary("com/google/X")).isEqualTo("com/google/X");
+  }
+
+  @Test
+  public void testMoveTarget() throws Exception {
+    CoreLibrarySupport support =
+        new CoreLibrarySupport(
+            new CoreLibraryRewriter("__/"),
+            null,
+            ImmutableList.of("java/util/Helper"),
+            ImmutableList.of(),
+            ImmutableList.of("java/util/Existing#match -> java/util/Helper"));
+    assertThat(support.getMoveTarget("__/java/util/Existing", "match")).isEqualTo("j$/util/Helper");
+    assertThat(support.getMoveTarget("java/util/Existing", "match")).isEqualTo("j$/util/Helper");
+    assertThat(support.getMoveTarget("__/java/util/Existing", "matchesnot")).isNull();
+    assertThat(support.getMoveTarget("__/java/util/ExistingOther", "match")).isNull();
   }
 
   @Test
@@ -81,7 +109,8 @@ public class CoreLibrarySupportTest {
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of("java/util/concurrent/"),
-            ImmutableList.of("java/util/Map"));
+            ImmutableList.of("java/util/Map"),
+            ImmutableList.of());
     assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map")).isTrue();
     assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map$$Lambda$17")).isFalse();
     assertThat(support.isEmulatedCoreClassOrInterface("java/util/Map$$CC")).isFalse();
@@ -98,7 +127,8 @@ public class CoreLibrarySupportTest {
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of(),
-            ImmutableList.of("java/util/Collection"));
+            ImmutableList.of("java/util/Collection"),
+            ImmutableList.of());
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
@@ -132,7 +162,8 @@ public class CoreLibrarySupportTest {
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of(),
-            ImmutableList.of("java/util/Collection"));
+            ImmutableList.of("java/util/Collection"),
+            ImmutableList.of());
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
@@ -158,7 +189,8 @@ public class CoreLibrarySupportTest {
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of(),
-            ImmutableList.of("java/util/Map"));
+            ImmutableList.of("java/util/Map"),
+            ImmutableList.of());
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
@@ -192,7 +224,8 @@ public class CoreLibrarySupportTest {
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of(),
-            ImmutableList.of("java/util/Comparator"));
+            ImmutableList.of("java/util/Comparator"),
+            ImmutableList.of());
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKESTATIC,
@@ -208,12 +241,13 @@ public class CoreLibrarySupportTest {
    * {@link InterfaceDesugaring}.
    */
   @Test
-  public void testGetEmulatedCoreLibraryInvocationTarget_renamed() throws Exception {
+  public void testGetCoreInterfaceRewritingTarget_renamed() throws Exception {
     CoreLibrarySupport support =
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of("java/util/"),
+            ImmutableList.of(),
             ImmutableList.of());
 
     // regular invocations of default methods: ignored
@@ -281,7 +315,8 @@ public class CoreLibrarySupportTest {
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
             ImmutableList.of("java/util/concurrent/"),  // should return null for these
-            ImmutableList.of("java/util/Map"));
+            ImmutableList.of("java/util/Map"),
+            ImmutableList.of());
     assertThat(
             support.getCoreInterfaceRewritingTarget(
                 Opcodes.INVOKEINTERFACE,
