@@ -30,11 +30,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionGraphProtos;
-import com.google.devtools.build.lib.actions.ActionGraphProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisProtos;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -802,8 +802,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (!knownRuleClassStrings.containsKey(ruleClassString)) {
         String targetId = String.valueOf(knownRuleClassStrings.size());
         knownRuleClassStrings.put(ruleClassString, targetId);
-        ActionGraphProtos.RuleClass.Builder ruleClassBuilder =
-            ActionGraphProtos.RuleClass.newBuilder().setId(targetId).setName(ruleClassString);
+        AnalysisProtos.RuleClass.Builder ruleClassBuilder =
+            AnalysisProtos.RuleClass.newBuilder().setId(targetId).setName(ruleClassString);
         actionGraphBuilder.addRuleClasses(ruleClassBuilder.build());
       }
       return knownRuleClassStrings.get(ruleClassString);
@@ -813,7 +813,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (!knownTargets.containsKey(label)) {
         String targetId = String.valueOf(knownTargets.size());
         knownTargets.put(label, targetId);
-        ActionGraphProtos.Target.Builder targetBuilder = ActionGraphProtos.Target.newBuilder();
+        AnalysisProtos.Target.Builder targetBuilder = AnalysisProtos.Target.newBuilder();
         targetBuilder.setId(targetId).setLabel(label.toString());
         if (ruleClassString != null) {
           targetBuilder.setRuleClassId(ruleClassStringToId(ruleClassString));
@@ -827,8 +827,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (!knownConfigurations.containsKey(buildConfiguration)) {
         String configurationId = String.valueOf(knownConfigurations.size());
         knownConfigurations.put(buildConfiguration, configurationId);
-        ActionGraphProtos.Configuration configurationProto =
-            ActionGraphProtos.Configuration.newBuilder()
+        AnalysisProtos.Configuration configurationProto =
+            AnalysisProtos.Configuration.newBuilder()
                 .setMnemonic(buildConfiguration.getMnemonic())
                 .setPlatformName(buildConfiguration.getPlatformName())
                 .setId(configurationId)
@@ -842,8 +842,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (!knownArtifacts.containsKey(artifact)) {
         String artifactId = String.valueOf(knownArtifacts.size());
         knownArtifacts.put(artifact, artifactId);
-        ActionGraphProtos.Artifact artifactProto =
-            ActionGraphProtos.Artifact.newBuilder()
+        AnalysisProtos.Artifact artifactProto =
+            AnalysisProtos.Artifact.newBuilder()
                 .setId(artifactId)
                 .setExecPath(artifact.getExecPathString())
                 .setIsTreeArtifact(artifact.isTreeArtifact())
@@ -857,9 +857,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (!knownNestedSets.containsKey(nestedSetView.identifier())) {
         String nestedSetId = String.valueOf(knownNestedSets.size());
         knownNestedSets.put(nestedSetView.identifier(), nestedSetId);
-        ActionGraphProtos.DepSetOfFiles.Builder depSetBuilder =
-            ActionGraphProtos.DepSetOfFiles.newBuilder()
-                .setId(nestedSetId);
+        AnalysisProtos.DepSetOfFiles.Builder depSetBuilder =
+            AnalysisProtos.DepSetOfFiles.newBuilder().setId(nestedSetId);
         for (NestedSetView<Artifact> transitiveNestedSet : nestedSetView.transitives()) {
           depSetBuilder.addTransitiveDepSetIds(depSetToId(transitiveNestedSet));
         }
@@ -875,14 +874,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (!knownAspectDescriptors.containsKey(aspectDescriptor)) {
         String aspectDescriptorId = String.valueOf(knownAspectDescriptors.size());
         knownAspectDescriptors.put(aspectDescriptor, aspectDescriptorId);
-        ActionGraphProtos.AspectDescriptor.Builder aspectDescriptorBuilder =
-            ActionGraphProtos.AspectDescriptor.newBuilder()
+        AnalysisProtos.AspectDescriptor.Builder aspectDescriptorBuilder =
+            AnalysisProtos.AspectDescriptor.newBuilder()
                 .setId(aspectDescriptorId)
                 .setName(aspectDescriptor.getAspectClass().getName());
         for (Entry<String, String> parameter :
             aspectDescriptor.getParameters().getAttributes().entries()) {
-          ActionGraphProtos.KeyValuePair.Builder keyValuePairBuilder =
-              ActionGraphProtos.KeyValuePair.newBuilder();
+          AnalysisProtos.KeyValuePair.Builder keyValuePairBuilder =
+              AnalysisProtos.KeyValuePair.newBuilder();
           keyValuePairBuilder
               .setKey(parameter.getKey())
               .setValue(parameter.getValue());
@@ -955,8 +954,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
     Label label = configuredTarget.getLabel();
     String ruleClassString = ((RuleConfiguredTarget) configuredTarget).getRuleClassString();
-    ActionGraphProtos.Action.Builder actionBuilder =
-        ActionGraphProtos.Action.newBuilder()
+    AnalysisProtos.Action.Builder actionBuilder =
+        AnalysisProtos.Action.newBuilder()
             .setMnemonic(action.getMnemonic())
             .setTargetId(actionGraphIdCache.targetToId(label, ruleClassString));
 
@@ -974,8 +973,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       // environment as well.
       ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment();
       for (Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
-        ActionGraphProtos.KeyValuePair.Builder keyValuePairBuilder =
-            ActionGraphProtos.KeyValuePair.newBuilder();
+        AnalysisProtos.KeyValuePair.Builder keyValuePairBuilder =
+            AnalysisProtos.KeyValuePair.newBuilder();
         keyValuePairBuilder
             .setKey(environmentVariable.getKey())
             .setValue(environmentVariable.getValue());

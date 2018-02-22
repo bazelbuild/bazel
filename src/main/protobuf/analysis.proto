@@ -14,10 +14,10 @@
 
 syntax = "proto3";
 
-package action_graph;
+package analysis;
 
-option java_package = "com.google.devtools.build.lib.actions";
-option java_outer_classname = "ActionGraphProtos";
+option java_package = "com.google.devtools.build.lib.analysis";
+option java_outer_classname = "AnalysisProtos";
 
 // Container for the action graph properties.
 message ActionGraphContainer {
@@ -34,7 +34,7 @@ message ActionGraphContainer {
 // file.
 message Artifact {
   // Identifier for this artifact; this is an opaque string, only valid for this
-  // particular dump of the action graph.
+  // particular dump of the analysis.
   string id = 1;
 
   // The relative path of the file within the execution root.
@@ -88,7 +88,7 @@ message Action {
 // associated with an action.
 message Target {
   // Identifier for this target; this is an opaque string, only valid for this
-  // particular dump of the action graph.
+  // particular dump of the analysis.
   string id = 1;
 
   // Label of the target, e.g. //foo:bar.
@@ -100,7 +100,7 @@ message Target {
 
 message RuleClass {
   // Identifier for this rule class; this is an opaque string, only valid for
-  // this particular dump of the action graph.
+  // this particular dump of the analysis.
   string id = 1;
 
   // Name of the rule class, e.g. cc_library.
@@ -110,7 +110,7 @@ message RuleClass {
 // Represents an invocation specific descriptor of an aspect.
 message AspectDescriptor {
   // Identifier for this aspect descriptor; this is an opaque string, only valid
-  // for the particular dump of the action graph.
+  // for the particular dump of the analysis.
   string id = 1;
 
   // The name of the corresponding aspect. For native aspects, it's the Java
@@ -126,7 +126,7 @@ message AspectDescriptor {
 
 message DepSetOfFiles {
   // Identifier for this named set of files; this is an opaque string, only
-  // valid for the particular dump of the action graph.
+  // valid for the particular dump of the analysis.
   string id = 1;
 
   // Other transitively included named set of files.
@@ -138,7 +138,7 @@ message DepSetOfFiles {
 
 message Configuration {
   // Identifier for this configuration; this is an opaque string, only valid for
-  // the particular dump of the action graph.
+  // the particular dump of the analysis.
   string id = 1;
 
   // The mnemonic representing the build configuration.

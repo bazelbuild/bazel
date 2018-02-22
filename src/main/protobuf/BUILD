@@ -14,7 +14,7 @@ exports_files(
 
 FILES = [
     "action_cache",
-    "action_graph",
+    "analysis",
     "android_deploy_info",
     "bazel_flags",
     "build",
