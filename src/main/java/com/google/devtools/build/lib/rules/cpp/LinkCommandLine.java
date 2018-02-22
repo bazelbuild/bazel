@@ -16,15 +16,11 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -46,7 +42,7 @@ import javax.annotation.Nullable;
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
   private final String forcedToolPath;
-  private final CppConfiguration cppConfiguration;
+  private final PathFragment crosstoolTopPathFragment;
   private final CcToolchainFeatures.Variables variables;
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
@@ -56,36 +52,32 @@ public final class LinkCommandLine extends CommandLine {
   private final LinkTargetType linkTargetType;
   private final LinkStaticness linkStaticness;
   private final ImmutableList<String> linkopts;
-  private final ImmutableSet<String> features;
   @Nullable private final PathFragment runtimeSolibDir;
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
-  private final CcToolchainProvider ccProvider;
 
   @Nullable private final Artifact paramFile;
 
   private LinkCommandLine(
       String actionName,
       String forcedToolPath,
-      BuildConfiguration configuration,
+      PathFragment crosstoolTopPathFragment,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       Iterable<? extends LinkerInput> linkerInputs,
       Iterable<? extends LinkerInput> runtimeInputs,
       LinkTargetType linkTargetType,
       LinkStaticness linkStaticness,
       ImmutableList<String> linkopts,
-      ImmutableSet<String> features,
       @Nullable PathFragment runtimeSolibDir,
       boolean nativeDeps,
       boolean useTestOnlyFlags,
       @Nullable Artifact paramFile,
       CcToolchainFeatures.Variables variables,
-      @Nullable FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccProvider) {
+      @Nullable FeatureConfiguration featureConfiguration) {
 
     this.actionName = actionName;
     this.forcedToolPath = forcedToolPath;
-    this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
+    this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
     this.buildInfoHeaderArtifacts = Preconditions.checkNotNull(buildInfoHeaderArtifacts);
@@ -93,17 +85,11 @@ public final class LinkCommandLine extends CommandLine {
     this.runtimeInputs = Preconditions.checkNotNull(runtimeInputs);
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.linkStaticness = Preconditions.checkNotNull(linkStaticness);
-    // For now, silently ignore linkopts if this is a static library link.
-    this.linkopts =
-        linkTargetType.staticness() == Staticness.STATIC
-            ? ImmutableList.of()
-            : Preconditions.checkNotNull(linkopts);
-    this.features = Preconditions.checkNotNull(features);
+    this.linkopts = linkopts;
     this.runtimeSolibDir = runtimeSolibDir;
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
     this.paramFile = paramFile;
-    this.ccProvider = ccProvider;
   }
 
   @Nullable
@@ -149,6 +135,14 @@ public final class LinkCommandLine extends CommandLine {
    */
   public ImmutableList<String> getLinkopts() {
     return linkopts;
+  }
+
+  /** Returns the path to the linker. */
+  public String getLinkerPathString() {
+    return featureConfiguration
+        .getToolForAction(linkTargetType.getActionName())
+        .getToolPath(crosstoolTopPathFragment)
+        .getPathString();
   }
 
   /**
@@ -293,65 +287,6 @@ public final class LinkCommandLine extends CommandLine {
     }
   }
   
-  private ImmutableList<String> getToolchainFlags() {
-    if (Staticness.STATIC.equals(linkTargetType.staticness())) {
-      return ImmutableList.of();
-    }
-    boolean fullyStatic = (linkStaticness == LinkStaticness.FULLY_STATIC);
-    boolean mostlyStatic = (linkStaticness == LinkStaticness.MOSTLY_STATIC);
-    boolean sharedLinkopts =
-        linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
-            || linkopts.contains("-shared")
-            || cppConfiguration.hasSharedLinkOption();
-
-    List<String> toolchainFlags = new ArrayList<>();
-
-    /*
-     * For backwards compatibility, linkopts come _after_ inputFiles.
-     * This is needed to allow linkopts to contain libraries and
-     * positional library-related options such as
-     *    -Wl,--begin-group -lfoo -lbar -Wl,--end-group
-     * or
-     *    -Wl,--as-needed -lfoo -Wl,--no-as-needed
-     *
-     * As for the relative order of the three different flavours of linkopts
-     * (global defaults, per-target linkopts, and command-line linkopts),
-     * we have no idea what the right order should be, or if anyone cares.
-     */
-    toolchainFlags.addAll(linkopts);
-    // Extra toolchain link options based on the output's link staticness.
-    if (fullyStatic) {
-      toolchainFlags.addAll(
-          CppHelper.getFullyStaticLinkOptions(
-              cppConfiguration, ccProvider, features, sharedLinkopts));
-    } else if (mostlyStatic) {
-      toolchainFlags.addAll(
-          CppHelper.getMostlyStaticLinkOptions(
-              cppConfiguration, ccProvider, features, sharedLinkopts));
-    } else {
-      toolchainFlags.addAll(
-          CppHelper.getDynamicLinkOptions(cppConfiguration, ccProvider, features, sharedLinkopts));
-    }
-
-    // Extra test-specific link options.
-    if (useTestOnlyFlags) {
-      toolchainFlags.addAll(ccProvider.getTestOnlyLinkOptions());
-    }
-
-    toolchainFlags.addAll(ccProvider.getLinkOptions());
-
-    // -pie is not compatible with shared and should be
-    // removed when the latter is part of the link command. Should we need to further
-    // distinguish between shared libraries and executables, we could add additional
-    // command line / CROSSTOOL flags that distinguish them. But as long as this is
-    // the only relevant use case we're just special-casing it here.
-    if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY) {
-      Iterables.removeIf(toolchainFlags, Predicates.equalTo("-pie"));
-    }
-
-    return ImmutableList.copyOf(toolchainFlags);
-  }
-
   /**
    * Returns a raw link command for the given link invocation, including both command and arguments
    * (argv). The version that uses the expander is preferred, but that one can't be used during
@@ -381,17 +316,10 @@ public final class LinkCommandLine extends CommandLine {
       argv.add(
           featureConfiguration
               .getToolForAction(linkTargetType.getActionName())
-              .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
+              .getToolPath(crosstoolTopPathFragment)
               .getPathString());
     }
-    argv.addAll(
-        featureConfiguration.getCommandLine(
-            actionName,
-            new Variables.Builder(variables)
-                .addStringSequenceVariable(
-                    CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
-                .build(),
-            expander));
+    argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
     return argv;
   }
 
@@ -419,7 +347,6 @@ public final class LinkCommandLine extends CommandLine {
   /** A builder for a {@link LinkCommandLine}. */
   public static final class Builder {
 
-    private final BuildConfiguration configuration;
     private final RuleContext ruleContext;
     private String forcedToolPath;
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
@@ -428,25 +355,16 @@ public final class LinkCommandLine extends CommandLine {
     @Nullable private LinkTargetType linkTargetType;
     private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
     private ImmutableList<String> linkopts = ImmutableList.of();
-    private ImmutableSet<String> features = ImmutableSet.of();
     @Nullable private PathFragment runtimeSolibDir;
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
     @Nullable private Artifact paramFile;
-    private CcToolchainProvider toolchain;
     private Variables variables;
     private FeatureConfiguration featureConfiguration;
-
-    // This interface is needed to support tests that don't create a
-    // ruleContext, in which case the configuration and action owner
-    // cannot be accessed off of the give ruleContext.
-    public Builder(BuildConfiguration configuration, RuleContext ruleContext) {
-      this.configuration = configuration;
-      this.ruleContext = ruleContext;
-    }
+    private PathFragment crosstoolTopPathFragment;
 
     public Builder(RuleContext ruleContext) {
-      this(ruleContext.getConfiguration(), ruleContext);
+      this.ruleContext = ruleContext;
     }
 
     public LinkCommandLine build() {
@@ -455,12 +373,6 @@ public final class LinkCommandLine extends CommandLine {
         Preconditions.checkArgument(
             buildInfoHeaderArtifacts.isEmpty(),
             "build info headers may only be present on dynamic library or executable links");
-      }
-
-      if (toolchain == null) {
-        toolchain =
-            Preconditions.checkNotNull(
-                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
       }
 
       // The ruleContext can be null for some tests.
@@ -477,30 +389,19 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(
           actionName,
           forcedToolPath,
-          configuration,
+          crosstoolTopPathFragment,
           buildInfoHeaderArtifacts,
           linkerInputs,
           runtimeInputs,
           linkTargetType,
           linkStaticness,
           linkopts,
-          features,
           runtimeSolibDir,
           nativeDeps,
           useTestOnlyFlags,
           paramFile,
           variables,
-          featureConfiguration,
-          toolchain);
-    }
-
-    /**
-     * Sets the toolchain to use for link flags. If this is not called, the toolchain
-     * is retrieved from the rule.
-     */
-    public Builder setToolchain(CcToolchainProvider toolchain) {
-      this.toolchain = toolchain;
-      return this;
+          featureConfiguration);
     }
 
     /** Use given tool path instead of the one from feature configuration */
@@ -575,14 +476,6 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /**
-     * Sets the features enabled for the rule.
-     */
-    public Builder setFeatures(ImmutableSet<String> features) {
-      this.features = features;
-      return this;
-    }
-
-    /**
      * Whether the resulting library is intended to be used as a native library from another
      * programming language. This influences the rpath. The {@link #build} method throws an
      * exception if this is true for a static link (see {@link LinkTargetType#staticness()}}).
@@ -613,6 +506,12 @@ public final class LinkCommandLine extends CommandLine {
 
     public Builder setRuntimeSolibDir(PathFragment runtimeSolibDir) {
       this.runtimeSolibDir = runtimeSolibDir;
+      return this;
+    }
+
+    /** Sets the path to the CROSSTOOL, to be used in finding paths to tools (e.g. the linker) */
+    public Builder setCrosstoolTopPathFragment(PathFragment crosstoolTopPathFragment) {
+      this.crosstoolTopPathFragment = crosstoolTopPathFragment;
       return this;
     }
   }

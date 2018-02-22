@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -728,6 +729,66 @@ public class CppLinkActionBuilder {
     }
   }
 
+  private ImmutableList<String> getToolchainFlags(
+      ImmutableSet<String> features, List<String> linkopts) {
+    if (Staticness.STATIC.equals(linkType.staticness())) {
+      return ImmutableList.of();
+    }
+    boolean fullyStatic = (linkStaticness == LinkStaticness.FULLY_STATIC);
+    boolean mostlyStatic = (linkStaticness == LinkStaticness.MOSTLY_STATIC);
+    boolean sharedLinkopts =
+        linkType == LinkTargetType.DYNAMIC_LIBRARY
+            || linkopts.contains("-shared")
+            || cppConfiguration.hasSharedLinkOption();
+
+    List<String> result = new ArrayList<>();
+
+    /*
+     * For backwards compatibility, linkopts come _after_ inputFiles.
+     * This is needed to allow linkopts to contain libraries and
+     * positional library-related options such as
+     *    -Wl,--begin-group -lfoo -lbar -Wl,--end-group
+     * or
+     *    -Wl,--as-needed -lfoo -Wl,--no-as-needed
+     *
+     * As for the relative order of the three different flavours of linkopts
+     * (global defaults, per-target linkopts, and command-line linkopts),
+     * we have no idea what the right order should be, or if anyone cares.
+     */
+    result.addAll(linkopts);
+    // Extra toolchain link options based on the output's link staticness.
+    if (fullyStatic) {
+      result.addAll(
+          CppHelper.getFullyStaticLinkOptions(
+              cppConfiguration, toolchain, features, sharedLinkopts));
+    } else if (mostlyStatic) {
+      result.addAll(
+          CppHelper.getMostlyStaticLinkOptions(
+              cppConfiguration, toolchain, features, sharedLinkopts));
+    } else {
+      result.addAll(
+          CppHelper.getDynamicLinkOptions(cppConfiguration, toolchain, features, sharedLinkopts));
+    }
+
+    // Extra test-specific link options.
+    if (useTestOnlyFlags) {
+      result.addAll(toolchain.getTestOnlyLinkOptions());
+    }
+
+    result.addAll(toolchain.getLinkOptions());
+
+    // -pie is not compatible with shared and should be
+    // removed when the latter is part of the link command. Should we need to further
+    // distinguish between shared libraries and executables, we could add additional
+    // command line / CROSSTOOL flags that distinguish them. But as long as this is
+    // the only relevant use case we're just special-casing it here.
+    if (linkType == LinkTargetType.DYNAMIC_LIBRARY) {
+      Iterables.removeIf(result, Predicates.equalTo("-pie"));
+    }
+
+    return ImmutableList.copyOf(result);
+  }
+
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException {
     // Executable links do not have library identifiers.
@@ -954,6 +1015,7 @@ public class CppLinkActionBuilder {
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
     }
+
     Variables buildVariables = buildVariablesBuilder.build();
 
     Preconditions.checkArgument(
@@ -979,19 +1041,17 @@ public class CppLinkActionBuilder {
     }
 
     LinkCommandLine.Builder linkCommandLineBuilder =
-        new LinkCommandLine.Builder(configuration, ruleContext)
+        new LinkCommandLine.Builder(ruleContext)
             .setLinkerInputs(linkerInputs)
             .setRuntimeInputs(runtimeLinkerInputs)
             .setLinkTargetType(linkType)
             .setLinkStaticness(linkStaticness)
-            .setFeatures(features)
             .setRuntimeSolibDir(linkType.staticness() == Staticness.STATIC ? null : runtimeSolibDir)
             .setNativeDeps(isNativeDeps)
             .setUseTestOnlyFlags(useTestOnlyFlags)
             .setParamFile(paramFile)
-            .setToolchain(toolchain)
-            .setBuildVariables(buildVariables)
-            .setFeatureConfiguration(featureConfiguration);
+            .setFeatureConfiguration(featureConfiguration)
+            .setCrosstoolTopPathFragment(cppConfiguration.getCrosstoolTopPathFragment());
 
     // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
     if (shouldUseLinkDynamicLibraryTool()) {
@@ -999,18 +1059,32 @@ public class CppLinkActionBuilder {
           toolchain.getLinkDynamicLibraryTool().getExecPathString());
     }
 
+    ImmutableList<String> linkoptsForVariables;
     if (!isLtoIndexing) {
-      linkCommandLineBuilder
-          .setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts)
-          .setLinkopts(ImmutableList.copyOf(linkopts));
+      linkoptsForVariables = ImmutableList.copyOf(linkopts);
+      linkCommandLineBuilder.setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts);
+
     } else {
       List<String> opts = new ArrayList<>(linkopts);
       opts.addAll(
           featureConfiguration.getCommandLine("lto-indexing", buildVariables, null /* expander */));
       opts.addAll(cppConfiguration.getLtoIndexOptions());
-      linkCommandLineBuilder.setLinkopts(ImmutableList.copyOf(opts));
+      linkoptsForVariables = ImmutableList.copyOf(opts);
     }
 
+    // For now, silently ignore linkopts if this is a static library
+    linkoptsForVariables =
+        linkType.staticness() == Staticness.STATIC ? ImmutableList.of() : linkoptsForVariables;
+    linkCommandLineBuilder.setLinkopts(linkoptsForVariables);
+
+    Variables patchedVariables =
+        new Variables.Builder(buildVariables)
+            .addStringSequenceVariable(
+                CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE,
+                getToolchainFlags(features, linkoptsForVariables))
+            .build();
+
+    linkCommandLineBuilder.setBuildVariables(patchedVariables);
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 
     // Compute the set of inputs - we only need stable order here.
@@ -1158,7 +1232,6 @@ public class CppLinkActionBuilder {
         mnemonic,
         inputsBuilder.deduplicate().build(),
         actionOutputs,
-        cppConfiguration,
         outputLibrary,
         output,
         interfaceOutputLibrary,
