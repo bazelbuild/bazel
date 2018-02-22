@@ -64,8 +64,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -267,11 +267,10 @@ public final class ActionsTestUtil {
           null,
           null);
 
+  @AutoCodec(strategy = Strategy.SINGLETON)
   static class NullArtifactOwner implements ArtifactOwner {
-    private static final ActionsTestUtil.NullArtifactOwner INSTANCE =
+    public static final ActionsTestUtil.NullArtifactOwner INSTANCE =
         new ActionsTestUtil.NullArtifactOwner();
-    static final ObjectCodec<ActionsTestUtil.NullArtifactOwner> CODEC =
-        SingletonCodec.of(INSTANCE, "null_artifact_owner");
 
     @Override
     public Label getLabel() {

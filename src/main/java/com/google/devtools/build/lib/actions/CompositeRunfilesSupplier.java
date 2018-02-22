@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
@@ -26,6 +27,7 @@ import java.util.Map;
 // TODO(michajlo): Move creation to factory constructor and optimize structure of the returned
 // supplier, ie: [] -> EmptyRunfilesSupplier, [singleSupplier] -> supplier,
 // [Empty, single] -> single, and so on.
+@AutoCodec
 public class CompositeRunfilesSupplier implements RunfilesSupplier {
 
   private final ImmutableList<RunfilesSupplier> suppliers;
@@ -38,6 +40,7 @@ public class CompositeRunfilesSupplier implements RunfilesSupplier {
   /**
    * Create an instance combining all of {@code suppliers}, with earlier elements taking precedence.
    */
+  @AutoCodec.Instantiator
   public CompositeRunfilesSupplier(Iterable<RunfilesSupplier> suppliers) {
     this.suppliers = ImmutableList.copyOf(suppliers);
   }
