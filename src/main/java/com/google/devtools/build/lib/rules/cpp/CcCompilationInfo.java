@@ -174,40 +174,24 @@ public final class CcCompilationInfo extends NativeInfo {
   }
 
   /**
-   * Returns the immutable set of declared include directories, relative to a
-   * "-I" or "-iquote" directory" (possibly empty but never null). The returned
-   * collection may contain duplicate elements.
-   *
-   * <p>Note: The iteration order of this list is preserved as ide_build_info
-   * writes these directories and sources out and the ordering will help when
-   * used by consumers.
+   * Returns the immutable set of declared include directories, relative to a "-I" or "-iquote"
+   * directory" (possibly empty but never null).
    */
   public NestedSet<PathFragment> getDeclaredIncludeDirs() {
     return declaredIncludeDirs;
   }
 
   /**
-   * Returns the immutable set of include directories, relative to a "-I" or
-   * "-iquote" directory", from which inclusion will produce a warning (possibly
-   * empty but never null). The returned collection may contain duplicate
-   * elements.
-   *
-   * <p>Note: The iteration order of this list is preserved as ide_build_info
-   * writes these directories and sources out and the ordering will help when
-   * used by consumers.
+   * Returns the immutable set of include directories, relative to a "-I" or "-iquote" directory",
+   * from which inclusion will produce a warning (possibly empty but never null).
    */
   public NestedSet<PathFragment> getDeclaredIncludeWarnDirs() {
     return declaredIncludeWarnDirs;
   }
 
   /**
-   * Returns the immutable set of headers that have been declared in the
-   * {@code src} or {@code headers attribute} (possibly empty but never null).
-   * The returned collection may contain duplicate elements.
-   *
-   * <p>Note: The iteration order of this list is preserved as ide_build_info
-   * writes these directories and sources out and the ordering will help when
-   * used by consumers.
+   * Returns the immutable set of headers that have been declared in the {@code srcs} or {@code
+   * hdrs} attribute (possibly empty but never null).
    */
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
     return declaredIncludeSrcs;

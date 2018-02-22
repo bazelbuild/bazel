@@ -1076,27 +1076,22 @@ public class CppCompileAction extends AbstractAction
   }
 
   /**
-   * Return the directories in which to look for headers (pertains to headers
-   * not specifically listed in {@code declaredIncludeSrcs}). The return value
-   * may contain duplicate elements.
+   * Return the directories in which to look for headers (pertains to headers not specifically
+   * listed in {@code declaredIncludeSrcs}).
    */
   public NestedSet<PathFragment> getDeclaredIncludeDirs() {
     return ccCompilationInfo.getDeclaredIncludeDirs();
   }
 
   /**
-   * Return the directories in which to look for headers and issue a warning.
-   * (pertains to headers not specifically listed in {@code
-   * declaredIncludeSrcs}). The return value may contain duplicate elements.
+   * Return the directories in which to look for headers and issue a warning. (pertains to headers
+   * not specifically listed in {@code declaredIncludeSrcs}).
    */
   public NestedSet<PathFragment> getDeclaredIncludeWarnDirs() {
     return ccCompilationInfo.getDeclaredIncludeWarnDirs();
   }
 
-  /**
-   * Return explicit header files (i.e., header files explicitly listed). The
-   * return value may contain duplicate elements.
-   */
+  /** Return explicitly listed header files. */
   @Override
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
     if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
