@@ -131,7 +131,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected String getRuleClassString() {
+  public String getRuleClassString() {
     return ruleClassString;
   }
 

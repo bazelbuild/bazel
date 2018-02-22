@@ -195,7 +195,7 @@ public abstract class AbstractConfiguredTarget
   @Nullable
   protected abstract Info rawGetSkylarkProvider(Provider.Key providerKey);
 
-  protected String getRuleClassString() {
+  public String getRuleClassString() {
     return "";
   }
 

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.ActionGraphProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -592,6 +593,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throw new IllegalStateException(errorInfo.toString());
     }
   }
+
+  public abstract ActionGraphContainer getActionGraphContainer();
 
   class BuildViewProvider {
     /**
