@@ -203,4 +203,7 @@ public interface SpawnRunner {
       Spawn spawn,
       SpawnExecutionPolicy policy)
           throws InterruptedException, IOException, ExecException;
+
+  /* Name of the SpawnRunner. */
+  String getName();
 }

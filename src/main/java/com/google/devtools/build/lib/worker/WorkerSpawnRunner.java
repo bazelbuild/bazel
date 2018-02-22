@@ -91,6 +91,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
   }
 
   @Override
+  public String getName() {
+    return "worker";
+  }
+
+  @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
       throws ExecException, IOException, InterruptedException {
     if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.SUPPORTS_WORKERS)
@@ -103,11 +108,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
       return fallbackRunner.exec(spawn, policy);
     }
 
-    policy.report(ProgressStatus.SCHEDULING, "worker");
+    policy.report(ProgressStatus.SCHEDULING, getName());
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     try (ResourceHandle handle =
         ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
-      policy.report(ProgressStatus.EXECUTING, "worker");
+      policy.report(ProgressStatus.EXECUTING, getName());
       return actuallyExec(spawn, policy);
     }
   }
@@ -161,6 +166,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     int exitCode = response.getExitCode();
     return new SpawnResult.Builder()
+        .setRunnerName(getName())
         .setExitCode(exitCode)
         .setStatus(exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
         .setWallTime(wallTime)

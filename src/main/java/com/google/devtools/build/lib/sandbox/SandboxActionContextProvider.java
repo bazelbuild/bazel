@@ -125,6 +125,11 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     }
 
     @Override
+    public String getName() {
+      return "sandbox-fallback";
+    }
+
+    @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
         throws InterruptedException, IOException, ExecException {
       if (!Spawns.mayBeSandboxed(spawn)) {

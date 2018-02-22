@@ -173,7 +173,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected String getName() {
+  public String getName() {
     return "linux-sandbox";
   }
 
