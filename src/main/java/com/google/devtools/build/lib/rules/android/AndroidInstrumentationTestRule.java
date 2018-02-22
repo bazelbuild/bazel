@@ -102,7 +102,7 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
 </p>
 <p>
   The <a href="${link android_instrumentation_test.test_app}">test_app</a> attribute specifies the
-  <code>android_binary<code> which contains the test. This <code>android_binary</code> in turn
+  <code>android_binary</code> which contains the test. This <code>android_binary</code> in turn
   specifies the <code>android_binary</code> application under test through its
   <a href="${link android_binary.instruments">instruments</a> attribute.
 </p>
