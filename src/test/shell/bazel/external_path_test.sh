@@ -400,4 +400,169 @@ EOF
   bazel build -s @b//call:upper_hello || fail "Expected success"
 }
 
+repo_with_embedded_paths() {
+  # create, in the current working directory, a package called rule
+  # that has an implicit dependency on a target in the same repository
+  # that is referred-to by an embedded path.
+  mkdir -p rule
+  cat > rule/preamb.html <<'EOF'
+<html>
+<body>
+<pre>
+EOF
+  cat > rule/postamb.html <<'EOF'
+</pre>
+</body>
+</html>
+EOF
+  cat > rule/BUILD <<'EOF'
+exports_files(["preamb.html", "postamb.html"], visibility = ["//visibility:public"])
+
+genrule(
+  name = "to_html",
+  outs = ["to_html.sh"],
+  srcs = [":preamb.html", ":postamb.html"], # the output actually does not depend on those files
+  cmd = "echo '#!/bin/sh' > $@; echo 'cat $(location :preamb.html) $$1 $(location :postamb.html) > $$2' >> $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > rule/to_html.bzl <<'EOF'
+def _to_html_impl(ctx):
+  output = ctx.new_file(ctx.label.name + ".html")
+  ctx.action(
+    inputs = ctx.files.src + ctx.files._to_html + ctx.files._preamb + ctx.files._postamb,
+    outputs = [output],
+    command = ["/bin/sh"] + [f.path for f in ctx.files._to_html] \
+              +  [f.path for f in ctx.files.src] + [output.path],
+    use_default_shell_env = True,
+    mnemonic = "ToHtml",
+    progress_message = "htmlifying %s" % ctx.label,
+  )
+
+to_html = rule(
+  implementation = _to_html_impl,
+  attrs = {
+    "src" : attr.label(allow_files=True),
+    "_to_html" : attr.label(cfg="host", allow_files=True,
+                               default = Label("//rule:to_html")),
+    # knowledge of which paths are embedded is duplicated here!
+    "_preamb" : attr.label(cfg="host", allow_files=True,
+                               default = Label("//rule:preamb.html")),
+    "_postamb" : attr.label(cfg="host", allow_files=True,
+                               default = Label("//rule:postamb.html")),
+  },
+  outputs = {"upper": "%{name}.html"},
+  )
+EOF
+}
+
+
+test_embedded_local() {
+  # Verify that files with embedded paths can be used locally.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  touch WORKSPACE
+  repo_with_embedded_paths
+  mkdir call
+  cat > call/plain.txt <<'EOF'
+Hello World!
+EOF
+  cat > call/BUILD <<'EOF'
+load('//rule:to_html.bzl', 'to_html')
+
+to_html(name="hello", src="plain.txt")
+EOF
+
+  bazel build -s //call:hello || fail 'Expected success'
+  cat `bazel info bazel-bin`/call/hello.html | grep '<html>' \
+    || fail "not the expected output"
+  cat `bazel info bazel-bin`/call/hello.html | grep '</html>' \
+    || fail "not the expected output"
+}
+
+test_embedded_remote() {
+  # Verify that files with embedded paths can be used if coming
+  # from an external repository.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir remote
+  (cd remote && repo_with_embedded_paths)
+  tar cvf remote.tar remote
+  rm -rf remote
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="r",
+  strip_prefix="remote",
+  urls=["file://${WRKDIR}/remote.tar"],
+)
+EOF
+  mkdir call
+  cat > call/plain.txt <<'EOF'
+Hello World!
+EOF
+  cat > call/BUILD <<'EOF'
+load('@r//rule:to_html.bzl', 'to_html')
+
+to_html(name="hello", src="plain.txt")
+EOF
+
+  bazel build -s //call:hello || fail 'Expected success'
+  cat `bazel info bazel-bin`/call/hello.html | grep '<html>' \
+    || fail "not the expected output"
+  cat `bazel info bazel-bin`/call/hello.html | grep '</html>' \
+    || fail "not the expected output"
+}
+
+test_embedded_remote_remote() {
+  # Verify that files with embedded path can be used by a remote
+  # repository if coming from an external repository.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir r
+  (cd r && repo_with_embedded_paths)
+  tar cvf r.tar r
+  rm -rf r
+
+  mkdir b
+  (cd b
+  mkdir call
+  cat > call/plain.txt <<'EOF'
+Hello World!
+EOF
+  cat > call/BUILD <<'EOF'
+load('@r//rule:to_html.bzl', 'to_html')
+
+to_html(name="hello", src="plain.txt")
+EOF
+  )
+  tar cvf b.tar b
+  rm -rf b
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="r",
+  strip_prefix="r",
+  urls=["file://${WRKDIR}/r.tar"],
+)
+http_archive(
+  name="b",
+  strip_prefix="b",
+  urls=["file://${WRKDIR}/b.tar"],
+)
+EOF
+
+  bazel build -s @b//call:hello || fail "Expected success"
+}
+
 run_suite "path tests for multiple repositories"
