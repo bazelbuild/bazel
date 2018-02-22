@@ -20,6 +20,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Method;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -159,7 +160,24 @@ class CoreLibrarySupport {
     // we can only get here if its a default method, and invokestatic we handled above.
     Method callee = findInterfaceMethod(clazz, name, desc);
     if (callee != null && callee.isDefault()) {
-      return callee.getDeclaringClass();
+      Class<?> result = callee.getDeclaringClass();
+      if (isRenamedCoreLibrary(result.getName().replace('.', '/'))
+          || emulatedInterfaces.stream().anyMatch(emulated -> emulated.isAssignableFrom(result))) {
+        return result;
+      }
+      // We get here if the declaring class is a supertype of an emulated interface.  In that case
+      // use the emulated interface instead (since we don't desugar the supertype).  Fail in case
+      // there are multiple possibilities.
+      Iterator<Class<?>> roots =
+          emulatedInterfaces
+              .stream()
+              .filter(
+                  emulated -> emulated.isAssignableFrom(clazz) && result.isAssignableFrom(emulated))
+              .iterator();
+      checkState(roots.hasNext()); // must exist
+      Class<?> substitute = roots.next();
+      checkState(!roots.hasNext(), "Ambiguous emulation substitute: %s", callee);
+      return substitute;
     } else {
       checkArgument(opcode != Opcodes.INVOKESPECIAL,
           "Couldn't resolve interface super call %s.super.%s : %s", owner, name, desc);
