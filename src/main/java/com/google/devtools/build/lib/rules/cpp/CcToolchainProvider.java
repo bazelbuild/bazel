@@ -62,6 +62,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           null,
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
@@ -91,6 +93,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final NestedSet<Artifact> compile;
   private final NestedSet<Artifact> strip;
   private final NestedSet<Artifact> objCopy;
+  private final NestedSet<Artifact> as;
+  private final NestedSet<Artifact> ar;
   private final NestedSet<Artifact> link;
   private final Artifact interfaceSoBuilder;
   private final NestedSet<Artifact> dwp;
@@ -123,6 +127,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
       NestedSet<Artifact> compile,
       NestedSet<Artifact> strip,
       NestedSet<Artifact> objCopy,
+      NestedSet<Artifact> as,
+      NestedSet<Artifact> ar,
       NestedSet<Artifact> link,
       Artifact interfaceSoBuilder,
       NestedSet<Artifact> dwp,
@@ -153,6 +159,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.compile = Preconditions.checkNotNull(compile);
     this.strip = Preconditions.checkNotNull(strip);
     this.objCopy = Preconditions.checkNotNull(objCopy);
+    this.as = Preconditions.checkNotNull(as);
+    this.ar = Preconditions.checkNotNull(ar);
     this.link = Preconditions.checkNotNull(link);
     this.interfaceSoBuilder = interfaceSoBuilder;
     this.dwp = Preconditions.checkNotNull(dwp);
@@ -294,6 +302,22 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   public NestedSet<Artifact> getObjcopy() {
     return objCopy;
+  }
+
+  /**
+   * Returns the files necessary for an 'as' invocation.  May be empty if the CROSSTOOL
+   * file does not define as_files.
+   */
+  public NestedSet<Artifact> getAs() {
+    return as;
+  }
+
+  /**
+   * Returns the files necessary for an 'ar' invocation.  May be empty if the CROSSTOOL
+   * file does not define ar_files.
+   */
+  public NestedSet<Artifact> getAr() {
+    return ar;
   }
 
   /**

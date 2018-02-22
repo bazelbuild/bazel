@@ -409,6 +409,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     final NestedSet<Artifact> compile = getFiles(ruleContext, "compiler_files");
     final NestedSet<Artifact> strip = getFiles(ruleContext, "strip_files");
     final NestedSet<Artifact> objcopy = getFiles(ruleContext, "objcopy_files");
+    final NestedSet<Artifact> as = getOptionalFiles(ruleContext, "as_files");
+    final NestedSet<Artifact> ar = getOptionalFiles(ruleContext, "ar_files");
     final NestedSet<Artifact> link = getFiles(ruleContext, "linker_files");
     final NestedSet<Artifact> dwp = getFiles(ruleContext, "dwp_files");
     final NestedSet<Artifact> libcLink = inputsForLibc(ruleContext);
@@ -550,6 +552,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             compile,
             strip,
             objcopy,
+            as,
+            ar,
             fullInputsForLink(ruleContext, link),
             ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST),
             dwp,
