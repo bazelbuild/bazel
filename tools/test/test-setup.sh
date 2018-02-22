@@ -160,6 +160,7 @@ function write_xml_output_file {
   local errors=0
   local error_msg=
   local signal="${1-}"
+  local test_name=
   if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
     # Create a default XML output file if the test runner hasn't generated it
     if [ -n "${signal}" ]; then
@@ -173,16 +174,17 @@ function write_xml_output_file {
       errors=1
       error_msg="<error message=\"exited with error code $exitCode\"></error>"
     fi
+    test_name="${TEST_BINARY#./}"
     # Ensure that test shards have unique names in the xml output.
     if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
       ((shard_num=TEST_SHARD_INDEX+1))
-      TEST_NAME="$TEST_NAME"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
+      test_name="${test_name}"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
     fi
     cat <<EOF >${XML_OUTPUT_FILE}
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="$TEST_NAME" tests="1" failures="0" errors="${errors}">
-    <testcase name="$TEST_NAME" status="run" duration="${duration}">${error_msg}</testcase>
+  <testsuite name="$test_name" tests="1" failures="0" errors="${errors}">
+    <testcase name="$test_name" status="run" duration="${duration}">${error_msg}</testcase>
     <system-out><![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]></system-out>
   </testsuite>
 </testsuites>
@@ -198,18 +200,17 @@ EOF
 PATH=".:$PATH"
 
 if [ -z "$COVERAGE_DIR" ]; then
-  TEST_NAME=${1#./}
+  EXE="$1"
   shift
 else
-  TEST_NAME=${2#./}
+  EXE="$2"
 fi
 
-if is_absolute "$TEST_NAME" ; then
-  TEST_PATH="${TEST_NAME}"
+if is_absolute "$EXE"; then
+  TEST_PATH="$EXE"
 else
-  TEST_PATH="$(rlocation $TEST_WORKSPACE/$TEST_NAME)"
+  TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
 fi
-[[ -n "$RUNTEST_PRESERVE_CWD" ]] && EXE="${TEST_NAME}"
 
 exitCode=0
 signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
