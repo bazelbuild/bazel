@@ -93,6 +93,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -395,10 +396,13 @@ public final class BlazeRuntime {
       // Instead of logEvent() we're calling the low level function to pass the timings we took in
       // the launcher. We're setting the INIT phase marker so that it follows immediately the LAUNCH
       // phase.
-      profiler.logSimpleTaskDuration(execStartTimeNanos - startupTimeNanos, 0, ProfilerTask.PHASE,
+      profiler.logSimpleTaskDuration(
+          execStartTimeNanos - startupTimeNanos,
+          Duration.ZERO,
+          ProfilerTask.PHASE,
           ProfilePhase.LAUNCH.description);
-      profiler.logSimpleTaskDuration(execStartTimeNanos, 0, ProfilerTask.PHASE,
-          ProfilePhase.INIT.description);
+      profiler.logSimpleTaskDuration(
+          execStartTimeNanos, Duration.ZERO, ProfilerTask.PHASE, ProfilePhase.INIT.description);
     }
 
     if (options.memoryProfilePath != null) {

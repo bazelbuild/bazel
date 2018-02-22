@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.clock.Clock;
+import java.time.Duration;
 
 /**
  * Computes the critical path during a build.
@@ -48,15 +49,15 @@ public class SimpleCriticalPathComputer
     ImmutableList.Builder<SimpleCriticalPathComponent> components = ImmutableList.builder();
     SimpleCriticalPathComponent maxCriticalPath = getMaxCriticalPath();
     if (maxCriticalPath == null) {
-      return new AggregatedCriticalPath<>(0, components.build());
+      return new AggregatedCriticalPath<>(Duration.ZERO, components.build());
     }
     SimpleCriticalPathComponent child = maxCriticalPath;
     while (child != null) {
       components.add(child);
       child = child.getChild();
     }
-    return new AggregatedCriticalPath<>(maxCriticalPath.getAggregatedElapsedTimeMillis(),
-        components.build());
+    return new AggregatedCriticalPath<>(
+        maxCriticalPath.getAggregatedElapsedTime(), components.build());
   }
 }
 

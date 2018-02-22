@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -126,8 +127,8 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   /** To be used only in debugging: skips state invariance checks to avoid crash-looping. */
-  protected long getElapsedTimeMillisNoCheck() {
-    return TimeUnit.NANOSECONDS.toMillis(getElapsedTimeNanosNoCheck());
+  protected Duration getElapsedTimeNoCheck() {
+    return Duration.ofNanos(getElapsedTimeNanosNoCheck());
   }
 
   private long getElapsedTimeNanosNoCheck() {
@@ -135,12 +136,12 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   /**
-   * Returns the current critical path for the action in nanoseconds.
+   * Returns the current critical path for the action.
    *
    * <p>Critical path is defined as : action_execution_time + max(child_critical_path).
    */
-  public long getAggregatedElapsedTimeMillis() {
-    return TimeUnit.NANOSECONDS.toMillis(getAggregatedElapsedTimeNanos());
+  public Duration getAggregatedElapsedTime() {
+    return Duration.ofNanos(getAggregatedElapsedTimeNanos());
   }
 
   long getAggregatedElapsedTimeNanos() {
@@ -171,7 +172,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   public String toString() {
     String currentTime = "still running ";
     if (!isRunning) {
-      currentTime = String.format("%.2f", getElapsedTimeMillisNoCheck() / 1000.0) + "s ";
+      currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s ";
     }
     return currentTime + getActionString();
   }

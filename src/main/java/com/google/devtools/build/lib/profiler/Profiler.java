@@ -30,6 +30,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -779,41 +780,38 @@ public final class Profiler {
   }
 
   /**
-   * Used externally to submit simple task (one that does not have any
-   * subtasks). Depending on the minDuration attribute of the task type, task
-   * may be just aggregated into the parent task and not stored directly.
+   * Used externally to submit simple task (one that does not have any subtasks). Depending on the
+   * minDuration attribute of the task type, task may be just aggregated into the parent task and
+   * not stored directly.
    *
-   * <p>Note that start and stop time must both be acquired from the same clock
-   * instance.
+   * <p>Note that start and stop time must both be acquired from the same clock instance.
    *
-   * @param startTime task start time
-   * @param stopTime task stop time
+   * @param startTimeNanos task start time
+   * @param stopTimeNanos task stop time
    * @param type task type
-   * @param object object associated with that task. Can be String object that
-   *               describes it.
+   * @param object object associated with that task. Can be String object that describes it.
    */
-  public void logSimpleTask(long startTime, long stopTime, ProfilerTask type, Object object) {
+  public void logSimpleTask(
+      long startTimeNanos, long stopTimeNanos, ProfilerTask type, Object object) {
     if (isActive() && isProfiling(type)) {
-      logTask(startTime, stopTime - startTime, type, object);
+      logTask(startTimeNanos, stopTimeNanos - startTimeNanos, type, object);
     }
   }
 
   /**
-   * Used externally to submit simple task (one that does not have any
-   * subtasks). Depending on the minDuration attribute of the task type, task
-   * may be just aggregated into the parent task and not stored directly.
+   * Used externally to submit simple task (one that does not have any subtasks). Depending on the
+   * minDuration attribute of the task type, task may be just aggregated into the parent task and
+   * not stored directly.
    *
-   * @param startTime task start time (obtained through {@link
-   *        Profiler#nanoTimeMaybe()})
+   * @param startTimeNanos task start time (obtained through {@link Profiler#nanoTimeMaybe()})
    * @param duration the duration of the task
    * @param type task type
-   * @param object object associated with that task. Can be String object that
-   *               describes it.
+   * @param object object associated with that task. Can be String object that describes it.
    */
-  public void logSimpleTaskDuration(long startTime, long duration, ProfilerTask type,
-                                    Object object) {
+  public void logSimpleTaskDuration(
+      long startTimeNanos, Duration duration, ProfilerTask type, Object object) {
     if (isActive() && isProfiling(type)) {
-      logTask(startTime, duration, type, object);
+      logTask(startTimeNanos, duration.toNanos(), type, object);
     }
   }
 
