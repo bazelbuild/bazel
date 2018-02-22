@@ -119,9 +119,6 @@ public class CppHelper {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
-        // TODO(bazel-team): Clean this up.
-        ccCompilationInfoBuilder.addSystemIncludeDir(
-            stl.getLabel().getPackageIdentifier().getPathUnderExecRoot().getRelative("gcc3"));
         CcCompilationInfo provider = stl.get(CcCompilationInfo.PROVIDER);
         if (provider == null) {
           ruleContext.ruleError("Unable to merge the STL '" + stl.getLabel()
