@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -174,5 +175,53 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     assertThat(linkstampCompileAction.getArguments())
         .contains("-D" + CppConfiguration.FDO_STAMP_MACRO + "=\"FDO\"");
+  }
+
+  /**
+   * Regression test for b/73447914: Linkstamps were not re-built when only volatile data changed,
+   * i.e. when we modified cc_binary source, linkstamp was not recompiled so we got old timestamps.
+   * The proper behavior is to recompile linkstamp whenever any input to cc_binary action changes.
+   * And the current implementation solves this by adding all linking inputs as inputs to linkstamp
+   * compile action.
+   */
+  @Test
+  public void testLinkstampCompileDependsOnAllCcBinaryLinkingInputs() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'foo',",
+        "  deps = ['a'],",
+        "  srcs = [ 'main.cc' ],",
+        ")",
+        "cc_library(",
+        "  name = 'a',",
+        "  srcs = [ 'a.cc' ],",
+        "  linkstamp = 'ls.cc',",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Artifact executable = getExecutable(target);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    boolean usePic =
+        CppHelper.usePicObjectsForBinaries(
+            target.getConfiguration().getFragment(CppConfiguration.class), toolchain);
+
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+
+    Artifact mainObject =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            generatingAction.getInputs(), usePic ? "main.pic.o" : "main.o");
+    Artifact aObject =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            generatingAction.getInputs(), usePic ? "a.pic.o" : "a.o");
+    ImmutableList<Artifact> linkstampInputs =
+        ImmutableList.copyOf(linkstampCompileAction.getInputs());
+    assertThat(linkstampInputs).containsAllOf(mainObject, aObject);
   }
 }
