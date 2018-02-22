@@ -51,7 +51,9 @@ import javax.annotation.Nullable;
           + "<code>in</code> operator tests for membership in the keyset of the dict.<br>"
           + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5} "
           + "# evaluates as True</pre>"
-          + "The iteration order for a dict is deterministic but not specified."
+          + "The iteration order for a dict is deterministic and specified as the order in which "
+          + "the keys have been added to the dict. The iteration order is not affected if a value "
+          + "associated with an existing key is updated."
 )
 public final class SkylarkDict<K, V> extends MutableMap<K, V>
     implements Map<K, V>, SkylarkIndexable {
