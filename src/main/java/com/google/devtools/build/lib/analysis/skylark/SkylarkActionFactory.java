@@ -599,7 +599,6 @@ public class SkylarkActionFactory implements SkylarkValue {
       throws EvalException {
     context.checkMutable("actions.run_shell");
 
-    // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
     SkylarkList argumentList = (SkylarkList) arguments;
     SpawnAction.Builder builder = new SpawnAction.Builder();
     buildCommandLine(builder, argumentList);
@@ -705,14 +704,14 @@ public class SkylarkActionFactory implements SkylarkValue {
       Object inputManifestsUnchecked,
       SpawnAction.Builder builder)
       throws EvalException {
-    // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
     Iterable<Artifact> inputArtifacts;
     if (inputs instanceof SkylarkList) {
       inputArtifacts = ((SkylarkList) inputs).getContents(Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
-      inputArtifacts = ((SkylarkNestedSet) inputs).toCollection(Artifact.class);
-      builder.addInputs(((SkylarkNestedSet) inputs).getSet(Artifact.class));
+      NestedSet<Artifact> inputSet = ((SkylarkNestedSet) inputs).getSet(Artifact.class);
+      builder.addTransitiveInputs(inputSet);
+      inputArtifacts = inputSet;
     }
     builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
 
