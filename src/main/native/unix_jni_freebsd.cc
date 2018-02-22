@@ -71,13 +71,19 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
 }
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
-                          size_t size) {
-  return extattr_get_file(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
+                          size_t size, bool *attr_not_found) {
+  ssize_t result =
+      extattr_get_file(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
+  *attr_not_found = (errno == ENOATTR);
+  return result;
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
-                           size_t size) {
-  return extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
+                           size_t size, bool *attr_not_found) {
+  ssize_t result =
+      extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
+  *attr_not_found = (errno == ENOATTR);
+  return result;
 }
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
