@@ -257,22 +257,6 @@ public class AndroidResourceProcessingAction {
     public List<String> densities;
 
     @Option(
-      name = "densitiesForManifest",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      deprecationWarning = "use '--densities' instead.",
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Densities to specify in the manifest. If 'densities' is specified, that value will be"
-              + " used instead and this flag will be ignored. However, if resources were filtered"
-              + " in analysis, this flag can be used to specify densities in the manifest without"
-              + " repeating the filtering process."
-    )
-    public List<String> densitiesForManifest;
-
-    @Option(
       name = "packageForR",
       defaultValue = "null",
       category = "config",
@@ -412,18 +396,13 @@ public class AndroidResourceProcessingAction {
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-
-      // TODO(b/72995408): Remove the densitiesForManifest option once it is no longer being passed.
-      final List<String> densities =
-          options.densities.isEmpty() ? options.densitiesForManifest : options.densities;
-
       final DensityFilteredAndroidData filteredData =
           mergedData.filter(
               // Even if filtering was done in analysis, we still need to filter by density again
               // in execution since Fileset contents are not available in analysis.
               new DensitySpecificResourceFilter(
-                  densities, filteredResources, mergedResources),
-              new DensitySpecificManifestProcessor(densities, densityManifest));
+                  options.densities, filteredResources, mergedResources),
+              new DensitySpecificManifestProcessor(options.densities, densityManifest));
 
       logger.fine(
           String.format(
