@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -62,7 +63,11 @@ public final class AndroidNativeLibsInfo extends NativeInfo {
     this.nativeLibs = nativeLibs;
   }
 
-  /** Returns the native libraries zip produced by the rule. */
+  @SkylarkCallable(
+    name = "native_libs",
+    doc = "Returns the native libraries produced by the rule.",
+    structField = true
+  )
   public NestedSet<Artifact> getNativeLibs() {
     return nativeLibs;
   }
