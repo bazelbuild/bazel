@@ -129,6 +129,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
+    super(directDeps);
     this.skyKey = skyKey;
     this.oldDeps = oldDeps;
     this.evaluatorContext = evaluatorContext;
