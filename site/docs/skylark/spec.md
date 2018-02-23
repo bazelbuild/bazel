@@ -1289,7 +1289,7 @@ The `-` operators returns the opposite of any number.
 ```python
 if x > 0:
 	return 1
-else if x < 0:
+elif x < 0:
 	return -1
 else:
 	return 0
