@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -89,7 +90,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
-  private final CommandLine argv;
+  @VisibleForSerialization
+  protected final CommandLine argv;
 
   private final boolean executeUnconditionally;
   private final boolean isShellCommand;

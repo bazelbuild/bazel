@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.CommandHelper;
@@ -220,7 +221,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             ImmutableList.copyOf(commandHelper.getResolvedTools()),
             inputs.build(),
             filesToBuild,
-            argv,
+            CommandLine.of(argv),
             ruleContext.getConfiguration().getActionEnvironment(),
             ImmutableMap.copyOf(executionInfo),
             new CompositeRunfilesSupplier(commandHelper.getToolsRunfilesSuppliers()),

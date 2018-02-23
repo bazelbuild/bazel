@@ -28,12 +28,14 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
 /**
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
  * checked for directories.
  */
+@AutoCodec
 public class GenRuleAction extends SpawnAction {
 
   private static final ResourceSet GENRULE_RESOURCES =
@@ -45,7 +47,7 @@ public class GenRuleAction extends SpawnAction {
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
       Iterable<Artifact> outputs,
-      List<String> argv,
+      CommandLine argv,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
@@ -56,7 +58,7 @@ public class GenRuleAction extends SpawnAction {
         inputs,
         outputs,
         GENRULE_RESOURCES,
-        CommandLine.of(argv),
+        argv,
         false,
         env,
         executionInfo,
