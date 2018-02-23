@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
@@ -36,12 +38,14 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -329,6 +333,113 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     private Builder() {
       builderMap = new HashMap<>();
+    }
+  }
+
+  /** Returns the difference between two BuildOptions in a {@link BuildOptions.OptionsDiff}. */
+  public static OptionsDiff diff(BuildOptions first, BuildOptions second) {
+    OptionsDiff diff = new OptionsDiff();
+    if (first.equals(second)) {
+      return diff;
+    }
+    // Check if either class has been trimmed of an options class that exists in the other.
+    ImmutableSet<Class<? extends FragmentOptions>> firstOptionClasses =
+        first.getOptions()
+            .stream()
+            .map(FragmentOptions::getClass)
+            .collect(ImmutableSet.toImmutableSet());
+    ImmutableSet<Class<? extends FragmentOptions>> secondOptionClasses =
+        second.getOptions()
+            .stream()
+            .map(FragmentOptions::getClass)
+            .collect(ImmutableSet.toImmutableSet());
+    Sets.difference(firstOptionClasses, secondOptionClasses).forEach(diff::addExtraFirstFragments);
+    Sets.difference(secondOptionClasses, firstOptionClasses).forEach(diff::addExtraSecondFragments);
+    // For fragments in common, report differences.
+    for (Class<? extends FragmentOptions> clazz :
+        Sets.intersection(firstOptionClasses, secondOptionClasses)) {
+      if (!first.get(clazz).equals(second.get(clazz))) {
+        ImmutableList<OptionDefinition> definitions = OptionsParser.getOptionDefinitions(clazz);
+        Map<String, Object> firstClazzOptions = first.get(clazz).asMap();
+        Map<String, Object> secondClazzOptions = second.get(clazz).asMap();
+        for (OptionDefinition definition : definitions) {
+          String name = definition.getOptionName();
+          Object firstValue = firstClazzOptions.get(name);
+          Object secondValue = secondClazzOptions.get(name);
+          if (!Objects.equals(firstValue, secondValue)) {
+            diff.addDiff(definition, firstValue, secondValue);
+          }
+        }
+      }
+    }
+    return diff;
+  }
+
+  /**
+   * A diff class for BuildOptions. Fields are meant to be populated and returned by
+   * {@link BuildOptions#diff}
+   */
+  public static class OptionsDiff{
+    private final Map<OptionDefinition, Object> first = new HashMap<>();
+    private final Map<OptionDefinition, Object> second = new HashMap<>();
+    private final List<Class<? extends FragmentOptions>> extraFirstFragments = new ArrayList<>();
+    private final List<Class<? extends FragmentOptions>> extraSecondFragments = new ArrayList<>();
+
+    private void addExtraFirstFragments(Class<? extends FragmentOptions> clazz) {
+      extraFirstFragments.add(clazz);
+    }
+
+    private void addExtraSecondFragments(Class<? extends FragmentOptions> clazz) {
+      extraSecondFragments.add(clazz);
+    }
+
+    /** Return the extra fragments from the first configuration. */
+    public List<Class<? extends FragmentOptions>> getExtraFirstFragments() {
+      return extraFirstFragments;
+    }
+
+    /** Return the extra fragments from the second configuration. */
+    public List<Class<? extends FragmentOptions>> getExtraSecondFragments() {
+      return extraSecondFragments;
+    }
+
+    public Map<OptionDefinition, Object> getFirst() {
+      return first;
+    }
+
+    public Map<OptionDefinition, Object> getSecond() {
+      return second;
+    }
+
+
+    private void addDiff(OptionDefinition option, Object firstValue, Object secondValue) {
+      first.put(option, firstValue);
+      second.put(option, secondValue);
+    }
+
+    /**
+     * Note: it's not enough for first and second to be empty, with trimming, they must also contain
+     * the same options classes.
+     */
+    boolean areSame() {
+      return first.isEmpty()
+          && second.isEmpty()
+          && extraSecondFragments.isEmpty()
+          && extraFirstFragments.isEmpty();
+    }
+
+    public String prettyPrint() {
+      StringBuilder toReturn = new StringBuilder();
+      for (Map.Entry<OptionDefinition, Object> firstOption : first.entrySet()) {
+        toReturn
+            .append(firstOption.getKey().getOptionName())
+            .append(":")
+            .append(firstOption.getValue())
+            .append(" -> ")
+            .append(second.get(firstOption.getKey()))
+            .append(System.lineSeparator());
+      }
+      return toReturn.toString();
     }
   }
 

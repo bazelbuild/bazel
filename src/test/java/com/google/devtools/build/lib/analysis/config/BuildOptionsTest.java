@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.common.options.OptionsParser;
 import org.junit.Test;
@@ -69,5 +70,35 @@ public class BuildOptionsTest {
                             BuildConfiguration.Options.class, CppOptions.class),
                         options1)))
         .isFalse();
+  }
+
+  @Test
+  public void testOptionsDiff() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
+    BuildOptions three = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
+
+    OptionsDiff diffOneTwo = BuildOptions.diff(one, two);
+    OptionsDiff diffTwoThree = BuildOptions.diff(two, three);
+
+    assertThat(diffOneTwo.areSame()).isFalse();
+    assertThat(diffOneTwo.getFirst().keySet()).isEqualTo(diffOneTwo.getSecond().keySet());
+    assertThat(diffOneTwo.prettyPrint()).contains("opt");
+    assertThat(diffOneTwo.prettyPrint()).contains("dbg");
+
+    assertThat(diffTwoThree.areSame()).isTrue();
+  }
+
+  @Test
+  public void testOptionsDiff_differentFragments() throws Exception {
+    BuildOptions one =
+        BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of(CppOptions.class));
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS);
+
+    OptionsDiff diff = BuildOptions.diff(one, two);
+
+    assertThat(diff.areSame()).isFalse();
+    assertThat(diff.getExtraFirstFragments()).containsExactly(CppOptions.class);
+    assertThat(diff.getExtraSecondFragments()).isEqualTo(TEST_OPTIONS);
   }
 }
