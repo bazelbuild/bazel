@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.buildeventstream.TestFileNameConstants.BASELINE_COVERAGE;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +37,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Out
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import java.util.function.Function;
 
 /** This event is fired as soon as a target is either built or fails. */
 public final class TargetCompleteEvent
@@ -183,8 +185,16 @@ public final class TargetCompleteEvent
       BuildEventStreamProtos.TargetComplete.Builder builder,
       BuildEventConverters converters,
       Iterable<Artifact> artifacts) {
+    addImportantOutputs(builder, Artifact::getRootRelativePathString, converters, artifacts);
+  }
+
+  private static void addImportantOutputs(
+      BuildEventStreamProtos.TargetComplete.Builder builder,
+      Function<Artifact, String> artifactNameFunction,
+      BuildEventConverters converters,
+      Iterable<Artifact> artifacts) {
     for (Artifact artifact : artifacts) {
-      String name = artifact.getRootRelativePathString();
+      String name = artifactNameFunction.apply(artifact);
       String uri = converters.pathConverter().apply(artifact.getPath());
       builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
     }
@@ -214,7 +224,8 @@ public final class TargetCompleteEvent
       }
     }
     if (baselineCoverageArtifacts != null) {
-      addImportantOutputs(builder, converters, baselineCoverageArtifacts);
+      addImportantOutputs(
+          builder, (artifact -> BASELINE_COVERAGE), converters, baselineCoverageArtifacts);
     }
 
     BuildEventStreamProtos.TargetComplete complete = builder.build();
@@ -274,7 +285,7 @@ public final class TargetCompleteEvent
     if (baselineCoverageArtifacts != null) {
       groups.add(
           OutputGroup.newBuilder()
-              .setName(TestFileNameConstants.BASELINE_COVERAGE)
+              .setName(BASELINE_COVERAGE)
               .addFileSets(
                   namer.apply(
                       (new NestedSetView<Artifact>(baselineCoverageArtifacts).identifier())))
