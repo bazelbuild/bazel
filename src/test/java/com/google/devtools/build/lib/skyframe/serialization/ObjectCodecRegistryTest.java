@@ -108,7 +108,23 @@ public class ObjectCodecRegistryTest {
     // Default codec.
     assertThat(underTest1.getCodecDescriptor("baz").getTag())
         .isEqualTo(underTest2.getCodecDescriptor("baz").getTag());
+  }
 
+  @Test
+  public void testGetBuilder() throws NoCodecException {
+    SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
+    SingletonCodec<String> codec2 = SingletonCodec.of("value2", "mnemonic2");
 
+    ObjectCodecRegistry underTest =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .add("foo", codec1)
+            .add("bar", codec2)
+            .build();
+
+    ObjectCodecRegistry copy = underTest.getBuilder().build();
+    assertThat(copy.getCodecDescriptor("bar").getTag()).isEqualTo(1);
+    assertThat(copy.getCodecDescriptor("foo").getTag()).isEqualTo(2);
+    assertThrows(NoCodecException.class, () -> copy.getCodecDescriptor("baz"));
   }
 }

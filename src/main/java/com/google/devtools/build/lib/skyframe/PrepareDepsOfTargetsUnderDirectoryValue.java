@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
@@ -70,12 +72,17 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
   /**
    * The argument value for {@link SkyKey}s of {@link PrepareDepsOfTargetsUnderDirectoryFunction}.
    */
+  @AutoCodec
   public static final class PrepareDepsOfTargetsUnderDirectoryKey implements Serializable {
+    public static final ObjectCodec<PrepareDepsOfTargetsUnderDirectoryKey> CODEC =
+        new PrepareDepsOfTargetsUnderDirectoryValue_PrepareDepsOfTargetsUnderDirectoryKey_AutoCodec();
+
     private final RecursivePkgKey recursivePkgKey;
     private final FilteringPolicy filteringPolicy;
 
-    public PrepareDepsOfTargetsUnderDirectoryKey(RecursivePkgKey recursivePkgKey,
-        FilteringPolicy filteringPolicy) {
+    @AutoCodec.Instantiator
+    public PrepareDepsOfTargetsUnderDirectoryKey(
+        RecursivePkgKey recursivePkgKey, FilteringPolicy filteringPolicy) {
       this.recursivePkgKey = Preconditions.checkNotNull(recursivePkgKey);
       this.filteringPolicy = Preconditions.checkNotNull(filteringPolicy);
     }

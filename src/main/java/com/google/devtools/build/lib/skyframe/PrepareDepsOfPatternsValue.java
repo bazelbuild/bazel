@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -26,20 +27,19 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * The value returned by {@link PrepareDepsOfPatternsFunction}. Although that function is
- * invoked primarily for its side effect (i.e. ensuring the graph contains targets matching the
- * pattern sequence and their transitive dependencies), this value contains the
- * {@link TargetPatternKey} arguments of the {@link PrepareDepsOfPatternFunction}s evaluated in
- * service of it.
+ * The value returned by {@link PrepareDepsOfPatternsFunction}. Although that function is invoked
+ * primarily for its side effect (i.e. ensuring the graph contains targets matching the pattern
+ * sequence and their transitive dependencies), this value contains the {@link TargetPatternKey}
+ * arguments of the {@link PrepareDepsOfPatternFunction}s evaluated in service of it.
  *
  * <p>Because the returned value may remain the same when the side-effects of this function
- * evaluation change, this value and the {@link PrepareDepsOfPatternsFunction} which computes it
- * are incompatible with change pruning. It should only be requested by consumers who do not
- * require reevaluation when {@link PrepareDepsOfPatternsFunction} is reevaluated. Safe consumers
- * include, e.g., top-level consumers, and other functions which invoke {@link
- * PrepareDepsOfPatternsFunction} solely for its side-effects and which do not behave differently
- * depending on those side-effects.
+ * evaluation change, this value and the {@link PrepareDepsOfPatternsFunction} which computes it are
+ * incompatible with change pruning. It should only be requested by consumers who do not require
+ * reevaluation when {@link PrepareDepsOfPatternsFunction} is reevaluated. Safe consumers include,
+ * e.g., top-level consumers, and other functions which invoke {@link PrepareDepsOfPatternsFunction}
+ * solely for its side-effects and which do not behave differently depending on those side-effects.
  */
+@AutoCodec
 @Immutable
 @ThreadSafe
 public final class PrepareDepsOfPatternsValue implements SkyValue {

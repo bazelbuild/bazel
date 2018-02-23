@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -27,7 +28,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public abstract class ContainingPackageLookupValue implements SkyValue {
 
-  public static final NoContainingPackage NONE = new NoContainingPackage();
+  public static final NoContainingPackage NONE = NoContainingPackage.INSTANCE;
 
   /** Returns whether there is a containing package. */
   public abstract boolean hasContainingPackage();
@@ -49,7 +50,9 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   }
 
   /** Value indicating there is no containing package. */
+  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   public static class NoContainingPackage extends ContainingPackageLookupValue {
+    public static final NoContainingPackage INSTANCE = new NoContainingPackage();
 
     private NoContainingPackage() {}
 
@@ -70,12 +73,15 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   }
 
   /** A successful lookup value. */
+  @AutoCodec
   public static class ContainingPackage extends ContainingPackageLookupValue {
     private final PackageIdentifier containingPackage;
     private final Root containingPackageRoot;
 
-    private ContainingPackage(PackageIdentifier pkgId, Root containingPackageRoot) {
-      this.containingPackage = pkgId;
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    ContainingPackage(PackageIdentifier containingPackage, Root containingPackageRoot) {
+      this.containingPackage = containingPackage;
       this.containingPackageRoot = containingPackageRoot;
     }
 

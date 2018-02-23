@@ -123,6 +123,20 @@ public class ObjectCodecRegistry {
     }
   }
 
+  /**
+   * Creates a builder using the current contents of this registry.
+   *
+   * <p>This is much more efficient than scanning multiple times.
+   */
+  Builder getBuilder() {
+    Builder builder = newBuilder();
+    builder.setAllowDefaultCodec(defaultCodecDescriptor != null);
+    for (Map.Entry<String, CodecDescriptor> entry : stringMappedCodecs.entrySet()) {
+      builder.add(entry.getKey(), entry.getValue().getCodec());
+    }
+    return builder;
+  }
+
   /** Describes encoding logic. */
   static interface CodecDescriptor {
     void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
@@ -143,11 +157,7 @@ public class ObjectCodecRegistry {
      */
     int getTag();
 
-    /**
-     * Returns the underlying codec.
-     *
-     * <p>For backwards compatibility. New callers should prefer the methods above.
-     */
+    /** Returns the underlying codec. */
     ObjectCodec<?> getCodec();
   }
 
@@ -205,8 +215,6 @@ public class ObjectCodecRegistry {
   public static class Builder {
     private final ImmutableMap.Builder<String, CodecHolder> codecsBuilder = ImmutableMap.builder();
     private boolean allowDefaultCodec = true;
-
-    private Builder() {}
 
     /**
      * Add custom serialization strategy ({@code codec}) for {@code classifier}.

@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.LegacySkyKey;
@@ -69,19 +71,26 @@ public class RecursivePkgValue implements SkyValue {
   /**
    * A RecursivePkgKey is a tuple of a {@link RootedPath}, {@code rootedPath}, defining the
    * directory to recurse beneath in search of packages, and an {@link ImmutableSet} of {@link
-   * PathFragment}s, {@code excludedPaths}, relative to {@code rootedPath.getRoot}, defining the
-   * set of subdirectories strictly beneath {@code rootedPath} to skip.
+   * PathFragment}s, {@code excludedPaths}, relative to {@code rootedPath.getRoot}, defining the set
+   * of subdirectories strictly beneath {@code rootedPath} to skip.
    *
-   * <p>Throws {@link IllegalArgumentException} if {@code excludedPaths} contains any paths that
-   * are equal to {@code rootedPath} or that are not beneath {@code rootedPath}.
+   * <p>Throws {@link IllegalArgumentException} if {@code excludedPaths} contains any paths that are
+   * equal to {@code rootedPath} or that are not beneath {@code rootedPath}.
    */
+  @AutoCodec
   @ThreadSafe
   public static final class RecursivePkgKey implements Serializable {
+    public static final ObjectCodec<RecursivePkgKey> CODEC =
+        new RecursivePkgValue_RecursivePkgKey_AutoCodec();
+
     private final RepositoryName repositoryName;
     private final RootedPath rootedPath;
     private final ImmutableSet<PathFragment> excludedPaths;
 
-    public RecursivePkgKey(RepositoryName repositoryName, RootedPath rootedPath,
+    @AutoCodec.Instantiator
+    public RecursivePkgKey(
+        RepositoryName repositoryName,
+        RootedPath rootedPath,
         ImmutableSet<PathFragment> excludedPaths) {
       PathFragment.checkAllPathsAreUnder(excludedPaths, rootedPath.getRootRelativePath());
       Preconditions.checkState(!repositoryName.isDefault());

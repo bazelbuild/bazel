@@ -66,6 +66,8 @@ public class SerializationTester {
   private VerificationFunction verificationFunction =
       (original, deserialized) -> assertThat(deserialized).isEqualTo(original);
 
+  private int repetitions = 1;
+
   public SerializationTester(Object... subjects) {
     Preconditions.checkArgument(subjects.length > 0);
     this.subjects = ImmutableList.copyOf(subjects);
@@ -89,6 +91,12 @@ public class SerializationTester {
     return this;
   }
 
+  /** Sets the number of times to repeat serialization and deserialization. */
+  public SerializationTester setRepetitions(int repetitions) {
+    this.repetitions = repetitions;
+    return this;
+  }
+
   public void runTests() throws Exception {
     testSerializeDeserialize();
     testStableSerialization();
@@ -96,14 +104,17 @@ public class SerializationTester {
   }
 
   /** Runs serialization/deserialization tests. */
+  @SuppressWarnings("unchecked")
   private void testSerializeDeserialize() throws Exception {
     Stopwatch timer = Stopwatch.createStarted();
     int totalBytes = 0;
-    for (Object subject : subjects) {
-      byte[] serialized = toBytes(subject);
-      totalBytes += serialized.length;
-      Object deserialized = fromBytes(serialized);
-      verificationFunction.verifyDeserialized(subject, deserialized);
+    for (int i = 0; i < repetitions; ++i) {
+      for (Object subject : subjects) {
+        byte[] serialized = toBytes(subject);
+        totalBytes += serialized.length;
+        Object deserialized = fromBytes(serialized);
+        verificationFunction.verifyDeserialized(subject, deserialized);
+      }
     }
     logger.log(
         Level.INFO,

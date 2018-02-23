@@ -38,8 +38,20 @@ public class ObjectCodecs {
    */
   ObjectCodecs(ObjectCodecRegistry codecRegistry, ImmutableMap<Class<?>, Object> dependencies) {
     this.codecRegistry = codecRegistry;
-    serializationContext = new SerializationContext(dependencies);
-    deserializationContext = new DeserializationContext(dependencies);
+    serializationContext = new SerializationContext(codecRegistry, dependencies);
+    deserializationContext = new DeserializationContext(codecRegistry, dependencies);
+  }
+
+  public ByteString serialize(Object subject) throws SerializationException {
+    ByteString.Output resultOut = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
+    try {
+      serializationContext.serialize(subject, codedOut);
+      codedOut.flush();
+      return resultOut.toByteString();
+    } catch (IOException e) {
+      throw new SerializationException("Failed to serialize " + subject, e);
+    }
   }
 
   /**
@@ -75,6 +87,15 @@ public class ObjectCodecs {
     } catch (IOException e) {
       throw new SerializationException(
           "Failed to serialize " + subject + " using " + codec + " for " + classifier, e);
+    }
+  }
+
+  public Object deserialize(ByteString data) throws SerializationException {
+    CodedInputStream codedIn = data.newCodedInput();
+    try {
+      return deserializationContext.deserialize(codedIn);
+    } catch (IOException e) {
+      throw new SerializationException("Failed to deserialize data", e);
     }
   }
 

@@ -37,10 +37,8 @@ public final class FilteringPolicies {
   private FilteringPolicies() {
   }
 
-  /**
-   * Base class for singleton filtering policies.
-   */
-  private abstract static class AbstractFilteringPolicy implements FilteringPolicy {
+  /** Base class for singleton filtering policies. */
+  private abstract static class AbstractFilteringPolicy extends FilteringPolicy {
     private final int hashCode = getClass().getSimpleName().hashCode();
 
     @Override
@@ -90,7 +88,7 @@ public final class FilteringPolicies {
   }
 
   /** FilteringPolicy for combining FilteringPolicies. */
-  public static class AndFilteringPolicy implements FilteringPolicy {
+  public static class AndFilteringPolicy extends FilteringPolicy {
     private final FilteringPolicy firstPolicy;
     private final FilteringPolicy secondPolicy;
 

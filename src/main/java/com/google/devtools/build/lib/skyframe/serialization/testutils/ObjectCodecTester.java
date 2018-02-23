@@ -61,6 +61,7 @@ public class ObjectCodecTester<T> {
   private final DeserializationContext readContext;
   private final boolean skipBadDataTest;
   private final VerificationFunction<T> verificationFunction;
+  private final int repetitions;
 
   private ObjectCodecTester(
       ObjectCodec<T> underTest,
@@ -68,7 +69,8 @@ public class ObjectCodecTester<T> {
       SerializationContext writeContext,
       DeserializationContext readContext,
       boolean skipBadDataTest,
-      VerificationFunction<T> verificationFunction) {
+      VerificationFunction<T> verificationFunction,
+      int repetitions) {
     this.underTest = underTest;
     Preconditions.checkState(!subjects.isEmpty(), "No subjects provided");
     this.subjects = subjects;
@@ -76,6 +78,7 @@ public class ObjectCodecTester<T> {
     this.readContext = readContext;
     this.skipBadDataTest = skipBadDataTest;
     this.verificationFunction = verificationFunction;
+    this.repetitions = repetitions;
   }
 
   private void runTests() throws Exception {
@@ -90,11 +93,13 @@ public class ObjectCodecTester<T> {
   void testSerializeDeserialize() throws Exception {
     Stopwatch timer = Stopwatch.createStarted();
     int totalBytes = 0;
-    for (T subject : subjects) {
-      byte[] serialized = toBytes(subject);
-      totalBytes += serialized.length;
-      T deserialized = fromBytes(serialized);
-      verificationFunction.verifyDeserialized(subject, deserialized);
+    for (int i = 0; i < repetitions; ++i) {
+      for (T subject : subjects) {
+        byte[] serialized = toBytes(subject);
+        totalBytes += serialized.length;
+        T deserialized = fromBytes(serialized);
+        verificationFunction.verifyDeserialized(subject, deserialized);
+      }
     }
     logger.log(
         Level.INFO,
@@ -143,6 +148,7 @@ public class ObjectCodecTester<T> {
     private boolean skipBadDataTest = false;
     private VerificationFunction<T> verificationFunction =
         (original, deserialized) -> assertThat(deserialized).isEqualTo(original);
+    int repetitions = 1;
 
     private Builder(ObjectCodec<T> underTest) {
       this.underTest = underTest;
@@ -185,6 +191,11 @@ public class ObjectCodecTester<T> {
       return this;
     }
 
+    public Builder<T> setRepetitions(int repetitions) {
+      this.repetitions = repetitions;
+      return this;
+    }
+
     /** Captures the state of this builder and run all associated tests. */
     public void buildAndRunTests() throws Exception {
       build().runTests();
@@ -202,7 +213,8 @@ public class ObjectCodecTester<T> {
           new SerializationContext(dependencies),
           new DeserializationContext(dependencies),
           skipBadDataTest,
-          verificationFunction);
+          verificationFunction,
+          repetitions);
     }
   }
 }

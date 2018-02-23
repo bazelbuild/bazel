@@ -275,4 +275,11 @@ public class ObjectCodecsTest {
     assertThat(underTest.deserialize(KNOWN_CLASSIFIER_BYTES, codedIn)).isEqualTo(value2);
     assertThat(underTest.deserialize(KNOWN_CLASSIFIER_BYTES, codedIn)).isEqualTo(value3);
   }
+
+  @Test
+  public void testSerializeDeserialize() throws Exception {
+    ObjectCodecs underTest = new ObjectCodecs(AutoRegistry.get(), ImmutableMap.of());
+    assertThat((String) underTest.deserialize(underTest.serialize("hello"))).isEqualTo("hello");
+    assertThat(underTest.deserialize(underTest.serialize(null))).isNull();
+  }
 }

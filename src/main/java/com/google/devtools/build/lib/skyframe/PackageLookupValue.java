@@ -17,6 +17,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileName;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -38,11 +39,11 @@ import com.google.devtools.build.skyframe.SkyValue;
 public abstract class PackageLookupValue implements SkyValue {
 
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
-      new NoBuildFilePackageLookupValue();
+      NoBuildFilePackageLookupValue.INSTANCE;
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
-      new DeletedPackageLookupValue();
+      DeletedPackageLookupValue.INSTANCE;
   public static final NoRepositoryPackageLookupValue NO_SUCH_REPOSITORY_VALUE =
-      new NoRepositoryPackageLookupValue();
+      NoRepositoryPackageLookupValue.INSTANCE;
 
   enum ErrorReason {
     /** There is no BUILD file. */
@@ -118,12 +119,15 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** Successful lookup value. */
+  @AutoCodec
   public static class SuccessfulPackageLookupValue extends PackageLookupValue {
 
     private final Root root;
     private final BuildFileName buildFileName;
 
-    private SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
       this.root = root;
       this.buildFileName = buildFileName;
     }
@@ -187,7 +191,9 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** Marker value for no build file found. */
+  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   public static class NoBuildFilePackageLookupValue extends UnsuccessfulPackageLookupValue {
+    static final NoBuildFilePackageLookupValue INSTANCE = new NoBuildFilePackageLookupValue();
 
     private NoBuildFilePackageLookupValue() {
     }
@@ -204,11 +210,14 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** Value indicating the package name was in error. */
+  @AutoCodec
   public static class InvalidNamePackageLookupValue extends UnsuccessfulPackageLookupValue {
 
     private final String errorMsg;
 
-    private InvalidNamePackageLookupValue(String errorMsg) {
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    InvalidNamePackageLookupValue(String errorMsg) {
       this.errorMsg = errorMsg;
     }
 
@@ -243,13 +252,16 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** Value indicating the package name was in error. */
+  @AutoCodec
   public static class IncorrectRepositoryReferencePackageLookupValue
       extends UnsuccessfulPackageLookupValue {
 
     private final PackageIdentifier invalidPackageIdentifier;
     private final PackageIdentifier correctedPackageIdentifier;
 
-    private IncorrectRepositoryReferencePackageLookupValue(
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    IncorrectRepositoryReferencePackageLookupValue(
         PackageIdentifier invalidPackageIdentifier, PackageIdentifier correctedPackageIdentifier) {
       this.invalidPackageIdentifier = invalidPackageIdentifier;
       this.correctedPackageIdentifier = correctedPackageIdentifier;
@@ -305,7 +317,9 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** Marker value for a deleted package. */
+  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   public static class DeletedPackageLookupValue extends UnsuccessfulPackageLookupValue {
+    static final DeletedPackageLookupValue INSTANCE = new DeletedPackageLookupValue();
 
     private DeletedPackageLookupValue() {
     }
@@ -325,7 +339,9 @@ public abstract class PackageLookupValue implements SkyValue {
    * Marker value for repository we could not find. This can happen when looking for a label that
    * specifies a non-existent repository.
    */
+  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
+    static final NoRepositoryPackageLookupValue INSTANCE = new NoRepositoryPackageLookupValue();
 
     private NoRepositoryPackageLookupValue() {}
 
