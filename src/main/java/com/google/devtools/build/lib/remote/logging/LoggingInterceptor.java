@@ -1,8 +1,20 @@
-package com.google.devtools.build.lib.remote;
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-import static com.google.devtools.build.lib.remote.TracingMetadataUtils.extractRequestMetadata;
+package com.google.devtools.build.lib.remote.logging;
 
-import com.google.devtools.build.lib.remote.logging.LoggingHandler;
+import com.google.devtools.build.lib.remote.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.logging.RpcLogEntry.LogEntry;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -46,7 +58,7 @@ public class LoggingInterceptor implements ClientInterceptor {
   private static class LoggingForwardingCall<ReqT, RespT>
       extends ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT> {
     private LoggingHandler<ReqT, RespT> handler;
-    private LogEntry.Builder entryBuilder = LogEntry.newBuilder();
+    private LogEntry.Builder entryBuilder;
 
     protected LoggingForwardingCall(
         ClientCall<ReqT, RespT> delegate,
@@ -54,13 +66,13 @@ public class LoggingInterceptor implements ClientInterceptor {
         MethodDescriptor<ReqT, RespT> method) {
       super(delegate);
       this.handler = handler;
-      entryBuilder.setMethodName(method.getFullMethodName());
+      this.entryBuilder = LogEntry.newBuilder().setMethodName(method.getFullMethodName());
     }
 
     @Override
     public void start(Listener<RespT> responseListener, Metadata headers) {
       try {
-        entryBuilder.setMetadata(extractRequestMetadata(headers));
+        entryBuilder.setMetadata(TracingMetadataUtils.requestMetadataFromHeaders(headers));
       } catch (IllegalStateException e) {
         // Don't set RequestMetadata field if it is not present.
       }

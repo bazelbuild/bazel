@@ -31,6 +31,7 @@ import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.devtools.build.lib.remote.logging.LoggingHandler;
+import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RpcLogEntry.LogEntry;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;

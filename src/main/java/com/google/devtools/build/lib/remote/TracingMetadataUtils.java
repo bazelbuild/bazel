@@ -95,7 +95,7 @@ public class TracingMetadataUtils {
    * @throws {@link IllegalStateException} if a RequestMetadata could not be found in the given
    *     headers.
    */
-  public static RequestMetadata extractRequestMetadata(Metadata headers) {
+  public static RequestMetadata requestMetadataFromHeaders(Metadata headers) {
     RequestMetadata meta = headers.get(METADATA_KEY);
     if (meta == null) {
       throw new IllegalStateException("Could not find RequestMetadata in headers.");
@@ -112,12 +112,7 @@ public class TracingMetadataUtils {
     @Override
     public <ReqT, RespT> Listener<ReqT> interceptCall(
         ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-      RequestMetadata meta;
-      try {
-        meta = extractRequestMetadata(headers);
-      } catch (IllegalStateException e) {
-        throw new IllegalStateException("RequestMetadata not received from the client.");
-      }
+      RequestMetadata meta = requestMetadataFromHeaders(headers);
       Context ctx = Context.current().withValue(CONTEXT_KEY, meta);
       return Contexts.interceptCall(ctx, call, headers, next);
     }
