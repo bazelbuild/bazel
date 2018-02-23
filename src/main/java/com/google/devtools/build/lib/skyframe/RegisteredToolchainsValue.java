@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -36,9 +37,14 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
     return Key.of(configurationKey);
   }
 
+  /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
   @AutoCodec
-  static class Key implements SkyKey {
+  @AutoCodec.VisibleForSerialization
+  // TODO(shahan): Reduce visibility and remove CODEC field once unneeded.
+  public static class Key implements SkyKey {
     private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
+    public static final ObjectCodec<Key> CODEC = new RegisteredToolchainsValue_Key_AutoCodec();
+
     private final BuildConfigurationValue.Key configurationKey;
 
     private Key(BuildConfigurationValue.Key configurationKey) {

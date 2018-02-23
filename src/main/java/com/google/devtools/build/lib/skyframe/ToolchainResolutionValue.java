@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -44,8 +46,12 @@ public abstract class ToolchainResolutionValue implements SkyValue {
   }
 
   /** {@link SkyKey} implementation used for {@link ToolchainResolutionFunction}. */
+  @AutoCodec
   @AutoValue
   public abstract static class ToolchainResolutionKey implements SkyKey {
+    public static final ObjectCodec<ToolchainResolutionKey> CODEC =
+        new ToolchainResolutionValue_ToolchainResolutionKey_AutoCodec();
+
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.TOOLCHAIN_RESOLUTION;
@@ -59,13 +65,14 @@ public abstract class ToolchainResolutionValue implements SkyValue {
 
     abstract ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys();
 
+    @AutoCodec.Instantiator
     static ToolchainResolutionKey create(
-        BuildConfigurationValue.Key configuration,
+        BuildConfigurationValue.Key configurationKey,
         Label toolchainType,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
       return new AutoValue_ToolchainResolutionValue_ToolchainResolutionKey(
-          configuration,
+          configurationKey,
           toolchainType,
           targetPlatformKey,
           ImmutableList.copyOf(availableExecutionPlatformKeys));
