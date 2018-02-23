@@ -46,7 +46,17 @@ public final class FilesetOutputConfiguredTarget extends OutputFileConfiguredTar
       TransitiveInfoCollection generatingRule,
       Artifact outputArtifact,
       @Nullable ImmutableList<FilesetTraversalParams> traversals) {
-    super(targetContext, outputFile, generatingRule, outputArtifact);
+    super(
+        targetContext.getLabel(),
+        targetContext.getConfiguration(),
+        targetContext.getVisibility(),
+        outputArtifact,
+        generatingRule);
+    Preconditions.checkState(
+        outputFile.getLabel().equals(targetContext.getLabel()),
+        "mismatch: %s %s",
+        outputFile,
+        targetContext);
     FilesetProvider provider = generatingRule.getProvider(FilesetProvider.class);
     Preconditions.checkArgument(provider != null);
     filesetInputManifest = provider.getFilesetInputManifest();
