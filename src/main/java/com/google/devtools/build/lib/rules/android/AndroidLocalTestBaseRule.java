@@ -38,7 +38,8 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class)
+        .requiresConfigurationFragments(
+            JavaConfiguration.class, AndroidLocalTestConfiguration.class)
 
         // Update documentation for inherited attributes
 

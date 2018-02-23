@@ -78,6 +78,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
 
+    AndroidLocalTestConfiguration androidLocalTestConfiguration =
+        ruleContext.getFragment(AndroidLocalTestConfiguration.class);
+
     final JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
     // Use the regular Java javacopts. Enforcing android-compatible Java
     // (-source 7 -target 7 and no TWR) is unnecessary for robolectric tests
@@ -139,6 +142,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     substitutions.add(
         Substitution.of(
             "%android_custom_package%", resourceApk.getPrimaryResource().getJavaPackage()));
+
+    boolean generateBinaryResources =
+        androidLocalTestConfiguration.useAndroidLocalTestBinaryResources();
+    if (generateBinaryResources) {
+      substitutions.add(
+          Substitution.of(
+              "%android_resource_apk%", resourceApk.getArtifact().getRunfilesPathString()));
+    }
 
     ruleContext.registerAction(
         new TemplateExpansionAction(
@@ -283,7 +294,13 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     Runfiles defaultRunfiles =
         collectDefaultRunfiles(
-            ruleContext, javaCommon, filesToBuild, manifest, resourcesClassJar, resourcesZip);
+            ruleContext,
+            javaCommon,
+            filesToBuild,
+            manifest,
+            resourcesClassJar,
+            resourcesZip,
+            generateBinaryResources ? resourceApk : null);
 
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable);
@@ -418,7 +435,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       NestedSet<Artifact> filesToBuild,
       Artifact manifest,
       Artifact resourcesClassJar,
-      Artifact resourcesZip)
+      Artifact resourcesZip,
+      @Nullable ResourceApk resourceApk)
       throws RuleErrorException {
 
     Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
@@ -468,6 +486,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     builder.addArtifact(manifest);
     builder.addArtifact(resourcesClassJar);
     builder.addArtifact(resourcesZip);
+    if (resourceApk != null) {
+      builder.addArtifact(resourceApk.getArtifact());
+    }
 
     return builder.build();
   }
