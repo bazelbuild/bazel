@@ -40,6 +40,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
   private static final String MISSING_FUNCTION_DOCSTRING_CATEGORY = "missing-function-docstring";
   private static final String INCONSISTENT_DOCSTRING_CATEGORY = "inconsistent-docstring";
   private static final String BAD_DOCSTRING_FORMAT_CATEGORY = "bad-docstring-format";
+  private static final String ARGS_ARGUMENTS_DOCSTRING_CATEGORY = "args-arguments-docstring";
   /** If a function is at least this many statements long, a docstring is required. */
   private static final int FUNCTION_LENGTH_DOCSTRING_THRESHOLD = 5;
 
@@ -121,6 +122,20 @@ public class DocstringChecker extends SyntaxTreeVisitor {
     if (!info.isSingleLineDocstring()) {
       checkMultilineFunctionDocstring(
           node, functionDocstring, info, containsReturnWithValue, issues);
+    }
+    if (info.argumentsLocation != null) {
+      int lineOffset = functionDocstring.getLocation().getStartLine() - 1;
+      issues.add(
+          new Issue(
+              ARGS_ARGUMENTS_DOCSTRING_CATEGORY,
+              "Prefer 'Args:' to 'Arguments:' when documenting function arguments.",
+              new LocationRange(
+                  new Location(
+                      info.argumentsLocation.start.line + lineOffset,
+                      info.argumentsLocation.start.column),
+                  new Location(
+                      info.argumentsLocation.end.line + lineOffset,
+                      info.argumentsLocation.end.column))));
     }
   }
 

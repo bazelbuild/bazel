@@ -107,6 +107,25 @@ public class DocstringCheckerTest {
   }
 
   @Test
+  public void reportArgumentsUse() throws Exception {
+    String errorMessage =
+        findIssues(
+                "def function(foo, bar):",
+                "  \"\"\"summary",
+                "",
+                "  Arguments:",
+                "    foo: bla",
+                "    bar: blabla",
+                "  \"\"\"",
+                "  pass")
+            .toString();
+    Truth.assertThat(errorMessage)
+        .contains(
+            "4:3-4:13: Prefer 'Args:' to 'Arguments:' when documenting function arguments."
+                + " [args-arguments-docstring]");
+  }
+
+  @Test
   public void reportObsoleteParameterDocumentation() throws Exception {
     String errorMessage =
         findIssues(

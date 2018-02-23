@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.skylark.skylint.LocationRange.Location;
 import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -183,18 +184,22 @@ public final class DocstringUtils {
     final String deprecated;
     /** Rest of the docstring that is not part of any of the special sections above. */
     final String longDescription;
+    /** The texual location of the 'Arguments:' (not 'Args:') section in the function. */
+    final LocationRange argumentsLocation;
 
     public DocstringInfo(
         String summary,
         List<ParameterDoc> parameters,
         String returns,
         String deprecated,
-        String longDescription) {
+        String longDescription,
+        LocationRange argumentsLocation) {
       this.summary = summary;
       this.parameters = ImmutableList.copyOf(parameters);
       this.returns = returns;
       this.deprecated = deprecated;
       this.longDescription = longDescription;
+      this.argumentsLocation = argumentsLocation;
     }
 
     public boolean isSingleLineDocstring() {
@@ -339,11 +344,24 @@ public final class DocstringUtils {
       errors.add(new DocstringParseError(message, lineNumber, originalLines.get(lineNumber - 1)));
     }
 
+    private void parseArgumentSection(
+        List<ParameterDoc> params, String returns, String deprecated) {
+      checkSectionStart(!params.isEmpty());
+      if (!returns.isEmpty()) {
+        error("'Args:' section should go before the 'Returns:' section");
+      }
+      if (!deprecated.isEmpty()) {
+        error("'Args:' section should go before the 'Deprecated:' section");
+      }
+      params.addAll(parseParameters());
+    }
+
     DocstringInfo parse() {
       String summary = line;
       String nonStandardDeprecation = checkForNonStandardDeprecation(line);
       if (!nextLine()) {
-        return new DocstringInfo(summary, Collections.emptyList(), "", nonStandardDeprecation, "");
+        return new DocstringInfo(
+            summary, Collections.emptyList(), "", nonStandardDeprecation, "", null);
       }
       if (!line.isEmpty()) {
         error("the one-line summary should be followed by a blank line");
@@ -355,17 +373,21 @@ public final class DocstringUtils {
       String returns = "";
       String deprecated = "";
       boolean descriptionBodyAfterSpecialSectionsReported = false;
+      LocationRange argumentsLocation = null;
       while (!eof()) {
         switch (line) {
           case "Args:":
-            checkSectionStart(!params.isEmpty());
-            if (!returns.isEmpty()) {
-              error("'Args:' section should go before the 'Returns:' section");
-            }
-            if (!deprecated.isEmpty()) {
-              error("'Args:' section should go before the 'Deprecated:' section");
-            }
-            params.addAll(parseParameters());
+            parseArgumentSection(params, returns, deprecated);
+            break;
+          case "Arguments:":
+            // Setting the location indicates an issue will be reported.
+            argumentsLocation =
+                new LocationRange(
+                    new Location(lineNumber, baselineIndentation + 1),
+                    // 10 is the length of "Arguments:".
+                    // The 1 is for the character after the base indentation.
+                    new Location(lineNumber, baselineIndentation + 1 + 10));
+            parseArgumentSection(params, returns, deprecated);
             break;
           case "Returns:":
             checkSectionStart(!returns.isEmpty());
@@ -403,7 +425,12 @@ public final class DocstringUtils {
         deprecated = nonStandardDeprecation;
       }
       return new DocstringInfo(
-          summary, params, returns, deprecated, String.join("\n", longDescriptionLines));
+          summary,
+          params,
+          returns,
+          deprecated,
+          String.join("\n", longDescriptionLines),
+          argumentsLocation);
     }
 
     private void checkSectionStart(boolean duplicateSection) {
