@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -53,11 +55,12 @@ import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
 @SkylarkModule(
-    name = "JavaInfo",
-    doc = "Encapsulates all information provided by Java rules",
-    category = SkylarkModuleCategory.PROVIDER
+  name = "JavaInfo",
+  doc = "Encapsulates all information provided by Java rules",
+  category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
+@AutoCodec
 public final class JavaInfo extends NativeInfo {
 
   public static final String SKYLARK_NAME = "JavaInfo";
@@ -297,7 +300,9 @@ public final class JavaInfo extends NativeInfo {
     return providersList.build();
   }
 
-  private JavaInfo(TransitiveInfoProviderMap providers, boolean neverlink, Location location) {
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  JavaInfo(TransitiveInfoProviderMap providers, boolean neverlink, Location location) {
     super(PROVIDER, ImmutableMap.of(), location);
     this.providers = providers;
     this.neverlink = neverlink;

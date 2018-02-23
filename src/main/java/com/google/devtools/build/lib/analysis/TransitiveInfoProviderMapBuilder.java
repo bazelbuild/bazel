@@ -109,6 +109,6 @@ public class TransitiveInfoProviderMapBuilder {
   }
 
   public TransitiveInfoProviderMap build() {
-    return new TransitiveInfoProviderMapImpl(providers);
+    return TransitiveInfoProviderMapImpl.create(providers);
   }
 }
