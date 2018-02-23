@@ -84,8 +84,6 @@ public class TestConstants {
 
   public static final String WORKSPACE_CONTENT = "";
 
-  public static final String GCC_INCLUDE_PATH = "external/bazel_tools/tools/cpp/gcc3";
-
   /** The path in which the mock cc crosstool resides. */
   public static final String MOCK_CC_CROSSTOOL_PATH = "tools/cpp";
 
