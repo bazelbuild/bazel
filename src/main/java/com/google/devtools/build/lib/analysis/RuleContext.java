@@ -246,16 +246,6 @@ public final class RuleContext extends TargetContext
     Set<String> ruleDisabledFeatures =
         Sets.union(ruleDisabled, Sets.difference(packageDisabled, ruleEnabled));
     allDisabledFeatures.addAll(Sets.union(ruleDisabledFeatures, globallyDisabled));
-    for (ImmutableMap.Entry<Class<? extends Fragment>, Fragment> entry :
-        getConfiguration().getAllFragments().entrySet()) {
-      if (isLegalFragment(entry.getKey())) {
-        globallyEnabled.addAll(
-            entry
-                .getValue()
-                .configurationEnabledFeatures(
-                    this, ImmutableSortedSet.copyOf(allDisabledFeatures)));
-      }
-    }
 
     Set<String> packageFeatures =
         Sets.difference(Sets.union(globallyEnabled, packageEnabled), packageDisabled);

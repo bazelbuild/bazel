@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationInterface;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingPatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -197,12 +196,6 @@ public class BuildConfiguration implements BuildConfigurationInterface {
      */
     public Map<String, Object> lateBoundOptionDefaults() {
       return ImmutableMap.of();
-    }
-
-    /** Return set of features enabled by this configuration. */
-    public ImmutableSet<String> configurationEnabledFeatures(
-        RuleContext ruleContext, ImmutableSet<String> disabledFeatures) {
-      return ImmutableSet.of();
     }
 
     /**
@@ -701,23 +694,6 @@ public class BuildConfiguration implements BuildConfigurationInterface {
               + "'//tools/test:coverage_report_generator'."
     )
     public Label coverageReportGenerator;
-
-    @Option(
-      name = "experimental_use_llvm_covmap",
-      defaultValue = "false",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = { OptionMetadataTag.EXPERIMENTAL },
-      help =
-          "If specified, Bazel will generate llvm-cov coverage map information rather than "
-              + "gcov when collect_code_coverage is enabled."
-    )
-    public boolean useLLVMCoverageMapFormat;
 
     @Option(
       name = "build_runfile_manifests",
@@ -1904,10 +1880,6 @@ public class BuildConfiguration implements BuildConfigurationInterface {
 
   public boolean isExperimentalJavaCoverage() {
     return options.experimentalJavaCoverage;
-  }
-
-  public boolean isLLVMCoverageMapFormatEnabled() {
-    return options.useLLVMCoverageMapFormat;
   }
 
   /** If false, AnalysisEnvironment doesn't register any actions created by the ConfiguredTarget. */

@@ -22,9 +22,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -199,7 +197,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   // The dynamic mode for linking.
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
-  private final boolean useLLVMCoverageMap;
 
   private final boolean shouldProvideMakeVariables;
 
@@ -322,7 +319,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD)),
         compilationMode,
-        params.commonOptions.useLLVMCoverageMapFormat,
         params.commonOptions.makeVariableSource == MakeVariableSource.CONFIGURATION,
         cppOptions.isLipoContextCollector(),
         cppToolchainInfo);
@@ -357,7 +353,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       CpuTransformer cpuTransformerEnum,
       boolean stripBinaries,
       CompilationMode compilationMode,
-      boolean useLLVMCoverageMap,
       boolean shouldProvideMakeVariables,
       boolean lipoContextCollector,
       CppToolchainInfo cppToolchainInfo) {
@@ -388,7 +383,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.cpuTransformerEnum = cpuTransformerEnum;
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
-    this.useLLVMCoverageMap = useLLVMCoverageMap;
     this.shouldProvideMakeVariables = shouldProvideMakeVariables;
     this.lipoContextCollector = lipoContextCollector;
     this.cppToolchainInfo = cppToolchainInfo;
@@ -1335,23 +1329,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return fdoProfileLabel;
   }
 
-  /**
-   * Return set of features enabled by the CppConfiguration, specifically the FDO and LIPO related
-   * features enabled by options.
-   */
-  @Override
-  public ImmutableSet<String> configurationEnabledFeatures(
-      RuleContext ruleContext, ImmutableSet<String> disabledFeatures) {
-    ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      requestedFeatures.add(CppRuleClasses.COVERAGE);
-      if (useLLVMCoverageMap) {
-        requestedFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
-      } else {
-        requestedFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
-      }
-    }
-    return requestedFeatures.build();
+  public boolean useLLVMCoverageMapFormat() {
+    return cppOptions.useLLVMCoverageMapFormat;
   }
 
   public static PathFragment computeDefaultSysroot(CToolchain toolchain) {

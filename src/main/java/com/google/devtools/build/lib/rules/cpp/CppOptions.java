@@ -871,6 +871,23 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean enableMakeVariables;
 
+  @Option(
+    name = "experimental_use_llvm_covmap",
+    defaultValue = "false",
+    category = "experimental",
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {
+      OptionEffectTag.CHANGES_INPUTS,
+      OptionEffectTag.AFFECTS_OUTPUTS,
+      OptionEffectTag.LOADING_AND_ANALYSIS
+    },
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+    help =
+        "If specified, Bazel will generate llvm-cov coverage map information rather than "
+            + "gcov when collect_code_coverage is enabled."
+  )
+  public boolean useLLVMCoverageMapFormat;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();

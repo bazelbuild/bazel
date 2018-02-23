@@ -675,6 +675,19 @@ public final class CcCommon {
     }
   }
 
+  public static ImmutableList<String> getCoverageFeatures(RuleContext ruleContext) {
+    ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      coverageFeatures.add(CppRuleClasses.COVERAGE);
+      if (ruleContext.getFragment(CppConfiguration.class).useLLVMCoverageMapFormat()) {
+        coverageFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
+      } else {
+        coverageFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
+      }
+    }
+    return coverageFeatures.build();
+  }
+
   /**
    * Creates the feature configuration for a given rule.
    *
@@ -716,6 +729,9 @@ public final class CcCommon {
     }
 
     CppConfiguration cppConfiguration = toolchain.getCppConfiguration();
+
+    allRequestedFeaturesBuilder.addAll(getCoverageFeatures(ruleContext));
+
     if (cppConfiguration.getFdoInstrument() != null
         && !ruleContext.getDisabledFeatures().contains(CppRuleClasses.FDO_INSTRUMENT)) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_INSTRUMENT);
