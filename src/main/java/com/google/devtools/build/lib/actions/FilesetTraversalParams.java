@@ -98,6 +98,23 @@ public interface FilesetTraversalParams {
       return RootedPath.toRootedPath(getRootPart(), getRelativePart());
     }
 
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (o instanceof FilesetTraversalParams.DirectTraversalRoot) {
+        FilesetTraversalParams.DirectTraversalRoot that =
+            (FilesetTraversalParams.DirectTraversalRoot) o;
+        // Careful! We must compare the artifact owners, which the default {@link Artifact#equals()}
+        // method does not do. See the comments on {@link ArtifactSkyKey} and http://b/73738481.
+        return Artifact.equalWithOwner(this.getOutputArtifact(), that.getOutputArtifact())
+            && (this.getRootPart().equals(that.getRootPart()))
+            && (this.getRelativePart().equals(that.getRelativePart()));
+      }
+      return false;
+    }
+
     @Memoized
     @Override
     public abstract int hashCode();

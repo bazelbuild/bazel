@@ -111,10 +111,6 @@ public class ArtifactSkyKey implements SkyKey {
     return TO_ARTIFACT.apply((ArtifactSkyKey) key.argument());
   }
 
-  public static boolean equalWithOwner(Artifact first, Artifact second) {
-    return first.equals(second) && first.getArtifactOwner().equals(second.getArtifactOwner());
-  }
-
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.ARTIFACT;
@@ -159,7 +155,7 @@ public class ArtifactSkyKey implements SkyKey {
       return false;
     }
     ArtifactSkyKey thatArtifactSkyKey = ((ArtifactSkyKey) that);
-    return equalWithOwner(artifact, thatArtifactSkyKey.artifact)
+    return Artifact.equalWithOwner(artifact, thatArtifactSkyKey.artifact)
         && isMandatory == thatArtifactSkyKey.isMandatory;
   }
 

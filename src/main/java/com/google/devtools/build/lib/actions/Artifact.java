@@ -645,6 +645,18 @@ public class Artifact
     return Objects.equals(this.execPath, that.execPath) && Objects.equals(this.root, that.root);
   }
 
+  /**
+   * Compare equality including Artifact owner equality, a notable difference compared to the
+   * {@link #equals(Object)} method of {@link Artifact}.
+   */
+  public static boolean equalWithOwner(@Nullable Artifact first, @Nullable Artifact second) {
+    if (first != null) {
+      return first.equals(second) && first.getArtifactOwner().equals(second.getArtifactOwner());
+    } else {
+      return second == null;
+    }
+  }
+
   @Override
   public final int hashCode() {
     // This is just path.hashCode().  We cache a copy in the Artifact object to reduce LLC misses
