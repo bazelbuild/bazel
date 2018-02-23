@@ -67,6 +67,12 @@ host_service_fixture_services="%host_service_fixture_services%"
 
 test_suite_property_name='%test_suite_property_name%'
 
+# Bazel-only test arguments for the device broker
+bazel_only_argv=$(cat <<END
+--install_test_services=true
+END
+)
+
 argv=$(cat <<END
 --aapt=${aapt} \
 --adb=${adb} \
@@ -84,7 +90,12 @@ $@
 END
 )
 
+# We pass in $argv via two channels here:
+# 1) regular arguments: parsed normally by internal test entry point.
+# 2) --jvm_flag: external AndroidDeviceTestSuite doesn't parse the argvs if
+# passed in regularly, so we pass them in via a JVM flag hack and parse them
+# at the AndroidDeviceTestSuite constructor.
 $test_entry_point \
     --wrapper_script_flag=--jvm_flag=-D$test_suite_property_name=com.google.android.apps.common.testing.suite.AndroidDeviceTestSuite \
-    --wrapper_script_flag=--jvm_flag=-Dargv="$argv" \
+    --wrapper_script_flag=--jvm_flag=-Dargv="$bazel_only_argv $argv" \
     $argv
