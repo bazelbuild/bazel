@@ -583,16 +583,22 @@ public class CppActionConfigs {
                     "    flag_group {",
                     "      iterate_over: 'runtime_library_search_directories'",
                     "      flag_group {",
-                    // TODO(b/27153401): This should probably be @loader_path on osx.
+
                     ifTrue(
                         supportsEmbeddedRuntimes,
                         "    expand_if_all_available: 'is_cc_test_link_action'",
+                        // TODO(b/27153401): This should probably be @loader_path on osx.
                         "    flag: ",
                         "      '-Wl,-rpath,$EXEC_ORIGIN/%{runtime_library_search_directories}'",
                         "  }",
                         "  flag_group {",
                         "    expand_if_all_available: 'is_not_cc_test_link_action'"),
-                    "        flag: '-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}'",
+                    ifLinux(
+                        platform,
+                        "    flag: '-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}'"),
+                    ifMac(
+                        platform,
+                        "   flag: '-Wl,-rpath,@loader_path/%{runtime_library_search_directories}'"),
                     "      }",
                     "    }",
                     "  }",

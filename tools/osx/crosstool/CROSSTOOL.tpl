@@ -353,7 +353,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -2062,7 +2062,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -3778,7 +3778,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -5497,7 +5497,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -7243,7 +7243,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -8959,7 +8959,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -10663,7 +10663,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -12370,7 +12370,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -14104,7 +14104,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
@@ -15811,7 +15811,7 @@ toolchain {
       action: "c++-link-pic-static-library"
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
-        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
       }
       expand_if_all_available: "runtime_library_search_directories"
