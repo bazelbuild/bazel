@@ -132,9 +132,6 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.reduceClasspath()) {
       depsBuilder.setReduceClasspath();
     }
-    if (optionsParser.getRuleKind() != null) {
-      depsBuilder.setRuleKind(optionsParser.getRuleKind());
-    }
     if (optionsParser.getTargetLabel() != null) {
       depsBuilder.setTargetLabel(optionsParser.getTargetLabel());
     }

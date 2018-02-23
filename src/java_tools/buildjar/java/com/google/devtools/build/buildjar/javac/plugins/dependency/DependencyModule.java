@@ -78,7 +78,6 @@ public final class DependencyModule {
   private final ImmutableMap<Path, JarOwner> jarsToTargets;
   private final boolean strictClasspathMode;
   private final Set<Path> depsArtifacts;
-  private final String ruleKind;
   private final String targetLabel;
   private final Path outputDepsProtoFile;
   private final Set<Path> usedClasspath;
@@ -98,7 +97,6 @@ public final class DependencyModule {
       boolean strictClasspathMode,
       Set<Path> depsArtifacts,
       ImmutableSet<Path> platformJars,
-      String ruleKind,
       String targetLabel,
       Path outputDepsProtoFile,
       FixMessage fixMessage,
@@ -109,7 +107,6 @@ public final class DependencyModule {
     this.jarsToTargets = jarsToTargets;
     this.strictClasspathMode = strictClasspathMode;
     this.depsArtifacts = depsArtifacts;
-    this.ruleKind = ruleKind;
     this.targetLabel = targetLabel;
     this.outputDepsProtoFile = outputDepsProtoFile;
     this.explicitDependenciesMap = new HashMap<>();
@@ -215,11 +212,6 @@ public final class DependencyModule {
   /** Adds a package to the set of packages built by this target. */
   public boolean addPackage(PackageSymbol packge) {
     return packages.add(packge);
-  }
-
-  /** Returns the type (rule kind) of the originating target. */
-  public String getRuleKind() {
-    return ruleKind;
   }
 
   /** Returns the name (label) of the originating target. */
@@ -349,7 +341,6 @@ public final class DependencyModule {
     private ImmutableMap<Path, JarOwner> jarsToTargets = ImmutableMap.of();
     private final Set<Path> depsArtifacts = new HashSet<>();
     private ImmutableSet<Path> platformJars = ImmutableSet.of();
-    private String ruleKind;
     private String targetLabel;
     private Path outputDepsProtoFile;
     private boolean strictClasspathMode = false;
@@ -388,7 +379,6 @@ public final class DependencyModule {
           strictClasspathMode,
           depsArtifacts,
           platformJars,
-          ruleKind,
           targetLabel,
           outputDepsProtoFile,
           fixMessage,
@@ -414,17 +404,6 @@ public final class DependencyModule {
      */
     public Builder setFixDepsTool(FixTool fixDepsTool) {
       this.fixDepsTool = fixDepsTool;
-      return this;
-    }
-
-    /**
-     * Sets the type (rule kind) of the originating target.
-     *
-     * @param ruleKind kind, such as the rule kind of a RuleConfiguredTarget
-     * @return this Builder instance
-     */
-    public Builder setRuleKind(String ruleKind) {
-      this.ruleKind = ruleKind;
       return this;
     }
 
