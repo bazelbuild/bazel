@@ -33,8 +33,8 @@ class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object
 
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  TransitiveInfoProviderMapImpl(OffsetTable<Object> offsetTable, Object[] values) {
-    super(offsetTable, values);
+  TransitiveInfoProviderMapImpl(Object[] keys, Object[] values) {
+    super(keys, values);
   }
 
   static TransitiveInfoProviderMapImpl create(Map<Object, Object> map) {
@@ -48,7 +48,7 @@ class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object
       ++i;
     }
     Preconditions.checkArgument(keys.length == values.length);
-    return new TransitiveInfoProviderMapImpl(ImmutableSharedKeyMap.createOffsetTable(keys), values);
+    return new TransitiveInfoProviderMapImpl(keys, values);
   }
 
   @SuppressWarnings("unchecked")

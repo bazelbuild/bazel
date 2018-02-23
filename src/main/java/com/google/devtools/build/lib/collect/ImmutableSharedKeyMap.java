@@ -42,16 +42,11 @@ import javax.annotation.concurrent.Immutable;
 public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   private static final Interner<OffsetTable> offsetTables = BlazeInterners.newWeakInterner();
 
+  private final OffsetTable<K> offsetTable;
   // Visible only for serialization.
-  protected final OffsetTable<K> offsetTable;
   protected final Object[] values;
 
-  /**
-   * Table storing {@code keys} compactly as an array, with an index lookup map for speed.
-   *
-   * <p>Only externally visible for serialization purposes.
-   */
-  public static final class OffsetTable<K> {
+  private static final class OffsetTable<K> {
     private final Object[] keys;
     // Keep a map around to speed up get lookups for larger maps.
     // We make this value lazy to avoid computing for values that end up being thrown away
@@ -104,14 +99,14 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
     }
   }
 
-  protected ImmutableSharedKeyMap(OffsetTable<K> offsetTable, Object[] values) {
-    Preconditions.checkArgument(offsetTable.keys.length == values.length);
-    this.offsetTable = offsetTable;
+  protected ImmutableSharedKeyMap(Object[] keys, Object[] values) {
+    Preconditions.checkArgument(keys.length == values.length);
     this.values = values;
+    this.offsetTable = createOffsetTable(keys);
   }
 
   @SuppressWarnings("unchecked")
-  protected static <K> OffsetTable<K> createOffsetTable(Object[] keys) {
+  private static <K> OffsetTable<K> createOffsetTable(Object[] keys) {
     OffsetTable<K> offsetTable = new OffsetTable<>(keys);
     OffsetTable<K> internedTable = (OffsetTable<K>) offsetTables.intern(offsetTable);
     internedTable.initIndexMap();
@@ -140,6 +135,12 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   @Override
   public V valueAt(int index) {
     return (V) values[index];
+  }
+
+  /** Do not use! Present only for serialization. (Annotated as @Deprecated just to prevent use.) */
+  @Deprecated
+  public Object[] getKeys() {
+    return offsetTable.keys;
   }
 
   @Override
@@ -187,7 +188,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
         keys[i] = entries.get(entryIndex++);
         values[i] = entries.get(entryIndex++);
       }
-      return new ImmutableSharedKeyMap<>(createOffsetTable(keys), values);
+      return new ImmutableSharedKeyMap<>(keys, values);
     }
   }
 }
