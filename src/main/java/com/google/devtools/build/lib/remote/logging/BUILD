@@ -12,7 +12,7 @@ java_library(
     tags = ["bazel"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote:remote-utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/logging/proto:rpc_log_entry_java_proto",
+        "//src/main/protobuf:rpc_log_entry_java_proto",
         "//third_party:guava",
         "//third_party/grpc:grpc-jar",
         "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",

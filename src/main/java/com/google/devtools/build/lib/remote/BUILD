@@ -40,8 +40,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
-        "//src/main/java/com/google/devtools/build/lib/remote/logging",
-        "//src/main/java/com/google/devtools/build/lib/remote/logging/proto:rpc_log_entry_java_proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auth",
