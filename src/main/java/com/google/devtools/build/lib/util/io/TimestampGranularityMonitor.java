@@ -126,11 +126,11 @@ public class TimestampGranularityMonitor {
    */
   @ThreadSafe
   public void notifyDependenceOnFileTime(PathFragment path, long ctimeMillis) {
-    if (ctimeMillis == this.commandStartTimeMillis) {
+    if (!this.waitAMillisecond && ctimeMillis == this.commandStartTimeMillis) {
       logger.info("Will have to wait for a millisecond on completion because of " + path);
       this.waitAMillisecond = true;
     }
-    if (ctimeMillis == this.commandStartTimeMillisRounded) {
+    if (!this.waitASecond && ctimeMillis == this.commandStartTimeMillisRounded) {
       logger.info("Will have to wait for a second on completion because of " + path);
       this.waitASecond = true;
     }

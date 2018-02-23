@@ -87,7 +87,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             rootDirectory,
             analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper =
-        new ExternalFilesHelper(
+        ExternalFilesHelper.createForTesting(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);

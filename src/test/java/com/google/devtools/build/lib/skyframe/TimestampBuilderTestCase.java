@@ -170,7 +170,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             new ServerDirectories(rootDirectory, outputBase),
             rootDirectory,
             TestConstants.PRODUCT_NAME);
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         directories);

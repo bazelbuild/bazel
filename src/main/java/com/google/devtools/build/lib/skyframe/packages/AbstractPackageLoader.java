@@ -228,7 +228,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     this.skyframeThreads = builder.skyframeThreads;
     this.directories = builder.directories;
 
-    this.externalFilesHelper = new ExternalFilesHelper(
+    this.externalFilesHelper = ExternalFilesHelper.create(
         pkgLocatorRef,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         directories);

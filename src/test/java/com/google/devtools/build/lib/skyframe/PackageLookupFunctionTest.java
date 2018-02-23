@@ -103,7 +103,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             new ServerDirectories(rootDirectory, outputBase),
             rootDirectory,
             analysisMock.getProductName());
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();

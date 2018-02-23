@@ -133,7 +133,7 @@ public class FileFunctionTest {
             pkgRoot.asPath(),
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
-        new ExternalFilesHelper(pkgLocatorRef, externalFileAction, directories);
+        ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
     differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
