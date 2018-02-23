@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,6 +75,7 @@ import javax.annotation.Nullable;
 /** Action that represents a Java compilation. */
 @ThreadCompatible
 @Immutable
+@AutoCodec
 public final class JavaCompileAction extends SpawnAction {
   private static final String JACOCO_INSTRUMENTATION_PROCESSOR = "jacoco";
 
@@ -171,7 +174,9 @@ public final class JavaCompileAction extends SpawnAction {
    * @param compileTimeDependencyArtifacts the jdeps files for direct dependencies
    * @param progressMessage the progress message
    */
-  private JavaCompileAction(
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  JavaCompileAction(
       ActionOwner owner,
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
@@ -194,7 +199,7 @@ public final class JavaCompileAction extends SpawnAction {
       StrictDepsMode strictJavaDeps,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       CharSequence progressMessage,
-      RunfilesSupplier runfiles) {
+      RunfilesSupplier runfilesSupplier) {
     super(
         owner,
         tools,
@@ -207,7 +212,7 @@ public final class JavaCompileAction extends SpawnAction {
         UTF8_ACTION_ENVIRONMENT,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        runfiles,
+        runfilesSupplier,
         "Javac",
         false /*executeUnconditionally*/,
         null /*extraActionInfoSupplier*/);
