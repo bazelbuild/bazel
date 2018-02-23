@@ -107,6 +107,24 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Test
+  public void testRegisteredExecutionPlatforms_notExecutionPlatform() throws Exception {
+    rewriteWorkspace("register_execution_platforms(", "    '//error:not_an_execution_platform')");
+    scratch.file("error/BUILD", "filegroup(name = 'not_an_execution_platform')");
+
+    // Request the executionPlatforms.
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(executionPlatformsKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "invalid registered execution platform '//error:not_an_execution_platform': "
+                + "target does not provide the PlatformInfo provider");
+  }
+
+  @Test
   public void testRegisteredExecutionPlatforms_reload() throws Exception {
     scratch.file(
         "platform/BUILD",
