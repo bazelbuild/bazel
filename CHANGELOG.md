@@ -1,3 +1,210 @@
+## Release 0.11.0 (2018-02-23)
+
+```
+Baseline: 00d781ae78a8bd51d3c61b621d79f0bb095aff9e
+
+Cherry picks:
+   + ea2d4c475febdbd59ca0e0ba46adc7be759f84e0:
+     Update stub_finds_runfiles_test to be a real sh_test.
+   + d855d8133f4efb73ebd5e82c54a9afb4c7565d46:
+     java,runfiles: fix bugs in runfiles library
+   + 56aeb04a064218b845ecc193d530c341c6ec854d:
+     Fixing #4585: broken re-execution of orphaned actions.
+   + cf3f81aef7c32019d70cbce218a64a03276268f0:
+     remote: Add support for HTTP Basic Auth
+   + 28bd997c1c8793973f63dcae4c22bbae49e7d8b7:
+     Fixing test-setup.sh occasionally missing stdout/stderr, on
+     systems where "tail --pid" is supported.
+   + 109e4b4dc9e786e3a2d8d7cb245d18320dbe9216:
+     Automated rollback of commit
+     7e6837cc1d1aa4259f5c27ba3606b277b5f6c3e9.
+   + b3d52b1b6d46a0f23cc91125c1d522e9d13433b4:
+     Fix incorrect include directories when -no-canonical-prefixes is
+     passed to clang
+   + 3904ac33a983fd8faebba1b52bcac5a3ff942029:
+     Automated rollback of commit
+     28bd997c1c8793973f63dcae4c22bbae49e7d8b7.
+   + 1001141f0674ff4b611814edcb00a5183680ef4a:
+     Roll forward of
+     https://github.com/bazelbuild/bazel/commit/3904ac33a983fd8faebba1
+     b52bcac5a3ff942029
+     (https://github.com/bazelbuild/bazel/commit/3904ac33a983fd8faebba
+     1b52bcac5a3ff942029). Fix #4625 by running the test process in a
+     sub-shell.
+```
+
+Incompatible changes:
+
+  - ctx.fragments.jvm is not available anymore.
+
+New features:
+
+  - java,runfiles: You can now depend on
+    `@bazel_tools//tools/runfiles:java-runfiles` to get a
+    platform-independent runfiles library for Java. See JavaDoc of
+    https://github.com/bazelbuild/bazel/blob/master/src/tools/runfiles
+    /java/com/google/devtools/build/runfiles/Runfiles.java for usage
+    information.
+
+Important changes:
+
+  - The --[no]experimental_disable_jvm command line option is not
+    supported anymore.
+  - Allow expanding TreeArtifacts for libraries_to_link
+  - Proguarded Android binaries can be built with incremental dexing.
+  - aar_import now supports assets.
+  - Crash in OutputJar::Close has been fixed
+  - generator_* attributes are nonconfigurable.
+  - Introduces --[no]keep_state_after_build
+  - Add support for merged object files needed for -flto-unit.
+  - Fix how libraries to link is specified to archiver actions.
+  - Replace //tools/defaults:android_jar with
+    @bazel_tools//tools/android:android_jar.
+    //tools/defaults:android_jar will be removed in a future release.
+  - java_common.compile supports neverlink
+  - Resolved an issue where a failure in the remote cache would not
+    trigger local re-execution of an action.
+
+## Release 0.10.1 (2018-02-15)
+
+```
+Baseline: 22c2f9a7722e8c8b7fdf8f5d30a40f1c4118e993
+
+Cherry picks:
+   + f6ca78808722c8c119affdb33400838ee92d44b6:
+     isable_presubmit
+   + 65c13dd5a4c1b4b5a072f7680b8f1cf3c5079b52:
+     Fix StreamResourceLeak error
+   + e5436745e1732f5e43fc55f0deb5b19e23ce8524:
+     windows: fix --symlink_prefix=/ throwing exception
+   + 22ccdd1ebe1dc495e05d894a3325f6b05e681fb3:
+     Fix turbine command lines with empty javacopts
+   + 96c654d43eb2906177325cbc2fc2b1e90dbcc792:
+     Remove EOL'd Linux flavours, bump CentOS to 6.9.
+   + f0bec36864f10370cbbda4caa8beac2e0c5ee45b:
+     Automated rollback of commit
+     2aeaeba66857c561dd6d63c79a213f1cabc3650d.
+   + 860af5be10b6bad68144d9d2d34173e86b40268c:
+     Consolidate Error Prone resource handling
+   + 2e631c99495f75270d2639542cefb531ec262d67:
+     sandbox: properly add `tmpDir` to `writablePaths`
+   + 5bfa5844d0d16d71e88002956e88402bfec88ef7:
+     actions,temp: respect TMPDIR envvar
+   + 6cc2ad8676d1ae0542b351a07a05ddbe5efac165:
+     sandbox: add env[TMPDIR] instead of `tmpDir`
+   + 40c757f4ab90214f95935672532a495c4551490a:
+     Change git clone to pull all history, so all needed commits can
+     be accessed.
+   + 56aeb04a064218b845ecc193d530c341c6ec854d:
+     Fixing #4585: broken re-execution of orphaned actions.
+```
+
+Important changes:
+
+  - Resolved an issue where a failure in the remote cache would not
+    trigger local re-execution of an action.
+
+## Release 0.10.0 (2018-02-01)
+
+```
+Baseline: 22c2f9a7722e8c8b7fdf8f5d30a40f1c4118e993
+
+Cherry picks:
+   + f6ca78808722c8c119affdb33400838ee92d44b6:
+     isable_presubmit
+   + 65c13dd5a4c1b4b5a072f7680b8f1cf3c5079b52:
+     Fix StreamResourceLeak error
+   + e5436745e1732f5e43fc55f0deb5b19e23ce8524:
+     windows: fix --symlink_prefix=/ throwing exception
+   + 22ccdd1ebe1dc495e05d894a3325f6b05e681fb3:
+     Fix turbine command lines with empty javacopts
+   + 96c654d43eb2906177325cbc2fc2b1e90dbcc792:
+     Remove EOL'd Linux flavours, bump CentOS to 6.9.
+   + f0bec36864f10370cbbda4caa8beac2e0c5ee45b:
+     Automated rollback of commit
+     2aeaeba66857c561dd6d63c79a213f1cabc3650d.
+   + 860af5be10b6bad68144d9d2d34173e86b40268c:
+     Consolidate Error Prone resource handling
+   + 2e631c99495f75270d2639542cefb531ec262d67:
+     sandbox: properly add `tmpDir` to `writablePaths`
+   + 5bfa5844d0d16d71e88002956e88402bfec88ef7:
+     actions,temp: respect TMPDIR envvar
+   + 6cc2ad8676d1ae0542b351a07a05ddbe5efac165:
+     sandbox: add env[TMPDIR] instead of `tmpDir`
+   + 40c757f4ab90214f95935672532a495c4551490a:
+     Change git clone to pull all history, so all needed commits can
+     be accessed.
+```
+
+Incompatible changes:
+
+  - In order to access the template variables $(JAVA) and
+    $(JAVABASE), @bazel_tools//tools/jdk:current_java_runtime needs
+    to be added to the toolchains= attribute from now on.
+  - The ctx.middle_man function is not supported anymore.
+  - The flag --incompatible_list_plus_equals_inplace is removed, its
+    default behavior is preserved. += on lists now always mutates the
+    left hand
+    side.
+  - --android_sdk no longer supports filegroup targets.
+  - android_* rules no longer support legacy_native_support attribute.
+
+New features:
+
+  - query: Add option --noproto:flatten_selects to turn off
+    flattening of selector lists in proto output.
+  - New android test rule, android_local_test.
+
+Important changes:
+
+  - The --remote_rest_cache flag now respects --remote_timeout.
+  - --experimental_java_coverage is available for testing.
+  - The deprecated builtin `set` is no longer allowed even from within
+    unexecuted code in bzl files. It's temporarily possible to use
+    --incompatible_disallow_uncalled_set_constructor=false if this
+    change causes
+    incompatibility issues.
+  - Linkstamping is now a separate and full-blown CppCompileAction,
+    it's
+    no longer a part of linking command.
+  - Using `+`, `|` or `.union` on depsets is now deprecated. Please
+    use the new
+      constructor instead (see
+    https://docs.bazel.build/versions/master/skylark/depsets.html).
+  - config_feature_flag's default_value is optional. It is
+    only an error to have a config_feature_flag with no default_value
+    if that config_feature_flag has not been set in the configuration
+    it is being evaluated in.
+  - --[no]keep_incrementality_data is gone, replaced by the
+    enum-valued --incremental_state_retention_strategy
+  - Linkstamping is now a separate and full-blown CppCompileAction,
+    it's
+    no longer a part of linking command.
+  - Added --checkHashMismatch flag to ZipFilterAction. Valid values
+    are IGNORE, WARN and ERROR. --errorOnHashMismatch is deprecated,
+    please use this flag instead.
+  - Set build jobs equivalent to number of logical processors by
+    default. Should improve build times significantly.
+  - Added --(no)expand_test_suites flag.
+  - Rename --keep_incrementality_data to --track_incremental_state
+  - --remote_rest_cache was renamed to --remote_http_cache. Both
+    options keep working in this release, but --remote_rest_cache
+    will be
+    removed in the next release.
+  - Aspects-on-aspect see and propagate over aspect attributes.
+  - --auth_* flags were renamed to --google_* flags. The old names
+    will continue to work for this release but will be removed in the
+    next
+    release.
+  - Remote Caching and Execution support output directories.
+  - Remove defunct flags
+    --experimental_incremental_dexing_for_lite_proto and
+    --experimental_incremental_dexing_error_on_missed_jars that have
+    long been enabled by default
+  - New version of aapt2 and Resources.proto.
+  - Make PIC and non PIC outputs for C++ compilation with Tree
+    Artifacts
+
 ## Release 0.9.0 (2017-12-19)
 
 ```
@@ -2281,6 +2488,9 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
+
 
 
 
