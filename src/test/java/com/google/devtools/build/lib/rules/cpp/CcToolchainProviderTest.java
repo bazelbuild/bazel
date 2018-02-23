@@ -36,7 +36,7 @@ public class CcToolchainProviderTest {
   public void equalityIsObjectIdentity() throws Exception {
     CcToolchainProvider a =
         new CcToolchainProvider(
-            /* skylarkToolchain= */ ImmutableMap.of(),
+            /* values= */ ImmutableMap.of(),
             /* cppConfiguration= */ null,
             /* toolchainInfo= */ null,
             /* crosstoolTopPathFragment= */ null,
@@ -71,7 +71,7 @@ public class CcToolchainProviderTest {
 
     CcToolchainProvider b =
         new CcToolchainProvider(
-            /* skylarkToolchain= */ ImmutableMap.of(),
+            /* values= */ ImmutableMap.of(),
             /* cppConfiguration= */ null,
             /* toolchainInfo= */ null,
             /* crosstoolTopPathFragment= */ null,
