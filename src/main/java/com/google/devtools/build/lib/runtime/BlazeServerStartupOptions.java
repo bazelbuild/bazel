@@ -430,7 +430,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "expand_configs_in_place",
-    defaultValue = "false",
+    defaultValue = "true", // NOTE: purely decorative!
     category = "server startup",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION, OptionEffectTag.CHANGES_INPUTS},

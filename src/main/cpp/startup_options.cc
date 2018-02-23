@@ -91,7 +91,7 @@ StartupOptions::StartupOptions(const string &product_name,
       client_debug(false),
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
-      expand_configs_in_place(false),
+      expand_configs_in_place(true),
       original_startup_options_(std::vector<RcStartupFlag>()) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
