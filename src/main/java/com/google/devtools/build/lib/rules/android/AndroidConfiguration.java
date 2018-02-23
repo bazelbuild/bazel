@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion.AndroidRobolectricTestDeprecationLevel;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
@@ -93,6 +94,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
     public AndroidAaptConverter() {
       super(AndroidAaptVersion.class, "android androidAaptVersion");
+    }
+  }
+
+  /** Converter for {@link AndroidRobolectricTestDeprecationLevel} */
+  public static final class AndroidRobolectricTestDeprecationLevelConverter
+      extends EnumConverter<AndroidRobolectricTestDeprecationLevel> {
+    public AndroidRobolectricTestDeprecationLevelConverter() {
+      super(AndroidRobolectricTestDeprecationLevel.class, "android robolectric deprecation level");
     }
   }
 
@@ -197,6 +206,30 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         }
       }
       return null;
+    }
+
+    /** android_robolectric_test deprecation levels */
+    public enum AndroidRobolectricTestDeprecationLevel {
+      OFF,
+      WARNING,
+      DEPRECATED;
+
+      public static List<String> getAttributeValues() {
+        return ImmutableList.of(
+            OFF.name().toLowerCase(),
+            WARNING.name().toLowerCase(),
+            DEPRECATED.name().toLowerCase());
+      }
+
+      public static AndroidRobolectricTestDeprecationLevel fromString(String value) {
+        for (AndroidRobolectricTestDeprecationLevel level :
+            AndroidRobolectricTestDeprecationLevel.values()) {
+          if (level.name().equals(value)) {
+            return level;
+          }
+        }
+        return null;
+      }
     }
 
     // TODO(corysmith): Move to ApplicationManifest when no longer needed as a public function.
@@ -786,6 +819,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean fixedResourceNeverlinking;
 
+    @Option(
+      name = "android_robolectric_test_deprecation_level",
+      defaultValue = "off",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      converter = AndroidRobolectricTestDeprecationLevelConverter.class,
+      help =
+          "Determine the deprecation level of android_robolectric_test. Can be 'off', "
+              + "'warning', or 'deprecated'."
+    )
+    public AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -868,6 +913,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useParallelDex2Oat;
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
+  private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -905,6 +951,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
+    this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -954,7 +1001,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean throwOnResourceConflict,
       boolean useParallelDex2Oat,
       boolean skipParsingAction,
-      boolean fixedResourceNeverlinking) {
+      boolean fixedResourceNeverlinking,
+      AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel) {
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -987,6 +1035,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useParallelDex2Oat = useParallelDex2Oat;
     this.skipParsingAction = skipParsingAction;
     this.fixedResourceNeverlinking = fixedResourceNeverlinking;
+    this.robolectricTestDeprecationLevel = robolectricTestDeprecationLevel;
   }
 
   public String getCpu() {
@@ -1132,6 +1181,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean fixedResourceNeverlinking() {
     return this.fixedResourceNeverlinking;
+  }
+
+  public AndroidRobolectricTestDeprecationLevel getRobolectricTestDeprecationLevel() {
+    return robolectricTestDeprecationLevel;
   }
 
   @Override
