@@ -132,6 +132,12 @@ public final class LocalResourceContainer {
   public static LocalResourceContainer forAssetsAndResources(
       RuleContext ruleContext, String assetsAttr, PathFragment assetsDir, String resourcesAttr)
       throws RuleErrorException {
+
+    if (!hasLocalResourcesAttributes(ruleContext)) {
+      return new LocalResourceContainer(
+          ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+    }
+
     ImmutableList.Builder<Artifact> assets = ImmutableList.builder();
     ImmutableList.Builder<PathFragment> assetRoots = ImmutableList.builder();
 
@@ -158,13 +164,19 @@ public final class LocalResourceContainer {
     }
 
     ImmutableList<Artifact> resources =
-        getResources(ruleContext.getPrerequisites(resourcesAttr, Mode.TARGET, FileProvider.class));
+        getResources(
+            ruleContext.getPrerequisites(resourcesAttr, Mode.TARGET, FileProvider.class));
 
     return new LocalResourceContainer(
         resources,
         getResourceRoots(ruleContext, resources, resourcesAttr),
         assets.build(),
         assetRoots.build());
+
+  }
+
+  private static boolean hasLocalResourcesAttributes(RuleContext ruleContext) {
+    return ruleContext.attributes().has("assets") || ruleContext.attributes().has("resource_files");
   }
 
   /**

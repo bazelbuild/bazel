@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.rules.android.AndroidRuleClasses.getAndroidSdkLabel;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
@@ -136,15 +135,6 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         you will likely need to use <code>test_class</code> as well.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("custom_package", STRING))
-        .add(
-            attr("resource_files", LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                .undocumented("soon to be unsupported behavior"))
-        .add(attr("assets_dir", STRING).undocumented("soon to be unsupported behavior"))
-        .add(
-            attr("assets", LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                .undocumented("soon to be unsupported behavior"))
         .build();
   }
 
