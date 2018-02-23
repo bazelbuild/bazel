@@ -233,24 +233,38 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           graph,
           evaluatorContext.getProgressReceiver());
     }
-    for (Entry<SkyKey, ? extends NodeEntry> e :
-        graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
-      SkyKey skyKey = e.getKey();
-      NodeEntry entry = e.getValue();
-      // This must be equivalent to the code in enqueueChild above, in order to be thread-safe.
-      switch (entry.addReverseDepAndCheckIfDone(null)) {
-        case NEEDS_SCHEDULING:
-          evaluatorContext.getVisitor().enqueueEvaluation(skyKey);
-          break;
-        case DONE:
-          informProgressReceiverThatValueIsDone(skyKey, entry);
-          break;
-        case ALREADY_EVALUATING:
-          break;
-        default:
-          throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
+    try {
+      for (Entry<SkyKey, ? extends NodeEntry> e :
+          graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
+        SkyKey skyKey = e.getKey();
+        NodeEntry entry = e.getValue();
+        // This must be equivalent to the code in enqueueChild above, in order to be thread-safe.
+        switch (entry.addReverseDepAndCheckIfDone(null)) {
+          case NEEDS_SCHEDULING:
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey);
+            break;
+          case DONE:
+            informProgressReceiverThatValueIsDone(skyKey, entry);
+            break;
+          case ALREADY_EVALUATING:
+            break;
+          default:
+            throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
+        }
       }
+    } catch (InterruptedException e) {
+      // When multiple keys are being evaluated, it's possible that a key may get queued before
+      // an InterruptedException is thrown from either #addReverseDepAndCheckIfDone or
+      // #informProgressReceiverThatValueIsDone on a different key. Therefore we have to make sure
+      // all evaluation threads are properly interrupted and shut down, if main thread (current
+      // thread) is interrupted.
+      Thread.currentThread().interrupt();
+      evaluatorContext.getVisitor().waitForCompletion();
+
+      // Rethrow the InterruptedException to avoid proceeding to construct the result.
+      throw e;
     }
+
     return waitForCompletionAndConstructResult(skyKeys);
   }
 
