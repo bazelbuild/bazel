@@ -32,16 +32,16 @@ public final class AndroidNdkCrosstools {
 
   // NDK minor revisions should be backwards compatible within a major revision, so all that needs
   // to be tracked here are the major revision numbers.
-  public static final ImmutableMap<String, NdkMajorRevision> KNOWN_NDK_MAJOR_REVISIONS =
+  public static final ImmutableMap<Integer, NdkMajorRevision> KNOWN_NDK_MAJOR_REVISIONS =
       ImmutableMap.of(
-          "10", new NdkMajorRevisionR10(),
-          "11", new NdkMajorRevisionR11(),
-          "12", new NdkMajorRevisionR12(),
-          "13", new NdkMajorRevisionR13("3.8.256229"),
+          10, new NdkMajorRevisionR10(),
+          11, new NdkMajorRevisionR11(),
+          12, new NdkMajorRevisionR12(),
+          13, new NdkMajorRevisionR13("3.8.256229"),
           // The only difference between the NDK13 and NDK14 CROSSTOOLs is the version of clang in
           // built-in includes paths, so we can reuse everything else.
-          "14", new NdkMajorRevisionR13("3.8.275480"));
-  public static final Map.Entry<String, NdkMajorRevision> LATEST_KNOWN_REVISION =
+          14, new NdkMajorRevisionR13("3.8.275480"));
+  public static final Map.Entry<Integer, NdkMajorRevision> LATEST_KNOWN_REVISION =
       Iterables.getLast(KNOWN_NDK_MAJOR_REVISIONS.entrySet());
 
   /**

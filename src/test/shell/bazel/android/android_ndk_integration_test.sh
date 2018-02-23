@@ -323,4 +323,112 @@ EOF
     || fail "build failed"
 }
 
+function test_crosstool_stlport() {
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+    linkopts = ["-ldl"],
+)
+EOF
+  cat > foo.cc <<EOF
+#include <string>
+#include <jni.h>
+#include <android/log.h>
+#include <cstdio>
+#include <iostream>
+
+using namespace std;
+int main(){
+  string foo = "foo";
+  string bar = "bar";
+  string foobar = foo + bar;
+  return 0;
+}
+EOF
+  assert_build //:foo \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-stlport \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+}
+
+function test_crosstool_libcpp() {
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+    linkopts = ["-ldl", "-lm"],
+)
+EOF
+  cat > foo.cc <<EOF
+#include <string>
+#include <jni.h>
+#include <android/log.h>
+#include <cstdio>
+#include <iostream>
+
+using namespace std;
+int main(){
+  string foo = "foo";
+  string bar = "bar";
+  string foobar = foo + bar;
+  return 0;
+}
+EOF
+  assert_build //:foo \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-libcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+}
+
+function test_crosstool_gnu_libstdcpp() {
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+)
+EOF
+  cat > foo.cc <<EOF
+#include <string>
+#include <jni.h>
+#include <android/log.h>
+#include <cstdio>
+#include <iostream>
+
+using namespace std;
+int main(){
+  string foo = "foo";
+  string bar = "bar";
+  string foobar = foo + bar;
+  return 0;
+}
+EOF
+  assert_build //:foo \
+    --cpu=armeabi-v7a \
+    --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+}
+
+function test_crosstool_libcpp_with_multiarch() {
+  create_new_workspace
+  setup_android_sdk_support
+  setup_android_ndk_support
+  create_android_binary
+
+  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+
+  assert_build //java/bazel:bin \
+    --fat_apk_cpu="$cpus" \
+    --android_crosstool_top=@androidndk//:toolchain-libcpp \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+  check_num_sos
+  check_soname
+}
+
 run_suite "Android NDK integration tests"

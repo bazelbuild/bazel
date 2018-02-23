@@ -39,11 +39,14 @@ public class NdkPaths {
   private final String repositoryName;
   private final String hostPlatform;
   private final ApiLevel apiLevel;
+  private final Integer majorRevision;
 
-  public NdkPaths(String repositoryName, String hostPlatform, ApiLevel apiLevel) {
+  public NdkPaths(
+      String repositoryName, String hostPlatform, ApiLevel apiLevel, Integer majorRevision) {
     this.repositoryName = repositoryName;
     this.hostPlatform = hostPlatform;
     this.apiLevel = apiLevel;
+    this.majorRevision = majorRevision;
   }
 
   public ImmutableList<ToolPath> createToolpaths(String toolchainName, String targetPlatform,
@@ -207,10 +210,21 @@ public class NdkPaths {
     String prefix =
         "external/%repositoryName%/ndk/sources/".replace("%repositoryName%", repositoryName);
 
-    return ImmutableList.of(
-        prefix + "cxx-stl/llvm-libc++/libcxx/include",
-        prefix + "cxx-stl/llvm-libc++abi/libcxxabi/include",
-        prefix + "android/support/include");
+    ImmutableList.Builder<String> includePaths = ImmutableList.builder();
+
+    includePaths.add(prefix + "android/support/include");
+
+    if (majorRevision <= 12) {
+      includePaths.add(prefix + "cxx-stl/llvm-libc++/libcxx/include");
+      includePaths.add(prefix + "cxx-stl/llvm-libc++abi/libcxxabi/include");
+    } else {
+      // libcxx/include was moved one level up from r13 onwards.
+      // See https://github.com/bazelbuild/bazel/issues/3641
+      includePaths.add(prefix + "cxx-stl/llvm-libc++/include");
+      includePaths.add(prefix + "cxx-stl/llvm-libc++abi/include");
+    }
+
+    return includePaths.build();
   }
 
   /**
@@ -235,5 +249,15 @@ public class NdkPaths {
         .replace("%stl%", stl)
         .replace("%targetCpu%", targetCpu)
         .replace("%fileExtension%", fileExtension);
+  }
+
+  /**
+   * @param targetCpu Target CPU
+   * @return the directory of the target CPU's runtime .a files for linking
+   */
+  public String createLibcppLinkerPath(String targetCpu) {
+    return "external/%repositoryName%/ndk/sources/cxx-stl/llvm-libc++/libs/%targetCpu%"
+        .replace("%repositoryName%", repositoryName)
+        .replace("%targetCpu%", targetCpu);
   }
 }
