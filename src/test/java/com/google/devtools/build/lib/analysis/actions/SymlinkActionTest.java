@@ -24,7 +24,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -90,5 +94,30 @@ public class SymlinkActionTest extends BuildViewTestCase {
     assertThat(output.resolveSymbolicLinks()).isEqualTo(input);
     assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
     assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(action)
+        .setWriteContextFactory(
+            () ->
+                new SerializationContext(
+                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
+        .setReadContextFactory(
+            () ->
+                new DeserializationContext(
+                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
+        .setVerificationFunction(
+            (in, out) -> {
+              SymlinkAction inAction = (SymlinkAction) in;
+              SymlinkAction outAction = (SymlinkAction) out;
+              assertThat(inAction.getPrimaryInput().getFilename())
+                  .isEqualTo(outAction.getPrimaryInput().getFilename());
+              assertThat(inAction.getPrimaryOutput().getFilename())
+                  .isEqualTo(outAction.getPrimaryOutput().getFilename());
+              assertThat(inAction.getOwner()).isEqualTo(outAction.getOwner());
+              assertThat(inAction.getProgressMessage()).isEqualTo(outAction.getProgressMessage());
+            })
+        .runTests();
   }
 }

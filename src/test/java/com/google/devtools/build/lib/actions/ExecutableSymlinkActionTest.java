@@ -22,8 +22,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -111,5 +115,36 @@ public class ExecutableSymlinkActionTest {
           .that(got.contains(want))
           .isTrue();
     }
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    Path file = inputRoot.getRoot().getRelative("some-file");
+    FileSystemUtils.createEmptyFile(file);
+    file.setExecutable(/*executable=*/ false);
+    Artifact input = new Artifact(file, inputRoot);
+    Artifact output = new Artifact(outputRoot.getRoot().getRelative("some-output"), outputRoot);
+    ExecutableSymlinkAction action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, input, output);
+    new SerializationTester(action)
+        .setWriteContextFactory(
+            () ->
+                new SerializationContext(
+                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
+        .setReadContextFactory(
+            () ->
+                new DeserializationContext(
+                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
+        .setVerificationFunction(
+            (in, out) -> {
+              ExecutableSymlinkAction inAction = (ExecutableSymlinkAction) in;
+              ExecutableSymlinkAction outAction = (ExecutableSymlinkAction) out;
+              assertThat(inAction.getPrimaryInput().getFilename())
+                  .isEqualTo(outAction.getPrimaryInput().getFilename());
+              assertThat(inAction.getPrimaryOutput().getFilename())
+                  .isEqualTo(outAction.getPrimaryOutput().getFilename());
+              assertThat(inAction.getOwner()).isEqualTo(outAction.getOwner());
+              assertThat(inAction.getProgressMessage()).isEqualTo(outAction.getProgressMessage());
+            })
+        .runTests();
   }
 }

@@ -24,23 +24,21 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/**
- * Action to create a symbolic link.
- */
+/** Action to create a symbolic link. */
+@AutoCodec
 public class SymlinkAction extends AbstractAction {
-
   private static final String GUID = "349675b5-437c-4da8-891a-7fb98fba6ab5";
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
   @Nullable private final PathFragment inputPath;
 
-  private final Artifact output;
   private final String progressMessage;
 
   /**
@@ -57,27 +55,29 @@ public class SymlinkAction extends AbstractAction {
     // become the sole and primary in their respective lists.
     super(owner, ImmutableList.of(input), ImmutableList.of(output));
     this.inputPath = null;
-    this.output = Preconditions.checkNotNull(output);
     this.progressMessage = progressMessage;
   }
 
   /**
-   * Creates a new SymlinkAction instance, where the inputPath
-   * may be different than that input artifact's path. This is
-   * only useful when dealing with runfiles trees where
-   * link target is a directory.
+   * Creates a new SymlinkAction instance, where the inputPath may be different than that input
+   * artifact's path. This is only useful when dealing with runfiles trees where link target is a
+   * directory.
    *
    * @param owner the action owner.
    * @param inputPath the Path that will be the src of the symbolic link.
-   * @param input the Artifact that is required to build the inputPath.
-   * @param output the Artifact that will be created by executing this Action.
+   * @param primaryInput the Artifact that is required to build the inputPath.
+   * @param primaryOutput the Artifact that will be created by executing this Action.
    * @param progressMessage the progress message.
    */
-  public SymlinkAction(ActionOwner owner, PathFragment inputPath, Artifact input,
-      Artifact output, String progressMessage) {
-    super(owner, ImmutableList.of(input), ImmutableList.of(output));
-    this.inputPath = Preconditions.checkNotNull(inputPath);
-    this.output = Preconditions.checkNotNull(output);
+  @AutoCodec.Instantiator
+  public SymlinkAction(
+      ActionOwner owner,
+      PathFragment inputPath,
+      Artifact primaryInput,
+      Artifact primaryOutput,
+      String progressMessage) {
+    super(owner, ImmutableList.of(primaryInput), ImmutableList.of(primaryOutput));
+    this.inputPath = inputPath;
     this.progressMessage = progressMessage;
   }
 
@@ -96,7 +96,6 @@ public class SymlinkAction extends AbstractAction {
       ActionOwner owner, PathFragment inputPath, Artifact output, String progressMessage) {
     super(owner, Artifact.NO_ARTIFACTS, ImmutableList.of(output));
     this.inputPath = Preconditions.checkNotNull(inputPath);
-    this.output = Preconditions.checkNotNull(output);
     this.progressMessage = progressMessage;
   }
 
@@ -105,7 +104,7 @@ public class SymlinkAction extends AbstractAction {
   }
 
   public Path getOutputPath() {
-    return output.getPath();
+    return getPrimaryOutput().getPath();
   }
 
   @Override
