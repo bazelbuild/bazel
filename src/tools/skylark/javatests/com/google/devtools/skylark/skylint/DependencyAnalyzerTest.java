@@ -149,7 +149,7 @@ public class DependencyAnalyzerTest {
         ImmutableMap.<String, String>builder()
             .put("/WORKSPACE", "")
             .put("/pkg1/BUILD", "")
-            .put("/pkg1/test.bzl", "load('//pkg2:bar.bzl')")
+            .put("/pkg1/test.bzl", "load('//pkg2:bar.bzl', 'bar')")
             .put("/pkg2/BUILD", "")
             .put("/pkg2/bar.bzl", "def bar(): pass")
             .build();
@@ -163,7 +163,7 @@ public class DependencyAnalyzerTest {
         ImmutableMap.<String, String>builder()
             .put("/WORKSPACE", "")
             .put("/pkg1/BUILD.bazel", "")
-            .put("/pkg1/test.bzl", "load('//pkg2:bar.bzl')")
+            .put("/pkg1/test.bzl", "load('//pkg2:bar.bzl', 'bar')")
             .put("/pkg2/BUILD.bazel", "")
             .put("/pkg2/bar.bzl", "def bar(): pass")
             .build();

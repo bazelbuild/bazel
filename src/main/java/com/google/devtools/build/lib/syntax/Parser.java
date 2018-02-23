@@ -337,7 +337,7 @@ public class Parser {
 
   /**
    * Consume tokens past the first token that has a kind that is in the set of
-   * teminatingTokens.
+   * terminatingTokens.
    * @param terminatingTokens
    * @return the end offset of the terminating token.
    */
@@ -354,7 +354,7 @@ public class Parser {
 
   /**
    * Consume tokens until we reach the first token that has a kind that is in
-   * the set of teminatingTokens.
+   * the set of terminatingTokens.
    * @param terminatingTokens
    * @return the end offset of the terminating token.
    */
@@ -1047,7 +1047,7 @@ public class Parser {
     return list;
   }
 
-  // load '(' STRING (COMMA [IDENTIFIER EQUALS] STRING)* COMMA? ')'
+  // load '(' STRING (COMMA [IDENTIFIER EQUALS] STRING)+ COMMA? ')'
   private void parseLoad(List<Statement> list) {
     int start = token.left;
     expect(TokenKind.LOAD);
@@ -1058,6 +1058,10 @@ public class Parser {
     }
 
     StringLiteral importString = parseStringLiteral();
+    if (token.kind == TokenKind.RPAREN) {
+      syntaxError(token, "expected at least one symbol to load");
+      return;
+    }
     expect(TokenKind.COMMA);
 
     Map<Identifier, String> symbols = new HashMap<>();

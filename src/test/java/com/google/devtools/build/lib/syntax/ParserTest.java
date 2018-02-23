@@ -1221,7 +1221,7 @@ public class ParserTest extends EvaluationTestCase {
   public void testLoadNoSymbol() throws Exception {
     setFailFast(false);
     parseFileForSkylark("load('/foo/bar/file')\n");
-    assertContainsError("syntax error");
+    assertContainsError("expected at least one symbol to load");
   }
 
   @Test
