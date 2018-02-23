@@ -71,6 +71,9 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCcLibraryRule());
     builder.addRuleDefinition(new BazelCcIncLibraryRule());
     builder.addRuleDefinition(new BazelCcImportRule());
+
+    builder.addWorkspaceFileSuffix(
+        "register_toolchains('@bazel_tools//tools/cpp:dummy_cc_toolchain')\n");
   }
 
   @Override

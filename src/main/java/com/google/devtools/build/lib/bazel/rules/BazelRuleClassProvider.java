@@ -120,10 +120,6 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(new BazelConfiguration.Loader());
           builder.addConfigurationOptions(BazelConfiguration.Options.class);
           builder.addConfigurationOptions(BuildConfiguration.Options.class);
-          builder.addWorkspaceFileSuffix(
-              "register_toolchains('@bazel_tools//tools/cpp:dummy_cc_toolchain')\n");
-          builder.addWorkspaceFileSuffix(
-              "register_toolchains('@bazel_tools//tools/cpp:dummy_cc_toolchain_type')\n");
         }
 
         @Override

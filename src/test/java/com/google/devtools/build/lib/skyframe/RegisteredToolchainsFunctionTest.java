@@ -41,8 +41,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasEntryThat(toolchainsKey).isNotNull();
 
     RegisteredToolchainsValue value = result.get(toolchainsKey);
-    // We have two registered toolchains, and two default for c++
-    assertThat(value.registeredToolchains()).hasSize(4);
+    // We have two registered toolchains, and a default for c++
+    assertThat(value.registeredToolchains()).hasSize(3);
 
     assertThat(
             value
