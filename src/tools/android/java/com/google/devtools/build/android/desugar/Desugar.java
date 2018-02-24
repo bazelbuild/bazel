@@ -617,6 +617,7 @@ class Desugar {
       // Don't need a ClassReaderFactory b/c static interface methods should've been moved.
       ClassVisitor visitor = writer;
       if (coreLibrarySupport != null) {
+        visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
         visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
         visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
       }
@@ -669,6 +670,7 @@ class Desugar {
     ClassVisitor visitor = checkNotNull(writer);
 
     if (coreLibrarySupport != null) {
+      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
       visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
       visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
     }
@@ -751,6 +753,7 @@ class Desugar {
     ClassVisitor visitor = checkNotNull(writer);
 
     if (coreLibrarySupport != null) {
+      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
       visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
       visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
     }
