@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
@@ -126,14 +124,7 @@ public class ExecutableSymlinkActionTest {
     Artifact output = new Artifact(outputRoot.getRoot().getRelative("some-output"), outputRoot);
     ExecutableSymlinkAction action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, input, output);
     new SerializationTester(action)
-        .setWriteContextFactory(
-            () ->
-                new SerializationContext(
-                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
-        .setReadContextFactory(
-            () ->
-                new DeserializationContext(
-                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
+        .addDependency(FileSystem.class, scratch.getFileSystem())
         .setVerificationFunction(
             (in, out) -> {
               ExecutableSymlinkAction inAction = (ExecutableSymlinkAction) in;

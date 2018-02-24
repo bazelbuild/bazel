@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -99,14 +97,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
   @Test
   public void testCodec() throws Exception {
     new SerializationTester(action)
-        .setWriteContextFactory(
-            () ->
-                new SerializationContext(
-                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
-        .setReadContextFactory(
-            () ->
-                new DeserializationContext(
-                    ImmutableMap.of(FileSystem.class, scratch.getFileSystem())))
+        .addDependency(FileSystem.class, scratch.getFileSystem())
         .setVerificationFunction(
             (in, out) -> {
               SymlinkAction inAction = (SymlinkAction) in;

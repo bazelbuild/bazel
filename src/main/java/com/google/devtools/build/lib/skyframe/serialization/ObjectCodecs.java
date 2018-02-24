@@ -36,7 +36,8 @@ public class ObjectCodecs {
    * Creates an instance using the supplied {@link ObjectCodecRegistry} for looking up {@link
    * ObjectCodec}s.
    */
-  ObjectCodecs(ObjectCodecRegistry codecRegistry, ImmutableMap<Class<?>, Object> dependencies) {
+  public ObjectCodecs(
+      ObjectCodecRegistry codecRegistry, ImmutableMap<Class<?>, Object> dependencies) {
     this.codecRegistry = codecRegistry;
     serializationContext = new SerializationContext(codecRegistry, dependencies);
     deserializationContext = new DeserializationContext(codecRegistry, dependencies);
