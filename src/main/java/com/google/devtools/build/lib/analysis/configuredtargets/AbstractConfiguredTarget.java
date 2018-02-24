@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -71,11 +70,6 @@ public abstract class AbstractConfiguredTarget
     this.label = label;
     this.configuration = configuration;
     this.visibility = visibility;
-  }
-
-  @Deprecated // For callers to be serializable, they shouldn't have a TargetContext constructor.
-  public AbstractConfiguredTarget(TargetContext targetContext) {
-    this(targetContext.getLabel(), targetContext.getConfiguration(), targetContext.getVisibility());
   }
 
   @Override

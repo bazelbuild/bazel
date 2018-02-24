@@ -29,15 +29,20 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.function.Consumer;
@@ -77,15 +82,24 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final String ruleClassString;
 
-  public RuleConfiguredTarget(RuleContext ruleContext, TransitiveInfoProviderMap providers) {
-    super(ruleContext);
+  @Instantiator
+  @VisibleForSerialization
+  RuleConfiguredTarget(
+      Label label,
+      BuildConfiguration configuration,
+      NestedSet<PackageGroupContents> visibility,
+      TransitiveInfoProviderMap providers,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ImmutableSet<ConfiguredTargetKey> implicitDeps,
+      String ruleClassString) {
+    super(label, configuration, visibility);
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder().addAll(providers);
-    Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class));
-    Preconditions.checkState(providerBuilder.contains(FileProvider.class));
-    Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class));
+    Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class), label);
+    Preconditions.checkState(providerBuilder.contains(FileProvider.class), label);
+    Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class), label);
 
     // Initialize every SkylarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
@@ -96,9 +110,20 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     }
 
     this.providers = providerBuilder.build();
-    this.configConditions = ruleContext.getConfigConditions();
-    this.implicitDeps = IMPLICIT_DEPS_INTERNER.intern(Util.findImplicitDeps(ruleContext));
-    this.ruleClassString = ruleContext.getRule().getRuleClass();
+    this.configConditions = configConditions;
+    this.implicitDeps = IMPLICIT_DEPS_INTERNER.intern(implicitDeps);
+    this.ruleClassString = ruleClassString;
+  }
+
+  public RuleConfiguredTarget(RuleContext ruleContext, TransitiveInfoProviderMap providers) {
+    this(
+        ruleContext.getLabel(),
+        ruleContext.getConfiguration(),
+        ruleContext.getVisibility(),
+        providers,
+        ruleContext.getConfigConditions(),
+        Util.findImplicitDeps(ruleContext),
+        ruleContext.getRule().getRuleClass());
 
     // If this rule is the run_under target, then check that we have an executable; note that
     // run_under is only set in the target configuration, and the target must also be analyzed for
