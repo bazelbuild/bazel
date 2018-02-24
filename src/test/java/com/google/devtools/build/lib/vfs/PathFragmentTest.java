@@ -154,12 +154,12 @@ public class PathFragmentTest {
   @Test
   public void testGetChildRejectsInvalidBaseNames() {
     PathFragment pf = create("../some/path");
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> pf.getChild("."));
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> pf.getChild(".."));
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> pf.getChild("x/y"));
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> pf.getChild("/y"));
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> pf.getChild("y/"));
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> pf.getChild(""));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("."));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild(".."));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("x/y"));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("/y"));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild("y/"));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> pf.getChild(""));
   }
 
   @Test
@@ -307,13 +307,13 @@ public class PathFragmentTest {
     assertThat(create("foo/bar/baz").subFragment(2).getPathString()).isEqualTo("baz");
     assertThat(create("foo/bar/baz").subFragment(3).getPathString()).isEqualTo("");
 
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4, 4));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4));
   }
 
@@ -356,12 +356,12 @@ public class PathFragmentTest {
     PathFragment.checkAllPathsAreUnder(ImmutableList.<PathFragment>of(), create("a"));
 
     // Check fails when some path does not start with startingWithPath:
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () -> PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "b/c"), create("a")));
 
     // Check fails when some path is equal to startingWithPath:
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () -> PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a"), create("a")));
   }
@@ -407,14 +407,14 @@ public class PathFragmentTest {
   public void testToRelative() {
     assertThat(create("/foo/bar").toRelative()).isEqualTo(create("foo/bar"));
     assertThat(create("/").toRelative()).isEqualTo(create(""));
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> create("foo").toRelative());
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("foo").toRelative());
   }
 
   @Test
   public void testGetDriveStr() {
     assertThat(create("/foo/bar").getDriveStr()).isEqualTo("/");
     assertThat(create("/").getDriveStr()).isEqualTo("/");
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
   }
 
   static List<PathFragment> toPaths(List<String> strs) {
@@ -540,8 +540,8 @@ public class PathFragmentTest {
     assertThat(create("/a/b").getSegment(1)).isEqualTo("b");
     assertThat(create("/a/b/c").getSegment(2)).isEqualTo("c");
 
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> create("").getSegment(0));
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> create("a/b").getSegment(2));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("").getSegment(0));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> create("a/b").getSegment(2));
   }
 
   @Test

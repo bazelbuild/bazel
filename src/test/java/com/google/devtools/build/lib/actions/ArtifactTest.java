@@ -296,7 +296,7 @@ public class ArtifactTest {
   @Test
   public void testWeirdArtifact() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () ->
             new Artifact(

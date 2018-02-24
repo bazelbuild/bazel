@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,10 +91,12 @@ public class SkylarkInfoTest {
   @Test
   public void schemafulValuesMustMatchLayoutArity() throws Exception {
     SkylarkProvider provider = makeProvider();
-    IllegalArgumentException expected = expectThrows(
-        IllegalArgumentException.class,
-        () -> SkylarkInfo.createSchemaful(
-            provider, layoutF1F2, new Object[]{4}, Location.BUILTIN));
+    IllegalArgumentException expected =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                SkylarkInfo.createSchemaful(
+                    provider, layoutF1F2, new Object[] {4}, Location.BUILTIN));
     assertThat(expected).hasMessageThat()
         .contains("Layout has length 2, but number of given values was 1");
   }
@@ -171,9 +172,8 @@ public class SkylarkInfoTest {
     SkylarkInfo info1 = makeSchemalessInfoWithF1F2Values(provider1, 4, 5);
     SkylarkInfo info2 = makeSchemalessInfoWithF1F2Values(provider2, 4, 5);
     EvalException expected =
-        expectThrows(
-            EvalException.class,
-            () -> info1.getConcatter().concat(info1, info2, Location.BUILTIN));
+        assertThrows(
+            EvalException.class, () -> info1.getConcatter().concat(info1, info2, Location.BUILTIN));
     assertThat(expected).hasMessageThat()
         .contains("Cannot use '+' operator on instances of different providers");
   }
@@ -184,9 +184,8 @@ public class SkylarkInfoTest {
     SkylarkInfo info1 = makeSchemalessInfoWithF1F2Values(provider1, 4, 5);
     SkylarkInfo info2 = makeSchemalessInfoWithF1F2Values(provider1, 4, null);
     EvalException expected =
-        expectThrows(
-            EvalException.class,
-            () -> info1.getConcatter().concat(info1, info2, Location.BUILTIN));
+        assertThrows(
+            EvalException.class, () -> info1.getConcatter().concat(info1, info2, Location.BUILTIN));
     assertThat(expected).hasMessageThat()
         .contains("Cannot use '+' operator on provider instances with overlapping field(s): f1");
   }

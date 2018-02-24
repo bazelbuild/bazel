@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -2088,8 +2088,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "main_rule(name='main')");
 
     AssertionError expected =
-        expectThrows(AssertionError.class,
-            () -> getConfiguredTarget("//test:main"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
     assertThat(expected).hasMessageThat()
         .contains("invalid configuration fragment name 'notarealfragment'");
@@ -2114,8 +2113,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "main_rule(name='main')");
 
     AssertionError expected =
-        expectThrows(AssertionError.class,
-            () -> getConfiguredTarget("//test:main"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
     assertThat(expected).hasMessageThat()
         .contains("has to declare 'apple' as a required fragment in target configuration");
@@ -2140,8 +2138,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "main_rule(name='main')");
 
     AssertionError expected =
-        expectThrows(AssertionError.class,
-            () -> getConfiguredTarget("//test:main"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
     assertThat(expected).hasMessageThat()
         .contains("invalid configuration field name 'notarealfield' on fragment 'apple'");
@@ -2167,8 +2164,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "main_rule(name='main')");
 
     AssertionError expected =
-        expectThrows(AssertionError.class,
-            () -> getConfiguredTarget("//test:main"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
     assertThat(expected).hasMessageThat()
         .contains("When an attribute value is a function, "
@@ -2195,8 +2191,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "main_rule(name='main')");
 
     AssertionError expected =
-        expectThrows(AssertionError.class,
-            () -> getConfiguredTarget("//test:main"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
     assertThat(expected).hasMessageThat()
         .contains("argument 'default' has type 'SkylarkLateBoundDefault', but should be 'int'");

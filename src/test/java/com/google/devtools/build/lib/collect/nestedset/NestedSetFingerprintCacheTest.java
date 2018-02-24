@@ -149,14 +149,14 @@ public class NestedSetFingerprintCacheTest {
     // Make sure a ParametrizedMapFn doesn't get blacklisted until it exceeds its instance count
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(1), new Fingerprint(), nestedSet);
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(2), new Fingerprint(), nestedSet);
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () ->
             cache.addNestedSetToFingerprint(
                 new IntParametrizedMapFn(3), new Fingerprint(), nestedSet));
 
     // Make sure a capturing method reference gets blacklisted
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () -> {
           for (int i = 0; i < 2; ++i) {
@@ -166,7 +166,7 @@ public class NestedSetFingerprintCacheTest {
         });
 
     // Do make sure that a capturing lambda gets blacklisted
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () -> {
           for (int i = 0; i < 2; ++i) {

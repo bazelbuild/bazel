@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -273,7 +273,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     createBuildFile(nonExistentRoot1, "X");
     // The package isn't found
     // The package is found, because we didn't drop the root:
-    expectThrows(
+    assertThrows(
         NoSuchPackageException.class,
         () -> locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("X")));
 

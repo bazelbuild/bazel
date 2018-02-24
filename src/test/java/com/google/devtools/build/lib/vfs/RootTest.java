@@ -62,7 +62,7 @@ public class RootTest {
     assertThat(root.relativize(fs.getPath("/foo/bar"))).isEqualTo(PathFragment.create("bar"));
     assertThat(root.relativize(PathFragment.create("/foo/bar")))
         .isEqualTo(PathFragment.create("bar"));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class, () -> root.relativize(PathFragment.create("foo")));
   }
 
@@ -77,11 +77,11 @@ public class RootTest {
     assertThat(root.relativize(fs.getPath("/foo"))).isEqualTo(PathFragment.create("/foo"));
     assertThat(root.relativize(PathFragment.create("/foo"))).isEqualTo(PathFragment.create("/foo"));
 
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class, () -> root.getRelative(PathFragment.create("foo")));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class, () -> root.getRelative(PathFragment.create("foo")));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class, () -> root.relativize(PathFragment.create("foo")));
   }
 

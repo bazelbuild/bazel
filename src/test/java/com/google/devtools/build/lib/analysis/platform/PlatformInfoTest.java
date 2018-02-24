@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -60,7 +60,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
     builder.addConstraint(ConstraintValueInfo.create(setting3, makeLabel("//constraint:value6")));
 
     PlatformInfo.DuplicateConstraintException exception =
-        expectThrows(PlatformInfo.DuplicateConstraintException.class, () -> builder.build());
+        assertThrows(PlatformInfo.DuplicateConstraintException.class, () -> builder.build());
     assertThat(exception)
         .hasMessageThat()
         .contains(

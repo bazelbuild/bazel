@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -1599,9 +1599,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
       "my_rule(name = 'main', exe = ':tool.sh')"
     );
 
-    AssertionError expected = expectThrows(
-        AssertionError.class,
-        () -> createRuleContext("//third_party/foo:main"));
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> createRuleContext("//third_party/foo:main"));
     assertThat(expected).hasMessageThat()
         .contains("cfg parameter is mandatory when executable=True is provided.");
   }

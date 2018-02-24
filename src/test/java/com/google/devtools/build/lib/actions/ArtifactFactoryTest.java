@@ -205,10 +205,10 @@ public class ArtifactFactoryTest {
                 .getSourceArtifact(PathFragment.create("/foo"), absoluteRoot)
                 .getExecPath())
         .isEqualTo(PathFragment.create("/foo"));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () -> artifactFactory.getSourceArtifact(PathFragment.create("/foo"), root));
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class,
         () -> artifactFactory.getSourceArtifact(PathFragment.create("foo"), absoluteRoot));
   }

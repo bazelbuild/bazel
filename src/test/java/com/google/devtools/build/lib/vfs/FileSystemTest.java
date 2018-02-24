@@ -1087,12 +1087,12 @@ public abstract class FileSystemTest {
   // Test the Paths
   @Test
   public void testGetPathOnlyAcceptsAbsolutePath() {
-    MoreAsserts.expectThrows(IllegalArgumentException.class, () -> testFS.getPath("not-absolute"));
+    MoreAsserts.assertThrows(IllegalArgumentException.class, () -> testFS.getPath("not-absolute"));
   }
 
   @Test
   public void testGetPathOnlyAcceptsAbsolutePathFragment() {
-    MoreAsserts.expectThrows(
+    MoreAsserts.assertThrows(
         IllegalArgumentException.class, () -> testFS.getPath(PathFragment.create("not-absolute")));
   }
 

@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -116,7 +116,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "--android_crosstool_top=//android/crosstool:everything");
 
     AssertionError noToolchainError =
-        expectThrows(AssertionError.class, () -> getConfiguredTarget("//test/skylark:test"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test/skylark:test"));
     assertThat(noToolchainError)
         .hasMessageThat()
         .contains("No default_toolchain found for cpu 'doesnotexist'");

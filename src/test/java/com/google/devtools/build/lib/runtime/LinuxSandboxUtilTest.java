@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.expectThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -37,7 +37,7 @@ public final class LinuxSandboxUtilTest {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, flo");
 
     Exception e =
-        expectThrows(
+        assertThrows(
             IllegalStateException.class,
             () ->
                 LinuxSandboxUtil.commandLineBuilder(linuxSandboxPath, commandArguments)
