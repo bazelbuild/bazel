@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -205,6 +206,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
       Optional<FieldValueAndClass> hasField =
           getFieldByNameRecursive(encodedType, parameter.getSimpleName().toString());
       if (hasField.isPresent()) {
+        Preconditions.checkArgument(
+            areTypesRelated(hasField.get().value.asType(), parameter.asType()),
+            "%s: parameter %s's type %s is unrelated to corresponding field type %s",
+            encodedType.getQualifiedName(),
+            parameter.getSimpleName(),
+            parameter.asType(),
+            hasField.get().value.asType());
         switch (typeKind) {
           case BOOLEAN:
             serializeBuilder.addStatement(
@@ -248,6 +256,15 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return serializeBuilder.build();
   }
 
+  private boolean areTypesRelated(TypeMirror t1, TypeMirror t2) {
+    // If either type is generic, they are considered related.
+    // TODO(bazel-team): it may be possible to tighten this.
+    if (t1.getKind().equals(TypeKind.TYPEVAR) || t2.getKind().equals(TypeKind.TYPEVAR)) {
+      return true;
+    }
+    return env.getTypeUtils().isAssignable(t1, t2) || env.getTypeUtils().isAssignable(t2, t1);
+  }
+
   private String findGetterForClass(VariableElement parameter, TypeElement type) {
     List<ExecutableElement> methods =
         ElementFilter.methodsIn(env.getElementUtils().getAllMembers(type));
@@ -264,8 +281,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
     ImmutableList<String> possibleGetterNames = possibleGetterNamesBuilder.build();
 
-    for (Element element : methods) {
-      if (possibleGetterNames.contains(element.getSimpleName().toString())) {
+    for (ExecutableElement element : methods) {
+      if (possibleGetterNames.contains(element.getSimpleName().toString())
+          && areTypesRelated(parameter.asType(), element.getReturnType())) {
         return element.getSimpleName().toString();
       }
     }
