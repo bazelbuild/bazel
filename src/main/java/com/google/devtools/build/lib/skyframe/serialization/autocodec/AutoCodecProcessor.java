@@ -94,7 +94,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
       TypeElement encodedType = (TypeElement) element;
-      TypeSpec.Builder codecClassBuilder = null;
+      TypeSpec.Builder codecClassBuilder;
       switch (annotation.strategy()) {
         case INSTANTIATOR:
           codecClassBuilder = buildClassWithInstantiatorStrategy(encodedType);
@@ -202,7 +202,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
     MethodSpec.Builder serializeBuilder =
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType);
     for (VariableElement parameter : fields) {
-      TypeKind typeKind = parameter.asType().getKind();
       Optional<FieldValueAndClass> hasField =
           getFieldByNameRecursive(encodedType, parameter.getSimpleName().toString());
       if (hasField.isPresent()) {
@@ -213,42 +212,18 @@ public class AutoCodecProcessor extends AbstractProcessor {
             parameter.getSimpleName(),
             parameter.asType(),
             hasField.get().value.asType());
-        switch (typeKind) {
-          case BOOLEAN:
-            serializeBuilder.addStatement(
-                "codedOut.writeBoolNoTag($T.getInstance().getBoolean(input, $L_offset))",
-                UnsafeProvider.class,
-                parameter.getSimpleName());
-            break;
-          case INT:
-            serializeBuilder.addStatement(
-                "codedOut.writeInt32NoTag($T.getInstance().getInt(input, $L_offset))",
-                UnsafeProvider.class,
-                parameter.getSimpleName());
-            break;
-          case DOUBLE:
-            serializeBuilder.addStatement(
-                "codedOut.writeDoubleNoTag($T.getInstance().getDouble(input, $L_offset))",
-                UnsafeProvider.class,
-                parameter.getSimpleName());
-            break;
-          case ARRAY:
-            // fall through
-          case DECLARED:
-            serializeBuilder.addStatement(
-                "$T unsafe_$L = ($T) $T.getInstance().getObject(input, $L_offset)",
-                parameter.asType(),
-                parameter.getSimpleName(),
-                parameter.asType(),
-                UnsafeProvider.class,
-                parameter.getSimpleName());
+        TypeKind typeKind = parameter.asType().getKind();
+        serializeBuilder.addStatement(
+            "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
+            parameter.asType(),
+            parameter.getSimpleName(),
+            parameter.asType(),
+            UnsafeProvider.class,
+            typeKind.isPrimitive() ? firstLetterUpper(typeKind.toString().toLowerCase()) : "Object",
+            parameter.getSimpleName());
             marshallers.writeSerializationCode(
                 new Marshaller.Context(
                     serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
-            break;
-          default:
-            throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
-        }
       } else {
         addSerializeParameterWithGetter(encodedType, parameter, serializeBuilder);
       }
@@ -292,37 +267,19 @@ public class AutoCodecProcessor extends AbstractProcessor {
         type + ": No getter found corresponding to parameter " + parameter.getSimpleName());
   }
 
-  private String addCamelCasePrefix(String name, String prefix) {
-    if (name.length() == 1) {
-      return prefix + Character.toUpperCase(name.charAt(0));
-    } else {
-      return prefix + Character.toUpperCase(name.charAt(0)) + name.substring(1);
-    }
+  private static String addCamelCasePrefix(String name, String prefix) {
+    return prefix + firstLetterUpper(name);
+  }
+
+  private static String firstLetterUpper(String str) {
+    return Character.toUpperCase(str.charAt(0)) + (str.length() == 1 ? "" : str.substring(1));
   }
 
   private void addSerializeParameterWithGetter(
       TypeElement encodedType, VariableElement parameter, MethodSpec.Builder serializeBuilder) {
-    TypeKind typeKind = parameter.asType().getKind();
     String getter = "input." + findGetterForClass(parameter, encodedType) + "()";
-    switch (typeKind) {
-      case BOOLEAN:
-        serializeBuilder.addStatement("codedOut.writeBoolNoTag($L)", getter);
-        break;
-      case INT:
-        serializeBuilder.addStatement("codedOut.writeInt32NoTag($L)", getter);
-        break;
-      case DOUBLE:
-        serializeBuilder.addStatement("codedOut.writeDoubleNoTag($L)", getter);
-        break;
-      case ARRAY:
-        // fall through
-      case DECLARED:
-        marshallers.writeSerializationCode(
-            new Marshaller.Context(serializeBuilder, parameter.asType(), getter));
-        break;
-      default:
-        throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
-    }
+    marshallers.writeSerializationCode(
+        new Marshaller.Context(serializeBuilder, parameter.asType(), getter));
   }
 
   private MethodSpec buildSerializeMethodWithInstantiatorForAutoValue(
@@ -365,25 +322,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
         AutoCodecUtil.initializeSerializeMethodBuilder(encodedType);
     for (VariableElement parameter : fields) {
       String paramAccessor = "input." + parameter.getSimpleName();
-      TypeKind typeKind = parameter.asType().getKind();
-      switch (typeKind) {
-        case BOOLEAN:
-          serializeBuilder.addStatement("codedOut.writeBoolNoTag($L)", paramAccessor);
-          break;
-        case INT:
-          serializeBuilder.addStatement("codedOut.writeInt32NoTag($L)", paramAccessor);
-          break;
-        case DOUBLE:
-          serializeBuilder.addStatement("codedOut.writeDoubleNoTag($L)", paramAccessor);
-          break;
-        case ARRAY:
-        case DECLARED:
-          marshallers.writeSerializationCode(
-              new Marshaller.Context(serializeBuilder, parameter.asType(), paramAccessor));
-          break;
-        default:
-          throw new UnsupportedOperationException("Unimplemented or invalid kind: " + typeKind);
-      }
+      marshallers.writeSerializationCode(
+          new Marshaller.Context(serializeBuilder, parameter.asType(), paramAccessor));
     }
     return serializeBuilder.build();
   }
@@ -399,32 +339,15 @@ public class AutoCodecProcessor extends AbstractProcessor {
       MethodSpec.Builder builder, List<? extends VariableElement> fields) {
     for (VariableElement parameter : fields) {
       String paramName = parameter.getSimpleName() + "_";
-      TypeKind typeKind = parameter.asType().getKind();
-      switch (typeKind) {
-        case BOOLEAN:
-          builder.addStatement("boolean $L = codedIn.readBool()", paramName);
-          break;
-        case INT:
-          builder.addStatement("int $L = codedIn.readInt32()", paramName);
-          break;
-        case DOUBLE:
-          builder.addStatement("double $L = codedIn.readDouble()", paramName);
-          break;
-        case ARRAY:
-        case DECLARED:
-          marshallers.writeDeserializationCode(
-              new Marshaller.Context(builder, parameter.asType(), paramName));
-          break;
-        default:
-          throw new IllegalArgumentException("Unimplemented or invalid kind: " + typeKind);
-      }
+      marshallers.writeDeserializationCode(
+          new Marshaller.Context(builder, parameter.asType(), paramName));
     }
   }
 
   /**
    * Invokes the instantiator and returns the value.
    *
-   * <p>Used by the {@link AutoCodec.Strategy.INSTANTIATOR} strategy.
+   * <p>Used by the {@link AutoCodec.Strategy#INSTANTIATOR} strategy.
    */
   private static void addReturnNew(
       MethodSpec.Builder builder, TypeElement type, ExecutableElement instantiator) {
@@ -469,7 +392,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
   /**
    * Invokes the constructor, populates public fields and returns the value.
    *
-   * <p>Used by the {@link AutoCodec.Strategy.PUBLIC_FIELDS} strategy.
+   * <p>Used by the {@link AutoCodec.Strategy#PUBLIC_FIELDS} strategy.
    */
   private static void addInstantiatePopulateFieldsAndReturn(
       MethodSpec.Builder builder, TypeElement type, List<? extends VariableElement> fields) {

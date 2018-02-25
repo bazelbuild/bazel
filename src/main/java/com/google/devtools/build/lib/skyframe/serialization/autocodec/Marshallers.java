@@ -185,7 +185,7 @@ class Marshallers {
         }
       };
 
-  private final PrimitiveValueSerializationCodeGenerator intCodeGenerator =
+  private static final PrimitiveValueSerializationCodeGenerator INT_CODE_GENERATOR =
       new PrimitiveValueSerializationCodeGenerator() {
         @Override
         public boolean matches(PrimitiveType type) {
@@ -200,6 +200,78 @@ class Marshallers {
         @Override
         public void addDeserializationCode(Context context) {
           context.builder.addStatement("$L = codedIn.readInt32()", context.name);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator LONG_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.LONG;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.writeInt64NoTag($L)", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement("$L = codedIn.readInt64()", context.name);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator BYTE_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.BYTE;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.write($L)", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement("$L = codedIn.readRawByte()", context.name);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator BOOLEAN_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.BOOLEAN;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.writeBoolNoTag($L)", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement("$L = codedIn.readBool()", context.name);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator DOUBLE_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.DOUBLE;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.writeDoubleNoTag($L)", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement("$L = codedIn.readDouble()", context.name);
         }
       };
 
@@ -882,7 +954,12 @@ class Marshallers {
       };
 
   private final ImmutableList<PrimitiveValueSerializationCodeGenerator> primitiveGenerators =
-      ImmutableList.of(intCodeGenerator);
+      ImmutableList.of(
+          INT_CODE_GENERATOR,
+          LONG_CODE_GENERATOR,
+          BYTE_CODE_GENERATOR,
+          BOOLEAN_CODE_GENERATOR,
+          DOUBLE_CODE_GENERATOR);
 
   private final ImmutableList<Marshaller> marshallers =
       ImmutableList.of(
