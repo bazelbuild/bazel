@@ -1,3 +1,4 @@
+do not merge
 # [Bazel](https://bazel.build)
 
 *{Fast, Correct} - Choose two*
