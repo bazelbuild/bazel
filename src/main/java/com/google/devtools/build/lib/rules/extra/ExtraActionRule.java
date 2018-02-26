@@ -144,7 +144,7 @@ public final class ExtraActionRule implements RuleDefinition {
   access to a file containing a protocol buffer as $(EXTRA_ACTION_FILE)
   with detailed information on the original action it is shadowing.
   It also has access to all the input files the original action has access to.
-  See <tt>extra_actions.proto</tt>
+  See <tt>extra_actions_base.proto</tt>
   for details on the data stored inside the protocol buffer. Each proto file
   contains an ExtraActionInfo message.
 </p>
