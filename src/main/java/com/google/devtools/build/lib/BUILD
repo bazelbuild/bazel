@@ -1112,11 +1112,38 @@ java_library(
 )
 
 java_library(
+    name = "server",
+    srcs = [
+        "server/GrpcServerImpl.java",
+        "server/IdleServerTasks.java",
+    ],
+    deps = [
+        ":runtime",
+        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:unix",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:invocation_policy",
+        "//src/main/protobuf:command_server_java_grpc",
+        "//src/main/protobuf:command_server_java_proto",
+        "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/grpc:grpc-jar",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
             "runtime/*.java",
-            "server/**/*.java",
             "runtime/commands/*.java",
             "runtime/mobileinstall/*.java",
             "buildtool/*.java",
@@ -1127,7 +1154,10 @@ java_library(
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
         ],
-    ),
+    ) + [
+        "server/RPCServer.java",
+        "server/signal/InterruptSignalHandler.java",
+    ],
     deps = [
         ":build-request-options",
         ":keep-going-option",
@@ -1172,7 +1202,6 @@ java_library(
         "//src/main/protobuf:bazel_flags_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:command_line_java_proto",
-        "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
@@ -1180,7 +1209,6 @@ java_library(
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -1267,6 +1295,7 @@ java_binary(
     ],
     main_class = "com.google.devtools.build.lib.bazel.BazelMain",
     runtime_deps = [
+        ":server",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:single-line-formatter",  # See startup_options.cc
     ],
