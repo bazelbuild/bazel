@@ -92,7 +92,7 @@ public final class LValue extends ASTNode {
    */
   private static void assignIdentifier(
       Identifier ident, Object value, Environment env, Location loc)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     Preconditions.checkNotNull(value, "trying to assign null to %s", ident);
 
     if (env.isKnownGlobalVariable(ident.getName())) {
@@ -116,7 +116,7 @@ public final class LValue extends ASTNode {
   @SuppressWarnings("unchecked")
   private static void assignItem(
       Object object, Object key, Object value, Environment env, Location loc)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     if (object instanceof SkylarkDict) {
       SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
       dict.put(key, value, loc, env);
@@ -207,9 +207,14 @@ public final class LValue extends ASTNode {
    * </ul>
    */
   public ImmutableSet<Identifier> boundIdentifiers() {
-    ImmutableSet.Builder<Identifier> result = ImmutableSet.builder();
-    collectBoundIdentifiers(expr, result);
-    return result.build();
+    if (expr instanceof Identifier) {
+      // Common case/fast path - skip the builder.
+      return ImmutableSet.of((Identifier) expr);
+    } else {
+      ImmutableSet.Builder<Identifier> result = ImmutableSet.builder();
+      collectBoundIdentifiers(expr, result);
+      return result.build();
+    }
   }
 
   private static void collectBoundIdentifiers(
