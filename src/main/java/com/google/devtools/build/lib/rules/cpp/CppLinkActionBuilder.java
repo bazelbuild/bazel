@@ -1191,19 +1191,25 @@ public class CppLinkActionBuilder {
 
     if (!isLtoIndexing) {
       for (Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
+        Iterable<Artifact> inputs;
+        if (cppConfiguration.shouldFixLinkstampInputsBug()) {
+          inputs = IterablesChain.<Artifact>builder()
+              .add(ImmutableSet.copyOf(nonCodeInputs))
+              // We don't want to add outputs of this linkstamp compilation action to
+              // inputsBuilder before this line, since that would introduce a cycle in the
+              // graph.
+              .add(inputsBuilder.deduplicate().build())
+              .build();
+        } else {
+          inputs = ImmutableSet.copyOf(nonCodeInputs);
+        }
         analysisEnvironment.registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleContext,
                 linkstampEntry.getKey().getArtifact(),
                 linkstampEntry.getValue(),
                 linkstampEntry.getKey().getDeclaredIncludeSrcs(),
-                NestedSetBuilder.<Artifact>stableOrder()
-                    .addAll(nonCodeInputs)
-                    // We don't want to add outputs of this linkstamp compilation action to
-                    // inputsBuilder before this line, since that would introduce a cycle in the
-                    // graph.
-                    .addAll(inputsBuilder.deduplicate().build())
-                    .build(),
+                inputs,
                 buildInfoHeaderArtifacts,
                 additionalLinkstampDefines,
                 toolchain,
