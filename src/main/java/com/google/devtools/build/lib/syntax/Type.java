@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 
@@ -512,9 +512,10 @@ public abstract class Type<T> {
       if (!(x instanceof Map<?, ?>)) {
         throw new ConversionException(this, x, what);
       }
-      // Order the keys so the return value will be independent of insertion order.
-      Map<KeyT, ValueT> result = new TreeMap<>();
       Map<?, ?> o = (Map<?, ?>) x;
+      // It's possible that #convert() calls transform non-equal keys into equal ones so we can't
+      // just use ImmutableMap.Builder() here (that throws on collisions). 
+      LinkedHashMap<KeyT, ValueT> result = new LinkedHashMap<>();
       for (Entry<?, ?> elem : o.entrySet()) {
         result.put(
             keyType.convert(elem.getKey(), "dict key element", context),

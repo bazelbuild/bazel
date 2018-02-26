@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -2137,5 +2139,23 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             .contains("Use --incompatible_new_actions_api=false");
       }
     }
+  }
+
+  @Test
+  public void testMapAttributeOrdering() throws Exception {
+    scratch.file("a/a.bzl",
+        "key_provider = provider(fields=['keys'])",
+        "def _impl(ctx):",
+        "  return [key_provider(keys=ctx.attr.value.keys())]",
+        "a = rule(implementation=_impl, attrs={'value': attr.string_dict()})");
+    scratch.file("a/BUILD",
+        "load(':a.bzl', 'a')",
+        "a(name='a', value={'c': 'c', 'b': 'b', 'a': 'a', 'f': 'f', 'e': 'e', 'd': 'd'})");
+
+    ConfiguredTarget a = getConfiguredTarget("//a");
+    SkylarkKey key = new SkylarkKey(Label.parseAbsolute("//a:a.bzl"), "key_provider");
+    @SuppressWarnings("unchecked")
+    SkylarkList<String> keys = (SkylarkList<String>) a.get(key).getValue("keys");
+    assertThat(keys).containsExactly("c", "b", "a", "f", "e", "d").inOrder();
   }
 }
