@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * Depth-first implementation of cycle detection after a {@link ParallelEvaluator} evaluation has
  * completed with at least one root unfinished.
  */
-class SimpleCycleDetector implements CycleDetector {
+public class SimpleCycleDetector implements CycleDetector {
   private static final Logger logger = Logger.getLogger(SimpleCycleDetector.class.getName());
 
   @Override

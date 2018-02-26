@@ -1207,11 +1207,25 @@ public class MemoizingEvaluatorTest {
     }
   }
 
-  /** {@link ParallelEvaluator} can be configured to not store errors alongside recovered values. */
+  /**
+   * {@link ParallelEvaluator} can be configured to not store errors alongside recovered values.
+   *
+   * @param errorsStoredAlongsideValues true if we expect Skyframe to store the error for the
+   * cycle in ErrorInfo. If true, supportsTransientExceptions must be true as well.
+   * @param supportsTransientExceptions true if we expect Skyframe to mark an ErrorInfo as transient
+   * for certain exception types.
+   * @param useTransientError true if the test should set the {@link TestFunction} it creates to
+   * throw a transient error.
+   */
   protected void parentOfCycleAndErrorInternal(
-      boolean errorsStoredAlongsideValues, boolean useTransientError)
+      boolean errorsStoredAlongsideValues,
+      boolean supportsTransientExceptions,
+      boolean useTransientError)
       throws Exception {
     initializeTester();
+    if (errorsStoredAlongsideValues) {
+      Preconditions.checkArgument(supportsTransientExceptions);
+    }
     SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
     SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
     SkyKey mid = GraphTester.toSkyKey("mid");
@@ -1247,8 +1261,13 @@ public class MemoizingEvaluatorTest {
     } else {
       // When errors are not stored alongside values, transient errors that are recovered from do
       // not make the parent transient
-      assertThatErrorInfo(errorInfo).isNotTransient();
-      assertThatErrorInfo(errorInfo).hasExceptionThat().isNull();
+      if (supportsTransientExceptions) {
+        assertThatErrorInfo(errorInfo).isTransient();
+        assertThatErrorInfo(errorInfo).hasExceptionThat().isNotNull();
+      } else {
+        assertThatErrorInfo(errorInfo).isNotTransient();
+        assertThatErrorInfo(errorInfo).hasExceptionThat().isNull();
+      }
     }
     if (cyclesDetected()) {
       assertThatErrorInfo(errorInfo)
@@ -1267,7 +1286,9 @@ public class MemoizingEvaluatorTest {
   @Test
   public void parentOfCycleAndError() throws Exception {
     parentOfCycleAndErrorInternal(
-        /*errorsStoredAlongsideValues=*/ true, /*useTransientError=*/ true);
+        /*errorsStoredAlongsideValues=*/ true,
+        /*supportsTransientExceptions=*/ true,
+        /*useTransientError=*/ true);
   }
 
   /**
