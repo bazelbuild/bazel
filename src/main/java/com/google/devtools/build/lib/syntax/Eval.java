@@ -111,7 +111,10 @@ public class Eval {
   }
 
   void execIf(IfStatement node) throws EvalException, InterruptedException {
-    for (IfStatement.ConditionalStatements stmt : node.getThenBlocks()) {
+    ImmutableList<IfStatement.ConditionalStatements> thenBlocks = node.getThenBlocks();
+    // Avoid iterator overhead - most of the time there will be one or few "if"s.
+    for (int i = 0; i < thenBlocks.size(); i++) {
+      IfStatement.ConditionalStatements stmt = thenBlocks.get(i);
       if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
         exec(stmt);
         return;
