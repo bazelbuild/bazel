@@ -117,13 +117,17 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     if (item instanceof SkylarkNestedSet) {
       SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
       if (!nestedSet.isEmpty()) {
-        contentType = getTypeAfterInsert(contentType, nestedSet.contentType, loc);
+        contentType = getTypeAfterInsert(
+            contentType, nestedSet.contentType, /*lastInsertedType=*/ null, loc);
         transitiveItemsBuilder.add(nestedSet.set);
       }
     } else if (item instanceof SkylarkList) {
+      SkylarkType lastInsertedType = null;
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
-        contentType = getTypeAfterInsert(contentType, SkylarkType.of(object.getClass()), loc);
+        SkylarkType elemType = SkylarkType.of(object.getClass());
+        contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, loc);
+        lastInsertedType = elemType;
         checkImmutable(object, loc);
         itemsBuilder.add(object);
       }
@@ -189,21 +193,25 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST);
 
   /**
-   * Throws EvalException if a type overlaps with DICT or LIST.
+   * Checks that an item type is allowed in a given set type, and returns the type of a new depset
+   * with that item inserted.
    */
-  private static void checkTypeNotDictOrList(SkylarkType type, Location loc)
+  private static SkylarkType getTypeAfterInsert(
+      SkylarkType depsetType, SkylarkType itemType, SkylarkType lastInsertedType, Location loc)
       throws EvalException {
-    if (SkylarkType.intersection(DICT_LIST_UNION, type) != SkylarkType.BOTTOM) {
-      throw new EvalException(
-          loc, String.format("depsets cannot contain items of type '%s'", type));
+    if (lastInsertedType != null && lastInsertedType.equals(itemType)) {
+      // Fast path, type shoudln't have changed, so no need to check.
+      // TODO(bazel-team): Make skylark type checking less expensive.
+      return depsetType;
     }
-  }
 
-  /**
-   * Returns the intersection of two types, and throws EvalException if the intersection is bottom.
-   */
-  private static SkylarkType commonNonemptyType(
-      SkylarkType depsetType, SkylarkType itemType, Location loc) throws EvalException {
+    // Check not dict or list.
+    if (SkylarkType.intersection(DICT_LIST_UNION, itemType) != SkylarkType.BOTTOM) {
+      throw new EvalException(
+          loc, String.format("depsets cannot contain items of type '%s'", itemType));
+    }
+
+    // Check compatible.
     SkylarkType resultType = SkylarkType.intersection(depsetType, itemType);
     if (resultType == SkylarkType.BOTTOM) {
       throw new EvalException(
@@ -212,16 +220,6 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               "cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
     }
     return resultType;
-  }
-
-  /**
-   * Checks that an item type is allowed in a given set type, and returns the type of a new depset
-   * with that item inserted.
-   */
-  private static SkylarkType getTypeAfterInsert(
-      SkylarkType depsetType, SkylarkType itemType, Location loc) throws EvalException {
-    checkTypeNotDictOrList(itemType, loc);
-    return commonNonemptyType(depsetType, itemType, loc);
   }
 
   /**
@@ -343,6 +341,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     /** Location for error messages */
     private final Location location;
     private SkylarkType contentType = SkylarkType.TOP;
+    private SkylarkType lastInsertedType = null;
 
     private Builder(Order order, Location location) {
       this.order = order;
@@ -355,7 +354,9 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
      * elements and transitive sets.
      */
     public Builder addDirect(Object direct) throws EvalException {
-      contentType = getTypeAfterInsert(contentType, SkylarkType.of(direct.getClass()), location);
+      SkylarkType elemType = SkylarkType.of(direct.getClass());
+      contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, location);
+      lastInsertedType = elemType;
       builder.add(direct);
       return this;
     }
@@ -369,7 +370,10 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
         return this;
       }
 
-      contentType = getTypeAfterInsert(contentType, transitive.getContentType(), this.location);
+      contentType = getTypeAfterInsert(
+          contentType, transitive.getContentType(), lastInsertedType, this.location);
+      lastInsertedType = transitive.getContentType();
+
       if (!order.isCompatible(transitive.getOrder())) {
         throw new EvalException(location,
             String.format("Order '%s' is incompatible with order '%s'",
