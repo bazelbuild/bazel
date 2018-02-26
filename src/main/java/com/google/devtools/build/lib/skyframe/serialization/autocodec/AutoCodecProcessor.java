@@ -21,15 +21,18 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.CodecScanningConstants;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -93,33 +96,40 @@ public class AutoCodecProcessor extends AbstractProcessor {
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
-      TypeElement encodedType = (TypeElement) element;
-      TypeSpec.Builder codecClassBuilder;
-      switch (annotation.strategy()) {
-        case INSTANTIATOR:
-          codecClassBuilder = buildClassWithInstantiatorStrategy(encodedType);
-          break;
-        case PUBLIC_FIELDS:
-          codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType);
-          break;
-        case SINGLETON:
-          codecClassBuilder = buildClassWithSingletonStrategy(encodedType, env);
-          break;
-        default:
-          throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
+      TypeSpec builtClass;
+      if (element instanceof TypeElement) {
+        TypeElement encodedType = (TypeElement) element;
+        TypeSpec.Builder codecClassBuilder;
+        switch (annotation.strategy()) {
+          case INSTANTIATOR:
+            codecClassBuilder = buildClassWithInstantiatorStrategy(encodedType);
+            break;
+          case PUBLIC_FIELDS:
+            codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType);
+            break;
+          case SINGLETON:
+            codecClassBuilder = buildClassWithSingletonStrategy(encodedType, env);
+            break;
+          default:
+            throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
+        }
+        codecClassBuilder.addMethod(
+            AutoCodecUtil.initializeGetEncodedClassMethod(encodedType, env)
+                .addStatement(
+                    "return $T.class",
+                    TypeName.get(env.getTypeUtils().erasure(encodedType.asType())))
+                .build());
+        builtClass = codecClassBuilder.build();
+      } else {
+        builtClass = buildRegisteredSingletonClass((VariableElement) element);
       }
-      codecClassBuilder.addMethod(
-          AutoCodecUtil.initializeGetEncodedClassMethod(encodedType, env)
-              .addStatement(
-                  "return $T.class", TypeName.get(env.getTypeUtils().erasure(encodedType.asType())))
-              .build());
       String packageName =
-          env.getElementUtils().getPackageOf(encodedType).getQualifiedName().toString();
+          env.getElementUtils().getPackageOf(element).getQualifiedName().toString();
       try {
-        JavaFile file = JavaFile.builder(packageName, codecClassBuilder.build()).build();
+        JavaFile file = JavaFile.builder(packageName, builtClass).build();
         file.writeTo(env.getFiler());
         if (env.getOptions().containsKey(PRINT_GENERATED_OPTION)) {
-          note("AutoCodec generated codec for " + encodedType + ":\n" + file);
+          note("AutoCodec generated codec for " + element + ":\n" + file);
         }
       } catch (IOException e) {
         env.getMessager()
@@ -128,6 +138,30 @@ public class AutoCodecProcessor extends AbstractProcessor {
       }
     }
     return true;
+  }
+
+  private static final Collection<Modifier> REQUIRED_SINGLETON_MODIFIERS =
+      ImmutableList.of(Modifier.STATIC, Modifier.FINAL);
+
+  private static TypeSpec buildRegisteredSingletonClass(VariableElement symbol) {
+    Preconditions.checkState(
+        symbol.getModifiers().containsAll(REQUIRED_SINGLETON_MODIFIERS),
+        "Field must be static and final to be annotated with @AutoCodec: " + symbol);
+    return TypeSpec.classBuilder(
+            AutoCodecUtil.getGeneratedName(
+                symbol, CodecScanningConstants.REGISTERED_SINGLETON_SUFFIX))
+        .addModifiers(Modifier.PUBLIC)
+        .addSuperinterface(RegisteredSingletonDoNotUse.class)
+        .addField(
+            FieldSpec.builder(
+                    TypeName.get(symbol.asType()),
+                    CodecScanningConstants.REGISTERED_SINGLETON_INSTANCE_VAR_NAME,
+                    Modifier.PUBLIC,
+                    Modifier.STATIC,
+                    Modifier.FINAL)
+                .initializer("$T.$L", symbol.getEnclosingElement().asType(), symbol.getSimpleName())
+                .build())
+        .build();
   }
 
   private TypeSpec.Builder buildClassWithInstantiatorStrategy(TypeElement encodedType) {

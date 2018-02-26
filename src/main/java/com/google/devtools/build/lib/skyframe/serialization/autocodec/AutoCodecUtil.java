@@ -104,17 +104,26 @@ class AutoCodecUtil {
   }
 
   /**
-   * Name of the generated codec class.
+   * Returns a class name generated from the given {@code element}.
    *
-   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_AutoCodec}.
+   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_suffix}.
    */
-  private static String getCodecName(Element element) {
+  static String getGeneratedName(Element element, String suffix) {
     ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
-    classNamesBuilder.add(GENERATED_CLASS_NAME_SUFFIX);
+    classNamesBuilder.add(suffix);
     do {
       classNamesBuilder.add(element.getSimpleName().toString());
       element = element.getEnclosingElement();
     } while (element instanceof TypeElement);
     return classNamesBuilder.build().reverse().stream().collect(Collectors.joining("_"));
+  }
+
+  /**
+   * Name of the generated codec class.
+   *
+   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_AutoCodec}.
+   */
+  private static String getCodecName(Element element) {
+    return getGeneratedName(element, GENERATED_CLASS_NAME_SUFFIX);
   }
 }

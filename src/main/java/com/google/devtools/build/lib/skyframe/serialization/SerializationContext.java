@@ -43,6 +43,11 @@ public class SerializationContext {
       codedOut.writeSInt32NoTag(0);
       return;
     }
+    Integer tag = registry.maybeGetTagForConstant(object);
+    if (tag != null) {
+      codedOut.writeSInt32NoTag(tag);
+      return;
+    }
     ObjectCodecRegistry.CodecDescriptor descriptor = registry.getCodecDescriptor(object.getClass());
     codedOut.writeSInt32NoTag(descriptor.getTag());
     descriptor.serialize(this, object, codedOut);

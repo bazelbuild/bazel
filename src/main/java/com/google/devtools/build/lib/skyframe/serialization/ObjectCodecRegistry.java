@@ -20,6 +20,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
@@ -40,8 +41,12 @@ public class ObjectCodecRegistry {
   private final ImmutableList<CodecDescriptor> tagMappedCodecs;
   @Nullable
   private final CodecDescriptor defaultCodecDescriptor;
+  private final IdentityHashMap<Object, Integer> constantsMap;
+  private final ImmutableList<Object> constants;
+  private final int constantsStartTag;
 
-  private ObjectCodecRegistry(Map<String, CodecHolder> codecs, boolean allowDefaultCodec) {
+  private ObjectCodecRegistry(
+      Map<String, CodecHolder> codecs, ImmutableList<Object> constants, boolean allowDefaultCodec) {
     ImmutableMap.Builder<String, CodecDescriptor> codecMappingsBuilder = ImmutableMap.builder();
     int nextTag = 1; // 0 is reserved for null.
     for (String classifier : ImmutableList.sortedCopyOf(codecs.keySet())) {
@@ -53,8 +58,16 @@ public class ObjectCodecRegistry {
     this.byteStringMappedCodecs = makeByteStringMappedCodecs(stringMappedCodecs);
 
     this.defaultCodecDescriptor =
-        allowDefaultCodec ? new TypedCodecDescriptor<>(nextTag, new JavaSerializableCodec()) : null;
+        allowDefaultCodec
+            ? new TypedCodecDescriptor<>(nextTag++, new JavaSerializableCodec())
+            : null;
     this.tagMappedCodecs = makeTagMappedCodecs(stringMappedCodecs, defaultCodecDescriptor);
+    constantsStartTag = nextTag;
+    constantsMap = new IdentityHashMap<>();
+    for (Object constant : constants) {
+      constantsMap.put(constant, nextTag++);
+    }
+    this.constants = constants;
   }
 
   /** Returns the {@link CodecDescriptor} associated with the supplied classifier. */
@@ -105,6 +118,18 @@ public class ObjectCodecRegistry {
           "No codec available for " + type + " and default fallback disabled");
     }
     return defaultCodecDescriptor;
+  }
+
+  @Nullable
+  Object maybeGetConstantByTag(int tag) {
+    return tag < constantsStartTag || tag - constantsStartTag >= constants.size()
+        ? null
+        : constants.get(tag - constantsStartTag);
+  }
+
+  @Nullable
+  Integer maybeGetTagForConstant(Object object) {
+    return constantsMap.get(object);
   }
 
   /** Returns the {@link CodecDescriptor} associated with the supplied tag. */
@@ -214,6 +239,7 @@ public class ObjectCodecRegistry {
   /** Builder for {@link ObjectCodecRegistry}. */
   public static class Builder {
     private final ImmutableMap.Builder<String, CodecHolder> codecsBuilder = ImmutableMap.builder();
+    private final ImmutableList.Builder<Object> constantsBuilder = ImmutableList.builder();
     private boolean allowDefaultCodec = true;
 
     /**
@@ -240,13 +266,19 @@ public class ObjectCodecRegistry {
       return this;
     }
 
+    public Builder addConstant(Object object) {
+      constantsBuilder.add(object);
+      return this;
+    }
+
     /** Wrap this builder with a {@link ClassKeyedBuilder}. */
     public ClassKeyedBuilder asClassKeyedBuilder() {
       return new ClassKeyedBuilder(this);
     }
 
     public ObjectCodecRegistry build() {
-      return new ObjectCodecRegistry(codecsBuilder.build(), allowDefaultCodec);
+      return new ObjectCodecRegistry(
+          codecsBuilder.build(), constantsBuilder.build(), allowDefaultCodec);
     }
   }
 

@@ -14,12 +14,18 @@ java_library(
     exports = [
         ":autocodec-annotation",
         # Generated classes have the following dependencies.
+        ":registered-singleton",
         ":unsafe-provider",
         "//third_party/protobuf:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
     ],
+)
+
+java_library(
+    name = "registered-singleton",
+    srcs = ["RegisteredSingletonDoNotUse.java"],
 )
 
 # @AutoCodec annotation only. Used by clients and the processor.
@@ -53,6 +59,7 @@ java_library(
     ],
     deps = [
         ":autocodec-annotation",
+        ":registered-singleton",
         ":unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:serialization",

@@ -17,14 +17,19 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.RegisteredSingletonDoNotUse;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -52,7 +57,8 @@ public class CodecScanner {
       throws IOException, ReflectiveOperationException {
     ArrayList<Class<? extends ObjectCodec<?>>> codecs = new ArrayList<>();
     ArrayList<Class<? extends CodecRegisterer<?>>> registerers = new ArrayList<>();
-    scanCodecs(packagePrefix)
+    List<ClassInfo> classInfos = getClassInfos(packagePrefix).collect(Collectors.toList());
+    getCodecs(classInfos)
         .forEach(
             type -> {
               if (!ObjectCodec.class.equals(type) && ObjectCodec.class.isAssignableFrom(type)) {
@@ -63,8 +69,40 @@ public class CodecScanner {
                 registerers.add((Class<? extends CodecRegisterer<?>>) type);
               }
             });
-
     ObjectCodecRegistry.Builder builder = ObjectCodecRegistry.newBuilder();
+    getMatchingClasses(
+            classInfos,
+            classInfo ->
+                classInfo
+                    .getSimpleName()
+                    .endsWith(CodecScanningConstants.REGISTERED_SINGLETON_SUFFIX))
+        .forEach(
+            type -> {
+              if (!RegisteredSingletonDoNotUse.class.isAssignableFrom(type)) {
+                return;
+              }
+              Field field;
+              try {
+                field =
+                    type.getDeclaredField(
+                        CodecScanningConstants.REGISTERED_SINGLETON_INSTANCE_VAR_NAME);
+              } catch (NoSuchFieldException e) {
+                throw new IllegalStateException(
+                    type
+                        + " inherits from "
+                        + RegisteredSingletonDoNotUse.class
+                        + " but does not have a field "
+                        + CodecScanningConstants.REGISTERED_SINGLETON_INSTANCE_VAR_NAME,
+                    e);
+              }
+              try {
+                builder.addConstant(field.get(null));
+              } catch (IllegalAccessException e) {
+                throw new IllegalStateException(
+                    "Could not access field " + field + " for " + type, e);
+              }
+            });
+
     HashSet<Class<? extends ObjectCodec<?>>> alreadyRegistered =
         runRegisterers(builder, registerers);
 
@@ -181,21 +219,27 @@ public class CodecScanner {
     return -1;
   }
 
-  /**
-   * Returns a stream of likely codec and registerer implementations.
-   *
-   * <p>Caller should do additional checks as this method only performs string matching.
-   *
-   * @param packagePrefix emits only classes in packages having this prefix
-   */
-  private static Stream<Class<?>> scanCodecs(String packagePrefix) throws IOException {
+  private static Stream<ClassInfo> getClassInfos(String packagePrefix) throws IOException {
     return ClassPath.from(ClassLoader.getSystemClassLoader())
         .getResources()
         .stream()
         .filter(r -> r instanceof ClassInfo)
         .map(r -> (ClassInfo) r)
-        .filter(c -> c.getPackageName().startsWith(packagePrefix))
-        .filter(c -> c.getName().endsWith("Codec") || c.getName().endsWith("CodecRegisterer"))
-        .map(c -> c.load());
+        .filter(c -> c.getPackageName().startsWith(packagePrefix));
+  }
+
+  /**
+   * Returns a stream of likely codec and registerer implementations.
+   *
+   * <p>Caller should do additional checks as this method only performs string matching.
+   */
+  private static Stream<Class<?>> getCodecs(List<ClassInfo> classInfos) {
+    return getMatchingClasses(
+        classInfos, c -> c.getName().endsWith("Codec") || c.getName().endsWith("CodecRegisterer"));
+  }
+
+  private static Stream<Class<?>> getMatchingClasses(
+      List<ClassInfo> classInfos, Predicate<ClassInfo> predicate) {
+    return classInfos.stream().filter(predicate).map(ClassInfo::load);
   }
 }

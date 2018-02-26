@@ -43,7 +43,10 @@ public class DeserializationContext {
     if (tag == 0) {
       return null;
     }
-    return (T) registry.getCodecDescriptorByTag(tag).deserialize(this, codedIn);
+    T constant = (T) registry.maybeGetConstantByTag(tag);
+    return constant == null
+        ? (T) registry.getCodecDescriptorByTag(tag).deserialize(this, codedIn)
+        : constant;
   }
 
   @SuppressWarnings("unchecked")
