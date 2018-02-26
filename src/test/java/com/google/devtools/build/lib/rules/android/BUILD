@@ -18,6 +18,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
