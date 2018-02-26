@@ -17,8 +17,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -37,21 +37,24 @@ class CoreLibrarySupport {
   private final CoreLibraryRewriter rewriter;
   private final ClassLoader targetLoader;
   /** Internal name prefixes that we want to move to a custom package. */
-  private final ImmutableList<String> renamedPrefixes;
+  private final ImmutableSet<String> renamedPrefixes;
   /** Internal names of interfaces whose default and static interface methods we'll emulate. */
-  private final ImmutableList<Class<?>> emulatedInterfaces;
+  private final ImmutableSet<Class<?>> emulatedInterfaces;
   /** Map from {@code owner#name} core library members to their new owners. */
   private final ImmutableMap<String, String> memberMoves;
 
-  public CoreLibrarySupport(CoreLibraryRewriter rewriter, ClassLoader targetLoader,
-      ImmutableList<String> renamedPrefixes, ImmutableList<String> emulatedInterfaces,
+  public CoreLibrarySupport(
+      CoreLibraryRewriter rewriter,
+      ClassLoader targetLoader,
+      List<String> renamedPrefixes,
+      List<String> emulatedInterfaces,
       List<String> memberMoves) {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
     checkArgument(
         renamedPrefixes.stream().allMatch(prefix -> prefix.startsWith("java/")), renamedPrefixes);
-    this.renamedPrefixes = renamedPrefixes;
-    ImmutableList.Builder<Class<?>> classBuilder = ImmutableList.builder();
+    this.renamedPrefixes = ImmutableSet.copyOf(renamedPrefixes);
+    ImmutableSet.Builder<Class<?>> classBuilder = ImmutableSet.builder();
     for (String itf : emulatedInterfaces) {
       checkArgument(itf.startsWith("java/util/"), itf);
       Class<?> clazz = loadFromInternal(rewriter.getPrefix() + itf);
