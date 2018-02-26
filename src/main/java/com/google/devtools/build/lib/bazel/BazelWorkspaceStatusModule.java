@@ -252,15 +252,18 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         return false;
       }
 
+      // We consider clientEnv in equality because we pass it when executing the workspace status command
+
       BazelWorkspaceStatusAction that = (BazelWorkspaceStatusAction) o;
-      return this.stableStatus.equals(that.stableStatus)
+      return this.clientEnv.equals(that.clientEnv)
+          && this.stableStatus.equals(that.stableStatus)
           && this.volatileStatus.equals(that.volatileStatus)
           && this.options.equals(that.options);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(stableStatus, volatileStatus, options);
+      return Objects.hash(clientEnv, stableStatus, volatileStatus, options);
     }
 
     @Override
