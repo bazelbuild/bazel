@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-/**
- * A {@link TransitiveInfoProvider} that supplies import directories for Python dependencies.
- */
+/** A {@link TransitiveInfoProvider} that supplies import directories for Python dependencies. */
 @Immutable
+@AutoCodec
 public final class PythonImportsProvider implements TransitiveInfoProvider {
 
   private final NestedSet<PathFragment> transitivePythonImports;
