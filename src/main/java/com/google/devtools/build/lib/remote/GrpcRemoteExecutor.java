@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc;

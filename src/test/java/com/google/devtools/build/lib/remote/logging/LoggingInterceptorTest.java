@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.logging;
 
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.truth.Truth.assertThat;

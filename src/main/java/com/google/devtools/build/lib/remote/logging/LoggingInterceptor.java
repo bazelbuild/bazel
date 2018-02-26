@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.remote.logging;
 
-import com.google.devtools.build.lib.remote.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.logging.RpcLogEntry.LogEntry;
 import io.grpc.CallOptions;
 import io.grpc.Channel;

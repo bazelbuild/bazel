@@ -7,17 +7,16 @@ filegroup(
 )
 
 java_library(
-    name = "logging",
+    name = "util",
     srcs = glob(["*.java"]),
     tags = ["bazel"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//src/main/protobuf:rpc_log_entry_java_proto",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
         "//third_party/grpc:grpc-jar",
+        "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
-        "@googleapis//:google_longrunning_operations_java_proto",
-        "@googleapis//:google_rpc_status_java_proto",
-        "@googleapis//:google_watch_v1_java_proto",
     ],
 )

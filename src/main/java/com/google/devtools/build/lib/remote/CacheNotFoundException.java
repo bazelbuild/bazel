@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import java.io.IOException;
 
