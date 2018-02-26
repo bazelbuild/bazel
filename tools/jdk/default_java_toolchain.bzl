@@ -55,7 +55,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
   # class path after -bootclasspath. For convenience, we currently have a
   # single jar that contains the contents of both the bootclasspath and
   # extdirs.
-  "bootclasspath": ["platformclasspath.jar"],
+  "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath.jar"],
   "extclasspath": [],
   "compatible_javacopts": DEFAULT_COMPATIBLE_JAVACOPTS,
   "encoding": "UTF-8",
