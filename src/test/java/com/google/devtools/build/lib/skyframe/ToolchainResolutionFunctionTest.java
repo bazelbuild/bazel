@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -48,7 +48,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
       ConfiguredTarget configuredTarget) {
     return new ConfiguredTargetValue(
         configuredTarget,
-        new Actions.GeneratingActions(ImmutableList.of(), ImmutableMap.of()),
+        GeneratingActions.EMPTY,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*removeActionsAfterEvaluation=*/ false);
   }

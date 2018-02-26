@@ -34,12 +34,14 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -1232,7 +1234,12 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      return new ActionTemplateExpansionValue(actionKeyContext, actions, false);
+      try {
+        return new ActionTemplateExpansionValue(
+            Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions), false);
+      } catch (ActionConflictException e) {
+        throw new IllegalStateException(e);
+      }
     }
 
     @Override

@@ -453,8 +453,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             actionKeyContext, artifactFactory, buildInfoFactories, removeActionsAfterEvaluation));
     map.put(
         SkyFunctions.BUILD_INFO,
-        new WorkspaceStatusFunction(
-            actionKeyContext, removeActionsAfterEvaluation, this::makeWorkspaceStatusAction));
+        new WorkspaceStatusFunction(removeActionsAfterEvaluation, this::makeWorkspaceStatusAction));
     map.put(
         SkyFunctions.COVERAGE_REPORT,
         new CoverageReportFunction(actionKeyContext, removeActionsAfterEvaluation));

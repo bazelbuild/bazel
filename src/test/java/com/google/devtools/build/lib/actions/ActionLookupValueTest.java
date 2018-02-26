@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,7 +48,7 @@ public class ActionLookupValueTest {
     Artifact artifact = mock(Artifact.class);
     when(action.getOutputs()).thenReturn(ImmutableSet.of(artifact));
     when(action.canRemoveAfterExecution()).thenReturn(true);
-    ActionLookupValue underTest = new ActionLookupValue(actionKeyContext, action, false);
+    ActionLookupValue underTest = new ActionLookupValue(action, false);
     assertThat(underTest.getGeneratingActionIndex(artifact)).isEqualTo(0);
     assertThat(underTest.getAction(0)).isSameAs(action);
     underTest.actionEvaluated(0, action);
@@ -55,7 +56,7 @@ public class ActionLookupValueTest {
   }
 
   @Test
-  public void testActionNotPresentAfterEvaluation() {
+  public void testActionNotPresentAfterEvaluation() throws ActionConflictException {
     Path execRoot = fs.getPath("/execroot");
     Path outputRootPath = execRoot.getRelative("blaze-out");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRootPath);
@@ -69,7 +70,9 @@ public class ActionLookupValueTest {
     when(persistentAction.canRemoveAfterExecution()).thenReturn(false);
     ActionLookupValue underTest =
         new ActionLookupValue(
-            actionKeyContext, ImmutableList.of(normalAction, persistentAction), true);
+            Actions.filterSharedActionsAndThrowActionConflict(
+                actionKeyContext, ImmutableList.of(normalAction, persistentAction)),
+            true);
     assertThat(underTest.getGeneratingActionIndex(normalArtifact)).isEqualTo(0);
     assertThat(underTest.getAction(0)).isSameAs(normalAction);
     assertThat(underTest.getGeneratingActionIndex(persistentOutput)).isEqualTo(1);

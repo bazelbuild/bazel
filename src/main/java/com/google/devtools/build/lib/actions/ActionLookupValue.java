@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -39,34 +38,14 @@ public class ActionLookupValue implements SkyValue {
   protected final List<ActionAnalysisMetadata> actions;
   private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
-  private static Actions.GeneratingActions filterSharedActionsAndThrowRuntimeIfConflict(
-      ActionKeyContext actionKeyContext, List<ActionAnalysisMetadata> actions) {
-    try {
-      return Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions);
-    } catch (ActionConflictException e) {
-      // Programming bug.
-      throw new IllegalStateException(e);
-    }
+  protected ActionLookupValue(
+      ActionAnalysisMetadata action,
+      boolean removeActionAfterEvaluation) {
+    this(Actions.GeneratingActions.fromSingleAction(action), removeActionAfterEvaluation);
   }
 
   @VisibleForTesting
   public ActionLookupValue(
-      ActionKeyContext actionKeyContext,
-      List<ActionAnalysisMetadata> actions,
-      boolean removeActionsAfterEvaluation) {
-    this(
-        filterSharedActionsAndThrowRuntimeIfConflict(actionKeyContext, actions),
-        removeActionsAfterEvaluation);
-  }
-
-  protected ActionLookupValue(
-      ActionKeyContext actionKeyContext,
-      ActionAnalysisMetadata action,
-      boolean removeActionAfterEvaluation) {
-    this(actionKeyContext, ImmutableList.of(action), removeActionAfterEvaluation);
-  }
-
-  protected ActionLookupValue(
       Actions.GeneratingActions generatingActions, boolean removeActionsAfterEvaluation) {
     if (removeActionsAfterEvaluation) {
       this.actions = new ArrayList<>(generatingActions.getActions());

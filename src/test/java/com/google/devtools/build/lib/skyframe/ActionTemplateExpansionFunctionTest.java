@@ -196,9 +196,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
       ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//foo:foo"), null);
 
   private List<Action> evaluate(SpawnActionTemplate spawnActionTemplate) throws Exception {
-    ConfiguredTargetValue ctValue =
-        createConfiguredTargetValue(
-            spawnActionTemplate.getOutputTreeArtifact(), spawnActionTemplate);
+    ConfiguredTargetValue ctValue = createConfiguredTargetValue(spawnActionTemplate);
 
     differencer.inject(CTKEY, ctValue);
     ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
@@ -220,11 +218,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   }
 
   private static ConfiguredTargetValue createConfiguredTargetValue(
-      Artifact artifact, ActionTemplate<?> actionTemplate) {
+      ActionTemplate<?> actionTemplate) {
     return new ConfiguredTargetValue(
         Mockito.mock(ConfiguredTarget.class),
-        new Actions.GeneratingActions(
-            ImmutableList.of(actionTemplate), ImmutableMap.of(artifact, 0)),
+        Actions.GeneratingActions.fromSingleAction(actionTemplate),
         NestedSetBuilder.<Package>stableOrder().build(),
         /*removeActionsAfterEvaluation=*/ false);
   }

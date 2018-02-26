@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -35,10 +35,10 @@ public class BuildInfoCollectionValue extends ActionLookupValue {
   private final BuildInfoCollection collection;
 
   BuildInfoCollectionValue(
-      ActionKeyContext actionKeyContext,
       BuildInfoCollection collection,
+      GeneratingActions generatingActions,
       boolean removeActionsAfterEvaluation) {
-    super(actionKeyContext, collection.getActions(), removeActionsAfterEvaluation);
+    super(generatingActions, removeActionsAfterEvaluation);
     this.collection = collection;
   }
 

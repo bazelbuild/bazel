@@ -18,9 +18,13 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -85,9 +89,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
                 : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
           }
         };
-
-    return new BuildInfoCollectionValue(
-        actionKeyContext,
+    BuildInfoCollection collection =
         buildInfoFactories
             .get(keyAndConfig.getInfoKey())
             .create(
@@ -96,8 +98,17 @@ public class BuildInfoCollectionFunction implements SkyFunction {
                     .getConfiguration(),
                 infoArtifactValue.getStableArtifact(),
                 infoArtifactValue.getVolatileArtifact(),
-                repositoryName),
-        removeActionsAfterEvaluation.get());
+                repositoryName);
+    GeneratingActions generatingActions;
+    try {
+      generatingActions =
+          Actions.filterSharedActionsAndThrowActionConflict(
+              actionKeyContext, collection.getActions());
+    } catch (ActionConflictException e) {
+      throw new IllegalStateException("Action conflicts not expected in build info: " + skyKey, e);
+    }
+    return new BuildInfoCollectionValue(
+        collection, generatingActions, removeActionsAfterEvaluation.get());
   }
 
   @Override

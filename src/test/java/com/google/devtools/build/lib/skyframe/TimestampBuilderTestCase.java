@@ -38,10 +38,12 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -233,12 +235,15 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
 
     return new Builder() {
-      private void setGeneratingActions() {
+      private void setGeneratingActions() throws ActionConflictException {
         if (evaluator.getExistingValue(ACTION_LOOKUP_KEY) == null) {
           differencer.inject(
               ImmutableMap.of(
                   ACTION_LOOKUP_KEY,
-                  new ActionLookupValue(actionKeyContext, ImmutableList.copyOf(actions), false)));
+                  new ActionLookupValue(
+                      Actions.filterSharedActionsAndThrowActionConflict(
+                          actionKeyContext, ImmutableList.copyOf(actions)),
+                      false)));
         }
       }
 
@@ -274,7 +279,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           keys.add(ArtifactSkyKey.key(artifact, true));
         }
 
-        setGeneratingActions();
+        try {
+          setGeneratingActions();
+        } catch (ActionConflictException e) {
+          throw new IllegalStateException(e);
+        }
         EvaluationResult<SkyValue> result = driver.evaluate(keys, keepGoing, threadCount, reporter);
 
         if (result.hasError()) {

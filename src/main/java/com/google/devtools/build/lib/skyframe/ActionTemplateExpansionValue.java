@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -30,10 +28,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
  */
 public final class ActionTemplateExpansionValue extends ActionLookupValue {
   ActionTemplateExpansionValue(
-      ActionKeyContext actionKeyContext,
-      Iterable<Action> expandedActions,
-      boolean removeActionsAfterEvaluation) {
-    super(actionKeyContext, ImmutableList.copyOf(expandedActions), removeActionsAfterEvaluation);
+      GeneratingActions generatingActions, boolean removeActionsAfterEvaluation) {
+    super(generatingActions, removeActionsAfterEvaluation);
   }
 
   static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {

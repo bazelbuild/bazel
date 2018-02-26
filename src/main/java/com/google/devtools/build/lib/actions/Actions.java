@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -110,7 +111,7 @@ public final class Actions {
    *     output
    */
   public static GeneratingActions filterSharedActionsAndThrowActionConflict(
-      ActionKeyContext actionKeyContext, List<ActionAnalysisMetadata> actions)
+      ActionKeyContext actionKeyContext, List<? extends ActionAnalysisMetadata> actions)
       throws ActionConflictException {
     return Actions.maybeFilterSharedActionsAndThrowIfConflict(
         actionKeyContext, actions, /*allowSharedAction=*/ true);
@@ -118,7 +119,7 @@ public final class Actions {
 
   private static GeneratingActions maybeFilterSharedActionsAndThrowIfConflict(
       ActionKeyContext actionKeyContext,
-      List<ActionAnalysisMetadata> actions,
+      List<? extends ActionAnalysisMetadata> actions,
       boolean allowSharedAction)
       throws ActionConflictException {
     Map<Artifact, Integer> generatingActions = new HashMap<>();
@@ -309,24 +310,35 @@ public final class Actions {
   }
 
   /** Container class for actions and the artifacts they generate. */
-  @VisibleForTesting
   public static class GeneratingActions {
-    private final List<ActionAnalysisMetadata> actions;
+    public static final GeneratingActions EMPTY =
+        new GeneratingActions(ImmutableList.of(), ImmutableMap.of());
+
+    private final List<? extends ActionAnalysisMetadata> actions;
     private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
-    @VisibleForTesting
-    public GeneratingActions(
-        List<ActionAnalysisMetadata> actions,
+    private GeneratingActions(
+        List<? extends ActionAnalysisMetadata> actions,
         ImmutableMap<Artifact, Integer> generatingActionIndex) {
       this.actions = actions;
       this.generatingActionIndex = generatingActionIndex;
+    }
+
+    public static GeneratingActions fromSingleAction(ActionAnalysisMetadata action) {
+      return new GeneratingActions(
+          ImmutableList.of(action),
+          ImmutableMap.copyOf(
+              action
+                  .getOutputs()
+                  .stream()
+                  .collect(ImmutableMap.toImmutableMap(Function.identity(), (a) -> 0))));
     }
 
     public ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
       return generatingActionIndex;
     }
 
-    public List<ActionAnalysisMetadata> getActions() {
+    public List<? extends ActionAnalysisMetadata> getActions() {
       return actions;
     }
   }
