@@ -232,6 +232,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'dexbuilder_after_proguard', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'aar_import_deps_checker', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
         .add("android_library(name = 'incremental_stub_application')")
         .add("android_library(name = 'incremental_split_stub_application')")
