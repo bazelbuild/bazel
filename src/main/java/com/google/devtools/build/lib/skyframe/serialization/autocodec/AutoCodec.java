@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
@@ -32,6 +34,8 @@ import java.lang.annotation.Target;
  * not need to directly access the generated class.
  */
 @Target(ElementType.TYPE)
+// TODO(janakr): remove once serialization is complete.
+@Retention(RetentionPolicy.RUNTIME)
 public @interface AutoCodec {
   /**
    * AutoCodec recursively derives a codec using the public interfaces of the class.
