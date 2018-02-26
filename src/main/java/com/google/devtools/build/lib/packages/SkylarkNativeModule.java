@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -217,7 +218,9 @@ public class SkylarkNativeModule {
         public String invoke(FuncallExpression ast, Environment env)
             throws EvalException, ConversionException {
           env.checkLoadingPhase("native.package_name", ast.getLocation());
-          return (String) env.lookup("PACKAGE_NAME");
+          PackageIdentifier packageId =
+              PackageFactory.getContext(env, ast).getBuilder().getPackageIdentifier();
+          return packageId.getPackageFragment().getPathString();
         }
       };
 
@@ -241,7 +244,9 @@ public class SkylarkNativeModule {
         public String invoke(FuncallExpression ast, Environment env)
             throws EvalException, ConversionException {
           env.checkLoadingPhase("native.repository_name", ast.getLocation());
-          return (String) env.lookup("REPOSITORY_NAME");
+          PackageIdentifier packageId =
+              PackageFactory.getContext(env, ast).getBuilder().getPackageIdentifier();
+          return packageId.getRepository().toString();
         }
       };
 
