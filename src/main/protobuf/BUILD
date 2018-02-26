@@ -128,6 +128,25 @@ cc_proto_library(
     deps = [":execution_statistics_proto"],
 )
 
+proto_library(
+    name = "rpc_log_entry_proto",
+    srcs = ["rpc_log_entry.proto"],
+    deps = [
+        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_proto",
+        "@googleapis//:google_rpc_status_proto",
+    ],
+)
+
+java_proto_library(
+    name = "rpc_log_entry_java_proto",
+    deps = [":rpc_log_entry_proto"],
+)
+
+java_library_srcs(
+    name = "rpc_log_entry_java_proto_srcs",
+    deps = [":rpc_log_entry_java_proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -140,5 +159,6 @@ filegroup(
         ":command_server_java_grpc_srcs",
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
+        ":rpc_log_entry_java_proto_srcs",
     ],
 )

@@ -42,11 +42,11 @@ public class TracingMetadataUtils {
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
 
   /**
-   * Returns a new gRPC context derived from the current context, with
-   * {@link RequestMetadata} accessible by the {@link fromCurrentContext()} method.
+   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
+   * accessible by the {@link fromCurrentContext()} method.
    *
-   * <p>The {@link RequestMetadata} is constructed using the provided arguments
-   * and the current tool version.
+   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
+   * version.
    */
   public static Context contextWithMetadata(
       String buildRequestId, String commandId, ActionKey actionKey) {
@@ -88,6 +88,21 @@ public class TracingMetadataUtils {
     return headers;
   }
 
+  /**
+   * Extracts a {@link RequestMetadata} from a {@link Metadata} if it exists.
+   *
+   * @param headers
+   * @throws {@link IllegalStateException} if a RequestMetadata could not be found in the given
+   *     headers.
+   */
+  public static RequestMetadata requestMetadataFromHeaders(Metadata headers) {
+    RequestMetadata meta = headers.get(METADATA_KEY);
+    if (meta == null) {
+      throw new IllegalStateException("Could not find RequestMetadata in headers.");
+    }
+    return meta;
+  }
+
   public static ClientInterceptor attachMetadataFromContextInterceptor() {
     return MetadataUtils.newAttachHeadersInterceptor(headersFromCurrentContext());
   }
@@ -97,13 +112,9 @@ public class TracingMetadataUtils {
     @Override
     public <ReqT, RespT> Listener<ReqT> interceptCall(
         ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-      RequestMetadata meta = headers.get(METADATA_KEY);
-      if (meta == null) {
-        throw new IllegalStateException("RequestMetadata not received from the client.");
-      }
+      RequestMetadata meta = requestMetadataFromHeaders(headers);
       Context ctx = Context.current().withValue(CONTEXT_KEY, meta);
       return Contexts.interceptCall(ctx, call, headers, next);
     }
   }
-
 }

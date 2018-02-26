@@ -6,15 +6,24 @@ filegroup(
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
+UTIL_SOURCES = [
+    "DigestUtil.java",
+    "TracingMetadataUtils.java",
+]
+
 java_library(
     name = "remote",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = UTIL_SOURCES,
+    ),
     tags = ["bazel"],
     runtime_deps = [
         # This is required for client TLS.
         "//third_party:netty_tcnative",
     ],
     deps = [
+        ":remote-utils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
@@ -47,5 +56,19 @@ java_library(
         "@googleapis//:google_rpc_status_java_proto",
         "@googleapis//:google_watch_v1_java_grpc",
         "@googleapis//:google_watch_v1_java_proto",
+    ],
+)
+
+java_library(
+    name = "remote-utils",
+    srcs = UTIL_SOURCES,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "//third_party/grpc:grpc-jar",
+        "//third_party/protobuf:protobuf_java",
+        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
     ],
 )
