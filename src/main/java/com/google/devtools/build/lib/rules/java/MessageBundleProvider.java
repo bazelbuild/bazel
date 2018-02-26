@@ -19,12 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Marks configured targets that are able to supply message bundles to their dependents. */
+@AutoCodec
 @AutoValue
 @Immutable
 public abstract class MessageBundleProvider implements TransitiveInfoProvider {
-
+  @AutoCodec.Instantiator
   public static MessageBundleProvider create(ImmutableList<Artifact> messages) {
     return new AutoValue_MessageBundleProvider(messages);
   }
