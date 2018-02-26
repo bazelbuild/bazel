@@ -43,7 +43,7 @@ function test_bootstrap()  {
     mkdir -p "${WRKDIR}" || fail "Could not create workdir"
     trap "rm -rf \"$WRKDIR\"" EXIT
     cd "${WRKDIR}" || fail "Could not change to work directory"
-    export SOURCE_DATE_EPOCH=1501234567
+    export SOURCE_DATE_EPOCH=1501234567 # Fri Jul 28 09:36:07 UTC 2017
     _log_progress "unzip"
     unzip -q "${DISTFILE}"
     _log_progress "bootstrap"
@@ -54,6 +54,9 @@ function test_bootstrap()  {
     ./output/bazel shutdown
     _log_progress "assert"
     expect_log "${SOURCE_DATE_EPOCH}"
+    expect_log 2017      # The year 1501234567 seconds since the epoch
+    expect_not_log 49542 # The year 1501234567000 seconds since the epoch
+    expect_not_log 1970  # The year 1501234 seconds since the epoch
     cd "${olddir}"
     _log_progress "done"
 }
