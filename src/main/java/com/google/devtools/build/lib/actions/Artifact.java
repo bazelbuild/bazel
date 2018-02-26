@@ -101,16 +101,14 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @SkylarkModule(
-  name = "File",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "<p>This type represents a file or directory used by the build system. It can be "
-          + "either a source file or a derived file produced by a rule.</p>"
-          + "<p>The File constructor is private, so you cannot call it directly to create new "
-          + "Files. You typically get a File object from a "
-          + "<a href='Target.html'>Target</a>, or using "
-          + "<a href='actions.html#declare_file'>ctx.actions.declare_file</a>, "
-          + "or <a href='actions.html#declare_directory'>ctx.actions.declare_directory</a>."
+    name = "File",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "This object is created during the analysis phase to represent a file or directory that "
+        + "will be read or written during the execution phase. It is not an open file handle, and "
+        + "cannot be used to directly read or write file contents. Rather, you use it to construct "
+        + "the action graph in a rule implementation function by passing it to action-creating "
+        + "functions. See the <a href='../rules.$DOC_EXT#files'>Rules page</a> for more "
+        + "information."
 )
 @AutoCodec
 public class Artifact

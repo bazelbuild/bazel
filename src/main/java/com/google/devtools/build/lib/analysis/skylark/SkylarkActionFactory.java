@@ -103,14 +103,17 @@ public class SkylarkActionFactory implements SkylarkValue {
   @SkylarkCallable(
     name = "declare_file",
     doc =
-        "Declares that rule or aspect creates a file with the given filename. "
-            + "If <code>sibling</code> is not specified, file name is relative to "
-            + "package directory, otherwise the file is in the same directory as "
-            + "<code>sibling</code>. "
-            + "You must create an action that generates the file. <br>"
-            + "Files cannot be created outside of the current package. "
-            + "Files that are specified in rule's outputs do not need to be declared and are "
-            + "available through <a href=\"ctx.html#outputs\"><code>ctx.outputs</code></a>. "
+        "Declares that the rule or aspect creates a file with the given filename. "
+            + "If <code>sibling</code> is not specified, the file name is relative to the package"
+            + "directory, otherwise the file is in the same directory as <code>sibling</code>."
+            + "Files cannot be created outside of the current package."
+            + "<p>Remember that in addition to declaring a file, you must separately create an "
+            + "action that emits the file. Creating that action will require passing the returned "
+            + "<code>File</code> object to the action's construction function."
+            + "<p>Note that <a href='../rules.$DOC_EXT#files'>predeclared output files</a> do not "
+            + "need to be (and cannot be) declared using this function. You can obtain their "
+            + "<code>File</code> objects from <a href=\"ctx.html#outputs\"><code>ctx.outputs</code>"
+            + "</a> instead. "
             + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
             + "computed_dependencies/hash.bzl\">See example of use</a>",
     parameters = {
