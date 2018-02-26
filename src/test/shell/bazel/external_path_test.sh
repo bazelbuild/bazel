@@ -565,4 +565,129 @@ EOF
   bazel build -s @b//call:hello || fail "Expected success"
 }
 
+repo_with_embedded_foreign_path() {
+  # create, in the current working directory, a package called
+  # rule that has an implicit dependency on @data//:file.txt, a target
+  # of a different, external, repository.
+  mkdir -p rule
+  cat > rule/BUILD <<'EOF'
+genrule(
+  name = "add_preamb",
+  outs = ["add_preamb.sh"],
+  srcs = ["@data//:file.txt"], # the output actually does not depend on the contents of those files
+  cmd = " echo '#!/bin/sh' > $@; echo 'cat $(location @data//:file.txt) $$1 > $$2' >> $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > rule/add_preamb.bzl <<'EOF'
+def _add_preamb_impl(ctx):
+  output = ctx.new_file(ctx.label.name + ".txt")
+  ctx.action(
+    inputs = ctx.files.src + ctx.files._add_preamb + ctx.files._preamb,
+    outputs = [output],
+    command = ["/bin/sh"] + [f.path for f in ctx.files._add_preamb] \
+              +  [f.path for f in ctx.files.src] + [output.path],
+    use_default_shell_env = True,
+    mnemonic = "AddPreamb",
+    progress_message = "Add preamble to %s" % ctx.label,
+  )
+
+add_preamb = rule(
+  implementation = _add_preamb_impl,
+  attrs = {
+    "src" : attr.label(allow_files=True),
+    "_add_preamb" : attr.label(cfg="host", allow_files=True,
+                               default = Label("//rule:add_preamb")),
+    # knowledge of which paths are embedded is duplicated here!
+    "_preamb" : attr.label(cfg="host", allow_files=True,
+                               default = Label("@data//:file.txt")),
+  },
+  outputs = {"with_preamb": "%{name}.txt"},
+)
+EOF
+}
+
+repo_data_file() {
+  # Create, in the current directory, an archive of a data repository containing
+  # //:file.txt, and add a corresponding entry to ./main/WORKSPACE.
+  mkdir data
+  cat > data/file.txt <<'EOF'
+Copyright ...
+EOF
+  cat > data/BUILD <<'EOF'
+exports_files(["file.txt"], visibility = ["//visibility:public"])
+EOF
+  tar cvf data.tar data
+  rm -rf data
+  cat >> main/WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="data",
+  strip_prefix="data",
+  urls=["file://$(pwd)/data.tar"],
+)
+EOF
+}
+
+test_embedded_foreign_paths_local() {
+  # Verify that a rule in a local repository can embed a path to a foreigh
+  # repository
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  repo_data_file
+
+  cd main
+  repo_with_embedded_foreign_path
+  echo Hello world > foo.txt
+  cat > BUILD <<'EOF'
+load('//rule:add_preamb.bzl', 'add_preamb')
+
+add_preamb(name='main', src='foo.txt')
+EOF
+
+  bazel build -s //:main || fail 'Expected success'
+  cat `bazel info bazel-bin`/main.txt | grep 'world' \
+    || fail "not the expected output"
+  cat `bazel info bazel-bin`/main.txt | grep 'Copyright' \
+    || fail "not the expected output"
+}
+
+test_embedded_foreign_paths_remote() {
+  # Verify that a rule in a local repository can embed a path to a foreigh
+  # repository
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  repo_data_file
+
+  mkdir rule
+  (cd rule && repo_with_embedded_foreign_path)
+  tar cvf rule.tar rule
+  rm -rf rule
+  cat >> main/WORKSPACE <<EOF
+http_archive(
+  name="rule",
+  strip_prefix="rule",
+  urls=["file://$(pwd)/rule.tar"],
+)
+EOF
+
+  cd main
+  echo Hello world > foo.txt
+  cat > BUILD <<'EOF'
+load('@rule//rule:add_preamb.bzl', 'add_preamb')
+
+add_preamb(name='main', src='foo.txt')
+EOF
+
+  bazel build -s //:main || fail 'Expected success'
+  cat `bazel info bazel-bin`/main.txt | grep 'world' \
+    || fail "not the expected output"
+  cat `bazel info bazel-bin`/main.txt | grep 'Copyright' \
+    || fail "not the expected output"
+}
+
 run_suite "path tests for multiple repositories"
