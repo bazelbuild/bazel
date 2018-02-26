@@ -39,6 +39,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -65,7 +67,11 @@ import java.util.zip.ZipOutputStream;
  * </pre>
  */
 public class AarGeneratorAction {
-  private static final Long EPOCH = 0L;
+  public static final long DEFAULT_TIMESTAMP =
+      LocalDateTime.of(2010, 1, 1, 0, 0, 0)
+          .atZone(ZoneId.systemDefault())
+          .toInstant()
+          .toEpochMilli();
 
   private static final Logger logger = Logger.getLogger(AarGeneratorAction.class.getName());
 
@@ -213,13 +219,13 @@ public class AarGeneratorAction {
     try (final ZipOutputStream zipOut =
         new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(aar)))) {
       ZipEntry manifestEntry = new ZipEntry("AndroidManifest.xml");
-      manifestEntry.setTime(EPOCH);
+      manifestEntry.setTime(DEFAULT_TIMESTAMP);
       zipOut.putNextEntry(manifestEntry);
       zipOut.write(Files.readAllBytes(manifest));
       zipOut.closeEntry();
 
       ZipEntry classJar = new ZipEntry("classes.jar");
-      classJar.setTime(EPOCH);
+      classJar.setTime(DEFAULT_TIMESTAMP);
       zipOut.putNextEntry(classJar);
       zipOut.write(Files.readAllBytes(classes));
       zipOut.closeEntry();
@@ -229,7 +235,7 @@ public class AarGeneratorAction {
       resWriter.writeEntries();
 
       ZipEntry r = new ZipEntry("R.txt");
-      r.setTime(EPOCH);
+      r.setTime(DEFAULT_TIMESTAMP);
       zipOut.putNextEntry(r);
       zipOut.write(Files.readAllBytes(rtxt));
       zipOut.closeEntry();
@@ -241,7 +247,7 @@ public class AarGeneratorAction {
         assetWriter.writeEntries();
       }
     }
-    aar.toFile().setLastModified(EPOCH);
+    aar.toFile().setLastModified(DEFAULT_TIMESTAMP);
   }
 
   private static class ZipDirectoryWriter extends SimpleFileVisitor<Path> {
@@ -281,7 +287,7 @@ public class AarGeneratorAction {
 
     private void writeFileEntry(Path file) throws IOException {
       ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(file).toString()).toString());
-      entry.setTime(EPOCH);
+      entry.setTime(DEFAULT_TIMESTAMP);
       zipOut.putNextEntry(entry);
       zipOut.write(Files.readAllBytes(file));
       zipOut.closeEntry();
@@ -290,7 +296,7 @@ public class AarGeneratorAction {
     private void writeDirectoryEntry(Path dir) throws IOException {
       ZipEntry entry =
           new ZipEntry(new File(dirName, root.relativize(dir).toString()).toString() + "/");
-      entry.setTime(EPOCH);
+      entry.setTime(DEFAULT_TIMESTAMP);
       zipOut.putNextEntry(entry);
       zipOut.closeEntry();
     }

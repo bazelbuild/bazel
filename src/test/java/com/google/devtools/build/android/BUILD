@@ -13,6 +13,21 @@ filegroup(
 )
 
 java_test(
+    name = "AarGeneratorActionTest",
+    size = "small",
+    srcs = ["AarGeneratorActionTest.java"],
+    deps = [
+        ":test_utils",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:android_common_25_0_0",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "AndroidResourceOutputsTest",
     size = "small",
     srcs = ["AndroidResourceOutputsTest.java"],
