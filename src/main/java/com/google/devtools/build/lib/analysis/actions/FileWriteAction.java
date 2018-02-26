@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import java.io.ByteArrayInputStream;
@@ -40,6 +41,7 @@ import java.util.zip.GZIPOutputStream;
  * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@link
  * BinaryFileWriteAction}.
  */
+@AutoCodec
 @Immutable // if fileContents is immutable
 public final class FileWriteAction extends AbstractFileWriteAction {
 
@@ -84,12 +86,27 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       CharSequence fileContents,
       boolean makeExecutable,
       Compression allowCompression) {
-    super(owner, inputs, output, makeExecutable);
-    if (allowCompression == Compression.ALLOW
-        && fileContents instanceof String
-        && fileContents.length() > COMPRESS_CHARS_THRESHOLD) {
-      fileContents = new CompressedString((String) fileContents);
-    }
+    this(
+        owner,
+        inputs,
+        output,
+        allowCompression == Compression.ALLOW
+                && fileContents instanceof String
+                && fileContents.length() > COMPRESS_CHARS_THRESHOLD
+            ? new CompressedString((String) fileContents)
+            : fileContents,
+        makeExecutable);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  FileWriteAction(
+      ActionOwner owner,
+      Iterable<Artifact> inputs,
+      Artifact primaryOutput,
+      CharSequence fileContents,
+      boolean makeExecutable) {
+    super(owner, inputs, primaryOutput, makeExecutable);
     this.fileContents = fileContents;
   }
 
