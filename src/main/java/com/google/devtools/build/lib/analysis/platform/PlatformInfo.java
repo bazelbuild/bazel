@@ -39,10 +39,12 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Provider for a platform, which is a group of constraints and values. */
@@ -174,6 +176,15 @@ public class PlatformInfo extends NativeInfo {
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
   public static Builder builder() {
     return new Builder();
+  }
+
+  /**
+   * Add this platform to the given fingerprint.
+   */
+  public void addTo(Fingerprint f) {
+    f.addString(label.toString());
+    f.addNullableString(remoteExecutionProperties);
+    f.addInt(constraints.size());
   }
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
