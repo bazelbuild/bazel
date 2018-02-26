@@ -22,14 +22,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Map;
 
-/**
- * A Provider describing the java sources directly belonging to a java rule.
- */
+/** A Provider describing the java sources directly belonging to a java rule. */
 @Immutable
+@AutoCodec
 public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   private final Collection<Artifact> sourceFiles;
   private final Collection<Artifact> sourceJars;
@@ -39,7 +40,8 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   private final Collection<String> processorNames;
   private final NestedSet<Artifact> processorPath;
 
-  private JavaSourceInfoProvider(
+  @VisibleForSerialization
+  JavaSourceInfoProvider(
       Collection<Artifact> sourceFiles,
       Collection<Artifact> sourceJars,
       Collection<Artifact> jarFiles,

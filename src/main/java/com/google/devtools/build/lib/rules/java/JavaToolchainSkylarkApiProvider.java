@@ -16,18 +16,22 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.Iterator;
 
 /**
- * A class that exposes the java_toolchain providers to Skylark. It is intended to provide a
- * simple and stable interface for Skylark users.
+ * A class that exposes the java_toolchain providers to Skylark. It is intended to provide a simple
+ * and stable interface for Skylark users.
  */
 @SkylarkModule(
-    name = "JavaToolchainSkylarkApiProvider",
-    doc = "Provides access to information about the Java toolchain rule. "
-    + "Accessible as a 'java_toolchain' field on a Target struct.")
+  name = "JavaToolchainSkylarkApiProvider",
+  doc =
+      "Provides access to information about the Java toolchain rule. "
+          + "Accessible as a 'java_toolchain' field on a Target struct."
+)
+@AutoCodec
 public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "java_toolchain";

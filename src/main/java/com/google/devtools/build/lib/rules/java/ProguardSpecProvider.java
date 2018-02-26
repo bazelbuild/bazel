@@ -18,11 +18,11 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A target that can provide proguard specifications to Android binaries.
- */
+/** A target that can provide proguard specifications to Android binaries. */
 @Immutable
+@AutoCodec
 public final class ProguardSpecProvider implements TransitiveInfoProvider {
 
   private final NestedSet<Artifact> transitiveProguardSpecs;

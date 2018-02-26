@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * This {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider} contains the .jar
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  * enough because that contains only ijars)
  */
 @Immutable
+@AutoCodec
 public final class JavaRuntimeJarProvider implements TransitiveInfoProvider {
   private final ImmutableList<Artifact> runtimeJars;
 
