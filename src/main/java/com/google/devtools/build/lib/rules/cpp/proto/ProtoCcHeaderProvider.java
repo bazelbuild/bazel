@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.rules.cpp.proto;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Provides information about generated C++ headers of dependencies. */
+@AutoCodec
 public final class ProtoCcHeaderProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> headers;
 

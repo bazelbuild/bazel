@@ -18,11 +18,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A transitive info provider that will give source files to genrule.
- */
+/** A transitive info provider that will give source files to genrule. */
 @Immutable
+@AutoCodec
 public final class GenRuleSourcesProvider implements TransitiveInfoProvider {
 
   private final NestedSet<Artifact> genruleFiles;

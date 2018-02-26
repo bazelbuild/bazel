@@ -49,7 +49,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
     ],
 )
