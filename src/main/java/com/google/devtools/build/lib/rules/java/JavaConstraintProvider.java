@@ -18,12 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
- * Provides information about the Java constraints (e.g. "android") that are
- * present on the target.
+ * Provides information about the Java constraints (e.g. "android") that are present on the target.
  */
 @Immutable
+@AutoCodec
 public final class JavaConstraintProvider implements TransitiveInfoProvider {
 
   private final Label label;
