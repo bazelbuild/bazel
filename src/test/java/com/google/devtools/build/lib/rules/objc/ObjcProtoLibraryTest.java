@@ -399,25 +399,30 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testModulemapCreatedForNonLinkingTargets() throws Exception {
-    checkOnlyLibModuleMapsArePresentForTarget("//package:opl_protobuf");
+    // TODO(b/73943026): Remove this flag once everyone has migrated to the new strict behavior and
+    // it is made the default.
+    useConfiguration("--incompatible_strict_objc_module_maps");
+
+    // The library target should propagate its module map.
+    ObjcProvider provider = providerForTarget("//package:opl_protobuf");
+    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.MODULE_MAP).toSet()))
+        .containsExactly("package/opl_protobuf.modulemaps/module.modulemap");
   }
 
   @Test
   public void testModulemapNotCreatedForLinkingTargets() throws Exception {
-    checkOnlyLibModuleMapsArePresentForTarget("//package:opl_binary");
+    // TODO(b/73943026): Remove this flag once everyone has migrated to the new strict behavior and
+    // it is made the default.
+    useConfiguration("--incompatible_strict_objc_module_maps");
+
+    // The binary target should not propagate the module map from the library it depends on.
+    ObjcProvider provider = providerForTarget("//package:opl_binary");
+    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.MODULE_MAP).toSet()))
+        .isEmpty();
   }
 
   private static String sortedJoin(Iterable<String> elements) {
     return Joiner.on('\n').join(Ordering.natural().immutableSortedCopy(elements));
-  }
-
-  private void checkOnlyLibModuleMapsArePresentForTarget(String target) throws Exception {
-    ObjcProvider provider = providerForTarget(target);
-    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.MODULE_MAP).toSet()))
-        .containsExactly(
-            "package/opl_protobuf.modulemaps/module.modulemap",
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                + "objcproto/protobuf_lib.modulemaps/module.modulemap");
   }
 
   @Test

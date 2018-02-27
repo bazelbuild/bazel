@@ -304,12 +304,25 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
     help =
         "Location of target that will provide the appropriate Apple SDK for the current build "
             + "configuration."
   )
   public Label appleSdk;
+
+  @Option(
+    name = "incompatible_strict_objc_module_maps",
+    category = "incompatible changes",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+    help =
+        "Propagates Objective-C module maps only to direct dependencies in the 'objc' provider, "
+            + "not to all transitive dependencies."
+  )
+  public boolean strictObjcModuleMaps;
 
   @Override
   public FragmentOptions getHost() {

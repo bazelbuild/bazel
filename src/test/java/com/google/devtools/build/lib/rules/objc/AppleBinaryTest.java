@@ -1460,7 +1460,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(getRuleType());
+    checkCustomModuleMapNotPropagatedByTargetUnderTest(getRuleType());
   }
 
   @Test
