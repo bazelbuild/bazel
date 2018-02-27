@@ -66,7 +66,6 @@ def _pkg_tar_impl(ctx):
       use_default_shell_env = True,
       )
 
-
 def _pkg_deb_impl(ctx):
   """The implementation for the pkg_deb rule."""
   files = [ctx.file.data]
