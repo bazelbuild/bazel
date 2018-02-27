@@ -34,17 +34,17 @@ import java.util.List;
 )
 public class PlatformConfiguration extends BuildConfiguration.Fragment {
   private final Label hostPlatform;
-  private final ImmutableList<Label> extraExecutionPlatforms;
+  private final ImmutableList<String> extraExecutionPlatforms;
   private final ImmutableList<Label> targetPlatforms;
-  private final ImmutableList<Label> extraToolchains;
+  private final ImmutableList<String> extraToolchains;
   private final ImmutableList<Label> enabledToolchainTypes;
 
   @AutoCodec.Instantiator
   PlatformConfiguration(
       Label hostPlatform,
-      ImmutableList<Label> extraExecutionPlatforms,
+      ImmutableList<String> extraExecutionPlatforms,
       ImmutableList<Label> targetPlatforms,
-      ImmutableList<Label> extraToolchains,
+      ImmutableList<String> extraToolchains,
       ImmutableList<Label> enabledToolchainTypes) {
     this.hostPlatform = hostPlatform;
     this.extraExecutionPlatforms = extraExecutionPlatforms;
@@ -59,7 +59,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Additional platforms that are available for action execution. */
-  public ImmutableList<Label> getExtraExecutionPlatforms() {
+  public ImmutableList<String> getExtraExecutionPlatforms() {
     return extraExecutionPlatforms;
   }
 
@@ -69,7 +69,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Additional toolchains that should be considered during toolchain resolution. */
-  public ImmutableList<Label> getExtraToolchains() {
+  public ImmutableList<String> getExtraToolchains() {
     return extraToolchains;
   }
 
