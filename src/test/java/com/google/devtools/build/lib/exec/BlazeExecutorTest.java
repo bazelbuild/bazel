@@ -50,7 +50,10 @@ public class BlazeExecutorTest {
     fileSystem = new InMemoryFileSystem();
     directories =
         new BlazeDirectories(
-            new ServerDirectories(fileSystem.getPath("/install"), fileSystem.getPath("/base")),
+            new ServerDirectories(
+                fileSystem.getPath("/install"),
+                fileSystem.getPath("/base"),
+                fileSystem.getPath("/root")),
             fileSystem.getPath("/workspace"),
             "mock-product-name");
     binTools = BinTools.empty(directories);

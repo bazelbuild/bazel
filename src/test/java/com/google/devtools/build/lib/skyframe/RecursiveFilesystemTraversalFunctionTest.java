@@ -101,7 +101,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(rootDirectory, outputBase),
+            new ServerDirectories(rootDirectory, outputBase, rootDirectory),
             rootDirectory,
             analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(

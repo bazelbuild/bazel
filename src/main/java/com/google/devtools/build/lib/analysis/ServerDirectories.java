@@ -26,17 +26,16 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Represents the server install directory, which contains the Bazel installation and embedded
- * binaries.
- *
- * <p>The <code>installBase</code> is the directory where the Blaze binary has been installed. The
- * <code>outputBase</code> is the directory below which Blaze puts all its state.
+ * Represents the relevant directories for the server: the location of the embedded binaries
+ * and the output directories.
  */
 @AutoCodec
 @Immutable
 public final class ServerDirectories {
   public static final ObjectCodec<ServerDirectories> CODEC = new ServerDirectories_AutoCodec();
 
+  /** Top-level user output directory; used, e.g., as default location for caches. */
+  private final Path outputUserRoot;
   /** Where Blaze gets unpacked. */
   private final Path installBase;
   /** The content hash of everything in installBase. */
@@ -44,22 +43,25 @@ public final class ServerDirectories {
   /** The root of the temp and output trees. */
   private final Path outputBase;
 
-  public ServerDirectories(Path installBase, Path outputBase, @Nullable String installMD5) {
+  public ServerDirectories(
+      Path installBase, Path outputBase, Path outputUserRoot, @Nullable String installMD5) {
     this(
         installBase,
         outputBase,
+        outputUserRoot,
         Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5)));
   }
 
   @AutoCodec.Instantiator
-  ServerDirectories(Path installBase, Path outputBase, HashCode installMD5) {
+  ServerDirectories(Path installBase, Path outputBase, Path outputUserRoot, HashCode installMD5) {
+    this.outputUserRoot = outputUserRoot;
     this.installBase = installBase;
     this.outputBase = outputBase;
     this.installMD5 = installMD5;
   }
 
-  public ServerDirectories(Path installBase, Path outputBase) {
-    this(installBase, outputBase, (HashCode) null);
+  public ServerDirectories(Path installBase, Path outputBase, Path outputUserRoot) {
+    this(installBase, outputBase, outputUserRoot, (HashCode) null);
   }
 
   private static HashCode checkMD5(HashCode hash) {
@@ -81,6 +83,13 @@ public final class ServerDirectories {
     return outputBase;
   }
 
+  /**
+   * Returns the root directory for user output. In particular default caches will be located here.
+   */
+  public Path getOutputUserRoot() {
+    return outputUserRoot;
+  }
+
   /** Returns the installed embedded binaries directory, under the shared installBase location. */
   public Path getEmbeddedBinariesRoot() {
     return installBase.getChild("_embedded_binaries");
@@ -96,7 +105,7 @@ public final class ServerDirectories {
 
   @Override
   public int hashCode() {
-    return Objects.hash(installBase, installMD5, outputBase);
+    return Objects.hash(installBase, installMD5, outputBase, outputUserRoot);
   }
 
   @Override
@@ -110,6 +119,7 @@ public final class ServerDirectories {
     ServerDirectories that = (ServerDirectories) obj;
     return this.installBase.equals(that.installBase)
         && Objects.equals(this.installMD5, that.installMD5)
-        && this.outputBase.equals(that.outputBase);
+        && this.outputBase.equals(that.outputBase)
+        && this.outputUserRoot.equals(that.outputUserRoot);
   }
 }

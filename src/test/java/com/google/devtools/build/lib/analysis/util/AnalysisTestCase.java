@@ -154,7 +154,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase),
+            new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
             analysisMock.getProductName());
     workspaceStatusActionFactory =

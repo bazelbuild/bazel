@@ -75,7 +75,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase),
+            new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
             analysisMock.getProductName());
     skyframeExecutor =

@@ -79,7 +79,8 @@ public class CleanCommandRecommendsAsyncTest {
     String productName = TestConstants.PRODUCT_NAME;
     Scratch scratch = new Scratch();
     ServerDirectories serverDirectories =
-        new ServerDirectories(scratch.dir("install"), scratch.dir("output"));
+        new ServerDirectories(
+            scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())

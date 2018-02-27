@@ -75,7 +75,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   public void setupDelegator() throws Exception {
     Path root = scratch.dir("/outputbase");
     BlazeDirectories directories =
-        new BlazeDirectories(new ServerDirectories(root, root), root, TestConstants.PRODUCT_NAME);
+        new BlazeDirectories(
+            new ServerDirectories(root, root, root), root, TestConstants.PRODUCT_NAME);
     delegatorFunction =
         new RepositoryDelegatorFunction(
             ImmutableMap.of(), null, new AtomicBoolean(true), ImmutableMap::of, directories);

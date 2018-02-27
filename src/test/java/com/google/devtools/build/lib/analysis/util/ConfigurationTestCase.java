@@ -106,7 +106,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     final PackageFactory pkgFactory;
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase),
+            new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
             analysisMock.getProductName());
     pkgFactory =

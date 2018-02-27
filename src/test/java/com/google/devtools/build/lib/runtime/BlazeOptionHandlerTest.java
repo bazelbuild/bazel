@@ -64,7 +64,8 @@ public class BlazeOptionHandlerTest {
     parser.setAllowResidue(true);
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
-        new ServerDirectories(scratch.dir("install_base"), scratch.dir("output_base"));
+        new ServerDirectories(
+            scratch.dir("install_base"), scratch.dir("output_base"), scratch.dir("user_root"));
     this.runtime =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())

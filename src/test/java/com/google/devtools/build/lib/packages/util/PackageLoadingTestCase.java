@@ -92,7 +92,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     }
     directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase),
+            new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
             loadingMock.getProductName());
     packageFactory =

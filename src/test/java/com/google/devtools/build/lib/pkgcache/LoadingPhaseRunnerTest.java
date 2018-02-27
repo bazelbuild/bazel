@@ -661,7 +661,8 @@ public class LoadingPhaseRunnerTest {
       analysisMock.setupMockClient(mockToolsConfig);
       directories =
           new BlazeDirectories(
-              new ServerDirectories(fs.getPath("/install"), fs.getPath("/output")),
+              new ServerDirectories(
+                  fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
               analysisMock.getProductName());
       FileSystemUtils.deleteTree(workspace.getRelative("base"));

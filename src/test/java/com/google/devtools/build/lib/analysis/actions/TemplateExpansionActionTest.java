@@ -71,7 +71,10 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     substitutions.add(Substitution.of("%value%", "bar"));
     directories =
         new BlazeDirectories(
-            new ServerDirectories(scratch.resolve("/install"), scratch.resolve("/base")),
+            new ServerDirectories(
+                scratch.resolve("/install"),
+                scratch.resolve("/base"),
+                scratch.resolve("/userRoot")),
             scratch.resolve("/workspace"),
             "mock-product-name");
     binTools = BinTools.empty(directories);

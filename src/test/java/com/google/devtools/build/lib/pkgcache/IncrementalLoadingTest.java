@@ -466,7 +466,8 @@ public class IncrementalLoadingTest {
       LoadingMock loadingMock = LoadingMock.get();
       BlazeDirectories directories =
           new BlazeDirectories(
-              new ServerDirectories(fs.getPath("/install"), fs.getPath("/output")),
+              new ServerDirectories(
+                  fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
               loadingMock.getProductName());
       skyframeExecutor =

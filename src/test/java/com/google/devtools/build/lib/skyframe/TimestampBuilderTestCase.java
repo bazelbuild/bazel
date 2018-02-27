@@ -169,7 +169,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     AtomicReference<TimestampGranularityMonitor> tsgmRef = new AtomicReference<>(tsgm);
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(rootDirectory, outputBase),
+            new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(

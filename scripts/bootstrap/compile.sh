@@ -333,6 +333,7 @@ function run_bazel_jar() {
       --batch \
       --install_base=${ARCHIVE_DIR} \
       --output_base=${OUTPUT_DIR}/out \
+      --output_user_root=${OUTPUT_DIR}/user_root \
       --install_md5= \
       --workspace_directory="$(get_cwd)" \
       --nofatal_event_bus_exceptions \

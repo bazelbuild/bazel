@@ -67,7 +67,10 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
   public void setUp() throws Exception {
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(getScratch().dir("/install"), getScratch().dir("/output")),
+            new ServerDirectories(
+                getScratch().dir("/install"),
+                getScratch().dir("/output"),
+                getScratch().dir("/user_root")),
             rootDirectory,
             AnalysisMock.get().getProductName());
     skyframeExecutor =
