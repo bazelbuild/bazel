@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
@@ -20,6 +21,7 @@ import java.io.ObjectOutputStream;
  * A SkyValue with no attached data. Preferable to a specialized empty value class to minimize
  * bloat.
  */
+@AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
 public final class EmptySkyValue implements SkyValue {
   public static final EmptySkyValue INSTANCE = new EmptySkyValue();
 

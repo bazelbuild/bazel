@@ -44,6 +44,7 @@ import java.util.Objects;
  * directories above that one, but they don't need to be re-run.
  */
 public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
+  @AutoCodec
   public static final PrepareDepsOfTargetsUnderDirectoryValue INSTANCE =
       new PrepareDepsOfTargetsUnderDirectoryValue();
 

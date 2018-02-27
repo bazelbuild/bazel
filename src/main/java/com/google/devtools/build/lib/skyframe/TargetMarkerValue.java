@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -30,7 +31,7 @@ public final class TargetMarkerValue implements SkyValue {
 
   // Note that this value does not guarantee singleton-like reference equality because we use Java
   // deserialization. java deserialization can create other instances.
-  public static final TargetMarkerValue TARGET_MARKER_INSTANCE = new TargetMarkerValue();
+  @AutoCodec public static final TargetMarkerValue TARGET_MARKER_INSTANCE = new TargetMarkerValue();
 
   private TargetMarkerValue() {
   }
