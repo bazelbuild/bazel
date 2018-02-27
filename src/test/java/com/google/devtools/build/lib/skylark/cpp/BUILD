@@ -1,0 +1,51 @@
+java_test(
+    name = "SkylarkTests",
+    srcs = glob([
+        "*.java",
+    ]),
+    size = "small",
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:bazel-main",
+        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib:java-rules",
+        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+    data = [
+        "//tools/cpp:lib_cc_configure.bzl",
+    ],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD",
+        "SkylarkToolchainTest.java",
+    ],
+    visibility = ["//visibility:public"],
+)

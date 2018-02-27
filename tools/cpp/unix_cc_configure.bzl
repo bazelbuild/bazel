@@ -19,6 +19,8 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "escape_string",
     "get_env_var",
+    "split_escaped_by_sep",
+    "unescape_string",
     "which",
     "tpl",
 )
@@ -105,14 +107,15 @@ def _get_tool_paths(repository_ctx, darwin, cc, overriden_tools):
 
 def _escaped_cplus_include_paths(repository_ctx):
   """Use ${CPLUS_INCLUDE_PATH} to compute the %-escaped list of flags for cxxflag."""
-  if "CPLUS_INCLUDE_PATH" in repository_ctx.os.environ:
-    result = []
-    for p in repository_ctx.os.environ["CPLUS_INCLUDE_PATH"].split(":"):
-      p = escape_string(str(repository_ctx.path(p)))  # Normalize the path
-      result.append("-I" + p)
-    return result
-  else:
-    return []
+  result = []
+  include_paths = repository_ctx.os.environ.get("CPLUS_INCLUDE_PATH", default = [])
+  for escaped in split_escaped_by_sep(include_paths, ":"):
+    # Have to remove escaping to be able to use path call
+    unescaped = unescape_string(escaped.replace("%:", ":"))
+    p = str(repository_ctx.path(unescaped))  # Normalize the path
+    escaped = escape_string(p)
+    result.append("-I" + escaped)
+  return result
 
 
 _INC_DIR_MARKER_BEGIN = "#include <...>"
