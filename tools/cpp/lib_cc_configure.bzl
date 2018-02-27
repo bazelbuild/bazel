@@ -22,6 +22,60 @@ def escape_string(arg):
   else:
     return None
 
+def split_escaped(string, delimiter):
+  """Split string on the delimiter unless %-escaped.
+
+  Examples:
+    Basic usage:
+      split_escaped("a:b:c", ":") -> [ "a", "b", "c" ]
+
+    Delimeter that is not supposed to be splitten on has to be %-escaped:
+      split_escaped("a%:b", ":") -> [ "a:b" ]
+
+    Literal % can be represented by escaping it as %%:
+      split_escaped("a%%b", ":") -> [ "a%b" ]
+
+    Consecutive delimiters produce empty strings:
+      split_escaped("a::b", ":") -> [ "a", "", "", "b" ]
+
+  Args:
+    string: a string to be splitted
+    delimiter: non-empty string not containing %-sign to be used as a delimiter
+
+  Returns:
+    a list of substrings
+  """
+  if delimiter == "": fail("Delimiter cannot be empty")
+  if delimiter.find("%") != -1: fail("Delimiter cannot contain %-sign")
+
+  i = 0
+  result = []
+  accumulator = []
+  length = len(string)
+  delimiter_length = len(delimiter)
+   # Iterate over the length of string since Skylark doesn't have while loops
+  for _ in range(length):
+      if i >= length:
+          break
+      if i + 2 <= length and string[i : i + 2] == "%%":
+          accumulator.append("%")
+          i += 2
+      elif (i + 1 + delimiter_length <= length and
+              string[i : i + 1 + delimiter_length] == "%" + delimiter):
+          accumulator.append(delimiter)
+          i += 1 + delimiter_length
+      elif i + delimiter_length <= length and string[i : i + delimiter_length] == delimiter:
+          result.append(''.join(accumulator))
+          accumulator = []
+          i += delimiter_length
+      else:
+          accumulator.append(string[i])
+          i += 1
+
+  # Append the last group still in accumulator
+  result.append(''.join(accumulator))
+  return result
+
 
 def auto_configure_fail(msg):
   """Output failure message when auto configuration fails."""

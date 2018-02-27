@@ -13,6 +13,7 @@ filegroup(
 java_test(
     name = "cpp-rules-tests",
     srcs = glob(["*.java"]) + ["proto/CcProtoLibraryTest.java"],
+    resources = ["//tools/cpp:lib_cc_configure"],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -43,6 +44,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",
