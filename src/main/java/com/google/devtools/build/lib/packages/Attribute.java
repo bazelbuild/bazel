@@ -2110,14 +2110,17 @@ public final class Attribute implements Comparable<Attribute> {
    * Returns the list of aspects required for dependencies through this attribute.
    */
   public ImmutableList<Aspect> getAspects(Rule rule) {
-    ImmutableList.Builder<Aspect> builder = ImmutableList.builder();
+    ImmutableList.Builder<Aspect> builder = null;
     for (RuleAspect aspect : aspects) {
       Aspect a = aspect.getAspect(rule);
       if (a != null) {
+        if (builder == null) {
+          builder = ImmutableList.builder();
+        }
         builder.add(a);
       }
     }
-    return builder.build();
+    return builder == null ? ImmutableList.of() : builder.build();
   }
 
   public ImmutableList<AspectClass> getAspectClasses() {
