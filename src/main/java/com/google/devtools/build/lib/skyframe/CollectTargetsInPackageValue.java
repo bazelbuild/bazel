@@ -40,8 +40,10 @@ public class CollectTargetsInPackageValue implements SkyValue {
   }
 
   /** {@link SkyKey} argument. */
+  @AutoCodec
   @AutoValue
   public abstract static class CollectTargetsInPackageKey implements Serializable {
+    @AutoCodec.Instantiator
     public static CollectTargetsInPackageKey create(
         PackageIdentifier packageId, FilteringPolicy filteringPolicy) {
       return new AutoValue_CollectTargetsInPackageValue_CollectTargetsInPackageKey(

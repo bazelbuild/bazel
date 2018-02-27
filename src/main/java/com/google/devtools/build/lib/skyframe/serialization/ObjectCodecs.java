@@ -55,6 +55,14 @@ public class ObjectCodecs {
     }
   }
 
+  public void serialize(Object subject, CodedOutputStream codedOut) throws SerializationException {
+    try {
+      serializationContext.serialize(subject, codedOut);
+    } catch (IOException e) {
+      throw new SerializationException("Failed to serialize " + subject, e);
+    }
+  }
+
   /**
    * Serialize {@code subject}, using the serialization strategy determined by {@code classifier},
    * returning a {@link ByteString} containing the serialized representation.
@@ -92,7 +100,10 @@ public class ObjectCodecs {
   }
 
   public Object deserialize(ByteString data) throws SerializationException {
-    CodedInputStream codedIn = data.newCodedInput();
+    return deserialize(data.newCodedInput());
+  }
+
+  public Object deserialize(CodedInputStream codedIn) throws SerializationException {
     try {
       return deserializationContext.deserialize(codedIn);
     } catch (IOException e) {
