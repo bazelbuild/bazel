@@ -100,29 +100,28 @@ public class ProtoCommon {
   }
 
   /**
-   * Returns all proto source roots in this lib and in its transitive dependencies, each prefixed
-   * by {@code --proto_path}.
+   * Returns all proto source roots in this lib and in its transitive dependencies.
    *
    * Build will fail if the {@code proto_source_root} of the current lib is different than the
    * package name.
    */
   public static NestedSet<String> collectTransitiveProtoPathFlags(RuleContext ruleContext) {
-    NestedSetBuilder<String> protoPathFlags = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
 
     // first add the protoSourceRoot of the current target, if any
     String protoSourceRoot =
         ruleContext.attributes().get("proto_source_root", Type.STRING);
     if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
       checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
-      protoPathFlags.add("--proto_path=" + protoSourceRoot);
+      protoPath.add(protoSourceRoot);
     }
 
     for (ProtoSourcesProvider provider : ruleContext.getPrerequisites(
             "deps", Mode.TARGET, ProtoSourcesProvider.class)) {
-      protoPathFlags.addTransitive(provider.getTransitiveProtoPathFlags());
+      protoPath.addTransitive(provider.getTransitiveProtoPathFlags());
     }
 
-    return protoPathFlags.build();
+    return protoPath.build();
   }
 
   private static void checkProtoSourceRootIsTheSameAsPackage(

@@ -52,8 +52,8 @@ public abstract class SupportData {
   public abstract NestedSet<Artifact> getProtosInDirectDeps();
 
   /**
-   * Directories of .proto sources collected from the transitive closure, each prefixed with
-   * {@code --proto_path}. These flags will be passed to {@code protoc} in the specified oreder.
+   * Directories of .proto sources collected from the transitive closure. These flags will be passed
+   * to {@code protoc} in the specified order, via the {@code --proto_path} flag.
    */
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
 

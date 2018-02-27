@@ -530,7 +530,9 @@ public class ProtoCompileActionBuilder {
       ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
-    cmdLine.addAll(transitiveProtoPathFlags);
+    cmdLine.addAll(
+        VectorArg.of(transitiveProtoPathFlags)
+            .mapped(ProtoCompileActionBuilder::expandTransitiveProtoPathFlags));
 
     // A set to check if there are multiple invocations with the same name.
     HashSet<String> invocationNames = new HashSet<>();
@@ -602,6 +604,10 @@ public class ProtoCompileActionBuilder {
         commandLine.add("--direct_dependencies=");
       }
     }
+  }
+
+  private static void expandTransitiveProtoPathFlags(String flag, Consumer<String> args) {
+    args.accept("--proto_path=" + flag);
   }
 
   private static void expandTransitiveImportArg(Artifact artifact, Consumer<String> args) {
