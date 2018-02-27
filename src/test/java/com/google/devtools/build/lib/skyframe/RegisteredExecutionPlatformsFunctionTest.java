@@ -108,6 +108,54 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Test
+  public void testRegisteredExecutionPlatforms_targetPattern_workspace() throws Exception {
+
+    // Add an extra execution platform.
+    scratch.file(
+        "extra/BUILD",
+        "platform(name = 'execution_platform_1')",
+        "platform(name = 'execution_platform_2')");
+
+    rewriteWorkspace("register_execution_platforms('//extra/...')");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the target registered with the extra_execution_platforms flag is first in the
+    // list.
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsAllOf(
+            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+        .inOrder();
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_targetPattern_flagOverride() throws Exception {
+
+    // Add an extra execution platform.
+    scratch.file(
+        "extra/BUILD",
+        "platform(name = 'execution_platform_1')",
+        "platform(name = 'execution_platform_2')");
+
+    useConfiguration("--extra_execution_platforms=//extra/...");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the target registered with the extra_execution_platforms flag is first in the
+    // list.
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsAllOf(
+            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+        .inOrder();
+  }
+
+  @Test
   public void testRegisteredExecutionPlatforms_notExecutionPlatform() throws Exception {
     rewriteWorkspace("register_execution_platforms(", "    '//error:not_an_execution_platform')");
     scratch.file("error/BUILD", "filegroup(name = 'not_an_execution_platform')");

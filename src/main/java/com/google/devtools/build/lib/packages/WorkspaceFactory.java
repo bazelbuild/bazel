@@ -53,9 +53,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -275,8 +273,8 @@ public class WorkspaceFactory {
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
     }
-    builder.addRegisteredExecutionPlatformLabels(aPackage.getRegisteredExecutionPlatformLabels());
-    builder.addRegisteredToolchainLabels(aPackage.getRegisteredToolchainLabels());
+    builder.addRegisteredExecutionPlatforms(aPackage.getRegisteredExecutionPlatforms());
+    builder.addRegisteredToolchains(aPackage.getRegisteredToolchains());
     for (Rule rule : aPackage.getTargets(Rule.class)) {
       try {
         // The old rule references another Package instance and we wan't to keep the invariant that
@@ -416,25 +414,10 @@ public class WorkspaceFactory {
                 SkylarkList<String> platformLabels, Location location, Environment env)
                 throws EvalException, InterruptedException {
 
-              // Collect the platform labels.
-              List<Label> platforms = new ArrayList<>();
-              for (String rawLabel : platformLabels.getContents(String.class, "platform_labels")) {
-                try {
-                  platforms.add(Label.parseAbsolute(rawLabel));
-                } catch (LabelSyntaxException e) {
-                  throw new EvalException(
-                      location,
-                      String.format(
-                          "In register_execution_platforms: unable to parse platform label %s: %s",
-                          rawLabel, e.getMessage()),
-                      e);
-                }
-              }
-
               // Add to the package definition for later.
-              Package.Builder builder =
-                  PackageFactory.getContext(env, location).pkgBuilder;
-              builder.addRegisteredExecutionPlatformLabels(platforms);
+              Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
+              builder.addRegisteredExecutionPlatforms(
+                  platformLabels.getContents(String.class, "platform_labels"));
 
               return NONE;
             }
@@ -468,26 +451,10 @@ public class WorkspaceFactory {
                 SkylarkList<String> toolchainLabels, Location location, Environment env)
                 throws EvalException, InterruptedException {
 
-              // Collect the toolchain labels.
-              List<Label> toolchains = new ArrayList<>();
-              for (String rawLabel :
-                  toolchainLabels.getContents(String.class, "toolchain_labels")) {
-                try {
-                  toolchains.add(Label.parseAbsolute(rawLabel));
-                } catch (LabelSyntaxException e) {
-                  throw new EvalException(
-                      location,
-                      String.format(
-                          "In register_toolchains: unable to parse toolchain label %s: %s",
-                          rawLabel, e.getMessage()),
-                      e);
-                }
-              }
-
               // Add to the package definition for later.
-              Package.Builder builder =
-                  PackageFactory.getContext(env, location).pkgBuilder;
-              builder.addRegisteredToolchainLabels(toolchains);
+              Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
+              builder.addRegisteredToolchains(
+                  toolchainLabels.getContents(String.class, "toolchain_labels"));
 
               return NONE;
             }
