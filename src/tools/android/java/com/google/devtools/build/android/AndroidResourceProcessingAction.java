@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static java.util.stream.Collectors.toList;
+
 import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.AaptCruncher;
 import com.android.ide.common.internal.LoggedErrorException;
@@ -44,15 +46,19 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;
@@ -366,6 +372,7 @@ public class AndroidResourceProcessingAction {
       final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
       final Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
       final Path dummyManifest = tmp.resolve("manifest-aapt-dummy/AndroidManifest.xml");
+      final Path publicXmlOut = tmp.resolve("public-resources/public.xml");
 
       Path generatedSources = null;
       if (options.srcJarOutput != null || options.rOutput != null || options.symbolsOut != null) {
@@ -460,9 +467,7 @@ public class AndroidResourceProcessingAction {
               options.packagePath,
               options.proguardOutput,
               options.mainDexProguardOutput,
-              options.resourcesOutput != null
-                  ? processedData.getResourceDir().resolve("values").resolve("public.xml")
-                  : null,
+              options.resourcesOutput != null ? publicXmlOut : null,
               options.dataBindingInfoOut);
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
@@ -475,6 +480,23 @@ public class AndroidResourceProcessingAction {
             generatedSources, options.rOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
+        if (Files.exists(publicXmlOut)) {
+          try (BufferedReader reader =
+              Files.newBufferedReader(publicXmlOut, StandardCharsets.UTF_8)) {
+            Path publicXml =
+                processedAndroidData.getResourceDir().resolve("values").resolve("public.xml");
+            Files.createDirectories(publicXml.getParent());
+
+            Pattern xmlComment = Pattern.compile("<!--.*-->");
+            Files.write(
+                publicXml,
+                // Remove aapt debugging comment lines to fix hermaticity with generated files.
+                reader.lines().filter(l -> !xmlComment.matcher(l).find()).collect(toList()),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
+          }
+        }
+
         ResourcesZip.from(processedAndroidData.getResourceDir(), processedAndroidData.getAssetDir())
             .writeTo(options.resourcesOutput, false /* compress */);
       }
