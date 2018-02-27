@@ -140,7 +140,7 @@ function test_java_test() {
   if ! unzip -l $jarfile | grep -q greeting.txt ; then fail "FAIL 2" ; fi
   if ! unzip $jarfile greeting.txt -d $TEST_TMPDIR ; then fail "FAIL 3"; fi
   echo "DEBUG 1 ===="
-  hexdump -C $TEST_TMPDIR
+  hexdump -C $TEST_TMPDIR/greeting.txt
   echo "DEBUG 2 ===="
   fail "CICA"
 
