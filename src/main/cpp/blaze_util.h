@@ -110,9 +110,13 @@ extern const unsigned int kPostKillGracePeriodSeconds;
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.
 template <typename T>
 std::string ToString(const T &value) {
+#if defined(__CYGWIN__) || defined(__MINGW32__)
   std::ostringstream oss;
   oss << value;
   return oss.str();
+#else
+  return std::to_string(value);
+#endif
 }
 
 // Control the output of debug information by debug_log.
