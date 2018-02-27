@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -36,6 +37,7 @@ import javax.annotation.Nullable;
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
  * {@link TreeFileArtifact}s.
  */
+@AutoCodec
 class TreeArtifactValue implements SkyValue {
   private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
       new Function<Artifact, PathFragment>() {
@@ -48,7 +50,8 @@ class TreeArtifactValue implements SkyValue {
   private final byte[] digest;
   private final Map<TreeFileArtifact, FileArtifactValue> childData;
 
-  private TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
+  @AutoCodec.VisibleForSerialization
+  TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
     this.digest = digest;
     this.childData = ImmutableMap.copyOf(childData);
   }
