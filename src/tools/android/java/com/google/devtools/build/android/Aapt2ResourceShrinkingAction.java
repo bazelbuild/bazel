@@ -108,6 +108,10 @@ public class Aapt2ResourceShrinkingAction {
       ResourceLinker.create(aapt2ConfigOptions.aapt2, scopedTmp.subDirectoryOf("linking"))
           .profileUsing(profiler)
           .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)))
+          .profileUsing(profiler)
+          .outputAsProto(aapt2ConfigOptions.resourceTableAsProto)
+          .buildVersion(aapt2ConfigOptions.buildToolsVersion)
+          .includeOnlyConfigs(aapt2ConfigOptions.resourceConfigs)
           .link(compiled)
           .copyPackageTo(options.shrunkApk)
           .copyRTxtTo(options.rTxtOutput);
