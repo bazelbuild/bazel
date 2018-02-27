@@ -33,9 +33,22 @@ public class Greeter {
 
   public void hello(String obj) throws Exception {
     String greeting = "Hello";
-    InputStream stream  = Greeter.class.getResourceAsStream("/greeting.txt");
-    if (stream != null) {
-      greeting = convertStreamToString(stream);
+    try (InputStream stream = Greeter.class.getResourceAsStream("/greeting.txt")) {
+      if (stream != null) {
+        byte[] raw_data = new byte[50];
+        int size = stream.read(raw_data);
+        StringBuilder sb = new StringBuilder();
+        sb.append("DEBUG[Greeter]");
+        for (int i = 0; i < size; ++i) {
+          sb.append(String.format(" 0x%02x", raw_data[i]));
+        }
+        System.out.println(sb.toString());
+      }
+    }
+    try (InputStream stream = Greeter.class.getResourceAsStream("/greeting.txt")) {
+      if (stream != null) {
+        greeting = convertStreamToString(stream);
+      }
     }
     out.println(greeting + " " + obj);
   }
