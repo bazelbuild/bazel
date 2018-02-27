@@ -19,10 +19,11 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LipoConfigurationState;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
- * Configuration transition that creates the "artifact owner" configuration from the LIPO
- * context collector configuration.
+ * Configuration transition that creates the "artifact owner" configuration from the LIPO context
+ * collector configuration.
  *
  * <p>The context collector creates C++ output artifacts but doesn't create the actions that
  * generate those artifacts (this is what {@link BuildConfiguration#isActionsEnabled()} means).
@@ -33,6 +34,8 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions.LipoConfigurationState
  * <p>This is a no-op for all configurations but the context collector.
  */
 public class ContextCollectorOwnerTransition implements PatchTransition {
+
+  @AutoCodec
   public static final ContextCollectorOwnerTransition INSTANCE =
       new ContextCollectorOwnerTransition();
 

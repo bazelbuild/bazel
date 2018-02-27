@@ -17,17 +17,17 @@ package com.google.devtools.build.lib.rules.cpp.transitions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 
 /**
  * Configuration transition that turns off LIPO/FDO settings.
  *
- * <p>Has no effect on non-LIPO-enabled configurations or the LIPO context collector
- * configuration.
- *
+ * <p>Has no effect on non-LIPO-enabled configurations or the LIPO context collector configuration.
  */
 public final class DisableLipoTransition implements PatchTransition {
-  public static final DisableLipoTransition INSTANCE = new DisableLipoTransition();
+
+  @AutoCodec public static final DisableLipoTransition INSTANCE = new DisableLipoTransition();
 
   private DisableLipoTransition() {}
 
