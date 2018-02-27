@@ -340,20 +340,17 @@ public abstract class Location implements Serializable {
    * <p>If such a location is not defined, this method returns an empty string.
    */
   public static String printLocation(Location location) {
-    return (location == null) ? "" : location.printLocation();
-  }
-
-  /**
-   * Returns this location in the format "filename:line".
-   */
-  public String printLocation() {
+    if (location == null) {
+      return "";
+    }
+    
     StringBuilder builder = new StringBuilder();
-    PathFragment path = getPath();
+    PathFragment path = location.getPath();
     if (path != null) {
       builder.append(path.getPathString());
     }
 
-    LineAndColumn position = getStartLineAndColumn();
+    LineAndColumn position = location.getStartLineAndColumn();
     if (position != null) {
       builder.append(":").append(position.getLine());
     }
