@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -166,7 +166,7 @@ public final class LtoBackendArtifacts {
     return dwoFile;
   }
 
-  public void addIndexingOutputs(ImmutableList.Builder<Artifact> builder) {
+  public void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
     builder.add(imports);
     builder.add(index);
   }
