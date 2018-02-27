@@ -133,19 +133,20 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .addCompileTimeJarAsFullJar(mergedJar)
             .build());
 
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        JavaCompilationArgsProvider.create(
+            common.collectJavaCompilationArgs(
+                /* recursive = */ false,
+                JavaCommon.isNeverLink(ruleContext),
+                /* srcLessDepsExport = */ false),
+            common.collectJavaCompilationArgs(
+                /* recursive = */ true,
+                JavaCommon.isNeverLink(ruleContext),
+                /* srcLessDepsExport = */ false));
+
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
-            .addProvider(
-                JavaCompilationArgsProvider.class,
-                JavaCompilationArgsProvider.create(
-                    common.collectJavaCompilationArgs(
-                        /* recursive = */ false,
-                        JavaCommon.isNeverLink(ruleContext),
-                        /* srcLessDepsExport = */ false),
-                    common.collectJavaCompilationArgs(
-                        /* recursive = */ true,
-                        JavaCommon.isNeverLink(ruleContext),
-                        /* srcLessDepsExport = */ false)))
+            .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(
