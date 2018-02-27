@@ -136,6 +136,13 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
    * Directories of .proto sources collected from the transitive closure, each prefixed with
    * {@code --proto_path}. These flags will be passed to {@code protoc} in the specified oreder.
    */
+  @SkylarkCallable(
+    name = "transitive_proto_path_flags",
+    doc =
+        "Directories of .proto sources collected from the transitive closure, each prefixed with"
+            + "--proto_path. These flags will be passed to protoc in the specified oreder."
+    structField = true
+  )
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
 
   ProtoSourcesProvider() {}
