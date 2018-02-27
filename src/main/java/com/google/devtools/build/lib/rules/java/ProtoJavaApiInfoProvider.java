@@ -20,26 +20,26 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * An object that provides information about API versions used by a proto library.
- */
+/** An object that provides information about API versions used by a proto library. */
+@AutoCodec
 @Immutable
 @AutoValue
 public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider {
-
+  @AutoCodec.Instantiator
   public static ProtoJavaApiInfoProvider create(
       JavaCompilationArgs javaCompilationContext,
       JavaCompilationArgs transitiveJavaCompilationArgs,
       JavaCompilationArgs transitiveJavaRpcLibs,
-      JavaCompilationArgs transitiveJavaCompilationArgss1,
-      JavaCompilationArgs transitiveJavaCompilationArgssMutable,
-      JavaCompilationArgs transitiveJavaCompilationArgssImmutable,
-      JavaCompilationArtifacts javaCompilationArgs1,
-      JavaCompilationArtifacts javaCompilationArgsMutable,
-      JavaCompilationArtifacts javaCompilationArgsImmutable,
+      JavaCompilationArgs transitiveJavaCompilationArgs1,
+      JavaCompilationArgs transitiveJavaCompilationArgsMutable,
+      JavaCompilationArgs transitiveJavaCompilationArgsImmutable,
+      JavaCompilationArtifacts javaCompilationArtifacts1,
+      JavaCompilationArtifacts javaCompilationArtifactsMutable,
+      JavaCompilationArtifacts javaCompilationArtifactsImmutable,
       Artifact sourceJar1,
       Artifact sourceJarMutable,
       Artifact sourceJarImmutable,
@@ -50,7 +50,7 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
       JavaCompilationArgs transitiveProtoRuntimeMutable,
       JavaCompilationArgs transitiveProtoRuntimeImmutable,
       Map<Artifact, Artifact> compileTimeJarToRuntimeJar,
-      boolean mixedApiVersions,
+      boolean hasMixedApiVersions,
       int apiVersion,
       boolean supportsProto1,
       boolean supportsProto2Mutable,
@@ -59,12 +59,12 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
         javaCompilationContext,
         transitiveJavaCompilationArgs,
         transitiveJavaRpcLibs,
-        transitiveJavaCompilationArgss1,
-        transitiveJavaCompilationArgssMutable,
-        transitiveJavaCompilationArgssImmutable,
-        javaCompilationArgs1,
-        javaCompilationArgsMutable,
-        javaCompilationArgsImmutable,
+        transitiveJavaCompilationArgs1,
+        transitiveJavaCompilationArgsMutable,
+        transitiveJavaCompilationArgsImmutable,
+        javaCompilationArtifacts1,
+        javaCompilationArtifactsMutable,
+        javaCompilationArtifactsImmutable,
         sourceJar1,
         sourceJarMutable,
         sourceJarImmutable,
@@ -74,7 +74,7 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
         transitiveProtoRuntime1,
         transitiveProtoRuntimeMutable,
         transitiveProtoRuntimeImmutable,
-        mixedApiVersions,
+        hasMixedApiVersions,
         apiVersion,
         supportsProto1,
         supportsProto2Mutable,
