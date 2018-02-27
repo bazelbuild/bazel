@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
@@ -26,6 +27,13 @@ import java.util.Map;
  * fields are supported. However, nested replacement fields are not allowed.
  */
 public final class FormatParser {
+
+  /**
+   * Matches strings likely to be a number, faster alternative to relying solely on Integer.parseInt
+   * and NumberFormatException to determine numericness.
+   */
+  private static final CharMatcher LIKELY_NUMERIC_MATCHER =
+      CharMatcher.inRange('0', '9').or(CharMatcher.is('-'));
 
   private static final ImmutableSet<Character> ILLEGAL_IN_FIELD =
       ImmutableSet.of('.', '[', ']', ',');
@@ -104,20 +112,20 @@ public final class FormatParser {
 
     // Only positional replacement fields will lead to a valid index
     try {
-      int index = parsePositional(key, history);
+      if (key.isEmpty() || LIKELY_NUMERIC_MATCHER.matchesAllOf(key)) {
+        int index = parsePositional(key, history);
 
-      if (index < 0 || index >= args.size()) {
-        fail("No replacement found for index " + index);
+        if (index < 0 || index >= args.size()) {
+          fail("No replacement found for index " + index);
+        }
+
+        value = args.get(index);
+      } else {
+        value = getKwarg(kwargs, key);
       }
-
-      value = args.get(index);
     } catch (NumberFormatException nfe) {
       // Non-integer index -> Named
-      if (!kwargs.containsKey(key)) {
-        fail("Missing argument '" + key + "'");
-      }
-
-      value = kwargs.get(key);
+      value = getKwarg(kwargs, key);
     }
 
     // Format object for output
@@ -129,6 +137,14 @@ public final class FormatParser {
     return key.length() + 1;
   }
 
+  private Object getKwarg(Map<String, Object> kwargs, String key) throws EvalException {
+    if (!kwargs.containsKey(key)) {
+      fail("Missing argument '" + key + "'");
+    }
+
+    return kwargs.get(key);
+  }
+
   /**
    * Processes a closing brace and emits the result to the output StringBuilder
    *
@@ -137,7 +153,7 @@ public final class FormatParser {
    * @param output StringBuilder that consumes the result
    * @return Number of characters that have been consumed by this method
    */
-  protected int processClosingBrace(char[] chars, int pos, StringBuilder output)
+  private int processClosingBrace(char[] chars, int pos, StringBuilder output)
       throws EvalException {
     if (!has(chars, pos + 1, '}')) {
       // Invalid brace outside replacement field
@@ -204,7 +220,7 @@ public final class FormatParser {
    *     replacement fields
    * @return The integer equivalent of the key
    */
-  protected int parsePositional(String key, History history) throws EvalException {
+  private int parsePositional(String key, History history) throws EvalException {
     int result = -1;
 
     try {
