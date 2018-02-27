@@ -31,20 +31,19 @@ public class Greeter {
     }
   }
 
-  public void hello(String obj) throws Exception {
-    String greeting = "Hello";
+  public static int readGreeter(byte[] dst) {
     try (InputStream stream = Greeter.class.getResourceAsStream("/greeting.txt")) {
       if (stream != null) {
-        byte[] raw_data = new byte[50];
-        int size = stream.read(raw_data);
-        StringBuilder sb = new StringBuilder();
-        sb.append("DEBUG[Greeter]");
-        for (int i = 0; i < size; ++i) {
-          sb.append(String.format(" 0x%02x", raw_data[i]));
-        }
-        System.out.println(sb.toString());
+        return stream.read(dst);
       }
+      return 0;
+    } catch (java.io.IOException e) {
+      return -1;
     }
+  }
+
+  public void hello(String obj) throws Exception {
+    String greeting = "Hello";
     try (InputStream stream = Greeter.class.getResourceAsStream("/greeting.txt")) {
       if (stream != null) {
         greeting = convertStreamToString(stream);
