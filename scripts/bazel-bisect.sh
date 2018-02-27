@@ -27,11 +27,6 @@ function usage() {
   echo "$USAGE" "$DESCRIPTION" >&2
 }
 
-function die() {
-  echo "$1"
-  exit 1
-}
-
 # Configuration params. Export these in your bashrc to set personal defaults.
 
 # The source of Bazel code.
