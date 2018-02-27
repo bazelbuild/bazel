@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.ExtensionRegistryLite;
 import com.google.protobuf.ProtocolMessageEnum;
+import com.squareup.javapoet.TypeName;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -51,6 +53,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 
 /** Class containing all {@link Marshaller} instances. */
 class Marshallers {
@@ -78,11 +81,22 @@ class Marshallers {
   void writeDeserializationCode(Context context) {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
+    // Check to see if this declared type is generic or if it contains a generic.
+    TypeName contextTypeName = context.getTypeName();
+    if (context.isDeclaredType() && !context.getDeclaredType().getTypeArguments().isEmpty()) {
+      for (TypeMirror paramTypeMirror : context.getDeclaredType().getTypeArguments()) {
+        if (paramTypeMirror instanceof TypeVariable) {
+          contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getDeclaredType()));
+        }
+      }
+    } else if (context.getTypeMirror() instanceof TypeVariable) {
+      contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getTypeMirror()));
+    }
     if (needsNullHandling) {
-      context.builder.addStatement("$T $L = null", context.getTypeName(), context.name);
+      context.builder.addStatement("$T $L = null", contextTypeName, context.name);
       context.builder.beginControlFlow("if (codedIn.readBool())");
     } else {
-      context.builder.addStatement("$T $L", context.getTypeName(), context.name);
+      context.builder.addStatement("$T $L", contextTypeName, context.name);
     }
     generator.addDeserializationCode(context);
     if (needsNullHandling) {
@@ -121,6 +135,11 @@ class Marshallers {
           .filter(generator -> generator.matches((PrimitiveType) type))
           .findFirst()
           .orElseThrow(() -> new IllegalArgumentException("No generator for: " + primitiveType));
+    }
+
+    // We're dealing with a generic.
+    if (type instanceof TypeVariable) {
+      return contextMarshaller;
     }
 
     // TODO(cpeyser): Refactor primitive handling from AutoCodecProcessor.java
@@ -476,11 +495,15 @@ class Marshallers {
     // Writes the target count to the stream so deserialization knows when to stop.
     context.builder.addStatement(
         "codedOut.writeInt32NoTag($T.size($L))", Iterables.class, context.name);
+    TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
+    if (typeParameter instanceof TypeVariable) {
+      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
+    }
     Context repeated =
         context.with(
             context.getDeclaredType().getTypeArguments().get(0), context.makeName("repeated"));
-          context.builder.beginControlFlow(
-              "for ($T $L : $L)", repeated.getTypeName(), repeated.name, context.name);
+    context.builder.beginControlFlow(
+        "for ($T $L : $L)", typeParameter, repeated.name, context.name);
           writeSerializationCode(repeated);
           context.builder.endControlFlow();
   }
@@ -489,14 +512,18 @@ class Marshallers {
     Context repeated =
         context.with(
             context.getDeclaredType().getTypeArguments().get(0), context.makeName("repeated"));
-          String builderName = context.makeName("builder");
-          context.builder.addStatement(
-              "$T<$T> $L = new $T<>()",
-              ImmutableList.Builder.class,
-              repeated.getTypeName(),
-              builderName,
-              ImmutableList.Builder.class);
-          writeListDeserializationLoopAndBuild(context, repeated, builderName);
+    TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
+    if (typeParameter instanceof TypeVariable) {
+      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
+    }
+    String builderName = context.makeName("builder");
+    context.builder.addStatement(
+        "$T<$T> $L = new $T<>()",
+        ImmutableList.Builder.class,
+        typeParameter,
+        builderName,
+        ImmutableList.Builder.class);
+    writeListDeserializationLoopAndBuild(context, repeated, builderName);
   }
 
   private final Marshaller iterableMarshaller =
@@ -883,6 +910,9 @@ class Marshallers {
 
   private void addSerializationCodeForNestedSet(Context context) {
     TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
+    if (typeParameter instanceof TypeVariable) {
+      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
+    }
     String nestedSetCodec = context.makeName("nestedSetCodec");
     context.builder.addStatement(
         "$T<$T> $L = new $T<>()",
@@ -901,6 +931,9 @@ class Marshallers {
   private void addDeserializationCodeForNestedSet(Context context) {
     TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
           String nestedSetCodec = context.makeName("nestedSetCodec");
+    if (typeParameter instanceof TypeVariable) {
+      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
+    }
     context.builder.addStatement(
         "$T<$T> $L = new $T<>()",
         NestedSetCodec.class,
@@ -953,6 +986,31 @@ class Marshallers {
         }
       };
 
+  private final Marshaller charsetMarshaller =
+      new Marshaller() {
+        @Override
+        public boolean matches(DeclaredType type) {
+          return matchesType(type, Charset.class);
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement(
+              "$T.asciiOptimized().serialize(context, $L.name(), codedOut)",
+              StringCodecs.class,
+              context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.forName($T.asciiOptimized().deserialize(context, codedIn))",
+              context.name,
+              Charset.class,
+              StringCodecs.class);
+        }
+      };
+
   private final ImmutableList<PrimitiveValueSerializationCodeGenerator> primitiveGenerators =
       ImmutableList.of(
           INT_CODE_GENERATOR,
@@ -982,6 +1040,7 @@ class Marshallers {
           hashCodeMarshaller,
           protoMarshaller,
           iterableMarshaller,
+          charsetMarshaller,
           contextMarshaller);
 
   /** True when {@code type} has the same type as {@code clazz}. */

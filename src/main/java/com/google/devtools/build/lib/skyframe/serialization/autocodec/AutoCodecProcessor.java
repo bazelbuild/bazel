@@ -49,8 +49,10 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
@@ -251,9 +253,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
             "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
-            parameter.asType(),
+            sanitizeTypeParameterOfGenerics(parameter.asType()),
             parameter.getSimpleName(),
-            parameter.asType(),
+            sanitizeTypeParameterOfGenerics(parameter.asType()),
             UnsafeProvider.class,
             typeKind.isPrimitive() ? firstLetterUpper(typeKind.toString().toLowerCase()) : "Object",
             parameter.getSimpleName());
@@ -274,6 +276,22 @@ public class AutoCodecProcessor extends AbstractProcessor {
       return true;
     }
     return env.getTypeUtils().isAssignable(t1, t2) || env.getTypeUtils().isAssignable(t2, t1);
+  }
+
+  private TypeMirror sanitizeTypeParameterOfGenerics(TypeMirror type) {
+    if (type instanceof TypeVariable) {
+      return env.getTypeUtils().erasure(type);
+    }
+    if (!(type instanceof DeclaredType)) {
+      return type;
+    }
+    DeclaredType declaredType = (DeclaredType) type;
+    for (TypeMirror typeMirror : declaredType.getTypeArguments()) {
+      if (typeMirror instanceof TypeVariable) {
+        return env.getTypeUtils().erasure(type);
+      }
+    }
+    return type;
   }
 
   private String findGetterForClass(VariableElement parameter, TypeElement type) {
