@@ -818,7 +818,7 @@ public final class ObjcProvider extends NativeInfo {
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);

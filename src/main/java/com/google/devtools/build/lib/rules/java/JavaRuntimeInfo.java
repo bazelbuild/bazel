@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -110,7 +109,7 @@ public class JavaRuntimeInfo extends NativeInfo {
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaBinaryRunfilesPath) {
-    super(PROVIDER, ImmutableMap.<String, Object>of());
+    super(PROVIDER);
     this.javaBaseInputs = javaBaseInputs;
     this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;

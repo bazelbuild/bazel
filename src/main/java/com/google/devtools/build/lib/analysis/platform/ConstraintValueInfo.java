@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -79,9 +78,6 @@ public class ConstraintValueInfo extends NativeInfo {
   ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
     super(
         SKYLARK_CONSTRUCTOR,
-        ImmutableMap.<String, Object>of(
-            "constraint", constraint,
-            "label", label),
         location);
 
     this.constraint = constraint;

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -75,7 +74,7 @@ public class ConstraintSettingInfo extends NativeInfo {
 
   @VisibleForSerialization
   ConstraintSettingInfo(Label label, Location location) {
-    super(PROVIDER, ImmutableMap.<String, Object>of("label", label), location);
+    super(PROVIDER, location);
 
     this.label = label;
   }

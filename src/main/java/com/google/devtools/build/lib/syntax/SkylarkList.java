@@ -114,7 +114,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   @Override
   public boolean equals(Object object) {
     return (this == object)
-        || ((this.getClass() == object.getClass())
+        || ((object != null) && (this.getClass() == object.getClass())
             && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
   }
 

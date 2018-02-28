@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -100,7 +99,7 @@ public final class CcCompilationInfo extends NativeInfo {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
-    super(PROVIDER, ImmutableMap.of());
+    super(PROVIDER);
     Preconditions.checkNotNull(commandLineCcCompilationInfo);
     this.commandLineCcCompilationInfo = commandLineCcCompilationInfo;
     this.declaredIncludeDirs = declaredIncludeDirs;

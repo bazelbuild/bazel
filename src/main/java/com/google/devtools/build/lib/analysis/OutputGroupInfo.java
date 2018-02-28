@@ -126,7 +126,7 @@ public final class OutputGroupInfo extends NativeInfo
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
     this.outputGroups = outputGroups;
   }
 

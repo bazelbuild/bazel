@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -1333,6 +1334,22 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testGetattrMethods() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("a = getattr(mock, 'struct_field', 'no')",
+            "b = getattr(mock, 'function', 'no')",
+            "c = getattr(mock, 'is_empty', 'no')",
+            "d = getattr('str', 'replace', 'no')",
+            "e = getattr(mock, 'other', 'no')\n")
+        .testLookup("a", "a")
+        .testLookup("b", "no")
+        .testLookup("c", "no")
+        .testLookup("d", "no")
+        .testLookup("e", "no");
+  }
+
+  @Test
   public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
     new SkylarkTest().testIfExactError("unsupported operand type(s) for +: 'list' and 'tuple'",
         "[1, 2] + (3, 4)");
@@ -1540,7 +1557,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
                 public String invoke() {
                   return "fromValues";
                 }
-              }));
+              }),
+          Location.BUILTIN);
     }
 
     @SkylarkCallable(name = "callable_only_field", doc = "", structField = true)

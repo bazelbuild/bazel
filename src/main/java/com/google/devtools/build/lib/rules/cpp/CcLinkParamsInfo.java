@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -48,7 +47,7 @@ public final class CcLinkParamsInfo extends NativeInfo {
 
   @AutoCodec.Instantiator
   public CcLinkParamsInfo(CcLinkParamsStore store) {
-    super(PROVIDER, ImmutableMap.<String, Object>of());
+    super(PROVIDER);
     this.store = new CcLinkParamsStoreImpl(store);
   }
 

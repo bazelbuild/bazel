@@ -113,9 +113,6 @@ public class PlatformInfo extends NativeInfo {
       Location location) {
     super(
         SKYLARK_CONSTRUCTOR,
-        ImmutableMap.<String, Object>of(
-            "label", label,
-            "constraints", constraints.values().asList()),
         location);
 
     this.label = label;
@@ -153,7 +150,7 @@ public class PlatformInfo extends NativeInfo {
     structField = true
   )
   public Iterable<ConstraintValueInfo> constraints() {
-    return constraints.values();
+    return constraints.values().asList();
   }
 
   /**

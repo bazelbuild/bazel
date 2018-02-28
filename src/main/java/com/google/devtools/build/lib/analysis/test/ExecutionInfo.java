@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.util.Map;
 
 /**
@@ -33,7 +34,7 @@ public final class ExecutionInfo extends NativeInfo {
   private final ImmutableMap<String, String> executionInfo;
 
   public ExecutionInfo(Map<String, String> requirements) {
-    super(PROVIDER, ImmutableMap.<String, Object>of("requirements", requirements));
+    super(PROVIDER);
     this.executionInfo = ImmutableMap.copyOf(requirements);
   }
 
@@ -42,6 +43,11 @@ public final class ExecutionInfo extends NativeInfo {
    * platforms, etc. Rule tags, such as "requires-XXX", may also be added
    * as keys to the map.
    */
+  @SkylarkCallable(
+      name = "requirements",
+      doc = "A dict indicating special execution requirements, such as hardware platforms.",
+      structField = true
+  )
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }

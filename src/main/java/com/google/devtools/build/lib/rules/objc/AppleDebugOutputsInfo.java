@@ -91,7 +91,7 @@ public final class AppleDebugOutputsInfo extends NativeInfo {
    *     </ul>
    */
   private AppleDebugOutputsInfo(ImmutableMap<String, ImmutableMap<String, Artifact>> map) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
     this.outputsMap = map;
   }
 
