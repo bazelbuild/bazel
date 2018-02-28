@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import java.util.List;
 import java.util.Set;
 
 /** Command-line options for the Blaze query language, revision 2. */
@@ -162,6 +165,20 @@ public class QueryOptions extends CommonQueryOptions {
             + "included; otherwise they are omitted. This option is applicable to --output=proto"
   )
   public boolean protoIncludeDefaultValues;
+
+  @Option(
+    name = "proto:output_rule_attrs",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = "all",
+    category = "query",
+    documentationCategory = OptionDocumentationCategory.QUERY,
+    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+    help =
+        "Comma separated list of attributes to include in output. Defaults to all attributes. "
+            + "Set to empty string to not output any attribute. "
+            + "This option is applicable to --output=proto."
+  )
+  public List<String> protoOutputRuleAttributes = ImmutableList.of("all");
 
   @Option(
     name = "xml:line_numbers",

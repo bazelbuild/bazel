@@ -21,6 +21,8 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -58,6 +60,7 @@ import java.io.OutputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -84,6 +87,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations = false;
   protected boolean includeDefaultValues = true;
+  private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
 
   protected void setDependencyFilter(QueryOptions options) {
@@ -100,7 +104,18 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver);
     this.relativeLocations = options.relativeLocations;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
+    this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
+  }
+
+  private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
+    if (outputAttributes.equals(ImmutableList.of("all"))) {
+      return Predicates.alwaysTrue();
+    } else if (outputAttributes.isEmpty()) {
+      return Predicates.alwaysFalse();
+    } else {
+      return Predicates.in(ImmutableSet.copyOf(outputAttributes));
+    }
   }
 
   @Override
@@ -373,7 +388,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Filter out some attributes */
   protected boolean includeAttribute(Rule rule, Attribute attr) {
-    return true;
+    return ruleAttributePredicate.apply(attr.getName());
   }
 
   /** Allow filtering of aspect attributes. */
