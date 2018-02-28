@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.List;
 
 /** A wrapper class for FileType and FileTypeSet functionality in Skylark. */
 @SkylarkModule(
@@ -40,7 +41,7 @@ public class SkylarkFileType {
     this.fileType = fileType;
   }
 
-  public static SkylarkFileType of(Iterable<String> extensions) {
+  public static SkylarkFileType of(List<String> extensions) {
     return new SkylarkFileType(FileType.of(extensions));
   }
 

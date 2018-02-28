@@ -209,6 +209,7 @@ java_library(
     ],
     deps = [
         ":string_util",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
