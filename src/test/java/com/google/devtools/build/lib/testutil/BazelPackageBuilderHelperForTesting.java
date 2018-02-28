@@ -47,7 +47,8 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
   }
 
   @Override
-  public void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics) {
+  public void onLoadingComplete(
+      Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeNanos) {
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, skylarkSemantics);
   }
 

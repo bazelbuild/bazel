@@ -390,7 +390,7 @@ public final class PackageFactory {
    * Constructs a {@code PackageFactory} instance with a specific glob path translator
    * and rule factory.
    *
-   * <p>Only intended to be called by BlazeRuntime or {@link FactoryForTesting#create}.
+   * <p>Only intended to be called by BlazeRuntime or {@link BuilderForTesting#build}.
    *
    * <p>Do not call this constructor directly in tests; please use
    * TestConstants#PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING instead.
@@ -1617,8 +1617,9 @@ public final class PackageFactory {
    * Called by a caller of {@link #createPackageFromAst} after this caller has fully
    * loaded the package.
    */
-  public void afterDoneLoadingPackage(Package pkg, SkylarkSemantics skylarkSemantics) {
-    packageBuilderHelper.onLoadingComplete(pkg, skylarkSemantics);
+  public void afterDoneLoadingPackage(
+      Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeNanos) {
+    packageBuilderHelper.onLoadingComplete(pkg, skylarkSemantics, loadTimeNanos);
   }
 
   /**
