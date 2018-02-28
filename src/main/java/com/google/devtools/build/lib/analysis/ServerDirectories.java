@@ -19,7 +19,6 @@ import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Objects;
@@ -32,8 +31,6 @@ import javax.annotation.Nullable;
 @AutoCodec
 @Immutable
 public final class ServerDirectories {
-  public static final ObjectCodec<ServerDirectories> CODEC = new ServerDirectories_AutoCodec();
-
   /** Top-level user output directory; used, e.g., as default location for caches. */
   private final Path outputUserRoot;
   /** Where Blaze gets unpacked. */

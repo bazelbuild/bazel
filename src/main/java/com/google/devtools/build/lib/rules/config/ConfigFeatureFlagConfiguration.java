@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
@@ -43,9 +42,6 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fragment {
-  public static final ObjectCodec<ConfigFeatureFlagConfiguration> CODEC =
-      new ConfigFeatureFlagConfiguration_AutoCodec();
-
   /** A converter used by the flag options which always returns an empty map, ignoring input. */
   public static final class EmptyImmutableSortedMapConverter
       implements Converter<ImmutableSortedMap<Label, String>> {
@@ -63,9 +59,6 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
   /** The options fragment which defines {@link ConfigFeatureFlagConfiguration}. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static final class Options extends FragmentOptions {
-    public static final ObjectCodec<Options> CODEC =
-        new ConfigFeatureFlagConfiguration_Options_AutoCodec();
-
     /** The mapping from config_feature_flag rules to their values. */
     @Option(
       name = "config_feature_flag values (private)",

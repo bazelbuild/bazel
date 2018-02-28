@@ -66,8 +66,6 @@ public final class PathFragment
   private final String path;
   private final int driveStrLength; // 0 for relative paths, 1 on Unix, 3 on Windows
 
-  public static final ObjectCodec<PathFragment> CODEC = new PathFragmentCodec();
-
   /** Creates a new normalized path fragment. */
   public static PathFragment create(String path) {
     int normalizationLevel = OS.needsToNormalize(path);

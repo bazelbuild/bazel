@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
@@ -24,8 +23,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 @Immutable
 @AutoCodec
 public final class CppModuleMap {
-  public static final ObjectCodec<CppModuleMap> CODEC = new CppModuleMap_AutoCodec();
-
   // NOTE: If you add a field here, you'll likely need to update CppModuleMapAction.computeKey().
   private final Artifact artifact;
   private final String name;

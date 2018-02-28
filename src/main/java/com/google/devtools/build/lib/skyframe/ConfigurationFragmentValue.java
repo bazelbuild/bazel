@@ -44,9 +44,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 @AutoCodec
 public class ConfigurationFragmentValue implements SkyValue {
-  public static final ObjectCodec<ConfigurationFragmentValue> CODEC =
-      new ConfigurationFragmentValue_AutoCodec();
-
   @Nullable
   private final BuildConfiguration.Fragment fragment;
 
@@ -74,8 +71,6 @@ public class ConfigurationFragmentValue implements SkyValue {
   /** {@link SkyKey} for {@link ConfigurationFragmentValue}. */
   public static final class ConfigurationFragmentKey implements SkyKey {
     private static Interner<ConfigurationFragmentKey> interner = BlazeInterners.newWeakInterner();
-
-    public static final ObjectCodec<ConfigurationFragmentKey> CODEC = new Codec();
 
     private final BuildOptions buildOptions;
     private final String checksum;
@@ -140,7 +135,7 @@ public class ConfigurationFragmentValue implements SkyValue {
       public void serialize(
           SerializationContext context, ConfigurationFragmentKey obj, CodedOutputStream codedOut)
           throws SerializationException, IOException {
-        BuildOptions.CODEC.serialize(context, obj.buildOptions, codedOut);
+        context.serialize(obj.buildOptions, codedOut);
         StringCodecs.asciiOptimized().serialize(context, obj.fragmentType.getName(), codedOut);
       }
 
@@ -152,7 +147,7 @@ public class ConfigurationFragmentValue implements SkyValue {
 
         try {
           return of(
-              BuildOptions.CODEC.deserialize(context, codedIn),
+              context.deserialize(codedIn),
               (Class<? extends Fragment>)
                   Class.forName(StringCodecs.asciiOptimized().deserialize(context, codedIn)));
         } catch (ClassNotFoundException e) {

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanTyp
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -117,8 +116,6 @@ public class Artifact
         SkylarkValue,
         Comparable<Object>,
         CommandLineItem {
-
-  public static final ObjectCodec<Artifact> CODEC = new Artifact_AutoCodec();
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
@@ -448,10 +445,6 @@ public class Artifact
   @VisibleForTesting
   @AutoCodec
   public static final class SpecialArtifact extends Artifact {
-
-    public static final ObjectCodec<SpecialArtifact> CODEC =
-        new Artifact_SpecialArtifact_AutoCodec();
-
     private final SpecialArtifactType type;
 
     @VisibleForSerialization
@@ -509,9 +502,6 @@ public class Artifact
   @Immutable
   @AutoCodec
   public static final class TreeFileArtifact extends Artifact {
-    public static final ObjectCodec<TreeFileArtifact> CODEC =
-        new Artifact_TreeFileArtifact_AutoCodec();
-
     private final SpecialArtifact parentTreeArtifact;
     private final PathFragment parentRelativePath;
 

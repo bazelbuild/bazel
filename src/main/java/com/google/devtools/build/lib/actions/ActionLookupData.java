@@ -18,7 +18,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -28,7 +27,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 public class ActionLookupData implements SkyKey {
   private static final Interner<ActionLookupData> INTERNER = BlazeInterners.newWeakInterner();
   public static final SkyFunctionName NAME = SkyFunctionName.create("ACTION_EXECUTION");
-  public static final ObjectCodec<ActionLookupData> CODEC = new ActionLookupData_AutoCodec();
 
   private final ActionLookupKey actionLookupKey;
   private final int actionIndex;

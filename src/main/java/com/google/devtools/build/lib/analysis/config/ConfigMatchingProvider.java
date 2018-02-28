@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Set;
@@ -34,9 +33,6 @@ import java.util.Set;
 @Immutable
 @AutoCodec
 public final class ConfigMatchingProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<ConfigMatchingProvider> CODEC =
-      new ConfigMatchingProvider_AutoCodec();
-
   private final Label label;
   private final ImmutableMultimap<String, String> settingsMap;
   private final Map<Label, String> flagSettingsMap;

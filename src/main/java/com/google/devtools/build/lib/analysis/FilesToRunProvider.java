@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -33,8 +32,6 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "FilesToRunProvider", doc = "", category = SkylarkModuleCategory.PROVIDER)
 @AutoCodec
 public final class FilesToRunProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<FilesToRunProvider> CODEC = new FilesToRunProvider_AutoCodec();
-
   /** The name of the field in Skylark used to access this class. */
   public static final String SKYLARK_NAME = "files_to_run";
 

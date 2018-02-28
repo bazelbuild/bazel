@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.Objects;
@@ -31,9 +30,6 @@ import java.util.Objects;
  */
 @AutoCodec
 public class RootedPath implements Serializable {
-
-  public static final ObjectCodec<RootedPath> CODEC = new RootedPath_AutoCodec();
-
   private final Root root;
   private final PathFragment rootRelativePath;
 

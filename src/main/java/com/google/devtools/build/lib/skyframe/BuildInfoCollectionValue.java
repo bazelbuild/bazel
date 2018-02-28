@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Objects;
@@ -61,8 +60,6 @@ public class BuildInfoCollectionValue extends ActionLookupValue {
   public static class BuildInfoKeyAndConfig extends ActionLookupKey {
     private static final Interner<BuildInfoKeyAndConfig> keyInterner =
         BlazeInterners.newWeakInterner();
-    public static final ObjectCodec<BuildInfoKeyAndConfig> CODEC =
-        new BuildInfoCollectionValue_BuildInfoKeyAndConfig_AutoCodec();
 
     private final BuildInfoFactory.BuildInfoKey infoKey;
     private final BuildConfigurationValue.Key configKey;

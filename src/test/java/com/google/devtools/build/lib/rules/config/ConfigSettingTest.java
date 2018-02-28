@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -50,9 +49,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
   /** Test option that has its null default overridden by its fragment. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class LateBoundTestOptions extends FragmentOptions {
-    public static final ObjectCodec<LateBoundTestOptions> CODEC =
-        new ConfigSettingTest_LateBoundTestOptions_AutoCodec();
-
     public LateBoundTestOptions() {}
 
     @Option(
@@ -66,9 +62,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @AutoCodec
   static class LateBoundTestOptionsFragment extends BuildConfiguration.Fragment {
-    public static final ObjectCodec<LateBoundTestOptionsFragment> CODEC =
-        new ConfigSettingTest_LateBoundTestOptionsFragment_AutoCodec();
-
     @Override
     public Map<String, Object> lateBoundOptionDefaults() {
       return ImmutableMap.<String, Object>of("opt_with_default", "overridden");
@@ -96,9 +89,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
   /** Test option which is private. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class InternalTestOptions extends FragmentOptions {
-    public static final ObjectCodec<InternalTestOptions> CODEC =
-        new ConfigSettingTest_InternalTestOptions_AutoCodec();
-
     public InternalTestOptions() {}
 
     @Option(
@@ -113,8 +103,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @AutoCodec
   static class InternalTestOptionsFragment extends BuildConfiguration.Fragment {
-    public static final ObjectCodec<InternalTestOptionsFragment> CODEC =
-        new ConfigSettingTest_InternalTestOptionsFragment_AutoCodec();
   }
 
   private static class InternalTestOptionsLoader implements ConfigurationFragmentFactory {

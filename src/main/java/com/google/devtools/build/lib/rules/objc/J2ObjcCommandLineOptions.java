@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -31,9 +30,6 @@ import java.util.List;
  */
 @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class J2ObjcCommandLineOptions extends FragmentOptions {
-  public static final ObjectCodec<J2ObjcCommandLineOptions> CODEC =
-      new J2ObjcCommandLineOptions_AutoCodec();
-
   @Option(
     name = "j2objc_translation_flags",
     converter = Converters.CommaSeparatedOptionListConverter.class,

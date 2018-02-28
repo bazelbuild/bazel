@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,8 +57,7 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(BlazeDirectories.CODEC)
-        .addSubjects(
+    new SerializationTester(
             new BlazeDirectories(
                 new ServerDirectories(
                     FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
@@ -82,6 +81,6 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
                 FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
                 "Bazel"))
         .addDependency(FileSystem.class, FsUtils.TEST_FILESYSTEM)
-        .buildAndRunTests();
+        .runTests();
   }
 }

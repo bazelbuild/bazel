@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
@@ -38,8 +37,6 @@ public final class ActionTemplateExpansionValue extends ActionLookupValue {
 
   @AutoCodec
   static final class ActionTemplateExpansionKey extends ActionLookupKey {
-    static final ObjectCodec<ActionTemplateExpansionKey> CODEC =
-        new ActionTemplateExpansionValue_ActionTemplateExpansionKey_AutoCodec();
     private static final Interner<ActionTemplateExpansionKey> interner =
         BlazeInterners.newWeakInterner();
 

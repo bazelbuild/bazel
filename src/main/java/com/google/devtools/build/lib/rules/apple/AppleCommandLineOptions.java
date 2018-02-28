@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -486,8 +485,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
         super(AppleBitcodeMode.class, "apple bitcode mode");
       }
     }
-
-    static final EnumCodec<AppleBitcodeMode> CODEC = new EnumCodec<>(AppleBitcodeMode.class);
   }
 
   @Override
@@ -512,12 +509,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   void serialize(SerializationContext context, CodedOutputStream out)
       throws IOException, SerializationException {
-    CODEC.serialize(context, this, out);
+    context.serialize(this, out);
   }
 
   static AppleCommandLineOptions deserialize(DeserializationContext context, CodedInputStream in)
       throws IOException, SerializationException {
-    return CODEC.deserialize(context, in);
+    return context.deserialize(in);
   }
 
   /** Converter for the Apple configuration distinguisher. */

@@ -119,8 +119,6 @@ import javax.annotation.Nullable;
           + "depend on it and not targets that it depends on."
 )
 public class BuildConfiguration implements BuildConfigurationInterface {
-  public static final ObjectCodec<BuildConfiguration> CODEC = new BuildConfigurationCodec();
-
   /**
    * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
    * output from buildMnemonic.
@@ -415,8 +413,6 @@ public class BuildConfiguration implements BuildConfigurationInterface {
    */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions implements Cloneable {
-    public static final ObjectCodec<Options> CODEC = new BuildConfiguration_Options_AutoCodec();
-
     @Option(
       name = "experimental_separate_genfiles_directory",
       defaultValue = "true",
@@ -2112,19 +2108,19 @@ public class BuildConfiguration implements BuildConfigurationInterface {
         BuildConfiguration obj,
         CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      BlazeDirectories.CODEC.serialize(context, obj.directories, codedOut);
+      context.serialize(obj.directories, codedOut);
       codedOut.writeInt32NoTag(obj.fragments.size());
       for (Fragment fragment : obj.fragments.values()) {
         context.serialize(fragment, codedOut);
       }
-      BuildOptions.CODEC.serialize(context, obj.buildOptions, codedOut);
+      context.serialize(obj.buildOptions, codedOut);
       StringCodecs.asciiOptimized().serialize(context, obj.repositoryName, codedOut);
     }
 
     @Override
     public BuildConfiguration deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      BlazeDirectories blazeDirectories = BlazeDirectories.CODEC.deserialize(context, codedIn);
+      BlazeDirectories blazeDirectories = context.deserialize(codedIn);
       int length = codedIn.readInt32();
       ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> builder =
           new ImmutableSortedMap.Builder<>(lexicalFragmentSorter);
@@ -2132,7 +2128,7 @@ public class BuildConfiguration implements BuildConfigurationInterface {
         Fragment fragment = context.deserialize(codedIn);
         builder.put(fragment.getClass(), fragment);
       }
-      BuildOptions options = BuildOptions.CODEC.deserialize(context, codedIn);
+      BuildOptions options = context.deserialize(codedIn);
       String repositoryName = StringCodecs.asciiOptimized().deserialize(context, codedIn);
       return new BuildConfiguration(blazeDirectories, builder.build(), options, repositoryName);
     }

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Objects;
@@ -34,8 +33,6 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public class ConfiguredTargetKey extends ActionLookupKey {
-  public static final ObjectCodec<ConfiguredTargetKey> CODEC = new ConfiguredTargetKey_AutoCodec();
-
   private final Label label;
   @Nullable private final BuildConfigurationValue.Key configurationKey;
 
@@ -172,8 +169,6 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   }
 
   static class HostConfiguredTargetKey extends ConfiguredTargetKey {
-    public static final ObjectCodec<ConfiguredTargetKey> CODEC = ConfiguredTargetKey.CODEC;
-
     private HostConfiguredTargetKey(
         Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
       super(label, configurationKey);

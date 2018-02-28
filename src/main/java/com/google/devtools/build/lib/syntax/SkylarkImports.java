@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -86,9 +85,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class AbsolutePathImport extends SkylarkImportImpl {
-    static final ObjectCodec<AbsolutePathImport> CODEC =
-        new SkylarkImports_AbsolutePathImport_AutoCodec();
-
     private final PathFragment importPath;
 
     @VisibleForSerialization
@@ -122,9 +118,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class RelativePathImport extends SkylarkImportImpl {
-    static final ObjectCodec<RelativePathImport> CODEC =
-        new SkylarkImports_RelativePathImport_AutoCodec();
-
     private final String importFile;
 
     @VisibleForSerialization
@@ -160,9 +153,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class AbsoluteLabelImport extends SkylarkImportImpl {
-    static final ObjectCodec<AbsoluteLabelImport> CODEC =
-        new SkylarkImports_AbsoluteLabelImport_AutoCodec();
-
     private final Label importLabel;
 
     @VisibleForSerialization
@@ -188,9 +178,6 @@ public class SkylarkImports {
   @VisibleForSerialization
   @AutoCodec
   static final class RelativeLabelImport extends SkylarkImportImpl {
-    static final ObjectCodec<RelativeLabelImport> CODEC =
-        new SkylarkImports_RelativeLabelImport_AutoCodec();
-
     private final String importTarget;
 
     @VisibleForSerialization

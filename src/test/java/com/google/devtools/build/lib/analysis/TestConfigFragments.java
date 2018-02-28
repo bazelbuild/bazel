@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
@@ -86,9 +85,6 @@ public class TestConfigFragments {
 
   @AutoCodec
   static class Hook1Fragment extends BuildConfiguration.Fragment {
-    public static final ObjectCodec<Hook1Fragment> CODEC =
-        new TestConfigFragments_Hook1Fragment_AutoCodec();
-
     @Override
     public PatchTransition topLevelConfigurationHook(Target toTarget) {
       return new HostCpuTransition("CONFIG HOOK 1");
@@ -106,9 +102,6 @@ public class TestConfigFragments {
    */
   @AutoCodec
   static class Hook2Fragment extends BuildConfiguration.Fragment {
-    public static final ObjectCodec<Hook2Fragment> CODEC =
-        new TestConfigFragments_Hook2Fragment_AutoCodec();
-
     @Override
     public PatchTransition topLevelConfigurationHook(Target toTarget) {
       return new HostCpuTransition("CONFIG HOOK 2");

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
@@ -41,8 +40,6 @@ import java.util.Set;
 @ThreadSafe
 @AutoCodec
 public final class License {
-  public static final ObjectCodec<License> CODEC = new License_AutoCodec();
-
   private final ImmutableSet<LicenseType> licenseTypes;
   private final ImmutableSet<Label> exceptions;
 

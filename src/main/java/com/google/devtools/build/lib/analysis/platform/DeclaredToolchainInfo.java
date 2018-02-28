@@ -18,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -30,9 +29,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @AutoValue
 @AutoCodec
 public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
-  public static final ObjectCodec<DeclaredToolchainInfo> CODEC =
-      new DeclaredToolchainInfo_AutoCodec();
-
   /**
    * The type of the toolchain being declared. This will be a label of a toolchain_type() target.
    */

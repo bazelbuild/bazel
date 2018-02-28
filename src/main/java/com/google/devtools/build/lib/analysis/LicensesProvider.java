@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
@@ -46,9 +45,6 @@ public interface LicensesProvider extends TransitiveInfoProvider {
   /** License association for a particular target. */
   @AutoCodec
   final class TargetLicense {
-    public static final ObjectCodec<TargetLicense> CODEC =
-        new LicensesProvider_TargetLicense_AutoCodec();
-
     private final Label label;
     private final License license;
 

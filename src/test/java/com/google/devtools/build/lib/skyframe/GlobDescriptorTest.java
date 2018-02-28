@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -32,8 +32,7 @@ public class GlobDescriptorTest {
 
   @Test
   public void testSerialization() throws Exception {
-    ObjectCodecTester.newBuilder(GlobDescriptor.CODEC)
-        .addSubjects(
+    new SerializationTester(
             GlobDescriptor.create(
                 PackageIdentifier.create("@foo", PathFragment.create("//bar")),
                 Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/packageRoot")),
@@ -47,8 +46,12 @@ public class GlobDescriptorTest {
                 "pattern",
                 /*excludeDirs=*/ true))
         .addDependency(FileSystem.class, FsUtils.TEST_FILESYSTEM)
-        .verificationFunction((orig, deserialized) -> assertThat(deserialized).isSameAs(orig))
-        .buildAndRunTests();
+        .setVerificationFunction(GlobDescriptorTest::verifyEquivalent)
+        .runTests();
+  }
+
+  private static void verifyEquivalent(GlobDescriptor orig, GlobDescriptor deserialized) {
+    assertThat(deserialized).isSameAs(orig);
   }
 
   @Test

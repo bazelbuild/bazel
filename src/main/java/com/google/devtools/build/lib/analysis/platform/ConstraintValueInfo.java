@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -39,8 +38,6 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 @Immutable
 @AutoCodec
 public class ConstraintValueInfo extends NativeInfo {
-  public static final ObjectCodec<ConstraintValueInfo> CODEC = new ConstraintValueInfo_AutoCodec();
-
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintValueInfo";
 

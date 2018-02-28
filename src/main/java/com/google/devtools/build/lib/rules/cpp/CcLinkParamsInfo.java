@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
@@ -29,8 +28,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 @Immutable
 @AutoCodec
 public final class CcLinkParamsInfo extends NativeInfo {
-  public static final ObjectCodec<CcLinkParamsInfo> CODEC = new CcLinkParamsInfo_AutoCodec();
-
   public static final NativeProvider<CcLinkParamsInfo> PROVIDER =
       new NativeProvider<CcLinkParamsInfo>(CcLinkParamsInfo.class, "link_params") {};
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
@@ -54,9 +51,6 @@ public final class CcLinkParamsInfo extends NativeInfo {
   @AutoCodec
   @VisibleForSerialization
   static class CcLinkParamsInfoCollection extends CcLinkParamsStore {
-    public static final ObjectCodec<CcLinkParamsInfoCollection> CODEC =
-        new CcLinkParamsInfo_CcLinkParamsInfoCollection_AutoCodec();
-
     private final Iterable<CcLinkParamsInfo> providers;
 
     CcLinkParamsInfoCollection(Iterable<CcLinkParamsInfo> providers) {

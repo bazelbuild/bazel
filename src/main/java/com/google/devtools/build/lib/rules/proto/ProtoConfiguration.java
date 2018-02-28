@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -48,13 +47,9 @@ import java.util.List;
   doc = "A configuration fragment representing protocol buffers."
 )
 public class ProtoConfiguration extends Fragment {
-  public static final ObjectCodec<ProtoConfiguration> CODEC = new ProtoConfiguration_AutoCodec();
-
   /** Command line options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
-    public static final ObjectCodec<Options> CODEC = new ProtoConfiguration_Options_AutoCodec();
-
     @Option(
       name = "protocopt",
       allowMultiple = true,

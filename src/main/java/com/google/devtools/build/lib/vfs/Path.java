@@ -61,8 +61,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class Path
     implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
-  public static final ObjectCodec<Path> CODEC = new Codec();
-
   private static FileSystem fileSystemForSerialization;
 
   /**

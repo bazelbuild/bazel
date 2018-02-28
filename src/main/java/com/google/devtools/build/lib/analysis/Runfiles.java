@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -80,9 +79,8 @@ public final class Runfiles {
         }
       };
 
-  @VisibleForSerialization
-  static class DummyEmptyFilesSupplier implements EmptyFilesSupplier {
-    @AutoCodec public static final DummyEmptyFilesSupplier INSTANCE = new DummyEmptyFilesSupplier();
+  private static class DummyEmptyFilesSupplier implements EmptyFilesSupplier {
+    private DummyEmptyFilesSupplier() {}
 
     @Override
     public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
@@ -90,8 +88,8 @@ public final class Runfiles {
     }
   }
 
-  private static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER =
-      DummyEmptyFilesSupplier.INSTANCE;
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER = new DummyEmptyFilesSupplier();
 
   private static final Function<Artifact, PathFragment> GET_ROOT_RELATIVE_PATH =
       new Function<Artifact, PathFragment>() {
@@ -141,8 +139,6 @@ public final class Runfiles {
   @AutoCodec
   @VisibleForSerialization
   static final class SymlinkEntry implements SkylarkValue {
-    public static final ObjectCodec<SymlinkEntry> CODEC = new Runfiles_SymlinkEntry_AutoCodec();
-
     private final PathFragment path;
     private final Artifact artifact;
 
@@ -272,9 +268,6 @@ public final class Runfiles {
    */
   @AutoCodec
   public static class PruningManifest {
-    public static final ObjectCodec<PruningManifest> CODEC =
-        new Runfiles_PruningManifest_AutoCodec();
-
     private final NestedSet<Artifact> candidateRunfiles;
     private final Artifact manifestFile;
 

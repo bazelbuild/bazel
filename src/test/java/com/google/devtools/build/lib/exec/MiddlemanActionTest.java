@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -140,16 +140,16 @@ public class MiddlemanActionTest extends BuildViewTestCase {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(MiddlemanAction.CODEC)
-        .addSubjects((MiddlemanAction) getGeneratingAction(middle))
+    new SerializationTester(getGeneratingAction(middle))
         .addDependency(FileSystem.class, scratch.getFileSystem())
-        .verificationFunction(
-            (first, second) -> {
-              assertThat(first.getActionType()).isEqualTo(second.getActionType());
-              assertThat(first.getInputs()).isEqualTo(second.getInputs());
-              assertThat(first.getOutputs()).isEqualTo(second.getOutputs());
-              assertThat(first.getOwner()).isEqualTo(second.getOwner());
-            })
-        .buildAndRunTests();
+        .setVerificationFunction(MiddlemanActionTest::verifyEquivalent)
+        .runTests();
+  }
+
+  private static void verifyEquivalent(MiddlemanAction first, MiddlemanAction second) {
+    assertThat(first.getActionType()).isEqualTo(second.getActionType());
+    assertThat(first.getInputs()).isEqualTo(second.getInputs());
+    assertThat(first.getOutputs()).isEqualTo(second.getOutputs());
+    assertThat(first.getOwner()).isEqualTo(second.getOwner());
   }
 }

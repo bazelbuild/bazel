@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -37,8 +36,6 @@ import javax.annotation.Nullable;
 @AutoCodec
 @Immutable
 public final class RegexFilter {
-  public static final ObjectCodec<RegexFilter> CODEC = new RegexFilter_AutoCodec();
-
   // Null inclusion or exclusion pattern means those patterns are not used.
   @Nullable private final Pattern inclusionPattern;
   @Nullable private final Pattern exclusionPattern;

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -37,8 +36,6 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public class JavaRuntimeInfo extends NativeInfo {
-  public static final ObjectCodec<JavaRuntimeInfo> CODEC = new JavaRuntimeInfo_AutoCodec();
-
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
   public static final NativeProvider<JavaRuntimeInfo> PROVIDER =

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
@@ -34,8 +33,6 @@ import javax.annotation.Nullable;
 /** The compile command line for the C++ compile action. */
 @AutoCodec
 public final class CompileCommandLine {
-  public static final ObjectCodec<CompileCommandLine> CODEC = new CompileCommandLine_AutoCodec();
-
   private final Artifact sourceFile;
   private final CoptsFilter coptsFilter;
   private final FeatureConfiguration featureConfiguration;

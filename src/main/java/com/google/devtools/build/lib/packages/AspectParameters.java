@@ -18,7 +18,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
@@ -28,8 +27,6 @@ import java.util.Objects;
  */
 @AutoCodec
 public final class AspectParameters {
-  public static final ObjectCodec<AspectParameters> CODEC = new AspectParameters_AutoCodec();
-
   private final ImmutableMultimap<String, String> attributes;
 
   private AspectParameters(Multimap<String, String> attributes) {

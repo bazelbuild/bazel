@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,8 +31,6 @@ import java.util.Objects;
 @AutoCodec
 @Immutable
 public class LineNumberTable implements Serializable {
-  public static final ObjectCodec<LineNumberTable> CODEC = new LineNumberTable_AutoCodec();
-
   /** A mapping from line number (line >= 1) to character offset into the file. */
   private final int[] linestart;
 

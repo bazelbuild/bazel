@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -54,8 +53,6 @@ import java.util.Map;
  */
 @AutoCodec
 public final class LtoBackendArtifacts {
-  public static final ObjectCodec<LtoBackendArtifacts> CODEC = new LtoBackendArtifacts_AutoCodec();
-
   // A file containing mapping of symbol => bitcode file containing the symbol.
   private final Artifact index;
 

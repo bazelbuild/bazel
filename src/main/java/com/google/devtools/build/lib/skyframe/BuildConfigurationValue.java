@@ -44,9 +44,6 @@ import java.util.Set;
 @AutoCodec
 @ThreadSafe
 public class BuildConfigurationValue implements SkyValue {
-  public static final ObjectCodec<BuildConfigurationValue> CODEC =
-      new BuildConfigurationValue_AutoCodec();
-
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
   private final BuildConfiguration configuration;
@@ -81,8 +78,6 @@ public class BuildConfigurationValue implements SkyValue {
   /** {@link SkyKey} for {@link BuildConfigurationValue}. */
   @VisibleForSerialization
   public static final class Key implements SkyKey, Serializable {
-    public static final ObjectCodec<Key> CODEC = new Codec();
-
     private final FragmentClassSet fragments;
     private final BuildOptions buildOptions;
     // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.
@@ -136,7 +131,7 @@ public class BuildConfigurationValue implements SkyValue {
       @Override
       public void serialize(SerializationContext context, Key obj, CodedOutputStream codedOut)
           throws SerializationException, IOException {
-        BuildOptions.CODEC.serialize(context, obj.buildOptions, codedOut);
+        context.serialize(obj.buildOptions, codedOut);
         codedOut.writeInt32NoTag(obj.fragments.fragmentClasses().size());
         for (Class<? extends BuildConfiguration.Fragment> fragment :
             obj.fragments.fragmentClasses()) {
@@ -148,7 +143,7 @@ public class BuildConfigurationValue implements SkyValue {
       @SuppressWarnings("unchecked") // Class<? extends...> cast
       public Key deserialize(DeserializationContext context, CodedInputStream codedIn)
           throws SerializationException, IOException {
-        BuildOptions buildOptions = BuildOptions.CODEC.deserialize(context, codedIn);
+        BuildOptions buildOptions = context.deserialize(codedIn);
         int fragmentsSize = codedIn.readInt32();
         ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
             ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);

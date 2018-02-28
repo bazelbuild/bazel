@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
@@ -58,8 +57,6 @@ public interface BuildInfoFactory extends Serializable {
    */
   @AutoCodec
   final class BuildInfoKey {
-    public static final ObjectCodec<BuildInfoKey> CODEC =
-        new BuildInfoFactory_BuildInfoKey_AutoCodec();
     private final String name;
 
     public BuildInfoKey(String name) {

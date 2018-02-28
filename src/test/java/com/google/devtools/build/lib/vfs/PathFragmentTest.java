@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -546,13 +546,12 @@ public class PathFragmentTest {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(PathFragment.CODEC)
-        .addSubjects(
+    new SerializationTester(
             ImmutableList.of("", "a", "/foo", "foo/bar/baz", "/a/path/fragment/with/lots/of/parts")
                 .stream()
                 .map(PathFragment::create)
                 .collect(toImmutableList()))
-        .buildAndRunTests();
+        .runTests();
   }
 
   @Test

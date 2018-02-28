@@ -35,8 +35,6 @@ import javax.annotation.Nullable;
  */
 public abstract class Root implements Comparable<Root>, Serializable {
 
-  public static final ObjectCodec<Root> CODEC = new RootCodec();
-
   /** Constructs a root from a path. */
   public static Root fromPath(Path path) {
     return new PathRoot(path);

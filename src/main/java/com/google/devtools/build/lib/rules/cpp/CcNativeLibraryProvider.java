@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -27,9 +26,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @Immutable
 @AutoCodec
 public final class CcNativeLibraryProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<CcNativeLibraryProvider> CODEC =
-      new CcNativeLibraryProvider_AutoCodec();
-
   private final NestedSet<LinkerInput> transitiveCcNativeLibraries;
 
   public CcNativeLibraryProvider(NestedSet<LinkerInput> transitiveCcNativeLibraries) {

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -31,8 +30,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 @Immutable
 @AutoCodec
 public final class MiddlemanAction extends AbstractAction {
-  public static final ObjectCodec<MiddlemanAction> CODEC = new MiddlemanAction_AutoCodec();
-
   public static final String MIDDLEMAN_MNEMONIC = "Middleman";
   private final String description;
   private final MiddlemanType middlemanType;

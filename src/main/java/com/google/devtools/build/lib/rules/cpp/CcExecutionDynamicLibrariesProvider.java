@@ -19,16 +19,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A target that provides the execution-time dynamic libraries of a C++ rule. */
 @Immutable
 @AutoCodec
 public final class CcExecutionDynamicLibrariesProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<CcExecutionDynamicLibrariesProvider> CODEC =
-      new CcExecutionDynamicLibrariesProvider_AutoCodec();
-
   public static final CcExecutionDynamicLibrariesProvider EMPTY =
       new CcExecutionDynamicLibrariesProvider(
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));

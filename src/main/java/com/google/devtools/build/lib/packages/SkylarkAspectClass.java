@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
@@ -24,8 +23,6 @@ import java.util.Objects;
 @AutoCodec
 @Immutable
 public final class SkylarkAspectClass implements AspectClass {
-  public static final ObjectCodec<SkylarkAspectClass> CODEC = new SkylarkAspectClass_AutoCodec();
-
   private final Label extensionLabel;
   private final String exportedName;
 

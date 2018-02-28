@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -38,6 +37,7 @@ import java.util.Objects;
 @Immutable
 @ThreadSafe
 public class RecursivePkgValue implements SkyValue {
+  @AutoCodec
   static final RecursivePkgValue EMPTY =
       new RecursivePkgValue(NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER));
 
@@ -80,9 +80,6 @@ public class RecursivePkgValue implements SkyValue {
   @AutoCodec
   @ThreadSafe
   public static final class RecursivePkgKey implements Serializable {
-    public static final ObjectCodec<RecursivePkgKey> CODEC =
-        new RecursivePkgValue_RecursivePkgKey_AutoCodec();
-
     private final RepositoryName repositoryName;
     private final RootedPath rootedPath;
     private final ImmutableSet<PathFragment> excludedPaths;

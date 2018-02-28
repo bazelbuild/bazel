@@ -62,8 +62,12 @@ public class SerializationTester {
   private int repetitions = 1;
 
   public SerializationTester(Object... subjects) {
-    Preconditions.checkArgument(subjects.length > 0);
-    this.subjects = ImmutableList.copyOf(subjects);
+    this(ImmutableList.copyOf(subjects));
+  }
+
+  public SerializationTester(ImmutableList<Object> subjects) {
+    Preconditions.checkArgument(!subjects.isEmpty());
+    this.subjects = subjects;
     this.dependenciesBuilder = ImmutableMap.builder();
   }
 
@@ -73,7 +77,8 @@ public class SerializationTester {
   }
 
   @SuppressWarnings("rawtypes")
-  public SerializationTester setVerificationFunction(VerificationFunction verificationFunction) {
+  public <T> SerializationTester setVerificationFunction(
+      VerificationFunction<T> verificationFunction) {
     this.verificationFunction = verificationFunction;
     return this;
   }

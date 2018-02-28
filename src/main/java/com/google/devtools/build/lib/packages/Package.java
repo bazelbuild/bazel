@@ -71,8 +71,6 @@ import javax.annotation.Nullable;
  */
 @SuppressWarnings("JavaLangClash")
 public class Package {
-  public static final ObjectCodec<Package> CODEC = new PackageCodec();
-
   /**
    * Common superclass for all name-conflict exceptions.
    */
@@ -1581,7 +1579,8 @@ public class Package {
   }
 
   /** Package codec implementation. */
-  private static final class PackageCodec implements ObjectCodec<Package> {
+  @VisibleForTesting
+  static final class PackageCodec implements ObjectCodec<Package> {
     @Override
     public Class<Package> getEncodedClass() {
       return Package.class;
