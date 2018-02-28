@@ -246,6 +246,7 @@ sh_test(
     size = "medium",
     srcs = ["external_patching_test.sh"],
     data = [":test-deps"],
+    shard_count = 3,
 )
 
 sh_test(

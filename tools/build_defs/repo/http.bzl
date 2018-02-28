@@ -29,6 +29,8 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile")
+
 def _patch(ctx):
   """Implementation of patching an already extracted repository"""
   bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
@@ -73,16 +75,7 @@ def _http_archive_impl(ctx):
   ctx.download_and_extract(all_urls, "", ctx.attr.sha256, ctx.attr.type,
                            ctx.attr.strip_prefix)
   _patch(ctx)
-  ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name=ctx.name))
-  if ctx.attr.build_file:
-    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-    ctx.execute([bash_exe, "-c", "rm -f BUILD BUILD.bazel"])
-    ctx.symlink(ctx.attr.build_file, "BUILD")
-  elif ctx.attr.build_file_content:
-    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-    ctx.execute([bash_exe, "-c", "rm -f BUILD.bazel"])
-    ctx.file("BUILD", ctx.attr.build_file_content)
-
+  workspace_and_buildfile(ctx)
 
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])

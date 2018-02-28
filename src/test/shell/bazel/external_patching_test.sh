@@ -223,6 +223,129 @@ EOF
   expect_not_log "BAD"
 }
 
+test_override_buildfile_git() {
+  ## Verify that the BUILD file of an external repository can be overriden
+  ## via the git_repository rule.
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  mkdir withbuild
+  (cd withbuild && git init)
+  cat > withbuild/BUILD.bazel <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo BAD >> $@",
+  visibility=["//visibility:public"],
+)
+EOF
+  cat > withbuild/file.txt <<'EOF'
+from external repo
+EOF
+  (cd withbuild
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit'
+   git tag mytag)
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="withbuild",
+  remote="file://${EXTREPODIR}/withbuild/.git",
+  tag="mytag",
+  build_file="@//:ext.BUILD",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  outs = ["local.txt"],
+  srcs = ["@withbuild//:target"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > ext.BUILD <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo GOOD >> $@",
+  visibility=["//visibility:public"],
+)
+EOF
+
+  bazel build //:local || fail "Expected success"
+
+  cat `bazel info bazel-genfiles`/local.txt > "${TEST_log}"
+  expect_log "from external repo"
+  expect_log "GOOD"
+  expect_not_log "BAD"
+}
+
+test_override_buildfilecontents_git() {
+  ## Verify that the BUILD file of an external repository can be overriden
+  ## via specified content in the git_repository rule.
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  mkdir withbuild
+  (cd withbuild && git init)
+  cat > withbuild/BUILD.bazel <<'EOF'
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp $< $@ && echo BAD >> $@",
+  visibility=["//visibility:public"],
+)
+EOF
+  cat > withbuild/file.txt <<'EOF'
+from external repo
+EOF
+  (cd withbuild
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit'
+   git tag mytag)
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="withbuild",
+  remote="file://${EXTREPODIR}/withbuild/.git",
+  tag="mytag",
+  build_file_content="""
+genrule(
+  name="target",
+  srcs=["file.txt"],
+  outs=["target.txt"],
+  cmd="cp \$< \$@ && echo GOOD >> \$@",
+  visibility=["//visibility:public"],
+)
+  """,
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  outs = ["local.txt"],
+  srcs = ["@withbuild//:target"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:local || fail "Expected success"
+
+  cat `bazel info bazel-genfiles`/local.txt > "${TEST_log}"
+  expect_log "from external repo"
+  expect_log "GOOD"
+  expect_not_log "BAD"
+}
+
 test_build_file_build_bazel() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via the http_archive rule.
