@@ -648,7 +648,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(Artifact.toRootRelativePaths(compileA.getPossibleInputsForTesting()))
         .containsAllOf("x/a.m", "x/a.h", "x/private.h", "lib1/hdr.h", "lib2/hdr.h");
     assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
-        .containsExactly("x/_objs/x/x/a.o", "x/_objs/x/x/a.d");
+        .containsExactly("x/_objs/x/a.o", "x/_objs/x/a.d");
   }
 
   protected void checkCompilesSourcesWithModuleMapsEnabled(RuleType ruleType) throws Exception {
@@ -1208,13 +1208,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     Artifact protoHeaderD = getBinArtifact("_generated_protos/x/protos/DataD.pbobjc.h", topTarget);
 
     Artifact protoObjectA =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
+        getBinArtifact("_objs/x/DataA.pbobjc.o", topTarget);
     Artifact protoObjectB =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataB.pbobjc.o", topTarget);
+        getBinArtifact("_objs/x/DataB.pbobjc.o", topTarget);
     Artifact protoObjectC =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataC.pbobjc.o", topTarget);
+        getBinArtifact("_objs/x/DataC.pbobjc.o", topTarget);
     Artifact protoObjectD =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataD.pbobjc.o", topTarget);
+        getBinArtifact("_objs/x/DataD.pbobjc.o", topTarget);
 
     CommandAction protoObjectActionA = (CommandAction) getGeneratingAction(protoObjectA);
     CommandAction protoObjectActionB = (CommandAction) getGeneratingAction(protoObjectB);
@@ -1241,7 +1241,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void assertCoptsAndDefinesNotPropagatedToProtos(ConfiguredTarget topTarget)
       throws Exception {
     Artifact protoObject =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
+        getBinArtifact("_objs/x/DataA.pbobjc.o", topTarget);
     CommandAction protoObjectAction = (CommandAction) getGeneratingAction(protoObject);
     assertThat(protoObjectAction).isNotNull();
     assertThat(protoObjectAction.getArguments())
