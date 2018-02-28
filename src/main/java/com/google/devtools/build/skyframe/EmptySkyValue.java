@@ -21,9 +21,8 @@ import java.io.ObjectOutputStream;
  * A SkyValue with no attached data. Preferable to a specialized empty value class to minimize
  * bloat.
  */
-@AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
 public final class EmptySkyValue implements SkyValue {
-  public static final EmptySkyValue INSTANCE = new EmptySkyValue();
+  @AutoCodec public static final EmptySkyValue INSTANCE = new EmptySkyValue();
 
   private EmptySkyValue() {}
 

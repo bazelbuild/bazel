@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -73,8 +72,6 @@ import javax.annotation.Nullable;
 )
 @AutoCodec
 public final class Runfiles {
-  public static ObjectCodec<Runfiles> CODEC = new Runfiles_AutoCodec();
-
   private static final Function<SymlinkEntry, Artifact> TO_ARTIFACT =
       new Function<SymlinkEntry, Artifact>() {
         @Override
@@ -83,12 +80,9 @@ public final class Runfiles {
         }
       };
 
-  @AutoCodec(strategy = Strategy.SINGLETON)
   @VisibleForSerialization
   static class DummyEmptyFilesSupplier implements EmptyFilesSupplier {
-    public static final ObjectCodec<DummyEmptyFilesSupplier> CODEC =
-        new Runfiles_DummyEmptyFilesSupplier_AutoCodec();
-    public static final DummyEmptyFilesSupplier INSTANCE = new DummyEmptyFilesSupplier();
+    @AutoCodec public static final DummyEmptyFilesSupplier INSTANCE = new DummyEmptyFilesSupplier();
 
     @Override
     public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {

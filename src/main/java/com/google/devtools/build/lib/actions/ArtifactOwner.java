@@ -29,9 +29,9 @@ public interface ArtifactOwner {
    * An {@link ArtifactOwner} that just returns null for its label. Only for use with resolved
    * source artifacts and tests.
    */
-  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   class NullArtifactOwner implements ArtifactOwner {
-    @VisibleForTesting public static final NullArtifactOwner INSTANCE = new NullArtifactOwner();
+    @AutoCodec @VisibleForTesting
+    public static final NullArtifactOwner INSTANCE = new NullArtifactOwner();
 
     private NullArtifactOwner() {}
 

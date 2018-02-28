@@ -111,8 +111,10 @@ import org.junit.Before;
  * The common code that's shared between various builder tests.
  */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
+  @AutoCodec
   protected static final ActionLookupValue.ActionLookupKey ACTION_LOOKUP_KEY =
       new SingletonActionLookupKey();
+
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();
   protected static final String CYCLE_MSG = "Yarrrr, there be a cycle up in here";
 
@@ -501,10 +503,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
   }
 
-  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   static class SingletonActionLookupKey extends ActionLookupValue.ActionLookupKey {
-    public static final SingletonActionLookupKey INSTANCE = new SingletonActionLookupKey();
-
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.CONFIGURED_TARGET;

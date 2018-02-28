@@ -109,9 +109,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           case PUBLIC_FIELDS:
             codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType);
             break;
-          case SINGLETON:
-            codecClassBuilder = buildClassWithSingletonStrategy(encodedType, env);
-            break;
           default:
             throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
         }
@@ -142,6 +139,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return true;
   }
 
+  @SuppressWarnings("MutableConstantField")
   private static final Collection<Modifier> REQUIRED_SINGLETON_MODIFIERS =
       ImmutableList.of(Modifier.STATIC, Modifier.FINAL);
 
@@ -530,20 +528,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           name);
     }
     return Optional.empty();
-  }
-
-  private static TypeSpec.Builder buildClassWithSingletonStrategy(
-      TypeElement encodedType, ProcessingEnvironment env) {
-    TypeSpec.Builder codecClassBuilder =
-        AutoCodecUtil.initializeCodecClassBuilder(encodedType, env);
-    // Serialization is a no-op.
-    codecClassBuilder.addMethod(
-        AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, env).build());
-    MethodSpec.Builder deserializeMethodBuilder =
-        AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, env);
-    deserializeMethodBuilder.addStatement("return $T.INSTANCE", TypeName.get(encodedType.asType()));
-    codecClassBuilder.addMethod(deserializeMethodBuilder.build());
-    return codecClassBuilder;
   }
 
   /** True when {@code type} has the same type as {@code clazz}. */

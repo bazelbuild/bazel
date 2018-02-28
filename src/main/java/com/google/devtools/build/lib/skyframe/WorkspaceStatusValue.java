@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -53,11 +52,9 @@ public class WorkspaceStatusValue extends ActionLookupValue {
   }
 
   /** {@link SkyKey} for {@link WorkspaceStatusValue}. */
-  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
   public static class BuildInfoKey extends ActionLookupKey {
-    @AutoCodec.VisibleForSerialization static final BuildInfoKey INSTANCE = new BuildInfoKey();
-    public static final ObjectCodec<BuildInfoKey> CODEC =
-        new WorkspaceStatusValue_BuildInfoKey_AutoCodec();
+    @AutoCodec @AutoCodec.VisibleForSerialization
+    static final BuildInfoKey INSTANCE = new BuildInfoKey();
 
     private BuildInfoKey() {}
 
