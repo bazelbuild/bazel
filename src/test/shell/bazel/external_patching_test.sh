@@ -230,7 +230,9 @@ test_override_buildfile_git() {
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir withbuild
-  (cd withbuild && git init)
+  (cd withbuild && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
   cat > withbuild/BUILD.bazel <<'EOF'
 genrule(
   name="target",
@@ -292,7 +294,9 @@ test_override_buildfilecontents_git() {
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir withbuild
-  (cd withbuild && git init)
+  (cd withbuild && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
   cat > withbuild/BUILD.bazel <<'EOF'
 genrule(
   name="target",
