@@ -886,10 +886,8 @@ public final class Profiler {
     }
   }
 
-  /**
-   * Convenience method to log phase marker tasks.
-   */
-  public void markPhase(ProfilePhase phase) {
+  /** Convenience method to log phase marker tasks. */
+  public void markPhase(ProfilePhase phase) throws InterruptedException {
     MemoryProfiler.instance().markPhase(phase);
     if (isActive() && isProfiling(ProfilerTask.PHASE)) {
       Preconditions.checkState(taskStack.isEmpty(), "Phase tasks must not be nested");

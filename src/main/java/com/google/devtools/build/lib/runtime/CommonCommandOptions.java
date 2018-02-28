@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import com.google.devtools.build.lib.profiler.MemoryProfiler.MemoryProfileStableHeapParameters;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -229,9 +230,24 @@ public class CommonCommandOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     converter = OptionsUtils.PathFragmentConverter.class,
-    help = "If set, write memory usage data to the specified file at phase ends."
+    help =
+        "If set, write memory usage data to the specified file at phase ends and stable heap to"
+            + " master log at end of build."
   )
   public PathFragment memoryProfilePath;
+
+  @Option(
+    name = "memory_profile_stable_heap_parameters",
+    defaultValue = "1,0",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.BAZEL_MONITORING},
+    converter = MemoryProfileStableHeapParameters.Converter.class,
+    help =
+        "Tune memory profile's computation of stable heap at end of build. Should be two integers "
+            + "separated by a comma. First parameter is the number of GCs to perform. Second "
+            + "parameter is the number of seconds to wait between GCs."
+  )
+  public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
 
   @Option(
     name = "experimental_oom_more_eagerly_threshold",
@@ -362,4 +378,5 @@ public class CommonCommandOptions extends OptionsBase {
             + "or the bad combination should be checked for programmatically."
   )
   public List<String> deprecationWarnings;
+
 }

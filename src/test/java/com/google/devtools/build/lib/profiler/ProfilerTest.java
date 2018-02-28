@@ -308,19 +308,25 @@ public class ProfilerTest extends FoundationTestCase {
     thread1.join();
     clock.advanceMillis(1);
     profiler.markPhase(ProfilePhase.ANALYZE);
-    Thread thread2 = new Thread() {
-      @Override public void run() {
-        profiler.startTask(ProfilerTask.TEST, "complex task");
-        for (int i = 0; i < 100; i++) {
-          Profiler.instance().logEvent(ProfilerTask.TEST, "thread2a");
-        }
-        profiler.completeTask(ProfilerTask.TEST);
-        profiler.markPhase(ProfilePhase.EXECUTE);
-        for (int i = 0; i < 100; i++) {
-          Profiler.instance().logEvent(ProfilerTask.TEST, "thread2b");
-        }
-      }
-    };
+    Thread thread2 =
+        new Thread() {
+          @Override
+          public void run() {
+            profiler.startTask(ProfilerTask.TEST, "complex task");
+            for (int i = 0; i < 100; i++) {
+              Profiler.instance().logEvent(ProfilerTask.TEST, "thread2a");
+            }
+            profiler.completeTask(ProfilerTask.TEST);
+            try {
+              profiler.markPhase(ProfilePhase.EXECUTE);
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(e);
+            }
+            for (int i = 0; i < 100; i++) {
+              Profiler.instance().logEvent(ProfilerTask.TEST, "thread2b");
+            }
+          }
+        };
     thread2.start();
     thread2.join();
     profiler.logEvent(ProfilerTask.TEST, "last task");

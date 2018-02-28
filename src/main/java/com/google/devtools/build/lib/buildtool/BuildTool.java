@@ -300,8 +300,9 @@ public final class BuildTool {
         if (errorMessage != null) {
           throw new BuildFailedException(errorMessage);
         }
-        // Return.
+        // Will return after profiler line below.
       }
+      Profiler.instance().markPhase(ProfilePhase.FINISH);
     } catch (RuntimeException e) {
       // Print an error message for unchecked runtime exceptions. This does not concern Error
       // subclasses such as OutOfMemoryError.
