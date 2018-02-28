@@ -439,17 +439,15 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addString(String.valueOf(makeExecutable));
-    f.addString(template.getKey());
-    f.addInt(substitutions.size());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addString(String.valueOf(makeExecutable));
+    fp.addString(template.getKey());
+    fp.addInt(substitutions.size());
     for (Substitution entry : substitutions) {
-      f.addString(entry.getKey());
-      f.addString(entry.getValue());
+      fp.addString(entry.getKey());
+      fp.addString(entry.getValue());
     }
-    return f.hexDigestAndReset();
   }
 
   @Override

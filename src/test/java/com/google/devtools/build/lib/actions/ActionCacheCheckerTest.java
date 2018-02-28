@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -173,16 +174,16 @@ public class ActionCacheCheckerTest {
     Action action =
         new NullAction() {
           @Override
-          protected String computeKey(ActionKeyContext actionKeyContext) {
-            return "key1";
+          protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+            fp.addString("key1");
           }
         };
     runAction(action);
     action =
         new NullAction() {
           @Override
-          protected String computeKey(ActionKeyContext actionKeyContext) {
-            return "key2";
+          protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+            fp.addString("key2");
           }
         };
     runAction(action);

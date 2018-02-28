@@ -59,12 +59,10 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext)
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
-    Fingerprint f = new Fingerprint();
-    f.addString(UUID);
-    f.addString(shadowedAction.getKey(actionKeyContext));
-    f.addBytes(shadowedAction.getExtraActionInfo(actionKeyContext).build().toByteArray());
-    return f.hexDigestAndReset();
+    fp.addString(UUID);
+    fp.addString(shadowedAction.getKey(actionKeyContext));
+    fp.addBytes(shadowedAction.getExtraActionInfo(actionKeyContext).build().toByteArray());
   }
 }

@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -268,9 +269,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
-    protected String computeKey(ActionKeyContext actionKeyContext) {
-      return "";
-    }
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {}
 
     @Override
     public boolean executeUnconditionally() {

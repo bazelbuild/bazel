@@ -1116,11 +1116,10 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
-  public String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addUUID(actionClassId);
-    f.addStringMap(getEnvironment());
-    f.addStringMap(executionInfo);
+  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addUUID(actionClassId);
+    fp.addStringMap(getEnvironment());
+    fp.addStringMap(executionInfo);
 
     // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
     // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
@@ -1129,7 +1128,7 @@ public class CppCompileAction extends AbstractAction
     // itself is fully determined by the input source files and module maps.
     // A better long-term solution would be to make the compiler to find them automatically and
     // never hand in the .pcm files explicitly on the command line in the first place.
-    f.addStrings(compileCommandLine.getArguments(/* overwrittenVariables= */ null));
+    fp.addStrings(compileCommandLine.getArguments(/* overwrittenVariables= */ null));
 
     /*
      * getArguments() above captures all changes which affect the compilation
@@ -1138,14 +1137,13 @@ public class CppCompileAction extends AbstractAction
      * that affect whether validateIncludes() will report an error or warning
      * have changed, otherwise we might miss some errors.
      */
-    f.addPaths(ccCompilationInfo.getDeclaredIncludeDirs());
-    f.addPaths(ccCompilationInfo.getDeclaredIncludeWarnDirs());
-    actionKeyContext.addNestedSetToFingerprint(f, ccCompilationInfo.getDeclaredIncludeSrcs());
-    f.addInt(0);  // mark the boundary between input types
-    actionKeyContext.addNestedSetToFingerprint(f, getMandatoryInputs());
-    f.addInt(0);
-    actionKeyContext.addNestedSetToFingerprint(f, prunableInputs);
-    return f.hexDigestAndReset();
+    fp.addPaths(ccCompilationInfo.getDeclaredIncludeDirs());
+    fp.addPaths(ccCompilationInfo.getDeclaredIncludeWarnDirs());
+    actionKeyContext.addNestedSetToFingerprint(fp, ccCompilationInfo.getDeclaredIncludeSrcs());
+    fp.addInt(0); // mark the boundary between input types
+    actionKeyContext.addNestedSetToFingerprint(fp, getMandatoryInputs());
+    fp.addInt(0);
+    actionKeyContext.addNestedSetToFingerprint(fp, prunableInputs);
   }
 
   @Override

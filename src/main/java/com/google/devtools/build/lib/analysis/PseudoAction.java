@@ -64,8 +64,9 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    return new Fingerprint().addUUID(uuid).addBytes(getInfo().toByteArray()).hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addUUID(uuid);
+    fp.addBytes(getInfo().toByteArray());
   }
 
   protected InfoType getInfo() {

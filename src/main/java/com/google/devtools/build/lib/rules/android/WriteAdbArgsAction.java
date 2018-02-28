@@ -186,8 +186,8 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    return new Fingerprint().addString(GUID).hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
   }
 
   /** Specifies how the app should be started/stopped. */

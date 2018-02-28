@@ -166,32 +166,30 @@ public final class LtoBackendAction extends SpawnAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
     try {
-      f.addStrings(getArguments());
+      fp.addStrings(getArguments());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("LtoBackendAction command line expansion cannot fail");
     }
-    f.addString(getMnemonic());
-    f.addPaths(getRunfilesSupplier().getRunfilesDirs());
+    fp.addString(getMnemonic());
+    fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
     ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
     for (Artifact runfilesManifest : runfilesManifests) {
-      f.addPath(runfilesManifest.getExecPath());
+      fp.addPath(runfilesManifest.getExecPath());
     }
     for (Artifact input : getMandatoryInputs()) {
-      f.addPath(input.getExecPath());
+      fp.addPath(input.getExecPath());
     }
     if (imports != null) {
       for (PathFragment bitcodePath : bitcodeFiles.keySet()) {
-        f.addPath(bitcodePath);
+        fp.addPath(bitcodePath);
       }
-      f.addPath(imports.getExecPath());
+      fp.addPath(imports.getExecPath());
     }
-    f.addStringMap(getEnvironment());
-    f.addStringMap(getExecutionInfo());
-    return f.hexDigestAndReset();
+    fp.addStringMap(getEnvironment());
+    fp.addStringMap(getExecutionInfo());
   }
 
   /** Builder class to construct {@link LtoBackendAction} instances. */

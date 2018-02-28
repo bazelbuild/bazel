@@ -84,13 +84,11 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint key = new Fingerprint();
+  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
-      key.addPath(entry.getKey().getPath());
-      key.addPath(entry.getValue().getPath());
+      fp.addPath(entry.getKey().getPath());
+      fp.addPath(entry.getValue().getPath());
     }
-    return key.hexDigestAndReset();
   }
 
   @Override

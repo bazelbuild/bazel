@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -65,17 +64,12 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
     };
   }
 
-  /**
-   * Computes the Action key for this action by computing the fingerprint for the file contents.
-   */
+  /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addBoolean(includeDerivedArtifacts);
-    f.addString(getContents());
-    return f.hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addBoolean(includeDerivedArtifacts);
+    fp.addString(getContents());
   }
 
   private String getContents() {

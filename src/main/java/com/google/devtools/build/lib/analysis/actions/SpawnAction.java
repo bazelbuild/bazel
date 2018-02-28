@@ -328,25 +328,23 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext)
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    argv.addToFingerprint(actionKeyContext, f);
-    f.addString(getMnemonic());
+    fp.addString(GUID);
+    argv.addToFingerprint(actionKeyContext, fp);
+    fp.addString(getMnemonic());
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
-    f.addPaths(getRunfilesSupplier().getRunfilesDirs());
+    fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
     ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
-    f.addInt(runfilesManifests.size());
+    fp.addInt(runfilesManifests.size());
     for (Artifact runfilesManifest : runfilesManifests) {
-      f.addPath(runfilesManifest.getExecPath());
+      fp.addPath(runfilesManifest.getExecPath());
     }
-    f.addStringMap(getEnvironment());
-    f.addStrings(getClientEnvironmentVariables());
-    f.addStringMap(getExecutionInfo());
-    return f.hexDigestAndReset();
+    fp.addStringMap(getEnvironment());
+    fp.addStrings(getClientEnvironmentVariables());
+    fp.addStringMap(getExecutionInfo());
   }
 
   @Override

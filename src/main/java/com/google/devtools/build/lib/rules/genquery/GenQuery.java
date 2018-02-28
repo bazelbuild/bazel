@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -381,10 +379,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    protected String computeKey(ActionKeyContext actionKeyContext) {
-      Fingerprint f = new Fingerprint();
-      f.addBytes(result.toByteArray());
-      return f.hexDigestAndReset();
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+      fp.addBytes(result.toByteArray());
     }
   }
 

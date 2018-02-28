@@ -127,11 +127,9 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addPaths(Artifact.asSortedPathFragments(getOutputs()));
-    f.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs()));
-    return f.hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addPaths(Artifact.asSortedPathFragments(getOutputs()));
+    fp.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs()));
   }
 
   @Override
