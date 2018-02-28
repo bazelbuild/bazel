@@ -64,6 +64,7 @@ cc_test(
     srcs = ["runfiles_test.cc"],
     deps = [
         ":cc-runfiles",
+        "//src/main/cpp/util:file",
         "//third_party:gtest",
     ],
 )

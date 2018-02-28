@@ -32,8 +32,12 @@ class Runfiles {
   //   Runfiles* Create(const string& argv0, string* error);
   // TODO(laszlocsomor): implement:
   //   vector<pair<string, string>> EnvVars();
-  // TODO(laszlocsomor): implement:
-  //   Runfiles* CreateManifestBased(const string& path, string* error);
+
+  // Returns a new manifest-based `Runfiles` instance.
+  // Returns nullptr on error. If `error` is provided, the method prints an
+  // error message into it.
+  static Runfiles* CreateManifestBased(const std::string& manifest_path,
+                                       std::string* error = nullptr);
 
   // Returns a new directory-based `Runfiles` instance.
   // Returns nullptr on error. If `error` is provided, the method prints an
