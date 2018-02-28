@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
@@ -860,26 +859,6 @@ class Marshallers {
         }
       };
 
-  /** Since we cannot add a codec to {@link HashCode}, it needs to be supported natively. */
-  private final Marshaller hashCodeMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesType(type, HashCode.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          context.builder.addStatement("codedOut.writeByteArrayNoTag($L.asBytes())", context.name);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          context.builder.addStatement(
-              "$L = $T.fromBytes(codedIn.readByteArray())", context.name, HashCode.class);
-        }
-      };
-
   private final Marshaller protoMarshaller =
       new Marshaller() {
         @Override
@@ -1037,7 +1016,6 @@ class Marshallers {
           multimapMarshaller,
           nestedSetMarshaller,
           patternMarshaller,
-          hashCodeMarshaller,
           protoMarshaller,
           iterableMarshaller,
           charsetMarshaller,
