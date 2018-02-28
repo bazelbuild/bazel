@@ -1601,8 +1601,6 @@ public class Package {
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
       try {
         return codecDeps.getPackageDeserializer().deserialize(context, codedIn);
-      } catch (PackageDeserializationException e) {
-        throw new SerializationException("Failed to deserialize Package", e);
       } catch (InterruptedException e) {
         throw new IllegalStateException(
             "Unexpected InterruptedException during Package deserialization", e);
