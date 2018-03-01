@@ -34,6 +34,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             null,
+            null,
             ImmutableList.of("java/time/"),
             ImmutableList.of(),
             ImmutableList.of());
@@ -51,6 +52,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter("__/"),
             null,
+            null,
             ImmutableList.of("java/time/"),
             ImmutableList.of(),
             ImmutableList.of());
@@ -67,6 +69,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             null,
+            null,
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of());
@@ -80,6 +83,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter("__/"),
             null,
+            null,
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of());
@@ -92,6 +96,7 @@ public class CoreLibrarySupportTest {
     CoreLibrarySupport support =
         new CoreLibrarySupport(
             new CoreLibraryRewriter("__/"),
+            null,
             null,
             ImmutableList.of("java/util/Helper"),
             ImmutableList.of(),
@@ -108,6 +113,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
+            null,
             ImmutableList.of("java/util/concurrent/"),
             ImmutableList.of("java/util/Map"),
             ImmutableList.of());
@@ -126,6 +132,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
+            null,
             ImmutableList.of(),
             ImmutableList.of("java/util/Collection"),
             ImmutableList.of());
@@ -161,6 +168,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
+            null,
             ImmutableList.of(),
             ImmutableList.of("java/util/Collection"),
             ImmutableList.of());
@@ -188,6 +196,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
+            null,
             ImmutableList.of(),
             ImmutableList.of("java/util/Map"),
             ImmutableList.of());
@@ -223,6 +232,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
+            null,
             ImmutableList.of(),
             ImmutableList.of("java/util/Comparator"),
             ImmutableList.of());
@@ -246,6 +256,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
+            null,
             ImmutableList.of("java/util/"),
             ImmutableList.of(),
             ImmutableList.of());
@@ -314,6 +325,7 @@ public class CoreLibrarySupportTest {
         new CoreLibrarySupport(
             new CoreLibraryRewriter(""),
             Thread.currentThread().getContextClassLoader(),
+            null,
             ImmutableList.of("java/util/concurrent/"),  // should return null for these
             ImmutableList.of("java/util/Map"),
             ImmutableList.of());

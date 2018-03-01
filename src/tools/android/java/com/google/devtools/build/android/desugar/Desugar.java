@@ -406,6 +406,7 @@ class Desugar {
               ? new CoreLibrarySupport(
                   rewriter,
                   loader,
+                  store,
                   options.rewriteCoreLibraryPrefixes,
                   options.emulateCoreLibraryInterfaces,
                   options.retargetCoreLibraryMembers)
@@ -719,6 +720,7 @@ class Desugar {
                 visitor,
                 interfaceCache,
                 depsCollector,
+                coreLibrarySupport,
                 bootclasspathReader,
                 loader,
                 store,
@@ -800,6 +802,7 @@ class Desugar {
                   visitor,
                   interfaceCache,
                   depsCollector,
+                  coreLibrarySupport,
                   bootclasspathReader,
                   loader,
                   store,
