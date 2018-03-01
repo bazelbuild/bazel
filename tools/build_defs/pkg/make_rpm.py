@@ -184,7 +184,10 @@ class RpmBuilder(object):
 
     # Copy the files.
     for f in self.files:
-      shutil.copy(os.path.join(original_dir, f), RpmBuilder.BUILD_DIR)
+      dst_dir = os.path.join(RpmBuilder.BUILD_DIR, os.path.dirname(f))
+      if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir, 0o777)
+      shutil.copy(os.path.join(original_dir, f), dst_dir)
 
     # Copy the spec file, updating with the correct version.
     spec_origin = os.path.join(original_dir, spec_file)
