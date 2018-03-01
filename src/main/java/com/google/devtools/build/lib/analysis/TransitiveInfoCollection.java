@@ -14,12 +14,19 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /**
@@ -61,6 +68,20 @@ import javax.annotation.Nullable;
           + "</ul>"
 )
 public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProviderCollection {
+
+  @SkylarkCallable(name = "output_group",
+    documented = false, //  TODO(dslomov): document.
+    parameters = {
+      @Param(name = "group_name", type = String.class, doc = "Output group name")
+    }
+  )
+  default SkylarkNestedSet outputGroup(String group) {
+    OutputGroupInfo provider = OutputGroupInfo.get(this);
+    NestedSet<Artifact> result = provider != null
+        ? provider.getOutputGroup(group)
+        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+    return SkylarkNestedSet.of(Artifact.class, result);
+  }
 
   /**
    * Returns the transitive information provider requested, or null if the provider is not found.

@@ -1172,7 +1172,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
       getConfiguredTarget("//examples/apple_skylark:my_target");
       fail("Expected an error to be thrown for invalid dotted version string");
     } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().contains("illegal argument in call to dotted_version");
       assertThat(e).hasMessageThat().contains("Dotted version components must all be of the form");
     }
   }

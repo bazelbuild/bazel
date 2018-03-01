@@ -1547,24 +1547,6 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "get", objectType = SkylarkDict.class,
-      doc = "Returns the value for <code>key</code> if <code>key</code> is in the dictionary, "
-          + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
-          + "<code>None</code>, so that this method never throws an error.",
-      parameters = {
-        @Param(name = "self", doc = "This dict."),
-        @Param(name = "key", doc = "The key to look for."),
-        @Param(name = "default", defaultValue = "None",
-            doc = "The default value to use (instead of None) if the key is not found.")})
-  private static final BuiltinFunction get = new BuiltinFunction("get") {
-    public Object invoke(SkylarkDict<?, ?> self, Object key, Object defaultValue) {
-      if (self.containsKey(key)) {
-        return self.get(key);
-      }
-      return defaultValue;
-    }
-  };
-
   @SkylarkSignature(
     name = "tuple",
     returnType = Tuple.class,
