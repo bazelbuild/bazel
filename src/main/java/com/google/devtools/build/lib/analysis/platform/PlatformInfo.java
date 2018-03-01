@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.flatteningToImmutableListMultimap;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static java.util.stream.Collectors.joining;
@@ -185,6 +186,10 @@ public class PlatformInfo extends NativeInfo {
     f.addString(label.toString());
     f.addNullableString(remoteExecutionProperties);
     f.addInt(constraints.size());
+    f.addStrings(constraints.values().stream()
+        .map(ConstraintValueInfo::label)
+        .map(Label::getCanonicalForm)
+        .collect(toImmutableList()));
   }
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
