@@ -827,10 +827,9 @@ public final class Environment implements Freezable {
     }
 
     /** Inherits global bindings from the given parent Frame. */
-    public Builder setGlobals(Frame parent) {
+    public Builder setGlobals(GlobalFrame parent) {
       Preconditions.checkState(this.parent == null);
-      // TODO(nharmata): This is a hacky cast done so as to not break Copybara. Remove this.
-      this.parent = (GlobalFrame) parent;
+      this.parent = parent;
       return this;
     }
 
