@@ -21,7 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
@@ -271,34 +270,15 @@ public class JavacTurbine implements AutoCloseable {
             .setPlatformJars(platformJars)
             .setStrictJavaDeps(strictDepsMode.toString());
     ImmutableSet.Builder<Path> directJars = ImmutableSet.builder();
-    ImmutableMap.Builder<Path, JarOwner> jarsToTargets = ImmutableMap.builder();
-    for (Map.Entry<String, String> entry : turbineOptions.directJarsToTargets().entrySet()) {
-      Path path = Paths.get(entry.getKey());
-      directJars.add(path);
-      jarsToTargets.put(path, parseJarOwner(entry.getKey()));
-    }
-    for (Map.Entry<String, String> entry : turbineOptions.indirectJarsToTargets().entrySet()) {
-      jarsToTargets.put(Paths.get(entry.getKey()), parseJarOwner(entry.getValue()));
+    for (String path : turbineOptions.directJars()) {
+      directJars.add(Paths.get(path));
     }
     dependencyModuleBuilder.setDirectJars(directJars.build());
-    dependencyModuleBuilder.setJarsToTargets(jarsToTargets.build());
     if (turbineOptions.outputDeps().isPresent()) {
       dependencyModuleBuilder.setOutputDepsProtoFile(Paths.get(turbineOptions.outputDeps().get()));
     }
 
     return dependencyModuleBuilder.build();
-  }
-
-  private static JarOwner parseJarOwner(String line) {
-    int separatorIndex = line.indexOf(';');
-    final JarOwner owner;
-    if (separatorIndex == -1) {
-      owner = JarOwner.create(line);
-    } else {
-      owner =
-          JarOwner.create(line.substring(0, separatorIndex), line.substring(separatorIndex + 1));
-    }
-    return owner;
   }
 
   /** Write the class output from a successful compilation to the output jar. */
