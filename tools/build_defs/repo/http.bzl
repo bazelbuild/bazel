@@ -29,23 +29,7 @@ These rules are improved versions of the native http rules and will eventually
 replace the native rules.
 """
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile")
-
-def _patch(ctx):
-  """Implementation of patching an already extracted repository"""
-  bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-  for patchfile in ctx.attr.patches:
-    command = "{patchtool} -p0 < {patchfile}".format(
-      patchtool=ctx.attr.patch_tool,
-      patchfile=ctx.path(patchfile))
-    st = ctx.execute([bash_exe, "-c", command])
-    if st.return_code:
-      fail("Error applying patch %s:\n%s" % (str(patchfile), st.stderr))
-  for cmd in ctx.attr.patch_cmds:
-    st = ctx.execute([bash_exe, "-c", cmd])
-    if st.return_code:
-      fail("Error applying patch command %s:\n%s%s"
-           % (cmd, st.stdout, st.stderr))
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile", "patch")
 
 def _http_archive_impl(ctx):
   """Implementation of the http_archive rule."""
@@ -74,7 +58,7 @@ def _http_archive_impl(ctx):
 
   ctx.download_and_extract(all_urls, "", ctx.attr.sha256, ctx.attr.type,
                            ctx.attr.strip_prefix)
-  _patch(ctx)
+  patch(ctx)
   workspace_and_buildfile(ctx)
 
 _HTTP_FILE_BUILD = """

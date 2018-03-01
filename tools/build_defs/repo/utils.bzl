@@ -50,4 +50,20 @@ def workspace_and_buildfile(ctx):
     ctx.execute([bash_exe, "-c", "rm -f BUILD.bazel"])
     ctx.file("BUILD", ctx.attr.build_file_content)
 
+def patch(ctx):
+  """Implementation of patching an already extracted repository"""
+  bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+  for patchfile in ctx.attr.patches:
+    command = "{patchtool} -p0 < {patchfile}".format(
+      patchtool=ctx.attr.patch_tool,
+      patchfile=ctx.path(patchfile))
+    st = ctx.execute([bash_exe, "-c", command])
+    if st.return_code:
+      fail("Error applying patch %s:\n%s" % (str(patchfile), st.stderr))
+  for cmd in ctx.attr.patch_cmds:
+    st = ctx.execute([bash_exe, "-c", cmd])
+    if st.return_code:
+      fail("Error applying patch command %s:\n%s%s"
+           % (cmd, st.stdout, st.stderr))
+
 
