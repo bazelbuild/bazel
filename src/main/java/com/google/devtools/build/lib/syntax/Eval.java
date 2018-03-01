@@ -124,17 +124,6 @@ public class Eval {
   }
 
   void execLoad(LoadStatement node) throws EvalException, InterruptedException {
-    if (env.getSemantics().incompatibleLoadArgumentIsLabel()) {
-      String s = node.getImport().getValue();
-      if (!s.startsWith("//") && !s.startsWith(":") && !s.startsWith("@")) {
-        throw new EvalException(
-            node.getLocation(),
-            "First argument of 'load' must be a label and start with either '//', ':', or '@'. "
-                + "Use --incompatible_load_argument_is_label=false to temporarily disable this "
-                + "check.");
-      }
-    }
-
     for (Map.Entry<Identifier, String> entry : node.getSymbolMap().entrySet()) {
       try {
         Identifier name = entry.getKey();

@@ -1191,10 +1191,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent(
-        "Every .bzl file must have a corresponding package, but 'foo' does not have one. "
-            + "Please create a BUILD file in the same or any parent directory. "
-            + "Note that this BUILD file does not need to do anything except exist.");
+    assertContainsEvent("Extension file not found. Unable to load package for '//foo:aspect.bzl'");
   }
 
   @Test

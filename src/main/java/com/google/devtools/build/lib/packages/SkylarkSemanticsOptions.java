@@ -152,9 +152,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, the first argument of 'load' statements is a label (not a path). "
-            + "It must start with '//' or ':'."
+    help = "no op - will be removed soon"
   )
   public boolean incompatibleLoadArgumentIsLabel;
 

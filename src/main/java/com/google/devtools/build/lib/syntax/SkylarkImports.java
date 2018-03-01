@@ -228,14 +228,10 @@ public class SkylarkImports {
 
   @VisibleForTesting
   static final String INVALID_PATH_SYNTAX =
-      "Don't use paths for Load statements; "
-      + "use a label instead, e.g. '//foo:bar.bzl' or ':bar.bzl'";
+      "First argument of 'load' must be a label and start with either '//', ':', or '@'.";
 
   @VisibleForTesting
   static final String INVALID_TARGET_PREFIX = "Invalid target: ";
-
-  @VisibleForTesting
-  static final String INVALID_FILENAME_PREFIX = "Invalid filename: ";
 
   /**
    * Creates and syntactically validates a {@link SkylarkImports} instance from a string.
@@ -263,16 +259,8 @@ public class SkylarkImports {
         throw new SkylarkImportSyntaxException(EXTERNAL_PKG_NOT_ALLOWED_MSG);
       }
       return new AbsoluteLabelImport(importString, importLabel);
-    } else if (importString.startsWith("/")) {
-      // Absolute path.
-      if (importString.endsWith(".bzl")) {
-        throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
-      }
-      PathFragment importPath = PathFragment.create(importString + ".bzl");
-      return new AbsolutePathImport(importString, importPath);
     } else if (importString.startsWith(":")) {
-      // Relative label. We require that relative labels use an explicit ':' prefix to distinguish
-      // them from relative paths, which have a different semantics.
+      // Relative label. We require that relative labels use an explicit ':' prefix.
       String importTarget = importString.substring(1);
       if (!importTarget.endsWith(".bzl")) {
         throw new SkylarkImportSyntaxException(MUST_HAVE_BZL_EXT_MSG);
@@ -283,18 +271,8 @@ public class SkylarkImports {
         throw new SkylarkImportSyntaxException(INVALID_TARGET_PREFIX + maybeErrMsg);
       }
       return new RelativeLabelImport(importString, importTarget);
-    } else {
-      // Relative path.
-      if (importString.endsWith(".bzl") || importString.contains("/")) {
-        throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
-      }
-      String importTarget = importString + ".bzl";
-      String maybeErrMsg = LabelValidator.validateTargetName(importTarget);
-      if (maybeErrMsg != null) {
-        // Null indicates successful target validation.
-        throw new SkylarkImportSyntaxException(INVALID_FILENAME_PREFIX + maybeErrMsg);
-      }
-      return new RelativePathImport(importString, importTarget);
     }
+
+    throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
   }
 }

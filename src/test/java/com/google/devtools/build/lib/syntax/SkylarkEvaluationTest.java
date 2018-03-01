@@ -1670,39 +1670,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testLoadStatementWithAbsolutePath() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
     checkEvalErrorContains(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
-        "load('/tmp/foo', 'arg')");
-  }
-
-  @Test
-  public void testAllowLoadStatementWithAbsolutePath() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label=false");
-    checkEvalErrorDoesNotContain(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
         "load('/tmp/foo', 'arg')");
   }
 
   @Test
   public void testLoadStatementWithRelativePath() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
     checkEvalErrorContains(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
         "load('foo', 'arg')");
   }
 
   @Test
-  public void testAllowLoadStatementWithRelativePath() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label=false");
-    checkEvalErrorDoesNotContain(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
-        "load('foo', 'arg')");
-  }
-
-  @Test
   public void testLoadStatementWithExternalLabel() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
     checkEvalErrorDoesNotContain(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
         "load('@other//foo.bzl', 'arg')");
@@ -1710,7 +1691,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testLoadStatementWithAbsoluteLabel() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
     checkEvalErrorDoesNotContain(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
         "load('//foo.bzl', 'arg')");
@@ -1718,7 +1698,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testLoadStatementWithRelativeLabel() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
     checkEvalErrorDoesNotContain(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
         "load(':foo.bzl', 'arg')");
