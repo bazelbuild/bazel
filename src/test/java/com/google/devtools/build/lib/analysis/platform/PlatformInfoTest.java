@@ -120,45 +120,6 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfoConstructor() throws Exception {
-    scratch.file(
-        "test/platform/my_platform.bzl",
-        "def _impl(ctx):",
-        "  constraints = [val[platform_common.ConstraintValueInfo] "
-            + "for val in ctx.attr.constraints]",
-        "  platform = platform_common.PlatformInfo(",
-        "      label = ctx.label, constraint_values = constraints)",
-        "  return [platform]",
-        "my_platform = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
-        "  }",
-        ")");
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:my_platform.bzl', 'my_platform')",
-        "my_platform(name = 'custom',",
-        "    constraints = [",
-        "       '//constraint:foo',",
-        "    ])");
-
-    ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
-    assertThat(platform).isNotNull();
-
-    PlatformInfo provider = PlatformProviderUtils.platform(platform);
-    assertThat(provider).isNotNull();
-    assertThat(provider.label()).isEqualTo(makeLabel("//test/platform:custom"));
-    assertThat(provider.constraints()).hasSize(1);
-    ConstraintSettingInfo constraintSetting =
-        ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-    ConstraintValueInfo constraintValue =
-        ConstraintValueInfo.create(constraintSetting, makeLabel("//constraint:foo"));
-    assertThat(provider.constraints()).containsExactly(constraintValue);
-    assertThat(provider.remoteExecutionProperties()).isNull();
-  }
-
-  @Test
   public void platformInfoConstructor_error_duplicateConstraints() throws Exception {
     scratch.file(
         "test/platform/my_platform.bzl",
