@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -26,7 +27,8 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
  * rule.
  */
 @SkylarkModule(name = "AndroidDex2OatInfo", doc = "", documented = false)
-public class AndroidDex2OatInfo extends NativeInfo {
+@Immutable
+public final class AndroidDex2OatInfo extends NativeInfo {
 
   private static final String SKYLARK_NAME = "AndroidDex2OatInfo";
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
