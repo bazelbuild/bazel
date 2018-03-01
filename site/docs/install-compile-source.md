@@ -47,34 +47,3 @@ You can build Bazel from source following these steps:
     and `output/bazel.exe` on Windows. This is a self-contained Bazel binary.
     You can copy it to a directory on the `PATH` (such as `/usr/local/bin` on
     Linux) or use it in-place.
-
-## Note to Windows users
-
-Make sure your machine meets the [requirements](windows.html) and that you use
-the latest version of the sources (`bazel-0.X.Y-dist.zip`).
-
-There's a bug in the compilation scripts in `bazel-0.6.0-dist.zip` and in
-`bazel-0.6.1-dist.zip`:
-
-To fix it:
-
-*   either apply the changes in
-    [e79a110](https://github.com/bazelbuild/bazel/commit/e79a1107d90380501102990d82cbfaa8f51a1778)
-    to the source tree,
-
-*   or just replace the following line in
-    `src/main/native/windows/build_windows_jni.sh`:
-
-     ```sh
-     @CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${VSTEMP}" /I . ${WINDOWS_SOURCES[*]}
-     ```
-
-     with this line:
-
-     ```sh
-     @CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . ${WINDOWS_SOURCES[*]}
-     ```
-
-It suffices to do one of these to bootstrap Bazel. We however recommend
-applying the full commit (e79a110) because it also adds extra environment
-checks to `./compile.sh`.
