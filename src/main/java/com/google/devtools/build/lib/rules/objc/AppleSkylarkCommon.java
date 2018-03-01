@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -375,14 +376,18 @@ public class AppleSkylarkCommon {
           type = SkylarkDict.class,
           defaultValue = "{}",
           doc = "Dictionary of arguments."
-        )
+        ),
+    useEnvironment = true
   )
   public static final BuiltinFunction NEW_OBJC_PROVIDER =
       new BuiltinFunction("new_objc_provider") {
         @SuppressWarnings("unused")
         // This method is registered statically for skylark, and never called directly.
         public ObjcProvider invoke(
-            AppleSkylarkCommon self, Boolean usesSwift, SkylarkDict<String, Object> kwargs) {
+            AppleSkylarkCommon self, Boolean usesSwift, SkylarkDict<String, Object> kwargs,
+            Environment environment) {
+          boolean disableObjcResourceKeys =
+              environment.getSemantics().incompatibleDisableObjcProviderResources();
           ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder();
           if (usesSwift) {
             resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
@@ -390,6 +395,9 @@ public class AppleSkylarkCommon {
           for (Entry<String, Object> entry : kwargs.entrySet()) {
             Key<?> key = ObjcProvider.getSkylarkKeyForString(entry.getKey());
             if (key != null) {
+              if (disableObjcResourceKeys && ObjcProvider.isDeprecatedResourceKey(key)) {
+                throw new IllegalArgumentException(String.format(BAD_KEY_ERROR, entry.getKey()));
+              }
               resultBuilder.addElementsFromSkylark(key, entry.getValue());
             } else if (entry.getKey().equals("providers")) {
               resultBuilder.addProvidersFromSkylark(entry.getValue());

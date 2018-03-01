@@ -123,6 +123,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
         "--incompatible_disable_glob_tracking=" + rand.nextBoolean(),
+        "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_toplevel_if_statement=" + rand.nextBoolean(),
         "--incompatible_disallow_uncalled_set_constructor=" + rand.nextBoolean(),
@@ -146,6 +147,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
         .incompatibleDisableGlobTracking(rand.nextBoolean())
+        .incompatibleDisableObjcProviderResources(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowToplevelIfStatement(rand.nextBoolean())
         .incompatibleDisallowUncalledSetConstructor(rand.nextBoolean())

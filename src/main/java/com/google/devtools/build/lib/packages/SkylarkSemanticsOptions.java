@@ -111,6 +111,17 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisableGlobTracking;
 
   @Option(
+      name = "incompatible_disable_objc_provider_resources",
+      defaultValue = "false",
+      category = "incompatible changes",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, disallow use of deprecated resource fields on the Objc provider."
+  )
+  public boolean incompatibleDisableObjcProviderResources;
+
+  @Option(
     name = "incompatible_disallow_dict_plus",
     defaultValue = "false",
     category = "incompatible changes",
@@ -238,6 +249,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
         .incompatibleDisableGlobTracking(incompatibleDisableGlobTracking)
+        .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleDisallowUncalledSetConstructor(incompatibleDisallowUncalledSetConstructor)
