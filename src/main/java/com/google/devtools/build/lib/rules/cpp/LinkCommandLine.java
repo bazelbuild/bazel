@@ -350,7 +350,7 @@ public final class LinkCommandLine extends CommandLine {
       }
     }
   }
-  
+
   /**
    * Returns a raw link command for the given link invocation, including both command and arguments
    * (argv). The version that uses the expander is preferred, but that one can't be used during

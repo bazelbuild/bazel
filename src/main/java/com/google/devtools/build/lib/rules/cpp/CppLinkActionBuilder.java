@@ -715,6 +715,7 @@ public class CppLinkActionBuilder {
         // That was probably an unintended side effect of the change that introduced interface
         // outputs.
         // On Windows, We can always split the command line when building DLL.
+      case NODEPS_DYNAMIC_LIBRARY:
       case DYNAMIC_LIBRARY:
         return (interfaceOutput == null
             || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
@@ -801,7 +802,7 @@ public class CppLinkActionBuilder {
     final ImmutableMap<Linkstamp, Artifact> linkstampMap =
         mapLinkstampsToOutputs(linkstamps, ruleContext, configuration, output, linkArtifactFactory);
 
-    if (interfaceOutput != null && (fake || linkType != LinkTargetType.DYNAMIC_LIBRARY)) {
+    if (interfaceOutput != null && (fake || !linkType.isDynamicLibrary())) {
       throw new RuntimeException(
           "Interface output can only be used " + "with non-fake DYNAMIC_LIBRARY targets");
     }
@@ -1022,7 +1023,7 @@ public class CppLinkActionBuilder {
     Preconditions.checkArgument(
         linkType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
         "you can't link an interface dynamic library directly");
-    if (linkType != LinkTargetType.DYNAMIC_LIBRARY) {
+    if (!linkType.isDynamicLibrary()) {
       Preconditions.checkArgument(
           interfaceOutput == null,
           "interface output may only be non-null for dynamic library links");
@@ -1219,7 +1220,7 @@ public class CppLinkActionBuilder {
                 CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
                 featureConfiguration,
                 cppConfiguration.forcePic()
-                    || (linkType == LinkTargetType.DYNAMIC_LIBRARY
+                    || (linkType.isDynamicLibrary()
                         && toolchain.toolchainNeedsPic()),
                 Matcher.quoteReplacement(
                     isNativeDeps && cppConfiguration.shareNativeDeps()
@@ -1260,7 +1261,7 @@ public class CppLinkActionBuilder {
   }
 
   private boolean shouldUseLinkDynamicLibraryTool() {
-    return linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
+    return linkType.isDynamicLibrary()
         && toolchain.supportsInterfaceSharedObjects()
         && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
@@ -1275,9 +1276,7 @@ public class CppLinkActionBuilder {
     boolean fullyStatic = (staticness == LinkStaticness.FULLY_STATIC);
     boolean mostlyStatic = (staticness == LinkStaticness.MOSTLY_STATIC);
     boolean sharedLinkopts =
-        type == LinkTargetType.DYNAMIC_LIBRARY
-            || linkopts.contains("-shared")
-            || cppConfig.hasSharedLinkOption();
+        type.isDynamicLibrary() || linkopts.contains("-shared") || cppConfig.hasSharedLinkOption();
     return (isNativeDeps || cppConfig.legacyWholeArchive())
         && (fullyStatic || mostlyStatic)
         && sharedLinkopts;
@@ -1393,10 +1392,10 @@ public class CppLinkActionBuilder {
     }
      return this;
    }
-  
+
   /**
    * Sets the interface output of the link. A non-null argument can only be provided if the link
-   * type is {@code DYNAMIC_LIBRARY} and fake is false.
+   * type is {@code NODEPS_DYNAMIC_LIBRARY} and fake is false.
    */
   public CppLinkActionBuilder setInterfaceOutput(Artifact interfaceOutput) {
     this.interfaceOutput = interfaceOutput;
@@ -1906,7 +1905,7 @@ public class CppLinkActionBuilder {
       String runtimeSolibName = runtimeSolibDir != null ? runtimeSolibDir.getBaseName() : null;
       boolean runtimeRpath =
           runtimeSolibDir != null
-              && (linkType == LinkTargetType.DYNAMIC_LIBRARY
+              && (linkType.isDynamicLibrary()
                   || (linkType == LinkTargetType.EXECUTABLE
                       && linkStaticness == LinkStaticness.DYNAMIC));
 

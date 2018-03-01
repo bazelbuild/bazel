@@ -125,6 +125,7 @@ public final class CcCommon {
           // differently named outputs.
           Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
           Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
           Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),

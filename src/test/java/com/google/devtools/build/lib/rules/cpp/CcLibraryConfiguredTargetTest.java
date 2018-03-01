@@ -777,6 +777,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
             MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
             MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_TRANSITIVE_DYNAMIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_STRIP_ACTION_CONFIG,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
@@ -796,6 +797,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
             MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_TRANSITIVE_DYNAMIC_LIBRARY_ACTION_CONFIG,
             MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
             MockCcSupport.PIC_FEATURE);
     useConfiguration();

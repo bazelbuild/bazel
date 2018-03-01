@@ -166,12 +166,20 @@ public abstract class Link {
         ArtifactCategory.INTERFACE_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
-    /** A dynamic library. */
+    /** A dynamic library built from cc_library srcs. */
+    NODEPS_DYNAMIC_LIBRARY(
+        ".so",
+        Staticness.DYNAMIC,
+        "c++-link-nodeps-dynamic-library",
+        Picness.NOPIC, // Actually PIC but it's not indicated in the file name
+        ArtifactCategory.DYNAMIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
+    /** A transitive dynamic library used for distribution. */
     DYNAMIC_LIBRARY(
         ".so",
         Staticness.DYNAMIC,
         "c++-link-dynamic-library",
-        Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
+        Picness.NOPIC, // Actually PIC but it's not indicated in the file name
         ArtifactCategory.DYNAMIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
@@ -255,6 +263,11 @@ public abstract class Link {
     /** Returns true iff this link type is executable */
     public boolean isExecutable() {
       return (executable == Executable.EXECUTABLE);
+    }
+
+    /** Returns true iff this link type is a dynamic library or transitive dynamic library */
+    public boolean isDynamicLibrary() {
+      return this == NODEPS_DYNAMIC_LIBRARY || this == DYNAMIC_LIBRARY;
     }
   }
 

@@ -587,7 +587,7 @@ public final class CcLinkingHelper {
           CppHelper.getLinuxLinkedArtifact(
               ruleContext,
               configuration,
-              Link.LinkTargetType.DYNAMIC_LIBRARY,
+              Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
               linkedArtifactNameSuffix));
 
       if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)
@@ -819,7 +819,7 @@ public final class CcLinkingHelper {
     if (dynamicLibrary == null) {
       // If the crosstool is configured to select an output artifact, we use that selection.
       // Otherwise, we use linux defaults.
-      soImpl = getLinkedArtifact(LinkTargetType.DYNAMIC_LIBRARY);
+      soImpl = getLinkedArtifact(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
       mainLibraryIdentifier = libraryIdentifier;
     } else {
       // This branch is only used for vestigial Google-internal rules where the name of the output
@@ -857,7 +857,7 @@ public final class CcLinkingHelper {
             .addObjectFiles(ccOutputs.getObjectFiles(usePicForSharedLibs))
             .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
-            .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
+            .setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .setLinkStaticness(LinkStaticness.DYNAMIC)
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(mainLibraryIdentifier)

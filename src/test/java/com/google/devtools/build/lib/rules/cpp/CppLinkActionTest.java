@@ -107,6 +107,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .getFeatureConfiguration(
             ImmutableSet.of(
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
+                Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
                 Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
                 Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
                 Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
@@ -324,7 +325,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             if (attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)) {
-              builder.setLinkType(LinkTargetType.DYNAMIC_LIBRARY);
+              builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
               builder.setLibraryIdentifier("foo");
             } else {
               builder.setLinkType(LinkTargetType.EXECUTABLE);
@@ -382,7 +383,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setLinkType(
                 attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
                     ? LinkTargetType.STATIC_LIBRARY
-                    : LinkTargetType.DYNAMIC_LIBRARY);
+                    : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
             builder.setLibraryIdentifier("foo");
             return builder.build();
           }
@@ -412,7 +413,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
-    builder.setLinkType(LinkTargetType.DYNAMIC_LIBRARY);
+    builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setInterfaceOutput(outputIfso);
@@ -567,7 +568,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "feature {",
                 "   name: 'build_interface_libraries'",
                 "   flag_set {",
-                "       action: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "',",
+                "       action: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "',",
                 "       flag_group {",
                 "           flag: '%{generate_interface_library}'",
                 "           flag: '%{interface_library_builder_path}'",
@@ -579,7 +580,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "feature {",
                 "   name: 'dynamic_library_linker_tool'",
                 "   flag_set {",
-                "       action: 'c++-link-dynamic-library'",
+                "       action: 'c++-link-nodeps-dynamic-library'",
                 "       flag_group {",
                 "           flag: 'dynamic_library_linker_tool'",
                 "       }",
@@ -589,8 +590,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "    name: 'has_configured_linker_path'",
                 "}",
                 "action_config {",
-                "   config_name: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "'",
-                "   action_name: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "'",
+                "   config_name: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "'",
+                "   action_name: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "'",
                 "   tool {",
                 "       tool_path: 'custom/crosstool/scripts/link_dynamic_library.sh'",
                 "   }",
@@ -602,10 +603,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableSet.of(
                     "build_interface_libraries",
                     "dynamic_library_linker_tool",
-                    LinkTargetType.DYNAMIC_LIBRARY.getActionName()));
+                    LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName()));
     CppLinkActionBuilder builder =
         createLinkBuilder(
-                LinkTargetType.DYNAMIC_LIBRARY,
+                LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                 "foo.so",
                 ImmutableList.<Artifact>of(),
                 ImmutableList.<LibraryToLink>of(),
