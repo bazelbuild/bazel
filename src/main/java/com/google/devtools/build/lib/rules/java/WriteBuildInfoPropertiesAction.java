@@ -17,7 +17,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -160,16 +159,11 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
         Map<String, String> keys = new HashMap<>();
         if (includeVolatile) {
           addValues(keys, values, context.getVolatileKeys());
-          // Unlike Blaze which stores BUILD_TIMESTAMP as seconds, Bazel stores
-          // it as milliseconds.
-          String timeMillisStr = values.get(BuildInfo.BUILD_TIMESTAMP);
           long timeMillis = timestamp;
-          if (Strings.isNullOrEmpty(timeMillisStr)) {
-            timeMillisStr = Long.toString(timeMillis);
-          } else {
-            timeMillis = Long.valueOf(timeMillisStr);
+          if (values.containsKey(BuildInfo.BUILD_TIMESTAMP)) {
+            timeMillis = Long.valueOf(values.get(BuildInfo.BUILD_TIMESTAMP)) * 1000L;
           }
-          keys.put("BUILD_TIMESTAMP", timeMillisStr);
+          keys.put("BUILD_TIMESTAMP", Long.toString(timeMillis / 1000));
           keys.put("BUILD_TIME", timestampFormatter.format(timeMillis));
         }
         addValues(keys, values, context.getStableKeys());
