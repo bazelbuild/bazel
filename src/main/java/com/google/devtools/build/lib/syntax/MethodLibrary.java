@@ -211,8 +211,8 @@ public class MethodLibrary {
     objectType = StringModule.class,
     returnType = String.class,
     doc =
-        "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
-            + "are removed."
+        "Returns a copy of the string where leading or trailing characters that appear in "
+            + "<code>chars</code> are removed."
             + "<pre class=\"language-python\">"
             + "\"aabcbcbaa\".strip(\"ab\") == \"cbc\""
             + "</pre>",
