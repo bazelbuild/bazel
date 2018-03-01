@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
-import com.google.devtools.build.lib.syntax.Environment.Frame;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -50,10 +50,10 @@ public class TestUtils {
   }
 
   /**
-   * Asserts that two {@link Frame}s have the same structure. Needed because {@link Frame} doesn't
-   * override {@link Object#equals}.
+   * Asserts that two {@link GlobalFrame}s have the same structure. Needed because
+   * {@link GlobalFrame} doesn't override {@link Object#equals}.
    */
-  public static void assertFramesEqual(Frame frame1, Frame frame2) {
+  public static void assertGlobalFramesEqual(GlobalFrame frame1, GlobalFrame frame2) {
     assertThat(frame1.mutability().getAnnotation())
         .isEqualTo(frame2.mutability().getAnnotation());
     assertThat(frame1.getLabel()).isEqualTo(frame2.getLabel());
@@ -63,7 +63,7 @@ public class TestUtils {
       assertThat(frame1.getParent()).isNull();
       assertThat(frame2.getParent()).isNull();
     } else {
-      assertFramesEqual(frame1.getParent(), frame2.getParent());
+      assertGlobalFramesEqual(frame1.getParent(), frame2.getParent());
     }
   }
 

@@ -280,7 +280,7 @@ public class EnvironmentTest extends EvaluationTestCase {
     parentEnv.update("a", 1);
     parentEnv.update("c", 2);
     parentEnv.update("b", 3);
-    Environment.Frame parentFrame = parentEnv.getGlobals();
+    Environment.GlobalFrame parentFrame = parentEnv.getGlobals();
     parentMutability.freeze();
     Mutability mutability = Mutability.create("testing");
     Environment env = Environment.builder(mutability)

@@ -267,7 +267,7 @@ public class BazelLibrary {
         }
       };
 
-  private static Environment.Frame createGlobals() {
+  private static Environment.GlobalFrame createGlobals() {
     List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, type);
 
     try (Mutability mutability = Mutability.create("BUILD")) {
@@ -281,7 +281,7 @@ public class BazelLibrary {
     }
   }
 
-  public static final Environment.Frame GLOBALS = createGlobals();
+  public static final Environment.GlobalFrame GLOBALS = createGlobals();
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(BazelLibrary.class);
