@@ -45,8 +45,11 @@ def _pkg_rpm_impl(ctx):
   args += ["--out_file=" + ctx.outputs.rpm.path]
 
   # Add data files.
-  files += [ctx.file.changelog] + ctx.files.data
-  args += [ctx.file.changelog.path]
+  if ctx.file.changelog:
+    files += [ctx.file.changelog]
+    args += [ctx.file.changelog.path]
+  files += ctx.files.data
+
   for f in ctx.files.data:
     args += [f.path]
 
@@ -74,7 +77,7 @@ pkg_rpm = rule(
         "architecture": attr.string(default="all"),
         "version_file": attr.label(allow_files=True, single_file=True),
         "version": attr.string(),
-        "changelog" : attr.label(mandatory=True, allow_files=True, single_file=True),
+        "changelog" : attr.label(allow_files=True, single_file=True),
         "data": attr.label_list(mandatory=True, allow_files=True),
 
         # Implicit dependencies.
