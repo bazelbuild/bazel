@@ -180,8 +180,6 @@ class RpmBuilder(object):
       if not os.path.exists(name):
         os.makedirs(name, 0o777)
 
-    shutil.copy(os.path.join(original_dir, spec_file), os.getcwd())
-
     # Copy the files.
     for f in self.files:
       shutil.copy(os.path.join(original_dir, f), RpmBuilder.BUILD_DIR)
