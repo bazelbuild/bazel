@@ -16,7 +16,9 @@ package com.google.devtools.common.options;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.DisallowValues;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.UseDefault;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -271,5 +273,27 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
               "Flag value 'a' for option '--test_list_converters' is not allowed by invocation "
                   + "policy");
     }
+  }
+
+  @Test
+  public void testAllowValuesWithNullDefault_DoesNotConfuseNullForDefault() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string_null_by_default")
+        .setDisallowValues(
+            DisallowValues.newBuilder()
+                .addDisallowedValues("null")
+                .setUseDefault(UseDefault.newBuilder()));
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    // Check the value before invocation policy enforcement.
+    parser.parse("--test_string_null_by_default=null");
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testStringNullByDefault).isEqualTo("null");
+
+    // Check the value afterwards.
+    enforcer.enforce(parser, BUILD_COMMAND);
+    testOptions = getTestOptions();
+    assertThat(testOptions.testStringNullByDefault).isNull();
   }
 }
