@@ -53,6 +53,8 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleNewActionsApi();
   public abstract boolean incompatibleShowAllPrintMessages();
 
+  public abstract boolean incompatibleRemoveNativeGitRepository();
+
   public abstract boolean incompatibleRemoveNativeHttpArchive();
 
   public abstract boolean incompatibleStringIsNotIterable();
@@ -82,6 +84,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowUncalledSetConstructor(true)
           .incompatibleLoadArgumentIsLabel(true)
           .incompatibleNewActionsApi(false)
+          .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
           .incompatibleShowAllPrintMessages(true)
           .incompatibleStringIsNotIterable(false)
@@ -105,6 +108,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowUncalledSetConstructor(boolean value);
     public abstract Builder incompatibleLoadArgumentIsLabel(boolean value);
     public abstract Builder incompatibleNewActionsApi(boolean value);
+
+    public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
 
     public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
 

@@ -171,6 +171,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNewActionsApi;
 
   @Option(
+    name = "incompatible_remove_native_git_repository",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, the native git_repository rules are disabled; only the skylark version "
+            + "will be available"
+  )
+  public boolean incompatibleRemoveNativeGitRepository;
+
+  @Option(
     name = "incompatible_remove_native_http_archive",
     defaultValue = "false",
     category = "incompatible changes",
@@ -232,6 +245,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowUncalledSetConstructor(incompatibleDisallowUncalledSetConstructor)
         .incompatibleLoadArgumentIsLabel(incompatibleLoadArgumentIsLabel)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
+        .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
         .incompatibleShowAllPrintMessages(incompatibleShowAllPrintMessages)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
