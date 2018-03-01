@@ -31,11 +31,23 @@ public class Greeter {
     }
   }
 
+  public static int readGreeter(byte[] dst) {
+    try (InputStream stream = Greeter.class.getResourceAsStream("/greeting.txt")) {
+      if (stream != null) {
+        return stream.read(dst);
+      }
+      return 0;
+    } catch (java.io.IOException e) {
+      return -1;
+    }
+  }
+
   public void hello(String obj) throws Exception {
     String greeting = "Hello";
-    InputStream stream  = Greeter.class.getResourceAsStream("/greeting.txt");
-    if (stream != null) {
-      greeting = convertStreamToString(stream);
+    try (InputStream stream = Greeter.class.getResourceAsStream("/greeting.txt")) {
+      if (stream != null) {
+        greeting = convertStreamToString(stream);
+      }
     }
     out.println(greeting + " " + obj);
   }
