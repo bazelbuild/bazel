@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.Fingerprint;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
 @SkylarkModule(
@@ -96,5 +97,12 @@ public class ConstraintSettingInfo extends NativeInfo {
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(Label constraintSetting, Location location) {
     return new ConstraintSettingInfo(constraintSetting, location);
+  }
+
+  /**
+   * Add this constraint setting to the given fingerprint.
+   */
+  public void addTo(Fingerprint fp) {
+    fp.addString(label.getCanonicalForm());
   }
 }

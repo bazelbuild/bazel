@@ -182,14 +182,12 @@ public class PlatformInfo extends NativeInfo {
   /**
    * Add this platform to the given fingerprint.
    */
-  public void addTo(Fingerprint f) {
-    f.addString(label.toString());
-    f.addNullableString(remoteExecutionProperties);
-    f.addInt(constraints.size());
-    f.addStrings(constraints.values().stream()
-        .map(ConstraintValueInfo::label)
-        .map(Label::getCanonicalForm)
-        .collect(toImmutableList()));
+  public void addTo(Fingerprint fp) {
+    fp.addString(label.toString());
+    fp.addNullableString(remoteExecutionProperties);
+    fp.addInt(constraints.size());
+    constraints.values().forEach(
+        constraintValue -> constraintValue.addTo(fp));
   }
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
