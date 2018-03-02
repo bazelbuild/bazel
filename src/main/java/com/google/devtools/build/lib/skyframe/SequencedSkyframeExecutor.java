@@ -893,8 +893,16 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
   }
 
+  private static boolean includeInActionGraph(String labelString, List<String> actionGraphTargets) {
+    if (actionGraphTargets.size() == 1
+        && Iterables.getOnlyElement(actionGraphTargets).equals("...")) {
+      return true;
+    }
+    return actionGraphTargets.contains(labelString);
+  }
+
   @Override
-  public ActionGraphContainer getActionGraphContainer() {
+  public ActionGraphContainer getActionGraphContainer(List<String> actionGraphTargets) {
     ActionGraphContainer.Builder actionGraphBuilder = ActionGraphContainer.newBuilder();
     ActionGraphIdCache actionGraphIdCache = new ActionGraphIdCache(actionGraphBuilder);
     for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
@@ -904,9 +912,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyFunctionName functionName = key.functionName();
       try {
         if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-          dumpConfiguredTarget(actionGraphBuilder, actionGraphIdCache, entry);
+          dumpConfiguredTarget(actionGraphBuilder, actionGraphIdCache, entry, actionGraphTargets);
         } else if (functionName.equals(SkyFunctions.ASPECT)) {
-          dumpAspect(actionGraphBuilder, actionGraphIdCache, entry);
+          dumpAspect(actionGraphBuilder, actionGraphIdCache, entry, actionGraphTargets);
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -919,7 +927,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private void dumpAspect(
       ActionGraphContainer.Builder actionGraphBuilder,
       ActionGraphIdCache actionGraphIdCache,
-      NodeEntry entry)
+      NodeEntry entry,
+      List<String> actionGraphTargets)
       throws InterruptedException {
     AspectValue aspectValue = (AspectValue) entry.getValue();
     AspectKey aspectKey = aspectValue.getKey();
@@ -927,6 +936,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         (ConfiguredTargetValue)
             memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
     ConfiguredTarget configuredTarget = value.getConfiguredTarget();
+    if (!includeInActionGraph(configuredTarget.getLabel().toString(), actionGraphTargets)) {
+      return;
+    }
     for (int i = 0; i < aspectValue.getNumActions(); i++) {
       Action action = aspectValue.getAction(i);
       dumpSingleAction(actionGraphIdCache, actionGraphBuilder, configuredTarget, action);
@@ -936,10 +948,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private void dumpConfiguredTarget(
       ActionGraphContainer.Builder actionGraphBuilder,
       ActionGraphIdCache actionGraphIdCache,
-      NodeEntry entry)
+      NodeEntry entry,
+      List<String> actionGraphTargets)
       throws InterruptedException {
     ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
     ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
+    if (!includeInActionGraph(configuredTarget.getLabel().toString(), actionGraphTargets)) {
+      return;
+    }
     List<ActionAnalysisMetadata> actions = ctValue.getActions();
     for (ActionAnalysisMetadata action : actions) {
       dumpSingleAction(actionGraphIdCache, actionGraphBuilder, configuredTarget, action);

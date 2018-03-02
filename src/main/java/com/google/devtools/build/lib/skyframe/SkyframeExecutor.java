@@ -593,7 +593,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  public abstract ActionGraphContainer getActionGraphContainer();
+  public abstract ActionGraphContainer getActionGraphContainer(List<String> actionGraphTargets);
 
   class BuildViewProvider {
     /**

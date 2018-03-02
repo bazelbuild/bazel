@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.RuleStat;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -112,6 +113,19 @@ public class DumpCommand implements BlazeCommand {
       help = "Dump action graph to the specified path."
     )
     public String dumpActionGraph;
+
+    @Option(
+      name = "action_graph:targets",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "...",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Comma separated list of targets to include in action graph dump. "
+              + "Defaults to all attributes. This option does only apply to --action_graph."
+    )
+    public List<String> actionGraphTargets;
 
     @Option(
       name = "rule_classes",
@@ -232,7 +246,12 @@ public class DumpCommand implements BlazeCommand {
 
       if (dumpOptions.dumpActionGraph != null) {
         try {
-          success &= dumpActionGraph(env.getSkyframeExecutor(), dumpOptions.dumpActionGraph, out);
+          success &=
+              dumpActionGraph(
+                  env.getSkyframeExecutor(),
+                  dumpOptions.dumpActionGraph,
+                  dumpOptions.actionGraphTargets,
+                  out);
         } catch (IOException e) {
           env.getReporter()
               .error(
@@ -283,10 +302,12 @@ public class DumpCommand implements BlazeCommand {
     return true;
   }
 
-  private boolean dumpActionGraph(SkyframeExecutor executor, String path, PrintStream out)
+  private boolean dumpActionGraph(
+      SkyframeExecutor executor, String path, List<String> actionGraphTargets, PrintStream out)
       throws IOException {
     out.println("Dumping action graph to '" + path + "'");
-    ActionGraphContainer actionGraphContainer = executor.getActionGraphContainer();
+    ActionGraphContainer actionGraphContainer =
+        executor.getActionGraphContainer(actionGraphTargets);
     FileOutputStream protoOutputStream = new FileOutputStream(path);
     actionGraphContainer.writeTo(protoOutputStream);
     protoOutputStream.close();
