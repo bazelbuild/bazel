@@ -249,7 +249,8 @@ toolchain {
   compiler_flag: "/Gy"
   # Use string pooling.
   compiler_flag: "/GF"
-  # Catch both asynchronous (structured) and synchronous (C++) exceptions.
+  # Catch C++ exceptions only and tell the compiler to assume that functions declared
+  # as extern "C" never throw a C++ exception.
   compiler_flag: "/EHsc"
 
   # Globally disabled warnings.
