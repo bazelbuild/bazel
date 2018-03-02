@@ -411,6 +411,7 @@ java_import(
     name = "opencensus-api",
     jars = [
         "opencensus/opencensus-api-0.11.0.jar",
+        "opencensus/opencensus-contrib-grpc-metrics-0.11.0.jar",
     ],
 )
 
