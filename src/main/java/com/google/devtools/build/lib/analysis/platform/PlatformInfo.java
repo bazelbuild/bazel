@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -171,6 +172,14 @@ public class PlatformInfo extends NativeInfo {
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
   public static Builder builder() {
     return new Builder();
+  }
+
+  /** Add this platform to the given fingerprint. */
+  public void addTo(Fingerprint fp) {
+    fp.addString(label.toString());
+    fp.addNullableString(remoteExecutionProperties);
+    fp.addInt(constraints.size());
+    constraints.values().forEach(constraintValue -> constraintValue.addTo(fp));
   }
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */

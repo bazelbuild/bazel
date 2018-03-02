@@ -314,6 +314,15 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       try {
         Fingerprint fp = new Fingerprint();
         computeKey(actionKeyContext, fp);
+
+        // Add a bool indicating whether the execution platform was set.
+        fp.addBoolean(getExecutionPlatform() != null);
+        if (getExecutionPlatform() != null) {
+          // Add the execution platform information.
+          getExecutionPlatform().addTo(fp);
+        }
+
+        // Compute the actual key and store it.
         cachedKey = fp.hexDigestAndReset();
       } catch (CommandLineExpansionException e) {
         cachedKey = KEY_ERROR;
