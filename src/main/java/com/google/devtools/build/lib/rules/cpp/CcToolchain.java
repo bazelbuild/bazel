@@ -65,10 +65,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the cc_toolchain rule.
@@ -312,30 +315,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-
-    CToolchain toolchain = null;
-    if (platformConfig
-        .getEnabledToolchainTypes()
-        .contains(CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
-      toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
-    }
-
-    CppToolchainInfo toolchainInfo = null;
-    if (toolchain != null) {
-      try {
-        toolchainInfo =
-            CppToolchainInfo.create(
-                toolchain,
-                cppConfiguration.getCrosstoolTopPathFragment(),
-                cppConfiguration.getCcToolchainRuleLabel());
-      } catch (InvalidConfigurationException e) {
-        ruleContext.throwWithRuleError(e.getMessage());
-      }
-    } else {
-      toolchainInfo = cppConfiguration.getCppToolchainInfo();
-    }
+    CppToolchainInfo toolchainInfo = getCppToolchainInfo(ruleContext, cppConfiguration);
 
     Path fdoZip = null;
     if (ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT) {
@@ -610,6 +590,47 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
+  /** Finds an appropriate {@link CppToolchainInfo} for this target. */
+  private CppToolchainInfo getCppToolchainInfo(
+      RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
+
+    // Attempt to find a toolchain based on the target attributes, not the configuration.
+    CToolchain toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
+
+    if (toolchain == null) {
+      // Fall back to the toolchain info in the current configuration.
+      return cppConfiguration.getCppToolchainInfo();
+    }
+
+    // If we found a toolchain, use it.
+    try {
+      return CppToolchainInfo.create(
+          toolchain,
+          cppConfiguration.getCrosstoolTopPathFragment(),
+          cppConfiguration.getCcToolchainRuleLabel());
+    } catch (InvalidConfigurationException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
+    }
+  }
+
+  @Nullable
+  private CToolchain parseToolchainFromAttributes(RuleContext ruleContext)
+      throws RuleErrorException {
+    if (ruleContext.attributes().get("proto", Type.STRING).isEmpty()) {
+      return null;
+    }
+
+    String data = ruleContext.attributes().get("proto", Type.STRING);
+
+    CToolchain.Builder builder = CToolchain.newBuilder();
+    try {
+      TextFormat.merge(data, builder);
+      return builder.build();
+    } catch (ParseException e) {
+      throw ruleContext.throwWithAttributeError("proto", "Could not parse CToolchain data");
+    }
+  }
+
   private void reportInvalidOptions(RuleContext ruleContext, CppToolchainInfo toolchain) {
     CppOptions options = ruleContext.getConfiguration().getOptions().get(CppOptions.class);
     CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
@@ -647,13 +668,29 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         .build();
   }
 
+  @Nullable
   private CToolchain getToolchainFromAttributes(
       RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+
+    if (!platformConfig
+        .getEnabledToolchainTypes()
+        .contains(CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+      return null;
+    }
+
+    // Is there a toolchain proto available on the target directly?
+    CToolchain toolchain = parseToolchainFromAttributes(ruleContext);
+    if (toolchain != null) {
+      return toolchain;
+    }
+
+    // Use the attributes to find the proper toolchain from the CROSSTOOL.
     if (ruleContext.attributes().get("cpu", Type.STRING).isEmpty()) {
       ruleContext.throwWithRuleError("Using cc_toolchain target requires the attribute 'cpu' "
           + "to be present");
     }
-
 
     String cpu = ruleContext.attributes().get("cpu", Type.STRING);
     String compiler = ruleContext.attributes().get("compiler", Type.STRING);

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
@@ -40,6 +41,9 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CcToolchainTest extends BuildViewTestCase {
+  private static final String CPP_TOOLCHAIN_TYPE =
+      TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type";
+
   @Test
   public void testFilesToBuild() throws Exception {
     scratch.file("a/BUILD",
@@ -786,5 +790,92 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile");
     assertThat(getConfiguredTarget("//a:b")).isNull();
     assertContainsEvent("--fdo_optimize points to a target that is not an input file");
+  }
+
+  @Test
+  public void testInlineCtoolchain_withoutToolchainResolution() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto=\"\"\"",
+        "      toolchain_identifier: \"banana\"",
+        "      abi_version: \"banana\"",
+        "      abi_libc_version: \"banana\"",
+        "      compiler: \"banana\"",
+        "      host_system_name: \"banana\"",
+        "      target_system_name: \"banana\"",
+        "      target_cpu: \"banana\"",
+        "      target_libc: \"banana\"",
+        "    \"\"\")");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, CrosstoolConfig.CToolchain.newBuilder()
+            .setAbiVersion("orange")
+            .buildPartial());
+
+    useConfiguration();
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    // Without toolchain resolution, this should get the toolchain from the CROSSTOOL, not the
+    // static version in the target.
+    assertThat(toolchainProvider.getAbi()).isEqualTo("orange");
+  }
+
+  @Test
+  public void testInlineCtoolchain_withToolchainResolution() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto=\"\"\"",
+        "      toolchain_identifier: \"banana\"",
+        "      abi_version: \"banana\"",
+        "      abi_libc_version: \"banana\"",
+        "      compiler: \"banana\"",
+        "      host_system_name: \"banana\"",
+        "      target_system_name: \"banana\"",
+        "      target_cpu: \"banana\"",
+        "      target_libc: \"banana\"",
+        "    \"\"\")");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, CrosstoolConfig.CToolchain.newBuilder()
+            .setAbiVersion("orange")
+            .buildPartial());
+
+    useConfiguration("--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE);
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    assertThat(toolchainProvider.getAbi()).isEqualTo("banana");
   }
 }

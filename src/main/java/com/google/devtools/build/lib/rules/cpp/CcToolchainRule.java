@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Rule definition for compiler definition.
@@ -90,15 +91,9 @@ public final class CcToolchainRule implements RuleDefinition {
             attr("objcopy_files", LABEL)
                 .legacyAllowAnyFileType()
                 .cfg(HostTransition.INSTANCE)
-                 .mandatory())
-        .add(
-            attr("as_files", LABEL)
-                .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE))
-        .add(
-            attr("ar_files", LABEL)
-                .legacyAllowAnyFileType()
-                .cfg(HostTransition.INSTANCE))
+                .mandatory())
+        .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
         .add(
             attr("linker_files", LABEL)
                 .legacyAllowAnyFileType()
@@ -146,6 +141,7 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(LipoContextCollectorTransition.INSTANCE)
                 .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
                 .skipPrereqValidatorCheck())
+        .add(attr("proto", Type.STRING))
         .build();
   }
 
