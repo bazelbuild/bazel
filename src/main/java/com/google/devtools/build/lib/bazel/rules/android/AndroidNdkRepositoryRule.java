@@ -85,7 +85,7 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = android_ndk_repository, TYPE = OTHER, FAMILY = Android) -->
 
 <p>Configures Bazel to use an Android NDK to support building Android targets with native
-code. NDK versions 10, 11, 12, 13 and 14 are currently supported.
+code. NDK versions 10 up to 16 are currently supported.
 
 <p>Note that building for Android also requires an <code>android_sdk_repository</code> rule in your
 <code>WORKSPACE</code> file.

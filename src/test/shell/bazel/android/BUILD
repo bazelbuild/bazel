@@ -25,7 +25,7 @@ sh_library(
 
 sh_test(
     name = "android_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["android_integration_test.sh"],
     data = [
         ":android_helper",

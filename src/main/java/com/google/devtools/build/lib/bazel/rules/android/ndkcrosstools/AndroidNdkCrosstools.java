@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.NdkM
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11.NdkMajorRevisionR11;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.NdkMajorRevisionR12;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r13.NdkMajorRevisionR13;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r15.NdkMajorRevisionR15;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Map;
 
@@ -33,14 +34,17 @@ public final class AndroidNdkCrosstools {
   // NDK minor revisions should be backwards compatible within a major revision, so all that needs
   // to be tracked here are the major revision numbers.
   public static final ImmutableMap<Integer, NdkMajorRevision> KNOWN_NDK_MAJOR_REVISIONS =
-      ImmutableMap.of(
-          10, new NdkMajorRevisionR10(),
-          11, new NdkMajorRevisionR11(),
-          12, new NdkMajorRevisionR12(),
-          13, new NdkMajorRevisionR13("3.8.256229"),
+      new ImmutableMap.Builder<Integer, NdkMajorRevision>()
+          .put(10, new NdkMajorRevisionR10())
+          .put(11, new NdkMajorRevisionR11())
+          .put(12, new NdkMajorRevisionR12())
+          .put(13, new NdkMajorRevisionR13("3.8.256229"))
           // The only difference between the NDK13 and NDK14 CROSSTOOLs is the version of clang in
           // built-in includes paths, so we can reuse everything else.
-          14, new NdkMajorRevisionR13("3.8.275480"));
+          .put(14, new NdkMajorRevisionR13("3.8.275480"))
+          .put(15, new NdkMajorRevisionR15("5.0.300080"))
+          .build();
+
   public static final Map.Entry<Integer, NdkMajorRevision> LATEST_KNOWN_REVISION =
       Iterables.getLast(KNOWN_NDK_MAJOR_REVISIONS.entrySet());
 

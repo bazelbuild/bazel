@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -24,7 +25,7 @@ import java.util.List;
 
 /**
  * Class for creating paths that are specific to the structure of the Android NDK, but which are
- * common to all crosstool toolchains. 
+ * common to all crosstool toolchains.
  */
 public class NdkPaths {
 
@@ -57,7 +58,7 @@ public class NdkPaths {
     for (Tool tool : CppConfiguration.Tool.values()) {
 
       // Some toolchains don't have particular tools.
-      if (!Arrays.asList(excludedTools).contains(tool)) {      
+      if (!Arrays.asList(excludedTools).contains(tool)) {
 
         String toolPath = createToolPath(toolchainName, targetPlatform + "-" + tool.getNamePart());
 
@@ -162,6 +163,13 @@ public class NdkPaths {
                 .replace("%includeFolderName%", includeFolderName));
   }
 
+  /**
+   * NDK 14 and below. Each API level has its own headers. See
+   * https://android.googlesource.com/platform/ndk/+/ndk-r15-release/docs/UnifiedHeaders.md#supporting-unified-headers-in-your-build-system
+   *
+   * @param targetCpu the target CPU architecture
+   * @return the path to the compile time sysroot
+   */
   public String createBuiltinSysroot(String targetCpu) {
 
     String correctedApiLevel = apiLevel.getCpuCorrectedApiLevel(targetCpu);
@@ -173,6 +181,22 @@ public class NdkPaths {
         .replace("%repositoryName%", repositoryName)
         .replace("%apiLevel%", correctedApiLevel)
         .replace("%arch%", targetCpu);
+  }
+
+  /**
+   * NDK 15 and above. The headers have been unified into ndk/sysroot.
+   *
+   * @return the sysroot location for NDK 15 and above.
+   */
+  public String createBuiltinSysroot() {
+    // This location does not exist prior to NDK 15
+    Preconditions.checkState(majorRevision >= 15);
+
+    return "external/%repositoryName%/ndk/sysroot".replace("%repositoryName%", repositoryName);
+  }
+
+  public String getCorrectedApiLevel(String targetCpu) {
+    return apiLevel.getCpuCorrectedApiLevel(targetCpu);
   }
 
   ImmutableList<String> createGnuLibstdcIncludePaths(String gccVersion, String targetCpu) {
@@ -236,7 +260,7 @@ public class NdkPaths {
    */
   static String createStlRuntimeLibsGlob(
       String stl, String gccVersion, String targetCpu, String fileExtension) {
-    
+
     if (gccVersion != null) {
       stl += "/" + gccVersion;
     }
@@ -261,3 +285,4 @@ public class NdkPaths {
         .replace("%targetCpu%", targetCpu);
   }
 }
+

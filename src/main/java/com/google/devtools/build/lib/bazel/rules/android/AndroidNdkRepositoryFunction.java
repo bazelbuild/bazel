@@ -332,6 +332,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       }
     }
 
+    // For NDK 15 and up. Unfortunately, the toolchain does not encode the NDK revision number.
+    toolchainFileGlobPatterns.add("ndk/sysroot/**/*");
+
     // If this is a clang toolchain, also add the corresponding gcc toolchain to the globs.
     int gccToolchainIndex = toolchain.getCompilerFlagList().indexOf("-gcc-toolchain");
     if (gccToolchainIndex > -1) {
