@@ -50,6 +50,15 @@ public interface QueryableGraph {
           throws InterruptedException;
 
   /**
+   * A prefetch call may be used to hint to the graph that we may call {@link #getBatch} on the
+   * specified keys later.
+   */
+  default void prefetchBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    // Do nothing.
+  }
+
+  /**
    * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
    * currently available to be fetched.
    *

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -196,7 +197,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
 
   @SuppressWarnings("unchecked")
   public Set<T> toSet() {
-    ImmutableSet.Builder<T> builder = ImmutableSet.builder();
+    ImmutableSet.Builder<T> builder = ImmutableSet.builderWithExpectedSize(numElements());
     for (Object obj : elements) {
       if (obj instanceof List) {
         builder.addAll((List<T>) obj);
@@ -262,6 +263,43 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     return first.equals(second) || CompactHashSet.create(first).containsAll(second);
   }
 
+  /** An iterator that loops through every element in each group. */
+  private class UngroupedIterator implements Iterator<T> {
+    private final Iterator<Object> iter = elements.iterator();
+    int counter = 0;
+    List<T> currentGroup;
+    int listCounter = 0;
+
+    @Override
+    public boolean hasNext() {
+      return counter < size;
+    }
+
+    @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
+    @Override
+    public T next() {
+      counter++;
+      if (currentGroup != null && listCounter < currentGroup.size()) {
+        return currentGroup.get(listCounter++);
+      }
+      Object nextGroup = iter.next();
+      if (nextGroup instanceof List) {
+        currentGroup = (List<T>) nextGroup;
+        listCounter = 1;
+        // GroupedLists shouldn't have empty lists stored.
+        return currentGroup.get(0);
+      } else {
+        currentGroup = null;
+        return (T) nextGroup;
+      }
+    }
+  }
+
+  @ThreadHostile
+  public Iterable<T> getAllElementsAsIterable() {
+    return UngroupedIterator::new;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (other == null) {
@@ -325,11 +363,6 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
         return (List<T>) obj;
       }
       return ImmutableList.of((T) obj);
-    }
-
-    @Override
-    public void remove() {
-      throw new UnsupportedOperationException();
     }
   }
 
