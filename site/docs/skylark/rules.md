@@ -225,13 +225,13 @@ output*. There are multiple ways for a rule to introduce a predeclared output:
   automatically, usually by substituting into a template.
   [See example](https://github.com/bazelbuild/examples/blob/master/rules/default_outputs/extension.bzl)
 
-* If the rule is marked [`executable`](lib/globals.html#rule.executable), an
-  output is created with the same name as the rule instance itself.
-  (Technically, the file has no label since it would clash with the rule
-  instance's own label, but it is still considered a predeclared output.) By
-  default, this file serves as the binary to run if the target appears on the
-  command line of a `bazel run` or `bazel test` command. Use the `executable`
-  argument of `DefaultInfo` to override this behavior.
+* If the rule is marked [`executable`](lib/globals.html#rule.executable) or
+  [`test`](lib/globals.html#rule.test), an output is created with the same name
+  as the rule instance itself. (Technically, the file has no label since it
+  would clash with the rule instance's own label, but it is still considered a
+  predeclared output.) By default, this file serves as the binary to run if the
+  target appears on the command line of a `bazel run` or `bazel test` command.
+  See [Executable rules](#executable-rules-and-test-rules) below.
   [See example](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
 
 All predeclared outputs can be accessed within the rule's implementation
@@ -636,27 +636,34 @@ if ctx.configuration.coverage_enabled:
         # Do something to turn on coverage for this compile action
 ```
 
-## Executable rules
+## Executable rules and test rules
 
-An executable rule is a rule that users can run using `bazel run`.
+Executable rules define targets that can be invoked by a `bazel run` command.
+Test rules are a special kind of executable rule whose targets can also be
+invoked by a `bazel test` command. Executable and test rules are created by
+setting the respective [`executable`](lib/globals.html#rule.executable) or
+[`test`](lib/globals.html#rule.test) argument to true when defining the rule.
 
-To make a rule executable, set `executable=True` in the
-[rule function](lib/globals.html#rule). The `implementation` function of the
-rule must generate the output file `ctx.outputs.executable`.
+Test rules (but not necessarily their targets) must have names that end in
+`_test`. Non-test rules must not have this suffix.
 
-[See example](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
+Both kinds of rules automatically predeclare an output file, which is made
+available to the rule implementation function under the name
+`ctx.outputs.executable`. The rule implementation function should produce an
+action that will generate a corresponding executable file on the file system.
+This means that if you use `ctx.actions.write()` to produce the file, then you
+should pass `is_executable=True`; and if you use `ctx.actions.run()` or
+`ctx.actions.run_shell()` instead, then you should ensure that the binary or
+script being invoked sets the executable bit when it creates the file.
 
-## Test rules
+By default, this executable is what will be invoked by the `run` or `test`
+commands. Alternatively, you can override this behavior by passing a different
+file to the `executable` argument of a returned `DefaultInfo` provider. In that
+case, you should not attempt to create an action that has
+`ctx.outputs.executable` as an input or output.
 
-Test rules are run using `bazel test`.
-
-To create a test rule, set `test=True` in the
-[rule function](lib/globals.html#rule). The name of the rule must
-also end with `_test`. Test rules are implicitly executable, which means that
-the `implementation` function of the rule must generate the output file
-`ctx.outputs.executable`.
-
-[See example](https://github.com/bazelbuild/examples/blob/master/rules/test_rule/line_length.bzl)
+See examples of an [executable rule](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
+and a [test rule](https://github.com/bazelbuild/examples/blob/master/rules/test_rule/line_length.bzl).
 
 Test rules inherit the following attributes: `args`, `flaky`, `local`,
 `shard_count`, `size`, `timeout`. The defaults of inherited attributes cannot be

@@ -359,8 +359,12 @@ public class SkylarkRuleClassFunctions {
   @SkylarkSignature(
     name = "rule",
     doc =
-        "Creates a new rule. Store it in a global value, so that it can be loaded and called "
-            + "from BUILD files.",
+        "Creates a new rule, which can be called from a BUILD file or a macro to create targets."
+            + "<p>Rules must be assigned to global variables in a .bzl file; the name of the "
+            + "global variable is the rule's name."
+            + "<p>Test rules are required to have a name ending in <code>_test</code>, while all "
+            + "other rules must not have this suffix. (This restriction applies only to rules, not "
+            + "to their targets.)",
     returnType = BaseFunction.class,
     parameters = {
       @Param(
@@ -379,13 +383,11 @@ public class SkylarkRuleClassFunctions {
         defaultValue = "False",
         doc =
             "Whether this rule is a test rule, that is, whether it may be the subject of a "
-                + "<code>blaze test</code> or <code>blaze run</code> command. All test rules are "
-                + "automatically considered <a href='#rule.executable'>executable</a>; it is "
-                + "unnecessary (and discouraged) to explicitly set <code>executable = True</code> "
-                + "for a test rule."
-                + "<p>Test rules must have names ending in the suffix <code>\"_test\"</code>; "
-                + "non-test rules must not use this suffix. (Note that this applies only to the "
-                + "name of the rule, not its targets.)"
+                + "<code>blaze test</code> command. All test rules are automatically considered "
+                + "<a href='#rule.executable'>executable</a>; it is unnecessary (and discouraged) "
+                + "to explicitly set <code>executable = True</code> for a test rule. See the "
+                + "<a href='../rules.$DOC_EXT#executable-rules-and-test-rules'>Rules page</a> for "
+                + "more information."
       ),
       @Param(
         name = "attrs",
@@ -427,10 +429,9 @@ public class SkylarkRuleClassFunctions {
         defaultValue = "False",
         doc =
             "Whether this rule is considered executable, that is, whether it may be the subject of "
-                + "a <code>blaze run</code> command. Executable rules automatically get a "
-                + "predeclared output that is addressable as <code>ctx.outputs.executable</code>. "
-                + "See the <a href='../rules.$DOC_EXT#output-files'>Rules page</a> for more "
-                + "information."
+                + "a <code>blaze run</code> command. See the "
+                + "<a href='../rules.$DOC_EXT#executable-rules-and-test-rules'>Rules page</a> for "
+                + "more information."
       ),
       @Param(
         name = "output_to_genfiles",
