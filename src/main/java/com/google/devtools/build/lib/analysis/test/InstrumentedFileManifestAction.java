@@ -78,12 +78,10 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
     // Not sorting here is probably cheaper, though it might lead to unnecessary re-execution.
-    f.addStrings(Iterables.transform(files, TO_EXEC_PATH));
-    return f.hexDigestAndReset();
+    fp.addStrings(Iterables.transform(files, TO_EXEC_PATH));
   }
 
   /**

@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Type;
@@ -206,6 +207,7 @@ public final class AndroidRuleClasses {
         (rule, attributes, configuration) -> configuration.getSdk());
   }
 
+  @AutoCodec
   public static final SplitTransition ANDROID_SPLIT_TRANSITION = new AndroidSplitTransition();
 
   private static final class AndroidSplitTransition implements SplitTransition, SkylarkValue {

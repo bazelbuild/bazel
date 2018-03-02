@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Te
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -71,7 +72,10 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     substitutions.add(Substitution.of("%value%", "bar"));
     directories =
         new BlazeDirectories(
-            new ServerDirectories(scratch.resolve("/install"), scratch.resolve("/base")),
+            new ServerDirectories(
+                scratch.resolve("/install"),
+                scratch.resolve("/base"),
+                scratch.resolve("/userRoot")),
             scratch.resolve("/workspace"),
             "mock-product-name");
     binTools = BinTools.empty(directories);
@@ -122,7 +126,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo")), false);
-    assertThat(b.computeKey(actionKeyContext)).isEqualTo(a.computeKey(actionKeyContext));
+
+    assertThat(computeKey(a)).isEqualTo(computeKey(b));
   }
 
   @Test
@@ -135,7 +140,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo2")), false);
-    assertThat(a.computeKey(actionKeyContext).equals(b.computeKey(actionKeyContext))).isFalse();
+
+    assertThat(computeKey(a)).isNotEqualTo(computeKey(b));
   }
 
   @Test
@@ -148,7 +154,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo")), true);
-    assertThat(a.computeKey(actionKeyContext).equals(b.computeKey(actionKeyContext))).isFalse();
+
+    assertThat(computeKey(a)).isNotEqualTo(computeKey(b));
   }
 
   @Test
@@ -161,7 +168,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE + " "),
          ImmutableList.of(Substitution.of("%key%", "foo")), false);
-    assertThat(a.computeKey(actionKeyContext).equals(b.computeKey(actionKeyContext))).isFalse();
+
+    assertThat(computeKey(a)).isNotEqualTo(computeKey(b));
   }
 
   private TemplateExpansionAction createWithArtifact() {
@@ -224,5 +232,11 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     String expected = String.format("%s%s\n", SPECIAL_CHARS, SPECIAL_CHARS);
 
     executeTemplateExpansion(expected, ImmutableList.of(Substitution.of("%key%", SPECIAL_CHARS)));
+  }
+
+  private String computeKey(TemplateExpansionAction action) {
+    Fingerprint fp = new Fingerprint();
+    action.computeKey(actionKeyContext, fp);
+    return fp.hexDigestAndReset();
   }
 }

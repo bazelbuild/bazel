@@ -16,17 +16,23 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import java.util.Map;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import javax.annotation.Nullable;
 
 /** Provider that describes a simulator device. */
 @Immutable
+@SkylarkModule(
+    name = "IosDevice",
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "<b>Deprecated. Use the new Skylark testing rules instead.</b>"
+)
 public final class IosDeviceProvider extends NativeInfo {
   /** A builder of {@link IosDeviceProvider}s. */
   public static final class Builder {
@@ -85,13 +91,38 @@ public final class IosDeviceProvider extends NativeInfo {
   private final String locale;
 
   private IosDeviceProvider(Builder builder) {
-    super(SKYLARK_CONSTRUCTOR, getSkylarkFields(builder));
+    super(SKYLARK_CONSTRUCTOR);
     this.type = Preconditions.checkNotNull(builder.type);
     this.iosVersion = Preconditions.checkNotNull(builder.iosVersion);
     this.locale = Preconditions.checkNotNull(builder.locale);
     this.xcodeVersion = builder.xcodeVersion;
   }
 
+  @SkylarkCallable(
+      name = "ios_version",
+      doc = "The iOS version of the simulator to use.",
+      structField = true
+  )
+  public String getIosVersionString() {
+    return iosVersion.toString();
+  }
+
+  @SkylarkCallable(
+      name = "xcode_version",
+      doc = "The xcode version to obtain the iOS simulator from, or <code>None</code> if unknown.",
+      structField = true,
+      allowReturnNones = true
+  )
+  @Nullable
+  public String getXcodeVersionString() {
+    return xcodeVersion != null ? xcodeVersion.toString() : null;
+  }
+
+  @SkylarkCallable(
+      name = "type",
+      doc = "The hardware type of the device, corresponding to the simctl device type.",
+      structField = true
+  )
   public String getType() {
     return type;
   }
@@ -119,16 +150,5 @@ public final class IosDeviceProvider extends NativeInfo {
             Substitution.of("%(device_type)s", getType()),
             Substitution.of("%(simulator_sdk)s", getIosVersion().toString()),
             Substitution.of("%(locale)s", getLocale())));
-  }
-
-  private static Map<String, Object> getSkylarkFields(Builder builder) {
-    ImmutableMap.Builder<String, Object> skylarkFields =
-        new ImmutableMap.Builder<String, Object>()
-            .put("type", builder.type)
-            .put("ios_version", builder.iosVersion.toString());
-    if (builder.xcodeVersion != null) {
-      skylarkFields.put("xcode_version", builder.xcodeVersion.toString());
-    }
-    return skylarkFields.build();
   }
 }

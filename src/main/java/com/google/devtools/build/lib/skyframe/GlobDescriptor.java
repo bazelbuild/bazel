@@ -18,7 +18,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -38,8 +37,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 public final class GlobDescriptor implements SkyKey {
 
   private static final Interner<GlobDescriptor> interner = BlazeInterners.newWeakInterner();
-
-  public static final ObjectCodec<GlobDescriptor> CODEC = new GlobDescriptor_AutoCodec();
 
   /**
    * Returns interned instance based on the parameters.

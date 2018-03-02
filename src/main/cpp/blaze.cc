@@ -494,6 +494,8 @@ static vector<string> GetArgumentArray(
   result.push_back("--connect_timeout_secs=" +
                    ToString(globals->options->connect_timeout_secs));
 
+  result.push_back("--output_user_root=" +
+                   blaze::ConvertPath(globals->options->output_user_root));
   result.push_back("--install_base=" +
                    blaze::ConvertPath(globals->options->install_base));
   result.push_back("--install_md5=" + globals->install_md5);

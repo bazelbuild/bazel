@@ -35,7 +35,7 @@ public class AutoRegistry {
 
   private static ObjectCodecRegistry create() {
     try {
-      return CodecScanner.initializeCodecRegistry("com.google.devtools.build.lib")
+      return CodecScanner.initializeCodecRegistry("com.google.devtools.build")
           .setAllowDefaultCodec(false)
           .build();
     } catch (IOException | ReflectiveOperationException e) {

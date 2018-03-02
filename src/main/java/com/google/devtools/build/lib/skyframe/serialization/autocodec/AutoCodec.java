@@ -70,12 +70,6 @@ public @interface AutoCodec {
      * instance for deserialization.
      */
     PUBLIC_FIELDS,
-    /**
-     * For use with classes that are singleton.
-     *
-     * <p>The serialized class must have a codec accessible, static INSTANCE field.
-     */
-    SINGLETON
   }
 
   /**

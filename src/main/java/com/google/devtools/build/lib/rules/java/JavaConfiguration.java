@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -47,8 +46,6 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 public final class JavaConfiguration extends Fragment {
-  public static final ObjectCodec<JavaConfiguration> CODEC = new JavaConfiguration_AutoCodec();
-
   /** Values for the --java_classpath option */
   public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -302,16 +303,18 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   /**
    * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and {@link
    * ActionExecutionMetadata#getKey(ActionKeyContext)} for the contract for {@link
-   * #computeKey(ActionKeyContext)}.
+   * #computeKey(ActionKeyContext, Fingerprint)}.
    */
-  protected abstract String computeKey(ActionKeyContext actionKeyContext)
+  protected abstract void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException;
 
   @Override
   public final synchronized String getKey(ActionKeyContext actionKeyContext) {
     if (cachedKey == null) {
       try {
-        cachedKey = computeKey(actionKeyContext);
+        Fingerprint fp = new Fingerprint();
+        computeKey(actionKeyContext, fp);
+        cachedKey = fp.hexDigestAndReset();
       } catch (CommandLineExpansionException e) {
         cachedKey = KEY_ERROR;
       }

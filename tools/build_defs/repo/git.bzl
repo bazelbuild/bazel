@@ -13,6 +13,9 @@
 # limitations under the License.
 """Rules for cloning external git repositories."""
 
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile", "patch")
+
+
 def _clone_or_update(ctx):
   if ((not ctx.attr.tag and not ctx.attr.commit) or
       (ctx.attr.tag and ctx.attr.commit)):
@@ -83,14 +86,12 @@ def _new_git_repository_implementation(ctx):
       (ctx.attr.build_file and ctx.attr.build_file_content)):
     fail('Exactly one of build_file and build_file_content must be provided.')
   _clone_or_update(ctx)
-  ctx.file('WORKSPACE', 'workspace(name = \'{name}\')\n'.format(name=ctx.name))
-  if ctx.attr.build_file:
-    ctx.symlink(ctx.attr.build_file, 'BUILD.bazel')
-  else:
-    ctx.file('BUILD.bazel', ctx.attr.build_file_content)
+  workspace_and_buildfile(ctx)
+  patch(ctx)
 
 def _git_repository_implementation(ctx):
   _clone_or_update(ctx)
+  patch(ctx)
 
 
 _common_attrs = {
@@ -100,7 +101,10 @@ _common_attrs = {
     'tag': attr.string(default=''),
     'init_submodules': attr.bool(default=False),
     'verbose': attr.bool(default=False),
-    'strip_prefix': attr.string(default='')
+    'strip_prefix': attr.string(default=''),
+    'patches': attr.label_list(default=[]),
+    'patch_tool': attr.string(default="patch"),
+    'patch_cmds': attr.string_list(default=[]),
 }
 
 
@@ -146,6 +150,11 @@ Args:
   remote: The URI of the remote Git repository.
 
   strip_prefix: A directory prefix to strip from the extracted files.
+
+  patches: A list of files that are to be applied as patches after extracting
+    the archive.
+  patch_tool: the patch(1) utility to use.
+  patch_cmds: sequence of commands to be applied after patches are applied.
 """
 
 git_repository = repository_rule(
@@ -176,4 +185,9 @@ Args:
     wall-clock time.
 
   strip_prefix: A directory prefix to strip from the extracted files.
+
+  patches: A list of files that are to be applied as patches after extracting
+    the archive.
+  patch_tool: the patch(1) utility to use.
+  patch_cmds: sequence of commands to be applied after patches are applied.
 """

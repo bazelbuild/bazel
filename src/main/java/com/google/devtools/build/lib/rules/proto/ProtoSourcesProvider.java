@@ -133,9 +133,14 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
   public abstract NestedSet<Artifact> transitiveDescriptorSets();
 
   /**
-   * Directories of .proto sources collected from the transitive closure, each prefixed with
-   * {@code --proto_path}. These flags will be passed to {@code protoc} in the specified oreder.
+   * Directories of .proto sources collected from the transitive closure. These flags will be passed
+   * to {@code protoc} in the specified order, via the {@code --proto_path} flag.
    */
+  @SkylarkCallable(
+      name = "transitive_proto_path",
+      doc = "A set of proto source roots collected from the transitive closure of this rule.",
+      structField = true
+  )
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
 
   ProtoSourcesProvider() {}

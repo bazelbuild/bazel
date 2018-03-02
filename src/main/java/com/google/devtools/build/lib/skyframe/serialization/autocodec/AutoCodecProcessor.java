@@ -49,8 +49,10 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
@@ -107,9 +109,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           case PUBLIC_FIELDS:
             codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType);
             break;
-          case SINGLETON:
-            codecClassBuilder = buildClassWithSingletonStrategy(encodedType, env);
-            break;
           default:
             throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
         }
@@ -140,6 +139,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return true;
   }
 
+  @SuppressWarnings("MutableConstantField")
   private static final Collection<Modifier> REQUIRED_SINGLETON_MODIFIERS =
       ImmutableList.of(Modifier.STATIC, Modifier.FINAL);
 
@@ -251,9 +251,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
             "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
-            parameter.asType(),
+            sanitizeTypeParameterOfGenerics(parameter.asType()),
             parameter.getSimpleName(),
-            parameter.asType(),
+            sanitizeTypeParameterOfGenerics(parameter.asType()),
             UnsafeProvider.class,
             typeKind.isPrimitive() ? firstLetterUpper(typeKind.toString().toLowerCase()) : "Object",
             parameter.getSimpleName());
@@ -274,6 +274,22 @@ public class AutoCodecProcessor extends AbstractProcessor {
       return true;
     }
     return env.getTypeUtils().isAssignable(t1, t2) || env.getTypeUtils().isAssignable(t2, t1);
+  }
+
+  private TypeMirror sanitizeTypeParameterOfGenerics(TypeMirror type) {
+    if (type instanceof TypeVariable) {
+      return env.getTypeUtils().erasure(type);
+    }
+    if (!(type instanceof DeclaredType)) {
+      return type;
+    }
+    DeclaredType declaredType = (DeclaredType) type;
+    for (TypeMirror typeMirror : declaredType.getTypeArguments()) {
+      if (typeMirror instanceof TypeVariable) {
+        return env.getTypeUtils().erasure(type);
+      }
+    }
+    return type;
   }
 
   private String findGetterForClass(VariableElement parameter, TypeElement type) {
@@ -512,20 +528,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           name);
     }
     return Optional.empty();
-  }
-
-  private static TypeSpec.Builder buildClassWithSingletonStrategy(
-      TypeElement encodedType, ProcessingEnvironment env) {
-    TypeSpec.Builder codecClassBuilder =
-        AutoCodecUtil.initializeCodecClassBuilder(encodedType, env);
-    // Serialization is a no-op.
-    codecClassBuilder.addMethod(
-        AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, env).build());
-    MethodSpec.Builder deserializeMethodBuilder =
-        AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, env);
-    deserializeMethodBuilder.addStatement("return $T.INSTANCE", TypeName.get(encodedType.asType()));
-    codecClassBuilder.addMethod(deserializeMethodBuilder.build());
-    return codecClassBuilder;
   }
 
   /** True when {@code type} has the same type as {@code clazz}. */

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -34,9 +33,6 @@ import java.util.List;
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 public class PlatformConfiguration extends BuildConfiguration.Fragment {
-  public static final ObjectCodec<PlatformConfiguration> CODEC =
-      new PlatformConfiguration_AutoCodec();
-
   private final Label hostPlatform;
   private final ImmutableList<Label> extraExecutionPlatforms;
   private final ImmutableList<Label> targetPlatforms;

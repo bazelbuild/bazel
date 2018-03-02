@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
@@ -73,12 +74,14 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -90,6 +93,9 @@ import javax.annotation.Nullable;
  * Adds support for fetching external code.
  */
 public class BazelRepositoryModule extends BlazeModule {
+
+  // Default location (relative to output user root) of the repository cache.
+  public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
@@ -210,7 +216,23 @@ public class BazelRepositoryModule extends BlazeModule {
         }
         repositoryCache.setRepositoryCachePath(repositoryCachePath);
       } else {
-        repositoryCache.setRepositoryCachePath(null);
+        Path repositoryCachePath =
+            env.getDirectories()
+                .getServerDirectories()
+                .getOutputUserRoot()
+                .getRelative(DEFAULT_CACHE_LOCATION);
+        try {
+          FileSystemUtils.createDirectoryAndParents(repositoryCachePath);
+          repositoryCache.setRepositoryCachePath(repositoryCachePath);
+        } catch (IOException e) {
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "Failed to set up cache at "
+                          + repositoryCachePath.toString()
+                          + ": "
+                          + e.getMessage()));
+        }
       }
 
       if (repoOptions.experimentalDistdir != null) {

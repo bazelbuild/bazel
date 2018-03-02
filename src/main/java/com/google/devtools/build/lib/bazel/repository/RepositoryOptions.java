@@ -34,7 +34,8 @@ import java.util.List;
 public class RepositoryOptions extends OptionsBase {
 
   @Option(
-    name = "experimental_repository_cache",
+    name = "repository_cache",
+    oldName = "experimental_repository_cache",
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
@@ -32,8 +31,6 @@ import java.util.List;
 @Immutable
 @ThreadSafe
 public class PackageValue implements NotComparableSkyValue {
-  public static final ObjectCodec<PackageValue> CODEC = new PackageValue_AutoCodec();
-
   private final Package pkg;
 
   public PackageValue(Package pkg) {

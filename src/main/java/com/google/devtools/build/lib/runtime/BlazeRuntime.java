@@ -407,6 +407,8 @@ public final class BlazeRuntime {
 
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
+      MemoryProfiler.instance()
+          .setStableMemoryParameters(options.memoryProfileStableHeapParameters);
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
       } catch (IOException e) {
@@ -977,16 +979,21 @@ public final class BlazeRuntime {
     String productName = startupOptions.productName.toLowerCase(Locale.US);
 
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
+    PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
 
     maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
-    // From the point of view of the Java program --install_base and --output_base
-    // are mandatory options, despite the comment in their declarations.
+    // From the point of view of the Java program --install_base, --output_base, and
+    // --output_user_root are mandatory options, despite the comment in their declarations.
     if (installBase == null || !installBase.isAbsolute()) { // (includes "" default case)
       throw new IllegalArgumentException(
           "Bad --install_base option specified: '" + installBase + "'");
+    }
+    if (outputUserRoot != null && !outputUserRoot.isAbsolute()) { // (includes "" default case)
+      throw new IllegalArgumentException(
+          "Bad --output_user_root option specified: '" + outputUserRoot + "'");
     }
     if (outputBase != null && !outputBase.isAbsolute()) { // (includes "" default case)
       throw new IllegalArgumentException(
@@ -1009,6 +1016,7 @@ public final class BlazeRuntime {
     Path.setFileSystemForSerialization(fs);
     SubprocessBuilder.setSubprocessFactory(subprocessFactoryImplementation());
 
+    Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
     Path workspaceDirectoryPath = null;
@@ -1017,7 +1025,8 @@ public final class BlazeRuntime {
     }
 
     ServerDirectories serverDirectories =
-        new ServerDirectories(installBasePath, outputBasePath, startupOptions.installMD5);
+        new ServerDirectories(
+            installBasePath, outputBasePath, outputUserRootPath, startupOptions.installMD5);
     Clock clock = BlazeClock.instance();
     BlazeRuntime.Builder runtimeBuilder =
         new BlazeRuntime.Builder()

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
@@ -45,8 +44,6 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public final class CcLinkParams {
-  public static final ObjectCodec<CcLinkParams> CODEC = new CcLinkParams_AutoCodec();
-
   /**
    * A list of link options contributed by a single configured target.
    *
@@ -398,8 +395,6 @@ public final class CcLinkParams {
    */
   @AutoCodec
   public static final class Linkstamp {
-    public static final ObjectCodec<Linkstamp> CODEC = new CcLinkParams_Linkstamp_AutoCodec();
-
     private final Artifact artifact;
     private final NestedSet<Artifact> declaredIncludeSrcs;
 

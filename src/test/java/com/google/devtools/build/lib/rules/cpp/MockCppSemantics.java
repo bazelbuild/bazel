@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * Null-object like {@link CppSemantics} implementation. Only to be used in tests that don't depend
@@ -31,10 +30,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SingletonCodec;
  */
 @Immutable
 public final class MockCppSemantics implements CppSemantics {
-  public static final MockCppSemantics INSTANCE = new MockCppSemantics();
-
-  public static final ObjectCodec<MockCppSemantics> CODEC =
-      SingletonCodec.of(INSTANCE, "MockCppSemantics");
+  @AutoCodec public static final MockCppSemantics INSTANCE = new MockCppSemantics();
 
   private MockCppSemantics() {}
 

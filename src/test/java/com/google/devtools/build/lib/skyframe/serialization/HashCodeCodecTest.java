@@ -12,19 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.skyframe.serialization;
 
-/** Exception thrown when something goes wrong during package deserialization. */
-public class PackageDeserializationException extends Exception {
-  PackageDeserializationException(String message) {
-    super(message);
-  }
+import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-  PackageDeserializationException(String message, Exception reason) {
-    super(message, reason);
-  }
+/** A test for {@link HashCodeCodec} */
+@RunWith(JUnit4.class)
+public class HashCodeCodecTest {
 
-  PackageDeserializationException(Exception reason) {
-    super(reason);
+  @Test
+  public void testHashCodeCodec() throws Exception {
+    new SerializationTester(
+            HashCode.fromString("f00ba7"), HashCode.fromInt(456789), HashCode.fromLong(9001L))
+        .runTests();
   }
 }

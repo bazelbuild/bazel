@@ -49,6 +49,8 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -776,10 +778,10 @@ public abstract class DependencyResolver {
     }
   }
 
-  /**
-   * A patch transition that returns a fixed set of options regardless of the input.
-   */
-  private static class FixedTransition implements PatchTransition {
+  /** A patch transition that returns a fixed set of options regardless of the input. */
+  @AutoCodec
+  @VisibleForSerialization
+  static class FixedTransition implements PatchTransition {
     private final BuildOptions toOptions;
 
     FixedTransition(BuildOptions toOptions) {

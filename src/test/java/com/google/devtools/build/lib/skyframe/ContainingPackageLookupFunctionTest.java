@@ -83,7 +83,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(rootDirectory, outputBase),
+            new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
             analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper =

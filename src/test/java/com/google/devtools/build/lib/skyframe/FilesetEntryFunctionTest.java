@@ -94,7 +94,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             new BlazeDirectories(
-                new ServerDirectories(outputBase, outputBase),
+                new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
                 TestConstants.PRODUCT_NAME));
 

@@ -977,7 +977,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:mockito",
     ],
 )
 
@@ -1326,6 +1328,21 @@ java_test(
         "//src/test/shell/integration:spend_cpu_time",
         "//third_party:mockito",
         "//third_party:truth8",
+    ],
+)
+
+java_test(
+    name = "ProtoCommonTest",
+    srcs = ["rules/proto/ProtoCommonTest.java"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:truth",
     ],
 )
 

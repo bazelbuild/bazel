@@ -411,6 +411,19 @@ public final class ObjcProvider extends NativeInfo {
           XCDATAMODEL,
           XIB);
 
+  /** Deprecated keys in ObjcProvider pertaining to resource files. */
+  static final ImmutableList<Key<?>> DEPRECATED_RESOURCE_KEYS =
+      ImmutableList.<Key<?>>of(
+          ASSET_CATALOG,
+          BUNDLE_FILE,
+          MERGE_ZIP,
+          ROOT_MERGE_ZIP,
+          STORYBOARD,
+          STRINGS,
+          XCASSETS_DIR,
+          XCDATAMODEL,
+          XIB);
+
   @SkylarkCallable(name = "asset_catalog",
       structField = true,
       doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
@@ -808,6 +821,10 @@ public final class ObjcProvider extends NativeInfo {
     return null;
   }
 
+  static boolean isDeprecatedResourceKey(Key<?> key) {
+    return DEPRECATED_RESOURCE_KEYS.contains(key);
+  }
+
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
@@ -818,7 +835,7 @@ public final class ObjcProvider extends NativeInfo {
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);

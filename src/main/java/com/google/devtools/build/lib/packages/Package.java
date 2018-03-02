@@ -71,8 +71,6 @@ import javax.annotation.Nullable;
  */
 @SuppressWarnings("JavaLangClash")
 public class Package {
-  public static final ObjectCodec<Package> CODEC = new PackageCodec();
-
   /**
    * Common superclass for all name-conflict exceptions.
    */
@@ -721,7 +719,7 @@ public class Package {
    */
   public static class Builder {
 
-    public static interface Helper {
+    public interface Helper {
       /**
        * Returns a fresh {@link Package} instance that a {@link Builder} will internally mutate
        * during package loading. Called by {@link PackageFactory}.
@@ -730,10 +728,13 @@ public class Package {
 
       /**
        * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} is completely
-       * done loading the given {@link Package}. {@code skylarkSemantics} are the semantics used to
-       * evaluate the build.
+       * done loading the given {@link Package}.
+       *
+       * @param pkg the loaded {@link Package}
+       * @param skylarkSemantics are the semantics used to load the package
+       * @param loadTimeMs the wall time, in ms, that it took to load the package
        */
-      void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics);
+      void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeMs);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -749,7 +750,8 @@ public class Package {
       }
 
       @Override
-      public void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics) {
+      public void onLoadingComplete(
+          Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeMs) {
       }
     }
 
@@ -1577,7 +1579,8 @@ public class Package {
   }
 
   /** Package codec implementation. */
-  private static final class PackageCodec implements ObjectCodec<Package> {
+  @VisibleForTesting
+  static final class PackageCodec implements ObjectCodec<Package> {
     @Override
     public Class<Package> getEncodedClass() {
       return Package.class;
@@ -1601,8 +1604,6 @@ public class Package {
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
       try {
         return codecDeps.getPackageDeserializer().deserialize(context, codedIn);
-      } catch (PackageDeserializationException e) {
-        throw new SerializationException("Failed to deserialize Package", e);
       } catch (InterruptedException e) {
         throw new IllegalStateException(
             "Unexpected InterruptedException during Package deserialization", e);

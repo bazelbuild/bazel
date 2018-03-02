@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 import java.util.Set;
@@ -25,9 +24,6 @@ import java.util.Set;
 @Immutable
 @AutoCodec
 public final class TopLevelArtifactContext {
-  public static final ObjectCodec<TopLevelArtifactContext> CODEC =
-      new TopLevelArtifactContext_AutoCodec();
-
   private final boolean runTestsExclusively;
   private final ImmutableSortedSet<String> outputGroups;
 

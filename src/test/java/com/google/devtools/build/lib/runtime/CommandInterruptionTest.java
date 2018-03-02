@@ -348,7 +348,8 @@ public final class CommandInterruptionTest {
     isTestShuttingDown = new AtomicBoolean(false);
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
-        new ServerDirectories(scratch.dir("install"), scratch.dir("output"));
+        new ServerDirectories(
+            scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())

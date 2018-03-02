@@ -52,6 +52,9 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Str
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -222,6 +225,13 @@ public final class CcCompilationHelper {
    * Contains the providers as well as the {@code CcCompilationOutputs} and the {@code
    * CcCompilationInfo}.
    */
+  @SkylarkModule(
+    name = "compilation_info",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "Helper class containing CC compilation providers."
+  )
+  // TODO(plf): Rename so that it's not confused with CcCompilationInfo and also consider merging
+  // this class with {@code CcCompilationOutputs}.
   public static final class CompilationInfo {
     private final TransitiveInfoProviderMap providers;
     private final Map<String, NestedSet<Artifact>> outputGroups;
@@ -247,10 +257,12 @@ public final class CcCompilationHelper {
       return outputGroups;
     }
 
+    @SkylarkCallable(name = "cc_compilation_outputs", documented = false)
     public CcCompilationOutputs getCcCompilationOutputs() {
       return compilationOutputs;
     }
 
+    @SkylarkCallable(name = "cc_compilation_info", documented = false)
     public CcCompilationInfo getCcCompilationInfo() {
       return ccCompilationInfo;
     }

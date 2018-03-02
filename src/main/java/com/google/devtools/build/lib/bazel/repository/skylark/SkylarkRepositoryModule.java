@@ -171,7 +171,7 @@ public class SkylarkRepositoryModule {
       }
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
-        PackageContext context = PackageFactory.getContext(env, ast);
+        PackageContext context = PackageFactory.getContext(env, ast.getLocation());
         @SuppressWarnings("unchecked")
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(

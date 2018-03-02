@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Str
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValueBuilder;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -142,9 +142,8 @@ public class CcToolchainFeaturesTest {
                 "}")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
-    ObjectCodecTester.newBuilder(FeatureConfiguration.CODEC)
-        .addSubjects(emptyConfiguration, emptyFeatures, featuresWithFlags, featureWithEnvSet)
-        .buildAndRunTests();
+    new SerializationTester(emptyConfiguration, emptyFeatures, featuresWithFlags, featureWithEnvSet)
+        .runTests();
   }
 
   @Test

@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
@@ -35,9 +34,6 @@ public abstract class LinkerInputs {
   @ThreadSafety.Immutable
   @AutoCodec
   public static class SimpleLinkerInput implements LinkerInput {
-    public static final ObjectCodec<SimpleLinkerInput> CODEC =
-        new LinkerInputs_SimpleLinkerInput_AutoCodec();
-
     private final Artifact artifact;
     private final ArtifactCategory category;
 
@@ -175,9 +171,6 @@ public abstract class LinkerInputs {
   @ThreadSafety.Immutable
   @AutoCodec
   public static class SolibLibraryToLink implements LibraryToLink {
-    public static final ObjectCodec<SolibLibraryToLink> CODEC =
-        new LinkerInputs_SolibLibraryToLink_AutoCodec();
-
     private final Artifact solibSymlinkArtifact;
     private final Artifact libraryArtifact;
     private final String libraryIdentifier;
@@ -278,9 +271,6 @@ public abstract class LinkerInputs {
   @AutoCodec
   @VisibleForSerialization
   static class CompoundLibraryToLink implements LibraryToLink {
-    public static final ObjectCodec<CompoundLibraryToLink> CODEC =
-        new LinkerInputs_CompoundLibraryToLink_AutoCodec();
-
     private final Artifact libraryArtifact;
     private final ArtifactCategory category;
     private final String libraryIdentifier;

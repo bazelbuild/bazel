@@ -111,6 +111,17 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisableGlobTracking;
 
   @Option(
+      name = "incompatible_disable_objc_provider_resources",
+      defaultValue = "false",
+      category = "incompatible changes",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, disallow use of deprecated resource fields on the Objc provider."
+  )
+  public boolean incompatibleDisableObjcProviderResources;
+
+  @Option(
     name = "incompatible_disallow_dict_plus",
     defaultValue = "false",
     category = "incompatible changes",
@@ -152,9 +163,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, the first argument of 'load' statements is a label (not a path). "
-            + "It must start with '//' or ':'."
+    help = "no op - will be removed soon"
   )
   public boolean incompatibleLoadArgumentIsLabel;
 
@@ -169,6 +178,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
           + "not on `ctx`."
   )
   public boolean incompatibleNewActionsApi;
+
+  @Option(
+    name = "incompatible_remove_native_git_repository",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help =
+        "If set to true, the native git_repository rules are disabled; only the skylark version "
+            + "will be available"
+  )
+  public boolean incompatibleRemoveNativeGitRepository;
 
   @Option(
     name = "incompatible_remove_native_http_archive",
@@ -227,11 +249,13 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
         .incompatibleDisableGlobTracking(incompatibleDisableGlobTracking)
+        .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleDisallowUncalledSetConstructor(incompatibleDisallowUncalledSetConstructor)
         .incompatibleLoadArgumentIsLabel(incompatibleLoadArgumentIsLabel)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
+        .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
         .incompatibleShowAllPrintMessages(incompatibleShowAllPrintMessages)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)

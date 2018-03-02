@@ -29,9 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Immutable
 public final class Aspect implements DependencyFilter.AttributeInfoProvider {
 
-  /** */
-  public static final String INJECTING_RULE_KIND_PARAMETER_KEY = "$injecting_rule_kind";
-
   /**
    * The aspect definition is a function of the aspect class + its parameters, so we can cache that.
    *

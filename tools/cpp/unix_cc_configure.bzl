@@ -19,6 +19,7 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "escape_string",
     "get_env_var",
+    "split_escaped",
     "which",
     "tpl",
 )
@@ -234,11 +235,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "cxx_flag": [
           "-std=c++0x",
       ] + _escaped_cplus_include_paths(repository_ctx),
-      "linker_flag": [
-          "-lstdc++",
-          "-lm",  # Some systems expect -lm in addition to -lstdc++
-          # Anticipated future default.
-      ] + (
+      "linker_flag": (
           ["-fuse-ld=gold"] if supports_gold_linker else []
       ) + _add_option_if_supported(
           repository_ctx, cc, "-Wl,-no-as-needed"
@@ -257,7 +254,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           ] + _add_option_if_supported(
               # Have gcc return the exit code from ld.
               repository_ctx, cc, "-pass-exit-codes")
-          ),
+          ) + split_escaped(get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm"), ":"),
       "cxx_builtin_include_directory": escaped_cxx_include_directories,
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":

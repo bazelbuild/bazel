@@ -427,7 +427,7 @@ public class RunCommand implements BlazeCommand  {
 
     Map<String, String> runEnvironment;
     Path workingDir;
-    List<String> cmdLine;
+    List<String> cmdLine = new ArrayList<>();
 
     if (targetToRun.getProvider(TestProvider.class) != null) {
       // This is a test. Provide it with a reasonable approximation of the actual test environment
@@ -459,10 +459,8 @@ public class RunCommand implements BlazeCommand  {
           relativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction)));
       workingDir = env.getExecRoot();
       try {
-        // It's unfortunate that this method requires the path to the coverage collection script.
-        // Fortunately, this is "blaze run" and not "blaze coverage", so it's okay unless someone
-        // calls "blaze run --collect_code_coverage".
-        cmdLine = TestStrategy.getArgs(testAction);
+        cmdLine.addAll(TestStrategy.getArgs(testAction));
+        cmdLine.addAll(commandLineArgs);
       } catch (ExecException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
@@ -473,11 +471,21 @@ public class RunCommand implements BlazeCommand  {
       runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
       runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
       workingDir = runfilesDir;
-      cmdLine = new ArrayList<>();
       List<String> prettyCmdLine = new ArrayList<>();
       List<String> args = computeArgs(env, targetToRun, commandLineArgs);
       constructCommandLine(cmdLine, prettyCmdLine, env,
           configuration.getShellExecutable(), targetToRun, runUnderTarget, args);
+    }
+
+    if (runOptions.scriptPath != null) {
+      String unisolatedCommand = CommandFailureUtils.describeCommand(
+          CommandDescriptionForm.COMPLETE_UNISOLATED,
+          cmdLine, runEnvironment, workingDir.getPathString());
+      if (writeScript(env, runOptions.scriptPath, unisolatedCommand)) {
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+      } else {
+        return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
+      }
     }
 
     ExecRequest.Builder execDescription = ExecRequest.newBuilder()

@@ -819,15 +819,21 @@ public final class UnixGlob {
         }
         boolean childIsDir = (type == Dirent.Type.DIRECTORY);
         String text = dent.getName();
-        Path child = base.getChild(text);
+        // Optimize allocations for the case where the pattern doesn't match the dirent.
+        Path child = null;
 
         if (isRecursivePattern) {
           // Recurse without shifting the pattern.
           if (childIsDir) {
+            child = base.getChild(text);
             context.queueGlob(child, childIsDir, idx);
           }
         }
         if (matches(pattern, text, cache)) {
+          if (child == null) {
+            child = base.getChild(text);
+          }
+
           // Recurse and consume one segment of the pattern.
           if (childIsDir) {
             context.queueGlob(child, childIsDir, idx + 1);

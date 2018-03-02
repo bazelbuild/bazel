@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collections;
 import java.util.List;
@@ -40,8 +39,6 @@ import java.util.List;
 @AutoCodec
 @Immutable
 public class J2ObjcConfiguration extends Fragment {
-  public static final ObjectCodec<J2ObjcConfiguration> CODEC = new J2ObjcConfiguration_AutoCodec();
-
   /**
    * Always-on flags for J2ObjC translation. These flags are always used when invoking the J2ObjC
    * transpiler, and cannot be overridden by user-specified flags in {@link

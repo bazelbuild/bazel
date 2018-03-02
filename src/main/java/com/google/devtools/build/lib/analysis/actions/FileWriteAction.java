@@ -244,12 +244,10 @@ public final class FileWriteAction extends AbstractFileWriteAction {
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addString(String.valueOf(makeExecutable));
-    f.addString(getFileContents());
-    return f.hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addString(String.valueOf(makeExecutable));
+    fp.addString(getFileContents());
   }
 
   /**

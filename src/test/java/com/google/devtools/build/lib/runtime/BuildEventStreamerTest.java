@@ -627,7 +627,9 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     BuildConfiguration configuration =
         new BuildConfiguration(
             new BlazeDirectories(
-                new ServerDirectories(outputBase, outputBase), rootDirectory, "productName"),
+                new ServerDirectories(outputBase, outputBase, outputBase),
+                rootDirectory,
+                "productName"),
             ImmutableMap
                 .<Class<? extends BuildConfiguration.Fragment>, BuildConfiguration.Fragment>of(),
             BuildOptions.of(

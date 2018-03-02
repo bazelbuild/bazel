@@ -43,6 +43,7 @@ import com.sun.tools.javac.util.Name;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -52,6 +53,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.tools.JavaFileObject;
@@ -64,6 +68,9 @@ import javax.tools.JavaFileObject;
  * that come from transitive dependencies (Blaze computes this information).
  */
 public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
+  private static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
+  private static final Attributes.Name INJECTING_RULE_KIND =
+      new Attributes.Name("Injecting-Rule-Kind");
 
   @VisibleForTesting
   static String targetMapping =
@@ -230,8 +237,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     private final ImmutableSet<Path> directJars;
 
-    private final Map<Path, JarOwner> jarsToTargets;
-
     /** Strict deps diagnostics. */
     private final List<SjdDiagnostic> diagnostics;
 
@@ -249,6 +254,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     private final Set<JarOwner> seenTargets = new HashSet<>();
 
+    private final Set<Path> seenStrictDepsViolatingJars = new HashSet<>();
+
     /** The set of jars on the compilation bootclasspath. */
     private final Set<Path> platformJars;
 
@@ -264,7 +271,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         Set<JarOwner> missingTargets,
         Set<Path> platformJars) {
       this.directJars = dependencyModule.directJars();
-      this.jarsToTargets = dependencyModule.jarsToTargets();
       this.strictJavaDepsMode = dependencyModule.getStrictJavaDeps();
       this.diagnostics = diagnostics;
       this.missingTargets = missingTargets;
@@ -292,28 +298,32 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     /**
      * Marks the provided dependency as a direct/explicit dependency. Additionally, if
-     * strict_java_deps is enabled, it emits a [strict] compiler warning/error (behavior to be soon
-     * replaced by the more complete Blaze implementation).
+     * strict_java_deps is enabled, it emits a [strict] compiler warning/error.
      */
     private void collectExplicitDependency(Path jarPath, JCTree node, Symbol sym) {
       if (strictJavaDepsMode.isEnabled() && !isStrictDepsExempt) {
         // Does it make sense to emit a warning/error for this pair of (type, owner)?
         // We want to emit only one error/warning per owner.
-        JarOwner owner = !directJars.contains(jarPath) ? jarsToTargets.get(jarPath) : null;
-        if (owner != null && seenTargets.add(owner)) {
-          // owner is of the form "//label/of:rule <Aspect name>" where <Aspect name> is optional.
-          String canonicalTargetName = canonicalizeTarget(remapTarget(owner.label()));
-          missingTargets.add(owner);
-          String toolInfo =
-              owner.aspect() == null
-                  ? canonicalTargetName
-                  : String.format("%s wrapped in %s", canonicalTargetName, owner.aspect());
-          String used =
-              sym.getSimpleName().contentEquals("package-info")
-                  ? "package " + sym.getEnclosingElement()
-                  : "type " + sym;
-          String message = MessageFormat.format(TRANSITIVE_DEP_MESSAGE, used, toolInfo);
-          diagnostics.add(SjdDiagnostic.create(node.pos, message, source));
+        if (!directJars.contains(jarPath) && seenStrictDepsViolatingJars.add(jarPath)) {
+          // IO cost here is fine because we only hit this path for an explicit dependency
+          // _not_ in the direct jars, i.e. an error
+          JarOwner owner = readJarOwnerFromManifest(jarPath);
+          if (owner != null && seenTargets.add(owner)) {
+            // owner is of the form "//label/of:rule <Aspect name>" where <Aspect name> is
+            // optional.
+            String canonicalTargetName = canonicalizeTarget(remapTarget(owner.label()));
+            missingTargets.add(owner);
+            String toolInfo =
+                owner.aspect() == null
+                    ? canonicalTargetName
+                    : String.format("%s wrapped in %s", canonicalTargetName, owner.aspect());
+            String used =
+                sym.getSimpleName().contentEquals("package-info")
+                    ? "package " + sym.getEnclosingElement()
+                    : "type " + sym;
+            String message = MessageFormat.format(TRANSITIVE_DEP_MESSAGE, used, toolInfo);
+            diagnostics.add(SjdDiagnostic.create(node.pos, message, source));
+          }
         }
       }
 
@@ -329,6 +339,25 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
                 .setKind(Dependency.Kind.EXPLICIT)
                 .build();
         directDependenciesMap.put(jarPath, dep);
+      }
+    }
+
+    private static JarOwner readJarOwnerFromManifest(Path jarPath) {
+      try (JarFile jarFile = new JarFile(jarPath.toFile())) {
+        Manifest manifest = jarFile.getManifest();
+        if (manifest == null) {
+          return null;
+        }
+        Attributes attributes = manifest.getMainAttributes();
+        String label = (String) attributes.get(TARGET_LABEL);
+        if (label == null) {
+          return null;
+        }
+        String injectingRuleKind = (String) attributes.get(INJECTING_RULE_KIND);
+        return JarOwner.create(label, injectingRuleKind);
+      } catch (IOException e) {
+        // This jar file pretty much has to exist, we just used it in the compiler. Throw unchecked.
+        throw new UncheckedIOException(e);
       }
     }
 

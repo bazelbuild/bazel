@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -34,8 +33,6 @@ import java.util.Map;
 @Immutable
 @AutoCodec
 public final class LipoContextProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<LipoContextProvider> CODEC = new LipoContextProvider_AutoCodec();
-
   private final CcCompilationInfo ccCompilationInfo;
 
   private final ImmutableMap<Artifact, IncludeScannable> includeScannables;

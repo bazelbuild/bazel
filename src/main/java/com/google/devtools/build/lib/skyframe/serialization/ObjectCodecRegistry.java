@@ -159,6 +159,9 @@ public class ObjectCodecRegistry {
     for (Map.Entry<String, CodecDescriptor> entry : stringMappedCodecs.entrySet()) {
       builder.add(entry.getKey(), entry.getValue().getCodec());
     }
+    for (Object constant : constants) {
+      builder.addConstant(constant);
+    }
     return builder;
   }
 

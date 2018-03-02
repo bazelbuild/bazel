@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.protobuf.TextFormat;
 import java.util.Map.Entry;
@@ -30,8 +29,6 @@ import java.util.Objects;
 @Immutable
 @AutoCodec
 public final class AspectDescriptor {
-  public static final ObjectCodec<AspectDescriptor> CODEC = new AspectDescriptor_AutoCodec();
-
   private final AspectClass aspectClass;
   private final AspectParameters aspectParameters;
 

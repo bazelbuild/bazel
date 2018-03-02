@@ -54,7 +54,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
-    Variables variables = getLinkBuildVariables(target, LinkTargetType.DYNAMIC_LIBRARY);
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     VariableValue librariesToLinkSequence =
         variables.getVariable(CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE);
     assertThat(librariesToLinkSequence).isNotNull();
@@ -117,7 +117,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
-    Variables variables = getLinkBuildVariables(target, LinkTargetType.DYNAMIC_LIBRARY);
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
 
     String interfaceLibraryBuilder =
         getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE);

@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -472,7 +473,11 @@ public class PackageFunction implements SkyFunction {
     }
 
     if (packageFactory != null) {
-      packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics);
+      packageFactory.afterDoneLoadingPackage(
+          pkg,
+          skylarkSemantics,
+          // This is a lie.
+          /*loadTimeNanos=*/0L);
     }
     return new PackageValue(pkg);
   }
@@ -576,6 +581,7 @@ public class PackageFunction implements SkyFunction {
     List<Statement> preludeStatements =
         astLookupValue.lookupSuccessful()
             ? astLookupValue.getAST().getStatements() : ImmutableList.<Statement>of();
+    long startTimeNanos = BlazeClock.nanoTime();
     BuilderAndGlobDeps packageBuilderAndGlobDeps =
         loadPackage(
             workspaceName,
@@ -588,6 +594,7 @@ public class PackageFunction implements SkyFunction {
             preludeStatements,
             packageLookupValue.getRoot(),
             env);
+    long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
     if (packageBuilderAndGlobDeps == null) {
       return null;
     }
@@ -642,7 +649,7 @@ public class PackageFunction implements SkyFunction {
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
 
-    packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics);
+    packageFactory.afterDoneLoadingPackage(pkg, skylarkSemantics, loadTimeNanos);
     return new PackageValue(pkg);
   }
 

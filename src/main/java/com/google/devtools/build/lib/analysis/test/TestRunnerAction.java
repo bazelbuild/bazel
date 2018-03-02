@@ -232,30 +232,29 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext)
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addStrings(executionSettings.getArgs().arguments());
-    f.addString(executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
+    fp.addString(GUID);
+    fp.addStrings(executionSettings.getArgs().arguments());
+    fp.addString(
+        executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
     RunUnder runUnder = executionSettings.getRunUnder();
-    f.addString(runUnder == null ? "" : runUnder.getValue());
-    f.addStringMap(extraTestEnv);
+    fp.addString(runUnder == null ? "" : runUnder.getValue());
+    fp.addStringMap(extraTestEnv);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
-    configuration.getActionEnvironment().addTo(f);
-    configuration.getTestActionEnvironment().addTo(f);
+    configuration.getActionEnvironment().addTo(fp);
+    configuration.getTestActionEnvironment().addTo(fp);
     // The 'requiredClientEnvVariables' are handled by Skyframe and don't need to be added here.
-    f.addString(testProperties.getSize().toString());
-    f.addString(testProperties.getTimeout().toString());
-    f.addStrings(testProperties.getTags());
-    f.addInt(testProperties.isLocal() ? 1 : 0);
-    f.addInt(shardNum);
-    f.addInt(executionSettings.getTotalShards());
-    f.addInt(runNumber);
-    f.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
-    f.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
-    return f.hexDigestAndReset();
+    fp.addString(testProperties.getSize().toString());
+    fp.addString(testProperties.getTimeout().toString());
+    fp.addStrings(testProperties.getTags());
+    fp.addInt(testProperties.isLocal() ? 1 : 0);
+    fp.addInt(shardNum);
+    fp.addInt(executionSettings.getTotalShards());
+    fp.addInt(runNumber);
+    fp.addInt(testConfiguration.getRunsPerTestForLabel(getOwner().getLabel()));
+    fp.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
   }
 
   @Override

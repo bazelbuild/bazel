@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -70,9 +69,6 @@ public class CrosstoolConfigurationLoader {
   /** A class that holds the results of reading a CROSSTOOL file. */
   @AutoCodec
   public static class CrosstoolFile {
-    public static final ObjectCodec<CrosstoolFile> CODEC =
-        new CrosstoolConfigurationLoader_CrosstoolFile_AutoCodec();
-
     private final String location;
     private final CrosstoolConfig.CrosstoolRelease proto;
     private final String md5;

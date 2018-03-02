@@ -65,8 +65,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -267,10 +267,8 @@ public final class ActionsTestUtil {
           null,
           null);
 
-  @AutoCodec(strategy = Strategy.SINGLETON)
   static class NullArtifactOwner implements ArtifactOwner {
-    public static final ActionsTestUtil.NullArtifactOwner INSTANCE =
-        new ActionsTestUtil.NullArtifactOwner();
+    private NullArtifactOwner() {}
 
     @Override
     public Label getLabel() {
@@ -278,7 +276,7 @@ public final class ActionsTestUtil {
     }
   }
 
-  public static final ArtifactOwner NULL_ARTIFACT_OWNER = NullArtifactOwner.INSTANCE;
+  @AutoCodec public static final ArtifactOwner NULL_ARTIFACT_OWNER = new NullArtifactOwner();
 
   /** An unchecked exception class for action conflicts. */
   public static class UncheckedActionConflictException extends RuntimeException {
@@ -314,8 +312,8 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    protected String computeKey(ActionKeyContext actionKeyContext) {
-      return "action";
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+      fp.addString("action");
     }
 
     @Override

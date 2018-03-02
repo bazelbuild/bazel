@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -62,8 +61,7 @@ public final class DefaultInfo extends NativeInfo {
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
       FilesToRunProvider filesToRunProvider) {
-    // Fields map is not used here to prevent memory regression
-    super(PROVIDER, ImmutableMap.<String, Object>of());
+    super(PROVIDER);
     this.runfilesProvider = runfilesProvider;
     this.fileProvider = fileProvider;
     this.filesToRunProvider = filesToRunProvider;

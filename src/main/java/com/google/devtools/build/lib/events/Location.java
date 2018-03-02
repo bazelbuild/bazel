@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -36,9 +35,6 @@ public abstract class Location implements Serializable {
   @AutoCodec
   @Immutable
   static final class LocationWithPathAndStartColumn extends Location {
-    public static final ObjectCodec<LocationWithPathAndStartColumn> CODEC =
-        new Location_LocationWithPathAndStartColumn_AutoCodec();
-
     private final PathFragment path;
     private final LineAndColumn startLineAndColumn;
 
@@ -219,14 +215,14 @@ public abstract class Location implements Serializable {
    *   "23:2"
    *   "foo.cc:char offsets 123--456"
    *   "char offsets 123--456"
-   *</pre>
+   * </pre>
    *
    * <p>This version replace the package's path with the relative package path. I.e., if {@code
    * packagePath} is equivalent to "/absolute/path/to/workspace/pack/age" and {@code
    * relativePackage} is equivalent to "pack/age" then the result for the 2nd character of the 23rd
    * line of the "foo/bar.cc" file in "pack/age" would be "pack/age/foo/bar.cc:23:2" whereas with
    * {@link #print()} the result would be "/absolute/path/to/workspace/pack/age/foo/bar.cc:23:2".
-   * 
+   *
    * <p>If {@code packagePath} is not a parent of the location path, then the result of this
    * function is the same as the result of {@link #print()}.
    */
@@ -262,8 +258,6 @@ public abstract class Location implements Serializable {
   @AutoCodec
   @Immutable
   public static final class LineAndColumn {
-    public static final ObjectCodec<LineAndColumn> CODEC = new Location_LineAndColumn_AutoCodec();
-
     private final int line;
     private final int column;
 
@@ -298,11 +292,7 @@ public abstract class Location implements Serializable {
     }
   }
 
-  @AutoCodec(strategy = AutoCodec.Strategy.SINGLETON)
-  @AutoCodec.VisibleForSerialization
   static final class BuiltinLocation extends Location {
-    public static final BuiltinLocation INSTANCE = new BuiltinLocation();
-
     private BuiltinLocation() {
       super(0, 0);
     }
@@ -332,7 +322,7 @@ public abstract class Location implements Serializable {
    * Dummy location for built-in functions which ensures that stack traces contain "nice" location
    * strings.
    */
-  public static final Location BUILTIN = BuiltinLocation.INSTANCE;
+  @AutoCodec public static final Location BUILTIN = new BuiltinLocation();
 
   /**
    * Returns the location in the format "filename:line".
@@ -340,20 +330,17 @@ public abstract class Location implements Serializable {
    * <p>If such a location is not defined, this method returns an empty string.
    */
   public static String printLocation(Location location) {
-    return (location == null) ? "" : location.printLocation();
-  }
+    if (location == null) {
+      return "";
+    }
 
-  /**
-   * Returns this location in the format "filename:line".
-   */
-  public String printLocation() {
     StringBuilder builder = new StringBuilder();
-    PathFragment path = getPath();
+    PathFragment path = location.getPath();
     if (path != null) {
       builder.append(path.getPathString());
     }
 
-    LineAndColumn position = getStartLineAndColumn();
+    LineAndColumn position = location.getStartLineAndColumn();
     if (position != null) {
       builder.append(":").append(position.getLine());
     }

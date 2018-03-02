@@ -49,11 +49,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -66,10 +64,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/** 
- * Action that represents a linking step. 
- */
+/** Action that represents a linking step. */
 @ThreadCompatible
+@AutoCodec
 public final class CppLinkAction extends AbstractAction
     implements ExecutionInfoSpecifier, CommandAction {
 
@@ -155,7 +152,7 @@ public final class CppLinkAction extends AbstractAction
       ActionOwner owner,
       String mnemonic,
       Iterable<Artifact> inputs,
-      ImmutableList<Artifact> outputs,
+      ImmutableSet<Artifact> outputs,
       LibraryToLink outputLibrary,
       Artifact linkOutput,
       LibraryToLink interfaceOutputLibrary,
@@ -167,7 +164,9 @@ public final class CppLinkAction extends AbstractAction
       ImmutableMap<String, String> actionEnv,
       ImmutableMap<String, String> toolchainEnv,
       ImmutableSet<String> executionRequirements,
-      CcToolchainProvider toolchain) {
+      PathFragment ldExecutable,
+      String hostSystemName,
+      String targetCpu) {
     super(owner, inputs, outputs);
     if (mnemonic == null) {
       this.mnemonic = (isLtoIndexing) ? "CppLTOIndexing" : "CppLink";
@@ -186,9 +185,9 @@ public final class CppLinkAction extends AbstractAction
     this.actionEnv = actionEnv;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
-    this.ldExecutable = toolchain.getToolPathFragment(Tool.LD);
-    this.hostSystemName = toolchain.getHostSystemName();
-    this.targetCpu = toolchain.getTargetCpu();
+    this.ldExecutable = ldExecutable;
+    this.hostSystemName = hostSystemName;
+    this.targetCpu = targetCpu;
   }
 
   @VisibleForTesting
@@ -439,12 +438,11 @@ public final class CppLinkAction extends AbstractAction
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
-    f.addString(ldExecutable.getPathString());
-    f.addStrings(linkCommandLine.arguments());
-    f.addStrings(getExecutionInfo().keySet());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
+    fp.addString(ldExecutable.getPathString());
+    fp.addStrings(linkCommandLine.arguments());
+    fp.addStrings(getExecutionInfo().keySet());
 
     // TODO(bazel-team): For correctness, we need to ensure the invariant that all values accessed
     // during the execution phase are also covered by the key. Above, we add the argv to the key,
@@ -453,13 +451,12 @@ public final class CppLinkAction extends AbstractAction
     // key. We either need to change the code to cover them in the key computation, or change the
     // LinkConfiguration to disallow the combinations where the value of a setting does not affect
     // the argv.
-    f.addBoolean(linkCommandLine.isNativeDeps());
-    f.addBoolean(linkCommandLine.useTestOnlyFlags());
+    fp.addBoolean(linkCommandLine.isNativeDeps());
+    fp.addBoolean(linkCommandLine.useTestOnlyFlags());
     if (linkCommandLine.getRuntimeSolibDir() != null) {
-      f.addPath(linkCommandLine.getRuntimeSolibDir());
+      fp.addPath(linkCommandLine.getRuntimeSolibDir());
     }
-    f.addBoolean(isLtoIndexing);
-    return f.hexDigestAndReset();
+    fp.addBoolean(isLtoIndexing);
   }
 
   @Override
@@ -541,8 +538,6 @@ public final class CppLinkAction extends AbstractAction
   @ThreadSafe
   @AutoCodec
   public static final class Context implements TransitiveInfoProvider {
-    public static final ObjectCodec<Context> CODEC = new CppLinkAction_Context_AutoCodec();
-
     // Morally equivalent with {@link Builder}, except these are immutable.
     // Keep these in sync with {@link Builder}.
     final ImmutableSet<LinkerInput> objectFiles;

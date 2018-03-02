@@ -1172,7 +1172,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
       getConfiguredTarget("//examples/apple_skylark:my_target");
       fail("Expected an error to be thrown for invalid dotted version string");
     } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().contains("illegal argument in call to dotted_version");
       assertThat(e).hasMessageThat().contains("Dotted version components must all be of the form");
     }
   }
@@ -1262,6 +1261,66 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         .contains("ios_armv7");
     assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
         .contains("ios_arm64");
+  }
+
+  @Test
+  public void testDisableObjcProviderResources() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   file = ctx.actions.declare_file('foo.ast')",
+        "   ctx.actions.run_shell(outputs=[file], command='echo')",
+        "   objc_provider = apple_common.new_objc_provider(xib=depset([file]))",
+        "   return struct(objc=objc_provider)",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {})");
+
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "   name='my_target',",
+        ")");
+
+    try {
+      setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=true");
+      getConfiguredTarget("//examples/apple_skylark:my_target");
+    } catch (AssertionError e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains("in call to new_objc_provider: Argument xib not a recognized key");
+    }
+  }
+
+  @Test
+  public void testEnabledObjcProviderResources() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   file = ctx.actions.declare_file('foo.ast')",
+        "   ctx.actions.run_shell(outputs=[file], command='echo')",
+        "   objc_provider = apple_common.new_objc_provider(xib=depset([file]))",
+        "   return struct(objc=objc_provider)",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {})");
+
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "   name='my_target',",
+        ")");
+
+    setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=false");
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    ObjcProvider objcProvider = binaryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+
+    assertThat(objcProvider.get(ObjcProvider.XIB)).isNotNull();
   }
 
   private void checkSkylarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {

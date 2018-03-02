@@ -143,7 +143,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       // TODO(nharmata): Refactor WorkspaceFileFunction to make this a non-issue.
       Path devNull = workspaceDir.getFileSystem().getPath("/dev/null");
       directories =
-          new BlazeDirectories(new ServerDirectories(devNull, devNull), workspaceDir, "blaze");
+          new BlazeDirectories(
+              new ServerDirectories(devNull, devNull, devNull), workspaceDir, "blaze");
     }
 
     public Builder setRuleClassProvider(RuleClassProvider ruleClassProvider) {

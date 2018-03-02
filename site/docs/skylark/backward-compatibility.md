@@ -33,7 +33,6 @@ guarded behind flags in the current release:
 *   [Set constructor](#set-constructor)
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
-*   [Load argument is a label](#load-argument-is-a-label)
 *   [Top level `if` statements](#top-level-if-statements)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
@@ -77,21 +76,6 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 *   Flag: `--incompatible_bzl_disallow_load_after_statement`
 *   Default: `false`
-
-
-### Load argument is a label
-
-Historically, the first argument of `load` could be a path with an implicit
-`.bzl` suffix. We are going to require that all `load` statements use the label
-syntax.
-
-``` python
-load("/path/foo", "var")  # deprecated
-load("//path:foo.bzl", "var")  # recommended
-```
-
-*   Flag: `--incompatible_load_argument_is_label`
-*   Default: `true`
 
 
 ### Top level `if` statements

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -42,9 +41,6 @@ public final class PythonUtils {
 
   @AutoCodec
   static class GetInitPyFiles implements Runfiles.EmptyFilesSupplier {
-    public static final ObjectCodec<GetInitPyFiles> CODEC =
-        new PythonUtils_GetInitPyFiles_AutoCodec();
-
     @Override
     public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
       return getInitPyFiles(manifestPaths);

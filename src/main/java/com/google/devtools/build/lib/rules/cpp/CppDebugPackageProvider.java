@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
@@ -30,9 +29,6 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class CppDebugPackageProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<CppDebugPackageProvider> CODEC =
-      new CppDebugPackageProvider_AutoCodec();
-
   private final Label targetLabel;
   private final Artifact strippedArtifact;
   private final Artifact unstrippedArtifact;

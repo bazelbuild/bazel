@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
@@ -39,13 +38,9 @@ import javax.annotation.Nullable;
 @AutoCodec
 @Immutable
 public class BazelConfiguration extends Fragment {
-  public static final ObjectCodec<BazelConfiguration> CODEC = new BazelConfiguration_AutoCodec();
-
   /** Command-line options. */
   @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
-    public static final ObjectCodec<Options> CODEC = new BazelConfiguration_Options_AutoCodec();
-
     @Option(
       name = "experimental_strict_action_env",
       defaultValue = "false",

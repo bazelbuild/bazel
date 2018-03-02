@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -55,7 +54,7 @@ public class XcodeConfigProvider extends NativeInfo {
       DottedVersion tvosSdkVersion, DottedVersion tvosMinimumOsVersion,
       DottedVersion macosSdkVersion, DottedVersion macosMinimumOsVersion,
       DottedVersion xcodeVersion) {
-    super(PROVIDER, ImmutableMap.of());
+    super(PROVIDER);
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
     this.watchosSdkVersion = Preconditions.checkNotNull(watchosSdkVersion);

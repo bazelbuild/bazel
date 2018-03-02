@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -55,7 +54,6 @@ public final class AspectValue extends ActionLookupValue {
   /** A base class for a key representing an aspect applied to a particular target. */
   @AutoCodec
   public static class AspectKey extends AspectValueKey {
-    public static final ObjectCodec<AspectKey> CODEC = new AspectValue_AspectKey_AutoCodec();
     private final Label label;
     private final ImmutableList<AspectKey> baseKeys;
     private final BuildConfigurationValue.Key aspectConfigurationKey;
@@ -274,8 +272,6 @@ public final class AspectValue extends ActionLookupValue {
 
   /** An {@link AspectKey} for an aspect in the host configuration. */
   static class HostAspectKey extends AspectKey {
-    static final ObjectCodec<AspectKey> CODEC = AspectKey.CODEC;
-
     private HostAspectKey(
         Label label,
         Key aspectConfigurationKey,

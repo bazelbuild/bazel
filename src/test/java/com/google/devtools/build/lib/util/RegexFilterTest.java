@@ -19,7 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -149,8 +149,7 @@ public class RegexFilterTest {
 
   @Test
   public void codec() throws Exception {
-    ObjectCodecTester.newBuilder(RegexFilter.CODEC)
-        .addSubjects(
+    new SerializationTester(
             ImmutableList.of(
                     "",
                     "a/b,+^c,_test$",
@@ -160,6 +159,6 @@ public class RegexFilterTest {
                 .stream()
                 .map(RegexFilterTest::safeCreateFilter)
                 .collect(toImmutableList()))
-        .buildAndRunTests();
+        .runTests();
   }
 }

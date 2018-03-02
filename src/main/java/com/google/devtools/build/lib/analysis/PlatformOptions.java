@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -29,8 +28,6 @@ import java.util.List;
 /** Command-line options for platform-related configuration. */
 @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class PlatformOptions extends FragmentOptions {
-  public static final ObjectCodec<PlatformOptions> CODEC = new PlatformOptions_AutoCodec();
-
   @Option(
     name = "host_platform",
     oldName = "experimental_host_platform",

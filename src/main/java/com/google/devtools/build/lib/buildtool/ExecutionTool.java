@@ -482,8 +482,6 @@ public class ExecutionTool {
         actionContextProvider.executionPhaseEnding();
       }
 
-      Profiler.instance().markPhase(ProfilePhase.FINISH);
-
       if (buildCompleted) {
         saveActionCache(actionCache);
       }
@@ -518,7 +516,8 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(PackageRoots packageRoots) throws ExecutorInitException {
+  private void prepare(PackageRoots packageRoots)
+      throws ExecutorInitException, InterruptedException {
     Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
     if (!packageRootMap.isPresent()) {

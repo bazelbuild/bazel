@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -59,7 +58,7 @@ public final class AppleLoadableBundleBinaryInfo extends NativeInfo {
    */
   public AppleLoadableBundleBinaryInfo(Artifact appleLoadableBundleBinary,
       ObjcProvider depsObjcProvider) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
     this.appleLoadableBundleBinary = appleLoadableBundleBinary;
     this.depsObjcProvider = depsObjcProvider;
   }

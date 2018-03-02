@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.util.Fingerprint;
 
 /**
  * An action that depends on a set of inputs and creates a single output file whenever it runs. This
@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 @Immutable
 @AutoCodec
 public final class MiddlemanAction extends AbstractAction {
-  public static final ObjectCodec<MiddlemanAction> CODEC = new MiddlemanAction_AutoCodec();
-
   public static final String MIDDLEMAN_MNEMONIC = "Middleman";
   private final String description;
   private final MiddlemanType middlemanType;
@@ -73,11 +71,10 @@ public final class MiddlemanAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     // TODO(bazel-team): Need to take middlemanType into account here.
     // Only the set of inputs matters, and the dependency checker is
     // responsible for considering those.
-    return "";
   }
 
   /**

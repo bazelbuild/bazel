@@ -129,7 +129,7 @@ public class FileFunctionTest {
     AtomicReference<PathPackageLocator> pkgLocatorRef = new AtomicReference<>(pkgLocator);
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(pkgRoot.asPath(), outputBase),
+            new ServerDirectories(pkgRoot.asPath(), outputBase, outputBase),
             pkgRoot.asPath(),
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =

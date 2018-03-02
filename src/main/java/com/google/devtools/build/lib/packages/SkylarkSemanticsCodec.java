@@ -47,11 +47,13 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetIsNotIterable());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetUnion());
     codedOut.writeBoolNoTag(semantics.incompatibleDisableGlobTracking());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisableObjcProviderResources());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowDictPlus());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowToplevelIfStatement());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowUncalledSetConstructor());
     codedOut.writeBoolNoTag(semantics.incompatibleLoadArgumentIsLabel());
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
+    codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeGitRepository());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeHttpArchive());
     codedOut.writeBoolNoTag(semantics.incompatibleShowAllPrintMessages());
     codedOut.writeBoolNoTag(semantics.incompatibleStringIsNotIterable());
@@ -68,11 +70,13 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleDepsetIsNotIterable(codedIn.readBool());
     builder.incompatibleDepsetUnion(codedIn.readBool());
     builder.incompatibleDisableGlobTracking(codedIn.readBool());
+    builder.incompatibleDisableObjcProviderResources(codedIn.readBool());
     builder.incompatibleDisallowDictPlus(codedIn.readBool());
     builder.incompatibleDisallowToplevelIfStatement(codedIn.readBool());
     builder.incompatibleDisallowUncalledSetConstructor(codedIn.readBool());
     builder.incompatibleLoadArgumentIsLabel(codedIn.readBool());
     builder.incompatibleNewActionsApi(codedIn.readBool());
+    builder.incompatibleRemoveNativeGitRepository(codedIn.readBool());
     builder.incompatibleRemoveNativeHttpArchive(codedIn.readBool());
     builder.incompatibleShowAllPrintMessages(codedIn.readBool());
     builder.incompatibleStringIsNotIterable(codedIn.readBool());

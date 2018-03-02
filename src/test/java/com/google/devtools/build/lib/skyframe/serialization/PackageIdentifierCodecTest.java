@@ -15,18 +15,19 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.PackageIdentifierCodec;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Basic tests for {@link PackageIdentifierCodec}. */
+/** Basic tests for {@link PackageIdentifier}'s codec. */
 @RunWith(JUnit4.class)
-public class PackageIdentifierCodecTest extends AbstractObjectCodecTest<PackageIdentifier> {
+public class PackageIdentifierCodecTest {
 
-  public PackageIdentifierCodecTest() throws Exception {
-    super(
-        new PackageIdentifierCodec(), PackageIdentifier.create("@foo", PathFragment.create("bar")));
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(PackageIdentifier.create("@foo", PathFragment.create("bar")))
+        .runTests();
   }
 }

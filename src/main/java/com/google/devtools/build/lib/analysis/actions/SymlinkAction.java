@@ -128,15 +128,13 @@ public class SymlinkAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
     // We don't normally need to add inputs to the key. In this case, however, the inputPath can be
     // different from the actual input artifact.
     if (inputPath != null) {
-      f.addPath(inputPath);
+      fp.addPath(inputPath);
     }
-    return f.hexDigestAndReset();
   }
 
   @Override

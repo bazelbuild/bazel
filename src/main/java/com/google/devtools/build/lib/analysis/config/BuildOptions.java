@@ -55,8 +55,6 @@ import javax.annotation.Nullable;
  * Stores the command-line options from a set of configuration fragments.
  */
 public final class BuildOptions implements Cloneable, Serializable {
-  public static final ObjectCodec<BuildOptions> CODEC = new BuildOptionsCodec();
-
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
 

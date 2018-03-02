@@ -123,11 +123,13 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
         "--incompatible_disable_glob_tracking=" + rand.nextBoolean(),
+        "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_toplevel_if_statement=" + rand.nextBoolean(),
         "--incompatible_disallow_uncalled_set_constructor=" + rand.nextBoolean(),
         "--incompatible_load_argument_is_label=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
+        "--incompatible_remove_native_git_repository=" + rand.nextBoolean(),
         "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
         "--incompatible_show_all_print_messages=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
@@ -145,11 +147,13 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
         .incompatibleDisableGlobTracking(rand.nextBoolean())
+        .incompatibleDisableObjcProviderResources(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowToplevelIfStatement(rand.nextBoolean())
         .incompatibleDisallowUncalledSetConstructor(rand.nextBoolean())
         .incompatibleLoadArgumentIsLabel(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
+        .incompatibleRemoveNativeGitRepository(rand.nextBoolean())
         .incompatibleRemoveNativeHttpArchive(rand.nextBoolean())
         .incompatibleShowAllPrintMessages(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())

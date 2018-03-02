@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,6 +53,7 @@ import javax.annotation.Nullable;
 
 /** A customizable, serializable class for building memory efficient command lines. */
 @Immutable
+@AutoCodec
 public final class CustomCommandLine extends CommandLine {
 
   private interface ArgvFragment {
@@ -99,25 +102,6 @@ public final class CustomCommandLine extends CommandLine {
     abstract void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint);
   }
 
-  /** Deprecated. Do not use. TODO(b/64841073): Remove this */
-  @Deprecated
-  public abstract static class CustomMultiArgv extends StandardArgvFragment {
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.addAll(argv());
-    }
-
-    public abstract Iterable<String> argv();
-
-    @Override
-    final void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint) {
-      for (String arg : argv()) {
-        fingerprint.addString(arg);
-      }
-    }
-  }
-
   /**
    * An ArgvFragment that expands a collection of objects in a user-specified way.
    *
@@ -151,6 +135,7 @@ public final class CustomCommandLine extends CommandLine {
    *   -> ["1:2:3"]
    * </pre>
    */
+  @AutoCodec
   public static class VectorArg<T> {
     final boolean isNestedSet;
     final boolean isEmpty;
@@ -159,7 +144,9 @@ public final class CustomCommandLine extends CommandLine {
     final String beforeEach;
     final String joinWith;
 
-    private VectorArg(
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    VectorArg(
         boolean isNestedSet,
         boolean isEmpty,
         int count,
@@ -180,28 +167,43 @@ public final class CustomCommandLine extends CommandLine {
      * <p>Call {@link SimpleVectorArg#mapped} to produce a vector arg that maps from a given type to
      * a string.
      */
+    @AutoCodec
     public static class SimpleVectorArg<T> extends VectorArg<T> {
       private final Iterable<T> values;
 
       private SimpleVectorArg(Builder builder, @Nullable Collection<T> values) {
-        super(
+        this(
             false /* isNestedSet */,
             values == null || values.isEmpty(),
             values != null ? values.size() : 0,
             builder.formatEach,
             builder.beforeEach,
-            builder.joinWith);
-        this.values = values;
+            builder.joinWith,
+            values);
       }
 
       private SimpleVectorArg(Builder builder, @Nullable NestedSet<T> values) {
-        super(
+        this(
             true /* isNestedSet */,
             values == null || values.isEmpty(),
             -1 /* count */,
             builder.formatEach,
             builder.beforeEach,
-            builder.joinWith);
+            builder.joinWith,
+            values);
+      }
+
+      @AutoCodec.Instantiator
+      @VisibleForSerialization
+      SimpleVectorArg(
+          boolean isNestedSet,
+          boolean isEmpty,
+          int count,
+          String formatEach,
+          String beforeEach,
+          String joinWith,
+          @Nullable Iterable<T> values) {
+        super(isNestedSet, isEmpty, count, formatEach, beforeEach, joinWith);
         this.values = values;
       }
 
@@ -331,7 +333,8 @@ public final class CustomCommandLine extends CommandLine {
       }
     }
 
-    private static final class VectorArgFragment implements ArgvFragment {
+    @AutoCodec
+    static final class VectorArgFragment implements ArgvFragment {
       private static Interner<VectorArgFragment> interner = BlazeInterners.newStrongInterner();
       private static final UUID FORMAT_EACH_UUID =
           UUID.fromString("f830781f-2e0d-4e3b-9b99-ece7f249e0f3");
@@ -346,7 +349,9 @@ public final class CustomCommandLine extends CommandLine {
       private final boolean hasBeforeEach;
       private final boolean hasJoinWith;
 
-      private VectorArgFragment(
+      @AutoCodec.Instantiator
+      @VisibleForSerialization
+      VectorArgFragment(
           boolean isNestedSet,
           boolean hasMapEach,
           boolean hasFormatEach,
@@ -607,12 +612,14 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
-  private static final class ExpandedTreeArtifactExecPathsArg
-      extends TreeArtifactExpansionArgvFragment {
+  @AutoCodec
+  static final class ExpandedTreeArtifactExecPathsArg extends TreeArtifactExpansionArgvFragment {
     private final Artifact treeArtifact;
     private static final UUID TREE_UUID = UUID.fromString("13b7626b-c77d-4a30-ad56-ff08c06b1cee");
 
-    private ExpandedTreeArtifactExecPathsArg(Artifact treeArtifact) {
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    ExpandedTreeArtifactExecPathsArg(Artifact treeArtifact) {
       Preconditions.checkArgument(
           treeArtifact.isTreeArtifact(), "%s is not a TreeArtifact", treeArtifact);
       this.treeArtifact = treeArtifact;
@@ -988,13 +995,6 @@ public final class CustomCommandLine extends CommandLine {
       return addVectorArgInternal(arg, vectorArg);
     }
 
-    public Builder addCustomMultiArgv(@Nullable CustomMultiArgv arg) {
-      if (arg != null) {
-        arguments.add(arg);
-      }
-      return this;
-    }
-
     /**
      * Adds a placeholder TreeArtifact exec path. When the command line is used in an action
      * template, the placeholder will be replaced by the exec path of a {@link TreeFileArtifact}
@@ -1129,7 +1129,7 @@ public final class CustomCommandLine extends CommandLine {
     builder.arguments.addAll(other.arguments);
     return builder;
   }
-
+  
   private final ImmutableList<Object> arguments;
 
   /**
@@ -1142,14 +1142,14 @@ public final class CustomCommandLine extends CommandLine {
   private final Map<Artifact, TreeFileArtifact> substitutionMap;
 
   private CustomCommandLine(List<Object> arguments) {
-    this.arguments = ImmutableList.copyOf(arguments);
-    this.substitutionMap = null;
+    this(arguments, null);
   }
 
-  private CustomCommandLine(
-      List<Object> arguments, Map<Artifact, TreeFileArtifact> substitutionMap) {
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  CustomCommandLine(List<Object> arguments, Map<Artifact, TreeFileArtifact> substitutionMap) {
     this.arguments = ImmutableList.copyOf(arguments);
-    this.substitutionMap = ImmutableMap.copyOf(substitutionMap);
+    this.substitutionMap = substitutionMap == null ? null : ImmutableMap.copyOf(substitutionMap);
   }
 
   /**

@@ -219,3 +219,9 @@ toolchain(
 load(":dummy_toolchain.bzl", "dummy_toolchain")
 
 dummy_toolchain(name = "dummy_cc_toolchain_impl")
+
+filegroup(
+    name = "lib_cc_configure",
+    srcs = ["lib_cc_configure.bzl"],
+    visibility = ["//visibility:public"],
+)

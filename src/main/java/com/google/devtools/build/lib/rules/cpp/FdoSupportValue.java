@@ -17,7 +17,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,7 +44,6 @@ public class FdoSupportValue implements SkyValue {
   @AutoCodec
   public static class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
-    public static final ObjectCodec<Key> CODEC = new FdoSupportValue_Key_AutoCodec();
 
     private final LipoMode lipoMode;
     private final Path fdoZip;

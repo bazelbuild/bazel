@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -68,6 +70,23 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   private SkylarkDict(@Nullable Environment env) {
     this.mutability = env == null ? Mutability.IMMUTABLE : env.mutability();
+  }
+
+  @SkylarkCallable(name = "get",
+    doc = "Returns the value for <code>key</code> if <code>key</code> is in the dictionary, "
+        + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
+        + "<code>None</code>, so that this method never throws an error.",
+    parameters = {
+      @Param(name = "key", noneable = true, doc = "The key to look for."),
+      @Param(name = "default", defaultValue = "None", noneable = true, named = true,
+          doc = "The default value to use (instead of None) if the key is not found.")},
+    allowReturnNones = true
+  )
+  public Object get(Object key, Object defaultValue) {
+    if (this.containsKey(key)) {
+      return this.get(key);
+    }
+    return defaultValue;
   }
 
   private static final SkylarkDict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);

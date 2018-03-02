@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -234,9 +235,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public String computeKey(ActionKeyContext actionKeyContext) {
-      return "";
-    }
+    public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {}
 
     @Override
     public Artifact getVolatileStatus() {

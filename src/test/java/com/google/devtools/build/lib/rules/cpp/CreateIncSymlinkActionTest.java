@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -54,8 +55,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     d = new Artifact(PathFragment.create("d"), root);
     CreateIncSymlinkAction action2 =
         new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(c, d, a, b), includePath);
-    assertThat(action2.computeKey(actionKeyContext))
-        .isEqualTo(action1.computeKey(actionKeyContext));
+
+    assertThat(computeKey(action2)).isEqualTo(computeKey(action1));
   }
 
   @Test
@@ -71,8 +72,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     b = new Artifact(PathFragment.create("c"), root);
     CreateIncSymlinkAction action2 =
         new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
-    assertThat(action2.computeKey(actionKeyContext))
-        .isNotEqualTo(action1.computeKey(actionKeyContext));
+
+    assertThat(computeKey(action2)).isNotEqualTo(computeKey(action1));
   }
 
   @Test
@@ -88,8 +89,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     b = new Artifact(PathFragment.create("b"), root);
     CreateIncSymlinkAction action2 =
         new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
-    assertThat(action2.computeKey(actionKeyContext))
-        .isNotEqualTo(action1.computeKey(actionKeyContext));
+
+    assertThat(computeKey(action2)).isNotEqualTo(computeKey(action1));
   }
 
   @Test
@@ -124,5 +125,11 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     assertThat(extra.exists()).isTrue();
     action.prepare(fileSystem, rootDirectory);
     assertThat(extra.exists()).isFalse();
+  }
+
+  private String computeKey(CreateIncSymlinkAction action) {
+    Fingerprint fp = new Fingerprint();
+    action.computeKey(actionKeyContext, fp);
+    return fp.hexDigestAndReset();
   }
 }

@@ -59,16 +59,17 @@ public class NativeInfo extends Info {
   }
 
   public NativeInfo(NativeProvider<?> provider) {
-    super(provider, Location.BUILTIN);
-    this.values = ImmutableMap.of();
+    this(provider, Location.BUILTIN);
   }
 
+  public NativeInfo(NativeProvider<?> provider, Location loc) {
+    this(provider, ImmutableMap.of(), loc);
+  }
+
+  // TODO(cparsons): Remove this constructor once DefaultInfo and ToolchainInfo stop using it.
+  @Deprecated
   public NativeInfo(NativeProvider<?> provider, Map<String, Object> values, Location loc) {
     super(provider, loc);
     this.values = copyValues(values);
-  }
-
-  public NativeInfo(NativeProvider<?> provider, Map<String, Object> values) {
-    this(provider, values, Location.BUILTIN);
   }
 }

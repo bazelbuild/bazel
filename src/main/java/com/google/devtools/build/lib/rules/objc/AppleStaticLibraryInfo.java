@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -60,7 +59,7 @@ public final class AppleStaticLibraryInfo extends NativeInfo {
    */
   public AppleStaticLibraryInfo(Artifact multiArchArchive,
       ObjcProvider depsObjcProvider) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+    super(SKYLARK_CONSTRUCTOR);
     this.multiArchArchive = multiArchArchive;
     this.depsObjcProvider = depsObjcProvider;
   }

@@ -70,15 +70,21 @@ def ExtractAssets(aar, output_assets_dir):
 
 def WriteFileWithJunctions(filename, content):
   """Writes file including creating any junctions or directories necessary."""
+  def _WriteFile(filename):
+    with open(filename, "wb") as openfile:
+      openfile.write(content)
+
   if os.name == "nt":
     # Create a junction to the parent directory, because its path might be too
     # long. Creating the junction also creates all parent directories.
     with junction.TempJunction(os.path.dirname(filename)) as junc:
       filename = os.path.join(junc, os.path.basename(filename))
+      # Write the file within scope of the TempJunction, otherwise the path in
+      # `filename` would no longer be valid.
+      _WriteFile(filename)
   else:
     os.makedirs(os.path.dirname(filename))
-  with open(filename, "wb") as openfile:
-    openfile.write(content)
+    _WriteFile(filename)
 
 
 def ExtractOneFile(aar, name, abs_output_dir):

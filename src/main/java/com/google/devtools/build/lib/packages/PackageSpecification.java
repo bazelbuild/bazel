@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -165,9 +164,6 @@ public abstract class PackageSpecification {
   @AutoCodec
   @VisibleForSerialization
   static class SinglePackage extends PackageSpecification {
-    public static final ObjectCodec<SinglePackage> CODEC =
-        new PackageSpecification_SinglePackage_AutoCodec();
-
     private PackageIdentifier singlePackageName;
 
     @VisibleForSerialization
@@ -211,9 +207,6 @@ public abstract class PackageSpecification {
   @AutoCodec
   @VisibleForSerialization
   static class AllPackagesBeneath extends PackageSpecification {
-    public static final ObjectCodec<AllPackagesBeneath> CODEC =
-        new PackageSpecification_AllPackagesBeneath_AutoCodec();
-
     private PackageIdentifier prefix;
 
     @VisibleForSerialization
@@ -262,9 +255,6 @@ public abstract class PackageSpecification {
   @AutoCodec
   @VisibleForSerialization
   static class NegativePackageSpecification extends PackageSpecification {
-    public static final ObjectCodec<NegativePackageSpecification> CODEC =
-        new PackageSpecification_NegativePackageSpecification_AutoCodec();
-
     private final PackageSpecification delegate;
 
     NegativePackageSpecification(PackageSpecification delegate) {
@@ -309,9 +299,6 @@ public abstract class PackageSpecification {
   @AutoCodec
   @VisibleForSerialization
   static class AllPackages extends PackageSpecification {
-    public static final ObjectCodec<AllPackages> CODEC =
-        new PackageSpecification_AllPackages_AutoCodec();
-
     private static final PackageSpecification EVERYTHING = new AllPackages();
 
     @Override
@@ -354,9 +341,6 @@ public abstract class PackageSpecification {
   @Immutable
   @AutoCodec
   public static final class PackageGroupContents {
-    public static final ObjectCodec<PackageGroupContents> CODEC =
-        new PackageSpecification_PackageGroupContents_AutoCodec();
-
     private final ImmutableList<PackageSpecification> packageSpecifications;
 
     @VisibleForSerialization

@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -27,9 +26,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @Immutable
 @AutoCodec
 public final class CppDebugFileProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<CppDebugFileProvider> CODEC =
-      new CppDebugFileProvider_AutoCodec();
-
   private final NestedSet<Artifact> transitiveDwoFiles;
   private final NestedSet<Artifact> transitivePicDwoFiles;
 

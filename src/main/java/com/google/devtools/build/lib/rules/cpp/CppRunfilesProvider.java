@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @Immutable
 @AutoCodec
 public final class CppRunfilesProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<CppRunfilesProvider> CODEC = new CppRunfilesProvider_AutoCodec();
   private final Runfiles staticRunfiles;
   private final Runfiles sharedRunfiles;
 

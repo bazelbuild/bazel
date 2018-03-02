@@ -127,15 +127,14 @@ public class JavaHeaderCompileAction extends SpawnAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint().addString(GUID);
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
     try {
-      f.addString(super.computeKey(actionKeyContext));
-      f.addStrings(directCommandLine.arguments());
+      super.computeKey(actionKeyContext, fp);
+      fp.addStrings(directCommandLine.arguments());
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("JavaHeaderCompileAction command line expansion cannot fail");
     }
-    return f.hexDigestAndReset();
   }
 
   @Override
@@ -586,8 +585,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
         result.addExecPaths("--processorpath", processorPath);
       }
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
-        result.addCustomMultiArgv(
-            new JavaCompileAction.JarsToTargetsArgv(classpathEntries, directJars));
+        result.addExecPaths("--direct_dependencies", directJars);
         if (!compileTimeDependencyArtifacts.isEmpty()) {
           result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
         }

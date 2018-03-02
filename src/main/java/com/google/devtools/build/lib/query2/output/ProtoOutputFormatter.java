@@ -21,6 +21,8 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -55,12 +57,15 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -84,6 +89,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations = false;
   protected boolean includeDefaultValues = true;
+  private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
 
   protected void setDependencyFilter(QueryOptions options) {
@@ -100,7 +106,18 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver);
     this.relativeLocations = options.relativeLocations;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
+    this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
+  }
+
+  private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
+    if (outputAttributes.equals(ImmutableList.of("all"))) {
+      return Predicates.alwaysTrue();
+    } else if (outputAttributes.isEmpty()) {
+      return Predicates.alwaysFalse();
+    } else {
+      return Predicates.in(ImmutableSet.copyOf(outputAttributes));
+    }
   }
 
   @Override
@@ -190,9 +207,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 attributeValue,
                 rule.isAttributeValueExplicitlySpecified(attr),
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
-        rulePb.addAttribute(serializedAttribute);
         serializedAttributes.put(attr, serializedAttribute);
       }
+      rulePb.addAllAttribute(
+          serializedAttributes.values().stream().distinct().collect(Collectors.toList()));
 
       postProcess(rule, rulePb, serializedAttributes);
 
@@ -210,6 +228,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       ImmutableMultimap<Attribute, Label> aspectsDependencies =
           aspectResolver.computeAspectDependencies(target, dependencyFilter);
       // Add information about additional attributes from aspects.
+      List<Build.Attribute> attributes = new ArrayList<>(aspectsDependencies.asMap().size());
       for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
         Attribute attribute = entry.getKey();
         Collection<Label> labels = entry.getValue();
@@ -223,25 +242,28 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 attributeValue,
                 /*explicitlySpecified=*/ false,
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
-        rulePb.addAttribute(serializedAttribute);
+        attributes.add(serializedAttribute);
       }
+      rulePb.addAllAttribute(attributes.stream().distinct().collect(Collectors.toList()));
       if (includeRuleInputsAndOutputs()) {
         // Add all deps from aspects as rule inputs of current target.
-        for (Label label : aspectsDependencies.values()) {
-          rulePb.addRuleInput(label.toString());
-        }
-
+         aspectsDependencies
+             .values()
+             .stream()
+             .distinct()
+             .forEach(dep -> rulePb.addRuleInput(dep.toString()));
         // Include explicit elements for all direct inputs and outputs of a rule;
         // this goes beyond what is available from the attributes above, since it
         // may also (depending on options) include implicit outputs,
         // host-configuration outputs, and default values.
-        for (Label label : rule.getLabels(dependencyFilter)) {
-          rulePb.addRuleInput(label.toString());
-        }
-        for (OutputFile outputFile : rule.getOutputFiles()) {
-          Label fileLabel = outputFile.getLabel();
-          rulePb.addRuleOutput(fileLabel.toString());
-        }
+        rule.getLabels(dependencyFilter)
+            .stream()
+            .distinct()
+            .forEach(input -> rulePb.addRuleInput(input.toString()));
+        rule.getOutputFiles()
+            .stream()
+            .distinct()
+            .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
       }
       for (String feature : rule.getFeatures()) {
         rulePb.addDefaultSetting(feature);
@@ -373,7 +395,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Filter out some attributes */
   protected boolean includeAttribute(Rule rule, Attribute attr) {
-    return true;
+    return ruleAttributePredicate.apply(attr.getName());
   }
 
   /** Allow filtering of aspect attributes. */

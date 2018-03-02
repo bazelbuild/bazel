@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.Type;
@@ -126,6 +125,7 @@ public final class CcCommon {
           // differently named outputs.
           Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
           Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
+          Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
           Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
@@ -404,8 +404,6 @@ public final class CcCommon {
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
   @AutoCodec
   static class CoptsFilter {
-    public static final ObjectCodec<CoptsFilter> CODEC = new CcCommon_CoptsFilter_AutoCodec();
-
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 

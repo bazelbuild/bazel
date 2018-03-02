@@ -95,7 +95,6 @@ import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxEx
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Converter;
@@ -519,15 +518,26 @@ public class BuildView {
       int delimiterPosition = aspect.indexOf('%');
       if (delimiterPosition >= 0) {
         // TODO(jfield): For consistency with Skylark loads, the aspect should be specified
-        // as an absolute path. Also, we probably need to do at least basic validation of
-        // path well-formedness here.
+        // as an absolute label.
+        // We convert it for compatibility reasons (this will be removed in the future).
         String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);
         if (!bzlFileLoadLikeString.startsWith("//") && !bzlFileLoadLikeString.startsWith("@")) {
           // "Legacy" behavior of '--aspects' parameter.
-          bzlFileLoadLikeString = PathFragment.create("/" + bzlFileLoadLikeString).toString();
-          if (bzlFileLoadLikeString.endsWith(".bzl")) {
-            bzlFileLoadLikeString = bzlFileLoadLikeString.substring(0,
-                bzlFileLoadLikeString.length() - ".bzl".length());
+          if (bzlFileLoadLikeString.startsWith("/")) {
+            bzlFileLoadLikeString = bzlFileLoadLikeString.substring(1);
+          }
+          int lastSlashPosition = bzlFileLoadLikeString.lastIndexOf('/');
+          if (lastSlashPosition >= 0) {
+            bzlFileLoadLikeString =
+                "//"
+                    + bzlFileLoadLikeString.substring(0, lastSlashPosition)
+                    + ":"
+                    + bzlFileLoadLikeString.substring(lastSlashPosition + 1);
+          } else {
+            bzlFileLoadLikeString = "//:" + bzlFileLoadLikeString;
+          }
+          if (!bzlFileLoadLikeString.endsWith(".bzl")) {
+            bzlFileLoadLikeString = bzlFileLoadLikeString + ".bzl";
           }
         }
         SkylarkImport skylarkImport;

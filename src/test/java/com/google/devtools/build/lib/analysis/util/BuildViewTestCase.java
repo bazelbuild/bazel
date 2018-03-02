@@ -208,7 +208,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     analysisMock = getAnalysisMock();
     directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase),
+            new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,
             analysisMock.getProductName());
     actionKeyContext = new ActionKeyContext();

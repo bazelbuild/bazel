@@ -390,7 +390,7 @@ public final class PackageFactory {
    * Constructs a {@code PackageFactory} instance with a specific glob path translator
    * and rule factory.
    *
-   * <p>Only intended to be called by BlazeRuntime or {@link FactoryForTesting#create}.
+   * <p>Only intended to be called by BlazeRuntime or {@link BuilderForTesting#build}.
    *
    * <p>Do not call this constructor directly in tests; please use
    * TestConstants#PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING instead.
@@ -569,7 +569,7 @@ public final class PackageFactory {
     // async glob functions cannot do the same because the Environment is not thread safe.
     PackageContext context;
     if (originalContext == null) {
-      context = getContext(env, ast);
+      context = getContext(env, ast.getLocation());
     } else {
       context = originalContext;
     }
@@ -759,7 +759,7 @@ public final class PackageFactory {
 
   static Runtime.NoneType callExportsFiles(Object srcs, Object visibilityO, Object licensesO,
       FuncallExpression ast, Environment env) throws EvalException, ConversionException {
-    Package.Builder pkgBuilder = getContext(env, ast).pkgBuilder;
+    Package.Builder pkgBuilder = getContext(env, ast.getLocation()).pkgBuilder;
     List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility;
@@ -845,7 +845,7 @@ public final class PackageFactory {
    */
   // TODO(bazel-team): Remove in favor of package.distribs.
   // TODO(bazel-team): Remove all these new*Function-s and/or have static functions
-  // that consult the context dynamically via getContext(env, ast) since we have that,
+  // that consult the context dynamically via getContext(env, loc) since we have that,
   // and share the functions with the native package... which requires unifying the List types.
   @SkylarkSignature(name = "distribs", returnType = Runtime.NoneType.class,
       doc = "Declare the distribution(s) for the code in the current package.",
@@ -929,7 +929,7 @@ public final class PackageFactory {
   static SkylarkDict<String, Object> callGetRuleFunction(
       String name, FuncallExpression ast, Environment env)
       throws EvalException, ConversionException {
-    PackageContext context = getContext(env, ast);
+    PackageContext context = getContext(env, ast.getLocation());
     Target target = context.pkgBuilder.getTarget(name);
 
     return targetDict(target, ast.getLocation(), env);
@@ -1095,7 +1095,7 @@ public final class PackageFactory {
   static SkylarkDict<String, SkylarkDict<String, Object>> callGetRulesFunction(
       FuncallExpression ast, Environment env)
       throws EvalException {
-    PackageContext context = getContext(env, ast);
+    PackageContext context = getContext(env, ast.getLocation());
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Location loc = ast.getLocation();
 
@@ -1113,7 +1113,7 @@ public final class PackageFactory {
 
   static Runtime.NoneType callPackageFunction(String name, Object packagesO, Object includesO,
       FuncallExpression ast, Environment env) throws EvalException, ConversionException {
-    PackageContext context = getContext(env, ast);
+    PackageContext context = getContext(env, ast.getLocation());
 
     List<String> packages = Type.STRING_LIST.convert(
         packagesO, "'package_group.packages argument'");
@@ -1169,7 +1169,7 @@ public final class PackageFactory {
       public Object call(Object[] arguments, FuncallExpression ast, Environment env)
           throws EvalException {
 
-        Package.Builder pkgBuilder = getContext(env, ast).pkgBuilder;
+        Package.Builder pkgBuilder = getContext(env, ast.getLocation()).pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
@@ -1203,13 +1203,13 @@ public final class PackageFactory {
   /**
    * Get the PackageContext by looking up in the environment.
    */
-  public static PackageContext getContext(Environment env, FuncallExpression ast)
+  public static PackageContext getContext(Environment env, Location location)
       throws EvalException {
     PackageContext value = (PackageContext) env.lookup(PKG_CONTEXT);
     if (value == null) {
       // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
-      throw new EvalException(ast.getLocation(),
+      throw new EvalException(location,
           "The native module cannot be accessed from here. "
           + "Wrap the function in a macro and call it from a BUILD file");
     }
@@ -1247,7 +1247,7 @@ public final class PackageFactory {
         throws EvalException, InterruptedException {
       env.checkLoadingOrWorkspacePhase(ruleClassName, ast.getLocation());
       try {
-        addRule(getContext(env, ast), kwargs, ast, env);
+        addRule(getContext(env, ast.getLocation()), kwargs, ast, env);
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
@@ -1617,8 +1617,9 @@ public final class PackageFactory {
    * Called by a caller of {@link #createPackageFromAst} after this caller has fully
    * loaded the package.
    */
-  public void afterDoneLoadingPackage(Package pkg, SkylarkSemantics skylarkSemantics) {
-    packageBuilderHelper.onLoadingComplete(pkg, skylarkSemantics);
+  public void afterDoneLoadingPackage(
+      Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeNanos) {
+    packageBuilderHelper.onLoadingComplete(pkg, skylarkSemantics, loadTimeNanos);
   }
 
   /**

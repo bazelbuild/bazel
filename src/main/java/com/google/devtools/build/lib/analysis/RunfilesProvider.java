@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
@@ -29,8 +28,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 @Immutable
 @AutoCodec
 public final class RunfilesProvider implements TransitiveInfoProvider {
-  public static final ObjectCodec<RunfilesProvider> CODEC = new RunfilesProvider_AutoCodec();
-
   private final Runfiles defaultRunfiles;
   private final Runfiles dataRunfiles;
 

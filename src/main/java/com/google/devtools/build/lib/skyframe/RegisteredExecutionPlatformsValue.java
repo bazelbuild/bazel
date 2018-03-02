@@ -35,9 +35,12 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
     return Key.of(configurationKey);
   }
 
+  /** {@link SkyKey} implementation used for {@link RegisteredExecutionPlatformsFunction}. */
   @AutoCodec
+  @AutoCodec.VisibleForSerialization
   static class Key implements SkyKey {
     private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
+
     private final BuildConfigurationValue.Key configurationKey;
 
     private Key(BuildConfigurationValue.Key configurationKey) {

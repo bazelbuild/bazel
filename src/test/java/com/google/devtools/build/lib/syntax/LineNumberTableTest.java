@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -86,8 +86,7 @@ public class LineNumberTableTest {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(LineNumberTable.CODEC)
-        .addSubjects(
+    new SerializationTester(
             create(
                 "#\n"
                     + "#line 67 \"/foo\"\n"
@@ -96,6 +95,6 @@ public class LineNumberTableTest {
                     + "#line 23 \"/ba.r\"\n"
                     + "vardef(x,y)\n"),
             create("\ntwo\nthree\n\nfive\n"))
-        .buildAndRunTests();
+        .runTests();
   }
 }

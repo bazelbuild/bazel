@@ -14,10 +14,17 @@
 
 #include "src/tools/runfiles/runfiles.h"
 
+#ifdef COMPILER_MSVC
+#include <windows.h>
+#endif  // COMPILER_MSVC
+
+#include <fstream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
+#include "src/main/cpp/util/file.h"
 
 #define _T(x) #x
 #define T(x) _T(x)
@@ -27,10 +34,127 @@ namespace bazel {
 namespace runfiles {
 namespace {
 
+using bazel::runfiles::testing::TestOnly_IsAbsolute;
+using std::cerr;
+using std::endl;
+using std::pair;
 using std::string;
 using std::unique_ptr;
+using std::vector;
 
-TEST(RunfilesTest, DirectoryBasedRunfilesRlocation) {
+class RunfilesTest : public ::testing::Test {
+ protected:
+  // Create a temporary file that is deleted with the destructor.
+  class MockFile {
+   public:
+    // Create an empty file with the given name under $TEST_TMPDIR.
+    static MockFile* Create(const string& name);
+
+    // Create a file with the given name and contents under $TEST_TMPDIR.
+    // The method ensures to create all parent directories, so `name` is allowed
+    // to contain directory components.
+    static MockFile* Create(const string& name, const vector<string>& lines);
+
+    ~MockFile();
+    const string& Path() const { return path_; }
+
+   private:
+    MockFile(const string& path) : path_(path) {}
+    MockFile(const MockFile&) = delete;
+    MockFile(MockFile&&) = delete;
+    MockFile& operator=(const MockFile&) = delete;
+    MockFile& operator=(MockFile&&) = delete;
+
+    const string path_;
+  };
+
+  static string GetTemp();
+};
+
+string RunfilesTest::GetTemp() {
+#ifdef COMPILER_MSVC
+  DWORD size = ::GetEnvironmentVariableA("TEST_TMPDIR", NULL, 0);
+  if (size == 0) {
+    return std::move(string());  // unset or empty envvar
+  }
+  unique_ptr<char[]> value(new char[size]);
+  ::GetEnvironmentVariableA("TEST_TMPDIR", value.get(), size);
+  return std::move(string(value.get()));
+#else
+  char* result = getenv("TEST_TMPDIR");
+  return result != NULL ? std::move(string(result)) : std::move(string());
+#endif
+}
+
+RunfilesTest::MockFile* RunfilesTest::MockFile::Create(const string& name) {
+  return Create(name, vector<string>());
+}
+
+RunfilesTest::MockFile* RunfilesTest::MockFile::Create(
+    const string& name, const vector<string>& lines) {
+  if (name.find("..") != string::npos || TestOnly_IsAbsolute(name)) {
+    cerr << "WARNING: " << __FILE__ << "(" << __LINE__ << "): bad name: \""
+         << name << "\"" << endl;
+    return nullptr;
+  }
+
+  string tmp(std::move(RunfilesTest::GetTemp()));
+  if (tmp.empty()) {
+    cerr << "WARNING: " << __FILE__ << "(" << __LINE__
+         << "): $TEST_TMPDIR is empty" << endl;
+    return nullptr;
+  }
+  string path(tmp + "/" + name);
+  string dirname = blaze_util::Dirname(path);
+  if (!blaze_util::MakeDirectories(dirname, 0777)) {
+    cerr << "WARNING: " << __FILE__ << "(" << __LINE__ << "): MakeDirectories("
+         << dirname << ") failed" << endl;
+    return nullptr;
+  }
+
+  auto stm = std::ofstream(path);
+  for (auto i : lines) {
+    stm << i << std::endl;
+  }
+  return new MockFile(path);
+}
+
+RunfilesTest::MockFile::~MockFile() { std::remove(path_.c_str()); }
+
+TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
+  unique_ptr<MockFile> mf(
+      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a b", "nospace"}));
+  EXPECT_TRUE(mf != nullptr);
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::CreateManifestBased(mf->Path(), &error));
+  ASSERT_EQ(r, nullptr);
+  EXPECT_NE(error.find("bad runfiles manifest entry"), string::npos);
+  EXPECT_NE(error.find("line #2: \"nospace\""), string::npos);
+}
+
+TEST_F(RunfilesTest, ManifestBasedRunfilesRlocation) {
+  unique_ptr<MockFile> mf(
+      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a/b c/d"}));
+  EXPECT_TRUE(mf != nullptr);
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::CreateManifestBased(mf->Path(), &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(r->Rlocation("a/b"), "c/d");
+  EXPECT_EQ(r->Rlocation("c/d"), "");
+  EXPECT_EQ(r->Rlocation(""), "");
+  EXPECT_EQ(r->Rlocation("foo"), "");
+  EXPECT_EQ(r->Rlocation("foo/"), "");
+  EXPECT_EQ(r->Rlocation("foo/bar"), "");
+  EXPECT_EQ(r->Rlocation("foo/.."), "");
+  EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
+  EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
+  EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
+}
+
+TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocation) {
   string error;
   unique_ptr<Runfiles> r(Runfiles::CreateDirectoryBased("whatever", &error));
   ASSERT_NE(r, nullptr);
@@ -46,6 +170,87 @@ TEST(RunfilesTest, DirectoryBasedRunfilesRlocation) {
   EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
   EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
+}
+
+TEST_F(RunfilesTest, FailsToCreateManifestBasedBecauseManifestDoesNotExist) {
+  string error;
+  unique_ptr<Runfiles> r(
+      Runfiles::CreateManifestBased("non-existent-file", &error));
+  ASSERT_EQ(r, nullptr);
+  EXPECT_NE(error.find("cannot open runfiles manifest"), string::npos);
+}
+
+TEST_F(RunfilesTest, MockFileTest) {
+  {
+    unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() "/..")));
+    EXPECT_TRUE(mf == nullptr);
+  }
+
+  {
+    unique_ptr<MockFile> mf(MockFile::Create(string("/Foo" LINE())));
+    EXPECT_TRUE(mf == nullptr);
+  }
+
+  {
+    unique_ptr<MockFile> mf(MockFile::Create(string("C:/Foo" LINE())));
+    EXPECT_TRUE(mf == nullptr);
+  }
+
+  string path;
+  {
+    unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() "/bar1/qux")));
+    EXPECT_TRUE(mf != nullptr);
+    path = mf->Path();
+
+    std::ifstream stm(path);
+    EXPECT_TRUE(stm.good());
+    string actual;
+    stm >> actual;
+    EXPECT_TRUE(actual.empty());
+  }
+  {
+    std::ifstream stm(path);
+    EXPECT_FALSE(stm.good());
+  }
+
+  {
+    unique_ptr<MockFile> mf(
+        MockFile::Create(string("foo" LINE() "/bar2/qux"), vector<string>()));
+    EXPECT_TRUE(mf != nullptr);
+    path = mf->Path();
+
+    std::ifstream stm(path);
+    EXPECT_TRUE(stm.good());
+    string actual;
+    stm >> actual;
+    EXPECT_TRUE(actual.empty());
+  }
+  {
+    std::ifstream stm(path);
+    EXPECT_FALSE(stm.good());
+  }
+
+  {
+    unique_ptr<MockFile> mf(
+        MockFile::Create(string("foo" LINE() "/bar3/qux"),
+                         {"hello world", "you are beautiful"}));
+    EXPECT_TRUE(mf != nullptr);
+    path = mf->Path();
+
+    std::ifstream stm(path);
+    EXPECT_TRUE(stm.good());
+    string actual;
+    std::getline(stm, actual);
+    EXPECT_EQ("hello world", actual);
+    std::getline(stm, actual);
+    EXPECT_EQ("you are beautiful", actual);
+    std::getline(stm, actual);
+    EXPECT_EQ("", actual);
+  }
+  {
+    std::ifstream stm(path);
+    EXPECT_FALSE(stm.good());
+  }
 }
 
 }  // namespace

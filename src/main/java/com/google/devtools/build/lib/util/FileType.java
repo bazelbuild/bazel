@@ -19,15 +19,15 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.concurrent.Immutable;
 
-/**
- * A base class for FileType matchers.
- */
+/** A base class for FileType matchers. */
 @Immutable
+@AutoCodec
 public abstract class FileType implements Predicate<String> {
   // A special file type
   public static final FileType NO_EXTENSION =
@@ -53,7 +53,8 @@ public abstract class FileType implements Predicate<String> {
     };
   }
 
-  public static FileType of(final Iterable<String> extensions) {
+  @AutoCodec.Instantiator
+  public static FileType of(final List<String> extensions) {
     return new FileType() {
       @Override
       public boolean apply(String path) {

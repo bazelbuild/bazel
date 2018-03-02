@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -57,9 +56,6 @@ import java.util.Objects;
 @Immutable
 @AutoCodec
 public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, SkylarkValue {
-
-  public static final ObjectCodec<ArtifactRoot> CODEC = new ArtifactRoot_AutoCodec();
-
   // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.
   public static ArtifactRoot computeSourceRoot(Root packageRoot, RepositoryName repository) {

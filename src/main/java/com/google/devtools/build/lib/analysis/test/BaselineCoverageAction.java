@@ -59,10 +59,8 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public String computeKey(ActionKeyContext actionKeyContext) {
-    return new Fingerprint()
-        .addStrings(getInstrumentedFilePathStrings())
-        .hexDigestAndReset();
+  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addStrings(getInstrumentedFilePathStrings());
   }
 
   private Iterable<String> getInstrumentedFilePathStrings() {

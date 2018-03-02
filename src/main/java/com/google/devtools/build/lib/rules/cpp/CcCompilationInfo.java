@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -31,9 +30,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,9 +48,14 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
+@SkylarkModule(
+  name = "cc_compilation_info",
+  category = SkylarkModuleCategory.PROVIDER,
+  doc =
+      "Immutable store of information needed for C++ compilation that is aggregated across "
+          + "dependencies."
+)
 public final class CcCompilationInfo extends NativeInfo {
-  public static final ObjectCodec<CcCompilationInfo> CODEC = new CcCompilationInfo_AutoCodec();
-
   public static final NativeProvider<CcCompilationInfo> PROVIDER =
       new NativeProvider<CcCompilationInfo>(CcCompilationInfo.class, "CcCompilationInfo") {};
 
@@ -100,7 +105,7 @@ public final class CcCompilationInfo extends NativeInfo {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
-    super(PROVIDER, ImmutableMap.of());
+    super(PROVIDER);
     Preconditions.checkNotNull(commandLineCcCompilationInfo);
     this.commandLineCcCompilationInfo = commandLineCcCompilationInfo;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -360,9 +365,6 @@ public final class CcCompilationInfo extends NativeInfo {
   @AutoCodec
   @VisibleForSerialization
   static class CommandLineCcCompilationInfo {
-    public static final ObjectCodec<CommandLineCcCompilationInfo> CODEC =
-        new CcCompilationInfo_CommandLineCcCompilationInfo_AutoCodec();
-
     private final ImmutableList<PathFragment> includeDirs;
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
@@ -766,9 +768,6 @@ public final class CcCompilationInfo extends NativeInfo {
   @Immutable
   @AutoCodec
   public static final class ModuleInfo {
-    public static final ObjectCodec<ModuleInfo> CODEC =
-        new CcCompilationInfo_ModuleInfo_AutoCodec();
-
     /**
      * The module built for this context. If null, then no module is being compiled for this
      * context.
@@ -902,9 +901,6 @@ public final class CcCompilationInfo extends NativeInfo {
   @Immutable
   @AutoCodec
   public static final class TransitiveModuleHeaders {
-    public static final ObjectCodec<TransitiveModuleHeaders> CODEC =
-        new CcCompilationInfo_TransitiveModuleHeaders_AutoCodec();
-
     /**
      * The module that we are calculating information for.
      */

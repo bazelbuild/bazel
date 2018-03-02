@@ -100,29 +100,28 @@ public class ProtoCommon {
   }
 
   /**
-   * Returns all proto source roots in this lib and in its transitive dependencies, each prefixed
-   * by {@code --proto_path}.
+   * Returns all proto source roots in this lib and in its transitive dependencies.
    *
    * Build will fail if the {@code proto_source_root} of the current lib is different than the
    * package name.
    */
   public static NestedSet<String> collectTransitiveProtoPathFlags(RuleContext ruleContext) {
-    NestedSetBuilder<String> protoPathFlags = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
 
     // first add the protoSourceRoot of the current target, if any
     String protoSourceRoot =
         ruleContext.attributes().get("proto_source_root", Type.STRING);
     if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
       checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
-      protoPathFlags.add("--proto_path=" + protoSourceRoot);
+      protoPath.add(protoSourceRoot);
     }
 
     for (ProtoSourcesProvider provider : ruleContext.getPrerequisites(
             "deps", Mode.TARGET, ProtoSourcesProvider.class)) {
-      protoPathFlags.addTransitive(provider.getTransitiveProtoPathFlags());
+      protoPath.addTransitive(provider.getTransitiveProtoPathFlags());
     }
 
-    return protoPathFlags.build();
+    return protoPath.build();
   }
 
   private static void checkProtoSourceRootIsTheSameAsPackage(
@@ -184,7 +183,7 @@ public class ProtoCommon {
     ArtifactRoot genfiles =
         ruleContext.getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
     for (Artifact src : protoSources) {
-      PathFragment srcPath = src.getRootRelativePath();
+      PathFragment srcPath = getPathIgnoringRepository(src);
       if (pythonNames) {
         srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
       }
@@ -251,5 +250,19 @@ public class ProtoCommon {
       return true;
     }
     return (flagValue == BuildConfiguration.StrictDepsMode.STRICT);
+  }
+
+  /**
+   * Gets the artifact's path relative to the root, ignoring the external repository the artifact is
+   * at. For example, <code>
+   * //a:b.proto --> a/b.proto
+   * {@literal @}foo//a:b.proto --> a/b.proto
+   * </code>
+   */
+  public static PathFragment getPathIgnoringRepository(Artifact artifact) {
+    return artifact
+        .getRootRelativePath()
+        .relativeTo(
+            artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot());
   }
 }

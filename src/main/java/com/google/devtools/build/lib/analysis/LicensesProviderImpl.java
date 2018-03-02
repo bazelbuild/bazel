@@ -24,16 +24,12 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A {@link ConfiguredTarget} that has licensed targets in its transitive closure. */
 @Immutable
 @AutoCodec
 public final class LicensesProviderImpl implements LicensesProvider {
-  public static final ObjectCodec<LicensesProviderImpl> CODEC =
-      new LicensesProviderImpl_AutoCodec();
-
   public static final LicensesProvider EMPTY =
       new LicensesProviderImpl(NestedSetBuilder.<TargetLicense>emptySet(Order.LINK_ORDER), null);
 

@@ -306,9 +306,7 @@ public final class InvocationPolicyEnforcer {
    * <p>None of the flagPolicies returned should be on expansion flags.
    */
   private static List<FlagPolicyWithContext> expandPolicy(
-      FlagPolicyWithContext originalPolicy,
-      OptionsParser parser,
-      Level loglevel)
+      FlagPolicyWithContext originalPolicy, OptionsParser parser, Level loglevel)
       throws OptionsParsingException {
     List<FlagPolicyWithContext> expandedPolicies = new ArrayList<>();
 
@@ -701,11 +699,15 @@ public final class InvocationPolicyEnforcer {
       }
 
       // Check that if the default value of the flag is disallowed by the policy, that the policy
-      // does not also set use_default. Otherwise the default value would will still be set if the
+      // does not also set use_default. Otherwise the default value would still be set if the
       // user uses a disallowed value. This doesn't apply to repeatable flags since the default
-      // value for repeatable flags is always the empty list.
-      if (!optionDescription.getOptionDefinition().allowsMultiple()) {
-
+      // value for repeatable flags is always the empty list. It also doesn't apply to flags that
+      // are null by default, since these flags' default value is not parsed by the converter, so
+      // there is no guarantee that there exists an accepted user-input value that would also set
+      // the value to NULL. In these cases, we assume that "unset" is a distinct value that is
+      // always allowed.
+      if (!optionDescription.getOptionDefinition().allowsMultiple()
+          && !optionDescription.getOptionDefinition().isSpecialNullDefault()) {
         boolean defaultValueAllowed =
             isFlagValueAllowed(
                 convertedPolicyValues, optionDescription.getOptionDefinition().getDefaultValue());
@@ -749,8 +751,12 @@ public final class InvocationPolicyEnforcer {
         throws OptionsParsingException {
 
       OptionDefinition optionDefinition = optionDescription.getOptionDefinition();
-      if (!isFlagValueAllowed(
-          convertedPolicyValues, optionDescription.getOptionDefinition().getDefaultValue())) {
+      if (optionDefinition.isSpecialNullDefault()) {
+        // Do nothing, the unset value by definition cannot be set. In option filtering operations,
+        // the value is being filtered, but the value that is `no value` passes any filter.
+        // Otherwise, there is no way to "usedefault" on one of these options that has no value by
+        // default.
+      } else if (!isFlagValueAllowed(convertedPolicyValues, optionDefinition.getDefaultValue())) {
         if (newValue != null) {
           // Use the default value from the policy, since the original default is not allowed
           logger.log(

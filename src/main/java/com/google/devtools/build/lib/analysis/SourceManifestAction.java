@@ -193,29 +193,27 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addBoolean(runfiles.getLegacyExternalRunfiles());
-    f.addPath(runfiles.getSuffix());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addBoolean(runfiles.getLegacyExternalRunfiles());
+    fp.addPath(runfiles.getSuffix());
     Map<PathFragment, Artifact> symlinks = runfiles.getSymlinksAsMap(null);
-    f.addInt(symlinks.size());
+    fp.addInt(symlinks.size());
     for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
-      f.addPath(symlink.getKey());
-      f.addPath(symlink.getValue().getPath());
+      fp.addPath(symlink.getKey());
+      fp.addPath(symlink.getValue().getPath());
     }
     Map<PathFragment, Artifact> rootSymlinks = runfiles.getRootSymlinksAsMap(null);
-    f.addInt(rootSymlinks.size());
+    fp.addInt(rootSymlinks.size());
     for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
-      f.addPath(rootSymlink.getKey());
-      f.addPath(rootSymlink.getValue().getPath());
+      fp.addPath(rootSymlink.getKey());
+      fp.addPath(rootSymlink.getValue().getPath());
     }
 
     for (Artifact artifact : runfiles.getArtifacts()) {
-      f.addPath(artifact.getRootRelativePath());
-      f.addPath(artifact.getPath());
+      fp.addPath(artifact.getRootRelativePath());
+      fp.addPath(artifact.getPath());
     }
-    return f.hexDigestAndReset();
   }
 
   /**

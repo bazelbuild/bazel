@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -219,7 +220,7 @@ public class SkylarkNativeModule {
             throws EvalException, ConversionException {
           env.checkLoadingPhase("native.package_name", ast.getLocation());
           PackageIdentifier packageId =
-              PackageFactory.getContext(env, ast).getBuilder().getPackageIdentifier();
+              PackageFactory.getContext(env, ast.getLocation()).getBuilder().getPackageIdentifier();
           return packageId.getPackageFragment().getPathString();
         }
       };
@@ -236,16 +237,16 @@ public class SkylarkNativeModule {
             + "<code>@</code>. This function is equivalent to the deprecated variable "
             + "<code>REPOSITORY_NAME</code>.",
     parameters = {},
-    useAst = true,
+    useLocation = true,
     useEnvironment = true
   )
   static final BuiltinFunction repositoryName =
       new BuiltinFunction("repository_name") {
-        public String invoke(FuncallExpression ast, Environment env)
+        public String invoke(Location location, Environment env)
             throws EvalException, ConversionException {
-          env.checkLoadingPhase("native.repository_name", ast.getLocation());
+          env.checkLoadingPhase("native.repository_name", location);
           PackageIdentifier packageId =
-              PackageFactory.getContext(env, ast).getBuilder().getPackageIdentifier();
+              PackageFactory.getContext(env, location).getBuilder().getPackageIdentifier();
           return packageId.getRepository().toString();
         }
       };

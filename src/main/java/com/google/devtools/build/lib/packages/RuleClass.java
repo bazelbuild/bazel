@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTe
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -65,6 +67,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -381,38 +384,69 @@ public class RuleClass {
     }
 
     /** A predicate that filters rule classes based on their names. */
+    @AutoCodec
     public static class RuleClassNamePredicate {
+
+      private static final RuleClassNamePredicate UNSPECIFIED_INSTANCE =
+          new RuleClassNamePredicate(ImmutableSet.of(), PredicateType.UNSPECIFIED, null);
+
+      private final ImmutableSet<String> ruleClassNames;
+
+      private final PredicateType predicateType;
 
       private final Predicate<String> ruleClassNamePredicate;
       private final Predicate<RuleClass> ruleClassPredicate;
       // if non-null, used ONLY for checking overlap
       @Nullable private final Set<?> overlappable;
 
-      private RuleClassNamePredicate(
-          Predicate<String> ruleClassNamePredicate, @Nullable Set<?> overlappable) {
-        this(
-            ruleClassNamePredicate,
-            new DescribedPredicate<>(
-                Predicates.compose(ruleClassNamePredicate, RuleClass::getName),
-                ruleClassNamePredicate.toString()),
-            overlappable);
+      @VisibleForSerialization
+      enum PredicateType {
+        ONLY,
+        All_EXCEPT,
+        UNSPECIFIED
       }
 
-      private RuleClassNamePredicate(
-          Predicate<String> ruleClassNamePredicate,
-          Predicate<RuleClass> ruleClassPredicate,
-          @Nullable Set<?> overlappable) {
-        this.ruleClassNamePredicate = ruleClassNamePredicate;
-        this.ruleClassPredicate = ruleClassPredicate;
+      @VisibleForSerialization
+      RuleClassNamePredicate(
+          ImmutableSet<String> ruleClassNames, PredicateType predicateType, Set<?> overlappable) {
+        this.ruleClassNames = ruleClassNames;
+        this.predicateType = predicateType;
         this.overlappable = overlappable;
+
+        switch (predicateType) {
+          case All_EXCEPT:
+            Predicate<String> containing = only(ruleClassNames).asPredicateOfRuleClassName();
+            ruleClassNamePredicate =
+                new DescribedPredicate<>(
+                    Predicates.not(containing), "all but " + containing.toString());
+            ruleClassPredicate =
+                new DescribedPredicate<>(
+                    Predicates.compose(ruleClassNamePredicate, RuleClass::getName),
+                    ruleClassNamePredicate.toString());
+            break;
+          case ONLY:
+            ruleClassNamePredicate =
+                new DescribedPredicate<>(
+                    Predicates.in(ruleClassNames), StringUtil.joinEnglishList(ruleClassNames));
+            ruleClassPredicate =
+                new DescribedPredicate<>(
+                    Predicates.compose(ruleClassNamePredicate, RuleClass::getName),
+                    ruleClassNamePredicate.toString());
+            break;
+          case UNSPECIFIED:
+            ruleClassNamePredicate = Predicates.alwaysTrue();
+            ruleClassPredicate = Predicates.alwaysTrue();
+            break;
+          default:
+            // This shouldn't happen normally since the constructor is private and within this file.
+            throw new IllegalArgumentException(
+                "Predicate type was not specified when constructing a RuleClassNamePredicate.");
+        }
       }
 
       public static RuleClassNamePredicate only(Iterable<String> ruleClassNamesAsIterable) {
         ImmutableSet<String> ruleClassNames = ImmutableSet.copyOf(ruleClassNamesAsIterable);
-        return new RuleClassNamePredicate(
-            new DescribedPredicate<>(
-                Predicates.in(ruleClassNames), StringUtil.joinEnglishList(ruleClassNames)),
-            ruleClassNames);
+        return new RuleClassNamePredicate(ruleClassNames, PredicateType.ONLY, ruleClassNames);
       }
 
       public static RuleClassNamePredicate only(String... ruleClasses) {
@@ -422,11 +456,7 @@ public class RuleClass {
       public static RuleClassNamePredicate allExcept(String... ruleClasses) {
         ImmutableSet<String> ruleClassNames = ImmutableSet.copyOf(ruleClasses);
         Preconditions.checkState(!ruleClassNames.isEmpty(), "Use unspecified() instead");
-        Predicate<String> containing = only(ruleClassNames).asPredicateOfRuleClassName();
-        return new RuleClassNamePredicate(
-            new DescribedPredicate<>(
-                Predicates.not(containing), "all but " + containing.toString()),
-            null);
+        return new RuleClassNamePredicate(ruleClassNames, PredicateType.All_EXCEPT, null);
       }
 
       /**
@@ -436,7 +466,7 @@ public class RuleClass {
        * Predicates.<RuleClass>alwaysTrue()}, which is a sentinel value for other parts of bazel.
        */
       public static RuleClassNamePredicate unspecified() {
-        return new RuleClassNamePredicate(Predicates.alwaysTrue(), Predicates.alwaysTrue(), null);
+        return UNSPECIFIED_INSTANCE;
       }
 
       public final Predicate<String> asPredicateOfRuleClassName() {
@@ -463,7 +493,7 @@ public class RuleClass {
 
       @Override
       public int hashCode() {
-        return ruleClassNamePredicate.hashCode();
+        return Objects.hash(ruleClassNames, predicateType);
       }
 
       @Override
@@ -471,7 +501,8 @@ public class RuleClass {
         // NOTE: Specifically not checking equality of ruleClassPredicate.
         // By construction, if the name predicates are equals, the rule class predicates are, too.
         return obj instanceof RuleClassNamePredicate
-            && ruleClassNamePredicate.equals(((RuleClassNamePredicate) obj).ruleClassNamePredicate);
+            && ruleClassNames.equals(((RuleClassNamePredicate) obj).ruleClassNames)
+            && predicateType.equals(((RuleClassNamePredicate) obj).predicateType);
       }
 
       @Override

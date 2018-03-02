@@ -530,7 +530,9 @@ public class ProtoCompileActionBuilder {
       ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
-    cmdLine.addAll(transitiveProtoPathFlags);
+    cmdLine.addAll(
+        VectorArg.of(transitiveProtoPathFlags)
+            .mapped(ProtoCompileActionBuilder::expandTransitiveProtoPathFlags));
 
     // A set to check if there are multiple invocations with the same name.
     HashSet<String> invocationNames = new HashSet<>();
@@ -604,27 +606,20 @@ public class ProtoCompileActionBuilder {
     }
   }
 
+  private static void expandTransitiveProtoPathFlags(String flag, Consumer<String> args) {
+    args.accept("--proto_path=" + flag);
+  }
+
   private static void expandTransitiveImportArg(Artifact artifact, Consumer<String> args) {
-    args.accept("-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString());
+    args.accept(
+        "-I"
+            + ProtoCommon.getPathIgnoringRepository(artifact).toString()
+            + "="
+            + artifact.getExecPathString());
   }
 
   private static void expandToPathIgnoringRepository(Artifact artifact, Consumer<String> args) {
-    args.accept(getPathIgnoringRepository(artifact));
-  }
-
-  /**
-   * Gets the artifact's path relative to the root, ignoring the external repository the artifact is
-   * at. For example, <code>
-   * //a:b.proto --> a/b.proto
-   * {@literal @}foo//a:b.proto --> a/b.proto
-   * </code>
-   */
-  private static String getPathIgnoringRepository(Artifact artifact) {
-    return artifact
-        .getRootRelativePath()
-        .relativeTo(
-            artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot())
-        .toString();
+    args.accept(ProtoCommon.getPathIgnoringRepository(artifact).toString());
   }
 
   /**

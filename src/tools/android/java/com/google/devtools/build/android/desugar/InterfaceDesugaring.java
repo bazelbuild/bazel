@@ -47,6 +47,7 @@ class InterfaceDesugaring extends ClassVisitor {
 
   private final ClassVsInterface interfaceCache;
   private final DependencyCollector depsCollector;
+  private final CoreLibrarySupport coreLibrarySupport;
   private final ClassReaderFactory bootclasspath;
   private final ClassLoader targetLoader;
   private final GeneratedClassStore store;
@@ -63,6 +64,7 @@ class InterfaceDesugaring extends ClassVisitor {
       ClassVisitor dest,
       ClassVsInterface interfaceCache,
       DependencyCollector depsCollector,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassReaderFactory bootclasspath,
       ClassLoader targetLoader,
       GeneratedClassStore store,
@@ -70,6 +72,7 @@ class InterfaceDesugaring extends ClassVisitor {
     super(Opcodes.ASM6, dest);
     this.interfaceCache = interfaceCache;
     this.depsCollector = depsCollector;
+    this.coreLibrarySupport = coreLibrarySupport;
     this.bootclasspath = bootclasspath;
     this.targetLoader = targetLoader;
     this.store = store;
@@ -214,6 +217,10 @@ class InterfaceDesugaring extends ClassVisitor {
               internalName,
               desc);
           ++numberOfDefaultMethods;
+          if (coreLibrarySupport != null) {
+            coreLibrarySupport.registerIfEmulatedCoreInterface(
+                access, internalName, name, desc, exceptions);
+          }
           abstractDest =
               super.visitMethod(access | Opcodes.ACC_ABSTRACT, name, desc, signature, exceptions);
         }

@@ -43,6 +43,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
         linkerOutput = getBinArtifact("lib" + target.getLabel().getName() + "pic.a", target);
         break;
+      case NODEPS_DYNAMIC_LIBRARY:
       case DYNAMIC_LIBRARY:
         linkerOutput = getBinArtifact("lib" + target.getLabel().getName() + ".so", target);
         break;

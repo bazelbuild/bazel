@@ -59,6 +59,9 @@ public class TestConstants {
    */
   public static final String JAVATESTS_ROOT = "io_bazel/src/test/java/";
 
+  /** Location of the bazel repo relative to the workspace root */
+  public static final String BAZEL_REPO_PATH = "";
+
   /** Relative path to the {@code process-wrapper} tool. */
   public static final String PROCESS_WRAPPER_PATH =
       "io_bazel/src/main/tools/process-wrapper";

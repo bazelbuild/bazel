@@ -584,25 +584,24 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Add one argument to the keyword map, registering a duplicate in case of conflict.
+   * Add one named argument to the keyword map, and returns whether that name has been encountered
+   * before.
    */
-  private static void addKeywordArg(
+  private static boolean addKeywordArgAndCheckIfDuplicate(
       Map<String, Object> kwargs,
       String name,
-      Object value,
-      ImmutableList.Builder<String> duplicates) {
-    if (kwargs.put(name, value) != null) {
-      duplicates.add(name);
-    }
+      Object value) {
+    return kwargs.put(name, value) != null;
   }
 
   /**
-   * Add multiple arguments to the keyword map (**kwargs), registering duplicates
+   * Add multiple arguments to the keyword map (**kwargs), and returns all the names of those
+   * arguments that have been encountered before or {@code null} if there are no such names.
    */
-  private static void addKeywordArgs(
+  @Nullable
+  private static ImmutableList<String> addKeywordArgsAndReturnDuplicates(
       Map<String, Object> kwargs,
       Object items,
-      ImmutableList.Builder<String> duplicates,
       Location location)
       throws EvalException {
     if (!(items instanceof Map<?, ?>)) {
@@ -610,14 +609,22 @@ public final class FuncallExpression extends Expression {
           location,
           "argument after ** must be a dictionary, not '" + EvalUtils.getDataTypeName(items) + "'");
     }
+    ImmutableList.Builder<String> duplicatesBuilder = null;
     for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
       if (!(entry.getKey() instanceof String)) {
         throw new EvalException(
             location,
             "keywords must be strings, not '" + EvalUtils.getDataTypeName(entry.getKey()) + "'");
       }
-      addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue(), duplicates);
+      String argName = (String) entry.getKey();
+      if (addKeywordArgAndCheckIfDuplicate(kwargs, argName, entry.getValue())) {
+        if (duplicatesBuilder == null) {
+          duplicatesBuilder = ImmutableList.builder();
+        }
+        duplicatesBuilder.add(argName);
+      }
     }
+    return duplicatesBuilder == null ? null : duplicatesBuilder.build();
   }
 
   /**
@@ -632,25 +639,6 @@ public final class FuncallExpression extends Expression {
     } else {
       throw new EvalException(
           location, "'" + EvalUtils.getDataTypeName(functionValue) + "' object is not callable");
-    }
-  }
-
-  /**
-   * Check the list from the builder and report an {@link EvalException} if not empty.
-   */
-  private static void checkDuplicates(
-      ImmutableList.Builder<String> duplicates, Expression function, Location location)
-      throws EvalException {
-    List<String> dups = duplicates.build();
-    if (!dups.isEmpty()) {
-      throw new EvalException(
-          location,
-          "duplicate keyword"
-              + (dups.size() > 1 ? "s" : "")
-              + " '"
-              + Joiner.on("', '").join(dups)
-              + "' in call to "
-              + function);
     }
   }
 
@@ -728,7 +716,8 @@ public final class FuncallExpression extends Expression {
   private void evalArguments(ImmutableList.Builder<Object> posargs, Map<String, Object> kwargs,
       Environment env)
       throws EvalException, InterruptedException {
-    ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<>();
+    // Optimize allocations for the common case where they are no duplicates.
+    ImmutableList.Builder<String> duplicatesBuilder = null;
     // Iterate over the arguments. We assume all positional arguments come before any keyword
     // or star arguments, because the argument list was already validated by
     // Argument#validateFuncallArguments, as called by the Parser,
@@ -748,12 +737,34 @@ public final class FuncallExpression extends Expression {
         }
         posargs.addAll((Iterable<Object>) value);
       } else if (arg.isStarStar()) {  // expand the kwargs
-        addKeywordArgs(kwargs, value, duplicates, getLocation());
+        ImmutableList<String> duplicates =
+            addKeywordArgsAndReturnDuplicates(kwargs, value, getLocation());
+        if (duplicates != null) {
+          if (duplicatesBuilder == null) {
+            duplicatesBuilder = ImmutableList.builder();
+          }
+          duplicatesBuilder.addAll(duplicates);
+        }
       } else {
-        addKeywordArg(kwargs, arg.getName(), value, duplicates);
+        if (addKeywordArgAndCheckIfDuplicate(kwargs, arg.getName(), value)) {
+          if (duplicatesBuilder == null) {
+            duplicatesBuilder = ImmutableList.builder();
+          }
+          duplicatesBuilder.add(arg.getName());
+        }
       }
     }
-    checkDuplicates(duplicates, function, getLocation());
+    if (duplicatesBuilder != null) {
+      ImmutableList<String> dups = duplicatesBuilder.build();
+      throw new EvalException(
+          getLocation(),
+          "duplicate keyword"
+              + (dups.size() > 1 ? "s" : "")
+              + " '"
+              + Joiner.on("', '").join(dups)
+              + "' in call to "
+              + function);
+    }
   }
 
   @VisibleForTesting

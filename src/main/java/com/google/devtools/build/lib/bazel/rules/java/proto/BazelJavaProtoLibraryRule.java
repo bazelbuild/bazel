@@ -14,17 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
-import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
-import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -43,12 +39,6 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-    Function<Rule, AspectParameters> aspectParameters =
-        rule ->
-            new AspectParameters.Builder()
-                .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "java_proto_library")
-                .build();
-
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
         /* <!-- #BLAZE_RULE(java_proto_library).ATTRIBUTE(deps) -->
@@ -59,7 +49,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
             attr("deps", LABEL_LIST)
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
-                .aspect(javaProtoAspect, aspectParameters))
+                .aspect(javaProtoAspect))
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();

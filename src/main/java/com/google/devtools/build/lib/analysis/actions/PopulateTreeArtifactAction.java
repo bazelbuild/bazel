@@ -211,18 +211,16 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addString(getMnemonic());
-    f.addStrings(spawnCommandLine());
-    f.addPaths(zipper.getRunfilesSupplier().getRunfilesDirs());
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addString(getMnemonic());
+    fp.addStrings(spawnCommandLine());
+    fp.addPaths(zipper.getRunfilesSupplier().getRunfilesDirs());
     List<Artifact> runfilesManifests = zipper.getRunfilesSupplier().getManifests();
-    f.addInt(runfilesManifests.size());
+    fp.addInt(runfilesManifests.size());
     for (Artifact manifest : runfilesManifests) {
-      f.addPath(manifest.getExecPath());
+      fp.addPath(manifest.getExecPath());
     }
-    return f.hexDigestAndReset();
   }
 
   @Override

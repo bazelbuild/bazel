@@ -359,8 +359,8 @@ static bool IsValidEnvName(const char* p) {
 
 #if defined(COMPILER_MSVC)
 static void PreprocessEnvString(string* env_str) {
-  static std::set<string> vars_to_uppercase = {"PATH", "TMP", "TEMP", "TEMPDIR",
-                                               "SYSTEMROOT"};
+  static constexpr const char* vars_to_uppercase[] = {"PATH", "SYSTEMROOT",
+                                                      "TEMP", "TEMPDIR", "TMP"};
 
   int pos = env_str->find_first_of('=');
   if (pos == string::npos) return;
@@ -368,7 +368,8 @@ static void PreprocessEnvString(string* env_str) {
   string name = env_str->substr(0, pos);
   // We do not care about locale. All variable names are ASCII.
   std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-  if (vars_to_uppercase.find(name) != vars_to_uppercase.end()) {
+  if (std::find(std::begin(vars_to_uppercase), std::end(vars_to_uppercase),
+                name) != std::end(vars_to_uppercase)) {
     env_str->assign(name + "=" + env_str->substr(pos + 1));
   }
 }

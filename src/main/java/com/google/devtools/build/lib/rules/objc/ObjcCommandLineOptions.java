@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -31,9 +30,6 @@ import java.util.List;
 /** Command-line options for building Objective-C targets. */
 @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class ObjcCommandLineOptions extends FragmentOptions {
-  public static final ObjectCodec<ObjcCommandLineOptions> CODEC =
-      new ObjcCommandLineOptions_AutoCodec();
-
   @Option(
     name = "ios_simulator_version",
     defaultValue = "9.3",
@@ -304,12 +300,25 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
     help =
         "Location of target that will provide the appropriate Apple SDK for the current build "
             + "configuration."
   )
   public Label appleSdk;
+
+  @Option(
+    name = "incompatible_strict_objc_module_maps",
+    category = "incompatible changes",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+    help =
+        "Propagates Objective-C module maps only to direct dependencies in the 'objc' provider, "
+            + "not to all transitive dependencies."
+  )
+  public boolean strictObjcModuleMaps;
 
   @Override
   public FragmentOptions getHost() {

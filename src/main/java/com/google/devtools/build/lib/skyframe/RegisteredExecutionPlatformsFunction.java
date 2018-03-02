@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -127,11 +128,11 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
         if (platformInfo == null) {
           throw new RegisteredExecutionPlatformsFunctionException(
-              new InvalidExecutionPlatformLabelException(platformLabel), Transience.PERSISTENT);
+              new InvalidPlatformException(platformLabel), Transience.PERSISTENT);
         }
       } catch (ConfiguredValueCreationException e) {
         throw new RegisteredExecutionPlatformsFunctionException(
-            new InvalidExecutionPlatformLabelException(platformLabel, e), Transience.PERSISTENT);
+            new InvalidPlatformException(platformLabel, e), Transience.PERSISTENT);
       }
     }
 
@@ -148,44 +149,13 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   }
 
   /**
-   * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
-   * not a valid {@link PlatformInfo} provider.
-   */
-  static final class InvalidExecutionPlatformLabelException extends Exception {
-
-    private final Label invalidLabel;
-
-    private InvalidExecutionPlatformLabelException(Label invalidLabel) {
-      super(
-          String.format(
-              "invalid registered execution platform '%s': "
-                  + "target does not provide the PlatformInfo provider",
-              invalidLabel));
-      this.invalidLabel = invalidLabel;
-    }
-
-    private InvalidExecutionPlatformLabelException(
-        Label invalidLabel, ConfiguredValueCreationException e) {
-      super(
-          String.format(
-              "invalid registered execution platform '%s': %s", invalidLabel, e.getMessage()),
-          e);
-      this.invalidLabel = invalidLabel;
-    }
-
-    public Label getInvalidLabel() {
-      return invalidLabel;
-    }
-  }
-
-  /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
    * #compute}.
    */
   private static class RegisteredExecutionPlatformsFunctionException extends SkyFunctionException {
 
     private RegisteredExecutionPlatformsFunctionException(
-        InvalidExecutionPlatformLabelException cause, Transience transience) {
+        InvalidPlatformException cause, Transience transience) {
       super(cause, transience);
     }
   }

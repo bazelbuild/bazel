@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -35,9 +37,10 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * Represents the command line of a linker invocation. It supports executables and dynamic
- * libraries as well as static libraries.
+ * Represents the command line of a linker invocation. It supports executables and dynamic libraries
+ * as well as static libraries.
  */
+@AutoCodec
 @Immutable
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
@@ -47,8 +50,8 @@ public final class LinkCommandLine extends CommandLine {
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
   private final ImmutableList<Artifact> buildInfoHeaderArtifacts;
-  private final Iterable<? extends LinkerInput> linkerInputs;
-  private final Iterable<? extends LinkerInput> runtimeInputs;
+  private final Iterable<LinkerInput> linkerInputs;
+  private final Iterable<LinkerInput> runtimeInputs;
   private final LinkTargetType linkTargetType;
   private final LinkStaticness linkStaticness;
   private final ImmutableList<String> linkopts;
@@ -58,13 +61,14 @@ public final class LinkCommandLine extends CommandLine {
 
   @Nullable private final Artifact paramFile;
 
-  private LinkCommandLine(
+  @VisibleForSerialization
+  LinkCommandLine(
       String actionName,
       String forcedToolPath,
       PathFragment crosstoolTopPathFragment,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
-      Iterable<? extends LinkerInput> linkerInputs,
-      Iterable<? extends LinkerInput> runtimeInputs,
+      Iterable<LinkerInput> linkerInputs,
+      Iterable<LinkerInput> runtimeInputs,
       LinkTargetType linkTargetType,
       LinkStaticness linkStaticness,
       ImmutableList<String> linkopts,
@@ -102,17 +106,13 @@ public final class LinkCommandLine extends CommandLine {
     return buildInfoHeaderArtifacts;
   }
 
-  /**
-   * Returns the (ordered, immutable) list of paths to the linker's input files.
-   */
-  public Iterable<? extends LinkerInput> getLinkerInputs() {
+  /** Returns the (ordered, immutable) list of paths to the linker's input files. */
+  public Iterable<LinkerInput> getLinkerInputs() {
     return linkerInputs;
   }
 
-  /**
-   * Returns the runtime inputs to the linker.
-   */
-  public Iterable<? extends LinkerInput> getRuntimeInputs() {
+  /** Returns the runtime inputs to the linker. */
+  public Iterable<LinkerInput> getRuntimeInputs() {
     return runtimeInputs;
   }
 
@@ -183,13 +183,19 @@ public final class LinkCommandLine extends CommandLine {
    */
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline() {
-    return splitCommandline(null);
+    return splitCommandline(paramFile, getRawLinkArgv(null), linkTargetType);
   }
 
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline(@Nullable ArtifactExpander expander) {
+    return splitCommandline(paramFile, getRawLinkArgv(expander), linkTargetType);
+  }
+
+  private static Pair<List<String>, List<String>> splitCommandline(
+      Artifact paramFile,
+      List<String> args,
+      LinkTargetType linkTargetType) {
     Preconditions.checkNotNull(paramFile);
-    List<String> args = getRawLinkArgv(expander);
     if (linkTargetType.staticness() == Staticness.STATIC) {
       // Ar link commands can also generate huge command lines.
       List<String> paramFileArgs = new ArrayList<>();
@@ -209,21 +215,79 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   /**
+   * A {@link CommandLine} implementation that returns the command line args pertaining to the
+   * .params file.
+   */
+  @AutoCodec
+  @VisibleForSerialization
+  static class ParamFileCommandLine extends CommandLine {
+    private final Artifact paramsFile;
+    private final LinkTargetType linkTargetType;
+    private final String forcedToolPath;
+    private final FeatureConfiguration featureConfiguration;
+    private final String actionName;
+    private final PathFragment crosstoolTopPathFragment;
+    private final Variables variables;
+
+    public ParamFileCommandLine(
+        Artifact paramsFile,
+        LinkTargetType linkTargetType,
+        String forcedToolPath,
+        FeatureConfiguration featureConfiguration,
+        String actionName,
+        PathFragment crosstoolTopPathFragment,
+        Variables variables) {
+      this.paramsFile = paramsFile;
+      this.linkTargetType = linkTargetType;
+      this.forcedToolPath = forcedToolPath;
+      this.featureConfiguration = featureConfiguration;
+      this.actionName = actionName;
+      this.crosstoolTopPathFragment = crosstoolTopPathFragment;
+      this.variables = variables;
+    }
+
+    @Override
+    public Iterable<String> arguments() {
+      List<String> argv =
+          getRawLinkArgv(
+              null,
+              forcedToolPath,
+              featureConfiguration,
+              actionName,
+              linkTargetType,
+              crosstoolTopPathFragment,
+              variables);
+      return splitCommandline(paramsFile, argv, linkTargetType).getSecond();
+    }
+
+    @Override
+    public Iterable<String> arguments(ArtifactExpander expander) {
+      List<String> argv =
+          getRawLinkArgv(
+              expander,
+              forcedToolPath,
+              featureConfiguration,
+              actionName,
+              linkTargetType,
+              crosstoolTopPathFragment,
+              variables);
+      return splitCommandline(paramsFile, argv, linkTargetType).getSecond();
+    }
+  }
+
+  /**
    * Returns just the .params file portion of the command-line as a {@link CommandLine}.
    */
   CommandLine paramCmdLine() {
     Preconditions.checkNotNull(paramFile);
-    return new CommandLine() {
-      @Override
-      public Iterable<String> arguments() {
-        return splitCommandline(null).getSecond();
-      }
-
-      @Override
-      public Iterable<String> arguments(ArtifactExpander expander) {
-        return splitCommandline(expander).getSecond();
-      }
-    };
+    return new ParamFileCommandLine(
+        paramFile,
+        linkTargetType,
+        forcedToolPath,
+        featureConfiguration,
+        actionName,
+        crosstoolTopPathFragment,
+        variables);
   }
 
   public static void extractArgumentsForStaticLinkParamFile(
@@ -286,7 +350,7 @@ public final class LinkCommandLine extends CommandLine {
       }
     }
   }
-  
+
   /**
    * Returns a raw link command for the given link invocation, including both command and arguments
    * (argv). The version that uses the expander is preferred, but that one can't be used during
@@ -306,6 +370,24 @@ public final class LinkCommandLine extends CommandLine {
    * @return raw link command line.
    */
   public List<String> getRawLinkArgv(@Nullable ArtifactExpander expander) {
+    return getRawLinkArgv(
+        expander,
+        forcedToolPath,
+        featureConfiguration,
+        actionName,
+        linkTargetType,
+        crosstoolTopPathFragment,
+        variables);
+  }
+
+  private static List<String> getRawLinkArgv(
+      @Nullable ArtifactExpander expander,
+      String forcedToolPath,
+      FeatureConfiguration featureConfiguration,
+      String actionName,
+      LinkTargetType linkTargetType,
+      PathFragment crosstoolTopPathFragment,
+      Variables variables) {
     List<String> argv = new ArrayList<>();
     if (forcedToolPath != null) {
       argv.add(forcedToolPath);
@@ -350,8 +432,8 @@ public final class LinkCommandLine extends CommandLine {
     private final RuleContext ruleContext;
     private String forcedToolPath;
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
-    private Iterable<? extends LinkerInput> linkerInputs = ImmutableList.of();
-    private Iterable<? extends LinkerInput> runtimeInputs = ImmutableList.of();
+    private Iterable<LinkerInput> linkerInputs = ImmutableList.of();
+    private Iterable<LinkerInput> runtimeInputs = ImmutableList.of();
     @Nullable private LinkTargetType linkTargetType;
     private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
     private ImmutableList<String> linkopts = ImmutableList.of();

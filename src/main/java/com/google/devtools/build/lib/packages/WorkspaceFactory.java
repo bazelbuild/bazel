@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -38,7 +39,7 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.Frame;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -228,7 +229,7 @@ public class WorkspaceFactory {
     // also have a package builder specific to the current part and should be reinitialized for
     // each workspace file.
     ImmutableMap.Builder<String, Object> bindingsBuilder = ImmutableMap.builder();
-    Frame globals = workspaceEnv.getGlobals();
+    GlobalFrame globals = workspaceEnv.getGlobals();
     for (String s : globals.getBindings().keySet()) {
       Object o = globals.get(s);
       if (!isAWorkspaceFunction(s, o)) {
@@ -326,8 +327,9 @@ public class WorkspaceFactory {
                 if (errorMessage != null) {
                   throw new EvalException(ast.getLocation(), errorMessage);
                 }
-                PackageFactory.getContext(env, ast).pkgBuilder.setWorkspaceName(name);
-                Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+                PackageFactory.getContext(env, ast.getLocation()).pkgBuilder.setWorkspaceName(name);
+                Package.Builder builder =
+                    PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
                 RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
                 RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
                 Map<String, Object> kwargs =
@@ -365,7 +367,7 @@ public class WorkspaceFactory {
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
           try {
-            Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+            Package.Builder builder = PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
             RuleClass ruleClass = ruleFactory.getRuleClass("bind");
             WorkspaceFactoryHelper.addBindRule(
                 builder,
@@ -400,7 +402,7 @@ public class WorkspaceFactory {
           generic1 = String.class,
           doc = "The labels of the platforms to register."
         ),
-    useAst = true,
+    useLocation = true,
     useEnvironment = true
   )
   private static final BuiltinFunction.Factory newRegisterExecutionPlatformsFunction =
@@ -409,9 +411,9 @@ public class WorkspaceFactory {
           return new BuiltinFunction(
               "register_execution_platforms",
               FunctionSignature.POSITIONALS,
-              BuiltinFunction.USE_AST_ENV) {
+              BuiltinFunction.USE_LOC_ENV) {
             public Object invoke(
-                SkylarkList<String> platformLabels, FuncallExpression ast, Environment env)
+                SkylarkList<String> platformLabels, Location location, Environment env)
                 throws EvalException, InterruptedException {
 
               // Collect the platform labels.
@@ -421,7 +423,7 @@ public class WorkspaceFactory {
                   platforms.add(Label.parseAbsolute(rawLabel));
                 } catch (LabelSyntaxException e) {
                   throw new EvalException(
-                      ast.getLocation(),
+                      location,
                       String.format(
                           "In register_execution_platforms: unable to parse platform label %s: %s",
                           rawLabel, e.getMessage()),
@@ -430,7 +432,8 @@ public class WorkspaceFactory {
               }
 
               // Add to the package definition for later.
-              Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+              Package.Builder builder =
+                  PackageFactory.getContext(env, location).pkgBuilder;
               builder.addRegisteredExecutionPlatformLabels(platforms);
 
               return NONE;
@@ -453,16 +456,16 @@ public class WorkspaceFactory {
           generic1 = String.class,
           doc = "The labels of the toolchains to register."
         ),
-    useAst = true,
+    useLocation = true,
     useEnvironment = true
   )
   private static final BuiltinFunction.Factory newRegisterToolchainsFunction =
       new BuiltinFunction.Factory("register_toolchains") {
         public BuiltinFunction create(final RuleFactory ruleFactory) {
           return new BuiltinFunction(
-              "register_toolchains", FunctionSignature.POSITIONALS, BuiltinFunction.USE_AST_ENV) {
+              "register_toolchains", FunctionSignature.POSITIONALS, BuiltinFunction.USE_LOC_ENV) {
             public Object invoke(
-                SkylarkList<String> toolchainLabels, FuncallExpression ast, Environment env)
+                SkylarkList<String> toolchainLabels, Location location, Environment env)
                 throws EvalException, InterruptedException {
 
               // Collect the toolchain labels.
@@ -473,7 +476,7 @@ public class WorkspaceFactory {
                   toolchains.add(Label.parseAbsolute(rawLabel));
                 } catch (LabelSyntaxException e) {
                   throw new EvalException(
-                      ast.getLocation(),
+                      location,
                       String.format(
                           "In register_toolchains: unable to parse toolchain label %s: %s",
                           rawLabel, e.getMessage()),
@@ -482,7 +485,8 @@ public class WorkspaceFactory {
               }
 
               // Add to the package definition for later.
-              Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+              Package.Builder builder =
+                  PackageFactory.getContext(env, location).pkgBuilder;
               builder.addRegisteredToolchainLabels(toolchains);
 
               return NONE;
@@ -502,7 +506,7 @@ public class WorkspaceFactory {
       public Object invoke(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
         try {
-          Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+          Package.Builder builder = PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
           if (!allowOverride
               && kwargs.containsKey("name")
               && builder.targets.containsKey(kwargs.get("name"))) {

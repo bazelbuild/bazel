@@ -91,11 +91,9 @@ public final class SymlinkTreeAction extends AbstractAction {
   }
 
   @Override
-  protected String computeKey(ActionKeyContext actionKeyContext) {
-    Fingerprint f = new Fingerprint();
-    f.addString(GUID);
-    f.addInt(filesetTree ? 1 : 0);
-    return f.hexDigestAndReset();
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
+    fp.addInt(filesetTree ? 1 : 0);
   }
 
   @Override

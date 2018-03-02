@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions.util;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
@@ -24,9 +23,6 @@ import java.util.Objects;
 @VisibleForTesting
 @AutoCodec
 public class LabelArtifactOwner implements ArtifactOwner {
-
-  public static final ObjectCodec<LabelArtifactOwner> CODEC = new LabelArtifactOwner_AutoCodec();
-
   private final Label label;
 
   @VisibleForTesting

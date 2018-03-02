@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.analysis.skylark;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 
 /** A Skylark module class to create memory efficient command lines. */
 @SkylarkModule(
@@ -33,10 +31,8 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 )
 public class SkylarkCommandLine {
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "join_paths",
-    objectType = SkylarkCommandLine.class,
-    returnType = String.class,
     doc =
         "Deprecated. Creates a single command line argument joining the paths of a set "
             + "of files on the separator string.",
@@ -50,16 +46,9 @@ public class SkylarkCommandLine {
       )
     }
   )
-  private static BuiltinFunction joinPaths =
-      new BuiltinFunction("join_paths") {
-        public String invoke(String separator, SkylarkNestedSet files) {
-          NestedSet<Artifact> artifacts = files.getSet(Artifact.class);
-          // TODO(bazel-team): lazy evaluate
-          return Artifact.joinExecPaths(separator, artifacts);
-        }
-      };
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkCommandLine.class);
+  public String joinPaths(String separator, SkylarkNestedSet files) {
+    NestedSet<Artifact> artifacts = files.getSet(Artifact.class);
+    // TODO(bazel-team): lazy evaluate
+    return Artifact.joinExecPaths(separator, artifacts);
   }
 }

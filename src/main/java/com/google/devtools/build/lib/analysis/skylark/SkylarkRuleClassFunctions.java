@@ -32,12 +32,10 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -46,9 +44,6 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -91,7 +86,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
@@ -1247,29 +1241,6 @@ public class SkylarkRuleClassFunctions {
               .replace("\t", "\\t");
         }
       };
-
-  @SkylarkSignature(name = "output_group",
-      documented = false, //  TODO(dslomov): document.
-      objectType =  TransitiveInfoCollection.class,
-      returnType = SkylarkNestedSet.class,
-      parameters = {
-          @Param(name = "self", type = TransitiveInfoCollection.class, doc =
-              "this target"
-          ),
-          @Param(name = "group_name", type = String.class, doc =
-              "Output group name"
-          )
-      }
-  )
-  private static final BuiltinFunction output_group = new BuiltinFunction("output_group") {
-    public SkylarkNestedSet invoke(TransitiveInfoCollection self, String group) {
-      OutputGroupInfo provider = OutputGroupInfo.get(self);
-      NestedSet<Artifact> result = provider != null
-          ? provider.getOutputGroup(group)
-          : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-      return SkylarkNestedSet.of(Artifact.class, result);
-    }
-  };
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);

@@ -251,11 +251,11 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:nodeps");
     ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
-    assertThat(sourcesProvider.getTransitiveProtoPathFlags()).containsExactly("--proto_path=x/foo");
+    assertThat(sourcesProvider.getTransitiveProtoPathFlags()).containsExactly("x/foo");
 
     SupportData supportData =
         protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
-    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("--proto_path=x/foo");
+    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("x/foo");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:nodeps"))
         .getRemainingArguments())
@@ -304,11 +304,11 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
     ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
-    assertThat(sourcesProvider.getTransitiveProtoPathFlags()).containsExactly("--proto_path=x/foo");
+    assertThat(sourcesProvider.getTransitiveProtoPathFlags()).containsExactly("x/foo");
 
     SupportData supportData =
         protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
-    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("--proto_path=x/foo");
+    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("x/foo");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
         .getRemainingArguments())
@@ -342,12 +342,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
     ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
     assertThat(sourcesProvider.getTransitiveProtoPathFlags())
-        .containsExactly("--proto_path=x/foo", "--proto_path=x/bar");
+        .containsExactly("x/foo", "x/bar");
 
     SupportData supportData =
         protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
     assertThat(supportData.getTransitiveProtoPathFlags())
-        .containsExactly("--proto_path=x/foo", "--proto_path=x/bar");
+        .containsExactly("x/foo", "x/bar");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
         .getRemainingArguments())

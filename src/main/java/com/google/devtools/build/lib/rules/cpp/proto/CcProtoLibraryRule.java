@@ -14,16 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp.proto;
 
-import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /** Declaration part of cc_proto_library. */
@@ -37,12 +33,6 @@ public class CcProtoLibraryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-    Function<Rule, AspectParameters> aspectParameters =
-        rule ->
-            new AspectParameters.Builder()
-                .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "cc_proto_library")
-                .build();
-
     return builder
         /* <!-- #BLAZE_RULE(cc_proto_library).ATTRIBUTE(deps) -->
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
@@ -52,7 +42,7 @@ public class CcProtoLibraryRule implements RuleDefinition {
             attr("deps", LABEL_LIST)
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
-                .aspect(ccProtoAspect, aspectParameters))
+                .aspect(ccProtoAspect))
         .build();
   }
 

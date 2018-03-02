@@ -232,17 +232,13 @@ public class JavaTargetAttributes {
     }
 
     /**
-     * In tandem with strictJavaDeps, directJars represents a subset of the compile-time, classpath
+     * In tandem with strictJavaDeps, directJars represents a subset of the compile-time classpath
      * jars that were provided by direct dependencies. When strictJavaDeps is OFF, there is no need
      * to provide directJars, and no extra information is passed to javac. When strictJavaDeps is
      * set to WARN or ERROR, the compiler command line will include extra flags to indicate the
      * warning/error policy and to map the classpath jars to direct or transitive dependencies,
-     * using the information in directJars. The extra flags are formatted like this (same for
-     * --indirect_dependency): <pre>
-     * --direct_dependency
-     * foo/bar/lib.jar
-     * //java/com/google/foo:bar
-     * </pre>
+     * using the information in directJars. The compiler command line will include an extra flag to
+     * indicate which classpath jars are direct dependencies.
      */
     public Builder addDirectJars(NestedSet<Artifact> directJars) {
       Preconditions.checkArgument(!built);

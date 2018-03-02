@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -44,6 +43,7 @@ import java.util.Objects;
  * directories above that one, but they don't need to be re-run.
  */
 public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
+  @AutoCodec
   public static final PrepareDepsOfTargetsUnderDirectoryValue INSTANCE =
       new PrepareDepsOfTargetsUnderDirectoryValue();
 
@@ -74,9 +74,6 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
    */
   @AutoCodec
   public static final class PrepareDepsOfTargetsUnderDirectoryKey implements Serializable {
-    public static final ObjectCodec<PrepareDepsOfTargetsUnderDirectoryKey> CODEC =
-        new PrepareDepsOfTargetsUnderDirectoryValue_PrepareDepsOfTargetsUnderDirectoryKey_AutoCodec();
-
     private final RecursivePkgKey recursivePkgKey;
     private final FilteringPolicy filteringPolicy;
 

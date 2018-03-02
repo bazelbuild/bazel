@@ -211,8 +211,8 @@ public class MethodLibrary {
     objectType = StringModule.class,
     returnType = String.class,
     doc =
-        "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
-            + "are removed."
+        "Returns a copy of the string where leading or trailing characters that appear in "
+            + "<code>chars</code> are removed."
             + "<pre class=\"language-python\">"
             + "\"aabcbcbaa\".strip(\"ab\") == \"cbc\""
             + "</pre>",
@@ -1544,24 +1544,6 @@ public class MethodLibrary {
         list.add(entries.getKey());
       }
       return MutableList.wrapUnsafe(env, list);
-    }
-  };
-
-  @SkylarkSignature(name = "get", objectType = SkylarkDict.class,
-      doc = "Returns the value for <code>key</code> if <code>key</code> is in the dictionary, "
-          + "else <code>default</code>. If <code>default</code> is not given, it defaults to "
-          + "<code>None</code>, so that this method never throws an error.",
-      parameters = {
-        @Param(name = "self", doc = "This dict."),
-        @Param(name = "key", doc = "The key to look for."),
-        @Param(name = "default", defaultValue = "None",
-            doc = "The default value to use (instead of None) if the key is not found.")})
-  private static final BuiltinFunction get = new BuiltinFunction("get") {
-    public Object invoke(SkylarkDict<?, ?> self, Object key, Object defaultValue) {
-      if (self.containsKey(key)) {
-        return self.get(key);
-      }
-      return defaultValue;
     }
   };
 

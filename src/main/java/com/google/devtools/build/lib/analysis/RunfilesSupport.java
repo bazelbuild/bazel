@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.Type;
@@ -73,8 +72,6 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class RunfilesSupport {
-  public static final ObjectCodec<RunfilesSupport> CODEC = new RunfilesSupport_AutoCodec();
-
   private static final String RUNFILES_DIR_EXT = ".runfiles";
 
   private final Runfiles runfiles;

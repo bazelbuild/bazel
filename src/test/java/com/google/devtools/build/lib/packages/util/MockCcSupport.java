@@ -315,6 +315,7 @@ public abstract class MockCcSupport {
           + "    expand_if_all_available: 'thinlto_param_file'"
           + "    action: 'c++-link-executable'"
           + "    action: 'c++-link-dynamic-library'"
+          + "    action: 'c++-link-nodeps-dynamic-library'"
           + "    action: 'c++-link-static-library'"
           + "    action: 'c++-link-alwayslink-static-library'"
           + "    action: 'c++-link-pic-static-library'"
@@ -400,6 +401,7 @@ public abstract class MockCcSupport {
           + "    action: 'c++-compile'"
           + "    action: 'c++-link-interface-dynamic-library'"
           + "    action: 'c++-link-dynamic-library'"
+          + "    action: 'c++-link-nodeps-dynamic-library'"
           + "    action: 'c++-link-executable'"
           + "    flag_group {"
           + "      flag: 'fdo_instrument_option'"
@@ -471,6 +473,9 @@ public abstract class MockCcSupport {
       emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
 
   public static final String EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG =
+      emptyActionConfigFor(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
+
+  public static final String EMPTY_TRANSITIVE_DYNAMIC_LIBRARY_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.DYNAMIC_LIBRARY.getActionName());
 
   public static final String EMPTY_STATIC_LIBRARY_ACTION_CONFIG =
