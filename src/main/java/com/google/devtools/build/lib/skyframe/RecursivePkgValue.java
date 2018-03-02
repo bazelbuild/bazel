@@ -110,7 +110,7 @@ public class RecursivePkgValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "rootedPath=" + rootedPath + ", excludedPaths=<omitted>)";
+      return "rootedPath=" + rootedPath + ", excludedPaths=<omitted>";
     }
 
     @Override
