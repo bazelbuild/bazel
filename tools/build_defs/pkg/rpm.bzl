@@ -22,7 +22,7 @@ def _pkg_rpm_impl(ctx):
   files = []
   args = ["--name=" + ctx.label.name]
 
-  # Version can be specified by a file or inlined
+  # Version can be specified by a file or inlined.
   if ctx.attr.version_file:
     if ctx.attr.version:
       fail("Both version and version_file attributes were specified")
@@ -31,7 +31,7 @@ def _pkg_rpm_impl(ctx):
   elif ctx.attr.version:
     args += ["--version=" + ctx.attr.version]
 
-  # Release can be specified by a file or inlined
+  # Release can be specified by a file or inlined.
   if ctx.attr.release_file:
     if ctx.attr.release:
       fail("Both release and release_file attributes were specified")
@@ -121,6 +121,13 @@ pkg_rpm = rule(
 
 This runs rpmbuild (and requires it to be installed beforehand) to generate
 an RPM package based on the spec_file and data attributes.
+
+Two outputs are guaranteed to be produced: (1) "%{name}.rpm", and
+(2) "%{name}-%{architecture}.rpm", and a third output, which follows the
+RPM-recommended N-V-R.A format (Name-Version-Release.Architecture.rpm), will
+be produced if the "version" and "release" arguments are non-empty. The labels
+corresponding to these outputs, are (1) "out", (2) "rpm", and (3) "rpm_nvra",
+respectively.
 
 Args:
   spec_file: The RPM spec file to use. If the version or version_file
