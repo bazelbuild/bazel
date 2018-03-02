@@ -15,14 +15,11 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -44,7 +40,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -58,7 +53,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.LazyString;
@@ -68,7 +62,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -385,54 +378,6 @@ public final class JavaCompileAction extends SpawnAction {
   }
 
   /**
-   * Builds the list of mappings between jars on the classpath and their originating targets names.
-   */
-  @VisibleForTesting
-  static class JarsToTargetsArgv extends CustomMultiArgv {
-    private final Iterable<Artifact> classpath;
-    private final NestedSet<Artifact> directJars;
-
-    @VisibleForTesting
-    JarsToTargetsArgv(Iterable<Artifact> classpath, NestedSet<Artifact> directJars) {
-      this.classpath = classpath;
-      this.directJars = directJars;
-    }
-
-    @Override
-    public Iterable<String> argv() {
-      Set<Artifact> directJarSet = directJars.toSet();
-      ImmutableList.Builder<String> builder = ImmutableList.builder();
-      for (Artifact jar : classpath) {
-        builder.add(directJarSet.contains(jar) ? "--direct_dependency" : "--indirect_dependency");
-        builder.add(jar.getExecPathString());
-        builder.add(getArtifactOwnerGeneralizedLabel(jar));
-      }
-      return builder.build();
-    }
-
-    private String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
-      // The simple case can simply return the label,
-      // avoiding any concatenation or StringBuilder garbage
-      ArtifactOwner owner = checkNotNull(artifact.getArtifactOwner(), artifact);
-      Label label = owner.getLabel();
-      boolean isDefaultOrMain =
-          label.getPackageIdentifier().getRepository().isDefault()
-              || label.getPackageIdentifier().getRepository().isMain();
-      String result =
-          isDefaultOrMain ? label.toString() : "@" + label; // Escape '@' prefix for .params file.
-      if (owner instanceof AspectValue.AspectKey) {
-        AspectValue.AspectKey aspectOwner = (AspectValue.AspectKey) owner;
-        ImmutableCollection<String> injectingRuleKind =
-            aspectOwner.getParameters().getAttribute(INJECTING_RULE_KIND_PARAMETER_KEY);
-        if (injectingRuleKind.size() == 1) {
-          result += ' ' + getOnlyElement(injectingRuleKind);
-        }
-      }
-      return result;
-    }
-  }
-
-  /**
    * Tells {@link Builder} how to create new artifacts. Is there so that {@link Builder} can be
    * exercised in tests without creating a full {@link RuleContext}.
    */
@@ -743,7 +688,7 @@ public final class JavaCompileAction extends SpawnAction {
       // written out and whether we try to minimize the compile-time classpath.
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
         result.add("--strict_java_deps", strictJavaDeps.toString());
-        result.addCustomMultiArgv(new JarsToTargetsArgv(classpathEntries, directJars));
+        result.addExecPaths("--direct_dependencies", directJars);
 
         if (configuration.getFragment(JavaConfiguration.class).getReduceJavaClasspath()
             == JavaClasspathMode.JAVABUILDER) {

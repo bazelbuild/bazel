@@ -585,8 +585,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
         result.addExecPaths("--processorpath", processorPath);
       }
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
-        result.addCustomMultiArgv(
-            new JavaCompileAction.JarsToTargetsArgv(classpathEntries, directJars));
+        result.addExecPaths("--direct_dependencies", directJars);
         if (!compileTimeDependencyArtifacts.isEmpty()) {
           result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
         }
