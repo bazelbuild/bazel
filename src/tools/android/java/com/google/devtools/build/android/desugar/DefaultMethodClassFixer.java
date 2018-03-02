@@ -649,6 +649,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
   /** Comparator for interfaces that compares by whether interfaces extend one another. */
   enum InterfaceComparator implements Comparator<Class<?>> {
+    /** Orders subtypes before supertypes and breaks ties lexicographically. */
     INSTANCE;
 
     @Override

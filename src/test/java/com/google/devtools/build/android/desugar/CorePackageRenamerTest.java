@@ -35,7 +35,6 @@ public class CorePackageRenamerTest {
             new CoreLibrarySupport(
                 new CoreLibraryRewriter(""),
                 null,
-                null,
                 ImmutableList.of("java/time/"),
                 ImmutableList.of(),
                 ImmutableList.of("java/util/A#m->java/time/B"),
