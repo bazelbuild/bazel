@@ -116,6 +116,14 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setLabel(makeLabel("//platform/plat1"))
                 .addConstraint(value1)
                 .build())
+        .addEqualityGroup(
+            // Different remote exec properties.
+            PlatformInfo.builder()
+                .setLabel(makeLabel("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .setRemoteExecutionProperties("foo")
+                .build())
         .testEquals();
   }
 
