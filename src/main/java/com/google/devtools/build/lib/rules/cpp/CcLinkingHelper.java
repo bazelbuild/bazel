@@ -49,6 +49,9 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -76,6 +79,11 @@ public final class CcLinkingHelper {
   public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "dynamic_library";
 
   /** Contains the providers as well as the linking outputs. */
+  @SkylarkModule(
+    name = "linking_info",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "Helper class containing CC linking providers."
+  )
   public static final class LinkingInfo {
     private final TransitiveInfoProviderMap providers;
     private final Map<String, NestedSet<Artifact>> outputGroups;
@@ -96,6 +104,11 @@ public final class CcLinkingHelper {
 
     public TransitiveInfoProviderMap getProviders() {
       return providers;
+    }
+
+    @SkylarkCallable(name = "cc_link_params_info", documented = false)
+    public CcLinkParamsInfo getCcLinkParamsInfo() {
+      return (CcLinkParamsInfo) providers.getProvider(CcLinkParamsInfo.PROVIDER.getKey());
     }
 
     public Map<String, NestedSet<Artifact>> getOutputGroups() {
@@ -425,6 +438,8 @@ public final class CcLinkingHelper {
    *
    * @throws RuleErrorException
    */
+  // TODO(b/73997894): Try to remove CcCompilationInfo. Right now headers are passed as non code
+  // inputs to the linker.
   public LinkingInfo link(CcCompilationOutputs ccOutputs, CcCompilationInfo ccCompilationInfo)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);

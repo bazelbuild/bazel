@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,6 +48,13 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
+@SkylarkModule(
+  name = "cc_compilation_info",
+  category = SkylarkModuleCategory.PROVIDER,
+  doc =
+      "Immutable store of information needed for C++ compilation that is aggregated across "
+          + "dependencies."
+)
 public final class CcCompilationInfo extends NativeInfo {
   public static final NativeProvider<CcCompilationInfo> PROVIDER =
       new NativeProvider<CcCompilationInfo>(CcCompilationInfo.class, "CcCompilationInfo") {};

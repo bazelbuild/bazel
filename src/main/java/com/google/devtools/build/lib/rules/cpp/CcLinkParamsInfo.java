@@ -23,10 +23,18 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** A target that provides C linker parameters. */
 @Immutable
 @AutoCodec
+@SkylarkModule(
+  name = "cc_link_params_info",
+  title = "cc_link_params_info",
+  category = SkylarkModuleCategory.PROVIDER,
+  doc = "Link params provider"
+)
 public final class CcLinkParamsInfo extends NativeInfo {
   public static final NativeProvider<CcLinkParamsInfo> PROVIDER =
       new NativeProvider<CcLinkParamsInfo>(CcLinkParamsInfo.class, "link_params") {};
