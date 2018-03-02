@@ -44,6 +44,7 @@ class CoreLibrarySupport {
   private final ClassLoader targetLoader;
   /** Internal name prefixes that we want to move to a custom package. */
   private final ImmutableSet<String> renamedPrefixes;
+  private final ImmutableSet<String> excludeFromEmulation;
   /** Internal names of interfaces whose default and static interface methods we'll emulate. */
   private final ImmutableSet<Class<?>> emulatedInterfaces;
   /** Map from {@code owner#name} core library members to their new owners. */
@@ -58,13 +59,16 @@ class CoreLibrarySupport {
       GeneratedClassStore store,
       List<String> renamedPrefixes,
       List<String> emulatedInterfaces,
-      List<String> memberMoves) {
+      List<String> memberMoves,
+      List<String> excludeFromEmulation) {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
     this.store = store;
     checkArgument(
         renamedPrefixes.stream().allMatch(prefix -> prefix.startsWith("java/")), renamedPrefixes);
     this.renamedPrefixes = ImmutableSet.copyOf(renamedPrefixes);
+    this.excludeFromEmulation = ImmutableSet.copyOf(excludeFromEmulation);
+
     ImmutableSet.Builder<Class<?>> classBuilder = ImmutableSet.builder();
     for (String itf : emulatedInterfaces) {
       checkArgument(itf.startsWith("java/util/"), itf);
@@ -86,6 +90,8 @@ class CoreLibrarySupport {
       checkArgument(!isRenamedCoreLibrary(pair.get(0).substring(0, sep)),
           "Original renamed, no need to move it: %s", move);
       checkArgument(isRenamedCoreLibrary(pair.get(1)), "Target not renamed: %s", move);
+      checkArgument(!this.excludeFromEmulation.contains(pair.get(0)),
+          "Retargeted invocation %s shouldn't overlap with excluded", move);
 
       movesBuilder.put(pair.get(0), renameCoreLibrary(pair.get(1)));
     }
@@ -245,6 +251,9 @@ class CoreLibrarySupport {
     // we can only get here if its a default method, and invokestatic we handled above.
     Method callee = findInterfaceMethod(clazz, name, desc);
     if (callee != null && callee.isDefault()) {
+      if (isExcluded(callee)) {
+        return null;
+      }
       Class<?> result = callee.getDeclaringClass();
       if (isRenamedCoreLibrary(result.getName().replace('.', '/'))
           || emulatedInterfaces.stream().anyMatch(emulated -> emulated.isAssignableFrom(result))) {
@@ -292,6 +301,12 @@ class CoreLibrarySupport {
       return clazz;
     }
     return null;
+  }
+
+  private boolean isExcluded(Method method) {
+    String unprefixedOwner =
+        rewriter.unprefix(method.getDeclaringClass().getName().replace('.', '/'));
+    return excludeFromEmulation.contains(unprefixedOwner + "#" + method.getName());
   }
 
   private Class<?> loadFromInternal(String internalName) {

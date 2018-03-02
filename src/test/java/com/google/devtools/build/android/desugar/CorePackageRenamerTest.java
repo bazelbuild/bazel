@@ -38,7 +38,8 @@ public class CorePackageRenamerTest {
                 null,
                 ImmutableList.of("java/time/"),
                 ImmutableList.of(),
-                ImmutableList.of("java/util/A#m->java/time/B")));
+                ImmutableList.of("java/util/A#m->java/time/B"),
+                ImmutableList.of()));
     MethodVisitor mv = renamer.visitMethod(0, "test", "()V", null, null);
 
     mv.visitMethodInsn(

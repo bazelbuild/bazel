@@ -292,6 +292,17 @@ class Desugar {
     )
     public List<String> retargetCoreLibraryMembers;
 
+    /** Members not to rewrite. */
+    @Option(
+      name = "dont_rewrite_core_library_invocation",
+      defaultValue = "", // ignored
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Method invocations not to rewrite, given as \"class/Name#method\"."
+    )
+    public List<String> dontTouchCoreLibraryMembers;
+
     /** Set to work around b/62623509 with JaCoCo versions prior to 0.7.9. */
     // TODO(kmb): Remove when Android Studio doesn't need it anymore (see b/37116789)
     @Option(
@@ -409,8 +420,9 @@ class Desugar {
                   store,
                   options.rewriteCoreLibraryPrefixes,
                   options.emulateCoreLibraryInterfaces,
-                  options.retargetCoreLibraryMembers)
-          : null;
+                  options.retargetCoreLibraryMembers,
+                  options.dontTouchCoreLibraryMembers)
+              : null;
 
       desugarClassesInInput(
           inputFiles,
