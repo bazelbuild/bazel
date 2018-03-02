@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
 /**
  * A configuration transition that composes two other transitions in an ordered sequence.
  *
  * <p>Example:
+ *
  * <pre>
  *   transition1: { someSetting = $oldVal + " foo" }
  *   transition2: { someSetting = $oldVal + " bar" }
@@ -33,16 +35,18 @@ import java.util.List;
  * combination thereof. We implement this class as a {@link SplitTransition} since that abstraction
  * captures all possible combinations.
  */
+@AutoCodec
 public class ComposingSplitTransition implements SplitTransition {
   private ConfigurationTransition transition1;
   private ConfigurationTransition transition2;
 
   /**
-   * Creates a {@link ComposingSplitTransition} that applies the sequence:
-   * {@code fromOptions -> transition1 -> transition2 -> toOptions  }.
+   * Creates a {@link ComposingSplitTransition} that applies the sequence: {@code fromOptions ->
+   * transition1 -> transition2 -> toOptions }.
    */
-  public ComposingSplitTransition(ConfigurationTransition transition1,
-      ConfigurationTransition transition2) {
+  @AutoCodec.Instantiator
+  public ComposingSplitTransition(
+      ConfigurationTransition transition1, ConfigurationTransition transition2) {
     this.transition1 = verifySupported(transition1);
     this.transition2 = verifySupported(transition2);
   }

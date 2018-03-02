@@ -16,17 +16,25 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A {@link ComposingSplitTransition} that only supports {@link PatchTransition}s
  *
  * <p>Calling code that doesn't want to have to handle splits should prefer this version.
  */
+@AutoCodec
 public class ComposingPatchTransition implements PatchTransition {
   private final ComposingSplitTransition delegate;
 
   public ComposingPatchTransition(PatchTransition transition1, PatchTransition transition2) {
-    this.delegate = new ComposingSplitTransition(transition1, transition2);
+    this(new ComposingSplitTransition(transition1, transition2));
+  }
+
+  @AutoCodec.Instantiator
+  @AutoCodec.VisibleForSerialization
+  ComposingPatchTransition(ComposingSplitTransition delegate) {
+    this.delegate = delegate;
   }
 
   @Override

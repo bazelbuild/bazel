@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.List;
@@ -161,9 +162,10 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
 
   /**
    * Transition that results in one configured target per architecture specified in the
-   * platform-specific cpu flag for a particular platform type (for example, --watchos_cpus
-   * for watchos platform type).
+   * platform-specific cpu flag for a particular platform type (for example, --watchos_cpus for
+   * watchos platform type).
    */
+  @AutoCodec
   protected static class AppleBinaryTransition implements SplitTransition {
 
     private final PlatformType platformType;

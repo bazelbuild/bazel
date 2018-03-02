@@ -785,6 +785,7 @@ public class ResourceFilterFactory {
     return new AddDynamicallyConfiguredResourceFilteringTransition(attrs);
   }
 
+  @AutoCodec
   public static final PatchTransition REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION =
       new RemoveDynamicallyConfiguredResourceFilteringTransition();
 
@@ -796,6 +797,8 @@ public class ResourceFilterFactory {
     }
   }
 
+  // There is no codec for this class because AttributeMap can contain extremely heavyweight
+  // objects like Package.
   @VisibleForTesting
   static final class AddDynamicallyConfiguredResourceFilteringTransition
       extends BaseDynamicallyConfiguredResourceFilteringTransition {

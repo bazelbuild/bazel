@@ -52,17 +52,17 @@ public class LateBoundSplitUtil {
     public String fooFlag;
   }
 
-  /**
-   * The split.
-   */
-  private static final SplitTransition SIMPLE_SPLIT =
-      (SplitTransition) buildOptions -> {
-        BuildOptions split1 = buildOptions.clone();
-        split1.get(TestOptions.class).fooFlag = "one";
-        BuildOptions split2 = buildOptions.clone();
-        split2.get(TestOptions.class).fooFlag = "two";
-        return ImmutableList.of(split1, split2);
-      };
+  /** The split. */
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final SplitTransition SIMPLE_SPLIT =
+      (SplitTransition)
+          buildOptions -> {
+            BuildOptions split1 = buildOptions.clone();
+            split1.get(TestOptions.class).fooFlag = "one";
+            BuildOptions split2 = buildOptions.clone();
+            split2.get(TestOptions.class).fooFlag = "two";
+            return ImmutableList.of(split1, split2);
+          };
 
   /** The {@link BuildConfiguration.Fragment} that contains the options. */
   @AutoCodec
