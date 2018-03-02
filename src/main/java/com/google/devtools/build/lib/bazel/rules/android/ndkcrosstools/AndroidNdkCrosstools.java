@@ -43,6 +43,9 @@ public final class AndroidNdkCrosstools {
           // built-in includes paths, so we can reuse everything else.
           .put(14, new NdkMajorRevisionR13("3.8.275480"))
           .put(15, new NdkMajorRevisionR15("5.0.300080"))
+          // The only difference between r15 and r16 is that old headers are removed, forcing
+          // usage of the unified headers. Support for unified headers were added in r15.
+          .put(16, new NdkMajorRevisionR15("5.0.300080")) // no changes relevant to Bazel
           .build();
 
   public static final Map.Entry<Integer, NdkMajorRevision> LATEST_KNOWN_REVISION =
