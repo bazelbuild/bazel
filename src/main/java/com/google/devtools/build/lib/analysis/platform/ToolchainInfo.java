@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -38,6 +39,7 @@ import java.util.Map;
   doc = "Provides access to data about a specific toolchain.",
   category = SkylarkModuleCategory.PROVIDER
 )
+@AutoCodec
 @Immutable
 public class ToolchainInfo extends NativeInfo {
 
@@ -57,6 +59,7 @@ public class ToolchainInfo extends NativeInfo {
           /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.DICT));
 
   /** Skylark constructor and identifier for this provider. */
+  @AutoCodec
   public static final NativeProvider<ToolchainInfo> PROVIDER =
       new NativeProvider<ToolchainInfo>(ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
@@ -68,8 +71,9 @@ public class ToolchainInfo extends NativeInfo {
         }
       };
 
-  public ToolchainInfo(Map<String, Object> toolchainData, Location loc) {
-    super(PROVIDER, ImmutableMap.copyOf(toolchainData), loc);
+  @AutoCodec.Instantiator
+  public ToolchainInfo(Map<String, Object> values, Location location) {
+    super(PROVIDER, ImmutableMap.copyOf(values), location);
   }
 
   public static ToolchainInfo create(Map<String, Object> toolchainData) {

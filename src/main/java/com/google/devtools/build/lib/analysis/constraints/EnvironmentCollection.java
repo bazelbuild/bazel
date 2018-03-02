@@ -21,16 +21,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Map;
 
-/**
- * Contains a set of {@link Environment} labels and their associated groups.
- */
+/** Contains a set of {@link Environment} labels and their associated groups. */
+@AutoCodec
 @Immutable
 public class EnvironmentCollection {
   private final ImmutableMultimap<EnvironmentLabels, Label> map;
 
-  private EnvironmentCollection(ImmutableMultimap<EnvironmentLabels, Label> map) {
+  @VisibleForSerialization
+  EnvironmentCollection(ImmutableMultimap<EnvironmentLabels, Label> map) {
     this.map = map;
   }
 

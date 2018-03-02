@@ -17,11 +17,11 @@ package com.google.devtools.build.lib.analysis.constraints;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 
-/**
- * Standard {@link SupportedEnvironmentsProvider} implementation.
- */
+/** Standard {@link SupportedEnvironmentsProvider} implementation. */
+@AutoCodec
 public class SupportedEnvironments implements SupportedEnvironmentsProvider {
   private final EnvironmentCollection staticEnvironments;
   private final EnvironmentCollection refinedEnvironments;
