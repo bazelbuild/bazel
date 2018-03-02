@@ -215,17 +215,20 @@ analysis time.
 A generated file that is addressable by a label is called a *predeclared
 output*. There are multiple ways for a rule to introduce a predeclared output:
 
+* If the rule declares an [`outputs`](lib/globals.html#rule.outputs) dict in its
+  call to `rule()`, then each entry in this dict becomes an output. The output's
+  label is chosen automatically as specified by the entry, usually by
+  substituting into a string template. This is the most common way to define
+  outputs.
+  [See example](https://github.com/bazelbuild/examples/blob/master/rules/default_outputs/extension.bzl)
+
 * The rule can have an attribute of type [`output`](lib/attr.html#output) or
   [`output_list`](lib/attr.html#output_list). In this case the user explicitly
   chooses the label for the output when they instantiate the rule.
   [See example](https://github.com/bazelbuild/examples/blob/master/rules/custom_outputs/extension.bzl)
 
-* The rule can predeclare outputs using the [`outputs`](lib/globals.html#rule.outputs)
-  argument of the `rule()` function. The label for the output is chosen
-  automatically, usually by substituting into a template.
-  [See example](https://github.com/bazelbuild/examples/blob/master/rules/default_outputs/extension.bzl)
-
-* If the rule is marked [`executable`](lib/globals.html#rule.executable) or
+* **(Deprecated)** If the rule is marked
+  [`executable`](lib/globals.html#rule.executable) or
   [`test`](lib/globals.html#rule.test), an output is created with the same name
   as the rule instance itself. (Technically, the file has no label since it
   would clash with the rule instance's own label, but it is still considered a
@@ -235,8 +238,9 @@ output*. There are multiple ways for a rule to introduce a predeclared output:
   [See example](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
 
 All predeclared outputs can be accessed within the rule's implementation
-function under the [`ctx.outputs`](lib/ctx.html#output) struct. Non-predeclared
-outputs are created during analysis using the [`ctx.actions.declare_file`](lib/actions.html#declare_file)
+function under the [`ctx.outputs`](lib/ctx.html#output) struct; see that page
+for details and restrictions. Non-predeclared outputs are created during
+analysis using the [`ctx.actions.declare_file`](lib/actions.html#declare_file)
 and [`ctx.actions.declare_directory`](lib/actions.html#declare_directory)
 functions. Both kinds of outputs may be passed along in providers.
 
@@ -647,20 +651,21 @@ setting the respective [`executable`](lib/globals.html#rule.executable) or
 Test rules (but not necessarily their targets) must have names that end in
 `_test`. Non-test rules must not have this suffix.
 
-Both kinds of rules automatically predeclare an output file, which is made
-available to the rule implementation function under the name
-`ctx.outputs.executable`. The rule implementation function should produce an
-action that will generate a corresponding executable file on the file system.
-This means that if you use `ctx.actions.write()` to produce the file, then you
-should pass `is_executable=True`; and if you use `ctx.actions.run()` or
-`ctx.actions.run_shell()` instead, then you should ensure that the binary or
-script being invoked sets the executable bit when it creates the file.
+Both kinds of rules must produce an executable output file (which may or may not
+be predeclared) that will be invoked by the `run` or `test` commands. To tell
+Bazel which of a rule's outputs to use as this executable, pass it as the
+`executable` argument of a returned `DefaultInfo` provider.
 
-By default, this executable is what will be invoked by the `run` or `test`
-commands. Alternatively, you can override this behavior by passing a different
-file to the `executable` argument of a returned `DefaultInfo` provider. In that
-case, you should not attempt to create an action that has
-`ctx.outputs.executable` as an input or output.
+The action that generates this file must set the executable bit on the file. For
+a `ctx.actions.run()` or `ctx.actions.run_shell()` action this should be done by
+the underlying tool that is invoked by the action. For a `ctx.actions.write()`
+action it is done by passing the argument `is_executable=True`.
+
+As legacy behavior, executable rules have a special `ctx.outputs.executable`
+predeclared output. This file serves as the default executable if you do not
+specify one using `DefaultInfo`; it must not be used otherwise. This output
+mechanism is deprecated because it does not support customizing the executable
+file's name at analysis time.
 
 See examples of an [executable rule](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
 and a [test rule](https://github.com/bazelbuild/examples/blob/master/rules/test_rule/line_length.bzl).
