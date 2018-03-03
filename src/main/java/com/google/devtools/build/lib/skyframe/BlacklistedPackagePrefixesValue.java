@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -26,8 +25,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class BlacklistedPackagePrefixesValue implements SkyValue {
   private final ImmutableSet<PathFragment> patterns;
 
-  private static final SkyKey BLACKLIST_KEY =
-      LegacySkyKey.create(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, "");
+  @AutoCodec.VisibleForSerialization @AutoCodec
+  static final SkyKey BLACKLIST_KEY = () -> SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES;
 
   public BlacklistedPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     this.patterns = Preconditions.checkNotNull(patterns);

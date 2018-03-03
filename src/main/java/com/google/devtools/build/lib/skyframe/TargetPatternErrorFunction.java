@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -33,8 +37,29 @@ import javax.annotation.Nullable;
 public class TargetPatternErrorFunction implements SkyFunction {
   // We pass in the error message, which isn't ideal. We could consider reparsing the original
   // pattern instead, but that requires more information.
-  public static SkyKey key(String errorMessage) {
-    return LegacySkyKey.create(SkyFunctions.TARGET_PATTERN_ERROR, errorMessage);
+  public static Key key(String errorMessage) {
+    return Key.create(errorMessage);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<String> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(String arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(String arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TARGET_PATTERN_ERROR;
+    }
   }
 
   @Nullable

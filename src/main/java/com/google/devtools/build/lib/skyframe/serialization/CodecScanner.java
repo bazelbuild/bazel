@@ -96,7 +96,8 @@ public class CodecScanner {
                     e);
               }
               try {
-                builder.addConstant(field.get(null));
+                builder.addConstant(
+                    Preconditions.checkNotNull(field.get(null), "%s %s", field, type));
               } catch (IllegalAccessException e) {
                 throw new IllegalStateException(
                     "Could not access field " + field + " for " + type, e);

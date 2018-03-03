@@ -16,14 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -55,20 +56,30 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
   }
 
   @ThreadSafe
-  public static SkyKey key(ImmutableList<String> patterns, String offset) {
-    return LegacySkyKey.create(
-        SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new TargetPatternSequence(patterns, offset));
+  public static TargetPatternSequence key(ImmutableList<String> patterns, String offset) {
+    return TargetPatternSequence.create(patterns, offset);
   }
 
   /** The argument value for {@link SkyKey}s of {@link PrepareDepsOfPatternsFunction}. */
   @ThreadSafe
-  public static class TargetPatternSequence implements Serializable {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class TargetPatternSequence implements SkyKey {
+    private static final Interner<TargetPatternSequence> interner =
+        BlazeInterners.newWeakInterner();
+
     private final ImmutableList<String> patterns;
     private final String offset;
 
-    public TargetPatternSequence(ImmutableList<String> patterns, String offset) {
+    private TargetPatternSequence(ImmutableList<String> patterns, String offset) {
       this.patterns = Preconditions.checkNotNull(patterns);
       this.offset = Preconditions.checkNotNull(offset);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static TargetPatternSequence create(ImmutableList<String> patterns, String offset) {
+      return interner.intern(new TargetPatternSequence(patterns, offset));
     }
 
     public ImmutableList<String> getPatterns() {
@@ -102,6 +113,11 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
           .add("patterns", patterns)
           .add("offset", offset)
           .toString();
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.PREPARE_DEPS_OF_PATTERNS;
     }
   }
 

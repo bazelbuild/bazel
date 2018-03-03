@@ -14,13 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -63,15 +65,31 @@ public class SkylarkImportLookupValue implements SkyValue {
    * loaded from the WORKSPACE file or from a BUILD file.
    */
   @Immutable
-  public static final class SkylarkImportLookupKey implements Serializable {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static final class SkylarkImportLookupKey implements SkyKey {
+    private static final Interner<SkylarkImportLookupKey> interner =
+        BlazeInterners.newWeakInterner();
+
     public final Label importLabel;
     public final boolean inWorkspace;
 
-    public SkylarkImportLookupKey(Label importLabel, boolean inWorkspace) {
+    private SkylarkImportLookupKey(Label importLabel, boolean inWorkspace) {
       Preconditions.checkNotNull(importLabel);
       Preconditions.checkArgument(!importLabel.getPackageIdentifier().getRepository().isDefault());
       this.importLabel = importLabel;
       this.inWorkspace = inWorkspace;
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static SkylarkImportLookupKey create(Label importLabel, boolean inWorkspace) {
+      return interner.intern(new SkylarkImportLookupKey(importLabel, inWorkspace));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.SKYLARK_IMPORTS_LOOKUP;
     }
 
     @Override
@@ -99,8 +117,7 @@ public class SkylarkImportLookupValue implements SkyValue {
   }
 
   static SkyKey key(Label importLabel, boolean inWorkspace) {
-    return LegacySkyKey.create(
-        SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupKey(importLabel, inWorkspace));
+    return SkylarkImportLookupKey.create(importLabel, inWorkspace);
   }
 
   @Override

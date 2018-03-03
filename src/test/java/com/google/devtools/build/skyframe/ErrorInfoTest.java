@@ -47,7 +47,7 @@ public class ErrorInfoTest {
 
   private void runTestFromException(boolean isDirectlyTransient, boolean isTransitivelyTransient) {
     Exception exception = new IOException("ehhhhh");
-    SkyKey causeOfException = LegacySkyKey.create(SkyFunctionName.create("CAUSE"), 1234);
+    SkyKey causeOfException = GraphTester.toSkyKey("CAUSE, 1234");
     DummySkyFunctionException dummyException =
         new DummySkyFunctionException(exception, isDirectlyTransient, /*isCatastrophic=*/ false);
 
@@ -89,8 +89,8 @@ public class ErrorInfoTest {
   public void testFromCycle() {
     CycleInfo cycle =
         new CycleInfo(
-            ImmutableList.of(LegacySkyKey.create(SkyFunctionName.create("PATH"), 1234)),
-            ImmutableList.of(LegacySkyKey.create(SkyFunctionName.create("CYCLE"), 4321)));
+            ImmutableList.of(GraphTester.toSkyKey("PATH, 1234")),
+            ImmutableList.of(GraphTester.toSkyKey("CYCLE, 4321")));
 
     ErrorInfo errorInfo = ErrorInfo.fromCycle(cycle);
 
@@ -105,12 +105,12 @@ public class ErrorInfoTest {
   public void testFromChildErrors() {
     CycleInfo cycle =
         new CycleInfo(
-            ImmutableList.of(LegacySkyKey.create(SkyFunctionName.create("PATH"), 1234)),
-            ImmutableList.of(LegacySkyKey.create(SkyFunctionName.create("CYCLE"), 4321)));
+            ImmutableList.of(GraphTester.toSkyKey("PATH, 1234")),
+            ImmutableList.of(GraphTester.toSkyKey("CYCLE, 4321")));
     ErrorInfo cycleErrorInfo = ErrorInfo.fromCycle(cycle);
 
     Exception exception1 = new IOException("ehhhhh");
-    SkyKey causeOfException1 = LegacySkyKey.create(SkyFunctionName.create("CAUSE1"), 1234);
+    SkyKey causeOfException1 = GraphTester.toSkyKey("CAUSE1, 1234");
     DummySkyFunctionException dummyException1 =
         new DummySkyFunctionException(exception1, /*isTransient=*/ true, /*isCatastrophic=*/ false);
     ErrorInfo exceptionErrorInfo1 = ErrorInfo.fromException(
@@ -119,14 +119,14 @@ public class ErrorInfoTest {
 
     // N.B this ErrorInfo will be catastrophic.
     Exception exception2 = new IOException("blahhhhh");
-    SkyKey causeOfException2 = LegacySkyKey.create(SkyFunctionName.create("CAUSE2"), 5678);
+    SkyKey causeOfException2 = GraphTester.toSkyKey("CAUSE2, 5678");
     DummySkyFunctionException dummyException2 =
         new DummySkyFunctionException(exception2, /*isTransient=*/ false, /*isCatastrophic=*/ true);
     ErrorInfo exceptionErrorInfo2 = ErrorInfo.fromException(
         new ReifiedSkyFunctionException(dummyException2, causeOfException2),
         /*isTransitivelyTransient=*/ false);
 
-    SkyKey currentKey = LegacySkyKey.create(SkyFunctionName.create("CURRENT"), 9876);
+    SkyKey currentKey = GraphTester.toSkyKey("CURRENT, 9876");
 
     ErrorInfo errorInfo = ErrorInfo.fromChildErrors(
         currentKey, ImmutableList.of(cycleErrorInfo, exceptionErrorInfo1, exceptionErrorInfo2));
@@ -184,4 +184,3 @@ public class ErrorInfoTest {
     }
   }
 }
-

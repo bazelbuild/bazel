@@ -48,8 +48,8 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -98,11 +98,20 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       this.stateProvider = lateBoundStateProvider;
     }
 
-    /**
-     * Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair.
-     */
-    static SkyKey key(Target target, BuildConfiguration config) {
-      return LegacySkyKey.create(SKYFUNCTION_NAME, new TargetAndConfiguration(target, config));
+    /** Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair. */
+    private static Key key(Target target, BuildConfiguration config) {
+      return new Key(new TargetAndConfiguration(target, config));
+    }
+
+    private static class Key extends AbstractSkyKey<TargetAndConfiguration> {
+      private Key(TargetAndConfiguration arg) {
+        super(arg);
+      }
+
+      @Override
+      public SkyFunctionName functionName() {
+        return SKYFUNCTION_NAME;
+      }
     }
 
     /**

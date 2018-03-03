@@ -41,8 +41,6 @@ import org.junit.Test;
 
 /** Base class for sanity tests on {@link EvaluableGraph} implementations. */
 public abstract class GraphTest {
-
-  private static final SkyFunctionName SKY_FUNCTION_NAME = SkyFunctionName.FOR_TESTING;
   protected ProcessableGraph graph;
   protected TestRunnableWrapper wrapper;
   private final Version startingVersion = getStartingVersion();
@@ -71,7 +69,7 @@ public abstract class GraphTest {
   }
 
   protected SkyKey key(String name) {
-    return LegacySkyKey.create(SKY_FUNCTION_NAME, name);
+    return GraphTester.toSkyKey(name);
   }
 
   @Test

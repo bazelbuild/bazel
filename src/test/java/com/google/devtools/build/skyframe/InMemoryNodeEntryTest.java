@@ -43,15 +43,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class InMemoryNodeEntryTest {
-
-  private static final SkyFunctionName NODE_TYPE = SkyFunctionName.create("Type");
   private static final NestedSet<TaggedEvents> NO_EVENTS =
       NestedSetBuilder.<TaggedEvents>emptySet(Order.STABLE_ORDER);
   private static final NestedSet<Postable> NO_POSTS =
       NestedSetBuilder.<Postable>emptySet(Order.STABLE_ORDER);
 
   private static SkyKey key(String name) {
-    return LegacySkyKey.create(NODE_TYPE, name);
+    return GraphTester.toSkyKey(name);
   }
 
   @Test

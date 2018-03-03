@@ -52,9 +52,9 @@ import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
@@ -214,8 +214,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   // HELPER SKYFUNCTIONS
 
   // GetRuleByName.
-  SkyKey getRuleByNameKey(String ruleName) {
-    return LegacySkyKey.create(GET_RULE_BY_NAME_FUNCTION, ruleName);
+  private static SkyKey getRuleByNameKey(String ruleName) {
+    return new Key(ruleName);
   }
 
   EvaluationResult<GetRuleByNameValue> getRuleByName(SkyKey key) throws InterruptedException {
@@ -261,8 +261,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   }
 
   // GetRegisteredToolchains.
-  SkyKey getRegisteredToolchainsKey() {
-    return LegacySkyKey.create(GET_REGISTERED_TOOLCHAINS_FUNCTION, "singleton");
+  private static SkyKey getRegisteredToolchainsKey() {
+    return () -> GET_REGISTERED_TOOLCHAINS_FUNCTION;
   }
 
   EvaluationResult<GetRegisteredToolchainsValue> getRegisteredToolchains(SkyKey key)
@@ -309,8 +309,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   }
 
   // GetRegisteredExecutionPlatforms.
-  SkyKey getRegisteredExecutionPlatformsKey() {
-    return LegacySkyKey.create(GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION, "singleton");
+  private static SkyKey getRegisteredExecutionPlatformsKey() {
+    return () -> GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION;
   }
 
   EvaluationResult<GetRegisteredExecutionPlatformsValue> getRegisteredExecutionPlatforms(SkyKey key)
@@ -354,6 +354,17 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     @Override
     public String extractTag(SkyKey skyKey) {
       return null;
+    }
+  }
+
+  static class Key extends AbstractSkyKey<String> {
+    private Key(String arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return GET_RULE_BY_NAME_FUNCTION;
     }
   }
 }

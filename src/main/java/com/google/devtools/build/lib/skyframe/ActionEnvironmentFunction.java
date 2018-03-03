@@ -15,8 +15,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collections;
@@ -45,12 +49,33 @@ public final class ActionEnvironmentFunction implements SkyFunction {
     if (actionEnv.containsKey(key) && actionEnv.get(key) != null) {
       return new ClientEnvironmentValue(actionEnv.get(key));
     }
-    return env.getValue(LegacySkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, key));
+    return env.getValue(ClientEnvironmentFunction.key(key));
   }
 
   /** @return the SkyKey to invoke this function for the environment variable {@code variable}. */
-  public static SkyKey key(String variable) {
-    return LegacySkyKey.create(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, variable);
+  public static Key key(String variable) {
+    return Key.create(variable);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<String> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(String arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(String arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.ACTION_ENVIRONMENT_VARIABLE;
+    }
   }
 
   /**

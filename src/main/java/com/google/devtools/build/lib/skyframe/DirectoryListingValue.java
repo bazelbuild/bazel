@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
@@ -49,13 +52,34 @@ public abstract class DirectoryListingValue implements SkyValue {
   public abstract DirectoryListingStateValue getDirectoryListingStateValue();
 
   /**
-   * Returns a {@link SkyKey} for getting the directory entries of the given directory. The
-   * given path is assumed to be an existing directory (e.g. via {@link FileValue#isDirectory} or
-   * from a directory listing on its parent directory).
+   * Returns a {@link Key} for getting the directory entries of the given directory. The given path
+   * is assumed to be an existing directory (e.g. via {@link FileValue#isDirectory} or from a
+   * directory listing on its parent directory).
    */
   @ThreadSafe
-  public static SkyKey key(RootedPath directoryUnderRoot) {
-    return LegacySkyKey.create(SkyFunctions.DIRECTORY_LISTING, directoryUnderRoot);
+  public static Key key(RootedPath directoryUnderRoot) {
+    return Key.create(directoryUnderRoot);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RootedPath> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RootedPath arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RootedPath arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.DIRECTORY_LISTING;
+    }
   }
 
   static DirectoryListingValue value(RootedPath dirRootedPath, FileValue dirFileValue,

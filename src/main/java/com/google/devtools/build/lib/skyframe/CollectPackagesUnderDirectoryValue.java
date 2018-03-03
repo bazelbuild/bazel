@@ -17,12 +17,14 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -227,10 +229,33 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(
       RepositoryName repository, RootedPath rootedPath, ImmutableSet<PathFragment> excludedPaths) {
-    return key(new RecursivePkgKey(repository, rootedPath, excludedPaths));
+    return Key.create(repository, rootedPath, excludedPaths);
   }
 
-  static SkyKey key(RecursivePkgKey recursivePkgKey) {
-    return LegacySkyKey.create(SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY, recursivePkgKey);
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends RecursivePkgSkyKey {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(
+        RepositoryName repositoryName,
+        RootedPath rootedPath,
+        ImmutableSet<PathFragment> excludedPaths) {
+      super(repositoryName, rootedPath, excludedPaths);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(
+        RepositoryName repositoryName,
+        RootedPath rootedPath,
+        ImmutableSet<PathFragment> excludedPaths) {
+      return interner.intern(new Key(repositoryName, rootedPath, excludedPaths));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY;
+    }
   }
 }

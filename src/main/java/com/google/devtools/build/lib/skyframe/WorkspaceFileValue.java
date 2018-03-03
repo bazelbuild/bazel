@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
@@ -34,22 +37,24 @@ import java.util.Objects;
  */
 public class WorkspaceFileValue implements SkyValue {
 
-  /**
-   * Argument for the SkyKey to request a WorkspaceFileValue.
-   */
+  /** Argument for the SkyKey to request a WorkspaceFileValue. */
   @Immutable
-  public static class WorkspaceFileKey {
+  @AutoCodec
+  public static class WorkspaceFileKey implements SkyKey {
+    private static final Interner<WorkspaceFileKey> interner = BlazeInterners.newWeakInterner();
+
     private final RootedPath path;
     private final int idx;
 
-    /**
-     * Creates a Key for the WorkspaceFileFunction. The path to the workspace file is specified
-     * by {@code path}. This key will ask WorkspaceFileFunction to get the {@code idx+1}-th part of
-     * the workspace file (so idx = 0 represents the first part, idx = 1, the second part, etc...).
-     */
-    public WorkspaceFileKey(RootedPath path, int idx) {
+    private WorkspaceFileKey(RootedPath path, int idx) {
       this.path = path;
       this.idx = idx;
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static WorkspaceFileKey create(RootedPath path, int idx) {
+      return interner.intern(new WorkspaceFileKey(path, idx));
     }
 
     public RootedPath getPath() {
@@ -58,6 +63,11 @@ public class WorkspaceFileValue implements SkyValue {
 
     public int getIndex() {
       return idx;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.WORKSPACE_FILE;
     }
 
     @Override
@@ -134,8 +144,13 @@ public class WorkspaceFileValue implements SkyValue {
     return "<WorkspaceFileValue path=" + path + " idx=" + idx + ">";
   }
 
-  static SkyKey key(RootedPath path, int idx) {
-    return LegacySkyKey.create(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileKey(path, idx));
+  /**
+   * Creates a Key for the WorkspaceFileFunction. The path to the workspace file is specified by
+   * {@code path}. This key will ask WorkspaceFileFunction to get the {@code idx+1}-th part of the
+   * workspace file (so idx = 0 represents the first part, idx = 1, the second part, etc...).
+   */
+  static WorkspaceFileKey key(RootedPath path, int idx) {
+    return WorkspaceFileKey.create(path, idx);
   }
 
   public static SkyKey key(RootedPath path) {

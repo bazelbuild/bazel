@@ -77,8 +77,7 @@ public class SimpleCycleDetector implements CycleDetector {
    * value is popped, we know that all the children are finished. We would use null instead, but
    * ArrayDeque does not permit null elements.
    */
-  private static final SkyKey CHILDREN_FINISHED =
-      LegacySkyKey.create(SkyFunctionName.create("MARKER"), "MARKER");
+  private static final SkyKey CHILDREN_FINISHED = () -> null;
 
   /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
   private static final int MAX_CYCLES = 20;

@@ -261,7 +261,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     @Override
     public AspectCompletionValue createResult(AspectValue value) {
-      return new AspectCompletionValue(value);
+      return AspectCompletionValue.INSTANCE;
     }
 
     @Override

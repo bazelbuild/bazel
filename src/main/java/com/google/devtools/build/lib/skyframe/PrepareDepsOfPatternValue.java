@@ -14,14 +14,17 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.LegacySkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
@@ -174,16 +177,36 @@ public class PrepareDepsOfPatternValue implements SkyValue {
 
     private final TargetPatternKey targetPatternKey;
 
-    public PrepareDepsOfPatternSkyKeyValue(TargetPatternKey targetPatternKey) {
+    PrepareDepsOfPatternSkyKeyValue(TargetPatternKey targetPatternKey) {
       this.targetPatternKey = targetPatternKey;
     }
 
-    public SkyKey getSkyKey() {
-      return LegacySkyKey.create(SkyFunctions.PREPARE_DEPS_OF_PATTERN, targetPatternKey);
+    public Key getSkyKey() {
+      return Key.create(targetPatternKey);
     }
 
-    public String getOriginalPattern() {
-      return targetPatternKey.getPattern();
+    @AutoCodec
+    static class Key extends AbstractSkyKey<TargetPatternKey> {
+      private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+      private Key(TargetPatternKey arg) {
+        super(arg);
+      }
+
+      @AutoCodec.VisibleForSerialization
+      @AutoCodec.Instantiator
+      static Key create(TargetPatternKey arg) {
+        return interner.intern(new Key(arg));
+      }
+
+      TargetPatternKey getTargetPatternKey() {
+        return arg;
+      }
+
+      @Override
+      public SkyFunctionName functionName() {
+        return SkyFunctions.PREPARE_DEPS_OF_PATTERN;
+      }
     }
   }
 }

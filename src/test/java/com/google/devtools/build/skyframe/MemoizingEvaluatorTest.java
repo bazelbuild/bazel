@@ -142,7 +142,7 @@ public class MemoizingEvaluatorTest {
   }
 
   private static SkyKey toSkyKey(String name) {
-    return LegacySkyKey.create(NODE_TYPE, name);
+    return GraphTester.toSkyKey(name);
   }
 
   @Test

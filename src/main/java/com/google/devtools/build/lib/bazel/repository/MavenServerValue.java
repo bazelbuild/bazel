@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Arrays;
 import org.apache.maven.settings.Server;
@@ -34,9 +36,25 @@ public class MavenServerValue implements SkyValue {
   private final Server server;
   private final byte[] settingsFingerprint;
 
-  public static SkyKey key(String serverName) {
-    Preconditions.checkNotNull(serverName);
-    return LegacySkyKey.create(MavenServerFunction.NAME, serverName);
+  public static Key key(String serverName) {
+    return Key.create(Preconditions.checkNotNull(serverName));
+  }
+
+  static class Key extends AbstractSkyKey<String> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(String arg) {
+      super(arg);
+    }
+
+    static Key create(String arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return MavenServerFunction.NAME;
+    }
   }
 
   public static MavenServerValue createFromUrl(String url) {

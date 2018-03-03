@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
@@ -39,10 +41,31 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   /** If there is a containing package, returns its package root */
   public abstract Root getContainingPackageRoot();
 
-  public static SkyKey key(PackageIdentifier id) {
+  public static Key key(PackageIdentifier id) {
     Preconditions.checkArgument(!id.getPackageFragment().isAbsolute(), id);
     Preconditions.checkArgument(!id.getRepository().isDefault(), id);
-    return LegacySkyKey.create(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, id);
+    return Key.create(id);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<PackageIdentifier> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(PackageIdentifier arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(PackageIdentifier arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.CONTAINING_PACKAGE_LOOKUP;
+    }
   }
 
   public static ContainingPackage withContainingPackage(PackageIdentifier pkgId, Root root) {

@@ -15,6 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.io.Serializable;
 import org.junit.Test;
@@ -34,7 +36,7 @@ public class SkyKeyTest {
     assertThat(hashCodeSpy.getNumberOfTimesHashCodeCalled()).isEqualTo(0);
 
     // When a SkyKey is constructed with that HashCodeSpy as its argument,
-    SkyKey originalKey = LegacySkyKey.create(SkyFunctionName.create("TEMP"), hashCodeSpy);
+    SkyKey originalKey = Key.create(hashCodeSpy);
 
     // Then the HashCodeSpy reports that its hashcode method was called once.
     assertThat(hashCodeSpy.getNumberOfTimesHashCodeCalled()).isEqualTo(1);
@@ -81,6 +83,23 @@ public class SkyKeyTest {
     public int hashCode() {
       numberOfTimesHashCodeCalled++;
       return 42;
+    }
+  }
+
+  private static class Key extends AbstractSkyKey<HashCodeSpy> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(HashCodeSpy arg) {
+      super(arg);
+    }
+
+    private static Key create(HashCodeSpy arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.FOR_TESTING;
     }
   }
 }

@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
@@ -30,7 +33,7 @@ public abstract class ASTFileLookupValue implements SkyValue {
   public abstract boolean lookupSuccessful();
   public abstract BuildFileAST getAST();
   public abstract String getErrorMsg();
-  
+
   /** If the file is found, this class encapsulates the parsed AST. */
   private static class ASTLookupWithFile extends ASTFileLookupValue {
     private final BuildFileAST ast;
@@ -56,7 +59,7 @@ public abstract class ASTFileLookupValue implements SkyValue {
           "attempted to retrieve unsuccessful lookup reason for successful lookup");
     }
   }
- 
+
   /** If the file isn't found, this class encapsulates a message with the reason. */
   private static class ASTLookupNoFile extends ASTFileLookupValue {
     private final String errorMsg;
@@ -85,17 +88,38 @@ public abstract class ASTFileLookupValue implements SkyValue {
     return new ASTLookupNoFile(
         String.format("Unable to load package for '%s': %s", fileLabel, reason));
   }
-  
+
   static ASTFileLookupValue forBadFile(Label fileLabel) {
     return new ASTLookupNoFile(
         String.format("Unable to load file '%s': file doesn't exist or isn't a file", fileLabel));
   }
-  
+
   public static ASTFileLookupValue withFile(BuildFileAST ast) {
     return new ASTLookupWithFile(ast);
   }
 
-  public static SkyKey key(Label astFileLabel) {
-    return LegacySkyKey.create(SkyFunctions.AST_FILE_LOOKUP, astFileLabel);
+  public static Key key(Label astFileLabel) {
+    return ASTFileLookupValue.Key.create(astFileLabel);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<Label> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(Label arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(Label arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.AST_FILE_LOOKUP;
+    }
   }
 }

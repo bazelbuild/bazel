@@ -14,13 +14,16 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.LegacySkyKey;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -112,12 +115,31 @@ public abstract class FileValue implements SkyValue {
     return realFileStateValue().getDigest();
   }
 
-  /**
-   * Returns a key for building a file value for the given root-relative path.
-   */
+  /** Returns a key for building a file value for the given root-relative path. */
   @ThreadSafe
-  public static SkyKey key(RootedPath rootedPath) {
-    return LegacySkyKey.create(SkyFunctions.FILE, rootedPath);
+  public static Key key(RootedPath rootedPath) {
+    return Key.create(rootedPath);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RootedPath> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RootedPath arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RootedPath arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.FILE;
+    }
   }
 
   /**

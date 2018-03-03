@@ -91,7 +91,6 @@ import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
-import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -364,7 +363,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     envToCheck.addAll(clientEnv.get().keySet());
     previousClientEnvironment = clientEnv.get().keySet();
     for (String env : envToCheck) {
-      SkyKey key = LegacySkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, env);
+      SkyKey key = ClientEnvironmentFunction.key(env);
       if (values.containsKey(key)) {
         String value = ((ClientEnvironmentValue) values.get(key)).getValue();
         String newValue = clientEnv.get().get(env);

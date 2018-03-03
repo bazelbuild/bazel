@@ -177,8 +177,10 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       // We are free to traverse this directory.
       Collection<SkyKey> dependentKeys = createRecursiveTraversalKeys(env, traversal);
-      return resultForDirectory(traversal, rootInfo,
-          traverseChildren(env, dependentKeys, /*inline=*/traversal.isGenerated));
+      return resultForDirectory(
+          traversal,
+          rootInfo,
+          traverseChildren(env, dependentKeys, /*inline=*/ traversal.isRootGenerated));
     } catch (IOException e) {
       throw new RecursiveFilesystemTraversalFunctionException(
           new FileOperationException("Error while traversing fileset: " + e.getMessage()));
@@ -219,7 +221,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
   private static FileInfo lookUpFileInfo(Environment env, TraversalRequest traversal)
       throws MissingDepException, IOException, InterruptedException {
-    if (traversal.isGenerated) {
+    if (traversal.isRootGenerated) {
       byte[] digest = null;
       if (traversal.root.getOutputArtifact() != null) {
         Artifact artifact = traversal.root.getOutputArtifact();
@@ -360,7 +362,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
                 PackageLookupValue.key(traversal.root.asRootedPath().getRootRelativePath()));
 
     if (pkgLookup.packageExists()) {
-      if (traversal.isGenerated) {
+      if (traversal.isRootGenerated) {
         // The traversal's root was a generated directory, but its root-relative path conflicts with
         // an existing package.
         return PkgLookupResult.conflict(traversal, rootInfo);
@@ -394,7 +396,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     // Use the traversal's path, even if it's a symlink. The contents of the directory, as listed
     // in the result, must be relative to it.
     Iterable<Dirent> dirents;
-    if (traversal.isGenerated) {
+    if (traversal.isRootGenerated) {
       // If we're dealing with an output file, read the directory directly instead of creating
       // filesystem nodes under the output tree.
       List<Dirent> direntsCollection =
@@ -414,7 +416,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
               traversal.root.asRootedPath().getRoot(),
               traversal.root.asRootedPath().getRootRelativePath().getRelative(dirent.getName()));
       TraversalRequest childTraversal = traversal.forChildEntry(childPath);
-      result.add(RecursiveFilesystemTraversalValue.key(childTraversal));
+      result.add(childTraversal);
     }
     return result;
   }
