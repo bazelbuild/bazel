@@ -186,7 +186,9 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
       transports = transportsBuilder.build();
       if (!transports.isEmpty()) {
-        return new BuildEventStreamer(transports, reporter);
+        BuildEventStreamOptions buildEventStreamOptions =
+            optionsProvider.getOptions(BuildEventStreamOptions.class);
+        return new BuildEventStreamer(transports, reporter, buildEventStreamOptions);
       }
     } catch (Exception e) {
       moduleEnvironment.exit(new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e));

@@ -1173,6 +1173,7 @@ java_test(
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:mockito",
     ],
