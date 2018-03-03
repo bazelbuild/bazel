@@ -120,9 +120,9 @@ to your <code>WORKSPACE</code> file:
 <pre class="code">
 http_archive(
  name = "robolectric",
- urls = ["https://github.com/robolectric/robolectric/archive/<COMMIT>.tar.gz"],
- strip_prefix = "robolectric-<COMMIT>",
- sha256 = "<HASH>",
+ urls = ["https://github.com/robolectric/robolectric/archive/&lt;COMMIT&gt;.tar.gz"],
+ strip_prefix = "robolectric-&lt;COMMIT&gt;",
+ sha256 = "&lt;HASH&gt;",
 )
 load("@robolectric//bazel:robolectric.bzl", "robolectric_repositories")
 robolectric_repositories()
