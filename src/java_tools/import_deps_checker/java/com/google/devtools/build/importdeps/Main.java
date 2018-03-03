@@ -139,8 +139,6 @@ public class Main {
     Options options = optionsParser.getOptions(Options.class);
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
-    checkArgument(
-        !options.classpath.isEmpty(), "--classpath_entry is required, at least the bootclasspath");
     checkArgument(!options.bootclasspath.isEmpty(), "--bootclasspath_entry is required");
     return options;
   }
