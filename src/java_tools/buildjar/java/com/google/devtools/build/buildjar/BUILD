@@ -68,7 +68,6 @@ java_library(
             "VanillaJavaBuilder.java",
         ],
     ),
-    visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
     deps = [
         ":JarOwner",
         ":invalid_command_line_exception",
