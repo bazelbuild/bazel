@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -36,10 +37,6 @@ public abstract class Parameter<V, T> extends Argument {
   private Parameter(@Nullable String name, @Nullable T type) {
     this.name = name;
     this.type = type;
-  }
-  private Parameter(@Nullable String name) {
-    this.name = name;
-    this.type = null;
   }
 
   public boolean isMandatory() {
@@ -80,12 +77,14 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** mandatory parameter (positional or key-only depending on position): Ident */
+  @AutoCodec
   public static final class Mandatory<V, T> extends Parameter<V, T> {
 
     public Mandatory(String name) {
-      super(name);
+      this(name, null);
     }
 
+    @AutoCodec.Instantiator
     public Mandatory(String name, @Nullable T type) {
       super(name, type);
     }
@@ -102,15 +101,16 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** optional parameter (positional or key-only depending on position): Ident = Value */
+  @AutoCodec
   public static final class Optional<V, T> extends Parameter<V, T> {
 
     public final V defaultValue;
 
     public Optional(String name, @Nullable V defaultValue) {
-      super(name);
-      this.defaultValue = defaultValue;
+      this(name, null, defaultValue);
     }
 
+    @AutoCodec.Instantiator
     public Optional(String name, @Nullable T type, @Nullable V defaultValue) {
       super(name, type);
       this.defaultValue = defaultValue;
@@ -145,14 +145,16 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** extra positionals parameter (star): *identifier */
+  @AutoCodec
   public static final class Star<V, T> extends Parameter<V, T> {
 
+    @AutoCodec.Instantiator
     public Star(@Nullable String name, @Nullable T type) {
       super(name, type);
     }
 
     public Star(@Nullable String name) {
-      super(name);
+      this(name, null);
     }
 
     @Override
@@ -175,14 +177,16 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** extra keywords parameter (star_star): **identifier */
+  @AutoCodec
   public static final class StarStar<V, T> extends Parameter<V, T> {
 
+    @AutoCodec.Instantiator
     public StarStar(String name, @Nullable T type) {
       super(name, type);
     }
 
     public StarStar(String name) {
-      super(name);
+      this(name, null);
     }
 
     @Override

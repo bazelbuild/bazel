@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
 /** Syntax node for a `pass` statement. */
+@AutoCodec
 public class PassStatement extends Statement {
 
   @Override

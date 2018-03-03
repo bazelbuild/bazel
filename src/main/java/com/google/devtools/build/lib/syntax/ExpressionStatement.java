@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
-/**
- * Syntax node for a function call statement. Used for build rules.
- */
+/** Syntax node for a function call statement. Used for build rules. */
+@AutoCodec
 public final class ExpressionStatement extends Statement {
 
   private final Expression expression;

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
@@ -236,6 +237,11 @@ public class ObjectCodecRegistry {
     @Override
     public CodecDescriptor createDescriptor(int tag) {
       return new TypedCodecDescriptor<T>(tag, codec);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("codec", codec).toString();
     }
   }
 

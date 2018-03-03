@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
-/**
- * Syntax node for a string literal.
- */
+/** Syntax node for a string literal. */
+@AutoCodec
 public final class StringLiteral extends Expression {
   String value;
 

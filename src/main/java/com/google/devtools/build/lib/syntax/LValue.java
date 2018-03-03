@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.io.IOException;
 import java.util.Collection;
@@ -24,6 +25,7 @@ import java.util.Collection;
 /**
  * A term that can appear on the left-hand side of an assignment statement, for loop, comprehension
  * clause, etc. E.g.,
+ *
  * <ul>
  *   <li>{@code lvalue = 2}
  *   <li>{@code [for lvalue in exp]}
@@ -31,16 +33,19 @@ import java.util.Collection;
  * </ul>
  *
  * <p>An {@code LValue}'s expression must have one of the following forms:
+ *
  * <ul>
  *   <li>(Variable assignment) an {@link Identifier};
  *   <li>(List or dictionary item assignment) an {@link IndexExpression}; or
  *   <li>(Sequence assignment) a non-empty {@link ListLiteral} (either list or tuple) of expressions
  *       that can themselves appear in an {@code LValue}.
  * </ul>
+ *
  * In particular and unlike Python, slice expressions, dot expressions, and starred expressions
  * cannot appear in {@code LValue}s.
  */
 // TODO(bazel-team): Add support for assigning to slices (e.g. a[2:6] = [3]).
+@AutoCodec
 public final class LValue extends ASTNode {
 
   private final Expression expr;

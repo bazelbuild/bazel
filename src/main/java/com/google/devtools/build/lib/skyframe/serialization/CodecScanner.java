@@ -204,6 +204,9 @@ public class CodecScanner {
     Type typeArg =
         ((ParameterizedType) codecType.getGenericInterfaces()[objectCodecIndex])
             .getActualTypeArguments()[0];
+    if (typeArg instanceof ParameterizedType) {
+      typeArg = ((ParameterizedType) typeArg).getRawType();
+    }
     if (!(typeArg instanceof Class)) {
       return null;
     }

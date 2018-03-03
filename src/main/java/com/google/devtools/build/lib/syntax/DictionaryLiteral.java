@@ -15,15 +15,16 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Syntax node for dictionary literals.
- */
+/** Syntax node for dictionary literals. */
+@AutoCodec
 public final class DictionaryLiteral extends Expression {
 
   /** Node for an individual key-value pair in a dictionary literal. */
+  @AutoCodec
   public static final class DictionaryEntryLiteral extends ASTNode {
 
     private final Expression key;
@@ -57,8 +58,8 @@ public final class DictionaryLiteral extends Expression {
 
   private final ImmutableList<DictionaryEntryLiteral> entries;
 
-  public DictionaryLiteral(List<DictionaryEntryLiteral> exprs) {
-    this.entries = ImmutableList.copyOf(exprs);
+  public DictionaryLiteral(List<DictionaryEntryLiteral> entries) {
+    this.entries = ImmutableList.copyOf(entries);
   }
 
   /** A new literal for an empty dictionary, onto which a new location can be specified */

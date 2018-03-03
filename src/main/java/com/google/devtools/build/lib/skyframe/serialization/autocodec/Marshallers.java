@@ -36,7 +36,9 @@ import com.google.protobuf.ExtensionRegistryLite;
 import com.google.protobuf.ProtocolMessageEnum;
 import com.squareup.javapoet.TypeName;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -104,13 +106,23 @@ class Marshallers {
   }
 
   /**
-   *  Writes out the deserialization loop and build code for any entity serialized as a list.
+   * Writes out the deserialization loop and build code for any entity serialized as a list.
    *
    * @param context context object for list with possibly another type.
    * @param repeated context for generic type deserialization.
    * @param builderName String for referencing the entity builder.
    */
-  void writeListDeserializationLoopAndBuild(Context context, Context repeated, String builderName) {
+  private void writeListDeserializationLoopAndBuild(
+      Context context, Context repeated, String builderName) {
+    if (matchesErased(context.getDeclaredType(), ImmutableList.class)) {
+      writeIterableDeserializationLoopWithoutNullsAndBuild(context, repeated, builderName);
+    } else {
+      writeListDeserializationLoopWithNullsAndBuild(context, repeated, builderName);
+    }
+  }
+
+  private void writeIterableDeserializationLoopWithoutNullsAndBuild(
+      Context context, Context repeated, String builderName) {
     String lengthName = context.makeName("length");
     context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
     String indexName = context.makeName("i");
@@ -120,6 +132,36 @@ class Marshallers {
     context.builder.addStatement("$L.add($L)", builderName, repeated.name);
     context.builder.endControlFlow();
     context.builder.addStatement("$L = $L.build()", context.name, builderName);
+  }
+
+  private void writeListDeserializationLoopWithNullsAndBuild(
+      Context context, Context repeated, String builderName) {
+    String lengthName = context.makeName("length");
+    context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
+    String arrayListInCaseNull = context.makeName("arrayListInCaseNull");
+    context.builder.addStatement("$T $L = null", ArrayList.class, arrayListInCaseNull);
+    String indexName = context.makeName("i");
+    context.builder.beginControlFlow(
+        "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
+    writeDeserializationCode(repeated);
+    context
+        .builder
+        .beginControlFlow("if ($L == null && $L == null)", repeated.name, arrayListInCaseNull)
+        .addStatement("$L = new ArrayList($L.build())", arrayListInCaseNull, builderName)
+        .endControlFlow()
+        .beginControlFlow("if ($L == null)", arrayListInCaseNull)
+        .addStatement("$L.add($L)", builderName, repeated.name)
+        .nextControlFlow("else")
+        .addStatement("$L.add($L)", arrayListInCaseNull, repeated.name)
+        .endControlFlow()
+        .endControlFlow()
+        .addStatement(
+            "$L = $L == null ? $L.build() : $T.unmodifiableList($L)",
+            context.name,
+            arrayListInCaseNull,
+            builderName,
+            Collections.class,
+            arrayListInCaseNull);
   }
 
   private SerializationCodeGenerator getMatchingCodeGenerator(TypeMirror type) {
@@ -606,7 +648,7 @@ class Marshallers {
               repeated.getTypeName(),
               builderName,
               ImmutableSet.Builder.class);
-          writeListDeserializationLoopAndBuild(context, repeated, builderName);
+          writeIterableDeserializationLoopWithoutNullsAndBuild(context, repeated, builderName);
         }
       };
 
@@ -636,7 +678,7 @@ class Marshallers {
               builderName,
               ImmutableSortedSet.Builder.class,
               Comparator.class);
-          writeListDeserializationLoopAndBuild(context, repeated, builderName);
+          writeIterableDeserializationLoopWithoutNullsAndBuild(context, repeated, builderName);
         }
       };
 

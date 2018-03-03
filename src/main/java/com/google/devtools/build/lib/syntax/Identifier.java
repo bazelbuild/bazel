@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
 import java.util.Set;
@@ -29,10 +30,11 @@ import javax.annotation.Nullable;
 /**
  * Syntax node for an identifier.
  *
- * Unlike most {@link ASTNode} subclasses, this one supports {@link Object#equals} and {@link
+ * <p>Unlike most {@link ASTNode} subclasses, this one supports {@link Object#equals} and {@link
  * Object#hashCode} (but note that these methods ignore location information). They are needed
  * because {@code Identifier}s are stored in maps when constructing {@link LoadStatement}.
  */
+@AutoCodec
 public final class Identifier extends Expression {
 
   private final String name;

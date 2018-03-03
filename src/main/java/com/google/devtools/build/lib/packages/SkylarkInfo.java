@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -161,6 +162,7 @@ public abstract class SkylarkInfo extends Info implements Concatable {
    * layout need be present on the instance.
    */
   @Immutable
+  @AutoCodec
   public static final class Layout {
 
     /**
@@ -176,12 +178,22 @@ public abstract class SkylarkInfo extends Info implements Concatable {
      * @throws IllegalArgumentException if any field names are given more than once
      */
     public Layout(Iterable<String> fields) {
+      this(makeMap(fields));
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    Layout(ImmutableMap<String, Integer> map) {
+      this.map = map;
+    }
+
+    private static ImmutableMap<String, Integer> makeMap(Iterable<String> fields) {
       ImmutableMap.Builder<String, Integer> layoutBuilder = ImmutableMap.builder();
       int i = 0;
       for (String field : fields) {
         layoutBuilder.put(field, i++);
       }
-      this.map = layoutBuilder.build();
+      return layoutBuilder.build();
     }
 
     @Override

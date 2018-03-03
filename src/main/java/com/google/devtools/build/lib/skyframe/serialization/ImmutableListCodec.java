@@ -24,7 +24,7 @@ public class ImmutableListCodec<T> implements ObjectCodec<ImmutableList<T>> {
 
   private final ObjectCodec<T> codec;
 
-  public ImmutableListCodec(ObjectCodec<T> codec) {
+  ImmutableListCodec(ObjectCodec<T> codec) {
     this.codec = codec;
   }
 

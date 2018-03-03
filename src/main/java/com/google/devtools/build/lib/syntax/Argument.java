@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -74,6 +75,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** positional argument: Expression */
+  @AutoCodec
   public static final class Positional extends Passed {
 
     public Positional(Expression value) {
@@ -92,6 +94,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** keyword argument: K = Expression */
+  @AutoCodec
   public static final class Keyword extends Passed {
 
     final String name;
@@ -120,6 +123,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** positional rest (starred) argument: *Expression */
+  @AutoCodec
   public static final class Star extends Passed {
 
     public Star(Expression value) {
@@ -139,6 +143,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** keyword rest (star_starred) parameter: **Expression */
+  @AutoCodec
   public static final class StarStar extends Passed {
 
     public StarStar(Expression value) {

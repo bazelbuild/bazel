@@ -222,14 +222,62 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return elt.getAnnotation(AutoCodec.Instantiator.class) != null;
   }
 
+  private enum Relation {
+    INSTANCE_OF,
+    EQUAL_TO,
+    SUPERTYPE_OF,
+    UNRELATED_TO
+  }
+
+  private Relation findRelationWithGenerics(TypeMirror type1, TypeMirror type2) {
+    if (type1.getKind() == TypeKind.TYPEVAR || type2.getKind() == TypeKind.TYPEVAR) {
+      return Relation.EQUAL_TO;
+    }
+    if (env.getTypeUtils().isAssignable(type1, type2)) {
+      if (env.getTypeUtils().isAssignable(type2, type1)) {
+        return Relation.EQUAL_TO;
+      }
+      return Relation.INSTANCE_OF;
+    }
+    if (env.getTypeUtils().isAssignable(type2, type1)) {
+      return Relation.SUPERTYPE_OF;
+    }
+    // From here on out, we can't detect subtype/supertype, we're only checking for equality.
+    TypeMirror erasedType1 = env.getTypeUtils().erasure(type1);
+    TypeMirror erasedType2 = env.getTypeUtils().erasure(type2);
+    if (!env.getTypeUtils().isSameType(erasedType1, erasedType2)) {
+      // Technically, there could be a relationship, but it's too hard to figure out for now.
+      return Relation.UNRELATED_TO;
+    }
+    List<? extends TypeMirror> genericTypes1 = ((DeclaredType) type1).getTypeArguments();
+    List<? extends TypeMirror> genericTypes2 = ((DeclaredType) type2).getTypeArguments();
+    if (genericTypes1.size() != genericTypes2.size()) {
+      return null;
+    }
+    for (int i = 0; i < genericTypes1.size(); i++) {
+      Relation result = findRelationWithGenerics(genericTypes1.get(i), genericTypes2.get(i));
+      if (result != Relation.EQUAL_TO) {
+        return Relation.UNRELATED_TO;
+      }
+    }
+    return Relation.EQUAL_TO;
+  }
+
   private void verifyFactoryMethod(TypeElement encodedType, ExecutableElement elt) {
-    if (!elt.getModifiers().contains(Modifier.STATIC)
-        || !env.getTypeUtils().isSubtype(elt.getReturnType(), encodedType.asType())) {
+    boolean success = elt.getModifiers().contains(Modifier.STATIC);
+    if (success) {
+      Relation equalityTest = findRelationWithGenerics(elt.getReturnType(), encodedType.asType());
+      success = equalityTest == Relation.EQUAL_TO || equalityTest == Relation.INSTANCE_OF;
+    }
+    if (!success) {
       throw new IllegalArgumentException(
           encodedType.getQualifiedName()
               + " tags "
               + elt.getSimpleName()
-              + " as an Instantiator, but it's not a valid factory method.");
+              + " as an Instantiator, but it's not a valid factory method "
+              + elt.getReturnType()
+              + ", "
+              + encodedType.asType());
     }
   }
 
@@ -242,7 +290,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
           getFieldByNameRecursive(encodedType, parameter.getSimpleName().toString());
       if (hasField.isPresent()) {
         Preconditions.checkArgument(
-            areTypesRelated(hasField.get().value.asType(), parameter.asType()),
+            findRelationWithGenerics(hasField.get().value.asType(), parameter.asType())
+                != Relation.UNRELATED_TO,
             "%s: parameter %s's type %s is unrelated to corresponding field type %s",
             encodedType.getQualifiedName(),
             parameter.getSimpleName(),
@@ -265,15 +314,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
       }
     }
     return serializeBuilder.build();
-  }
-
-  private boolean areTypesRelated(TypeMirror t1, TypeMirror t2) {
-    // If either type is generic, they are considered related.
-    // TODO(bazel-team): it may be possible to tighten this.
-    if (t1.getKind().equals(TypeKind.TYPEVAR) || t2.getKind().equals(TypeKind.TYPEVAR)) {
-      return true;
-    }
-    return env.getTypeUtils().isAssignable(t1, t2) || env.getTypeUtils().isAssignable(t2, t1);
   }
 
   private TypeMirror sanitizeTypeParameterOfGenerics(TypeMirror type) {
@@ -309,14 +349,21 @@ public class AutoCodecProcessor extends AbstractProcessor {
     ImmutableList<String> possibleGetterNames = possibleGetterNamesBuilder.build();
 
     for (ExecutableElement element : methods) {
-      if (possibleGetterNames.contains(element.getSimpleName().toString())
-          && areTypesRelated(parameter.asType(), element.getReturnType())) {
+      if (!element.getModifiers().contains(Modifier.STATIC)
+          && !element.getModifiers().contains(Modifier.PRIVATE)
+          && possibleGetterNames.contains(element.getSimpleName().toString())
+          && findRelationWithGenerics(parameter.asType(), element.getReturnType())
+              != Relation.UNRELATED_TO) {
         return element.getSimpleName().toString();
       }
     }
 
     throw new IllegalArgumentException(
-        type + ": No getter found corresponding to parameter " + parameter.getSimpleName());
+        type
+            + ": No getter found corresponding to parameter "
+            + parameter.getSimpleName()
+            + ", "
+            + parameter.asType());
   }
 
   private static String addCamelCasePrefix(String name, String prefix) {
@@ -411,6 +458,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     if (!allThrown.isEmpty()) {
       builder.beginControlFlow("try");
     }
+    TypeName typeName = TypeName.get(env.getTypeUtils().erasure(type.asType()));
     String parameters =
         instantiator
             .getParameters()
@@ -418,14 +466,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
             .map(AutoCodecProcessor::handleFromParameter)
             .collect(Collectors.joining(", "));
     if (instantiator.getKind().equals(ElementKind.CONSTRUCTOR)) {
-      builder.addStatement(
-          "return new $T($L)", TypeName.get(env.getTypeUtils().erasure(type.asType())), parameters);
+      builder.addStatement("return new $T($L)", typeName, parameters);
     } else { // Otherwise, it's a factory method.
-      builder.addStatement(
-          "return $T.$L($L)",
-          TypeName.get(type.asType()),
-          instantiator.getSimpleName(),
-          parameters);
+      builder.addStatement("return $T.$L($L)", typeName, instantiator.getSimpleName(), parameters);
     }
     if (!allThrown.isEmpty()) {
       for (TypeMirror thrown : allThrown) {
