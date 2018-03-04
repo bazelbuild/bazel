@@ -422,7 +422,7 @@ filegroup(
 
 java_import(
     name = "jgit",
-    jars = ["jgit/org.eclipse.jgit-4.0.1.201506240215-r.jar"],
+    jars = ["jgit/org.eclipse.jgit-4.10.0.201712302008-r.jar"],
 )
 
 java_import(
@@ -432,7 +432,7 @@ java_import(
 
 java_import(
     name = "jsch",
-    jars = ["jsch/jsch-0.1.51.jar"],
+    jars = ["jsch/jsch-0.1.54.jar"],
 )
 
 java_import(
