@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -56,7 +55,6 @@ import javax.annotation.Nullable;
  * analyzed rule. For more information about how analysis works, see {@link
  * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
-@AutoCodec
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**
    * The configuration transition for an attribute through which a prerequisite

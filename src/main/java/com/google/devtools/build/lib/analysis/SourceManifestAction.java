@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
@@ -42,15 +40,15 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Action to create a manifest of input files for processing by a subsequent build step (e.g.
- * runfiles symlinking or archive building).
+ * Action to create a manifest of input files for processing by a subsequent
+ * build step (e.g. runfiles symlinking or archive building).
  *
- * <p>The manifest's format is specifiable by {@link ManifestType}, in accordance with the needs of
- * the calling functionality.
+ * <p>The manifest's format is specifiable by {@link ManifestType}, in
+ * accordance with the needs of the calling functionality.
  *
- * <p>Note that this action carefully avoids building the manifest content in memory.
+ * <p>Note that this action carefully avoids building the manifest content in
+ * memory.
  */
-@AutoCodec
 @Immutable // if all ManifestWriter implementations are immutable
 public final class SourceManifestAction extends AbstractFileWriteAction {
 
@@ -95,18 +93,17 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   private final Runfiles runfiles;
 
   /**
-   * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
-   * file and with a specified root path for manifest entries.
+   * Creates a new AbstractSourceManifestAction instance using latin1 encoding
+   * to write the manifest file and with a specified root path for manifest entries.
    *
    * @param manifestWriter the strategy to use to write manifest entries
    * @param owner the action owner
-   * @param primaryOutput the file to which to write the manifest
+   * @param output the file to which to write the manifest
    * @param runfiles runfiles
    */
-  @VisibleForSerialization
-  SourceManifestAction(
-      ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
-    super(owner, getDependencies(runfiles), primaryOutput, false);
+  private SourceManifestAction(ManifestWriter manifestWriter, ActionOwner owner, Artifact output,
+      Runfiles runfiles) {
+    super(owner, getDependencies(runfiles), output, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
   }

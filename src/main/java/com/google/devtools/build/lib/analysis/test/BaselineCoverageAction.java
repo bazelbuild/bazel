@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -40,18 +38,18 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Generates baseline (empty) coverage for the given non-test target. */
+/**
+ * Generates baseline (empty) coverage for the given non-test target.
+ */
 @VisibleForTesting
-@AutoCodec
 @Immutable
 public final class BaselineCoverageAction extends AbstractFileWriteAction
     implements NotifyOnActionCacheHit {
   private final NestedSet<Artifact> instrumentedFiles;
 
-  @VisibleForSerialization
-  BaselineCoverageAction(
-      ActionOwner owner, NestedSet<Artifact> instrumentedFiles, Artifact primaryOutput) {
-    super(owner, ImmutableList.<Artifact>of(), primaryOutput, false);
+  private BaselineCoverageAction(
+      ActionOwner owner, NestedSet<Artifact> instrumentedFiles, Artifact output) {
+    super(owner, ImmutableList.<Artifact>of(), output, false);
     this.instrumentedFiles = instrumentedFiles;
   }
 

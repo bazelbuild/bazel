@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ProtoDeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 
@@ -35,17 +34,17 @@ import java.io.IOException;
  * .xa file for use by an extra action. This can only be done at execution time because actions may
  * store information only known at execution time into the protocol buffer.
  */
-@AutoCodec
 @Immutable // if shadowedAction is immutable
 public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteAction {
   private static final String UUID = "1759f81d-e72e-477d-b182-c4532bdbaeeb";
 
   private final Action shadowedAction;
 
-  ExtraActionInfoFileWriteAction(ActionOwner owner, Artifact primaryOutput, Action shadowedAction) {
-    super(owner, ImmutableList.<Artifact>of(), primaryOutput, false);
+  ExtraActionInfoFileWriteAction(ActionOwner owner, Artifact extraActionInfoFile,
+      Action shadowedAction) {
+    super(owner, ImmutableList.<Artifact>of(), extraActionInfoFile, false);
 
-    this.shadowedAction = Preconditions.checkNotNull(shadowedAction, primaryOutput);
+    this.shadowedAction = Preconditions.checkNotNull(shadowedAction, extraActionInfoFile);
   }
 
   @Override

@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/** An immutable, semantic-free ordered pair of nullable values. Avoid using it in public APIs. */
-@AutoCodec
+/**
+ * An immutable, semantic-free ordered pair of nullable values. Avoid using it in public APIs.
+ */
 public final class Pair<A, B> {
 
   /**

@@ -47,17 +47,15 @@ public final class CcLinkParams {
   /**
    * A list of link options contributed by a single configured target.
    *
-   * <p><b>WARNING:</b> Do not implement {@code #equals()} in the obvious way. This class must be
+   * <b>WARNING:</b> Do not implement {@code #equals()} in the obvious way. This class must be
    * checked for equality by object identity because otherwise if two configured targets contribute
    * the same link options, they will be de-duplicated, which is not the desirable behavior.
    */
-  @AutoCodec
   @Immutable
   public static final class LinkOptions {
     private final ImmutableList<String> linkOptions;
 
-    @VisibleForSerialization
-    LinkOptions(Iterable<String> linkOptions) {
+    private LinkOptions(Iterable<String> linkOptions) {
       this.linkOptions = ImmutableList.copyOf(linkOptions);
     }
 
