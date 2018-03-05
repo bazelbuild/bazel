@@ -1,0 +1,36 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package remote_logging;
+
+import "google/devtools/remoteexecution/v1test/remote_execution.proto";
+import "google/rpc/status.proto";
+
+option java_package = "com.google.devtools.build.lib.remote.logging";
+
+// A single log entry for gRPC calls related to remote execution.
+message LogEntry {
+  // Request metadata included in call.
+  google.devtools.remoteexecution.v1test.RequestMetadata metadata = 1;
+
+  // Status of the call on close.
+  google.rpc.Status status = 2;
+
+  // Full method name of the method called as returned from
+  // io.grpc.MethodDescriptor.getFullMethodName() (i.e. in format
+  // $FULL_SERVICE_NAME/$METHOD_NAME).
+  string method_name = 3;
+}

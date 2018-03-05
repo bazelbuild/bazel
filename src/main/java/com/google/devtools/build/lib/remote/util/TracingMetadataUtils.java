@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.util;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.remote.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import com.google.devtools.remoteexecution.v1test.ToolDetails;
 import io.grpc.ClientInterceptor;
@@ -28,6 +28,7 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.MetadataUtils;
+import javax.annotation.Nullable;
 
 /** Utility functions to handle Metadata for remote Grpc calls. */
 public class TracingMetadataUtils {
@@ -42,11 +43,11 @@ public class TracingMetadataUtils {
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
 
   /**
-   * Returns a new gRPC context derived from the current context, with
-   * {@link RequestMetadata} accessible by the {@link fromCurrentContext()} method.
+   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
+   * accessible by the {@link fromCurrentContext()} method.
    *
-   * <p>The {@link RequestMetadata} is constructed using the provided arguments
-   * and the current tool version.
+   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
+   * version.
    */
   public static Context contextWithMetadata(
       String buildRequestId, String commandId, ActionKey actionKey) {
@@ -88,6 +89,14 @@ public class TracingMetadataUtils {
     return headers;
   }
 
+  /**
+   * Extracts a {@link RequestMetadata} from a {@link Metadata} and returns it if it exists. If it
+   * does not exist, returns {@code null}.
+   */
+  public static @Nullable RequestMetadata requestMetadataFromHeaders(Metadata headers) {
+    return headers.get(METADATA_KEY);
+  }
+
   public static ClientInterceptor attachMetadataFromContextInterceptor() {
     return MetadataUtils.newAttachHeadersInterceptor(headersFromCurrentContext());
   }
@@ -97,7 +106,7 @@ public class TracingMetadataUtils {
     @Override
     public <ReqT, RespT> Listener<ReqT> interceptCall(
         ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-      RequestMetadata meta = headers.get(METADATA_KEY);
+      RequestMetadata meta = requestMetadataFromHeaders(headers);
       if (meta == null) {
         throw new IllegalStateException("RequestMetadata not received from the client.");
       }
