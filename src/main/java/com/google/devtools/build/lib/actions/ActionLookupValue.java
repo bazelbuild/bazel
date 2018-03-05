@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ import javax.annotation.Nullable;
  */
 public class ActionLookupValue implements SkyValue {
   protected final List<ActionAnalysisMetadata> actions;
-  private final ImmutableMap<Artifact, Integer> generatingActionIndex;
+  @VisibleForSerialization protected final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   protected ActionLookupValue(
       ActionAnalysisMetadata action,
@@ -47,12 +48,17 @@ public class ActionLookupValue implements SkyValue {
   @VisibleForTesting
   public ActionLookupValue(
       Actions.GeneratingActions generatingActions, boolean removeActionsAfterEvaluation) {
-    if (removeActionsAfterEvaluation) {
-      this.actions = new ArrayList<>(generatingActions.getActions());
-    } else {
-      this.actions = ImmutableList.copyOf(generatingActions.getActions());
-    }
-    this.generatingActionIndex = generatingActions.getGeneratingActionIndex();
+    this(
+        removeActionsAfterEvaluation
+            ? new ArrayList<>(generatingActions.getActions())
+            : ImmutableList.copyOf(generatingActions.getActions()),
+        generatingActions.getGeneratingActionIndex());
+  }
+
+  protected ActionLookupValue(
+      List<ActionAnalysisMetadata> actions, ImmutableMap<Artifact, Integer> generatingActionIndex) {
+    this.actions = actions;
+    this.generatingActionIndex = generatingActionIndex;
   }
 
   /**

@@ -76,7 +76,10 @@ public class SymlinkAction extends AbstractAction {
       Artifact primaryInput,
       Artifact primaryOutput,
       String progressMessage) {
-    super(owner, ImmutableList.of(primaryInput), ImmutableList.of(primaryOutput));
+    super(
+        owner,
+        primaryInput != null ? ImmutableList.of(primaryInput) : Artifact.NO_ARTIFACTS,
+        ImmutableList.of(primaryOutput));
     this.inputPath = inputPath;
     this.progressMessage = progressMessage;
   }

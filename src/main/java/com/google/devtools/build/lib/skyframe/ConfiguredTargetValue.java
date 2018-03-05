@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,24 +28,36 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * A configured target in the context of a Skyframe graph.
- */
+/** A configured target in the context of a Skyframe graph. */
+@AutoCodec
 @Immutable
 @ThreadSafe
 @VisibleForTesting
 public final class ConfiguredTargetValue extends ActionLookupValue {
-
   // These variables are only non-final because they may be clear()ed to save memory.
   // configuredTarget is null only after it is cleared.
   @Nullable private ConfiguredTarget configuredTarget;
 
   // May be null either after clearing or because transitive packages are not tracked.
   @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  ConfiguredTargetValue(
+      List<ActionAnalysisMetadata> actions,
+      ImmutableMap<Artifact, Integer> generatingActionIndex,
+      ConfiguredTarget configuredTarget,
+      NestedSet<Package> transitivePackagesForPackageRootResolution) {
+    super(actions, generatingActionIndex);
+    this.configuredTarget = configuredTarget;
+    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
+  }
 
   ConfiguredTargetValue(
       ConfiguredTarget configuredTarget,

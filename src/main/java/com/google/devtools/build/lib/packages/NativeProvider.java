@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -108,12 +110,14 @@ public abstract class NativeProvider<V extends Info> extends Provider {
     this(clazz, name, SIGNATURE);
   }
 
+  @SuppressWarnings("unchecked")
   protected NativeProvider(
       Class<V> valueClass,
       String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature) {
     super(name, signature, Location.BUILTIN);
-    key = new NativeKey(name, getClass());
+    Class<? extends NativeProvider<?>> clazz = (Class<? extends NativeProvider<?>>) getClass();
+    key = new NativeKey(name, clazz);
     this.valueClass = valueClass;
     errorMessageFormatForUnknownField = String.format("'%s' object has no attribute '%%s'", name);
   }
@@ -170,10 +174,12 @@ public abstract class NativeProvider<V extends Info> extends Provider {
     return Pair.of(key.name, key.aClass.getName());
   }
 
+  @SuppressWarnings("unchecked")
   public static NativeKey getNativeKeyFromSerializedRepresentation(Pair<String, String> serialized)
       throws ClassNotFoundException {
-    Class<? extends NativeProvider> aClass =
-        Class.forName(serialized.second).asSubclass(NativeProvider.class);
+    Class<? extends NativeProvider<?>> aClass =
+        (Class<? extends NativeProvider<?>>)
+            Class.forName(serialized.second).asSubclass(NativeProvider.class);
     return new NativeKey(serialized.first, aClass);
   }
 
@@ -182,12 +188,14 @@ public abstract class NativeProvider<V extends Info> extends Provider {
    *
    * <p>Just a wrapper around its class.
    */
+  @AutoCodec
   @Immutable
   public static final class NativeKey extends Key {
     private final String name;
-    private final Class<? extends NativeProvider> aClass;
+    private final Class<? extends NativeProvider<?>> aClass;
 
-    private NativeKey(String name, Class<? extends NativeProvider> aClass) {
+    @VisibleForSerialization
+    NativeKey(String name, Class<? extends NativeProvider<?>> aClass) {
       this.name = name;
       this.aClass = aClass;
     }
