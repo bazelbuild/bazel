@@ -55,6 +55,7 @@ public class CodecScanner {
   @SuppressWarnings("unchecked")
   public static ObjectCodecRegistry.Builder initializeCodecRegistry(String packagePrefix)
       throws IOException, ReflectiveOperationException {
+    log.info("Building ObjectCodecRegistry");
     ArrayList<Class<? extends ObjectCodec<?>>> codecs = new ArrayList<>();
     ArrayList<Class<? extends CodecRegisterer<?>>> registerers = new ArrayList<>();
     List<ClassInfo> classInfos = getClassInfos(packagePrefix).collect(Collectors.toList());
@@ -148,7 +149,7 @@ public class CodecScanner {
             Level.FINE,
             "Skipping registration of "
                 + codecType
-                + " because it's generic parameter is not reified.");
+                + " because its generic parameter is not reified.");
         continue;
       }
       try {
