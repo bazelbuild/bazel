@@ -143,7 +143,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
   private static final Collection<Modifier> REQUIRED_SINGLETON_MODIFIERS =
       ImmutableList.of(Modifier.STATIC, Modifier.FINAL);
 
-  private static TypeSpec buildRegisteredSingletonClass(VariableElement symbol) {
+  private TypeSpec buildRegisteredSingletonClass(VariableElement symbol) {
     Preconditions.checkState(
         symbol.getModifiers().containsAll(REQUIRED_SINGLETON_MODIFIERS),
         "Field must be static and final to be annotated with @AutoCodec: " + symbol);
@@ -159,7 +159,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
                     Modifier.PUBLIC,
                     Modifier.STATIC,
                     Modifier.FINAL)
-                .initializer("$T.$L", symbol.getEnclosingElement().asType(), symbol.getSimpleName())
+                .initializer(
+                    "$T.$L",
+                    sanitizeTypeParameterOfGenerics(symbol.getEnclosingElement().asType()),
+                    symbol.getSimpleName())
                 .build())
         .build();
   }
