@@ -172,6 +172,45 @@ TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocation) {
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
 }
 
+TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
+  const vector<string> suffixes({"/MANIFEST", ".runfiles_manifest",
+                                 "runfiles_manifest", ".runfiles", ".manifest",
+                                 ".txt"});
+  for (vector<string>::size_type i = 0; i < suffixes.size(); ++i) {
+    unique_ptr<MockFile> mf(
+        MockFile::Create(string("foo" LINE()) + suffixes[i]));
+    EXPECT_TRUE(mf != nullptr) << " (suffix=\"" << suffixes[i] << "\")";
+
+    string error;
+    unique_ptr<Runfiles> r(Runfiles::CreateManifestBased(mf->Path(), &error));
+    ASSERT_NE(r, nullptr) << " (suffix=\"" << suffixes[i] << "\")";
+    EXPECT_TRUE(error.empty());
+
+    // The object can compute the runfiles directory when i=0 and i=1, but not
+    // when i>1 because the manifest file's name doesn't end in a well-known
+    // way.
+    const string expected_runfiles_dir(
+        i < 2 ? mf->Path().substr(0, mf->Path().size() - 9 /* "_manifest" */)
+              : "");
+    vector<pair<string, string> > expected(
+        {{"RUNFILES_MANIFEST_FILE", mf->Path()},
+         {"JAVA_RUNFILES", expected_runfiles_dir}});
+    EXPECT_EQ(r->EnvVars(), expected) << " (suffix=\"" << suffixes[i] << "\")";
+  }
+}
+
+TEST_F(RunfilesTest, DirectoryBasedRunfilesEnvVars) {
+  string error;
+  unique_ptr<Runfiles> r(
+      Runfiles::CreateDirectoryBased("runfiles/dir", &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+
+  vector<pair<string, string> > expected(
+      {{"RUNFILES_DIR", "runfiles/dir"}, {"JAVA_RUNFILES", "runfiles/dir"}});
+  EXPECT_EQ(r->EnvVars(), expected);
+}
+
 TEST_F(RunfilesTest, FailsToCreateManifestBasedBecauseManifestDoesNotExist) {
   string error;
   unique_ptr<Runfiles> r(
@@ -251,6 +290,20 @@ TEST_F(RunfilesTest, MockFileTest) {
     std::ifstream stm(path);
     EXPECT_FALSE(stm.good());
   }
+}
+
+TEST_F(RunfilesTest, IsAbsolute) {
+  EXPECT_FALSE(TestOnly_IsAbsolute("foo"));
+  EXPECT_FALSE(TestOnly_IsAbsolute("foo/bar"));
+  EXPECT_FALSE(TestOnly_IsAbsolute("\\foo"));
+  EXPECT_TRUE(TestOnly_IsAbsolute("c:\\foo"));
+  EXPECT_TRUE(TestOnly_IsAbsolute("c:/foo"));
+  EXPECT_TRUE(TestOnly_IsAbsolute("/foo"));
+  EXPECT_TRUE(TestOnly_IsAbsolute("x:\\foo"));
+  EXPECT_FALSE(TestOnly_IsAbsolute("::\\foo"));
+  EXPECT_FALSE(TestOnly_IsAbsolute("x\\foo"));
+  EXPECT_FALSE(TestOnly_IsAbsolute("x:"));
+  EXPECT_TRUE(TestOnly_IsAbsolute("x:\\"));
 }
 
 }  // namespace

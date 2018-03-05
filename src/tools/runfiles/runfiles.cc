@@ -16,12 +16,15 @@
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <vector>
 
 namespace bazel {
 namespace runfiles {
 
 using std::map;
+using std::pair;
 using std::string;
+using std::vector;
 
 namespace {
 
@@ -52,6 +55,7 @@ class ManifestBased : public RunfilesImpl {
   // Returns nullptr upon failure.
   static ManifestBased* Create(const string& manifest_path, string* error);
 
+  vector<pair<string, string> > EnvVars() const override;
   string RlocationChecked(const string& path) const override;
 
  private:
@@ -63,6 +67,7 @@ class ManifestBased : public RunfilesImpl {
   ManifestBased& operator=(const ManifestBased&) = delete;
   ManifestBased& operator=(ManifestBased&&) = delete;
 
+  string RunfilesDir() const;
   static bool ParseManifest(const string& path, map<string, string>* result,
                             string* error);
 
@@ -75,6 +80,7 @@ class DirectoryBased : public RunfilesImpl {
  public:
   DirectoryBased(string runfiles_path)
       : runfiles_path_(std::move(runfiles_path)) {}
+  vector<pair<string, string> > EnvVars() const override;
   string RlocationChecked(const string& path) const override;
 
  private:
@@ -119,6 +125,26 @@ string ManifestBased::RlocationChecked(const string& path) const {
   return std::move(value == runfiles_map_.end() ? string() : value->second);
 }
 
+vector<pair<string, string> > ManifestBased::EnvVars() const {
+  return std::move(vector<pair<string, string> >(
+      {std::make_pair("RUNFILES_MANIFEST_FILE", manifest_path_),
+       // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
+       // pick up RUNFILES_DIR.
+       std::make_pair("JAVA_RUNFILES", RunfilesDir())}));
+}
+
+string ManifestBased::RunfilesDir() const {
+  const auto pos1 = manifest_path_.size() - 9;   // "_MANIFEST"
+  const auto pos2 = manifest_path_.size() - 18;  // ".runfiles_manifest"
+  if (manifest_path_.rfind("/MANIFEST") == pos1 ||
+      manifest_path_.rfind("\\MANIFEST") == pos1 ||
+      manifest_path_.rfind(".runfiles_manifest") == pos2) {
+    return std::move(manifest_path_.substr(0, pos1));  // remove ".MANIFEST"
+  } else {
+    return std::move(string());
+  }
+}
+
 bool ManifestBased::ParseManifest(const string& path,
                                   map<string, string>* result, string* error) {
   std::ifstream stm(path);
@@ -155,6 +181,14 @@ bool ManifestBased::ParseManifest(const string& path,
 
 string DirectoryBased::RlocationChecked(const string& path) const {
   return std::move(runfiles_path_ + "/" + path);
+}
+
+vector<pair<string, string> > DirectoryBased::EnvVars() const {
+  return std::move(vector<pair<string, string> >(
+      {std::make_pair("RUNFILES_DIR", runfiles_path_),
+       // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
+       // pick up RUNFILES_DIR.
+       std::make_pair("JAVA_RUNFILES", runfiles_path_)}));
 }
 
 }  // namespace

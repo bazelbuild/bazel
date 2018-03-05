@@ -19,7 +19,9 @@
 #ifndef BAZEL_SRC_TOOLS_RUNFILES_RUNFILES_H_
 #define BAZEL_SRC_TOOLS_RUNFILES_RUNFILES_H_ 1
 
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace bazel {
 namespace runfiles {
@@ -27,11 +29,6 @@ namespace runfiles {
 class Runfiles {
  public:
   virtual ~Runfiles() {}
-
-  // TODO(laszlocsomor): implement:
-  //   Runfiles* Create(const string& argv0, string* error);
-  // TODO(laszlocsomor): implement:
-  //   vector<pair<string, string>> EnvVars();
 
   // Returns a new manifest-based `Runfiles` instance.
   // Returns nullptr on error. If `error` is provided, the method prints an
@@ -63,6 +60,13 @@ class Runfiles {
   //   an empty string if the method doesn't know about this runfile
   virtual std::string Rlocation(const std::string& path) const = 0;
 
+  // Returns environment variables for subprocesses.
+  //
+  // The caller should set the returned key-value pairs in the environment of
+  // subprocesses in case those subprocesses are also Bazel-built binaries that
+  // need to use runfiles.
+  virtual std::vector<std::pair<std::string, std::string> > EnvVars() const = 0;
+
  protected:
   Runfiles() {}
 
@@ -74,8 +78,9 @@ class Runfiles {
 };
 
 // The "testing" namespace contains functions that allow unit testing the code.
-// Do not use these outside of runfiles_test.cc, because they may change without
-// notice.
+// Do not use these outside of runfiles_test.cc, they are only part of the
+// public API for the benefit of the tests.
+// These functions and their interface may change without notice.
 namespace testing {
 
 // For testing only.
