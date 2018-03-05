@@ -13,7 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
@@ -22,13 +30,21 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.DepSetOfFiles;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.KeyValuePair;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.RuleClass;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.Target;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * Encapsulates necessary functionality to dump the current skyframe state of the action graph to
@@ -45,18 +61,27 @@ public class ActionGraphDump {
   // can point to the same object.
   private final Map<Object, String> knownNestedSets = new HashMap<>();
 
-  private final ActionGraphContainer.Builder actionGraphBuilder;
+  private final ActionGraphContainer.Builder actionGraphBuilder = ActionGraphContainer.newBuilder();
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+  private final Set<String> actionGraphTargets;
 
-  ActionGraphDump(ActionGraphContainer.Builder actionGraphBuilder) {
-    this.actionGraphBuilder = actionGraphBuilder;
+  public ActionGraphDump(List<String> actionGraphTargets) {
+    this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
   }
 
   public ActionKeyContext getActionKeyContext() {
     return actionKeyContext;
   }
 
-  public String ruleClassStringToId(String ruleClassString) {
+  private boolean includeInActionGraph(String labelString) {
+    if (actionGraphTargets.size() == 1
+        && Iterables.getOnlyElement(actionGraphTargets).equals("...")) {
+      return true;
+    }
+    return actionGraphTargets.contains(labelString);
+  }
+
+  private String ruleClassStringToId(String ruleClassString) {
     if (!knownRuleClassStrings.containsKey(ruleClassString)) {
       String targetId = String.valueOf(knownRuleClassStrings.size());
       knownRuleClassStrings.put(ruleClassString, targetId);
@@ -67,7 +92,7 @@ public class ActionGraphDump {
     return knownRuleClassStrings.get(ruleClassString);
   }
 
-  public String targetToId(Label label, String ruleClassString) {
+  private String targetToId(Label label, String ruleClassString) {
     if (!knownTargets.containsKey(label)) {
       String targetId = String.valueOf(knownTargets.size());
       knownTargets.put(label, targetId);
@@ -81,7 +106,7 @@ public class ActionGraphDump {
     return knownTargets.get(label);
   }
 
-  public String configurationToId(BuildConfiguration buildConfiguration) {
+  private String configurationToId(BuildConfiguration buildConfiguration) {
     if (!knownConfigurations.containsKey(buildConfiguration)) {
       String configurationId = String.valueOf(knownConfigurations.size());
       knownConfigurations.put(buildConfiguration, configurationId);
@@ -96,7 +121,7 @@ public class ActionGraphDump {
     return knownConfigurations.get(buildConfiguration);
   }
 
-  public String artifactToId(Artifact artifact) {
+  private String artifactToId(Artifact artifact) {
     if (!knownArtifacts.containsKey(artifact)) {
       String artifactId = String.valueOf(knownArtifacts.size());
       knownArtifacts.put(artifact, artifactId);
@@ -111,7 +136,7 @@ public class ActionGraphDump {
     return knownArtifacts.get(artifact);
   }
 
-  public String depSetToId(NestedSetView<Artifact> nestedSetView) {
+  private String depSetToId(NestedSetView<Artifact> nestedSetView) {
     if (!knownNestedSets.containsKey(nestedSetView.identifier())) {
       String nestedSetId = String.valueOf(knownNestedSets.size());
       knownNestedSets.put(nestedSetView.identifier(), nestedSetId);
@@ -127,7 +152,7 @@ public class ActionGraphDump {
     return knownNestedSets.get(nestedSetView.identifier());
   }
 
-  public String aspectDescriptorToId(AspectDescriptor aspectDescriptor) {
+  private String aspectDescriptorToId(AspectDescriptor aspectDescriptor) {
     if (!knownAspectDescriptors.containsKey(aspectDescriptor)) {
       String aspectDescriptorId = String.valueOf(knownAspectDescriptors.size());
       knownAspectDescriptors.put(aspectDescriptor, aspectDescriptorId);
@@ -144,5 +169,92 @@ public class ActionGraphDump {
       actionGraphBuilder.addAspectDescriptors(aspectDescriptorBuilder.build());
     }
     return knownAspectDescriptors.get(aspectDescriptor);
+  }
+
+  private void dumpSingleAction(ConfiguredTarget configuredTarget, ActionAnalysisMetadata action) {
+    Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
+    Label label = configuredTarget.getLabel();
+    String ruleClassString = ((RuleConfiguredTarget) configuredTarget).getRuleClassString();
+    AnalysisProtos.Action.Builder actionBuilder =
+        AnalysisProtos.Action.newBuilder()
+            .setMnemonic(action.getMnemonic())
+            .setTargetId(targetToId(label, ruleClassString));
+
+    if (action instanceof ActionExecutionMetadata) {
+      ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
+      actionBuilder
+          .setActionKey(actionExecutionMetadata.getKey(getActionKeyContext()))
+          .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
+    }
+
+    // store environment
+    if (action instanceof SpawnAction) {
+      SpawnAction spawnAction = (SpawnAction) action;
+      // TODO(twerth): This handles the fixed environemnt. We probably want to output the inherited
+      // environment as well.
+      ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment();
+      for (Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
+        AnalysisProtos.KeyValuePair.Builder keyValuePairBuilder =
+            AnalysisProtos.KeyValuePair.newBuilder();
+        keyValuePairBuilder
+            .setKey(environmentVariable.getKey())
+            .setValue(environmentVariable.getValue());
+        actionBuilder.addEnvironmentVariables(keyValuePairBuilder.build());
+      }
+    }
+
+    ActionOwner actionOwner = action.getOwner();
+    if (actionOwner != null) {
+      BuildConfiguration buildConfiguration = (BuildConfiguration) actionOwner.getConfiguration();
+      actionBuilder.setConfigurationId(configurationToId(buildConfiguration));
+
+      // store aspect
+      for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors()) {
+        actionBuilder.addAspectDescriptorIds(aspectDescriptorToId(aspectDescriptor));
+      }
+    }
+
+    // store inputs
+    Iterable<Artifact> inputs = action.getInputs();
+    if (!(inputs instanceof NestedSet)) {
+      inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
+    }
+    NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
+    if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
+      actionBuilder.addInputDepSetIds(depSetToId(nestedSetView));
+    }
+
+    // store outputs
+    for (Artifact artifact : action.getOutputs()) {
+      actionBuilder.addOutputIds(artifactToId(artifact));
+    }
+
+    actionGraphBuilder.addActions(actionBuilder.build());
+  }
+
+  public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue) {
+    ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
+    if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
+      return;
+    }
+    for (int i = 0; i < aspectValue.getNumActions(); i++) {
+      Action action = aspectValue.getAction(i);
+      dumpSingleAction(configuredTarget, action);
+    }
+  }
+
+  public void dumpConfiguredTarget(ConfiguredTargetValue configuredTargetValue) {
+    ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
+    if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
+      return;
+    }
+    List<ActionAnalysisMetadata> actions = configuredTargetValue.getActions();
+    for (ActionAnalysisMetadata action : actions) {
+      dumpSingleAction(configuredTarget, action);
+    }
+  }
+
+  public ActionGraphContainer build() {
+    return actionGraphBuilder.build();
   }
 }
