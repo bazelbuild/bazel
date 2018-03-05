@@ -71,6 +71,7 @@ sh_test(
 sh_test(
     name = "android_ndk_integration_test",
     size = "medium",
+    timeout = "long",
     srcs = ["android_ndk_integration_test.sh"],
     data = [
         ":android_helper",

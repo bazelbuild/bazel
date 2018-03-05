@@ -137,6 +137,7 @@ sh_test(
 
 sh_test(
     name = "bazel_test_test",
+    timeout = "long",
     srcs = ["bazel_test_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
