@@ -119,6 +119,10 @@ To build C++ targets, you need:
 
     *   Install the [Visual C++ Build
         Tools 2015 or later](http://landinghub.visualstudio.com/visual-cpp-build-tools).
+        
+        Due to a [known issue](https://github.com/bazelbuild/bazel/issues/3949) with
+        Bazel's support for the Build Tools for Visual Studio 2017, we currently
+        recommend to stick to the 2015 version.
 
 *   The `BAZEL_VS` or `BAZEL_VC` environment variable.
 
@@ -139,7 +143,7 @@ To build C++ targets, you need:
     or
 
     ```
-    set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
+    set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
     ```
 
 *   The [Windows
