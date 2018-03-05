@@ -254,7 +254,8 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           ] + _add_option_if_supported(
               # Have gcc return the exit code from ld.
               repository_ctx, cc, "-pass-exit-codes")
-          ) + split_escaped(get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm"), ":"),
+          ) + split_escaped(
+                  get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm", False), ":"),
       "cxx_builtin_include_directory": escaped_cxx_include_directories,
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
