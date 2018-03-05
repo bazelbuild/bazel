@@ -78,6 +78,11 @@ answer](https://stackoverflow.com/a/49004265/7778502) for details.
     or installed Bazel using Chocolatey. See [installing Bazel on
     Windows](install-windows.html).
 
+*   [Microsoft Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
+
+    This may already be installed on your system.
+
+
 ## Setting environment variables
 
 Environment variables you set in the Windows Command Prompt (`cmd.exe`) are only
