@@ -2830,6 +2830,56 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testFixDepsToolFlag() throws Exception {
+    useConfiguration("--experimental_fix_deps_tool=autofixer");
+
+    scratch.file("java/foo/A.java", "foo");
+    scratch.file(
+        "java/foo/BUILD",
+        "android_binary(name = 'a', manifest = 'AndroidManifest.xml', ",
+        "  srcs = ['A.java'])");
+
+    Iterable<String> commandLine =
+        ((JavaCompileAction)
+                actionsTestUtil()
+                    .getActionForArtifactEndingWith(
+                        actionsTestUtil()
+                            .artifactClosureOf(
+                                getGeneratingAction(
+                                        getFileConfiguredTarget("//java/foo:a_deploy.jar")
+                                            .getArtifact())
+                                    .getInputs()),
+                        "liba.jar"))
+            .buildCommandLine();
+
+    assertThat(commandLine).containsAllOf("--experimental_fix_deps_tool", "autofixer").inOrder();
+  }
+
+  @Test
+  public void testFixDepsToolFlagEmpty() throws Exception {
+    scratch.file("java/foo/A.java", "foo");
+    scratch.file(
+        "java/foo/BUILD",
+        "android_binary(name = 'a', manifest = 'AndroidManifest.xml', ",
+        "  srcs = ['A.java'])");
+
+    Iterable<String> commandLine =
+        ((JavaCompileAction)
+                actionsTestUtil()
+                    .getActionForArtifactEndingWith(
+                        actionsTestUtil()
+                            .artifactClosureOf(
+                                getGeneratingAction(
+                                        getFileConfiguredTarget("//java/foo:a_deploy.jar")
+                                            .getArtifact())
+                                    .getInputs()),
+                        "liba.jar"))
+            .buildCommandLine();
+
+    assertThat(commandLine).containsAllOf("--experimental_fix_deps_tool", "add_dep").inOrder();
+  }
+
+  @Test
   public void testAndroidBinaryExportsJavaCompilationArgsProvider() throws Exception {
 
     scratch.file("java/foo/A.java", "foo");

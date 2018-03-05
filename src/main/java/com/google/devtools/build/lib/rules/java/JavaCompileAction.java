@@ -137,6 +137,9 @@ public final class JavaCompileAction extends SpawnAction {
    */
   private final BuildConfiguration.StrictDepsMode strictJavaDeps;
 
+  /** The tool with which to fix dependency errors. */
+  private final String fixDepsTool;
+
   /** The set of .jdeps artifacts provided by direct dependencies. */
   private final NestedSet<Artifact> compileTimeDependencyArtifacts;
 
@@ -164,6 +167,7 @@ public final class JavaCompileAction extends SpawnAction {
    * @param directJars the subset of classpath jars provided by direct dependencies
    * @param executionInfo the execution info
    * @param strictJavaDeps the Strict Java Deps mode
+   * @param fixDepsTool the tool with which to fix dependency errors
    * @param compileTimeDependencyArtifacts the jdeps files for direct dependencies
    * @param progressMessage the progress message
    */
@@ -190,6 +194,7 @@ public final class JavaCompileAction extends SpawnAction {
       NestedSet<Artifact> directJars,
       Map<String, String> executionInfo,
       StrictDepsMode strictJavaDeps,
+      String fixDepsTool,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier) {
@@ -225,6 +230,7 @@ public final class JavaCompileAction extends SpawnAction {
     this.javacOpts = ImmutableList.copyOf(javacOpts);
     this.directJars = checkNotNull(directJars, "directJars must not be null");
     this.strictJavaDeps = strictJavaDeps;
+    this.fixDepsTool = checkNotNull(fixDepsTool);
     this.compileTimeDependencyArtifacts = compileTimeDependencyArtifacts;
   }
 
@@ -294,6 +300,10 @@ public final class JavaCompileAction extends SpawnAction {
   @VisibleForTesting
   public BuildConfiguration.StrictDepsMode getStrictJavaDepsMode() {
     return strictJavaDeps;
+  }
+
+  public String getFixDepsTool() {
+    return fixDepsTool;
   }
 
   public PathFragment getClassDirectory() {
@@ -422,6 +432,7 @@ public final class JavaCompileAction extends SpawnAction {
     private final Collection<Artifact> sourceJars = new ArrayList<>();
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
         BuildConfiguration.StrictDepsMode.OFF;
+    private String fixDepsTool = "add_dep";
     private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private NestedSet<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -557,7 +568,6 @@ public final class JavaCompileAction extends SpawnAction {
             owner, artifactForExperimentalCoverage, sourceFiles, false));
       }
 
-
       NestedSet<Artifact> tools =
           NestedSetBuilder.<Artifact>stableOrder()
               .add(langtoolsJar)
@@ -605,6 +615,7 @@ public final class JavaCompileAction extends SpawnAction {
           directJars,
           executionInfo,
           strictJavaDeps,
+          fixDepsTool,
           compileTimeDependencyArtifacts,
           getProgressMessage(),
           javaBuilder.getRunfilesSupplier());
@@ -699,6 +710,7 @@ public final class JavaCompileAction extends SpawnAction {
           }
         }
       }
+      result.add("--experimental_fix_deps_tool", fixDepsTool);
 
       // Chose what artifact to pass to JavaBuilder, as input to jacoco instrumentation processor.
       // metadata should be null when --experimental_java_coverage is true.
@@ -841,6 +853,12 @@ public final class JavaCompileAction extends SpawnAction {
      */
     public Builder setStrictJavaDeps(BuildConfiguration.StrictDepsMode strictDeps) {
       strictJavaDeps = strictDeps;
+      return this;
+    }
+
+    /** Sets the tool with which to fix dependency errors. */
+    public Builder setFixDepsTool(String depsTool) {
+      fixDepsTool = depsTool;
       return this;
     }
 

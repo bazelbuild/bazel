@@ -156,6 +156,7 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
+  private final String fixDepsTool;
   private final Label proguardBinary;
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
@@ -187,6 +188,7 @@ public final class JavaConfiguration extends Fragment {
     this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.jvmOpts);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
+    this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
@@ -242,6 +244,7 @@ public final class JavaConfiguration extends Fragment {
       ImmutableList<String> defaultJvmFlags,
       ImmutableList<String> checkedConstraints,
       StrictDepsMode strictJavaDeps,
+      String fixDepsTool,
       Label proguardBinary,
       ImmutableList<Label> extraProguardSpecs,
       TriState bundleTranslations,
@@ -269,6 +272,7 @@ public final class JavaConfiguration extends Fragment {
     this.defaultJvmFlags = defaultJvmFlags;
     this.checkedConstraints = checkedConstraints;
     this.strictJavaDeps = strictJavaDeps;
+    this.fixDepsTool = fixDepsTool;
     this.proguardBinary = proguardBinary;
     this.extraProguardSpecs = extraProguardSpecs;
     this.bundleTranslations = bundleTranslations;
@@ -374,6 +378,11 @@ public final class JavaConfiguration extends Fragment {
       default:   // OFF, WARN, ERROR
         return strict;
     }
+  }
+
+  /** Which tool to use for fixing dependency errors. */
+  public String getFixDepsTool() {
+    return fixDepsTool;
   }
 
   /**

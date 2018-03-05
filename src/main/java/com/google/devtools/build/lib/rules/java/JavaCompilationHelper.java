@@ -68,6 +68,7 @@ public final class JavaCompilationHelper {
   private final JavaSemantics semantics;
   private final ImmutableList<Artifact> additionalJavaBaseInputs;
   private final StrictDepsMode strictJavaDeps;
+  private final String fixDepsTool;
 
   private static final String DEFAULT_ATTRIBUTES_SUFFIX = "";
   private static final PathFragment JAVAC = PathFragment.create("_javac");
@@ -91,6 +92,7 @@ public final class JavaCompilationHelper {
     this.strictJavaDeps = disableStrictDeps
         ? StrictDepsMode.OFF
         : getJavaConfiguration().getFilteredStrictJavaDeps();
+    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
   }
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
@@ -226,6 +228,7 @@ public final class JavaCompilationHelper {
     builder.setProcessorPaths(attributes.getProcessorPath());
     builder.addProcessorNames(attributes.getProcessorNames());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
+    builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setTargetLabel(
@@ -753,6 +756,11 @@ public final class JavaCompilationHelper {
    */
   public StrictDepsMode getStrictJavaDeps() {
     return strictJavaDeps;
+  }
+
+  /** Determines which tool to use when fixing dependency errors. */
+  public String getFixDepsTool() {
+    return fixDepsTool;
   }
 
   /**

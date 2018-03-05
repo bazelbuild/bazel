@@ -211,6 +211,25 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testFixDepsToolEmpty() throws Exception {
+    scratch.file("java/android/BUILD", "android_library(name = 'b', srcs = ['B.java'])");
+    List<String> commandLine =
+        getGeneratingSpawnActionArgs(
+            getFileConfiguredTarget("//java/android:libb.jar").getArtifact());
+    assertThat(commandLine).containsAllOf("--experimental_fix_deps_tool", "add_dep").inOrder();
+  }
+
+  @Test
+  public void testFixDepsTool() throws Exception {
+    useConfiguration("--experimental_fix_deps_tool=auto_fixer");
+    scratch.file("java/android/BUILD", "android_library(name = 'b', srcs = ['B.java'])");
+    List<String> commandLine =
+        getGeneratingSpawnActionArgs(
+            getFileConfiguredTarget("//java/android:libb.jar").getArtifact());
+    assertThat(commandLine).containsAllOf("--experimental_fix_deps_tool", "auto_fixer").inOrder();
+  }
+
+  @Test
   public void testJavaPluginProcessorPath() throws Exception {
     scratch.file("java/test/BUILD",
         "java_library(name = 'plugin_dep',",

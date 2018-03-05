@@ -240,6 +240,15 @@ public class JavaOptions extends FragmentOptions {
   )
   public StrictDepsMode strictJavaDeps;
 
+  @Option(
+    name = "experimental_fix_deps_tool",
+    defaultValue = "add_dep",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+    help = "Specifies which tool should be used to resolve missing dependencies."
+  )
+  public String fixDepsTool;
+
   // TODO(bazel-team): This flag should ideally default to true (and eventually removed). We have
   // been accidentally supplying JUnit and Hamcrest deps to java_test targets indirectly via the
   // BazelTestRunner, and setting this flag to true fixes that behaviour.
@@ -558,6 +567,7 @@ public class JavaOptions extends FragmentOptions {
     host.javaClasspath = javaClasspath;
 
     host.strictJavaDeps = strictJavaDeps;
+    host.fixDepsTool = fixDepsTool;
 
     host.enforceOneVersion = enforceOneVersion;
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
