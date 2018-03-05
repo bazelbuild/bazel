@@ -184,7 +184,7 @@ function write_xml_output_file {
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="$test_name" tests="1" failures="0" errors="${errors}">
-    <testcase name="$test_name" status="run" duration="${duration}">${error_msg}</testcase>
+    <testcase name="$test_name" status="run" duration="${duration}" time="${duration}">${error_msg}</testcase>
     <system-out><![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]></system-out>
   </testsuite>
 </testsuites>
