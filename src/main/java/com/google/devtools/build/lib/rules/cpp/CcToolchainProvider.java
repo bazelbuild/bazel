@@ -630,17 +630,17 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   @SkylarkCallable(
-    name = "unfiltered_compiler_options_do_not_use",
-    doc =
-        "Returns the default list of options which cannot be filtered by BUILD "
-            + "rules. These should be appended to the command line after filtering."
+      name = "unfiltered_compiler_options",
+      doc =
+          "Returns the default list of options which cannot be filtered by BUILD "
+              + "rules. These should be appended to the command line after filtering."
   )
   public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(Iterable<String> features) {
-    return cppConfiguration.getUnfilteredCompilerOptionsDoNotUse(features, sysroot);
+    return toolchainInfo.getUnfilteredCompilerOptions(features, sysroot);
   }
 
   public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
-    return cppConfiguration.getUnfilteredCompilerOptionsDoNotUse(features, /* sysroot= */ null);
+    return toolchainInfo.getUnfilteredCompilerOptions(features, /* sysroot= */ null);
   }
 
   @SkylarkCallable(
