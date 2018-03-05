@@ -25,9 +25,9 @@ import java.io.IOException;
 import org.junit.Test;
 
 /**
- * Tests for {@link XCodeLocalEnvProvider}.
+ * Tests for {@link XcodeLocalEnvProvider}.
  */
-public class XCodeLocalEnvProviderTest {
+public class XcodeLocalEnvProviderTest {
   private final FileSystem fs = new JavaIoFileSystem();
 
   @Test
@@ -36,7 +36,7 @@ public class XCodeLocalEnvProviderTest {
       return;
     }
     try {
-      new XCodeLocalEnvProvider().rewriteLocalEnv(
+      new XcodeLocalEnvProvider().rewriteLocalEnv(
           ImmutableMap.<String, String>of(
               AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
               AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
