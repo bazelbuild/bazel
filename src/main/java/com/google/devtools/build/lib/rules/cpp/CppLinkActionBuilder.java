@@ -1193,25 +1193,14 @@ public class CppLinkActionBuilder {
 
     if (!isLtoIndexing) {
       for (Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
-        Iterable<Artifact> inputs;
-        if (cppConfiguration.shouldFixLinkstampInputsBug()) {
-          inputs = IterablesChain.<Artifact>builder()
-              .add(ImmutableSet.copyOf(nonCodeInputs))
-              // We don't want to add outputs of this linkstamp compilation action to
-              // inputsBuilder before this line, since that would introduce a cycle in the
-              // graph.
-              .add(inputsBuilder.deduplicate().build())
-              .build();
-        } else {
-          inputs = ImmutableSet.copyOf(nonCodeInputs);
-        }
         analysisEnvironment.registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleContext,
                 linkstampEntry.getKey().getArtifact(),
                 linkstampEntry.getValue(),
                 linkstampEntry.getKey().getDeclaredIncludeSrcs(),
-                inputs,
+                ImmutableSet.copyOf(nonCodeInputs),
+                inputsBuilder.deduplicate().build(),
                 buildInfoHeaderArtifacts,
                 additionalLinkstampDefines,
                 toolchain,
@@ -1220,8 +1209,7 @@ public class CppLinkActionBuilder {
                 CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
                 featureConfiguration,
                 cppConfiguration.forcePic()
-                    || (linkType.isDynamicLibrary()
-                        && toolchain.toolchainNeedsPic()),
+                    || (linkType.isDynamicLibrary() && toolchain.toolchainNeedsPic()),
                 Matcher.quoteReplacement(
                     isNativeDeps && cppConfiguration.shareNativeDeps()
                         ? output.getExecPathString()

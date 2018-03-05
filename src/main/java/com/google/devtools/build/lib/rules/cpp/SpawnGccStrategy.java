@@ -40,7 +40,14 @@ public class SpawnGccStrategy implements CppCompileActionContext {
   public CppCompileActionResult execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    Iterable<Artifact> inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
+
+    Iterable<Artifact> inputs =
+        Iterables.concat(
+            /**
+             * Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are
+             * not needed for execution.
+             */
+            action.getMandatoryInputs(), action.getAdditionalInputs());
     Spawn spawn =
         new SimpleSpawn(
             action,

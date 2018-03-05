@@ -82,6 +82,7 @@ public class CppCompileActionBuilder {
   private final boolean codeCoverageEnabled;
   @Nullable private String actionName;
   private ImmutableList<Artifact> builtinIncludeFiles;
+  private Iterable<Artifact> inputsForInvalidation = ImmutableList.of();
   // New fields need to be added to the copy constructor.
 
   /**
@@ -135,6 +136,7 @@ public class CppCompileActionBuilder {
     this.sourceFile = other.sourceFile;
     this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(other.mandatoryInputsBuilder.build());
+    this.inputsForInvalidation = other.inputsForInvalidation;
     this.additionalIncludeScanningRoots =
         new ImmutableList.Builder<Artifact>().addAll(other.additionalIncludeScanningRoots.build());
     this.optionalSourceFile = other.optionalSourceFile;
@@ -370,6 +372,7 @@ public class CppCompileActionBuilder {
               useHeaderModules,
               cppConfiguration.isStrictSystemIncludes(),
               realMandatoryInputs,
+              inputsForInvalidation,
               getBuiltinIncludeFiles(),
               prunableInputs,
               outputFile,
@@ -397,6 +400,7 @@ public class CppCompileActionBuilder {
               useHeaderModules,
               cppConfiguration.isStrictSystemIncludes(),
               realMandatoryInputs,
+              inputsForInvalidation,
               getBuiltinIncludeFiles(),
               prunableInputs,
               outputFile,
@@ -458,6 +462,7 @@ public class CppCompileActionBuilder {
       builder.add(optionalSourceFile);
     }
     builder.addTransitive(mandatoryInputs);
+    builder.addAll(inputsForInvalidation);
     return builder.build();
   }
 
@@ -697,6 +702,12 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setBuiltinIncludeFiles(
       ImmutableList<Artifact> builtinIncludeFiles) {
     this.builtinIncludeFiles = builtinIncludeFiles;
+    return this;
+  }
+
+  public CppCompileActionBuilder setInputsForInvalidation(
+      Iterable<Artifact> inputsForInvalidation) {
+    this.inputsForInvalidation = Preconditions.checkNotNull(inputsForInvalidation);
     return this;
   }
 }

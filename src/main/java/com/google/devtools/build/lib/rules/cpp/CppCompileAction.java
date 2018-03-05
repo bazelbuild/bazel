@@ -162,6 +162,7 @@ public class CppCompileAction extends AbstractAction
   private final Artifact sourceFile;
   private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
+  private final Iterable<Artifact> inputsForInvalidation;
 
   /**
    * The set of input files that we add to the set of input artifacts of the action if we don't use
@@ -240,6 +241,8 @@ public class CppCompileAction extends AbstractAction
    * @param isStrictSystemIncludes should this compile action use strict system includes
    * @param mandatoryInputs any additional files that need to be present for the compilation to
    *     succeed, can be empty but not null, for example, extra sources for FDO.
+   * @param inputsForInvalidation are there only to invalidate this action when they change, but are
+   *     not needed during actual execution.
    * @param outputFile the object file that is written as result of the compilation, or the fake
    *     object for {@link FakeCppCompileAction}s
    * @param dotdFile the .d file that is generated as a side-effect of compilation
@@ -271,6 +274,7 @@ public class CppCompileAction extends AbstractAction
       boolean useHeaderModules,
       boolean isStrictSystemIncludes,
       NestedSet<Artifact> mandatoryInputs,
+      Iterable<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> prunableInputs,
       Artifact outputFile,
@@ -306,6 +310,7 @@ public class CppCompileAction extends AbstractAction
         // We do not need to include the middleman artifact since it is a generated
         // artifact and will definitely exist prior to this action execution.
         mandatoryInputs,
+        inputsForInvalidation,
         prunableInputs,
         // inputsKnown begins as the logical negation of shouldScanIncludes.
         // When scanning includes, the inputs begin as not known, and become
@@ -353,6 +358,7 @@ public class CppCompileAction extends AbstractAction
       Artifact sourceFile,
       Artifact optionalSourceFile,
       NestedSet<Artifact> mandatoryInputs,
+      Iterable<Artifact> inputsForInvalidation,
       NestedSet<Artifact> prunableInputs,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
@@ -384,6 +390,7 @@ public class CppCompileAction extends AbstractAction
     this.sourceFile = sourceFile;
     this.optionalSourceFile = optionalSourceFile;
     this.mandatoryInputs = mandatoryInputs;
+    this.inputsForInvalidation = inputsForInvalidation;
     this.prunableInputs = prunableInputs;
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
@@ -1001,6 +1008,7 @@ public class CppCompileAction extends AbstractAction
       if (optionalSourceFile != null) {
         inputs.add(optionalSourceFile);
       }
+      inputs.addAll(inputsForInvalidation);
       inputs.addTransitive(discoveredInputs);
       updateInputs(inputs.build());
     } finally {

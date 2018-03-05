@@ -885,24 +885,6 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean useLLVMCoverageMapFormat;
 
-  @Option(
-      name = "experimental_fix_linkstamp_inputs_bug",
-      defaultValue = "false",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If set to true, bazel will add all inputs of the C++ linking action as inputs to the "
-              + "C++ linkstamp compile action too. This is a migration-only flag and will be "
-              + "removed as soon as g3 is fixed."
-  )
-  public boolean fixLinkstampInputsBug;
-
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();

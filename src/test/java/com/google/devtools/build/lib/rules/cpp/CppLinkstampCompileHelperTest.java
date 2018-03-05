@@ -38,7 +38,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "builtin_sysroot: '/usr/local/custom-sysroot'");
-    useConfiguration("--experimental_fix_linkstamp_inputs_bug");
+    useConfiguration();
     scratch.file(
         "x/BUILD",
         "cc_binary(",
@@ -92,7 +92,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "builtin_sysroot: '/usr/local/custom-sysroot'");
-    useConfiguration("--experimental_fix_linkstamp_inputs_bug");
+    useConfiguration();
     scratch.file(
         "x/BUILD",
         "cc_binary(",
@@ -181,8 +181,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
    * Regression test for b/73447914: Linkstamps were not re-built when only volatile data changed,
    * i.e. when we modified cc_binary source, linkstamp was not recompiled so we got old timestamps.
    * The proper behavior is to recompile linkstamp whenever any input to cc_binary action changes.
-   * And the current implementation solves this by adding all linking inputs as inputs to linkstamp
-   * compile action.
+   * And the current implementation solves this by adding all linking inputs as
+   * inputsForInvalidation to linkstamp compile action.
    */
   @Test
   public void testLinkstampCompileDependsOnAllCcBinaryLinkingInputs() throws Exception {
@@ -198,7 +198,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         "  srcs = [ 'bar.cc' ],",
         "  linkstamp = 'ls.cc',",
         ")");
-    useConfiguration("--experimental_fix_linkstamp_inputs_bug");
+    useConfiguration();
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);

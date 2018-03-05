@@ -197,8 +197,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
 
   private final boolean shouldProvideMakeVariables;
 
-  private final boolean fixLinkstampInputsBug;
-
   /**
    * If true, the ConfiguredTarget is only used to get the necessary cross-referenced {@code
    * CcCompilationInfo}s, but registering build actions is disabled.
@@ -314,7 +312,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(cppOptions.ltoindexoptList),
         cppOptions,
         params.cpuTransformer,
-        cppOptions.fixLinkstampInputsBug,
         (cppOptions.stripBinaries == StripMode.ALWAYS
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD)),
@@ -351,7 +348,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       ImmutableList<String> ltoindexOptions,
       CppOptions cppOptions,
       CpuTransformer cpuTransformerEnum,
-      boolean fixLinkstampInputsBug,
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean shouldProvideMakeVariables,
@@ -382,7 +378,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.ltoindexOptions = ltoindexOptions;
     this.cppOptions = cppOptions;
     this.cpuTransformerEnum = cpuTransformerEnum;
-    this.fixLinkstampInputsBug = fixLinkstampInputsBug;
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
     this.shouldProvideMakeVariables = shouldProvideMakeVariables;
@@ -421,10 +416,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   /** Returns the transformer that should be applied to cpu names in toolchain selection. */
   public Function<String, String> getCpuTransformer() {
     return cpuTransformerEnum.getTransformer();
-  }
-
-  public boolean shouldFixLinkstampInputsBug() {
-    return fixLinkstampInputsBug;
   }
 
   /**
