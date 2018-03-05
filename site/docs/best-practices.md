@@ -87,7 +87,7 @@ misleading alias to point both targets to one guava library, then the BUILD file
 ## `.bazelrc`
 
 For project-specific options, use the configuration file `_your-workspace_/tools/bazel.rc` (see
-[bazelrc format](https://docs.bazel.build/bazel-user-manual.html#bazelrc)).
+[bazelrc format](https://docs.bazel.build/user-manual.html#bazelrc)).
 
 For options that you **do not** want to check into source control, create the configuration file
 `_your-workspace_/.bazelrc` and add `.bazelrc` to your `.gitignore`.  Note that this file has a
