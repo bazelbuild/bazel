@@ -876,10 +876,25 @@ public class CppLinkActionBuilder {
               LinkerInputs.simpleLinkerInputs(linkstampMap.values(), ArtifactCategory.OBJECT_FILE));
       uniqueLibraries = originalUniqueLibraries;
     }
-    final ImmutableSet<Artifact> objectArtifacts =
-        ImmutableSet.copyOf(LinkerInputs.toLibraryArtifacts(objectFileInputs));
-    final ImmutableSet<Artifact> linkstampObjectArtifacts =
-        ImmutableSet.copyOf(LinkerInputs.toLibraryArtifacts(linkstampObjectFileInputs));
+
+    Map<Artifact, Artifact> ltoMapping = new HashMap<>();
+    ;
+    if (isFinalLinkOfLtoBuild()) {
+      for (LtoBackendArtifacts a : allLtoArtifacts) {
+        ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
+      }
+    }
+    Iterable<Artifact> objectArtifacts =
+        getArtifactsPossiblyLtoMapped(objectFileInputs, ltoMapping);
+    Iterable<Artifact> linkstampObjectArtifacts =
+        getArtifactsPossiblyLtoMapped(linkstampObjectFileInputs, ltoMapping);
+    Iterable<Artifact> expandedInputs =
+        getArtifactsPossiblyLtoMapped(
+            Link.mergeInputsDependencies(
+                uniqueLibraries,
+                needWholeArchive,
+                CppHelper.getArchiveType(cppConfiguration, toolchain)),
+            ltoMapping);
 
     ImmutableSet<Artifact> combinedObjectArtifacts =
         ImmutableSet.<Artifact>builder()
@@ -1104,52 +1119,11 @@ public class CppLinkActionBuilder {
       dependencyInputsBuilder.add(defFile);
     }
 
-    Iterable<Artifact> expandedInputs =
-        LinkerInputs.toLibraryArtifacts(
-            Link.mergeInputsDependencies(
-                uniqueLibraries,
-                needWholeArchive,
-                CppHelper.getArchiveType(cppConfiguration, toolchain)));
-    ImmutableSet<Artifact> expandedNonLibraryInputs = objectArtifacts;
-    ImmutableSet<Artifact> expandedNonLibraryLinkstampInputs = linkstampObjectArtifacts;
-
-    if (!isLtoIndexing && allLtoArtifacts != null) {
-      // We are doing LTO, and this is the real link, so substitute
-      // the LTO bitcode files with the real object files they were translated into.
-      Map<Artifact, Artifact> ltoMapping = new HashMap<>();
-      for (LtoBackendArtifacts a : allLtoArtifacts) {
-        ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
-      }
-
-      // Handle libraries.
-      List<Artifact> renamedInputs = new ArrayList<>();
-      for (Artifact a : expandedInputs) {
-        Artifact renamed = ltoMapping.get(a);
-        renamedInputs.add(renamed == null ? a : renamed);
-      }
-      expandedInputs = renamedInputs;
-
-      // Handle non-libraries.
-      ImmutableSet.Builder<Artifact> renamedNonLibraryInputs = ImmutableSet.builder();
-      for (Artifact a : expandedNonLibraryInputs) {
-        Artifact renamed = ltoMapping.get(a);
-        renamedNonLibraryInputs.add(renamed == null ? a : renamed);
-      }
-      expandedNonLibraryInputs = renamedNonLibraryInputs.build();
-
-      ImmutableSet.Builder<Artifact> renamedNonLibraryLinkstampInputs = ImmutableSet.builder();
-      for (Artifact a : expandedNonLibraryLinkstampInputs) {
-        Artifact renamed = ltoMapping.get(a);
-        renamedNonLibraryLinkstampInputs.add(renamed == null ? a : renamed);
-      }
-      expandedNonLibraryLinkstampInputs = renamedNonLibraryLinkstampInputs.build();
-    }
-
     // getPrimaryInput returns the first element, and that is a public interface - therefore the
     // order here is important.
     IterablesChain.Builder<Artifact> inputsBuilder =
         IterablesChain.<Artifact>builder()
-            .add(ImmutableList.copyOf(expandedNonLibraryInputs))
+            .add(ImmutableList.copyOf(objectArtifacts))
             .add(ImmutableList.copyOf(nonCodeInputs))
             .add(dependencyInputsBuilder.build())
             .add(ImmutableIterable.from(expandedInputs));
@@ -1162,8 +1136,8 @@ public class CppLinkActionBuilder {
       // Pass along tree artifacts, so they can be properly expanded.
       ImmutableSet<Artifact> expandedNonLibraryTreeArtifactInputs =
           ImmutableSet.<Artifact>builder()
-              .addAll(expandedNonLibraryInputs)
-              .addAll(expandedNonLibraryLinkstampInputs)
+              .addAll(objectArtifacts)
+              .addAll(linkstampObjectArtifacts)
               .build()
               .stream()
               .filter(a -> a.isTreeArtifact())
@@ -1221,7 +1195,7 @@ public class CppLinkActionBuilder {
       inputsBuilder.add(linkstampMap.values());
     }
 
-    inputsBuilder.add(expandedNonLibraryLinkstampInputs);
+    inputsBuilder.add(linkstampObjectArtifacts);
 
     return new CppLinkAction(
         getOwner(),
@@ -1246,6 +1220,23 @@ public class CppLinkActionBuilder {
         toolchain.getToolPathFragment(Tool.LD),
         toolchain.getHostSystemName(),
         toolchain.getTargetCpu());
+  }
+
+  /** We're doing 4-phased lto build, and this is the final link action (4-th phase). */
+  private boolean isFinalLinkOfLtoBuild() {
+    return !isLtoIndexing && allLtoArtifacts != null;
+  }
+
+  private Iterable<Artifact> getArtifactsPossiblyLtoMapped(
+      Iterable<LinkerInput> inputs, Map<Artifact, Artifact> ltoMapping) {
+    Preconditions.checkNotNull(ltoMapping);
+    Builder<Artifact> result = ImmutableSet.builder();
+    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(inputs);
+    for (Artifact a : artifacts) {
+      Artifact renamed = ltoMapping.get(a);
+      result.add(renamed == null ? a : renamed);
+    }
+    return result.build();
   }
 
   private boolean shouldUseLinkDynamicLibraryTool() {
