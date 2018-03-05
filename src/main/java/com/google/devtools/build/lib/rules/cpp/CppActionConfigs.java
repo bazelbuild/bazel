@@ -1026,6 +1026,18 @@ public class CppActionConfigs {
         .join(
             ImmutableList.of(
                 ifTrue(
+                    !existingFeatureNames.contains("fully_static_link"),
+                    "feature {",
+                    "  name: 'fully_static_link'",
+                    "  flag_set {",
+                    "    action: 'c++-link-executable'",
+                    "    action: 'c++-link-dynamic-library'",
+                    "    flag_group {",
+                    "      flag: '-static'",
+                    "    }",
+                    "  }",
+                    "}"),
+                ifTrue(
                     !existingFeatureNames.contains("user_compile_flags"),
                     "feature {",
                     "  name: 'user_compile_flags'",

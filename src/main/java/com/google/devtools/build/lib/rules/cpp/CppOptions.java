@@ -257,6 +257,18 @@ public class CppOptions extends FragmentOptions {
   public DynamicMode dynamicMode;
 
   @Option(
+      name = "experimental_drop_fully_static_linking_mode",
+      defaultValue = "false",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If enabled, bazel will not scan linkopts for -static. Rules have to define their fully"
+              + " static linking mode through 'link_fully_static_binary' feature."
+  )
+  public boolean dropFullyStaticLinkingMode;
+
+  @Option(
     name = "experimental_link_compile_output_separately",
     defaultValue = "false",
     category = "semantics",
