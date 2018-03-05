@@ -776,122 +776,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return new ArrayList<>(ruleStats.values());
   }
 
-  private static class ActionGraphIdCache {
-    private final Map<Artifact, String> knownArtifacts = new HashMap<>();
-    private final Map<BuildConfiguration, String> knownConfigurations = new HashMap<>();
-    private final Map<Label, String> knownTargets = new HashMap<>();
-    private final Map<AspectDescriptor, String> knownAspectDescriptors = new HashMap<>();
-    private final Map<String, String> knownRuleClassStrings = new HashMap<>();
-    // The NestedSet is identified by their raw 'children' object since multiple NestedSetViews
-    // can point to the same object.
-    private final Map<Object, String> knownNestedSets = new HashMap<>();
-
-    private final ActionGraphContainer.Builder actionGraphBuilder;
-    private final ActionKeyContext actionKeyContext = new ActionKeyContext();
-
-    ActionGraphIdCache(ActionGraphContainer.Builder actionGraphBuilder) {
-      this.actionGraphBuilder = actionGraphBuilder;
-    }
-
-    public ActionKeyContext getActionKeyContext() {
-      return actionKeyContext;
-    }
-
-    public String ruleClassStringToId(String ruleClassString) {
-      if (!knownRuleClassStrings.containsKey(ruleClassString)) {
-        String targetId = String.valueOf(knownRuleClassStrings.size());
-        knownRuleClassStrings.put(ruleClassString, targetId);
-        AnalysisProtos.RuleClass.Builder ruleClassBuilder =
-            AnalysisProtos.RuleClass.newBuilder().setId(targetId).setName(ruleClassString);
-        actionGraphBuilder.addRuleClasses(ruleClassBuilder.build());
-      }
-      return knownRuleClassStrings.get(ruleClassString);
-    }
-
-    public String targetToId(Label label, String ruleClassString) {
-      if (!knownTargets.containsKey(label)) {
-        String targetId = String.valueOf(knownTargets.size());
-        knownTargets.put(label, targetId);
-        AnalysisProtos.Target.Builder targetBuilder = AnalysisProtos.Target.newBuilder();
-        targetBuilder.setId(targetId).setLabel(label.toString());
-        if (ruleClassString != null) {
-          targetBuilder.setRuleClassId(ruleClassStringToId(ruleClassString));
-        }
-        actionGraphBuilder.addTargets(targetBuilder.build());
-      }
-      return knownTargets.get(label);
-    }
-
-    public String configurationToId(BuildConfiguration buildConfiguration) {
-      if (!knownConfigurations.containsKey(buildConfiguration)) {
-        String configurationId = String.valueOf(knownConfigurations.size());
-        knownConfigurations.put(buildConfiguration, configurationId);
-        AnalysisProtos.Configuration configurationProto =
-            AnalysisProtos.Configuration.newBuilder()
-                .setMnemonic(buildConfiguration.getMnemonic())
-                .setPlatformName(buildConfiguration.getPlatformName())
-                .setId(configurationId)
-                .build();
-        actionGraphBuilder.addConfiguration(configurationProto);
-      }
-      return knownConfigurations.get(buildConfiguration);
-    }
-
-    public String artifactToId(Artifact artifact) {
-      if (!knownArtifacts.containsKey(artifact)) {
-        String artifactId = String.valueOf(knownArtifacts.size());
-        knownArtifacts.put(artifact, artifactId);
-        AnalysisProtos.Artifact artifactProto =
-            AnalysisProtos.Artifact.newBuilder()
-                .setId(artifactId)
-                .setExecPath(artifact.getExecPathString())
-                .setIsTreeArtifact(artifact.isTreeArtifact())
-                .build();
-        actionGraphBuilder.addArtifacts(artifactProto);
-      }
-      return knownArtifacts.get(artifact);
-    }
-
-    public String depSetToId(NestedSetView<Artifact> nestedSetView) {
-      if (!knownNestedSets.containsKey(nestedSetView.identifier())) {
-        String nestedSetId = String.valueOf(knownNestedSets.size());
-        knownNestedSets.put(nestedSetView.identifier(), nestedSetId);
-        AnalysisProtos.DepSetOfFiles.Builder depSetBuilder =
-            AnalysisProtos.DepSetOfFiles.newBuilder().setId(nestedSetId);
-        for (NestedSetView<Artifact> transitiveNestedSet : nestedSetView.transitives()) {
-          depSetBuilder.addTransitiveDepSetIds(depSetToId(transitiveNestedSet));
-        }
-        for (Artifact directArtifact : nestedSetView.directs()) {
-          depSetBuilder.addDirectArtifactIds(artifactToId(directArtifact));
-        }
-        actionGraphBuilder.addDepSetOfFiles(depSetBuilder.build());
-      }
-      return knownNestedSets.get(nestedSetView.identifier());
-    }
-
-    public String aspectDescriptorToId(AspectDescriptor aspectDescriptor) {
-      if (!knownAspectDescriptors.containsKey(aspectDescriptor)) {
-        String aspectDescriptorId = String.valueOf(knownAspectDescriptors.size());
-        knownAspectDescriptors.put(aspectDescriptor, aspectDescriptorId);
-        AnalysisProtos.AspectDescriptor.Builder aspectDescriptorBuilder =
-            AnalysisProtos.AspectDescriptor.newBuilder()
-                .setId(aspectDescriptorId)
-                .setName(aspectDescriptor.getAspectClass().getName());
-        for (Entry<String, String> parameter :
-            aspectDescriptor.getParameters().getAttributes().entries()) {
-          AnalysisProtos.KeyValuePair.Builder keyValuePairBuilder =
-              AnalysisProtos.KeyValuePair.newBuilder();
-          keyValuePairBuilder
-              .setKey(parameter.getKey())
-              .setValue(parameter.getValue());
-          aspectDescriptorBuilder.addParameters(keyValuePairBuilder.build());
-        }
-        actionGraphBuilder.addAspectDescriptors(aspectDescriptorBuilder.build());
-      }
-      return knownAspectDescriptors.get(aspectDescriptor);
-    }
-  }
-
   private static boolean includeInActionGraph(String labelString, List<String> actionGraphTargets) {
     if (actionGraphTargets.size() == 1
         && Iterables.getOnlyElement(actionGraphTargets).equals("...")) {
@@ -903,7 +787,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public ActionGraphContainer getActionGraphContainer(List<String> actionGraphTargets) {
     ActionGraphContainer.Builder actionGraphBuilder = ActionGraphContainer.newBuilder();
-    ActionGraphIdCache actionGraphIdCache = new ActionGraphIdCache(actionGraphBuilder);
+    ActionGraphDump actionGraphDump = new ActionGraphDump(actionGraphBuilder);
     for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
         memoizingEvaluator.getGraphMap().entrySet()) {
       NodeEntry entry = skyKeyAndNodeEntry.getValue();
@@ -911,9 +795,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyFunctionName functionName = key.functionName();
       try {
         if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-          dumpConfiguredTarget(actionGraphBuilder, actionGraphIdCache, entry, actionGraphTargets);
+          dumpConfiguredTarget(actionGraphBuilder, actionGraphDump, entry, actionGraphTargets);
         } else if (functionName.equals(SkyFunctions.ASPECT)) {
-          dumpAspect(actionGraphBuilder, actionGraphIdCache, entry, actionGraphTargets);
+          dumpAspect(actionGraphBuilder, actionGraphDump, entry, actionGraphTargets);
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -925,7 +809,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private void dumpAspect(
       ActionGraphContainer.Builder actionGraphBuilder,
-      ActionGraphIdCache actionGraphIdCache,
+      ActionGraphDump actionGraphDump,
       NodeEntry entry,
       List<String> actionGraphTargets)
       throws InterruptedException {
@@ -940,13 +824,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     for (int i = 0; i < aspectValue.getNumActions(); i++) {
       Action action = aspectValue.getAction(i);
-      dumpSingleAction(actionGraphIdCache, actionGraphBuilder, configuredTarget, action);
+      dumpSingleAction(actionGraphDump, actionGraphBuilder, configuredTarget, action);
     }
   }
 
   private void dumpConfiguredTarget(
       ActionGraphContainer.Builder actionGraphBuilder,
-      ActionGraphIdCache actionGraphIdCache,
+      ActionGraphDump actionGraphDump,
       NodeEntry entry,
       List<String> actionGraphTargets)
       throws InterruptedException {
@@ -957,12 +841,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     List<ActionAnalysisMetadata> actions = ctValue.getActions();
     for (ActionAnalysisMetadata action : actions) {
-      dumpSingleAction(actionGraphIdCache, actionGraphBuilder, configuredTarget, action);
+      dumpSingleAction(actionGraphDump, actionGraphBuilder, configuredTarget, action);
     }
   }
 
   private void dumpSingleAction(
-      ActionGraphIdCache actionGraphIdCache,
+      ActionGraphDump actionGraphDump,
       ActionGraphContainer.Builder actionGraphBuilder,
       ConfiguredTarget configuredTarget,
       ActionAnalysisMetadata action) {
@@ -972,12 +856,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     AnalysisProtos.Action.Builder actionBuilder =
         AnalysisProtos.Action.newBuilder()
             .setMnemonic(action.getMnemonic())
-            .setTargetId(actionGraphIdCache.targetToId(label, ruleClassString));
+            .setTargetId(actionGraphDump.targetToId(label, ruleClassString));
 
     if (action instanceof ActionExecutionMetadata) {
       ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
       actionBuilder
-          .setActionKey(actionExecutionMetadata.getKey(actionGraphIdCache.getActionKeyContext()))
+          .setActionKey(actionExecutionMetadata.getKey(actionGraphDump.getActionKeyContext()))
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
     }
 
@@ -1000,12 +884,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     ActionOwner actionOwner = action.getOwner();
     if (actionOwner != null) {
       BuildConfiguration buildConfiguration = (BuildConfiguration) actionOwner.getConfiguration();
-      actionBuilder.setConfigurationId(actionGraphIdCache.configurationToId(buildConfiguration));
+      actionBuilder.setConfigurationId(actionGraphDump.configurationToId(buildConfiguration));
 
       // store aspect
       for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors()) {
         actionBuilder.addAspectDescriptorIds(
-            actionGraphIdCache.aspectDescriptorToId(aspectDescriptor));
+            actionGraphDump.aspectDescriptorToId(aspectDescriptor));
       }
     }
 
@@ -1016,12 +900,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
     if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
-      actionBuilder.addInputDepSetIds(actionGraphIdCache.depSetToId(nestedSetView));
+      actionBuilder.addInputDepSetIds(actionGraphDump.depSetToId(nestedSetView));
     }
 
     // store outputs
     for (Artifact artifact : action.getOutputs()) {
-      actionBuilder.addOutputIds(actionGraphIdCache.artifactToId(artifact));
+      actionBuilder.addOutputIds(actionGraphDump.artifactToId(artifact));
     }
 
     actionGraphBuilder.addActions(actionBuilder.build());
