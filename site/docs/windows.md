@@ -5,28 +5,51 @@ title: Windows
 
 # Using Bazel on Windows
 
-Bazel runs on 64 bit Windows 7 or higher. Known issues are [marked with label
-"Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
-on GitHub issues.
+## Windows version requirements
 
-Bazel is a native Windows binary. Run it from the Windows Command Prompt
-(`cmd.exe`) or from PowerShell.
+Bazel is a native Windows binary.
 
-## <a name="requirements"></a>Requirements
+Bazel runs on 64 bit Windows 7 or higher, and on equivalent Windows Server
+versions. Check
+<a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">Microsoft's
+Operating System Version table</a> to see if your OS is supported.
+
+## Known issues
+
+We mark Windows-related Bazel issues on GitHub with the "multi-platform >
+windows" label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
+
+## Running Bazel: MSYS2 shell vs. Command Prompt vs. PowerShell
+
+It's best to run Bazel from the Command Prompt (`cmd.exe`) or from PowerShell.
+
+You can also run Bazel from the MSYS2 shell, but you need to disable MSYS2's
+automatic path conversion. See [this StackOverflow
+answer](https://stackoverflow.com/a/49004265/7778502) for details.
+
+## <a name="requirements"></a>Software requirements
 
 *   Python 2.7 or later.
-*   [msys2 shell](https://msys2.github.io/).
+
+    Use the Windows-native Python version. Do not use Python that comes with the
+    MSYS2 shell or that you installed in MSYS using Pacman because it doesn't
+    work with Bazel.
+
+*   [MSYS2 shell](https://msys2.github.io/).
 
     You also need to set the `BAZEL_SH` environment variable to point to
     `bash.exe`. For example in the Windows Command Prompt (`cmd.exe`):
 
     ```
-    set BAZEL_SH=C:\msys64\usr\bin\bash.exe
+    set BAZEL_SH=C:\tools\msys64\usr\bin\bash.exe
     ```
 
-*   Several msys2 packages.
+    **Note**: do not use quotes (") around the path like you would on Unixes.
+    Windows doesn't need them and it may confuse Bazel.
 
-    Run the following command in the msys2 shell to install them:
+*   Several MSYS2 packages.
+
+    Run the following command in the MSYS2 shell to install them:
 
     ```bash
     pacman -Syuu git curl zip unzip
@@ -36,8 +59,8 @@ Bazel is a native Windows binary. Run it from the Windows Command Prompt
 
     JDK 7 and 9 are not supported.
 
-    If you downloaded a binary distribution of Bazel (see [installing Bazel on
-    Windows](install-windows.html)), the binary has JDK 8 embedded by default.
+    This step is not required if you downloaded a binary distribution of Bazel
+    because it has JDK 8 embedded.
 
 *   If you built Bazel from source: set the `JAVA_HOME` environment variable to
     the JDK's directory.
@@ -48,9 +71,14 @@ Bazel is a native Windows binary. Run it from the Windows Command Prompt
     set JAVA_HOME=C:\Program Files\Java\jdk1.8.0_112
     ```
 
+    **Note**: do not use quotes (") around the path like you would on Unix.
+    Windows doesn't need them and they may confuse Bazel.
+
     This step is not required if you downloaded a binary distribution of Bazel
     or installed Bazel using Chocolatey. See [installing Bazel on
     Windows](install-windows.html).
+
+## Setting environment variables
 
 Environment variables you set in the Windows Command Prompt (`cmd.exe`) are only
 set in that command prompt session. If you start a new `cmd.exe`, you need to
@@ -69,7 +97,12 @@ The first time you build any target, Bazel auto-configures the location of
 Python and the Visual C++ compiler. If you need to auto-configure again, run
 `bazel clean` then build a target.
 
-### Build C++
+You can also tell Bazel where to find the Python binary and the C++ compiler:
+- use the [`--python_path=c:\path\to\python.exe`](command-line-reference.html#flag--python_path) flag for Python
+- use the `BAZEL_VC` or `BAZEL_VS` environment variable. See the [Build
+  C++ section](#build_cpp) below.
+
+### <a name="build_cpp"></a>Build C++
 
 To build C++ targets, you need:
 
