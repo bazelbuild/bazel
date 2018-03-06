@@ -1,3 +1,41 @@
+## Release 0.11.1 (2018-03-06)
+
+```
+Baseline: 00d781ae78a8bd51d3c61b621d79f0bb095aff9e
+
+Cherry picks:
+   + ea2d4c475febdbd59ca0e0ba46adc7be759f84e0:
+     Update stub_finds_runfiles_test to be a real sh_test.
+   + d855d8133f4efb73ebd5e82c54a9afb4c7565d46:
+     java,runfiles: fix bugs in runfiles library
+   + 56aeb04a064218b845ecc193d530c341c6ec854d:
+     Fixing #4585: broken re-execution of orphaned actions.
+   + cf3f81aef7c32019d70cbce218a64a03276268f0:
+     remote: Add support for HTTP Basic Auth
+   + 28bd997c1c8793973f63dcae4c22bbae49e7d8b7:
+     Fixing test-setup.sh occasionally missing stdout/stderr, on
+     systems where "tail --pid" is supported.
+   + 109e4b4dc9e786e3a2d8d7cb245d18320dbe9216:
+     Automated rollback of commit
+     7e6837cc1d1aa4259f5c27ba3606b277b5f6c3e9.
+   + b3d52b1b6d46a0f23cc91125c1d522e9d13433b4:
+     Fix incorrect include directories when -no-canonical-prefixes is
+     passed to clang
+   + 1001141f0674ff4b611814edcb00a5183680ef4a:
+     Roll forward of
+     https://github.com/bazelbuild/bazel/commit/3904ac33a983fd8faebba1
+     b52bcac5a3ff942029
+     (https://github.com/bazelbuild/bazel/commit/3904ac33a983fd8faebba
+     1b52bcac5a3ff942029). Fix #4625 by running the test process in a
+     sub-shell.
+   + fc98b44b6181fa4c3efd8613d887970629468d74:
+     android,windows: bugfix in aar_resources_extractor
+```
+
+Important changes:
+
+  - Fixes regression building Android rules on Windows.
+
 ## Release 0.11.0 (2018-02-23)
 
 ```
@@ -2488,6 +2526,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
