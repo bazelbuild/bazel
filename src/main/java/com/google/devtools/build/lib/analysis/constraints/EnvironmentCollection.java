@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -88,6 +89,15 @@ public class EnvironmentCollection {
 
   /** An empty collection. */
   static final EnvironmentCollection EMPTY = new EnvironmentCollection(ImmutableMultimap.of());
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("size", map.size())
+        .add("hashCode", map.hashCode())
+        .add("map", map)
+        .toString();
+  }
 
   /**
    * Builder for {@link EnvironmentCollection}.

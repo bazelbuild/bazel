@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Predicate;
-import com.google.common.base.Verify;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
@@ -29,28 +28,26 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
  * Model for the "environment_group' rule: the piece of Bazel's rule constraint system that binds
- * thematically related environments together and determines which environments a rule supports
- * by default. See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics}
- * for precise semantic details of how this information is used.
+ * thematically related environments together and determines which environments a rule supports by
+ * default. See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for
+ * precise semantic details of how this information is used.
  *
  * <p>Note that "environment_group" is implemented as a loading-time function, not a rule. This is
- * to support proper discovery of defaults: Say rule A has no explicit constraints and depends
- * on rule B, which is explicitly constrained to environment ":bar". Since A declares nothing
- * explicitly, it's implicitly constrained to DEFAULTS (whatever that is). Therefore, the
- * dependency is only allowed if DEFAULTS doesn't include environments beyond ":bar". To figure
- * that out, we need to be able to look up the environment group for ":bar", which is what this
- * class provides.
+ * to support proper discovery of defaults: Say rule A has no explicit constraints and depends on
+ * rule B, which is explicitly constrained to environment ":bar". Since A declares nothing
+ * explicitly, it's implicitly constrained to DEFAULTS (whatever that is). Therefore, the dependency
+ * is only allowed if DEFAULTS doesn't include environments beyond ":bar". To figure that out, we
+ * need to be able to look up the environment group for ":bar", which is what this class provides.
  *
- * <p>If we implemented this as a rule, we'd have to provide that lookup via rule dependencies,
- * e.g. something like:
- *
- * <code>
+ * <p>If we implemented this as a rule, we'd have to provide that lookup via rule dependencies, e.g.
+ * something like: <code>
  *   environment(
  *       name = 'bar',
  *       group = [':sample_environments'],
@@ -62,7 +59,7 @@ import java.util.Set;
  * to determine what other environments belong to the group is to have the group somehow reference
  * them. That would produce circular dependencies in the build graph, which is no good.
  */
-@Immutable
+@Immutable // This is a lie, but this object is only mutable until its containing package is loaded.
 public class EnvironmentGroup implements Target {
   private final EnvironmentLabels environmentLabels;
   private final Location location;
@@ -106,6 +103,7 @@ public class EnvironmentGroup implements Target {
   }
 
   public EnvironmentLabels getEnvironmentLabels() {
+    environmentLabels.checkInitialized();
     return environmentLabels;
   }
 
@@ -167,15 +165,17 @@ public class EnvironmentGroup implements Target {
       }
     }
 
+    Map<Label, NestedSet<Label>> fulfillersMap = new HashMap<>();
     // Now that we know which environments directly fulfill each other, compute which environments
     // transitively fulfill each other. We could alternatively compute this on-demand, but since
     // we don't expect these chains to be very large we opt toward computing them once at package
     // load time.
-    Verify.verify(environmentLabels.fulfillersMap.isEmpty());
+    environmentLabels.assertNotInitialized();
     for (Label envName : environmentLabels.environments) {
-      setTransitiveFulfillers(envName, directFulfillers, environmentLabels.fulfillersMap);
+      setTransitiveFulfillers(envName, directFulfillers, fulfillersMap);
     }
 
+    environmentLabels.setFulfillersMap(fulfillersMap);
     return events;
   }
 
