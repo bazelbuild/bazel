@@ -248,7 +248,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         writablePaths,
         // As of 2018-01-09:
         // - every caller of `getWritableDirs` passes a LocalEnvProvider-processed environment as
-        //   `env`, and in every case that's either PosixLocalEnvProvider or XCodeLocalEnvProvider,
+        //   `env`, and in every case that's either PosixLocalEnvProvider or XcodeLocalEnvProvider,
         //   therefore `env` surely has an entry for TMPDIR
         // - Bazel-on-Windows does not yet support sandboxing, so we don't need to add env[TMP] and
         //   env[TEMP] as writable paths.

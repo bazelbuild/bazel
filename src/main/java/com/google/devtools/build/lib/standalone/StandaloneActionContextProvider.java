@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
-import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
@@ -72,7 +72,7 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider(env.getRuntime().getProductName(), env.getClientEnv())
+            ? new XcodeLocalEnvProvider(env.getRuntime().getProductName(), env.getClientEnv())
             : (OS.getCurrent() == OS.WINDOWS
                 ? new WindowsLocalEnvProvider(env.getClientEnv())
                 : new PosixLocalEnvProvider(env.getClientEnv()));

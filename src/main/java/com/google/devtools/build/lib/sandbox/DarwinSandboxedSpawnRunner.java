@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
@@ -151,7 +151,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.localEnvProvider =
-        new XCodeLocalEnvProvider(cmdEnv.getRuntime().getProductName(), cmdEnv.getClientEnv());
+        new XcodeLocalEnvProvider(cmdEnv.getRuntime().getProductName(), cmdEnv.getClientEnv());
     this.timeoutKillDelay = timeoutKillDelay;
   }
 

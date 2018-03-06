@@ -24,10 +24,8 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import java.io.IOException;
 import org.junit.Test;
 
-/**
- * Tests for {@link XCodeLocalEnvProvider}.
- */
-public class XCodeLocalEnvProviderTest {
+/** Tests for {@link XcodeLocalEnvProvider}. */
+public class XcodeLocalEnvProviderTest {
   private final FileSystem fs = new JavaIoFileSystem();
 
   @Test
@@ -36,12 +34,13 @@ public class XCodeLocalEnvProviderTest {
       return;
     }
     try {
-      new XCodeLocalEnvProvider().rewriteLocalEnv(
-          ImmutableMap.<String, String>of(
-              AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
-              AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
-          fs.getPath("/tmp"),
-          "bazel");
+      new XcodeLocalEnvProvider()
+          .rewriteLocalEnv(
+              ImmutableMap.<String, String>of(
+                  AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
+                  AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
+              fs.getPath("/tmp"),
+              "bazel");
       fail("action should fail due to being unable to resolve SDKROOT");
     } catch (IOException e) {
       assertThat(e)

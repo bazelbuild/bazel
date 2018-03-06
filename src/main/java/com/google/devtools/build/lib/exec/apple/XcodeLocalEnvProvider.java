@@ -36,14 +36,14 @@ import java.util.Map;
  * Adds to the given environment all variables that are dependent on system state of the host
  * machine.
  *
- * <p>Admittedly, hermeticity is "best effort" in such cases; these environment values should be
- * as tied to configuration parameters as possible.
+ * <p>Admittedly, hermeticity is "best effort" in such cases; these environment values should be as
+ * tied to configuration parameters as possible.
  *
  * <p>For example, underlying iOS toolchains require that SDKROOT resolve to an absolute system
  * path, but, when selecting which SDK to resolve, the version number comes from build
  * configuration.
  */
-public final class XCodeLocalEnvProvider implements LocalEnvProvider {
+public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   private static final String XCRUN_CACHE_FILENAME = "__xcruncache";
   private static final String XCODE_LOCATOR_CACHE_FILENAME = "__xcodelocatorcache";
 
@@ -51,19 +51,18 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
   private final Map<String, String> clientEnv;
 
   /**
-   * Creates a new {@link XCodeLocalEnvProvider}.
+   * Creates a new {@link XcodeLocalEnvProvider}.
    *
    * @param clientEnv a map of the current Bazel command's environment
    */
-  public XCodeLocalEnvProvider(String productName, Map<String, String> clientEnv) {
+  public XcodeLocalEnvProvider(String productName, Map<String, String> clientEnv) {
     this.productName = productName;
     this.clientEnv = clientEnv;
   }
 
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir)
-      throws IOException {
+      Map<String, String> env, Path execRoot, String fallbackTmpDir) throws IOException {
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
     boolean containsAppleSdkVersion =
         env.containsKey(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
@@ -109,30 +108,34 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
   }
 
   /**
-   * Returns the absolute root path of the target Apple SDK on the host system for a given
-   * version of xcode (as defined by the given {@code developerDir}). This may spawn a
-   * process and use the {@code /usr/bin/xcrun} binary to locate the target SDK. This uses a local
-   * cache file under {@code bazel-out}, and will only spawn a new {@code xcrun} process in the case
-   * of a cache miss.
+   * Returns the absolute root path of the target Apple SDK on the host system for a given version
+   * of xcode (as defined by the given {@code developerDir}). This may spawn a process and use the
+   * {@code /usr/bin/xcrun} binary to locate the target SDK. This uses a local cache file under
+   * {@code bazel-out}, and will only spawn a new {@code xcrun} process in the case of a cache miss.
    *
    * @param execRoot the execution root path, used to locate the cache file
    * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of xcode
    * @param sdkVersion the sdk version, for example, "9.1"
    * @param appleSdkPlatform the sdk platform, for example, "iPhoneOS"
    * @param productName the product name
-   * @throws IOException if there is an issue with obtaining the root from the spawned
-   *     process, either because the SDK platform/version pair doesn't exist, or there was an
-   *     unexpected issue finding or running the tool
+   * @throws IOException if there is an issue with obtaining the root from the spawned process,
+   *     either because the SDK platform/version pair doesn't exist, or there was an unexpected
+   *     issue finding or running the tool
    */
-  private static String getSdkRoot(Path execRoot, String developerDir,
-      String sdkVersion, String appleSdkPlatform, String productName) throws IOException {
+  private static String getSdkRoot(
+      Path execRoot,
+      String developerDir,
+      String sdkVersion,
+      String appleSdkPlatform,
+      String productName)
+      throws IOException {
     if (OS.getCurrent() != OS.DARWIN) {
       throw new IOException("Cannot locate iOS SDK on non-darwin operating system");
     }
     try {
       CacheManager cacheManager =
-          new CacheManager(execRoot.getRelative(
-              BlazeDirectories.getRelativeOutputPath(productName)),
+          new CacheManager(
+              execRoot.getRelative(BlazeDirectories.getRelativeOutputPath(productName)),
               XCRUN_CACHE_FILENAME);
 
       String sdkString = appleSdkPlatform.toLowerCase() + sdkVersion;
@@ -140,12 +143,16 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
       if (cacheResult != null) {
         return cacheResult;
       } else {
-        Map<String, String> env = Strings.isNullOrEmpty(developerDir)
-            ? ImmutableMap.<String, String>of() : ImmutableMap.of("DEVELOPER_DIR", developerDir);
+        Map<String, String> env =
+            Strings.isNullOrEmpty(developerDir)
+                ? ImmutableMap.<String, String>of()
+                : ImmutableMap.of("DEVELOPER_DIR", developerDir);
         CommandResult xcrunResult =
             new Command(
-                new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"}, env, null)
-            .execute();
+                    new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"},
+                    env,
+                    null)
+                .execute();
 
         // calling xcrun via Command returns a value with a newline on the end.
         String sdkRoot = new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim();
@@ -158,19 +165,23 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
 
       if (terminationStatus.exited()) {
         throw new IOException(
-            String.format("xcrun failed with code %s.\n"
-                + "This most likely indicates that SDK version [%s] for platform [%s] is "
-                + "unsupported for the target version of xcode.\n"
-                + "%s\n"
-                + "Stderr: %s",
+            String.format(
+                "xcrun failed with code %s.\n"
+                    + "This most likely indicates that SDK version [%s] for platform [%s] is "
+                    + "unsupported for the target version of xcode.\n"
+                    + "%s\n"
+                    + "Stderr: %s",
                 terminationStatus.getExitCode(),
-                sdkVersion, appleSdkPlatform,
+                sdkVersion,
+                appleSdkPlatform,
                 terminationStatus.toString(),
                 new String(e.getResult().getStderr(), StandardCharsets.UTF_8)));
       }
-      String message = String.format("xcrun failed.\n%s\n%s",
-          e.getResult().getTerminationStatus(),
-          new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
+      String message =
+          String.format(
+              "xcrun failed.\n%s\n%s",
+              e.getResult().getTerminationStatus(),
+              new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       throw new IOException(message, e);
     } catch (CommandException e) {
       throw new IOException(e);
@@ -178,17 +189,17 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
   }
 
   /**
-   * Returns the absolute root path of the xcode developer directory on the host system for
-   * the given xcode version. This may spawn a process and use the {@code xcode-locator} binary.
-   * This uses a local cache file under {@code bazel-out}, and will only spawn a new process in the
-   * case of a cache miss.
+   * Returns the absolute root path of the xcode developer directory on the host system for the
+   * given xcode version. This may spawn a process and use the {@code xcode-locator} binary. This
+   * uses a local cache file under {@code bazel-out}, and will only spawn a new process in the case
+   * of a cache miss.
    *
    * @param execRoot the execution root path, used to locate the cache file
    * @param version the xcode version number to look up
    * @param productName the product name
-   * @throws IOException if there is an issue with obtaining the path from the spawned
-   *     process, either because there is no installed xcode with the given version, or
-   *     there was an unexpected issue finding or running the tool
+   * @throws IOException if there is an issue with obtaining the path from the spawned process,
+   *     either because there is no installed xcode with the given version, or there was an
+   *     unexpected issue finding or running the tool
    */
   private static String getDeveloperDir(Path execRoot, DottedVersion version, String productName)
       throws IOException {
@@ -206,10 +217,12 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
       if (cacheResult != null) {
         return cacheResult;
       } else {
-        CommandResult xcodeLocatorResult = new Command(
-            new String[] {
-                execRoot.getRelative("_bin/xcode-locator").getPathString(), version.toString()})
-            .execute();
+        CommandResult xcodeLocatorResult =
+            new Command(
+                    new String[] {
+                      execRoot.getRelative("_bin/xcode-locator").getPathString(), version.toString()
+                    })
+                .execute();
 
         String developerDir =
             new String(xcodeLocatorResult.getStdout(), StandardCharsets.UTF_8).trim();
@@ -222,19 +235,23 @@ public final class XCodeLocalEnvProvider implements LocalEnvProvider {
 
       String message;
       if (e.getResult().getTerminationStatus().exited()) {
-        message = String.format("xcode-locator failed with code %s.\n"
-            + "This most likely indicates that xcode version %s is not available on the host "
-            + "machine.\n"
-            + "%s\n"
-            + "stderr: %s",
-            terminationStatus.getExitCode(),
-            version,
-            terminationStatus.toString(),
-            new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
+        message =
+            String.format(
+                "xcode-locator failed with code %s.\n"
+                    + "This most likely indicates that xcode version %s is not available on the "
+                    + "host machine.\n"
+                    + "%s\n"
+                    + "stderr: %s",
+                terminationStatus.getExitCode(),
+                version,
+                terminationStatus.toString(),
+                new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       } else {
-        message = String.format("xcode-locator failed. %s\nstderr: %s",
-            e.getResult().getTerminationStatus(),
-            new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
+        message =
+            String.format(
+                "xcode-locator failed. %s\nstderr: %s",
+                e.getResult().getTerminationStatus(),
+                new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       }
       throw new IOException(message, e);
     } catch (CommandException e) {

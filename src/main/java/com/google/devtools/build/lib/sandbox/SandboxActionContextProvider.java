@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
@@ -100,7 +100,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
         env.getOptions().getOptions(LocalExecutionOptions.class);
     LocalEnvProvider localEnvProvider =
         OS.getCurrent() == OS.DARWIN
-            ? new XCodeLocalEnvProvider(env.getRuntime().getProductName(), env.getClientEnv())
+            ? new XcodeLocalEnvProvider(env.getRuntime().getProductName(), env.getClientEnv())
             : new PosixLocalEnvProvider(env.getClientEnv());
     return
         new LocalSpawnRunner(

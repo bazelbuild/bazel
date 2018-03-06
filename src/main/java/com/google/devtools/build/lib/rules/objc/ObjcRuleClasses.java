@@ -350,7 +350,7 @@ public class ObjcRuleClasses {
    * Files that are already compiled.
    */
   static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
-  
+
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
@@ -391,9 +391,10 @@ public class ObjcRuleClasses {
           Base.lproj), it will be placed under a directory of that name in the
           final bundle. This allows for localizable strings.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("strings", LABEL_LIST)
-              .allowedFileTypes(STRINGS_TYPE)
-              .direct_compile_time_input())
+          .add(
+              attr("strings", LABEL_LIST)
+                  .allowedFileTypes(STRINGS_TYPE)
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(xibs) -->
           Files which are .xib resources, possibly localizable.
 
@@ -403,9 +404,7 @@ public class ObjcRuleClasses {
           directory of that name in the final bundle. This allows for
           localizable UI.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("xibs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(XIB_TYPE))
+          .add(attr("xibs", LABEL_LIST).direct_compile_time_input().allowedFileTypes(XIB_TYPE))
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(storyboards) -->
           Files which are .storyboard resources, possibly localizable.
 
@@ -415,8 +414,7 @@ public class ObjcRuleClasses {
           Base.lproj), it will be placed under a directory of that name in the
           final bundle. This allows for localizable UI.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("storyboards", LABEL_LIST)
-              .allowedFileTypes(STORYBOARD_TYPE))
+          .add(attr("storyboards", LABEL_LIST).allowedFileTypes(STORYBOARD_TYPE))
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(resources) -->
           Files to include in the final application bundle.
 
@@ -437,14 +435,15 @@ public class ObjcRuleClasses {
           the same structure passed to this argument, so
           <code>["res/foo.png"]</code> will end up in
           <code>Payload/foo.app/res/foo.png</code>.
-          <p>Note that in the generated XCode project file, all files in the top directory of
+          <p>Note that in the generated Xcode project file, all files in the top directory of
           the specified files will be included in the Xcode-generated app bundle. So
           specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
           directory <code>res</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("structured_resources", LABEL_LIST)
-              .legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(
+              attr("structured_resources", LABEL_LIST)
+                  .legacyAllowAnyFileType()
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(datamodels) -->
           Files that comprise the data models of the final linked binary.
 
@@ -452,8 +451,7 @@ public class ObjcRuleClasses {
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("datamodels", LABEL_LIST).legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(attr("datamodels", LABEL_LIST).legacyAllowAnyFileType().direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(asset_catalogs) -->
           Files that comprise the asset catalogs of the final linked binary.
 
@@ -462,16 +460,19 @@ public class ObjcRuleClasses {
           linked with any binary that depends directly or indirectly on this
           target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("asset_catalogs", LABEL_LIST).legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(
+              attr("asset_catalogs", LABEL_LIST)
+                  .legacyAllowAnyFileType()
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(bundles) -->
           The list of bundle targets that this target requires to be included
           in the final bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("bundles", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedRuleClasses("objc_bundle", "objc_bundle_library")
-              .allowedFileTypes())
+          .add(
+              attr("bundles", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedRuleClasses("objc_bundle", "objc_bundle_library")
+                  .allowedFileTypes())
           .build();
     }
     @Override
