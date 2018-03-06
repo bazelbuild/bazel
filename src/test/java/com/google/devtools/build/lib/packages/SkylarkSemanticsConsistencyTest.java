@@ -125,6 +125,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disable_glob_tracking=" + rand.nextBoolean(),
         "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
+        "--incompatible_disallow_three_arg_vardef=" + rand.nextBoolean(),
         "--incompatible_disallow_toplevel_if_statement=" + rand.nextBoolean(),
         "--incompatible_disallow_uncalled_set_constructor=" + rand.nextBoolean(),
         "--incompatible_load_argument_is_label=" + rand.nextBoolean(),
@@ -149,6 +150,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisableGlobTracking(rand.nextBoolean())
         .incompatibleDisableObjcProviderResources(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
+        .incompatibleDisallowThreeArgVardef(rand.nextBoolean())
         .incompatibleDisallowToplevelIfStatement(rand.nextBoolean())
         .incompatibleDisallowUncalledSetConstructor(rand.nextBoolean())
         .incompatibleLoadArgumentIsLabel(rand.nextBoolean())

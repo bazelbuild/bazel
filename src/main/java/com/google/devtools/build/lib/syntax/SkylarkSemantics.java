@@ -48,8 +48,10 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDisableObjcProviderResources();
 
   public abstract boolean incompatibleDisallowDictPlus();
+  public abstract boolean incompatibleDisallowThreeArgVardef();
   public abstract boolean incompatibleDisallowToplevelIfStatement();
   public abstract boolean incompatibleDisallowUncalledSetConstructor();
+
   public abstract boolean incompatibleLoadArgumentIsLabel();
   public abstract boolean incompatibleNewActionsApi();
   public abstract boolean incompatibleShowAllPrintMessages();
@@ -82,6 +84,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisableGlobTracking(true)
           .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDictPlus(false)
+          .incompatibleDisallowThreeArgVardef(false)
           .incompatibleDisallowToplevelIfStatement(true)
           .incompatibleDisallowUncalledSetConstructor(true)
           .incompatibleLoadArgumentIsLabel(true)
@@ -107,6 +110,7 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
+    public abstract Builder incompatibleDisallowThreeArgVardef(boolean value);
     public abstract Builder incompatibleDisallowToplevelIfStatement(boolean value);
     public abstract Builder incompatibleDisallowUncalledSetConstructor(boolean value);
     public abstract Builder incompatibleLoadArgumentIsLabel(boolean value);
