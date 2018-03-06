@@ -88,7 +88,8 @@ public final class JavaInfo extends NativeInfo {
               "runtime_deps",
               "exports",
               "actions",
-              "java_toolchain"),
+              "java_toolchain",
+              "host_javabase"),
 
           /*defaultValues=*/ Arrays.asList(
               SkylarkList.createImmutable(Collections.emptyList()), // sources
@@ -99,8 +100,10 @@ public final class JavaInfo extends NativeInfo {
               SkylarkList.createImmutable(Collections.emptyList()), // runtime_deps
               SkylarkList.createImmutable(Collections.emptyList()), // exports
               Runtime.NONE, // actions
-              Runtime.NONE), // java_toolchain
-          /*types=*/ ImmutableList.of(
+              Runtime.NONE, // java_toolchain
+              Runtime.NONE), // hostJavabase
+
+          /*types=*/ ImmutableList.<SkylarkType>of(
               SkylarkType.of(Artifact.class), // output_jar
               SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // sources
               SkylarkType.Union.of(SEQUENCE_OF_ARTIFACTS, LIST_OF_ARTIFACTS), // source_jars
@@ -110,7 +113,8 @@ public final class JavaInfo extends NativeInfo {
               SEQUENCE_OF_JAVA_INFO, // runtime_deps
               SEQUENCE_OF_JAVA_INFO, // exports
               SkylarkType.of(SkylarkActionFactory.class), // actions
-              SkylarkType.of(ConfiguredTarget.class))); // java_toolchain
+              SkylarkType.of(ConfiguredTarget.class), // java_toolchain
+              SkylarkType.of(ConfiguredTarget.class))); // hostJavabase
 
   public static final NativeProvider<JavaInfo> PROVIDER =
       new NativeProvider<JavaInfo>(JavaInfo.class, SKYLARK_NAME, SIGNATURE) {
@@ -123,16 +127,17 @@ public final class JavaInfo extends NativeInfo {
           JavaInfo javaInfo =
               JavaInfoBuildHelper.getInstance()
                   .createJavaInfo(
-                      (Artifact) args[0],
-                      (SkylarkList<Artifact>) args[1],
-                      (SkylarkList<Artifact>) args[2],
-                      (Boolean) args[3],
-                      (Boolean) args[4],
-                      (SkylarkList<JavaInfo>) args[5],
-                      (SkylarkList<JavaInfo>) args[6],
-                      (SkylarkList<JavaInfo>) args[7],
-                      args[8],
-                      args[9],
+                      (Artifact) args[0], // output_jar
+                      (SkylarkList<Artifact>) args[1], // sources
+                      (SkylarkList<Artifact>) args[2], // source_jars
+                      (Boolean) args[3], // use_ijar
+                      (Boolean) args[4], // neverlink
+                      (SkylarkList<JavaInfo>) args[5], // deps
+                      (SkylarkList<JavaInfo>) args[6], // runtime_deps
+                      (SkylarkList<JavaInfo>) args[7], // exports
+                      args[8], // actions
+                      args[9], // java_toolchain
+                      args[10], // hostJavabase
                       loc);
 
           return javaInfo;

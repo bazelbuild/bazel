@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -631,8 +632,14 @@ public final class JavaCompilationHelper {
       resourceJars.add(gensrcJar);
     }
     SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, semantics, attributes.getSourceFiles(),
-        resourceJars.build(), outputJar, javaToolchainProvider, hostJavabase);
+        ruleContext,
+        ruleContext,
+        semantics,
+        attributes.getSourceFiles(),
+        resourceJars.build(),
+        outputJar,
+        javaToolchainProvider,
+        hostJavabase);
   }
 
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {
@@ -908,10 +915,10 @@ public final class JavaCompilationHelper {
    * The new artifact will have the same root as the given one.
    */
   static Artifact derivedArtifact(
-      RuleContext ruleContext, Artifact artifact, String prefix, String suffix) {
+      ActionConstructionContext context, Artifact artifact, String prefix, String suffix) {
     PathFragment path = artifact.getRootRelativePath();
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
     path = path.replaceName(prefix + basename);
-    return ruleContext.getDerivedArtifact(path, artifact.getRoot());
+    return context.getDerivedArtifact(path, artifact.getRoot());
   }
 }

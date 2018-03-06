@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -83,6 +85,7 @@ public final class SingleJarActionBuilder {
       Artifact outputJar) {
     createSourceJarAction(
         ruleContext,
+        ruleContext,
         semantics,
         resources,
         resourceJars,
@@ -94,6 +97,8 @@ public final class SingleJarActionBuilder {
   /**
    * Creates an Action that packages files into a Jar file.
    *
+   * @param actionRegistry serves for registering action,,
+   * @param actionConstructionContext bundles items commonly needed to construct action instances,
    * @param resources the resources to put into the Jar.
    * @param resourceJars the resource jars to merge into the jar
    * @param outputJar the Jar to create
@@ -101,14 +106,14 @@ public final class SingleJarActionBuilder {
    * @param hostJavabase the Java runtime to run the tools under
    */
   public static void createSourceJarAction(
-      RuleContext ruleContext,
+      ActionRegistry actionRegistry,
+      ActionConstructionContext actionConstructionContext,
       JavaSemantics semantics,
       ImmutableCollection<Artifact> resources,
       NestedSet<Artifact> resourceJars,
       Artifact outputJar,
       JavaToolchainProvider toolchainProvider,
       JavaRuntimeInfo hostJavabase) {
-    requireNonNull(ruleContext);
     requireNonNull(resourceJars);
     requireNonNull(outputJar);
     if (!resources.isEmpty()) {
@@ -124,7 +129,8 @@ public final class SingleJarActionBuilder {
                 ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
             .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
             .setMnemonic("JavaSourceJar");
-    ruleContext.registerAction(builder.build(ruleContext));
+
+    actionRegistry.registerAction(builder.build(actionConstructionContext));
   }
 
   /**

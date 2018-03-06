@@ -1367,7 +1367,8 @@ function test_java_info_constructor_with_ijar_unset_actions() {
 load(":my_rule.bzl", "my_rule")
 my_rule(
   name = 'my_skylark_rule',
-  output_jar = 'my_skylark_rule_lib.jar'
+  output_jar = 'my_skylark_rule_lib.jar',
+  source_jars = ['my_skylark_rule_src.jar']
  )
 EOF
 
@@ -1376,6 +1377,7 @@ result = provider()
 def _impl(ctx):
   javaInfo = JavaInfo(
     output_jar = ctx.file.output_jar,
+    source_jars = ctx.files.source_jars,
     use_ijar = True,
     java_toolchain = ctx.attr._java_toolchain
   )
@@ -1385,6 +1387,7 @@ my_rule = rule(
   implementation = _impl,
   attrs = {
     'output_jar' : attr.label(allow_single_file=True),
+    'source_jars' : attr.label_list(allow_files=['.jar']),
     "_java_toolchain": attr.label(default = Label("//tools/jdk:toolchain"))
   }
 )
@@ -1438,7 +1441,8 @@ function test_java_info_constructor_with_ijar_unset_java_toolchain() {
 load(":my_rule.bzl", "my_rule")
 my_rule(
   name = 'my_skylark_rule',
-  output_jar = 'my_skylark_rule_lib.jar'
+  output_jar = 'my_skylark_rule_lib.jar',
+  source_jars = ['my_skylark_rule_src.jar']
  )
 EOF
 
@@ -1447,6 +1451,7 @@ result = provider()
 def _impl(ctx):
   javaInfo = JavaInfo(
     output_jar = ctx.file.output_jar,
+    source_jars = ctx.files.source_jars,
     use_ijar = True,
     actions = ctx.actions
   )
@@ -1455,7 +1460,8 @@ def _impl(ctx):
 my_rule = rule(
   implementation = _impl,
   attrs = {
-    'output_jar' : attr.label(allow_single_file=True)
+    'output_jar' : attr.label(allow_single_file=True),
+    'source_jars' : attr.label_list(allow_files=['.jar'])
   }
 )
 EOF
