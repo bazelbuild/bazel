@@ -314,6 +314,8 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/protobuf:bazel_flags_java_proto",
+        "//third_party:mockito",
     ],
 )
 
