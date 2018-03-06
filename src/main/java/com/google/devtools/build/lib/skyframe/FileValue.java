@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -168,14 +169,16 @@ public abstract class FileValue implements SkyValue {
    * requested path. For example, this is the case for the path "foo/bar/baz" if neither 'foo' nor
    * 'foo/bar' nor 'foo/bar/baz' are symlinks.
    */
+  @VisibleForTesting
+  @AutoCodec
   public static final class RegularFileValue extends FileValue {
 
     private final RootedPath rootedPath;
     private final FileStateValue fileStateValue;
 
-    public RegularFileValue(RootedPath rootedPath, FileStateValue fileState) {
+    public RegularFileValue(RootedPath rootedPath, FileStateValue fileStateValue) {
       this.rootedPath = Preconditions.checkNotNull(rootedPath);
-      this.fileStateValue = Preconditions.checkNotNull(fileState);
+      this.fileStateValue = Preconditions.checkNotNull(fileStateValue);
     }
 
     @Override
@@ -216,13 +219,15 @@ public abstract class FileValue implements SkyValue {
    * requested path. For example, this is the case for the path "foo/bar/baz" if at least one of
    * 'foo', 'foo/bar', or 'foo/bar/baz' is a symlink.
    */
-  public static class DifferentRealPathFileValue extends FileValue {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class DifferentRealPathFileValue extends FileValue {
 
     protected final RootedPath realRootedPath;
     protected final FileStateValue realFileStateValue;
 
-    public DifferentRealPathFileValue(RootedPath realRootedPath,
-                                      FileStateValue realFileStateValue) {
+    @AutoCodec.VisibleForSerialization
+    DifferentRealPathFileValue(RootedPath realRootedPath, FileStateValue realFileStateValue) {
       this.realRootedPath = Preconditions.checkNotNull(realRootedPath);
       this.realFileStateValue = Preconditions.checkNotNull(realFileStateValue);
     }
@@ -262,13 +267,16 @@ public abstract class FileValue implements SkyValue {
   }
 
   /** Implementation of {@link FileValue} for files that are symlinks. */
-  public static final class SymlinkFileValue extends DifferentRealPathFileValue {
-    private final PathFragment linkValue;
+  @VisibleForTesting
+  @AutoCodec
+  static final class SymlinkFileValue extends DifferentRealPathFileValue {
+    private final PathFragment linkTarget;
 
-    public SymlinkFileValue(RootedPath realRootedPath, FileStateValue realFileState,
-                            PathFragment linkTarget) {
-      super(realRootedPath, realFileState);
-      this.linkValue = linkTarget;
+    @VisibleForTesting
+    SymlinkFileValue(
+        RootedPath realRootedPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
+      super(realRootedPath, realFileStateValue);
+      this.linkTarget = linkTarget;
     }
 
     @Override
@@ -278,7 +286,7 @@ public abstract class FileValue implements SkyValue {
 
     @Override
     public PathFragment getUnresolvedLinkTarget() {
-      return linkValue;
+      return linkTarget;
     }
 
     @Override
@@ -292,19 +300,19 @@ public abstract class FileValue implements SkyValue {
       SymlinkFileValue other = (SymlinkFileValue) obj;
       return realRootedPath.equals(other.realRootedPath)
           && realFileStateValue.equals(other.realFileStateValue)
-          && linkValue.equals(other.linkValue);
+          && linkTarget.equals(other.linkTarget);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          realRootedPath, realFileStateValue, linkValue, Boolean.TRUE);
+      return Objects.hash(realRootedPath, realFileStateValue, linkTarget, Boolean.TRUE);
     }
 
     @Override
     public String toString() {
-      return String.format("symlink (real_path=%s, real_state=%s, link_value=%s)",
-          realRootedPath, realFileStateValue, linkValue);
+      return String.format(
+          "symlink (real_path=%s, real_state=%s, link_value=%s)",
+          realRootedPath, realFileStateValue, linkTarget);
     }
   }
 }

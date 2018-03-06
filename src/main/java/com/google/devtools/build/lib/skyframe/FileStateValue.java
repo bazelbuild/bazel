@@ -58,8 +58,11 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public abstract class FileStateValue implements SkyValue {
 
+  @AutoCodec
   public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =
       new DirectoryFileStateValue();
+
+  @AutoCodec
   public static final NonexistentFileStateValue NONEXISTENT_FILE_STATE_NODE =
       new NonexistentFileStateValue();
 
@@ -151,10 +154,11 @@ public abstract class FileStateValue implements SkyValue {
    *
    * <p>A union of (digest, mtime). We use digests only if a fast digest lookup is available from
    * the filesystem. If not, we fall back to mtime-based digests. This avoids the case where Blaze
-   * must read all files involved in the build in order to check for modifications in the case
-   * where fast digest lookups are not available.
+   * must read all files involved in the build in order to check for modifications in the case where
+   * fast digest lookups are not available.
    */
   @ThreadSafe
+  @AutoCodec
   public static final class RegularFileStateValue extends FileStateValue {
     private final long size;
     @Nullable private final byte[] digest;
@@ -270,6 +274,7 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for special files that exist. */
+  @AutoCodec
   public static final class SpecialFileStateValue extends FileStateValue {
     private final FileContentsProxy contentsProxy;
 
@@ -330,7 +335,8 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for directories that exist. */
-  public static final class DirectoryFileStateValue extends FileStateValue {
+  @AutoCodec.VisibleForSerialization
+  static final class DirectoryFileStateValue extends FileStateValue {
 
     private DirectoryFileStateValue() {
     }
@@ -358,6 +364,7 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for symlinks. */
+  @AutoCodec
   public static final class SymlinkFileStateValue extends FileStateValue {
 
     private final PathFragment symlinkTarget;
@@ -397,7 +404,8 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for nonexistent files. */
-  public static final class NonexistentFileStateValue extends FileStateValue {
+  @AutoCodec.VisibleForSerialization
+  static final class NonexistentFileStateValue extends FileStateValue {
 
     private NonexistentFileStateValue() {
     }

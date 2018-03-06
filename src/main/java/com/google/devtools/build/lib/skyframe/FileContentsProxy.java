@@ -13,21 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * In case we can't get a fast digest from the filesystem, we store this metadata as a proxy to
- * the file contents. Currently it is a pair of a relevant timestamp and a "node id". On Linux the
- * former is the ctime and the latter is the inode number. We might want to add the device number
- * in the future.
+ * In case we can't get a fast digest from the filesystem, we store this metadata as a proxy to the
+ * file contents. Currently it is a pair of a relevant timestamp and a "node id". On Linux the
+ * former is the ctime and the latter is the inode number. We might want to add the device number in
+ * the future.
  *
  * <p>For a Linux example of why mtime alone is insufficient, note that 'mv' preserves timestamps.
  * So if files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged
  * after the user executes `mv a b` between two builds.
  */
+@AutoCodec
 public final class FileContentsProxy implements Serializable {
   private final long ctime;
   private final long nodeId;
