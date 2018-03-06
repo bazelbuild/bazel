@@ -52,7 +52,6 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
@@ -161,7 +160,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
                     Modifier.FINAL)
                 .initializer(
                     "$T.$L",
-                    sanitizeTypeParameterOfGenerics(symbol.getEnclosingElement().asType()),
+                    sanitizeTypeParameter(symbol.getEnclosingElement().asType()),
                     symbol.getSimpleName())
                 .build())
         .build();
@@ -233,7 +232,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
   }
 
   private Relation findRelationWithGenerics(TypeMirror type1, TypeMirror type2) {
-    if (type1.getKind() == TypeKind.TYPEVAR || type2.getKind() == TypeKind.TYPEVAR) {
+    if (type1.getKind() == TypeKind.TYPEVAR
+        || type1.getKind() == TypeKind.WILDCARD
+        || type2.getKind() == TypeKind.TYPEVAR
+        || type2.getKind() == TypeKind.WILDCARD) {
       return Relation.EQUAL_TO;
     }
     if (env.getTypeUtils().isAssignable(type1, type2)) {
@@ -303,9 +305,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
             "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
-            sanitizeTypeParameterOfGenerics(parameter.asType()),
+            sanitizeTypeParameter(parameter.asType()),
             parameter.getSimpleName(),
-            sanitizeTypeParameterOfGenerics(parameter.asType()),
+            sanitizeTypeParameter(parameter.asType()),
             UnsafeProvider.class,
             typeKind.isPrimitive() ? firstLetterUpper(typeKind.toString().toLowerCase()) : "Object",
             parameter.getSimpleName());
@@ -319,8 +321,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return serializeBuilder.build();
   }
 
-  private TypeMirror sanitizeTypeParameterOfGenerics(TypeMirror type) {
-    if (type instanceof TypeVariable) {
+  // Sanitizes the type parameter. If it's a TypeVariable or WildcardType this will get the erasure.
+  private TypeMirror sanitizeTypeParameter(TypeMirror type) {
+    if (Marshallers.isVariableOrWildcardType(type)) {
       return env.getTypeUtils().erasure(type);
     }
     if (!(type instanceof DeclaredType)) {
@@ -328,7 +331,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
     DeclaredType declaredType = (DeclaredType) type;
     for (TypeMirror typeMirror : declaredType.getTypeArguments()) {
-      if (typeMirror instanceof TypeVariable) {
+      if (Marshallers.isVariableOrWildcardType(typeMirror)) {
         return env.getTypeUtils().erasure(type);
       }
     }

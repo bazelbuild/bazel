@@ -55,6 +55,7 @@ import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+import javax.lang.model.type.WildcardType;
 
 /** Class containing all {@link Marshaller} instances. */
 class Marshallers {
@@ -82,15 +83,16 @@ class Marshallers {
   void writeDeserializationCode(Context context) {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
-    // Check to see if this declared type is generic or if it contains a generic.
+    // If we have a generic or a wildcard parameter we need to erase it when we write the code out.
     TypeName contextTypeName = context.getTypeName();
     if (context.isDeclaredType() && !context.getDeclaredType().getTypeArguments().isEmpty()) {
       for (TypeMirror paramTypeMirror : context.getDeclaredType().getTypeArguments()) {
-        if (paramTypeMirror instanceof TypeVariable) {
+        if (isVariableOrWildcardType(paramTypeMirror)) {
           contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getDeclaredType()));
         }
       }
-    } else if (context.getTypeMirror() instanceof TypeVariable) {
+      // If we're just a generic or wildcard, get the erasure and use that.
+    } else if (isVariableOrWildcardType(context.getTypeMirror())) {
       contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getTypeMirror()));
     }
     if (needsNullHandling) {
@@ -179,7 +181,7 @@ class Marshallers {
     }
 
     // We're dealing with a generic.
-    if (type instanceof TypeVariable) {
+    if (isVariableOrWildcardType(type)) {
       return contextMarshaller;
     }
 
@@ -537,8 +539,9 @@ class Marshallers {
     context.builder.addStatement(
         "codedOut.writeInt32NoTag($T.size($L))", Iterables.class, context.name);
     TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
-    if (typeParameter instanceof TypeVariable) {
-      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
+    // If this is generic we have to get the erasure since we don't know what <T> or <?> are.
+    if (isVariableOrWildcardType(typeParameter)) {
+      typeParameter = env.getTypeUtils().erasure(typeParameter);
     }
     Context repeated =
         context.with(
@@ -554,8 +557,9 @@ class Marshallers {
         context.with(
             context.getDeclaredType().getTypeArguments().get(0), context.makeName("repeated"));
     TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
-    if (typeParameter instanceof TypeVariable) {
-      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
+    // If this is generic we have to get the erasure since we don't know what <T> or <?> are.
+    if (isVariableOrWildcardType(typeParameter)) {
+      typeParameter = env.getTypeUtils().erasure(typeParameter);
     }
     String builderName = context.makeName("builder");
     context.builder.addStatement(
@@ -1082,5 +1086,9 @@ class Marshallers {
   /** Returns the TypeMirror corresponding to {@code clazz}. */
   private TypeMirror getType(Class<?> clazz) {
     return env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType();
+  }
+
+  static boolean isVariableOrWildcardType(TypeMirror type) {
+    return type instanceof TypeVariable || type instanceof WildcardType;
   }
 }
