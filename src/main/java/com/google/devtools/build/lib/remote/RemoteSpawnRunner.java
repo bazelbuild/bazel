@@ -233,6 +233,11 @@ class RemoteSpawnRunner implements SpawnRunner {
       boolean uploadLocalResults,
       IOException cause)
       throws ExecException, InterruptedException, IOException {
+    // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
+    // failure/stack trace.
+    if (Thread.currentThread().isInterrupted()) {
+      throw new InterruptedException();
+    }
     if (options.remoteLocalFallback && !(cause instanceof TimeoutException)) {
       return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
     }
