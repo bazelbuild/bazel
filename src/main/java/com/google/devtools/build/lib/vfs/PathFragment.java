@@ -16,17 +16,10 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -51,6 +44,7 @@ import javax.annotation.Nullable;
  *
  * <p>Mac and Windows path fragments are case insensitive.
  */
+@AutoCodec
 public final class PathFragment
     implements Comparable<PathFragment>,
         Serializable,
@@ -63,7 +57,7 @@ public final class PathFragment
   public static final char SEPARATOR_CHAR = OS.getSeparator();
   public static final int INVALID_SEGMENT = -1;
 
-  private final String path;
+  private final String normalizedPath;
   private final int driveStrLength; // 0 for relative paths, 1 on Unix, 3 on Windows
 
   /** Creates a new normalized path fragment. */
@@ -93,22 +87,23 @@ public final class PathFragment
    *
    * <p>Should only be used internally.
    */
+  @AutoCodec.Instantiator
   static PathFragment createAlreadyNormalized(String normalizedPath, int driveStrLength) {
     return new PathFragment(normalizedPath, driveStrLength);
   }
 
   /** This method expects path to already be normalized. */
-  private PathFragment(String path, int driveStrLength) {
-    this.path = Preconditions.checkNotNull(path);
+  private PathFragment(String normalizedPath, int driveStrLength) {
+    this.normalizedPath = Preconditions.checkNotNull(normalizedPath);
     this.driveStrLength = driveStrLength;
   }
 
   public String getPathString() {
-    return path;
+    return normalizedPath;
   }
 
   public boolean isEmpty() {
-    return path.isEmpty();
+    return normalizedPath.isEmpty();
   }
 
   int getDriveStrLength() {
@@ -122,10 +117,10 @@ public final class PathFragment
    * <p>This operation allocates a new string.
    */
   public String getBaseName() {
-    int lastSeparator = path.lastIndexOf(SEPARATOR_CHAR);
+    int lastSeparator = normalizedPath.lastIndexOf(SEPARATOR_CHAR);
     return lastSeparator < driveStrLength
-        ? path.substring(driveStrLength)
-        : path.substring(lastSeparator + 1);
+        ? normalizedPath.substring(driveStrLength)
+        : normalizedPath.substring(lastSeparator + 1);
   }
 
   /**
@@ -138,7 +133,7 @@ public final class PathFragment
   public PathFragment getRelative(PathFragment other) {
     Preconditions.checkNotNull(other);
     // Fast-path: The path fragment is already normal, use cheaper normalization check
-    String otherStr = other.path;
+    String otherStr = other.normalizedPath;
     return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
   }
 
@@ -154,7 +149,7 @@ public final class PathFragment
   }
 
   private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
-    if (path.isEmpty()) {
+    if (normalizedPath.isEmpty()) {
       return create(other);
     }
     if (other.isEmpty()) {
@@ -169,10 +164,10 @@ public final class PathFragment
       return new PathFragment(normalizedPath, otherDriveStrLength);
     }
     String newPath;
-    if (path.length() == driveStrLength) {
-      newPath = path + other;
+    if (normalizedPath.length() == driveStrLength) {
+      newPath = normalizedPath + other;
     } else {
-      newPath = path + '/' + other;
+      newPath = normalizedPath + '/' + other;
     }
     newPath =
         normalizationLevel != OsPathPolicy.NORMALIZED
@@ -184,10 +179,10 @@ public final class PathFragment
   public PathFragment getChild(String baseName) {
     checkBaseName(baseName);
     String newPath;
-    if (path.length() == driveStrLength) {
-      newPath = path + baseName;
+    if (normalizedPath.length() == driveStrLength) {
+      newPath = normalizedPath + baseName;
     } else {
-      newPath = path + '/' + baseName;
+      newPath = normalizedPath + '/' + baseName;
     }
     return new PathFragment(newPath, driveStrLength);
   }
@@ -200,14 +195,14 @@ public final class PathFragment
    */
   @Nullable
   public PathFragment getParentDirectory() {
-    int lastSeparator = path.lastIndexOf(SEPARATOR_CHAR);
+    int lastSeparator = normalizedPath.lastIndexOf(SEPARATOR_CHAR);
 
     // For absolute paths we need to specially handle when we hit root
     // Relative paths can't hit this path as driveStrLength == 0
     if (driveStrLength > 0) {
       if (lastSeparator < driveStrLength) {
-        if (path.length() > driveStrLength) {
-          String newPath = path.substring(0, driveStrLength);
+        if (normalizedPath.length() > driveStrLength) {
+          String newPath = normalizedPath.substring(0, driveStrLength);
           return new PathFragment(newPath, driveStrLength);
         } else {
           return null;
@@ -215,14 +210,14 @@ public final class PathFragment
       }
     } else {
       if (lastSeparator == -1) {
-        if (!path.isEmpty()) {
+        if (!normalizedPath.isEmpty()) {
           return EMPTY_FRAGMENT;
         } else {
           return null;
         }
       }
     }
-    String newPath = path.substring(0, lastSeparator);
+    String newPath = normalizedPath.substring(0, lastSeparator);
     return new PathFragment(newPath, driveStrLength);
   }
 
@@ -242,8 +237,8 @@ public final class PathFragment
       throw new IllegalArgumentException(
           "Cannot relativize an absolute and a non-absolute path pair");
     }
-    String basePath = base.path;
-    if (!OS.startsWith(path, basePath)) {
+    String basePath = base.normalizedPath;
+    if (!OS.startsWith(normalizedPath, basePath)) {
       throw new IllegalArgumentException(
           String.format("Path '%s' is not under '%s', cannot relativize", this, base));
     }
@@ -251,7 +246,7 @@ public final class PathFragment
     if (bn == 0) {
       return this;
     }
-    if (path.length() == bn) {
+    if (normalizedPath.length() == bn) {
       return EMPTY_FRAGMENT;
     }
     final int lastSlashIndex;
@@ -260,11 +255,11 @@ public final class PathFragment
     } else {
       lastSlashIndex = bn;
     }
-    if (path.charAt(lastSlashIndex) != '/') {
+    if (normalizedPath.charAt(lastSlashIndex) != '/') {
       throw new IllegalArgumentException(
           String.format("Path '%s' is not under '%s', cannot relativize", this, base));
     }
-    String newPath = path.substring(lastSlashIndex + 1);
+    String newPath = normalizedPath.substring(lastSlashIndex + 1);
     return new PathFragment(newPath, 0 /* Always a relative path */);
   }
 
@@ -281,18 +276,18 @@ public final class PathFragment
    */
   public boolean startsWith(PathFragment other) {
     Preconditions.checkNotNull(other);
-    if (other.path.length() > path.length()) {
+    if (other.normalizedPath.length() > normalizedPath.length()) {
       return false;
     }
     if (driveStrLength != other.driveStrLength) {
       return false;
     }
-    if (!OS.startsWith(path, other.path)) {
+    if (!OS.startsWith(normalizedPath, other.normalizedPath)) {
       return false;
     }
-    return path.length() == other.path.length()
-        || other.path.length() == driveStrLength
-        || path.charAt(other.path.length()) == SEPARATOR_CHAR;
+    return normalizedPath.length() == other.normalizedPath.length()
+        || other.normalizedPath.length() == driveStrLength
+        || normalizedPath.charAt(other.normalizedPath.length()) == SEPARATOR_CHAR;
   }
 
   /**
@@ -303,18 +298,19 @@ public final class PathFragment
    */
   public boolean endsWith(PathFragment other) {
     Preconditions.checkNotNull(other);
-    if (other.path.length() > path.length()) {
+    if (other.normalizedPath.length() > normalizedPath.length()) {
       return false;
     }
     if (other.isAbsolute()) {
       return this.equals(other);
     }
-    if (!OS.endsWith(path, other.path)) {
+    if (!OS.endsWith(normalizedPath, other.normalizedPath)) {
       return false;
     }
-    return path.length() == other.path.length()
-        || other.path.length() == 0
-        || path.charAt(path.length() - other.path.length() - 1) == SEPARATOR_CHAR;
+    return normalizedPath.length() == other.normalizedPath.length()
+        || other.normalizedPath.length() == 0
+        || normalizedPath.charAt(normalizedPath.length() - other.normalizedPath.length() - 1)
+            == SEPARATOR_CHAR;
   }
 
   public boolean isAbsolute() {
@@ -327,12 +323,12 @@ public final class PathFragment
 
   @Override
   public String toString() {
-    return path;
+    return normalizedPath;
   }
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    printer.append(path);
+    printer.append(normalizedPath);
   }
 
   @Override
@@ -343,17 +339,17 @@ public final class PathFragment
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    return OS.equals(this.path, ((PathFragment) o).path);
+    return OS.equals(this.normalizedPath, ((PathFragment) o).normalizedPath);
   }
 
   @Override
   public int hashCode() {
-    return OS.hash(this.path);
+    return OS.hash(this.normalizedPath);
   }
 
   @Override
   public int compareTo(PathFragment o) {
-    return OS.compare(this.path, o.path);
+    return OS.compare(this.normalizedPath, o.normalizedPath);
   }
 
   ////////////////////////////////////////////////////////////////////////
@@ -364,11 +360,11 @@ public final class PathFragment
    * <p>This operation is O(N) on the length of the string.
    */
   public int segmentCount() {
-    int n = path.length();
+    int n = normalizedPath.length();
     int segmentCount = 0;
     int i;
     for (i = driveStrLength; i < n; ++i) {
-      if (path.charAt(i) == SEPARATOR_CHAR) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
         ++segmentCount;
       }
     }
@@ -385,17 +381,17 @@ public final class PathFragment
    * <p>This operation is O(N) on the length of the string.
    */
   public String getSegment(int index) {
-    int n = path.length();
+    int n = normalizedPath.length();
     int segmentCount = 0;
     int i;
     for (i = driveStrLength; i < n && segmentCount < index; ++i) {
-      if (path.charAt(i) == SEPARATOR_CHAR) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
         ++segmentCount;
       }
     }
     int starti = i;
     for (; i < n; ++i) {
-      if (path.charAt(i) == SEPARATOR_CHAR) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
         break;
       }
     }
@@ -407,7 +403,7 @@ public final class PathFragment
     if (index < 0 || index >= segmentCount) {
       throw new IllegalArgumentException("Illegal segment index: " + index);
     }
-    return path.substring(starti, endi);
+    return normalizedPath.substring(starti, endi);
   }
 
   /**
@@ -442,18 +438,18 @@ public final class PathFragment
   }
 
   private PathFragment subFragmentImpl(int beginIndex, int endIndex) {
-    int n = path.length();
+    int n = normalizedPath.length();
     int segmentIndex = 0;
     int i;
     for (i = driveStrLength; i < n && segmentIndex < beginIndex; ++i) {
-      if (path.charAt(i) == SEPARATOR_CHAR) {
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
         ++segmentIndex;
       }
     }
     int starti = i;
     if (segmentIndex < endIndex) {
       for (; i < n; ++i) {
-        if (path.charAt(i) == SEPARATOR_CHAR) {
+        if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
           ++segmentIndex;
           if (segmentIndex == endIndex) {
             break;
@@ -461,7 +457,7 @@ public final class PathFragment
         }
       }
     } else if (endIndex == -1) {
-      i = path.length();
+      i = normalizedPath.length();
     }
     int endi = i;
     // Add last segment if one exists for verification
@@ -479,7 +475,7 @@ public final class PathFragment
       driveStrLength = this.driveStrLength;
       endi = Math.max(endi, driveStrLength);
     }
-    return new PathFragment(path.substring(starti, endi), driveStrLength);
+    return new PathFragment(normalizedPath.substring(starti, endi), driveStrLength);
   }
 
   /**
@@ -491,16 +487,16 @@ public final class PathFragment
     String[] segments = new String[segmentCount];
     int segmentIndex = 0;
     int nexti = driveStrLength;
-    int n = path.length();
+    int n = normalizedPath.length();
     for (int i = driveStrLength; i < n; ++i) {
-      if (path.charAt(i) == SEPARATOR_CHAR) {
-        segments[segmentIndex++] = path.substring(nexti, i);
+      if (normalizedPath.charAt(i) == SEPARATOR_CHAR) {
+        segments[segmentIndex++] = normalizedPath.substring(nexti, i);
         nexti = i + 1;
       }
     }
     // Add last segment if one exists.
     if (nexti < n) {
-      segments[segmentIndex] = path.substring(nexti);
+      segments[segmentIndex] = normalizedPath.substring(nexti);
     }
     return segments;
   }
@@ -526,7 +522,7 @@ public final class PathFragment
 
   /** Returns the path string, or '.' if the path is empty. */
   public String getSafePathString() {
-    return !path.isEmpty() ? path : ".";
+    return !normalizedPath.isEmpty() ? normalizedPath : ".";
   }
 
   /**
@@ -539,13 +535,13 @@ public final class PathFragment
    */
   public String getCallablePathString() {
     if (isAbsolute()) {
-      return path;
-    } else if (path.isEmpty()) {
+      return normalizedPath;
+    } else if (normalizedPath.isEmpty()) {
       return ".";
-    } else if (path.indexOf(SEPARATOR_CHAR) == -1) {
-      return "." + SEPARATOR_CHAR + path;
+    } else if (normalizedPath.indexOf(SEPARATOR_CHAR) == -1) {
+      return "." + SEPARATOR_CHAR + normalizedPath;
     } else {
-      return path;
+      return normalizedPath;
     }
   }
 
@@ -553,11 +549,11 @@ public final class PathFragment
    * Returns the file extension of this path, excluding the period, or "" if there is no extension.
    */
   public String getFileExtension() {
-    int n = path.length();
+    int n = normalizedPath.length();
     for (int i = n - 1; i > driveStrLength; --i) {
-      char c = path.charAt(i);
+      char c = normalizedPath.charAt(i);
       if (c == '.') {
-        return path.substring(i + 1, n);
+        return normalizedPath.substring(i + 1, n);
       } else if (c == SEPARATOR_CHAR) {
         break;
       }
@@ -584,7 +580,7 @@ public final class PathFragment
    */
   public String getDriveStr() {
     Preconditions.checkArgument(isAbsolute());
-    return path.substring(0, driveStrLength);
+    return normalizedPath.substring(0, driveStrLength);
   }
 
   /**
@@ -593,7 +589,7 @@ public final class PathFragment
    */
   public PathFragment toRelative() {
     Preconditions.checkArgument(isAbsolute());
-    return new PathFragment(path.substring(driveStrLength), 0);
+    return new PathFragment(normalizedPath.substring(driveStrLength), 0);
   }
 
   /**
@@ -604,7 +600,7 @@ public final class PathFragment
    */
   public boolean containsUplevelReferences() {
     // Path is normalized, so any ".." would have to be at the very start
-    return path.startsWith("..");
+    return normalizedPath.startsWith("..");
   }
 
   /**
@@ -715,34 +711,12 @@ public final class PathFragment
 
   @Override
   public String filePathForFileTypeMatcher() {
-    return path;
+    return normalizedPath;
   }
 
   @Override
   public String expandToCommandLine() {
     return getPathString();
-  }
-
-  private static class PathFragmentCodec implements ObjectCodec<PathFragment> {
-    private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
-
-    @Override
-    public Class<PathFragment> getEncodedClass() {
-      return PathFragment.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, PathFragment pathFragment, CodedOutputStream codedOut)
-        throws IOException, SerializationException {
-      stringCodec.serialize(context, pathFragment.getPathString(), codedOut);
-    }
-
-    @Override
-    public PathFragment deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      return PathFragment.createAlreadyNormalized(stringCodec.deserialize(context, codedIn));
-    }
   }
 
   private static void checkBaseName(String baseName) {
@@ -758,6 +732,6 @@ public final class PathFragment
   }
 
   private Object writeReplace() {
-    return new PathFragmentSerializationProxy(path);
+    return new PathFragmentSerializationProxy(normalizedPath);
   }
 }

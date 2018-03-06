@@ -22,6 +22,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.ByteString;
@@ -90,7 +91,13 @@ public class SerializationTester {
   }
 
   public void runTests() throws Exception {
-    ObjectCodecs codecs = new ObjectCodecs(AutoRegistry.get(), dependenciesBuilder.build());
+    ObjectCodecRegistry registry = AutoRegistry.get();
+    ImmutableMap<Class<?>, Object> dependencies = dependenciesBuilder.build();
+    ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
+    for (Object val : dependencies.values()) {
+      registryBuilder.addConstant(val);
+    }
+    ObjectCodecs codecs = new ObjectCodecs(registryBuilder.build(), dependencies);
     testSerializeDeserialize(codecs);
     testStableSerialization(codecs);
     testDeserializeJunkData(codecs);

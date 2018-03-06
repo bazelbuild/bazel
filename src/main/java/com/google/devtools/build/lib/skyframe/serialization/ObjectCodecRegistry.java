@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -154,7 +155,8 @@ public class ObjectCodecRegistry {
    *
    * <p>This is much more efficient than scanning multiple times.
    */
-  Builder getBuilder() {
+  @VisibleForTesting
+  public Builder getBuilder() {
     Builder builder = newBuilder();
     builder.setAllowDefaultCodec(defaultCodecDescriptor != null);
     for (Map.Entry<String, CodecDescriptor> entry : stringMappedCodecs.entrySet()) {

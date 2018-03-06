@@ -15,17 +15,11 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -59,6 +53,7 @@ import javax.annotation.Nullable;
  * <p>Mac and Windows file paths are case insensitive. Case is preserved.
  */
 @ThreadSafe
+@AutoCodec
 public class Path
     implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
   private static FileSystem fileSystemForSerialization;
@@ -92,6 +87,8 @@ public class Path
     return createAlreadyNormalized(normalizedPath, fileSystem);
   }
 
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
   static Path createAlreadyNormalized(String path, FileSystem fileSystem) {
     int driveStrLength = OS.getDriveStrLength(path);
     return createAlreadyNormalized(path, driveStrLength, fileSystem);
@@ -901,35 +898,5 @@ public class Path
     path = in.readUTF();
     fileSystem = fileSystemForSerialization;
     driveStrLength = OS.getDriveStrLength(path);
-  }
-
-  private static class Codec implements ObjectCodec<Path> {
-    private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
-
-    @Override
-    public Class<Path> getEncodedClass() {
-      return Path.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context,
-        Path path,
-        CodedOutputStream codedOut)
-        throws IOException, SerializationException {
-      Preconditions.checkArgument(
-          path.getFileSystem() == context.getDependency(FileSystem.class),
-          "%s != %s",
-          path.getFileSystem(),
-          context.getDependency(FileSystem.class));
-      stringCodec.serialize(context, path.getPathString(), codedOut);
-    }
-
-    @Override
-    public Path deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      return Path.createAlreadyNormalized(
-          stringCodec.deserialize(context, codedIn), context.getDependency(FileSystem.class));
-    }
   }
 }
