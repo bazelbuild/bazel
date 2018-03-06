@@ -1,8 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
-# TODO(lberki): Remove this once cc_toolchain_alias is in a Bazel release
-load("//tools/cpp:alias_rules.bzl", "cc_toolchain_alias")
+licenses(["notice"])  # Apache 2.0
 
+# TODO(lberki): Remove this once cc_toolchain_alias is in a Bazel release
 cc_toolchain_alias(name = "current_cc_toolchain")
 
 cc_library(
@@ -197,7 +197,11 @@ filegroup(
 filegroup(
     name = "interface_library_builder",
     srcs = ["build_interface_so"],
-    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "osx_wrapper",
+    srcs = ["osx_cc_wrapper.sh"],
 )
 
 filegroup(
@@ -206,8 +210,8 @@ filegroup(
 )
 
 filegroup(
-    name = "osx_wrapper",
-    srcs = ["osx_cc_wrapper.sh"],
+    name = "lib_cc_configure",
+    srcs = ["lib_cc_configure.bzl"],
 )
 
 cc_toolchain_type(name = "toolchain_type")
@@ -221,12 +225,12 @@ toolchain(
     toolchain_type = ":toolchain_type",
 )
 
+toolchain(
+    name = "dummy_cc_toolchain_type",
+    toolchain = "dummy_cc_toolchain_impl",
+    toolchain_type = ":toolchain_type",
+)
+
 load(":dummy_toolchain.bzl", "dummy_toolchain")
 
 dummy_toolchain(name = "dummy_cc_toolchain_impl")
-
-filegroup(
-    name = "lib_cc_configure",
-    srcs = ["lib_cc_configure.bzl"],
-    visibility = ["//visibility:public"],
-)
