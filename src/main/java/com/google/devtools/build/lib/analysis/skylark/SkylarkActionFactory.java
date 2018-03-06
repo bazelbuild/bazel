@@ -1142,6 +1142,10 @@ public class SkylarkActionFactory implements SkylarkValue {
     static {
       SkylarkSignatureProcessor.configureSkylarkFunctions(Args.class);
     }
+
+    /** No-op method that can be called to ensure the above static initializer runs. */
+    public static void forceStaticInitialization() {
+    }
   }
 
   @SkylarkSignature(
@@ -1184,5 +1188,13 @@ public class SkylarkActionFactory implements SkylarkValue {
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkActionFactory.class);
+  }
+
+  /**
+   * No-op method that can be called to ensure the above static initializer runs, as well as the
+   * initializer for nested classes.
+   */
+  public static void forceStaticInitialization() {
+    Args.forceStaticInitialization();
   }
 }

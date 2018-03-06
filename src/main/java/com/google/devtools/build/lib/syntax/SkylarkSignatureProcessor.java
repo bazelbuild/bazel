@@ -215,17 +215,20 @@ public class SkylarkSignatureProcessor {
   }
 
   /**
-   * Processes all {@link SkylarkSignature}-annotated fields in a class. This function should only
-   * be called once per class, and not concurrently.
+   * Processes all {@link SkylarkSignature}-annotated fields in a class.
    *
    * <p>This includes registering these fields as builtins using {@link Runtime}, and for {@link
    * BaseFunction} instances, calling {@link BaseFunction#configure(SkylarkSignature)}. The fields
    * will be picked up by reflection even if they are not public.
    *
-   * <p>A class typically calls this function from within a static initializer block, passing itself
-   * as the {@code type}. E.g., A class {@code Foo} containing {@code @SkylarkSignature} annotations
-   * would end with {@code static { SkylarkSignatureProcessor.configureSkylarkFunctions(Foo.class);
-   * }}
+   * <p>This function should be called once per class, before the builtins registry is frozen. In
+   * practice, this is usually called from the class's own static initializer block. E.g., a class
+   * {@code Foo} containing {@code @SkylarkSignature} annotations would end with
+   * {@code static { SkylarkSignatureProcessor.configureSkylarkFunctions(Foo.class); }}.
+   *
+   * <p><b>If you see exceptions from {@link Runtime.BuiltinRegistry} here:</b> Be sure the class's
+   * static initializer has in fact been called before the registry was frozen. In Bazel, see
+   * {@link com.google.devtools.build.lib.runtime.BlazeRuntime#initSkylarkBuiltinsRegistry}.
    */
   public static void configureSkylarkFunctions(Class<?> type) {
     Runtime.BuiltinRegistry builtins = Runtime.getBuiltinRegistry();

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -80,6 +81,30 @@ public final class RuntimeTest {
     assertThat(values).hasSize(2);
     assertThat(values.get(0)).isSameAs(equalValue1);
     assertThat(values.get(1)).isSameAs(equalValue2);
+  }
+
+  @Test
+  public void checkRegistry_WriteAfterFreezeFails_Builtin() {
+    Runtime.BuiltinRegistry reg = new Runtime.BuiltinRegistry();
+    reg.freeze();
+    IllegalStateException expected = assertThrows(
+        IllegalStateException.class,
+        () -> reg.registerBuiltin(DummyType.class, "dummy", "foo"));
+    assertThat(expected).hasMessageThat()
+        .matches("Attempted to register builtin '(.*)DummyType.dummy' after registry has already "
+            + "been frozen");
+  }
+
+  @Test
+  public void checkRegistry_WriteAfterFreezeFails_Function() {
+    Runtime.BuiltinRegistry reg = new Runtime.BuiltinRegistry();
+    reg.freeze();
+    IllegalStateException expected = assertThrows(
+        IllegalStateException.class,
+        () -> reg.registerFunction(DummyType.class, DUMMY_FUNC));
+    assertThat(expected).hasMessageThat()
+        .matches("Attempted to register function 'dummyFunc' in namespace '(.*)DummyType' after "
+            + "registry has already been frozen");
   }
 
   @Test
