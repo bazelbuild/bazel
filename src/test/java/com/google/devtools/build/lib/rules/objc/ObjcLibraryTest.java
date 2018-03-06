@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -1411,15 +1410,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "cc_library(",
         "    name = 'cc_lib_impl',",
         "    srcs = [",
-        "        'v1/a.c',",
-        "        'v1/a.h',",
+        "        'a.c',",
+        "        'a.h',",
         "    ],",
         ")",
         "",
-        "cc_inc_library(",
+        "cc_library(",
         "    name = 'cc_lib',",
-        "    hdrs = ['v1/a.h'],",
-        "    prefix = 'v1',",
+        "    hdrs = ['a.h'],",
         "    deps = [':cc_lib_impl'],",
         ")");
     createLibraryTargetWriter("//objc2:lib")
@@ -1573,10 +1571,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    ],",
         ")",
         "",
-        "cc_inc_library(",
+        "cc_library(",
         "    name = 'cc_lib',",
         "    hdrs = ['v1/a.h'],",
-        "    prefix = 'v1',",
+        "    strip_include_prefix = 'v1',",
         "    deps = [':cc_lib_impl'],",
         ")");
 
@@ -1593,12 +1591,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     String compileActionArgs = Joiner.on("")
         .join(compileAction.getArguments())
         .replace(" ", "");
-    String includeDir =
-        getAppleCrosstoolConfiguration()
-                .getIncludeDirectory(RepositoryName.MAIN)
-                .getExecPathString()
-            + "/third_party/cc_lib/_/cc_lib";
-    assertThat(compileActionArgs).contains("-I" + includeDir);
+    assertThat(compileActionArgs)
+        .matches(".*-iquote.*/third_party/cc_lib/_virtual_includes/cc_lib.*");
   }
 
   @Test
