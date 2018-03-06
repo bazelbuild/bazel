@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
- * Provider for a toolchain declaration, which assosiates a toolchain type, the execution and target
+ * Provider for a toolchain declaration, which associates a toolchain type, the execution and target
  * constraints, and the actual toolchain label. The toolchain is then available for use but will be
  * lazily resolved only when it is actually needed for toolchain-aware rules. Toolchain definitions
  * are exposed to Skylark and Bazel via {@link ToolchainInfo} providers.

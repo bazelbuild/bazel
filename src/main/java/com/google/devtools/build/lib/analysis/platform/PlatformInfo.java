@@ -34,10 +34,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,46 +53,9 @@ public class PlatformInfo extends NativeInfo {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /*numMandatoryPositionals=*/ 2,
-              /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly*/ 0,
-              /*starArg=*/ false,
-              /*kwArg=*/ false,
-              /*names=*/ "label",
-              "constraint_values"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.<SkylarkType>of(
-              SkylarkType.of(Label.class),
-              SkylarkType.Combination.of(
-                  SkylarkType.LIST, SkylarkType.of(ConstraintValueInfo.class))));
-
   /** Skylark constructor and identifier for this provider. */
   public static final NativeProvider<PlatformInfo> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        protected PlatformInfo createInstanceFromSkylark(Object[] args, Location loc)
-            throws EvalException {
-          // Based on SIGNATURE above, the args are label, constraint_values.
-
-          Label label = (Label) args[0];
-          List<ConstraintValueInfo> constraintValues =
-              SkylarkList.castSkylarkListOrNoneToList(
-                  args[1], ConstraintValueInfo.class, "constraint_values");
-          try {
-            return builder()
-                .setLabel(label)
-                .addConstraints(constraintValues)
-                .setLocation(loc)
-                .build();
-          } catch (DuplicateConstraintException dce) {
-            throw new EvalException(
-                loc, String.format("Cannot create PlatformInfo: %s", dce.getMessage()));
-          }
-        }
-      };
+      new NativeProvider<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME) {};
 
   private final Label label;
   private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -155,41 +154,5 @@ public class PlatformTest extends BuildViewTestCase {
     PlatformInfo provider = PlatformProviderUtils.platform(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.remoteExecutionProperties()).isEqualTo("foo: val1");
-  }
-
-  @Test
-  public void testPlatform_skylark() throws Exception {
-
-    scratch.file(
-        "test/platform/platform.bzl",
-        "def _impl(ctx):",
-        "  platform = ctx.attr.platform[platform_common.PlatformInfo]",
-        "  return struct(",
-        "    count = len(platform.constraints),",
-        "    first_setting = platform.constraints[0].constraint.label,",
-        "    first_value = platform.constraints[0].label)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = { 'platform': attr.label(providers = [platform_common.PlatformInfo])},",
-        ")");
-
-    scratch.file(
-        "test/platform/BUILD",
-        "load('//test/platform:platform.bzl', 'my_rule')",
-        "my_rule(name = 'r',",
-        "  platform = '//constraint:plat1')");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//test/platform:r");
-    assertThat(configuredTarget).isNotNull();
-
-    int count = (int) configuredTarget.get("count");
-    assertThat(count).isEqualTo(1);
-
-    Label settingLabel = (Label) configuredTarget.get("first_setting");
-    assertThat(settingLabel).isNotNull();
-    assertThat(settingLabel).isEqualTo(makeLabel("//constraint:basic"));
-    Label valueLabel = (Label) configuredTarget.get("first_value");
-    assertThat(valueLabel).isNotNull();
-    assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
   }
 }
