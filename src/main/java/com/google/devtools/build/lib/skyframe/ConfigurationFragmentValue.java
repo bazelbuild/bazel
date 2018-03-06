@@ -23,19 +23,11 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -69,6 +61,7 @@ public class ConfigurationFragmentValue implements SkyValue {
   }
 
   /** {@link SkyKey} for {@link ConfigurationFragmentValue}. */
+  @AutoCodec
   public static final class ConfigurationFragmentKey implements SkyKey {
     private static Interner<ConfigurationFragmentKey> interner = BlazeInterners.newWeakInterner();
 
@@ -83,7 +76,9 @@ public class ConfigurationFragmentValue implements SkyValue {
       this.fragmentType = Preconditions.checkNotNull(fragmentType);
     }
 
-    private static ConfigurationFragmentKey of(
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static ConfigurationFragmentKey of(
         BuildOptions buildOptions, Class<? extends Fragment> fragmentType) {
       return interner.intern(new ConfigurationFragmentKey(buildOptions, fragmentType));
     }
@@ -123,37 +118,6 @@ public class ConfigurationFragmentValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.CONFIGURATION_FRAGMENT;
-    }
-
-    private static class Codec implements ObjectCodec<ConfigurationFragmentKey> {
-      @Override
-      public Class<ConfigurationFragmentKey> getEncodedClass() {
-        return ConfigurationFragmentKey.class;
-      }
-
-      @Override
-      public void serialize(
-          SerializationContext context, ConfigurationFragmentKey obj, CodedOutputStream codedOut)
-          throws SerializationException, IOException {
-        context.serialize(obj.buildOptions, codedOut);
-        StringCodecs.asciiOptimized().serialize(context, obj.fragmentType.getName(), codedOut);
-      }
-
-      @SuppressWarnings("unchecked") // Cast to Class<? extends Fragment>.
-      @Override
-      public ConfigurationFragmentKey deserialize(
-          DeserializationContext context, CodedInputStream codedIn)
-          throws SerializationException, IOException {
-
-        try {
-          return of(
-              context.deserialize(codedIn),
-              (Class<? extends Fragment>)
-                  Class.forName(StringCodecs.asciiOptimized().deserialize(context, codedIn)));
-        } catch (ClassNotFoundException e) {
-          throw new SerializationException("Couldn't deserialize ConfigurationFragmentKey", e);
-        }
-      }
     }
   }
 }

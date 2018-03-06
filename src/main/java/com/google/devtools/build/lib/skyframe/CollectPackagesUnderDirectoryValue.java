@@ -52,8 +52,9 @@ import javax.annotation.Nullable;
  * directories above that one, but they don't need to be re-run.
  */
 public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
-
-  private final ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors;
+  @AutoCodec.VisibleForSerialization
+  protected final ImmutableMap<RootedPath, Boolean>
+      subdirectoryTransitivelyContainsPackagesOrErrors;
 
   CollectPackagesUnderDirectoryValue(
       ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
@@ -62,15 +63,19 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   }
 
   /** Represents a successfully loaded package or a directory without a BUILD file. */
+  @AutoCodec
   public static class NoErrorCollectPackagesUnderDirectoryValue
       extends CollectPackagesUnderDirectoryValue {
+    @AutoCodec
     public static final NoErrorCollectPackagesUnderDirectoryValue EMPTY =
         new NoErrorCollectPackagesUnderDirectoryValue(
             false, ImmutableMap.<RootedPath, Boolean>of());
 
     private final boolean isDirectoryPackage;
 
-    private NoErrorCollectPackagesUnderDirectoryValue(
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    NoErrorCollectPackagesUnderDirectoryValue(
         boolean isDirectoryPackage,
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
       super(subdirectoryTransitivelyContainsPackagesOrErrors);
@@ -123,11 +128,14 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   }
 
   /** Represents a directory with a BUILD file that failed to load. */
+  @AutoCodec
   public static class ErrorCollectPackagesUnderDirectoryValue
       extends CollectPackagesUnderDirectoryValue {
     private final String errorMessage;
 
-    private ErrorCollectPackagesUnderDirectoryValue(
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    ErrorCollectPackagesUnderDirectoryValue(
         String errorMessage,
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackagesOrErrors) {
       super(subdirectoryTransitivelyContainsPackagesOrErrors);

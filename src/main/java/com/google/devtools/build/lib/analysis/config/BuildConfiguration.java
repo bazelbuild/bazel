@@ -52,12 +52,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -75,9 +70,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -118,6 +110,9 @@ import javax.annotation.Nullable;
       "Data required for the analysis of a target that comes from targets that "
           + "depend on it and not targets that it depends on."
 )
+// TODO(janakr): If overhead of fragments class names is too high, add constructor that just takes
+// fragments and gets names from them.
+@AutoCodec
 public class BuildConfiguration implements BuildConfigurationInterface {
   /**
    * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
@@ -1244,10 +1239,8 @@ public class BuildConfiguration implements BuildConfigurationInterface {
     return hashCode;
   }
 
-  /**
-   * Returns map of all the fragments for this configuration.
-   */
-  public ImmutableMap<Class<? extends Fragment>, Fragment> getAllFragments() {
+  /** Returns map of all the fragments for this configuration. */
+  public ImmutableMap<Class<? extends Fragment>, Fragment> getFragmentsMap() {
     return fragments;
   }
 
@@ -2094,43 +2087,5 @@ public class BuildConfiguration implements BuildConfigurationInterface {
             .putAllMakeVariable(getMakeEnvironment())
             .setCpu(getCpu());
     return GenericBuildEvent.protoChaining(this).setConfiguration(builder.build()).build();
-  }
-
-  private static class BuildConfigurationCodec implements ObjectCodec<BuildConfiguration> {
-    @Override
-    public Class<BuildConfiguration> getEncodedClass() {
-      return BuildConfiguration.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context,
-        BuildConfiguration obj,
-        CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.serialize(obj.directories, codedOut);
-      codedOut.writeInt32NoTag(obj.fragments.size());
-      for (Fragment fragment : obj.fragments.values()) {
-        context.serialize(fragment, codedOut);
-      }
-      context.serialize(obj.buildOptions, codedOut);
-      StringCodecs.asciiOptimized().serialize(context, obj.repositoryName, codedOut);
-    }
-
-    @Override
-    public BuildConfiguration deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      BlazeDirectories blazeDirectories = context.deserialize(codedIn);
-      int length = codedIn.readInt32();
-      ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> builder =
-          new ImmutableSortedMap.Builder<>(lexicalFragmentSorter);
-      for (int i = 0; i < length; ++i) {
-        Fragment fragment = context.deserialize(codedIn);
-        builder.put(fragment.getClass(), fragment);
-      }
-      BuildOptions options = context.deserialize(codedIn);
-      String repositoryName = StringCodecs.asciiOptimized().deserialize(context, codedIn);
-      return new BuildConfiguration(blazeDirectories, builder.build(), options, repositoryName);
-    }
   }
 }

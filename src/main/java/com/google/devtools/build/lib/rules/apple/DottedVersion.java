@@ -21,17 +21,12 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -85,6 +80,7 @@ import javax.annotation.Nullable;
           + "1.2.3.4."
 )
 @Immutable
+@AutoCodec
 public final class DottedVersion implements Comparable<DottedVersion>, SkylarkValue {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN = Pattern.compile("(\\d+)(?:([a-z]+)(\\d*))?");
@@ -155,10 +151,11 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
   private final String stringRepresentation;
   private final int numOriginalComponents;
 
-  private DottedVersion(ImmutableList<Component> components, String version,
-      int numOriginalComponents) {
+  @AutoCodec.VisibleForSerialization
+  DottedVersion(
+      ImmutableList<Component> components, String stringRepresentation, int numOriginalComponents) {
     this.components = components;
-    this.stringRepresentation = version;
+    this.stringRepresentation = stringRepresentation;
     this.numOriginalComponents = numOriginalComponents;
   }
 
@@ -262,44 +259,16 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     printer.append(stringRepresentation);
   }
 
-  private static class DottedVersionCodec implements ObjectCodec<DottedVersion> {
-    @Override
-    public Class<DottedVersion> getEncodedClass() {
-      return DottedVersion.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, DottedVersion obj, CodedOutputStream codedOut)
-        throws IOException {
-      codedOut.writeInt32NoTag(obj.components.size());
-      for (Component component : obj.components) {
-        component.serialize(codedOut);
-      }
-      codedOut.writeStringNoTag(obj.stringRepresentation);
-      codedOut.writeInt32NoTag(obj.numOriginalComponents);
-    }
-
-    @Override
-    public DottedVersion deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException {
-      int numComponents = codedIn.readInt32();
-      // TODO(janakr: Presize this if/when https://github.com/google/guava/issues/196 is resolved.
-      ImmutableList.Builder<Component> components = ImmutableList.builder();
-      for (int i = 0; i < numComponents; i++) {
-        components.add(Component.deserialize(codedIn));
-      }
-      return new DottedVersion(components.build(), codedIn.readString(), codedIn.readInt32());
-    }
-  }
-
-  private static final class Component implements Comparable<Component> {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static final class Component implements Comparable<Component> {
     private final int firstNumber;
     @Nullable private final String alphaSequence;
     private final int secondNumber;
     private final String stringRepresentation;
 
-    public Component(
+    @AutoCodec.VisibleForSerialization
+    Component(
         int firstNumber,
         @Nullable String alphaSequence,
         int secondNumber,
@@ -339,26 +308,6 @@ public final class DottedVersion implements Comparable<DottedVersion>, SkylarkVa
     @Override
     public String toString() {
       return stringRepresentation;
-    }
-
-    void serialize(CodedOutputStream out) throws IOException {
-      if (alphaSequence == null) {
-        out.writeBoolNoTag(false);
-      } else {
-        out.writeBoolNoTag(true);
-        out.writeStringNoTag(alphaSequence);
-      }
-      out.writeInt32NoTag(firstNumber);
-      out.writeInt32NoTag(secondNumber);
-      out.writeStringNoTag(stringRepresentation);
-    }
-
-    static Component deserialize(CodedInputStream in) throws IOException {
-      String alphaSequence = null;
-      if (in.readBool()) {
-        alphaSequence = in.readString();
-      }
-      return new Component(in.readInt32(), alphaSequence, in.readInt32(), in.readString());
     }
   }
 }

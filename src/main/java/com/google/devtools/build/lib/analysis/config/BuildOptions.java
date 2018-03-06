@@ -23,10 +23,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
@@ -34,9 +31,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,9 +45,10 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
 
-/**
- * Stores the command-line options from a set of configuration fragments.
- */
+/** Stores the command-line options from a set of configuration fragments. */
+// TODO(janakr): If overhead of FragmentOptions class names is too high, add constructor that just
+// takes fragments and gets names from them.
+@AutoCodec
 public final class BuildOptions implements Cloneable, Serializable {
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
@@ -297,8 +292,8 @@ public final class BuildOptions implements Cloneable, Serializable {
    */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
 
-  private BuildOptions(
-      ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap) {
+  @AutoCodec.VisibleForSerialization
+  BuildOptions(ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap) {
     this.fragmentOptionsMap = fragmentOptionsMap;
   }
 
@@ -438,35 +433,6 @@ public final class BuildOptions implements Cloneable, Serializable {
             .append(System.lineSeparator());
       }
       return toReturn.toString();
-    }
-  }
-
-  private static class BuildOptionsCodec implements ObjectCodec<BuildOptions> {
-    @Override
-    public Class<BuildOptions> getEncodedClass() {
-      return BuildOptions.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, BuildOptions buildOptions, CodedOutputStream codedOut)
-        throws IOException, SerializationException {
-      Collection<FragmentOptions> fragmentOptions = buildOptions.getOptions();
-      codedOut.writeInt32NoTag(fragmentOptions.size());
-      for (FragmentOptions options : buildOptions.getOptions()) {
-        context.serialize(options, codedOut);
-      }
-    }
-
-    @Override
-    public BuildOptions deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      BuildOptions.Builder builder = BuildOptions.builder();
-      int length = codedIn.readInt32();
-      for (int i = 0; i < length; ++i) {
-        builder.add(context.deserialize(codedIn));
-      }
-      return builder.build();
     }
   }
 }

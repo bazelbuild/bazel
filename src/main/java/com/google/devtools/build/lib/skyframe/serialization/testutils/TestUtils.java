@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -43,10 +45,25 @@ public class TestUtils {
     return bytes.toByteArray();
   }
 
+  public static <T> ByteString toBytes(T value, ImmutableMap<Class<?>, Object> dependencies)
+      throws IOException, SerializationException {
+    ByteString.Output output = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
+    new SerializationContext(dependencies).serialize(value, codedOut);
+    codedOut.flush();
+    return output.toByteString();
+  }
+
   /** Deserialize a value from a byte array. */
   public static <T> T fromBytes(DeserializationContext context, ObjectCodec<T> codec, byte[] bytes)
       throws SerializationException, IOException {
     return codec.deserialize(context, CodedInputStream.newInstance(bytes));
+  }
+
+  public static <T> T roundTrip(T value, ImmutableMap<Class<?>, Object> dependencies)
+      throws IOException, SerializationException {
+    return new DeserializationContext(dependencies)
+        .deserialize(toBytes(value, dependencies).newCodedInput());
   }
 
   /**
