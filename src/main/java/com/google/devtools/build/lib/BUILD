@@ -478,6 +478,7 @@ java_library(
             "rules/fileset/*.java",
             "rules/repository/*.java",
             "skyframe/*.java",
+            "skyframe/actiongraph/*.java",
         ],
         exclude = [
             "analysis/BuildInfo.java",

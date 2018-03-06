@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesK
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
