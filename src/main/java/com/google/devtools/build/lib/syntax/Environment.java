@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -142,6 +143,21 @@ public final class Environment implements Freezable {
           ? ImmutableEmptyLexicalFrame.INSTANCE
           : new MutableLexicalFrame(mutability);
     }
+
+    static LexicalFrame createForUserDefinedFunctionCall(
+        ImmutableList<String> argumentNames, Object[] argumentValues, Environment env)
+        throws EvalException {
+      Preconditions.checkState(!env.mutability().isFrozen());
+      MutableLexicalFrame frame = new MutableLexicalFrame(
+          env.mutability(), /*initialCapacity=*/ argumentNames.size());
+      for (int i = 0; i < argumentNames.size(); i++) {
+        String argumentName = argumentNames.get(i);
+        Object argumentValue = argumentValues[i];
+        env.sanityCheckBindingUpdate(argumentName, argumentValue);
+        frame.putUnsafe(argumentName, argumentValue);
+      }
+      return frame;
+    }
   }
 
   private static final class ImmutableEmptyLexicalFrame implements LexicalFrame {
@@ -184,10 +200,16 @@ public final class Environment implements Freezable {
   private static final class MutableLexicalFrame implements LexicalFrame {
     private final Mutability mutability;
     /** Bindings are maintained in order of creation. */
-    private final LinkedHashMap<String, Object> bindings = new LinkedHashMap<>();
+    private final LinkedHashMap<String, Object> bindings;
 
-    public MutableLexicalFrame(Mutability mutability) {
+    private MutableLexicalFrame(Mutability mutability, int initialCapacity) {
       this.mutability = mutability;
+      this.bindings = new LinkedHashMap<>(initialCapacity);
+    }
+
+    private MutableLexicalFrame(Mutability mutability) {
+      this.mutability = mutability;
+      this.bindings = new LinkedHashMap<>();
     }
 
     @Override
@@ -204,6 +226,10 @@ public final class Environment implements Freezable {
     @Override
     public void put(Environment env, String varname, Object value) throws MutabilityException {
       Mutability.checkMutable(this, env.mutability());
+      putUnsafe(varname, value);
+    }
+
+    private void putUnsafe(String varname, Object value) {
       bindings.put(varname, value);
     }
 
@@ -950,16 +976,7 @@ public final class Environment implements Freezable {
     }
   }
 
-  /**
-   * Modifies a binding in the current Frame of this Environment, as would an
-   * {@link AssignmentStatement}. Does not try to modify an inherited binding.
-   * This will shadow any inherited binding, which may be an error
-   * that you want to guard against before calling this function.
-   * @param varname the name of the variable to be bound
-   * @param value the value to bind to the variable
-   * @return this Environment, in fluid style
-   */
-  public Environment update(String varname, Object value) throws EvalException {
+  private void sanityCheckBindingUpdate(String varname, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "update(value == null)");
     // prevents clashes between static and dynamic variables.
     if (dynamicFrame.get(varname) != null) {
@@ -970,6 +987,19 @@ public final class Environment implements Freezable {
       throw new EvalException(
           null, String.format("Trying to update read-only global variable '%s'", varname));
     }
+  }
+
+  /**
+   * Modifies a binding in the current Frame of this Environment, as would an
+   * {@link AssignmentStatement}. Does not try to modify an inherited binding.
+   * This will shadow any inherited binding, which may be an error
+   * that you want to guard against before calling this function.
+   * @param varname the name of the variable to be bound
+   * @param value the value to bind to the variable
+   * @return this Environment, in fluid style
+   */
+  public Environment update(String varname, Object value) throws EvalException {
+    sanityCheckBindingUpdate(varname, value);
     try {
       currentFrame().put(this, varname, Preconditions.checkNotNull(value));
     } catch (MutabilityException e) {
