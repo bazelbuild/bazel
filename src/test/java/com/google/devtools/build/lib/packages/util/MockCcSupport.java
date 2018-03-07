@@ -120,7 +120,8 @@ public abstract class MockCcSupport {
               && !pathString.startsWith("tools/cpp/build_interface_so")
               && !(pathString.contains("/internal/_middlemen") && basename.contains("crosstool"))
               && !pathString.startsWith("_bin/build_interface_so")
-              && !pathString.endsWith(".cppmap");
+              && !pathString.endsWith(".cppmap")
+              && !pathString.startsWith("tools/cpp/grep-includes");
         }
       };
 
@@ -707,13 +708,16 @@ public abstract class MockCcSupport {
         "filegroup(",
         "    name = 'link_dynamic_library',",
         "    srcs = ['link_dynamic_library.sh'],",
-        ")");
+        ")",
+        "exports_files(['grep-includes'])");
     if (config.isRealFileSystem()) {
       config.linkTool("tools/cpp/link_dynamic_library.sh");
       config.linkTool("tools/cpp/build_interface_so");
+      config.linkTool("tools/cpp/grep-includes");
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
       config.create("tools/cpp/build_interface_so", "");
+      config.create("tools/cpp/grep-includes", "");
     }
   }
 

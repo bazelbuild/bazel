@@ -175,6 +175,7 @@ public class CppCompileAction extends AbstractAction
    */
   private final NestedSet<Artifact> prunableInputs;
 
+  @Nullable private final Artifact grepIncludes;
   private final boolean shouldScanIncludes;
   private final boolean shouldPruneModules;
   private final boolean usePic;
@@ -293,7 +294,8 @@ public class CppCompileAction extends AbstractAction
       ImmutableMap<String, String> environment,
       String actionName,
       CppSemantics cppSemantics,
-      CcToolchainProvider cppProvider) {
+      CcToolchainProvider cppProvider,
+      @Nullable Artifact grepIncludes) {
     this(
         owner,
         allInputs,
@@ -343,7 +345,8 @@ public class CppCompileAction extends AbstractAction
         /*overwrittenVariables=*/ null,
         cppSemantics.needsDotdInputPruning(),
         cppSemantics.needsIncludeValidation(),
-        cppSemantics.getIncludeProcessing());
+        cppSemantics.getIncludeProcessing(),
+        grepIncludes);
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
   }
 
@@ -383,7 +386,8 @@ public class CppCompileAction extends AbstractAction
       CcToolchainFeatures.Variables overwrittenVariables,
       boolean needsDotdInputPruning,
       boolean needsIncludeValidation,
-      IncludeProcessing includeProcessing) {
+      IncludeProcessing includeProcessing,
+      @Nullable Artifact grepIncludes) {
     super(owner, inputs, outputs);
     this.localShellEnvironment = localShellEnvironment;
     this.outputFile = outputFile;
@@ -416,6 +420,7 @@ public class CppCompileAction extends AbstractAction
     this.usedModules = usedModules;
     this.topLevelModules = topLevelModules;
     this.overwrittenVariables = overwrittenVariables;
+    this.grepIncludes = grepIncludes;
   }
 
   /**
@@ -642,6 +647,12 @@ public class CppCompileAction extends AbstractAction
       legalOuts.put(hdr, pregreppedSrcs.greppedHeader());
     }
     return Collections.unmodifiableMap(legalOuts);
+  }
+
+  @Override
+  @Nullable
+  public Artifact getGrepIncludes() {
+    return grepIncludes;
   }
 
   /**

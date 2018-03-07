@@ -45,10 +45,13 @@ final class ExtractInclusionAction extends AbstractAction {
 
   private static final String GUID = "45b43e5a-4734-43bb-a05e-012313808142";
 
+  private final Artifact grepIncludes;
+
   /** Constructs a new action. */
   public ExtractInclusionAction(
-      ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
-    super(owner, ImmutableList.of(primaryInput), ImmutableList.of(primaryOutput));
+      ActionOwner owner, Artifact primaryInput, Artifact primaryOutput, Artifact grepIncludes) {
+    super(owner, ImmutableList.of(primaryInput, grepIncludes), ImmutableList.of(primaryOutput));
+    this.grepIncludes = grepIncludes;
   }
 
   @Override
@@ -72,8 +75,8 @@ final class ExtractInclusionAction extends AbstractAction {
     CppIncludeExtractionContext context =
         actionExecutionContext.getContext(CppIncludeExtractionContext.class);
     try {
-      context.extractIncludes(actionExecutionContext, this, getPrimaryInput(),
-          getPrimaryOutput());
+      context.extractIncludes(
+          actionExecutionContext, this, getPrimaryInput(), getPrimaryOutput(), grepIncludes);
     } catch (IOException e) {
       throw new ActionExecutionException(e, this, false);
     } catch (ExecException e) {

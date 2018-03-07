@@ -80,7 +80,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       Iterable<IncludeScannable> lipoScannables,
       CppSemantics cppSemantics,
       CcToolchainProvider cppProvider,
-      ImmutableMap<String, String> executionInfo) {
+      ImmutableMap<String, String> executionInfo,
+      Artifact grepIncludes) {
     super(
         owner,
         allInputs,
@@ -120,7 +121,8 @@ public class FakeCppCompileAction extends CppCompileAction {
         ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
         cppSemantics,
-        cppProvider);
+        cppProvider,
+        grepIncludes);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 
@@ -172,7 +174,7 @@ public class FakeCppCompileAction extends CppCompileAction {
               .build()
               .discoverInputsFromDependencies(execRoot, scanningContext.getArtifactResolver());
     }
-     
+
     reply = null; // Clear in-memory .d files early.
 
     // Even cc_fake_binary rules need to properly declare their dependencies...

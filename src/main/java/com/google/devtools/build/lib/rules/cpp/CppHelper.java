@@ -630,8 +630,10 @@ public class CppHelper {
         && !prerequisite.isSourceArtifact()
         && CPP_FILETYPES.matches(prerequisite.getFilename())) {
       Artifact scanned = getIncludesOutput(ruleContext, prerequisite);
+      Artifact grepIncludes = ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST);
       ruleContext.registerAction(
-          new ExtractInclusionAction(ruleContext.getActionOwner(), prerequisite, scanned));
+          new ExtractInclusionAction(
+              ruleContext.getActionOwner(), prerequisite, scanned, grepIncludes));
       return scanned;
     }
     return null;

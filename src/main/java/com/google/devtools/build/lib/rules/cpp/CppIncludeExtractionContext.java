@@ -37,7 +37,8 @@ public interface CppIncludeExtractionContext extends ActionContext {
       ActionExecutionContext actionExecutionContext,
       Action resourceOwner,
       Artifact primaryInput,
-      Artifact primaryOutput)
+      Artifact primaryOutput,
+      Artifact grepIncludes)
       throws IOException, ExecException, InterruptedException;
 
   /**

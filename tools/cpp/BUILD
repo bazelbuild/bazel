@@ -14,6 +14,11 @@ cc_library(
 )
 
 filegroup(
+    name = "grep-includes",
+    srcs = ["grep-includes.sh"],
+)
+
+filegroup(
     name = "empty",
     srcs = [],
 )

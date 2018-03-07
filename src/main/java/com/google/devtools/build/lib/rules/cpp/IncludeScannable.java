@@ -74,14 +74,14 @@ public interface IncludeScannable {
   List<Artifact> getBuiltInIncludeFiles();
 
   /**
-   * Returns the artifact relative to which the {@code getCmdlineIncludes()} should be interpreted. 
+   * Returns the artifact relative to which the {@code getCmdlineIncludes()} should be interpreted.
    */
   Artifact getMainIncludeScannerSource();
-  
+
   /**
    * Returns an immutable list of sources that the IncludeScanner should scan
    * for this action.
-   * 
+   *
    * <p>Must contain {@code getMainIncludeScannerSource()}.
    */
   Collection<Artifact> getIncludeScannerSources();
@@ -106,4 +106,9 @@ public interface IncludeScannable {
    * should just map to null.
    */
   Map<Artifact, Artifact> getLegalGeneratedScannerFileMap();
+
+  /**
+   * Returns an artifact that is the executable for {@link ExtractInclusionAction}.
+   */
+  Artifact getGrepIncludes();
 }
