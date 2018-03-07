@@ -233,9 +233,115 @@ public class SkylarkEvaluationTest extends EvaluationTest {
           + ", "
           + optionalNamed
           + ", "
-          + nonNoneable.toString()
+          + nonNoneable
           + (noneable != Runtime.NONE ? ", " + noneable : "")
           + (multi != Runtime.NONE ? ", " + multi : "")
+          + ")";
+    }
+
+    @SkylarkCallable(
+      name = "with_extra",
+      doc = "",
+      useLocation = true,
+      useAst = true,
+      useEnvironment = true
+    )
+    public String withExtraInterpreterParams(
+        Location location, FuncallExpression func, Environment env) {
+      return "with_extra("
+          + location.getStartLine()
+          + ", "
+          + func.getArguments().size()
+          + ", "
+          + env.isGlobal()
+          + ")";
+    }
+
+    @SkylarkCallable(
+      name = "with_params_and_extra",
+      doc = "",
+      mandatoryPositionals = 1,
+      parameters = {
+        @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
+        @Param(
+          name = "posOrNamed",
+          defaultValue = "False",
+          type = Boolean.class,
+          positional = true,
+          named = true
+        ),
+        @Param(name = "named", type = Boolean.class, positional = false, named = true),
+        @Param(
+          name = "optionalNamed",
+          type = Boolean.class,
+          defaultValue = "False",
+          positional = false,
+          named = true
+        ),
+        @Param(
+          name = "nonNoneable",
+          type = Object.class,
+          defaultValue = "\"a\"",
+          positional = false,
+          named = true
+        ),
+        @Param(
+          name = "noneable",
+          type = Integer.class,
+          defaultValue = "None",
+          noneable = true,
+          positional = false,
+          named = true
+        ),
+        @Param(
+          name = "multi",
+          allowedTypes = {
+            @ParamType(type = String.class),
+            @ParamType(type = Integer.class),
+            @ParamType(type = SkylarkList.class, generic1 = Integer.class),
+          },
+          defaultValue = "None",
+          noneable = true,
+          positional = false,
+          named = true
+        )
+      },
+      useAst = true,
+      useLocation = true,
+      useEnvironment = true
+    )
+    public String withParamsAndExtraInterpreterParams(
+        Integer pos1,
+        boolean pos2,
+        boolean posOrNamed,
+        boolean named,
+        boolean optionalNamed,
+        Object nonNoneable,
+        Object noneable,
+        Object multi,
+        Location location,
+        FuncallExpression func,
+        Environment env) {
+      return "with_params_and_extra("
+          + pos1
+          + ", "
+          + pos2
+          + ", "
+          + posOrNamed
+          + ", "
+          + named
+          + ", "
+          + optionalNamed
+          + ", "
+          + nonNoneable
+          + (noneable != Runtime.NONE ? ", " + noneable : "")
+          + (multi != Runtime.NONE ? ", " + multi : "")
+          + ", "
+          + location.getStartLine()
+          + ", "
+          + func.getArguments().size()
+          + ", "
+          + env.isGlobal()
           + ")";
     }
 
@@ -922,6 +1028,22 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("v = mock.with_extra()")
+        .testLookup("v", "with_extra(1, 0, true)");
+  }
+
+  @Test
+  public void testJavaFunctionWithParamsAndExtraInterpreterParams() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params_and_extra(1, True, named=True)")
+        .testLookup("b", "with_params_and_extra(1, true, false, true, false, a, 1, 3, true)");
+  }
+
+  @Test
   public void testStructAccessOfMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1404,7 +1526,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "struct_field_callable",
             "value_of",
             "voidfunc",
-            "with_params");
+            "with_extra",
+            "with_params",
+            "with_params_and_extra");
   }
 
   @Test

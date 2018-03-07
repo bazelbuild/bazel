@@ -20,6 +20,22 @@ import java.lang.annotation.Target;
 
 /**
  * A marker interface for Java methods which can be called from Skylark.
+ *
+ * <p>Methods annotated with this annotation are expected to meet certain requirements which
+ * are enforced by an annotation processor:</p>
+ * <ul>
+ * <li>The method must be public.</li>
+ * <li>If structField=true, there must be zero user-supplied parameters.</li>
+ * <li>Method parameters must be supplied in the following order:
+ *   <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(Envrionment))</pre>
+ *   where Location, FuncallExpression, and Environment are supplied by the interpreter if and
+ *   only if useLocation, useAst, and useEnvironment are specified, respectively.
+*  </li>
+ * <li>
+ *   The number of method parameters much match the number of annotation-declared parameters
+ *   plus the number of interpreter-supplied parameters.
+ * </li>
+ * </ul>
  */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
@@ -70,4 +86,25 @@ public @interface SkylarkCallable {
    * <code>None</code>). If not set and the Java method returns null, an error will be raised.
    */
   boolean allowReturnNones() default false;
+
+  /**
+   * If true, the location of the call site will be passed as an argument of the annotated function.
+   * (Thus, the annotated method signature must contain Location as a parameter. See the
+   * interface-level javadoc for details.)
+   */
+  boolean useLocation() default false;
+
+  /**
+   * If true, the AST of the call site will be passed as an argument of the annotated function.
+   * (Thus, the annotated method signature must contain FuncallExpression as a parameter. See the
+   * interface-level javadoc for details.)
+   */
+  boolean useAst() default false;
+
+  /**
+   * If true, the Skylark Environment will be passed as an argument of the annotated function.
+   * (Thus, the annotated method signature must contain Environment as a parameter. See the
+   * interface-level javadoc for details.)
+   */
+  boolean useEnvironment() default false;
 }

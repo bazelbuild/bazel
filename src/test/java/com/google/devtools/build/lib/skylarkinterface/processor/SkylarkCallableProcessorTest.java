@@ -18,9 +18,10 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
 import com.google.common.io.Resources;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -70,7 +71,45 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable annotated method has 0 parameters, but annotation declared 1.");
+            "@SkylarkCallable annotated method has 0 parameters, "
+                + "but annotation declared 1 user-supplied parameters "
+                + "and 0 extra interpreter parameters.");
+  }
+
+  @Test
+  public void testEnvironmentMissing() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("EnvironmentMissing.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected parameter index 2 to be the "
+                + Environment.class.getCanonicalName()
+                + " type, matching useEnvironment, but was java.lang.String");
+  }
+
+  @Test
+  public void testLocationMissing() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("LocationMissing.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected parameter index 2 to be the "
+                + Location.class.getCanonicalName()
+                + " type, matching useLocation, but was java.lang.String");
+  }
+
+  @Test
+  public void testSkylarkInfoWrongOrder() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("SkylarkInfoWrongOrder.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected parameter index 3 to be the "
+                + Location.class.getCanonicalName()
+                + " type, matching useLocation, but was java.lang.Integer");
   }
 
   @Test
@@ -80,6 +119,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable annotated method has 2 parameters, but annotation declared 1.");
+            "@SkylarkCallable annotated method has 2 parameters, "
+                + "but annotation declared 1 user-supplied parameters "
+                + "and 0 extra interpreter parameters.");
   }
 }

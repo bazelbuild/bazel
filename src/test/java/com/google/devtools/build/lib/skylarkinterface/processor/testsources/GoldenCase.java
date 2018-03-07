@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 
 /**
  * Test source file verifying various proper uses of SkylarkCallable.
@@ -37,10 +40,31 @@ public class GoldenCase {
     return 0;
   }
 
+  @SkylarkCallable(name = "zero_arg_method_with_environment", doc = "", useEnvironment = true)
+  public Integer zeroArgMethod(Environment environment) {
+    return 0;
+  }
+
+  @SkylarkCallable(
+    name = "zero_arg_method_with_skylark_info",
+    doc = "",
+    useAst = true,
+    useLocation = true,
+    useEnvironment = true
+  )
+  public Integer zeroArgMethod(Location location, FuncallExpression ast, Environment environment) {
+    return 0;
+  }
+
   @SkylarkCallable(
     name = "three_arg_method",
     doc = "")
   public String threeArgMethod(String one, Integer two, String three) {
+    return "bar";
+  }
+
+  @SkylarkCallable(name = "three_arg_method_with_ast", doc = "", useAst = true)
+  public String threeArgMethod(String one, Integer two, String three, FuncallExpression ast) {
     return "bar";
   }
 
@@ -53,6 +77,28 @@ public class GoldenCase {
       @Param(name = "three", type = String.class, named = true),
     })
   public String threeArgMethodWithParams(String one, Integer two, String three) {
+    return "baz";
+  }
+
+  @SkylarkCallable(
+    name = "three_arg_method_with_params_and_info",
+    doc = "",
+    parameters = {
+      @Param(name = "one", type = String.class, named = true),
+      @Param(name = "two", type = Integer.class, named = true),
+      @Param(name = "three", type = String.class, named = true),
+    },
+    useAst = true,
+    useLocation = true,
+    useEnvironment = true
+  )
+  public String threeArgMethodWithParams(
+      String one,
+      Integer two,
+      String three,
+      Location location,
+      FuncallExpression ast,
+      Environment environment) {
     return "baz";
   }
 }
