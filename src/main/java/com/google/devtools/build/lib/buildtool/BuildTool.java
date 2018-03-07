@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.MakeEnvironmentEvent;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
+import com.google.devtools.build.lib.buildtool.CqueryBuildTool.ConfiguredTargetQueryCommandLineException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -64,30 +64,17 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
-import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
-import com.google.devtools.build.lib.query2.engine.QueryException;
-import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.TargetLiteral;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -99,12 +86,12 @@ import java.util.stream.Collectors;
  *
  * <p>Most of analysis is handled in {@link BuildView}, and execution in {@link ExecutionTool}.
  */
-public final class BuildTool {
+public class BuildTool {
 
-  private static final Logger logger = Logger.getLogger(BuildTool.class.getName());
+  private static Logger logger = Logger.getLogger(BuildTool.class.getName());
 
-  private final CommandEnvironment env;
-  private final BlazeRuntime runtime;
+  protected CommandEnvironment env;
+  protected BlazeRuntime runtime;
 
   /**
    * Constructs a BuildTool.
@@ -116,21 +103,12 @@ public final class BuildTool {
     this.runtime = env.getRuntime();
   }
 
-  public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
-      throws BuildFailedException, InterruptedException, ViewCreationFailedException,
-          TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException,
-          ConfiguredTargetQueryCommandLineException {
-    buildTargets(request, result, validator, null);
-  }
-
   /**
    * The crux of the build system. Builds the targets specified in the request using the specified
    * Executor.
    *
    * <p>Performs loading, analysis and execution for the specified set of targets, honoring the
-   * configuration options in the BuildRequest. Also performs a query on results of analysis phase
-   * if a query expression is specified. Returns normally iff successful, throws an exception
+   * configuration options in the BuildRequest. Returns normally iff successful, throws an exception
    * otherwise.
    *
    * <p>Callers must ensure that {@link #stopRequest} is called after this method, even if it
@@ -146,14 +124,11 @@ public final class BuildTool {
    *     the request object are populated
    * @param result the build result that is the mutable result of this build
    * @param validator target validator
-   * @param queryExpression if a query is to run after building targets, this will be the query
-   *     expression. If not, this will be null.
    */
   public void buildTargets(
       BuildRequest request,
       BuildResult result,
-      TargetValidator validator,
-      QueryExpression queryExpression)
+      TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
           InvalidConfigurationException, TestExecException,
@@ -251,31 +226,7 @@ public final class BuildTool {
                   AbortReason.SKIPPED,
                   String.format("Target %s build was skipped.", label), label));
         }
-
-        // TODO(janakr): this query will operate over the graph as constructed by analysis, but will
-        // also pick up any nodes that are in the graph from prior builds. This makes the results
-        // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
-        // graph beforehand if this option is specified, or add another option to wipe if desired
-        // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
-        if (queryExpression != null) {
-          if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
-            throw new ConfiguredTargetQueryCommandLineException(
-                "Configured query is not allowed if incrementality state is not being kept");
-          }
-          try {
-            doConfiguredTargetQuery(
-                request,
-                configurations.getHostConfiguration(),
-                analysisResult.getTopLevelTargetsWithConfigs(),
-                queryExpression);
-          } catch (QueryException | IOException e) {
-            if (!request.getKeepGoing()) {
-              throw new ViewCreationFailedException("Error doing configured target query", e);
-            }
-            env.getReporter().error(null, "Error doing configured target query", e);
-          }
-        }
-
+        postProcessAnalysisResult(request, analysisResult, configurations);
         // Execution phase.
         if (needsExecutionPhase(request.getBuildOptions())) {
           executionTool.executeBuild(
@@ -343,14 +294,22 @@ public final class BuildTool {
     }
   }
 
+  /**
+   * This class is meant to be overridden by classes that want to perform the Analysis phase and
+   * then process the results in some interesting way. See {@link CqueryBuildTool} as an example.
+   */
+  protected void postProcessAnalysisResult(
+      BuildRequest request,
+      AnalysisResult analysisResult,
+      BuildConfigurationCollection configurations)
+      throws InterruptedException, ViewCreationFailedException,
+          ConfiguredTargetQueryCommandLineException {
+  }
+
   private void reportExceptionError(Exception e) {
     if (e.getMessage() != null) {
       getReporter().handle(Event.error(e.getMessage()));
     }
-  }
-
-  public BuildResult processRequest(BuildRequest request, TargetValidator validator) {
-    return processRequest(request, validator, null);
   }
 
   /**
@@ -358,8 +317,7 @@ public final class BuildTool {
    * Executor.
    *
    * <p>Performs loading, analysis and execution for the specified set of targets, honoring the
-   * configuration options in the BuildRequest. Also performs a query on results of analysis phase
-   * if a query expression is specified. Returns normally iff successful, throws an exception
+   * configuration options in the BuildRequest. Returns normally iff successful, throws an exception
    * otherwise.
    *
    * <p>The caller is responsible for setting up and syncing the package cache.
@@ -371,19 +329,17 @@ public final class BuildTool {
    *        options; during this method's execution, the actualTargets and successfulTargets fields
    *        of the request object are populated
    * @param validator target validator
-   * @param queryExpression if a query is to run after building targets, this will be the query
-   *     expression. If not, this will be null.
    * @return the result as a {@link BuildResult} object
    */
   public BuildResult processRequest(
-      BuildRequest request, TargetValidator validator, QueryExpression queryExpression) {
+      BuildRequest request, TargetValidator validator) {
     BuildResult result = new BuildResult(request.getStartTime());
     env.getEventBus().register(result);
     maybeSetStopOnFirstFailure(request, result);
     Throwable catastrophe = null;
     ExitCode exitCode = ExitCode.BLAZE_INTERNAL_ERROR;
     try {
-      buildTargets(request, result, validator, queryExpression);
+      buildTargets(request, result, validator);
       exitCode = ExitCode.SUCCESS;
     } catch (BuildFailedException e) {
       if (e.isErrorAlreadyShown()) {
@@ -440,80 +396,6 @@ public final class BuildTool {
     }
 
     return result;
-  }
-
-  private void doConfiguredTargetQuery(
-      BuildRequest request,
-      BuildConfiguration hostConfiguration,
-      List<TargetAndConfiguration> topLevelTargetsWithConfigs,
-      QueryExpression queryExpression)
-      throws InterruptedException, QueryException, IOException {
-
-    // Currently, CTQE assumes that all top level targets take on the same default config and we
-    // don't have the ability to map multiple configs to multiple top level targets.
-    // So for now, we only allow multiple targets when they all carry the same config.
-    // TODO: b/71508373 - fully support multiple top level targets
-    List<TargetAndConfiguration> nonNullTargets =
-        topLevelTargetsWithConfigs
-            .stream()
-            .filter(targetAndConfig -> targetAndConfig.getConfiguration() != null)
-            .collect(Collectors.toList());
-    BuildConfiguration targetConfig = null;
-    if (!nonNullTargets.isEmpty()) {
-      targetConfig = nonNullTargets.get(0).getConfiguration();
-      for (TargetAndConfiguration targAndConfig : topLevelTargetsWithConfigs) {
-        if (targAndConfig.getConfiguration() != null
-            && !targAndConfig.getConfiguration().equals(targetConfig)) {
-          throw new QueryException(
-              new TargetLiteral(queryExpression.toString()),
-              String.format(
-                  "Top-level targets %s and %s have different configurations (top-level "
-                      + "targets with different configurations is not supported)",
-                  nonNullTargets.get(0).getLabel(), targAndConfig.getLabel()));
-        }
-      }
-    }
-
-    WalkableGraph walkableGraph =
-        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
-    ImmutableList<QueryFunction> extraFunctions =
-        new ImmutableList.Builder<QueryFunction>()
-            .addAll(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS)
-            .addAll(env.getRuntime().getQueryFunctions())
-            .build();
-    ConfiguredTargetQueryEnvironment configuredTargetQueryEnvironment =
-        new ConfiguredTargetQueryEnvironment(
-            request.getKeepGoing(),
-            env.getReporter(),
-            extraFunctions,
-            targetConfig,
-            hostConfiguration,
-            env.newTargetPatternEvaluator().getOffset(),
-            env.getPackageManager().getPackagePath(),
-            () -> walkableGraph,
-            request.getOptions(CommonQueryOptions.class).toSettings());
-    QueryEvalResult result =
-        configuredTargetQueryEnvironment.evaluateQuery(
-            queryExpression,
-            new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
-              @Override
-              public void processOutput(Iterable<ConfiguredTarget> partialResult)
-                  throws IOException, InterruptedException {
-                for (ConfiguredTarget configuredTarget : partialResult) {
-                  BuildConfiguration config = configuredTarget.getConfiguration();
-                  StringBuilder output =
-                      new StringBuilder()
-                          .append(configuredTarget.getLabel())
-                          .append(" (")
-                          .append(config != null && config.isHostConfiguration() ? "HOST" : config)
-                          .append(")");
-                  env.getReporter().getOutErr().printOutLn(output.toString());
-                }
-              }
-            });
-    if (result.isEmpty()) {
-      env.getReporter().handle(Event.info("Empty query results"));
-    }
   }
 
   private void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
@@ -744,11 +626,5 @@ public final class BuildTool {
 
   private Reporter getReporter() {
     return env.getReporter();
-  }
-
-  private static class ConfiguredTargetQueryCommandLineException extends Exception {
-    ConfiguredTargetQueryCommandLineException(String message) {
-      super(message);
-    }
   }
 }

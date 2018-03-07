@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.CqueryBuildTool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
@@ -108,7 +108,8 @@ public final class CqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    ExitCode exitCode = new BuildTool(env).processRequest(request, null, expr).getExitCondition();
+    ExitCode exitCode =
+        new CqueryBuildTool(env, expr).processRequest(request, null).getExitCondition();
     return BlazeCommandResult.exitCode(exitCode);
   }
 }
