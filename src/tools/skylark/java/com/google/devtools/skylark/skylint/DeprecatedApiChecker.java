@@ -17,6 +17,7 @@ package com.google.devtools.skylark.skylint;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DotExpression;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Identifier;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,32 +36,62 @@ public class DeprecatedApiChecker extends AstVisitorWithNameResolution {
     return checker.issues;
   }
 
+  /**
+   * Convert a dotted expression to string, e.g. rule -> "rule" attr.label -> "attr.label"
+   *
+   * <p>If input contains anything else than Identifier or DotExpression, return empty string.
+   */
+  private static String dottedExpressionToString(Expression e) {
+    if (e instanceof Identifier) {
+      return ((Identifier) e).getName();
+    }
+    if (e instanceof DotExpression) {
+      String result = dottedExpressionToString(((DotExpression) e).getObject());
+      if (!result.isEmpty()) {
+        return result + "." + ((DotExpression) e).getField().getName();
+      }
+    }
+
+    return "";
+  }
+
   private static final ImmutableMap<String, String> deprecatedMethods =
       ImmutableMap.<String, String>builder()
-          .put("ctx.action", "Use ctx.actions.run() or ctx.actions.run_shell().")
+          .put("ctx.action", "Use ctx.actions.run or ctx.actions.run_shell.")
           .put("ctx.default_provider", "Use DefaultInfo.")
           .put("ctx.empty_action", "Use ctx.actions.do_nothing.")
           .put("ctx.expand_make_variables", "Use ctx.var to access the variables.")
           .put("ctx.file_action", "Use ctx.actions.write.")
           .put("ctx.new_file", "Use ctx.actions.declare_file.")
-          .put("ctx.template_action", "Use ctx.actions.expand_template().")
+          .put("ctx.template_action", "Use ctx.actions.expand_template.")
+          .put("PACKAGE_NAME", "Use native.package_name().")
+          .put("REPOSITORY_NAME", "Use native.repository_name().")
+          .put(
+              "ctx.outputs.executable",
+              "See https://docs.bazel.build/versions/master/skylark/"
+                  + "rules.html#executable-rules-and-test-rules")
           .build();
 
-  @Override
-  public void visit(DotExpression node) {
-    super.visit(node);
-
-    if (!(node.getObject() instanceof Identifier)) {
-      return;
-    }
-
-    String name = ((Identifier) node.getObject()).getName() + "." + node.getField().getName();
+  private void checkDeprecated(Expression node) {
+    String name = dottedExpressionToString(node);
     if (deprecatedMethods.containsKey(name)) {
       issues.add(
           Issue.create(
               DEPRECATED_API,
-              "This method is deprecated: " + deprecatedMethods.get(name),
+              name + " is deprecated: " + deprecatedMethods.get(name),
               node.getLocation()));
     }
+  }
+
+  @Override
+  public void visit(Identifier node) {
+    super.visit(node);
+    checkDeprecated(node);
+  }
+
+  @Override
+  public void visit(DotExpression node) {
+    super.visit(node);
+    checkDeprecated(node);
   }
 }

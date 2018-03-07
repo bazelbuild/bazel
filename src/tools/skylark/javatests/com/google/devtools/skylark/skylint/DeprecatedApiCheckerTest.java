@@ -37,11 +37,15 @@ public class DeprecatedApiCheckerTest {
   @Test
   public void deprecatedCtxMethods() {
     Truth.assertThat(findIssues("ctx.action()").toString())
-        .contains("1:1-1:10: This method is deprecated");
+        .contains("1:1-1:10: ctx.action is deprecated: Use ctx.actions.run");
     Truth.assertThat(findIssues("ctx.empty_action").toString())
-        .contains("1:1-1:16: This method is deprecated");
+        .contains("1:1-1:16: ctx.empty_action is deprecated");
     Truth.assertThat(findIssues("ctx.default_provider()").toString())
-        .contains("1:1-1:20: This method is deprecated");
+        .contains("1:1-1:20: ctx.default_provider is deprecated");
+    Truth.assertThat(findIssues("PACKAGE_NAME").toString())
+        .contains("1:1-1:12: PACKAGE_NAME is deprecated");
+    Truth.assertThat(findIssues("f = ctx.outputs.executable").toString())
+        .contains("1:5-1:26: ctx.outputs.executable is deprecated");
 
     Truth.assertThat(findIssues("ctx.actions()")).isEmpty();
   }
