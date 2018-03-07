@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -324,7 +325,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       differencer.inject(
           ImmutableMap.of(
               ALL_OWNER,
-              new ActionLookupValue(
+              new BasicActionLookupValue(
                   Actions.filterSharedActionsAndThrowActionConflict(
                       actionKeyContext, ImmutableList.copyOf(actions)),
                   false)));

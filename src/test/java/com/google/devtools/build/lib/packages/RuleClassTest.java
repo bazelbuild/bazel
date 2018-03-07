@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -76,13 +77,15 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class RuleClassTest extends PackageLoadingTestCase {
-  private static final RuleClass.ConfiguredTargetFactory<Object, Object>
-      DUMMY_CONFIGURED_TARGET_FACTORY = new RuleClass.ConfiguredTargetFactory<Object, Object>() {
-        @Override
-        public Object create(Object ruleContext) throws InterruptedException {
-          throw new IllegalStateException();
-        }
-  };
+  private static final RuleClass.ConfiguredTargetFactory<Object, Object, Exception>
+      DUMMY_CONFIGURED_TARGET_FACTORY =
+          new RuleClass.ConfiguredTargetFactory<Object, Object, Exception>() {
+            @Override
+            public Object create(Object ruleContext)
+                throws InterruptedException, RuleErrorException, ActionConflictException {
+              throw new IllegalStateException();
+            }
+          };
 
   private static final class DummyFragment extends BuildConfiguration.Fragment {
 
@@ -845,7 +848,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
       boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
       RuleTransitionFactory transitionFactory,
-      ConfiguredTargetFactory<?, ?> configuredTargetFactory,
+      ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,

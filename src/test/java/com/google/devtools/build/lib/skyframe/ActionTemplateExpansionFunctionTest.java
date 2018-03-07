@@ -219,7 +219,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   private static ConfiguredTargetValue createConfiguredTargetValue(
       ActionTemplate<?> actionTemplate) {
-    return new ConfiguredTargetValue(
+    return new NonRuleConfiguredTargetValue(
         Mockito.mock(ConfiguredTarget.class),
         Actions.GeneratingActions.fromSingleAction(actionTemplate),
         NestedSetBuilder.<Package>stableOrder().build(),

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -62,7 +63,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     if (fragmentMap == null && fragmentMapFromRuleContext != null) {
       this.fragmentMap = fragmentMapFromRuleContext.apply(ruleContext);
     }

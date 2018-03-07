@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -45,7 +46,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     JavaCommon common = new JavaCommon(ruleContext, semantics);
     return init(
         ruleContext,
@@ -55,9 +56,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
   }
 
   final ConfiguredTarget init(
-      RuleContext ruleContext, final JavaCommon common, boolean includeGeneratedExtensionRegistry,
+      RuleContext ruleContext,
+      final JavaCommon common,
+      boolean includeGeneratedExtensionRegistry,
       boolean isJavaPluginRule)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 
     // Collect the transitive dependencies.

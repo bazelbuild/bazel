@@ -16,6 +16,7 @@ package com.google.devtools.build.docgen.testutil;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -70,7 +71,8 @@ public class TestData {
 
   public static class DummyRuleFactory implements RuleConfiguredTargetFactory {
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext) {
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       throw new IllegalStateException();
     }
   }

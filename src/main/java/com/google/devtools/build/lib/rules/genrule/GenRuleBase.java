@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
@@ -103,7 +104,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    * Updates the {@link RuleConfiguredTargetBuilder} that is used for this rule.
    *
    * <p>GenRule implementations can override this method to enhance and update the builder without
-   * needing to entirely override the {@link #create} method.
+   * needing to entirely override the {@link ConfiguredTargetFactory#create} method.
    */
   protected RuleConfiguredTargetBuilder updateBuilder(
       RuleConfiguredTargetBuilder builder,
@@ -114,7 +115,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws RuleErrorException, InterruptedException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts());
     NestedSetBuilder<Artifact> resolvedSrcsBuilder = NestedSetBuilder.stableOrder();

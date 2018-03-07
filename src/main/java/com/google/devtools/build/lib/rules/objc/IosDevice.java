@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -34,7 +35,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 public final class IosDevice implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext context)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     context.ruleWarning(
         "This rule is deprecated. Please use the new Apple build rules "
             + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");

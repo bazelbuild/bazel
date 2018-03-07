@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -150,7 +151,8 @@ public class TestAspects {
    */
   public static class DummyRuleFactory implements RuleConfiguredTargetFactory {
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
 
       RuleConfiguredTargetBuilder builder =
           new RuleConfiguredTargetBuilder(ruleContext)
@@ -173,7 +175,8 @@ public class TestAspects {
    */
   public static class DummyRuleFactory2 implements RuleConfiguredTargetFactory {
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       return new RuleConfiguredTargetBuilder(ruleContext)
               .addProvider(
                   new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
@@ -192,7 +195,8 @@ public class TestAspects {
    */
   public static class MultiAspectRuleFactory implements RuleConfiguredTargetFactory {
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       TransitiveInfoCollection fooAttribute = ruleContext.getPrerequisite("foo", Mode.DONT_CHECK);
       TransitiveInfoCollection barAttribute = ruleContext.getPrerequisite("bar", Mode.DONT_CHECK);
 

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.whitelisting;
 
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -39,7 +40,7 @@ public final class WhitelistDummyRule {
   public static class RuleFactory implements RuleConfiguredTargetFactory {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
-        throws InterruptedException, RuleErrorException {
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       if (!Whitelist.isAvailable(ruleContext, "dummy")) {
         ruleContext.ruleError("Dummy is not available.");
       }

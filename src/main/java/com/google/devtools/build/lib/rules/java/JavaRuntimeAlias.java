@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -38,7 +39,7 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     // Sadly, we can't use an AliasConfiguredTarget here because we need to be prepared for the case
     // when --javabase is not a label. For the time being.
     TransitiveInfoCollection runtime = ruleContext.getPrerequisite(":jvm", Mode.TARGET);

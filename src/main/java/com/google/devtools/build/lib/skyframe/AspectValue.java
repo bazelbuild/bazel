@@ -19,8 +19,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
 /**
  * An aspect in the context of the Skyframe graph.
  */
-public final class AspectValue extends ActionLookupValue {
+public final class AspectValue extends BasicActionLookupValue {
 
   /**
    * A base class for keys that have AspectValue as a Sky value.

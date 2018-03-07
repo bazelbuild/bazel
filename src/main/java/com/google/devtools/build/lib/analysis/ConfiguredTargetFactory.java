@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -233,7 +234,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     if (target instanceof Rule) {
       try {
         CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
@@ -307,7 +308,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
 
     // Load the requested toolchains into the ToolchainContext.
     if (toolchainContext != null) {
@@ -339,36 +340,39 @@ public final class ConfiguredTargetFactory {
 
     MissingFragmentPolicy missingFragmentPolicy =
         configurationFragmentPolicy.getMissingFragmentPolicy();
-    if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE
-        && !configuration.hasAllFragments(
-            configurationFragmentPolicy.getRequiredConfigurationFragments())) {
-      if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
-        ruleContext.ruleError(missingFragmentError(ruleContext, configurationFragmentPolicy));
-        return null;
-      }
-      // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
-      return createFailConfiguredTarget(ruleContext);
-    }
 
-    if (rule.getRuleClassObject().isSkylark()) {
-      // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-      return SkylarkRuleConfiguredTargetUtil.buildRule(
-          ruleContext,
-          rule.getRuleClassObject().getConfiguredTargetFunction(),
-          env.getSkylarkSemantics());
-    } else {
-      RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
-          rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();
-      Preconditions.checkNotNull(factory, rule.getRuleClassObject());
-      try {
-        return factory.create(ruleContext);
-      } catch (RuleErrorException ruleErrorException) {
-        // Returning null in this method is an indication an error occurred. Exceptions are not
-        // propagated, as this would show a nasty stack trace to users, and only provide info
-        // on one specific failure with poor messaging. By returning null, the caller can
-        // inspect ruleContext for multiple errors and output thorough messaging on each.
-        return null;
+    try {
+      if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE
+          && !configuration.hasAllFragments(
+              configurationFragmentPolicy.getRequiredConfigurationFragments())) {
+        if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
+          ruleContext.ruleError(missingFragmentError(ruleContext, configurationFragmentPolicy));
+          return null;
+        }
+        // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
+        return createFailConfiguredTarget(ruleContext);
       }
+      if (rule.getRuleClassObject().isSkylark()) {
+        // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
+        return SkylarkRuleConfiguredTargetUtil.buildRule(
+            ruleContext,
+            rule.getRuleClassObject().getConfiguredTargetFunction(),
+            env.getSkylarkSemantics());
+      } else {
+        RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
+            factory =
+                rule.getRuleClassObject()
+                    .<ConfiguredTarget, RuleContext, ActionConflictException>
+                        getConfiguredTargetFactory();
+        Preconditions.checkNotNull(factory, rule.getRuleClassObject());
+        return factory.create(ruleContext);
+      }
+    } catch (RuleErrorException ruleErrorException) {
+      // Returning null in this method is an indication a rule error occurred. Exceptions are not
+      // propagated, as this would show a nasty stack trace to users, and only provide info
+      // on one specific failure with poor messaging. By returning null, the caller can
+      // inspect ruleContext for multiple errors and output thorough messaging on each.
+      return null;
     }
   }
 
@@ -525,7 +529,8 @@ public final class ConfiguredTargetFactory {
    * A pseudo-implementation for configured targets that creates fail actions for all declared
    * outputs, both implicit and explicit.
    */
-  private static ConfiguredTarget createFailConfiguredTarget(RuleContext ruleContext) {
+  private static ConfiguredTarget createFailConfiguredTarget(RuleContext ruleContext)
+      throws RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     if (!ruleContext.getOutputArtifacts().isEmpty()) {
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),

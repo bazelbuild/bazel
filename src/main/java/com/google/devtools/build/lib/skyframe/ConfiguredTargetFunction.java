@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -698,14 +699,19 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     Preconditions.checkNotNull(depValueMap);
-    ConfiguredTarget configuredTarget =
-        view.createConfiguredTarget(
-            target,
-            configuration,
-            analysisEnvironment,
-            depValueMap,
-            configConditions,
-            toolchainContext);
+    ConfiguredTarget configuredTarget;
+    try {
+      configuredTarget =
+          view.createConfiguredTarget(
+              target,
+              configuration,
+              analysisEnvironment,
+              depValueMap,
+              configConditions,
+              toolchainContext);
+    } catch (ActionConflictException e) {
+      throw new ConfiguredTargetFunctionException(e);
+    }
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
@@ -725,24 +731,34 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    GeneratingActions generatingActions;
-    // Check for conflicting actions within this configured target (that indicates a bug in the
-    // rule implementation).
-    try {
-      generatingActions =
-          Actions.filterSharedActionsAndThrowActionConflict(
-              analysisEnvironment.getActionKeyContext(),
-              analysisEnvironment.getRegisteredActions());
-    } catch (ActionConflictException e) {
-      throw new ConfiguredTargetFunctionException(e);
+    if (configuredTarget instanceof RuleConfiguredTarget) {
+      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+      return new RuleConfiguredTargetValue(
+          ruleConfiguredTarget,
+          transitivePackagesForPackageRootResolution == null
+              ? null
+              : transitivePackagesForPackageRootResolution.build(),
+          removeActionsAfterEvaluation.get());
+    } else {
+      GeneratingActions generatingActions;
+      // Check for conflicting actions within this configured target (that indicates a bug in the
+      // rule implementation).
+      try {
+        generatingActions =
+            Actions.filterSharedActionsAndThrowActionConflict(
+                analysisEnvironment.getActionKeyContext(),
+                analysisEnvironment.getRegisteredActions());
+      } catch (ActionConflictException e) {
+        throw new ConfiguredTargetFunctionException(e);
+      }
+      return new NonRuleConfiguredTargetValue(
+          configuredTarget,
+          generatingActions,
+          transitivePackagesForPackageRootResolution == null
+              ? null
+              : transitivePackagesForPackageRootResolution.build(),
+          removeActionsAfterEvaluation.get());
     }
-    return new ConfiguredTargetValue(
-        configuredTarget,
-        generatingActions,
-        transitivePackagesForPackageRootResolution == null
-            ? null
-            : transitivePackagesForPackageRootResolution.build(),
-        removeActionsAfterEvaluation.get());
   }
 
   /**

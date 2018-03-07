@@ -30,9 +30,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Basic tests for {@link ActionLookupValue}. */
+/** Basic tests for {@link BasicActionLookupValue}. */
 @RunWith(JUnit4.class)
-public class ActionLookupValueTest {
+public class BasicActionLookupValueTest {
 
   private FileSystem fs;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
@@ -48,7 +48,7 @@ public class ActionLookupValueTest {
     Artifact artifact = mock(Artifact.class);
     when(action.getOutputs()).thenReturn(ImmutableSet.of(artifact));
     when(action.canRemoveAfterExecution()).thenReturn(true);
-    ActionLookupValue underTest = new ActionLookupValue(action, false);
+    ActionLookupValue underTest = new BasicActionLookupValue(action, false);
     assertThat(underTest.getGeneratingActionIndex(artifact)).isEqualTo(0);
     assertThat(underTest.getAction(0)).isSameAs(action);
     underTest.actionEvaluated(0, action);
@@ -69,7 +69,7 @@ public class ActionLookupValueTest {
     when(persistentAction.getOutputs()).thenReturn(ImmutableSet.of(persistentOutput));
     when(persistentAction.canRemoveAfterExecution()).thenReturn(false);
     ActionLookupValue underTest =
-        new ActionLookupValue(
+        new BasicActionLookupValue(
             Actions.filterSharedActionsAndThrowActionConflict(
                 actionKeyContext, ImmutableList.of(normalAction, persistentAction)),
             true);
@@ -81,7 +81,7 @@ public class ActionLookupValueTest {
     try {
       underTest.getAction(0);
       fail();
-    } catch (NullPointerException e) {
+    } catch (IllegalStateException e) {
       // Expected.
     }
     assertThat(underTest.getGeneratingActionIndex(persistentOutput)).isEqualTo(1);

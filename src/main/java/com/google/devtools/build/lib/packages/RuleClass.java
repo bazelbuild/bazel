@@ -174,22 +174,23 @@ public class RuleClass {
     }
   }
 
-  /**
-   * A factory or builder class for rule implementations.
-   */
-  public interface ConfiguredTargetFactory<TConfiguredTarget, TContext> {
+  /** A factory or builder class for rule implementations. */
+  public interface ConfiguredTargetFactory<
+      TConfiguredTarget, TContext, TActionConflictException extends Throwable> {
     /**
      * Returns a fully initialized configured target instance using the given context.
      *
      * @throws RuleErrorException if configured target creation could not be completed due to rule
-     *    errors
+     *     errors
+     * @throws TActionConflictException if there were conflicts during action registration
      */
-    TConfiguredTarget create(TContext ruleContext) throws InterruptedException, RuleErrorException;
+    TConfiguredTarget create(TContext ruleContext)
+        throws InterruptedException, RuleErrorException, TActionConflictException;
 
     /**
-     * Exception indicating that configured target creation could not be completed. Error messaging
-     * should be done via {@link RuleErrorConsumer}; this exception only interrupts configured
-     * target creation in cases where it can no longer continue.
+     * Exception indicating that configured target creation could not be completed. General error
+     * messaging should be done via {@link RuleErrorConsumer}; this exception only interrupts
+     * configured target creation in cases where it can no longer continue.
      */
     public static final class RuleErrorException extends Exception {}
   }
@@ -586,7 +587,7 @@ public class RuleClass {
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private RuleTransitionFactory transitionFactory;
     private RuleTransitionFactory outgoingTransitionFactory;
-    private ConfiguredTargetFactory<?, ?> configuredTargetFactory = null;
+    private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
@@ -911,7 +912,7 @@ public class RuleClass {
       return this;
     }
 
-    public Builder factory(ConfiguredTargetFactory<?, ?> factory) {
+    public Builder factory(ConfiguredTargetFactory<?, ?, ?> factory) {
       this.configuredTargetFactory = factory;
       return this;
     }
@@ -1225,10 +1226,8 @@ public class RuleClass {
    */
   private final RuleTransitionFactory outgoingTransitionFactory;
 
-  /**
-   * The factory that creates configured targets from this rule.
-   */
-  private final ConfiguredTargetFactory<?, ?> configuredTargetFactory;
+  /** The factory that creates configured targets from this rule. */
+  private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
 
   /**
    * The constraint the package name of the rule instance must fulfill
@@ -1318,7 +1317,7 @@ public class RuleClass {
       boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
       RuleTransitionFactory outgoingRuleTransitionFactory,
-      ConfiguredTargetFactory<?, ?> configuredTargetFactory,
+      ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
@@ -1421,8 +1420,9 @@ public class RuleClass {
   }
 
   @SuppressWarnings("unchecked")
-  public <CT, RC> ConfiguredTargetFactory<CT, RC> getConfiguredTargetFactory() {
-    return (ConfiguredTargetFactory<CT, RC>) configuredTargetFactory;
+  public <CT, RC, ACE extends Throwable>
+      ConfiguredTargetFactory<CT, RC, ACE> getConfiguredTargetFactory() {
+    return (ConfiguredTargetFactory<CT, RC, ACE>) configuredTargetFactory;
   }
 
   /**

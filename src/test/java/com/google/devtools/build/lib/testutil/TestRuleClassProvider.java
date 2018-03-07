@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -113,7 +114,7 @@ public class TestRuleClassProvider {
 
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
-        throws InterruptedException, RuleErrorException {
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       Map<String, String> variables = ruleContext.attributes().get("variables", Type.STRING_DICT);
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))

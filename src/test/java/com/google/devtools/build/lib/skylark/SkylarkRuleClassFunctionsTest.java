@@ -433,7 +433,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "unexpected keyword 'providers' in call to string", "attr.string(providers = ['a'])");
   }
 
-  private static final RuleClass.ConfiguredTargetFactory<Object, Object>
+  private static final RuleClass.ConfiguredTargetFactory<Object, Object, Exception>
       DUMMY_CONFIGURED_TARGET_FACTORY =
           ruleContext -> {
             throw new IllegalStateException();

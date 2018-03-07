@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
@@ -270,7 +269,7 @@ public final class SkyframeBuildView {
         ConflictException ex = bad.getValue();
         try {
           ex.rethrowTyped();
-        } catch (MutableActionGraph.ActionConflictException ace) {
+        } catch (ActionConflictException ace) {
           ace.reportTo(eventHandler);
           String errorMsg = "Analysis of target '" + bad.getKey().getOwner().getLabel()
               + "' failed; build aborted";
@@ -294,7 +293,7 @@ public final class SkyframeBuildView {
       if (topLevel.argument() instanceof ConfiguredTargetKey) {
         errorMsg =
             "Analysis of target '"
-                + ConfiguredTargetValue.extractLabel(topLevel)
+                + NonRuleConfiguredTargetValue.extractLabel(topLevel)
                 + "' failed; build aborted";
       } else if (topLevel.argument() instanceof AspectValueKey) {
         AspectValueKey aspectKey = (AspectValueKey) topLevel.argument();
@@ -313,7 +312,7 @@ public final class SkyframeBuildView {
     }
 
     boolean hasLoadingError = false;
-    // --keep_going : We notify the error and return a ConfiguredTargetValue
+    // --keep_going : We notify the error and return a NonRuleConfiguredTargetValue
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       // Only handle errors of configured targets, not errors of top-level aspects.
       // TODO(ulfjack): this is quadratic - if there are a lot of CTs, this could be rather slow.
@@ -363,7 +362,7 @@ public final class SkyframeBuildView {
       ConflictException ex = bad.getValue();
       try {
         ex.rethrowTyped();
-      } catch (MutableActionGraph.ActionConflictException ace) {
+      } catch (ActionConflictException ace) {
         ace.reportTo(eventHandler);
         eventHandler
             .handle(Event.warn("errors encountered while analyzing target '"
@@ -508,7 +507,7 @@ public final class SkyframeBuildView {
       OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     Preconditions.checkNotNull(analysisEnvironment);

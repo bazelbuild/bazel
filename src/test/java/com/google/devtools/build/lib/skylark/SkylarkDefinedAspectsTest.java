@@ -358,6 +358,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     Info names = target.get(providerKey);
     assertThat((Iterable<?>) names.getValue("dir"))
         .containsExactly(
+            "actions",
             "aspect_provider",
             "data_runfiles",
             "default_runfiles",

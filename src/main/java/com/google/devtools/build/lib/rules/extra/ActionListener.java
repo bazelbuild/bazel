@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.extra;
 
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -36,7 +37,8 @@ import java.util.Set;
  */
 public final class ActionListener implements RuleConfiguredTargetFactory {
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     // This rule doesn't produce any output when listed as a build target.
     // Only when used via the --experimental_action_listener flag,
     // this rule instructs the build system to add additional outputs.

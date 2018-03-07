@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp.proto;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.rules.cpp.CcSkylarkApiProvider;
 public class CcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
 
     if (ruleContext.getPrerequisites("deps", TARGET).size() != 1) {
       ruleContext.throwWithAttributeError(

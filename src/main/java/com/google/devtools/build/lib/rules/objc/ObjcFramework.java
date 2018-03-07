@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -34,7 +35,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public class ObjcFramework implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     CompilationAttributes compilationAttributes =
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
 

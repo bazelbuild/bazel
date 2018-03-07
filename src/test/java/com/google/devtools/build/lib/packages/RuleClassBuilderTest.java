@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -36,11 +37,12 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class RuleClassBuilderTest extends PackageLoadingTestCase {
-  private static final RuleClass.ConfiguredTargetFactory<Object, Object>
+  private static final RuleClass.ConfiguredTargetFactory<Object, Object, Exception>
       DUMMY_CONFIGURED_TARGET_FACTORY =
-          new RuleClass.ConfiguredTargetFactory<Object, Object>() {
+          new RuleClass.ConfiguredTargetFactory<Object, Object, Exception>() {
             @Override
-            public Object create(Object ruleContext) throws InterruptedException {
+            public Object create(Object ruleContext)
+                throws InterruptedException, RuleErrorException, ActionConflictException {
               throw new IllegalStateException();
             }
           };

@@ -46,7 +46,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   private static ConfiguredTargetValue createConfiguredTargetValue(
       ConfiguredTarget configuredTarget) {
-    return new ConfiguredTargetValue(
+    return new NonRuleConfiguredTargetValue(
         configuredTarget,
         GeneratingActions.EMPTY,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),

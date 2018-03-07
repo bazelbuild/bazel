@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.python;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -34,7 +35,7 @@ public final class BazelPyRuntime implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSet<Artifact> files =
         PrerequisiteArtifacts.nestedSet(ruleContext, "files", Mode.TARGET);
     Artifact interpreter =

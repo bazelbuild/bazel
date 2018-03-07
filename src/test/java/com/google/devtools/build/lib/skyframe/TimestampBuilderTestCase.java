@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -242,7 +243,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           differencer.inject(
               ImmutableMap.of(
                   ACTION_LOOKUP_KEY,
-                  new ActionLookupValue(
+                  new BasicActionLookupValue(
                       Actions.filterSharedActionsAndThrowActionConflict(
                           actionKeyContext, ImmutableList.copyOf(actions)),
                       false)));

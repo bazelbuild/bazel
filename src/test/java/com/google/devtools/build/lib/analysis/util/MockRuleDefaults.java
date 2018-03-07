@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -78,7 +79,8 @@ public class MockRuleDefaults {
    * */
   public static class DefaultConfiguredTargetFactory implements RuleConfiguredTargetFactory {
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
       NestedSet<Artifact> filesToBuild =
           NestedSetBuilder.wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts());
       for (Artifact artifact : ruleContext.getOutputArtifacts()) {
