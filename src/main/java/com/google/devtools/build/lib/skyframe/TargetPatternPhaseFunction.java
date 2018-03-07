@@ -250,6 +250,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
+        env.getListener().post(PatternExpandingError.skipped(rawPattern, errorMessage));
         env.getListener().handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
         builder.setError();
         continue;

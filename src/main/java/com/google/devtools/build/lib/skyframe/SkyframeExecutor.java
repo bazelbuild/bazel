@@ -2090,23 +2090,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           buildDriver.evaluate(ImmutableList.of(key), keepGoing, /*numThreads=*/ 10, eventHandler);
       if (evalResult.hasError()) {
         ErrorInfo errorInfo = evalResult.getError(key);
+        TargetParsingException exc;
         if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
-          String errorMessage = "cycles detected during target parsing";
+          exc = new TargetParsingException("cycles detected during target parsing");
           getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
-          throw new TargetParsingException(errorMessage);
+        } else {
+          // TargetPatternPhaseFunction never directly throws. Thus, the only way
+          // evalResult.hasError() && keepGoing can hold is if there are cycles, which is handled
+          // above.
+          Preconditions.checkState(!keepGoing);
+          // Following SkyframeTargetPatternEvaluator, we convert any exception into a
+          // TargetParsingException.
+          Exception e = Preconditions.checkNotNull(errorInfo.getException());
+          exc =
+              (e instanceof TargetParsingException)
+                  ? (TargetParsingException) e
+                  : new TargetParsingException(e.getMessage(), e);
         }
-        if (errorInfo.getException() != null) {
-          Exception e = errorInfo.getException();
-          Throwables.propagateIfInstanceOf(e, TargetParsingException.class);
-          if (!keepGoing) {
-            // This is the same code as in SkyframeTargetPatternEvaluator; we allow any exception
-            // and turn it into a TargetParsingException here.
-            throw new TargetParsingException(e.getMessage());
-          }
-          throw new IllegalStateException("Unexpected Exception type from TargetPatternPhaseValue "
-              + "for '" + targetPatterns + "'' with root causes: "
-              + Iterables.toString(errorInfo.getRootCauses()), e);
-        }
+        eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
+        throw exc;
       }
       long timeMillis = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
