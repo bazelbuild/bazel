@@ -193,7 +193,7 @@ def pkg_tar(**kwargs):
   if "srcs" not in kwargs:
     if "files" in kwargs:
       if not hasattr(kwargs["files"], "items"):
-        label = "%s//%s:%s" % (REPOSITORY_NAME, PACKAGE_NAME, kwargs["name"])
+        label = "%s//%s:%s" % (REPOSITORY_NAME, native.package_name(), kwargs["name"])
         print("%s: you provided a non dictionary to the pkg_tar `files` attribute. " % (label,) +
               "This attribute was renamed to `srcs`. " +
               "Consider renaming it in your BUILD file.")
