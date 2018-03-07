@@ -197,6 +197,7 @@ public class CcCompilationOutputs {
       this.temps.addTransitive(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
       this.lipoScannables.addAll(outputs.lipoScannables);
+      this.ltoBitcodeFiles.putAll(outputs.ltoBitcodeFiles);
       return this;
     }
 
@@ -226,11 +227,6 @@ public class CcCompilationOutputs {
 
     public Builder addLtoBitcodeFile(Artifact fullBitcode, Artifact ltoIndexingBitcode) {
       ltoBitcodeFiles.put(fullBitcode, ltoIndexingBitcode);
-      return this;
-    }
-
-    public Builder addLtoBitcodeFile(ImmutableMap<Artifact, Artifact> artifacts) {
-      ltoBitcodeFiles.putAll(artifacts);
       return this;
     }
 
