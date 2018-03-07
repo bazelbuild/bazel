@@ -28,6 +28,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -763,8 +764,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public ActionGraphContainer getActionGraphContainer(List<String> actionGraphTargets) {
-    ActionGraphDump actionGraphDump = new ActionGraphDump(actionGraphTargets);
+  public ActionGraphContainer getActionGraphContainer(
+      List<String> actionGraphTargets, boolean includeActionCmdLine)
+      throws CommandLineExpansionException {
+    ActionGraphDump actionGraphDump = new ActionGraphDump(actionGraphTargets, includeActionCmdLine);
     for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
         memoizingEvaluator.getGraphMap().entrySet()) {
       NodeEntry entry = skyKeyAndNodeEntry.getValue();

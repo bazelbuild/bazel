@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -593,7 +594,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  public abstract ActionGraphContainer getActionGraphContainer(List<String> actionGraphTargets);
+  public abstract ActionGraphContainer getActionGraphContainer(
+      List<String> actionGraphTargets, boolean includeActionCmdLine)
+      throws CommandLineExpansionException;
 
   class BuildViewProvider {
     /**

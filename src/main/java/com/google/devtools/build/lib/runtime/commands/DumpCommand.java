@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static java.util.stream.Collectors.toList;
 
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -126,6 +127,18 @@ public class DumpCommand implements BlazeCommand {
               + "Defaults to all attributes. This option does only apply to --action_graph."
     )
     public List<String> actionGraphTargets;
+
+    @Option(
+      name = "action_graph:include_cmdline",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Include command line of actions in the action graph dump. "
+              + "This option does only apply to --action_graph."
+    )
+    public boolean actionGraphIncludeCmdLine;
 
     @Option(
       name = "rule_classes",
@@ -251,7 +264,10 @@ public class DumpCommand implements BlazeCommand {
                   env.getSkyframeExecutor(),
                   dumpOptions.dumpActionGraph,
                   dumpOptions.actionGraphTargets,
+                  dumpOptions.actionGraphIncludeCmdLine,
                   out);
+        } catch (CommandLineExpansionException e) {
+          env.getReporter().handle(Event.error(null, "Error expanding command line: " + e));
         } catch (IOException e) {
           env.getReporter()
               .error(
@@ -303,11 +319,15 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private boolean dumpActionGraph(
-      SkyframeExecutor executor, String path, List<String> actionGraphTargets, PrintStream out)
-      throws IOException {
+      SkyframeExecutor executor,
+      String path,
+      List<String> actionGraphTargets,
+      boolean includeActionCmdLine,
+      PrintStream out)
+      throws CommandLineExpansionException, IOException {
     out.println("Dumping action graph to '" + path + "'");
     ActionGraphContainer actionGraphContainer =
-        executor.getActionGraphContainer(actionGraphTargets);
+        executor.getActionGraphContainer(actionGraphTargets, includeActionCmdLine);
     FileOutputStream protoOutputStream = new FileOutputStream(path);
     actionGraphContainer.writeTo(protoOutputStream);
     protoOutputStream.close();
