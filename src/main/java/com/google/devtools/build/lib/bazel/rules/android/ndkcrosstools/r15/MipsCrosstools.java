@@ -54,7 +54,7 @@ final class MipsCrosstools {
                 ndkPaths.createClangToolpaths(
                     "mips64el-linux-android-4.9", targetPlatform, null, CppConfiguration.Tool.DWP))
             .addCompilerFlag(
-                "-I%ndk%/usr/include/%triple%"
+                "-isystem%ndk%/usr/include/%triple%"
                     .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                     .replace("%triple%", targetPlatform))
             .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel(targetCpu))
@@ -74,7 +74,7 @@ final class MipsCrosstools {
             .setTargetSystemName("mipsel-linux-android")
             .setTargetCpu(targetCpu)
             .addCompilerFlag(
-                "-I%ndk%/usr/include/%triple%"
+                "-isystem%ndk%/usr/include/%triple%"
                     .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                     .replace("%triple%", targetPlatform))
             .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("mips"))

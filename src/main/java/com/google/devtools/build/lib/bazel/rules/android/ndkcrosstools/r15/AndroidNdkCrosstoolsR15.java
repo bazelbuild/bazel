@@ -75,7 +75,7 @@ final class AndroidNdkCrosstoolsR15 {
       toolchainBuilder.addCxxBuiltinIncludeDirectory(
           ndkPaths.createBuiltinSysroot() + "/usr/include");
       toolchainBuilder.addCompilerFlag(
-          "-I%ndk%/usr/include".replace("%ndk%", ndkPaths.createBuiltinSysroot()));
+          "-isystem%ndk%/usr/include".replace("%ndk%", ndkPaths.createBuiltinSysroot()));
 
       toolchains.add(toolchainBuilder.build());
     }

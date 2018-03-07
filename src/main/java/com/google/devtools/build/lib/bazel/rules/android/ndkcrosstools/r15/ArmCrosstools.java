@@ -75,7 +75,7 @@ final class ArmCrosstools {
             .addCompilerFlag("-Wno-unused-command-line-argument")
             .addCompilerFlag("-no-canonical-prefixes")
             .addCompilerFlag(
-                "-I%ndk%/usr/include/%triple%"
+                "-isystem%ndk%/usr/include/%triple%"
                     .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                     .replace("%triple%", targetPlatform))
             .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
@@ -107,7 +107,6 @@ final class ArmCrosstools {
   }
 
   private List<Builder> createArmeabiClangToolchain() {
-    String targetPlatform = "arm-linux-androideabi";
     ImmutableList<Builder> toolchains =
         ImmutableList.of(
             createBaseArmeabiClangToolchain()
@@ -118,11 +117,6 @@ final class ArmCrosstools {
                 .addCompilerFlag("-march=armv5te")
                 .addCompilerFlag("-mtune=xscale")
                 .addCompilerFlag("-msoft-float")
-                .addCompilerFlag(
-                    "-I%ndk%/usr/include/%triple%"
-                        .replace("%ndk%", ndkPaths.createBuiltinSysroot())
-                        .replace("%triple%", targetPlatform))
-                .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
                 .addLinkerFlag("-target")
                 // LLVM_TRIPLE
                 .addLinkerFlag("armv5te-none-linux-androideabi"),
@@ -134,11 +128,6 @@ final class ArmCrosstools {
                 .addCompilerFlag("-march=armv7-a")
                 .addCompilerFlag("-mfloat-abi=softfp")
                 .addCompilerFlag("-mfpu=vfpv3-d16")
-                .addCompilerFlag(
-                    "-I%ndk%/usr/include/%triple%"
-                        .replace("%ndk%", ndkPaths.createBuiltinSysroot())
-                        .replace("%triple%", targetPlatform))
-                .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
                 .addLinkerFlag("-target")
                 .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
                 .addLinkerFlag("-Wl,--fix-cortex-a8"));
@@ -159,6 +148,11 @@ final class ArmCrosstools {
             .addCxxBuiltinIncludeDirectory(
                 ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
+            .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
+            .addCompilerFlag(
+                "-isystem%ndk%/usr/include/%triple%"
+                    .replace("%ndk%", ndkPaths.createBuiltinSysroot())
+                    .replace("%triple%", targetPlatform))
 
             // Compiler flags
             .addCompilerFlag("-gcc-toolchain")

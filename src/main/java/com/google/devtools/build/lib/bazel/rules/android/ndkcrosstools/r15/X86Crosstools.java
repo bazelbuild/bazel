@@ -87,10 +87,8 @@ final class X86Crosstools {
         .addCompilerFlag("-Wno-invalid-command-line-argument")
         .addCompilerFlag("-Wno-unused-command-line-argument")
         .addCompilerFlag("-no-canonical-prefixes")
-        .addCompilerFlag("-isysroot " + ndkPaths.createBuiltinSysroot())
-        .addCompilerFlag("-I%ndk%/usr/include".replace("%ndk%", ndkPaths.createBuiltinSysroot()))
         .addCompilerFlag(
-            "-I%ndk%/usr/include/%triple%"
+            "-isystem%ndk%/usr/include/%triple%"
                 .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                 .replace("%triple%", triple))
         .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel(x86Arch))
