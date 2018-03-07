@@ -72,7 +72,7 @@ public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProvi
   @SkylarkCallable(name = "output_group",
     documented = false, //  TODO(dslomov): document.
     parameters = {
-      @Param(name = "group_name", type = String.class, doc = "Output group name")
+      @Param(name = "group_name", type = String.class, doc = "Output group name", named = true)
     }
   )
   default SkylarkNestedSet outputGroup(String group) {
