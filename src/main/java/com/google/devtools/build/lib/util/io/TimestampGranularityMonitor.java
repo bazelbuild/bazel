@@ -206,6 +206,11 @@ public class TimestampGranularityMonitor {
     waitForTimestampGranularity(outErr);
   }
 
+  /** Wait enough such that changes to a file with the given ctime will have observable effects. */
+  public static void waitForTimestampGranularity(long ctimeMillis, Clock clock, OutErr outErr) {
+    new TimestampGranularityMonitor(clock).waitForTimestampGranularity(ctimeMillis, outErr);
+  }
+
   /**
    * Rounds the specified time, in milliseconds, down to the nearest second,
    * and returns the result in milliseconds.
