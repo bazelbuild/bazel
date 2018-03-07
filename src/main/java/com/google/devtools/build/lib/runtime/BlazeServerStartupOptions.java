@@ -384,16 +384,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   )
   public String productName;
 
-  @Option(
-    name = "exoblaze",
-    defaultValue = "false",
-    category = "server startup",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "If true, use the Exoblaze rule sets. If false, use the Blaze rule sets."
-  )
-  public boolean exoblaze;
-
   // TODO(ulfjack): Make this a command option.
   @Option(
     name = "write_command_log",
