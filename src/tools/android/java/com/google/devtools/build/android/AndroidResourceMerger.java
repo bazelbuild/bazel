@@ -18,6 +18,9 @@ import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.PngCruncher;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.devtools.build.android.AndroidDataMerger.ContentComparingChecker;
+import com.google.devtools.build.android.AndroidDataMerger.PathComparingChecker;
+import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -75,7 +78,8 @@ public class AndroidResourceMerger {
               primaryManifest,
               type != VariantType.LIBRARY,
               deserializer,
-              throwOnResourceConflict);
+              throwOnResourceConflict,
+              ContentComparingChecker.create());
       timer.reset().start();
       if (symbolsOut != null) {
         AndroidDataSerializer serializer = AndroidDataSerializer.create();
@@ -112,11 +116,13 @@ public class AndroidResourceMerger {
       Path primaryManifest,
       boolean allowPrimaryOverrideAll,
       AndroidDataDeserializer deserializer,
-      boolean throwOnResourceConflict) {
+      boolean throwOnResourceConflict,
+      SourceChecker checker) {
     Stopwatch timer = Stopwatch.createStarted();
+    // TODO(b/74333698): Always check the contents of conflicting resources
     try {
       AndroidDataMerger merger =
-          AndroidDataMerger.createWithPathDeduplictor(executorService, deserializer);
+          AndroidDataMerger.createWithPathDeduplictor(executorService, deserializer, checker);
       return merger.loadAndMerge(
           transitive,
           direct,
@@ -229,7 +235,8 @@ public class AndroidResourceMerger {
               primaryManifest,
               false,
               deserializer,
-              throwOnResourceConflict);
+              throwOnResourceConflict,
+              PathComparingChecker.create());
       timer.reset().start();
       merged.writeResourceClass(rclassWriter);
       logger.fine(
