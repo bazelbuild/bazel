@@ -64,6 +64,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/proto:resources_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_java_pb",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
         "//third_party:android_common_25_0_0",
         "//third_party:asm",
         "//third_party:guava",

@@ -163,24 +163,24 @@ public class Aapt2ResourcePackagingAction {
                 .collect(toList());
         assetDirs.addAll(options.primaryData.assetDirs);
 
-        final PackagedResources packagedResources =
-            ResourceLinker.create(aaptConfigOptions.aapt2, linkedOut)
-                .profileUsing(profiler)
-                .customPackage(options.packageForR)
-                .outputAsProto(aaptConfigOptions.resourceTableAsProto)
-                .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
-                .include(compiledResourceDeps)
-                .withAssets(assetDirs)
-                .buildVersion(aaptConfigOptions.buildToolsVersion)
-                .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
-                .filterToDensity(options.densities)
-                .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
-                .link(compiled)
-                .copyPackageTo(options.packagePath)
-                .copyProguardTo(options.proguardOutput)
-                .copyMainDexProguardTo(options.mainDexProguardOutput)
-                .createSourceJar(options.srcJarOutput)
-                .copyRTxtTo(options.rOutput);
+      final PackagedResources packagedResources =
+          ResourceLinker.create(aaptConfigOptions.aapt2, executorService, linkedOut)
+              .profileUsing(profiler)
+              .customPackage(options.packageForR)
+              .outputAsProto(aaptConfigOptions.resourceTableAsProto)
+              .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
+              .include(compiledResourceDeps)
+              .withAssets(assetDirs)
+              .buildVersion(aaptConfigOptions.buildToolsVersion)
+              .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
+              .filterToDensity(options.densities)
+              .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
+              .link(compiled)
+              .copyPackageTo(options.packagePath)
+              .copyProguardTo(options.proguardOutput)
+              .copyMainDexProguardTo(options.mainDexProguardOutput)
+              .createSourceJar(options.srcJarOutput)
+              .copyRTxtTo(options.rOutput);
         profiler.recordEndOf("link");
         if (options.resourcesOutput != null) {
           profiler.startTask("package");

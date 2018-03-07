@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 
 import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
@@ -28,7 +27,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.io.Closeable;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -136,8 +134,7 @@ public class CompileLibraryResourcesAction {
     Preconditions.checkNotNull(options.output);
     Preconditions.checkNotNull(options.aapt2);
 
-    final ListeningExecutorService defaultService = ExecutorServiceCloser.createDefaultService();
-    try (Closeable serviceCloser = ExecutorServiceCloser.createWith(defaultService);
+    try (ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15);
         ScopedTemporaryDirectory scopedTmp =
             new ScopedTemporaryDirectory("android_resources_tmp")) {
       final Path tmp = scopedTmp.getPath();
@@ -147,7 +144,7 @@ public class CompileLibraryResourcesAction {
 
       final ResourceCompiler compiler =
           ResourceCompiler.create(
-              defaultService, compiledResources, options.aapt2, options.buildToolsVersion);
+              executorService, compiledResources, options.aapt2, options.buildToolsVersion);
       options
           .resources
           .toData(options.manifest)

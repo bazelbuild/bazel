@@ -105,7 +105,8 @@ public class Aapt2ResourceShrinkingAction {
               .compile(resourceCompiler, workingResourcesDirectory);
       profiler.recordEndOf("compile");
 
-      ResourceLinker.create(aapt2ConfigOptions.aapt2, scopedTmp.subDirectoryOf("linking"))
+      ResourceLinker.create(
+              aapt2ConfigOptions.aapt2, executorService, scopedTmp.subDirectoryOf("linking"))
           .profileUsing(profiler)
           .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)))
           .profileUsing(profiler)
