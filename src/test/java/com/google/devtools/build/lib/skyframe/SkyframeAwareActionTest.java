@@ -335,13 +335,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
   }
 
-  /** Ensure enough time elapsed for file updates to have a visible effect on the file's ctime. */
-  private void ensureVisibleCtimeUpdates(long oldCtime) throws IOException {
-    tsgm.setCommandStartTime();
-    tsgm.notifyDependenceOnFileTime(PathFragment.create("dummy"), oldCtime);
-    tsgm.waitForTimestampGranularity(reporter.getOutErr());
-  }
-
   /** Sanity check: ensure that a file's ctime was updated from an older value. */
   private void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
     Preconditions.checkState(
@@ -357,8 +350,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
     if (changeRequest.changeMtime()) {
       long ctime = path.stat().getLastChangeTime();
-      ensureVisibleCtimeUpdates(ctime);
-      // ensureVisibleCtimeUpdates waits long enough for System.currentTimeMillis() to be greater
+      // Ensure enough time elapsed for file updates to have a visible effect on the file's ctime.
+      tsgm.waitForTimestampGranularity(ctime, reporter.getOutErr());
+      // waitForTimestampGranularity waits long enough for System.currentTimeMillis() to be greater
       // than the time at the setCommandStartTime() call. Therefore setting
       // System.currentTimeMillis() is guaranteed to advance the file's ctime.
       path.setLastModifiedTime(System.currentTimeMillis());
@@ -368,7 +362,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
     if (changeRequest.changeContent()) {
       long ctime = path.stat().getLastChangeTime();
-      ensureVisibleCtimeUpdates(ctime);
+      // Ensure enough time elapsed for file updates to have a visible effect on the file's ctime.
+      tsgm.waitForTimestampGranularity(ctime, reporter.getOutErr());
       appendToFile(path);
       // Sanity check: ensure that appending to the file indeed advanced its ctime.
       checkCtimeUpdated(path, ctime);
