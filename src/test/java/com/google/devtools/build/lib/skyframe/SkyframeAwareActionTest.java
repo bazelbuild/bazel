@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -334,19 +335,43 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
   }
 
+  /** Ensure enough time elapsed for file updates to have a visible effect on the file's ctime. */
+  private void ensureVisibleCtimeUpdates(long oldCtime) throws IOException {
+    tsgm.setCommandStartTime();
+    tsgm.notifyDependenceOnFileTime(PathFragment.create("dummy"), oldCtime);
+    tsgm.waitForTimestampGranularity(reporter.getOutErr());
+  }
+
+  /** Sanity check: ensure that a file's ctime was updated from an older value. */
+  private void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
+    Preconditions.checkState(
+        oldCtime < path.stat().getLastChangeTime(), "path=(%s), ctime=(%d)", path, oldCtime);
+  }
+
   private void maybeChangeFile(Artifact file, ChangeArtifact changeRequest) throws Exception {
     if (changeRequest == ChangeArtifact.DONT_CHANGE) {
       return;
     }
 
+    Path path = file.getPath();
+
     if (changeRequest.changeMtime()) {
-      // 1000000 should be larger than the filesystem timestamp granularity.
-      file.getPath().setLastModifiedTime(file.getPath().getLastModifiedTime() + 1000000);
-      tsgm.waitForTimestampGranularity(reporter.getOutErr());
+      long ctime = path.stat().getLastChangeTime();
+      ensureVisibleCtimeUpdates(ctime);
+      // ensureVisibleCtimeUpdates waits long enough for System.currentTimeMillis() to be greater
+      // than the time at the setCommandStartTime() call. Therefore setting
+      // System.currentTimeMillis() is guaranteed to advance the file's ctime.
+      path.setLastModifiedTime(System.currentTimeMillis());
+      // Sanity check: ensure that updating the file's mtime indeed advanced its ctime.
+      checkCtimeUpdated(path, ctime);
     }
 
     if (changeRequest.changeContent()) {
-      appendToFile(file.getPath());
+      long ctime = path.stat().getLastChangeTime();
+      ensureVisibleCtimeUpdates(ctime);
+      appendToFile(path);
+      // Sanity check: ensure that appending to the file indeed advanced its ctime.
+      checkCtimeUpdated(path, ctime);
     }
 
     // Invalidate the file state value to inform Skyframe that the file may have changed.
