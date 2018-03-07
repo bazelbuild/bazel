@@ -39,6 +39,7 @@ public class BadOperationChecker extends AstVisitorWithNameResolution {
   private static final String DEPRECATED_PLUS_DEPSET_CATEGORY = "deprecated-plus-depset";
   private static final String DEPRECATED_PLUS_DICT_CATEGORY = "deprecated-plus-dict";
   private static final String DEPRECATED_PIPE_CATEGORY = "deprecated-pipe-dict";
+  private static final String DEPRECATED_DIVISION_CATEGORY = "deprecated-division";
 
   private final List<Issue> issues = new ArrayList<>();
 
@@ -122,6 +123,13 @@ public class BadOperationChecker extends AstVisitorWithNameResolution {
               "'|' operator is deprecated and should not be used. "
                   + "See https://docs.bazel.build/versions/master/skylark/depsets.html "
                   + "for the recommended use of depsets.",
+              node.getLocation()));
+    } else if (node.getOperator() == Operator.DIVIDE) {
+      issues.add(
+          Issue.create(
+              DEPRECATED_DIVISION_CATEGORY,
+              "'/' operator is deprecated and should not be used. "
+                  + "Use '//' instead (like in Python for floor division).",
               node.getLocation()));
     }
   }
