@@ -131,9 +131,9 @@ public class BinaryFormatFileTransportTest {
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);
 
-    // Close the file.
-    transport.ch.close();
-    assertThat(transport.ch.isOpen()).isFalse();
+    // Close the stream.
+    transport.out.close();
+    assertThat(transport.out.isOpen()).isFalse();
 
     // This should not throw an exception.
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
@@ -164,7 +164,7 @@ public class BinaryFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     closeFuture.get();
-    assertThat(transport.ch.isOpen()).isFalse();
+    assertThat(transport.out.isOpen()).isFalse();
 
     // There should have only been one write.
     try (InputStream in = new FileInputStream(output)) {
