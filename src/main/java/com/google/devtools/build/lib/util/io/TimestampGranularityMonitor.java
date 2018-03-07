@@ -203,7 +203,7 @@ public class TimestampGranularityMonitor {
   public void waitForTimestampGranularity(long ctimeMillis, OutErr outErr) {
     setCommandStartTime();
     notifyDependenceOnFileTime(null, ctimeMillis);
-    tsgm.waitForTimestampGranularity(outErr);
+    waitForTimestampGranularity(outErr);
   }
 
   /**
