@@ -227,6 +227,7 @@ public final class CcCompilationHelper {
    */
   @SkylarkModule(
     name = "compilation_info",
+    documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Helper class containing CC compilation providers."
   )

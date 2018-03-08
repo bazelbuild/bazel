@@ -50,6 +50,7 @@ import javax.annotation.Nullable;
 @AutoCodec
 @SkylarkModule(
   name = "cc_compilation_info",
+  documented = false,
   category = SkylarkModuleCategory.PROVIDER,
   doc =
       "Immutable store of information needed for C++ compilation that is aggregated across "
@@ -67,7 +68,7 @@ public final class CcCompilationInfo extends NativeInfo {
   private final NestedSet<PathFragment> declaredIncludeDirs;
   private final NestedSet<PathFragment> declaredIncludeWarnDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
-  
+
   /**
    * Module maps from direct dependencies.
    */

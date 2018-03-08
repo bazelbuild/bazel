@@ -33,6 +33,7 @@ import java.util.Set;
 @SkylarkModule(
   name = "cc_compilation_outputs",
   category = SkylarkModuleCategory.BUILTIN,
+  documented = false,
   doc = "Helper class containing CC compilation outputs."
 )
 public class CcCompilationOutputs {
@@ -149,7 +150,7 @@ public class CcCompilationOutputs {
   public List<IncludeScannable> getLipoScannables() {
     return lipoScannables;
   }
-  
+
   /**
    * Returns the output files that are considered "compiled" by this C++ compile action.
    */

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 @SkylarkModule(
   name = "cc_link_params_info",
   title = "cc_link_params_info",
+  documented = false,
   category = SkylarkModuleCategory.PROVIDER,
   doc = "Link params provider"
 )

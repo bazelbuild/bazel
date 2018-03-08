@@ -81,6 +81,7 @@ public final class CcLinkingHelper {
   /** Contains the providers as well as the linking outputs. */
   @SkylarkModule(
     name = "linking_info",
+    documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Helper class containing CC linking providers."
   )
