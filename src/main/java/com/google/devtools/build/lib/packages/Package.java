@@ -732,7 +732,10 @@ public class Package {
        *
        * @param pkg the loaded {@link Package}
        * @param skylarkSemantics are the semantics used to load the package
-       * @param loadTimeMs the wall time, in ms, that it took to load the package
+       * @param loadTimeMs the wall time, in ms, that it took to load the package. More precisely,
+       *     this is the wall time of the call to {@link PackageFactory#createPackageFromAst}.
+       *     Notably, this does not include the time to read and parse the package's BUILD file, nor
+       *     the time to read, parse, or evaluate any of the transitively loaded .bzl files.
        */
       void onLoadingComplete(Package pkg, SkylarkSemantics skylarkSemantics, long loadTimeMs);
     }
