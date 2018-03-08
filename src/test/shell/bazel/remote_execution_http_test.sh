@@ -205,4 +205,100 @@ function test_directory_artifact_rest_cache() {
       || fail "Remote cache generated different result"
 }
 
+function set_directory_artifact_skylark_testfixtures() {
+  mkdir -p a
+  cat > a/rule.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+  output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+
+  ctx.actions.run_shell(
+      outputs = [output_dir],
+      inputs = [],
+      command = """
+        mkdir -p $1/sub1; \
+        echo "Hello, world!" > $1/foo.txt; \
+        echo "Shuffle, duffle, muzzle, muff" > $1/sub1/bar.txt
+      """,
+      arguments = [output_dir.path],
+  )
+  return [
+      DefaultInfo(files=depset(direct=[output_dir])),
+  ]
+
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+  cat > a/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+load("//a:rule.bzl", "gen_output_dir")
+
+gen_output_dir(
+    name = "output_dir",
+    outdir = "dir",
+)
+
+genrule(
+    name = "test",
+    srcs = [":output_dir"],
+    outs = ["qux"],
+    cmd = "mkdir $@ && paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@/out.txt",
+)
+EOF
+
+  cat > a/test_expected <<EOF
+Hello, world!
+Shuffle, duffle, muzzle, muff
+EOF
+}
+
+function test_directory_artifact_skylark_local() {
+  set_directory_artifact_skylark_testfixtures
+
+  bazel build //a:test >& $TEST_log \
+    || fail "Failed to build //a:test without remote execution"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Local execution generated different result"
+}
+
+function test_directory_artifact_skylark() {
+  set_directory_artifact_skylark_testfixtures
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote execution"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote execution generated different result"
+}
+
+function test_directory_artifact_skylark_grpc_cache() {
+  set_directory_artifact_skylark_testfixtures
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote gRPC cache"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote cache generated different result"
+}
+
+function test_directory_artifact_skylark_rest_cache() {
+  set_directory_artifact_skylark_testfixtures
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote REST cache"
+  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote cache generated different result"
+}
+
 run_suite "Remote execution and remote cache tests"

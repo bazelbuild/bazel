@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -296,7 +297,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     ArrayList<String> outputDirectoryPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
       String pathString = output.getExecPathString();
-      if (execRoot.getRelative(pathString).isDirectory()) {
+      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         outputDirectoryPaths.add(pathString);
       } else {
         outputPaths.add(pathString);

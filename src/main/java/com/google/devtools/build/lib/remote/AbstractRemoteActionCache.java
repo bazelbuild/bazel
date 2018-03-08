@@ -132,13 +132,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         downloadFile(path, file.getDigest(), file.getIsExecutable(), file.getContent());
       }
       for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-        Digest treeDigest = dir.getTreeDigest();
-        byte[] b = downloadBlob(treeDigest);
-        Digest receivedTreeDigest = digestUtil.compute(b);
-        if (!receivedTreeDigest.equals(treeDigest)) {
-          throw new IOException(
-              "Digest does not match " + receivedTreeDigest + " != " + treeDigest);
-        }
+        byte[] b = downloadBlob(dir.getTreeDigest());
         Tree tree = Tree.parseFrom(b);
         Map<Digest, Directory> childrenMap = new HashMap<>();
         for (Directory child : tree.getChildrenList()) {

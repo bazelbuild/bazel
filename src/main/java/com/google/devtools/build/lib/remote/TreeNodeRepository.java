@@ -25,6 +25,7 @@ import com.google.common.collect.TreeTraverser;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -311,10 +312,17 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       // Leaf node reached. Must be unique.
       Preconditions.checkArgument(
           inputsStart == inputsEnd - 1, "Encountered two inputs with the same path.");
-      // TODO: check that the actionInput is a single file!
       ActionInput input = inputs.get(inputsStart);
-      Path leafPath = execRoot.getRelative(input.getExecPathString());
-      if (leafPath.isDirectory()) {
+      try {
+        if (!(input instanceof VirtualActionInput)
+            && Preconditions.checkNotNull(inputFileCache.getMetadata(input))
+                .getType()
+                .isDirectory()) {
+          Path leafPath = execRoot.getRelative(input.getExecPathString());
+          return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
+        }
+      } catch (DigestOfDirectoryException e) {
+        Path leafPath = execRoot.getRelative(input.getExecPathString());
         return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
       }
       return interner.intern(new TreeNode(input));
