@@ -33,7 +33,6 @@ java_test(
     srcs = [
         "DesugarFunctionalTest.java",
     ],
-    tags = ["no_windows"],
     deps = [
         ":testdata_desugared",  # Make tests run against desugared library
         "//third_party:asm",
@@ -50,7 +49,6 @@ java_test(
     srcs = [
         "DesugarFunctionalTest.java",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_twice",  # Make tests run against twice-desugared library
@@ -68,7 +66,6 @@ java_test(
     name = "DesugarFunctionalTestForConstantArgumentsInLambdas",
     size = "small",
     srcs = ["DesugarLambdaTest.java"],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarLambdaTest",
     deps = [
         ":desugar_lambda_with_constant_arguments_lib",
@@ -84,7 +81,6 @@ java_test(
     name = "DesugarFunctionalTestForSyntheticMethodsWithLambdaNames",
     size = "small",
     srcs = ["DesugarFunctionalTest.java"],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":desugar_testdata_with_synthetic_methods_with_lambda_names",
@@ -103,7 +99,6 @@ java_test(
     srcs = [
         "DesugarLongCompareTest.java",
     ],
-    tags = ["no_windows"],
     deps = [
         ":testdata_desugared",  # Make tests run against desugared library
         "//third_party:asm",
@@ -120,7 +115,6 @@ java_test(
     srcs = [
         "DesugarObjectsRequireNonNullTest.java",
     ],
-    tags = ["no_windows"],
     deps = [
         ":testdata_desugared",  # Make tests run against desugared library
         "//third_party:asm",
@@ -135,7 +129,6 @@ java_test(
     name = "DesugarObjectsRequireNonNullTestForAndroidLintMode",
     size = "small",
     srcs = ["DesugarObjectsRequireNonNullTest.java"],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarObjectsRequireNonNullTest",
     deps = [
         ":desugar_testdata_by_disabling_lambda_desugaring",  # Make tests run against desugared library
@@ -154,7 +147,6 @@ java_test(
         "DesugarFunctionalTest.java",
         "DesugarJava8FunctionalTest.java",
     ],
-    tags = ["no_windows"],
     deps = [
         ":testdata_desugared_java8",  # Make tests run against desugared library
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -173,7 +165,6 @@ java_test(
         "DesugarJava8FunctionalTest.java",
         "DesugarJava8LikeAndroidStudioFunctionalTest.java",
     ],
-    tags = ["no_windows"],
     deps = [
         ":testdata_desugared_java8_like_in_android_studio",  # Make tests run against desugared library
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -192,7 +183,6 @@ java_test(
         "DesugarFunctionalTest.java",
         "DesugarJava8FunctionalTest.java",
     ],
-    tags = ["no_windows"],
     deps = [
         ":testdata_desugared_default_methods",  # Make tests run against desugared library
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -211,7 +201,6 @@ java_test(
         "DesugarFunctionalTest.java",
         "DesugarJava8FunctionalTest.java",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarDefaultMethodsFunctionalTest",
     deps = [
         ":testdata_desugared_default_methods_twice",  # Make tests run against 2x desugared library
@@ -229,7 +218,6 @@ java_test(
     srcs = [
         "DesugarFunctionalTest.java",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_like_in_android_studio",  # Make tests run against desugared library
@@ -246,7 +234,6 @@ java_test(
     srcs = [
         "DesugarFunctionalTest.java",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_with_multiple_inputs",  # Make tests run against desugared library
@@ -263,7 +250,6 @@ java_test(
     srcs = [
         "DesugarFunctionalTest.java",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_from_directory_to_jar",  # Make tests run against desugared library
@@ -297,7 +283,6 @@ java_test(
     srcs = [
         "DesugarFunctionalTest.java",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_with_classpath_directory",  # Make tests run against desugared library
@@ -430,9 +415,8 @@ java_test(
     ],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=19",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.TryWithResourcesRewriterTest",
     deps = [
         ":mocked_android_os_sdk_for_testing",
@@ -455,9 +439,8 @@ java_test(
     ],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.TryWithResourcesRewriterTest",
     deps = [
         ":mocked_android_os_sdk_for_testing",
@@ -481,9 +464,8 @@ java_test(
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
         "-Dcom.google.devtools.build.android.desugar.runtime.twr_disable_mimic=true",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.TryWithResourcesRewriterTest",
     deps = [
         ":mocked_android_os_sdk_for_testing",
@@ -521,7 +503,6 @@ java_test(
     name = "DesugarMainClassTestLambdaDirectoryIncorrectlySet",
     size = "small",
     srcs = ["DesugarMainClassTest.java"],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarMainClassTest",
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
@@ -835,7 +816,6 @@ genrule(
     name = "generate_lambda_with_constant_arguments_in_test_data",
     outs = ["testdata_generate_lambda_with_constant_arguments.jar"],
     cmd = "$(location :generate_lambda_with_constant_arguments) $@",
-    tags = ["no_windows"],
     tools = [":generate_lambda_with_constant_arguments"],
 )
 
@@ -853,14 +833,12 @@ genrule(
           "-i $(location :generate_lambda_with_constant_arguments_in_test_data) -o $@ " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
 java_import(
     name = "desugar_lambda_with_constant_arguments_lib",
     jars = [":desugar_lambda_with_constant_arguments"],
-    tags = ["no_windows"],
 )
 
 # Convert human-written methods whose names start with "lambda$XXX" to synthetic methods, so we can
@@ -872,7 +850,6 @@ genrule(
     cmd = "$(location :generate_synthetic_method_with_lambda_name_convention) " +
           " $(location :testdata) " +
           " $@ ",
-    tags = ["no_windows"],
     tools = [":generate_synthetic_method_with_lambda_name_convention"],
 )
 
@@ -894,7 +871,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -916,7 +892,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -943,7 +918,6 @@ genrule(
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar) " +
           "--only_desugar_javac9_for_lint",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -956,7 +930,7 @@ java_test(
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
         "-Dcom.google.devtools.build.android.desugar.runtime.twr_disable_mimic=true",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
     ],
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarTryWithResourcesFunctionalTest",
@@ -980,7 +954,7 @@ java_test(
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
         "-Dcom.google.devtools.build.android.desugar.runtime.twr_disable_mimic=true",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
     ],
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarTryWithResourcesFunctionalTest",
@@ -1003,7 +977,7 @@ java_test(
     ],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
     ],
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarTryWithResourcesFunctionalTest",
@@ -1026,7 +1000,7 @@ java_test(
     ],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
     ],
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarTryWithResourcesFunctionalTest",
@@ -1049,7 +1023,7 @@ java_test(
     ],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=19",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
     ],
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarTryWithResourcesFunctionalTest",
@@ -1072,9 +1046,8 @@ java_test(
     ],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=19",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarTryWithResourcesFunctionalTest",
     deps = [
         ":desugar_testdata_by_desugaring_try_with_resources_twice",  # the lib desugared twice.
@@ -1113,7 +1086,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1140,7 +1112,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1165,7 +1136,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1184,7 +1154,6 @@ genrule(
           "--emit_dependency_metadata_as_needed " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1210,7 +1179,6 @@ genrule(
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar) " +
           " &> $@",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1234,7 +1202,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1252,7 +1219,6 @@ genrule(
           "--core_library -i $(location :testdata_core_library) -o $@ " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1278,7 +1244,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1306,7 +1271,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1339,7 +1303,6 @@ genrule(
           --bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)
      rm -rf $$tmpdir
     """,
-    tags = ["no_windows"],
     tools = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
         "//tools/zip:zipper",
@@ -1380,7 +1343,6 @@ genrule(
      rm -rf $$tmpdirIn
      rm -rf $$tmpdirOut
     """,
-    tags = ["no_windows"],
     tools = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
         "//tools/zip:zipper",
@@ -1416,7 +1378,6 @@ genrule(
           --bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)
      rm -rf $$tmpdir
     """,
-    tags = ["no_windows"],
     tools = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
         "//tools/zip:zipper",
@@ -1444,7 +1405,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1466,7 +1426,6 @@ genrule(
           "-i $(location :jacoco_0_7_5_default_method.jar) -o $@ " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1490,7 +1449,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1513,7 +1471,6 @@ genrule(
           "--classpath_entry $(location //third_party:guava-jars) " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1633,7 +1590,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.Lambda$$$$Lambda$$0' > $@
 """,
-    tags = ["no_windows"],
     # Bazel 0.8.0 doesn't have this target under @bazel_tools, so we have to
     # use the one in the main repository
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -1663,7 +1619,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.CaptureLambda$$$$Lambda$$0' > $@
 """,
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1690,7 +1645,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.MethodReferenceSuperclass$$$$Lambda$$0' > $@
 """,
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1719,7 +1673,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1748,7 +1701,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.Named$$AbstractName' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1777,7 +1729,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testdata.java8.InterfaceMethod$$Concrete' | grep -v 'jacoco' | grep -v 'static {}' > $@
 """,
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1820,7 +1771,6 @@ genrule(
           "-i $(location :capture_lambda) -o $@ " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1838,7 +1788,6 @@ genrule(
           "-i $(location :capture_lambda_desugared.jar) -o $@ " +
           "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
@@ -1866,7 +1815,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap  -p -cp $< com.google.devtools.build.android.desugar.testdata.OuterReferenceLambda > $(location baseclass_disassembled.txt)
 grep lambda $(location baseclass_disassembled.txt) > $(location baseclass_lambda_signature.txt)""",
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
@@ -1881,7 +1829,6 @@ genrule(
     cmd = """
 $(JAVABASE)/bin/javap -p -cp $< com.google.devtools.build.android.desugar.testdata.LambdaInOverride > $(location subclass_disassembled.txt)
 grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_signature.txt)""",
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "@bazel_tools//tools/jdk",
@@ -1911,7 +1858,6 @@ genrule(
     srcs = [":jacoco_0_7_5_default_method_desugared.jar"],
     outs = ["jacoco_legacy_default_method_companion_disassembled.txt"],
     cmd = """$(JAVABASE)/bin/javap -c -p -cp $< 'com/example/gavra/java8coverage/Defaults$$$$CC' > $@""",
-    tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         "@bazel_tools//tools/jdk",
@@ -1932,7 +1878,6 @@ genrule(
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
           "-i $(location //third_party:guava-jars) -o $@ " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
-    tags = ["no_windows"],
     tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
 )
 
