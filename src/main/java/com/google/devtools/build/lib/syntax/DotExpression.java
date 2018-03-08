@@ -85,7 +85,13 @@ public final class DotExpression extends Expression {
    */
   public static Object eval(Object objValue, String name,
       Location loc, Environment env) throws EvalException {
-    if (objValue instanceof ClassObject) {
+    if (objValue instanceof SkylarkClassObject) {
+      try {
+        return ((SkylarkClassObject) objValue).getValue(name);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, ex);
+      }
+    } else if (objValue instanceof ClassObject) {
       Object result = null;
       try {
         result = ((ClassObject) objValue).getValue(name);

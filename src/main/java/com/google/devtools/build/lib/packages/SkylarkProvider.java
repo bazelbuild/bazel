@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SkylarkInfo.Layout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Map;
@@ -151,7 +150,7 @@ public class SkylarkProvider extends Provider implements SkylarkExportable {
   }
 
   @Override
-  protected Info createInstanceFromSkylark(Object[] args, Location loc) throws EvalException {
+  protected SkylarkInfo createInstanceFromSkylark(Object[] args, Location loc) {
     if (layout == null) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
