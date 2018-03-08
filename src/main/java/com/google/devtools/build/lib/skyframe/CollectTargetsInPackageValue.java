@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -41,12 +43,16 @@ public class CollectTargetsInPackageValue implements SkyValue {
   @AutoValue
   @AutoCodec
   public abstract static class CollectTargetsInPackageKey implements SkyKey {
+    private static final Interner<CollectTargetsInPackageKey> interner =
+        BlazeInterners.newWeakInterner();
+
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static CollectTargetsInPackageKey create(
         PackageIdentifier packageId, FilteringPolicy filteringPolicy) {
-      return new AutoValue_CollectTargetsInPackageValue_CollectTargetsInPackageKey(
-          packageId, filteringPolicy);
+      return interner.intern(
+          new AutoValue_CollectTargetsInPackageValue_CollectTargetsInPackageKey(
+              packageId, filteringPolicy));
     }
 
     public abstract PackageIdentifier getPackageId();
