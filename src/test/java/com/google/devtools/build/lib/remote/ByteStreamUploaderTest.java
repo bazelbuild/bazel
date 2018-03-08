@@ -468,23 +468,26 @@ public class ByteStreamUploaderTest {
 
     ServerServiceDefinition service =
         ServerServiceDefinition.builder(ByteStreamGrpc.SERVICE_NAME)
-        .addMethod(ByteStreamGrpc.METHOD_WRITE,
-            new ServerCallHandler<WriteRequest, WriteResponse>() {
-              @Override
-              public Listener<WriteRequest> startCall(ServerCall<WriteRequest, WriteResponse> call,
-                  Metadata headers) {
-                // Don't request() any messages from the client, so that the client will be blocked
-                // on flow control and thus the call will sit there idle long enough to receive the
-                // cancellation.
-                return new Listener<WriteRequest>() {
+            .addMethod(
+                ByteStreamGrpc.getWriteMethod(),
+                new ServerCallHandler<WriteRequest, WriteResponse>() {
                   @Override
-                  public void onCancel() {
-                    cancellations.countDown();
+                  public Listener<WriteRequest> startCall(
+                      ServerCall<WriteRequest, WriteResponse> call, Metadata headers) {
+                    // Don't request() any messages from the client, so that the client will be
+                    // blocked
+                    // on flow control and thus the call will sit there idle long enough to receive
+                    // the
+                    // cancellation.
+                    return new Listener<WriteRequest>() {
+                      @Override
+                      public void onCancel() {
+                        cancellations.countDown();
+                      }
+                    };
                   }
-                };
-              }
-            })
-        .build();
+                })
+            .build();
 
     serviceRegistry.addService(service);
 
