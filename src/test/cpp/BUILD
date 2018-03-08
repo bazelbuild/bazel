@@ -42,6 +42,19 @@ cc_test(
 )
 
 cc_test(
+    name = "rc_options_test",
+    size = "small",
+    srcs = ["rc_options_test.cc"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:option_processor",
+        "//src/main/cpp:workspace_layout",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
     name = "startup_options_test",
     size = "small",
     srcs = ["startup_options_test.cc"],

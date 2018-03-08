@@ -110,6 +110,7 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
         for (const string& imported_rc : *import_stack) {
           loop += "  " + imported_rc + "\n";
         }
+        loop += "  " + words[1] + "\n";  // Include the loop.
         blaze_util::StringPrintf(error_text,
             "Import loop detected:\n%s", loop.c_str());
         return ParseError::IMPORT_LOOP;
