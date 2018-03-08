@@ -23,8 +23,6 @@ filegroup(
         "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
@@ -385,7 +383,7 @@ filegroup(
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
-        "//third_party/checker_framework_dataflow:bootstrap",
+        "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring:bootstrap",
     ],
 )
