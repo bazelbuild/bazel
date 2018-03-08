@@ -27,7 +27,9 @@ import java.util.List;
  * instrumentation. It should not be used by normal Skylark interpreter logic.
  */
 public class Callstack {
-  private static boolean enabled;
+  // This field should be read, but not written, directly in order to avoid the overhead of a
+  // method call.
+  static boolean enabled;
   private static final ThreadLocal<List<Object>> callstack =
       ThreadLocal.withInitial(ArrayList::new);
 
@@ -36,22 +38,16 @@ public class Callstack {
   }
 
   public static void push(ASTNode node) {
-    if (enabled) {
-      callstack.get().add(node);
-    }
+    callstack.get().add(node);
   }
 
   public static void push(BaseFunction function) {
-    if (enabled) {
-      callstack.get().add(function);
-    }
+    callstack.get().add(function);
   }
 
   public static void pop() {
-    if (enabled) {
-      List<Object> threadStack = callstack.get();
-      threadStack.remove(threadStack.size() - 1);
-    }
+    List<Object> threadStack = callstack.get();
+    threadStack.remove(threadStack.size() - 1);
   }
 
   public static List<Object> get() {
