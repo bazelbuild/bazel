@@ -468,7 +468,7 @@ public class ByteStreamUploaderTest {
 
     ServerServiceDefinition service =
         ServerServiceDefinition.builder(ByteStreamGrpc.SERVICE_NAME)
-        .addMethod(ByteStreamGrpc.METHOD_WRITE,
+        .addMethod(ByteStreamGrpc.getWriteMethod(),
             new ServerCallHandler<WriteRequest, WriteResponse>() {
               @Override
               public Listener<WriteRequest> startCall(ServerCall<WriteRequest, WriteResponse> call,
