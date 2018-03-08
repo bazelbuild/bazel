@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDe
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
@@ -61,6 +62,16 @@ public class JavaOptions extends FragmentOptions {
       extends EnumConverter<OneVersionEnforcementLevel> {
     public OneVersionEnforcementLevelConverter() {
       super(OneVersionEnforcementLevel.class, "Enforcement level for Java One Version violations");
+    }
+  }
+
+  /** Converter for the --experimental_import_deps_checking option */
+  public static class ImportDepsCheckingLevelConverter
+      extends EnumConverter<ImportDepsCheckingLevel> {
+    public ImportDepsCheckingLevelConverter() {
+      super(
+          ImportDepsCheckingLevel.class,
+          "Enforcement level for the dependency checking for import targets.");
     }
   }
 
@@ -494,6 +505,18 @@ public class JavaOptions extends FragmentOptions {
   public OneVersionEnforcementLevel enforceOneVersion;
 
   @Option(
+    name = "experimental_import_deps_checking",
+    defaultValue = "OFF",
+    converter = ImportDepsCheckingLevelConverter.class,
+    documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+    help =
+        "When enabled, check whether the dependencies of an aar_import are complete. "
+            + "This enforcement can break the build, or can just result in warnings."
+  )
+  public ImportDepsCheckingLevel importDepsCheckingLevel;
+
+  @Option(
     name = "one_version_enforcement_on_java_tests",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -570,6 +593,7 @@ public class JavaOptions extends FragmentOptions {
     host.fixDepsTool = fixDepsTool;
 
     host.enforceOneVersion = enforceOneVersion;
+    host.importDepsCheckingLevel = importDepsCheckingLevel;
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
