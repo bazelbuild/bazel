@@ -1541,6 +1541,7 @@ test_suite(
         "//src/test/java/com/google/devtools/build/lib/shell:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/skyframe:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/skylark:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
 )
