@@ -2,6 +2,14 @@
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
+config_setting(
+    name = "jdk9",
+    values = {
+        "java_toolchain": "@bazel_tools//tools/jdk:toolchain_jdk9",
+    },
+    visibility = ["//visibility:public"],
+)
+
 exports_files(["LICENSE"])
 
 filegroup(
