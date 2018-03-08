@@ -17,6 +17,9 @@
 gold_file=$1
 shift
 
+expected_exit_code=$1
+shift
+
 if [ -d "$TEST_TMPDIR" ]; then
   # Running as part of blaze test
   tmpdir="$TEST_TMPDIR"
@@ -40,9 +43,8 @@ checker_stderr="${output}/checker_stderr.txt"
 $@ --output "${actual_file}" 2> ${checker_stderr}
 
 checker_ret=$?
-# The exit code 199 means the checker finds dependency issues.
-if [[ "${checker_ret}" != 0 ]] && [[ "${checker_ret}" != 199 ]]; then
-  echo "Checker error!!! ${checker_ret}"
+if [[ "${checker_ret}" != ${expected_exit_code} ]]; then
+  echo "Checker error!!! ${checker_ret}, expected=${expected_exit_code}"
   cat ${checker_stderr}
   exit ${checker_ret}
 fi

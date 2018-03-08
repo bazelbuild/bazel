@@ -118,6 +118,18 @@ load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/i
 
 create_golden_test(
     name = "bootclasspath_missing_golden_test",
+    emit_errors = True,
+    golden_file = "golden_bootclasspath_missing.txt",
+    has_bootclasspath = False,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
+    missing_jar = None,
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
+)
+
+create_golden_test(
+    name = "warn_on_bootclasspath_missing_golden_test",
+    emit_errors = False,
     golden_file = "golden_bootclasspath_missing.txt",
     has_bootclasspath = False,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -128,6 +140,7 @@ create_golden_test(
 
 create_golden_test(
     name = "library_exception_missing_golden_test",
+    emit_errors = True,
     golden_file = "golden_library_exception_missing.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -138,6 +151,7 @@ create_golden_test(
 
 create_golden_test(
     name = "library_annotation_missing_golden_test",
+    emit_errors = True,
     golden_file = "golden_library_annotation_missing.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -148,6 +162,7 @@ create_golden_test(
 
 create_golden_test(
     name = "library_missing_golden_test",
+    emit_errors = True,
     golden_file = "golden_library_missing.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -158,6 +173,7 @@ create_golden_test(
 
 create_golden_test(
     name = "library_interface_missing_golden_test",
+    emit_errors = True,
     golden_file = "golden_library_interface_missing.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -168,6 +184,7 @@ create_golden_test(
 
 create_golden_test(
     name = "library_members_missing_golden_test",
+    emit_errors = True,
     golden_file = "golden_library_members_missing.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -179,6 +196,7 @@ create_golden_test(
 
 create_golden_test(
     name = "complete_classpath_golden_test",
+    emit_errors = True,
     golden_file = "golden_complete_classpath.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",

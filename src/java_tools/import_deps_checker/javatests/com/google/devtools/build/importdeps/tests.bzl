@@ -13,7 +13,7 @@
 # limitations under the License.
 '''Helpers to create golden tests, to minimize code duplication.'''
 
-def create_golden_test(name, golden_file, has_bootclasspath, testdata_pkg,
+def create_golden_test(name, golden_file, emit_errors, has_bootclasspath, testdata_pkg,
                        import_deps_checker, rt_jar, missing_jar = None,
                        replacing_jar = None):
   '''Create a golden test for the dependency checker.'''
@@ -35,7 +35,10 @@ def create_golden_test(name, golden_file, has_bootclasspath, testdata_pkg,
 
   args = [
       "$(location %s)" % golden_file,
+      # The exit code 199 means the checker emits errors on dependency issues.
+      "199" if emit_errors else "0",
       "$(location %s)" % import_deps_checker,
+      "--fail_on_errors" if emit_errors else "--nofail_on_errors"
       ]
   args.append("--bootclasspath_entry")
   if has_bootclasspath:

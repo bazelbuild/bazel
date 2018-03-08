@@ -92,11 +92,18 @@ public class Main {
       help = "Output path to save the result."
     )
     public Path output;
+
+    @Option(
+      name = "fail_on_errors",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Fail on incomplete dependencies, otherwise emit warnings."
+    )
+    public boolean failOnErrors;
   }
 
-  /**
-   * A randomly picked large exit code to avoid collision with other common exit codes.
-   */
+  /** A randomly picked large exit code to avoid collision with other common exit codes. */
   private static final int DEPS_ERROR_EXIT_CODE = 199;
 
   public static void main(String[] args) throws IOException {
@@ -115,9 +122,11 @@ public class Main {
       if (!checker.check()) {
         String result = checker.computeResultOutput();
         checkState(!result.isEmpty(), "The result should NOT be empty.");
-        exitCode = DEPS_ERROR_EXIT_CODE;
+        exitCode = options.failOnErrors ? DEPS_ERROR_EXIT_CODE : 0;
+
         System.err.println(
-            "ERROR: The dependencies for the jars "
+            (options.failOnErrors ? "ERROR" : "WARNING")
+                + ": The dependencies for the jars "
                 + options.inputJars
                 + " are not complete. bootclasspath = "
                 + options.bootclasspath
