@@ -27,7 +27,6 @@ java_test(
     ]),
     data = [":empty-tarball"],
     tags = [
-        "no_windows",  # Runfiles aren't supported.
         "rules",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -60,6 +59,7 @@ java_test(
         "//third_party:maven",
         "//third_party:mockito",
         "//third_party:truth",
+        "@bazel_tools//tools/runfiles:java-runfiles",
     ],
 )
 

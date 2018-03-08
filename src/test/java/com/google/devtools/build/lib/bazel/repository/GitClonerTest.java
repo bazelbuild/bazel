@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.net.URL;
 import java.util.Map;
 import org.junit.Before;
@@ -49,7 +50,6 @@ import org.mockito.Mockito;
  */
 @RunWith(JUnit4.class)
 public class GitClonerTest extends BuildViewTestCase {
-  private FileSystem diskFs = FileSystems.getNativeFileSystem();
   private Path diskTarball;
   private Path outputDirectory;
   private StoredEventHandler eventHandler = new StoredEventHandler();
@@ -60,11 +60,16 @@ public class GitClonerTest extends BuildViewTestCase {
 
   @Before
   public void initialize() throws Exception {
+    FileSystem diskFs = FileSystems.getNativeFileSystem();
     outputDirectory = diskFs.getPath(System.getenv("TEST_TMPDIR"))
         .getRelative("output-dir");
-    diskTarball = diskFs.getPath(System.getenv("TEST_SRCDIR"))
-        .getRelative(
+    Runfiles runfiles = Runfiles.create();
+    String emptyTarGz =
+        runfiles.rlocation(
             "io_bazel/src/test/java/com/google/devtools/build/lib/bazel/repository/empty.tar.gz");
+    assertThat(emptyTarGz).isNotEmpty();
+    diskTarball = diskFs.getPath(emptyTarGz);
+    assertThat(diskTarball.exists()).isTrue();
   }
 
   @Test
