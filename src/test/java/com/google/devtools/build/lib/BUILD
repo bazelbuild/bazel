@@ -1226,30 +1226,72 @@ java_test(
     ],
 )
 
+java_library(
+    name = "sandboxfs-base-tests",
+    testonly = 1,
+    srcs = ["sandbox/BaseSandboxfsProcessTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_test(
     name = "sandbox-tests",
-    srcs = glob(["sandbox/*.java"]),
+    srcs = glob(
+        ["sandbox/*.java"],
+        exclude = [
+            "sandbox/BaseSandboxfsProcessTest.java",
+            "sandbox/RealSandboxfsProcessTest.java",
+        ],
+    ),
     data = [":embedded_scripts"],
     local = 1,
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
-        ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
         ":guava_junit_truth",
+        ":sandboxfs-base-tests",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_test(
+    name = "sandboxfs-integration-tests",
+    srcs = ["sandbox/RealSandboxfsProcessTest.java"],
+    data = [":embedded_scripts"],
+    local = 1,
+    tags = [
+        # On macOS:
+        #   sudo sysctl -w vfs.generic.osxfuse.tunables.allow_other=1
+        # Test requires:
+        #   --test_env=SANDBOXFS=/path/to/sandboxfs
+        "manual",
+        "no-sandbox",
+        "no_windows",
+    ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":sandboxfs-base-tests",
+        ":test_runner",
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:junit4",
     ],
 )
 
