@@ -52,6 +52,7 @@ public final class RunfilesTest {
     assertRlocationArg(r, null, null);
     assertRlocationArg(r, "", null);
     assertRlocationArg(r, "foo/..", "contains uplevel");
+    assertRlocationArg(r, "\\foo", "path is absolute without a drive letter");
   }
 
   @Test
@@ -69,7 +70,6 @@ public final class RunfilesTest {
       assertThat(r.rlocation("foo")).isNull();
 
       if (isWindows()) {
-        assertThat(r.rlocation("\\foo")).isEqualTo("\\foo");
         assertThat(r.rlocation("c:/foo")).isEqualTo("c:/foo");
         assertThat(r.rlocation("c:\\foo")).isEqualTo("c:\\foo");
       } else {

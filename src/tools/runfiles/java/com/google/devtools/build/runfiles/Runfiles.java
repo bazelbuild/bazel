@@ -95,7 +95,8 @@ public abstract class Runfiles {
     Util.checkArgument(path != null);
     Util.checkArgument(!path.isEmpty());
     Util.checkArgument(!path.contains(".."), "path contains uplevel references: \"%s\"", path);
-    if (new File(path).isAbsolute() || path.charAt(0) == File.separatorChar) {
+    Util.checkArgument(!path.startsWith("\\"), "path is absolute without a drive letter: \"%s\"", path);
+    if (new File(path).isAbsolute()) {
       return path;
     }
     return rlocationChecked(path);
