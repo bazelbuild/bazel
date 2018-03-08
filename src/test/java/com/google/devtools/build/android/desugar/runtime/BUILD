@@ -28,9 +28,8 @@ java_test(
     srcs = ["ThrowableExtensionTest.java"],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$MimicDesugaringStrategy'",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTest",
     deps = [
         ":throwable_extension_test_utility",
@@ -50,9 +49,8 @@ java_test(
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=18",
         "-Dcom.google.devtools.build.android.desugar.runtime.twr_disable_mimic=true",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$NullDesugaringStrategy'",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTest",
     deps = [
         ":throwable_extension_test_utility",
@@ -71,9 +69,8 @@ java_test(
     srcs = ["ThrowableExtensionTest.java"],
     jvm_flags = [
         "-Dfortest.simulated.android.sdk_int=19",
-        "'-Dexpected.strategy=com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
+        "-Dexpected.strategy='com.google.devtools.build.android.desugar.runtime.ThrowableExtension$$ReuseDesugaringStrategy'",
     ],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTest",
     deps = [
         ":throwable_extension_test_utility",
