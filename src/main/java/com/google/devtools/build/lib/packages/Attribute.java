@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -1449,6 +1450,7 @@ public final class Attribute implements Comparable<Attribute> {
    * {@link #getPossibleValues(Type, Rule)} and {@link #getDefault(AttributeMap)} do lookups in that
    * table.
    */
+  @AutoCodec
   static final class SkylarkComputedDefault extends ComputedDefault {
 
     private final List<Type<?>> dependencyTypes;
@@ -1457,17 +1459,17 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * Creates a new SkylarkComputedDefault containing a lookup table.
      *
-     * @param requiredAttributes A list of all names of other attributes that are accessed by this
+     * @param dependencies A list of all names of other attributes that are accessed by this
      *     attribute.
      * @param dependencyTypes A list of requiredAttributes' types.
      * @param lookupTable An exhaustive mapping from requiredAttributes assignments to values this
      *     computed default evaluates to.
      */
     SkylarkComputedDefault(
-        ImmutableList<String> requiredAttributes,
+        ImmutableList<String> dependencies,
         ImmutableList<Type<?>> dependencyTypes,
         Map<List<Object>, Object> lookupTable) {
-      super(Preconditions.checkNotNull(requiredAttributes));
+      super(Preconditions.checkNotNull(dependencies));
       this.dependencyTypes = Preconditions.checkNotNull(dependencyTypes);
       this.lookupTable = Preconditions.checkNotNull(lookupTable);
     }
