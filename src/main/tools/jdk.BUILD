@@ -162,12 +162,6 @@ filegroup(
     srcs = ["lib/tools.jar"],
 )
 
-java_import(
-    name = "langtools-neverlink",
-    jars = ["lib/tools.jar"],
-    neverlink = 1,
-)
-
 config_setting(
     name = "windows",
     values = {"cpu": "x64_windows"},

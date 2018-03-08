@@ -4,23 +4,16 @@ licenses(["restricted"])  # GNU GPL v2 with Classpath exception
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = ["dataflow-2.2.2-sources.jar"],
 )
 
-java_library(
+java_import(
     name = "checker_framework_dataflow",
-    srcs = glob(["java/**"]),
-    javacopts = ["-Xep:MissingCasesInEnumSwitch:OFF"],
+    jars = [
+        "dataflow-2.2.2.jar",
+    ],
+    srcjar = "dataflow-2.2.2-sources.jar",
     deps = [
         "//third_party/checker_framework_javacutil",
-        "@local_jdk//:langtools-neverlink",
     ],
-)
-
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
-
-bootstrap_java_library(
-    name = "bootstrap",
-    srcs = glob(["java/**"]),
-    deps = ["//third_party/checker_framework_javacutil:bootstrap"],
 )
