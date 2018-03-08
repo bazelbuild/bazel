@@ -24,6 +24,8 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -196,8 +198,12 @@ public abstract class SkylarkType implements Serializable {
   // Common subclasses of SkylarkType
 
   /** the Top type contains all objects */
-  private static class Top extends Simple {
-    private Top() {
+  @AutoCodec
+  @VisibleForSerialization
+  static class Top extends Simple {
+
+    @VisibleForSerialization
+    Top() {
       super(Object.class);
     }
 
@@ -213,8 +219,12 @@ public abstract class SkylarkType implements Serializable {
   }
 
   /** the Bottom type contains no element */
-  private static class Bottom extends Simple {
-    private Bottom() {
+  @AutoCodec
+  @VisibleForSerialization
+  static class Bottom extends Simple {
+
+    @VisibleForSerialization
+    Bottom() {
       super(Empty.class);
     }
 
@@ -227,10 +237,12 @@ public abstract class SkylarkType implements Serializable {
   }
 
   /** a Simple type contains the instance of a Java class */
+  @AutoCodec
   public static class Simple extends SkylarkType {
     private final Class<?> type;
 
-    private Simple(Class<?> type) {
+    @VisibleForSerialization
+    Simple(Class<?> type) {
       this.type = type;
     }
 
@@ -301,13 +313,16 @@ public abstract class SkylarkType implements Serializable {
   }
 
   /** Combination of a generic type and an argument type */
+  @AutoCodec
   public static class Combination extends SkylarkType {
     // For the moment, we can only combine a Simple type with a Simple type,
     // and the first one has to be a Java generic class,
     // and in practice actually one of SkylarkList or SkylarkNestedSet
     private final SkylarkType genericType; // actually always a Simple, for now.
     private final SkylarkType argType; // not always Simple
-    private Combination(SkylarkType genericType, SkylarkType argType) {
+
+    @VisibleForSerialization
+    Combination(SkylarkType genericType, SkylarkType argType) {
       this.genericType = genericType;
       this.argType = argType;
     }
@@ -396,9 +411,12 @@ public abstract class SkylarkType implements Serializable {
   }
 
   /** Union types, used a lot in "dynamic" languages such as Python or Skylark */
+  @AutoCodec
   public static class Union extends SkylarkType {
     private final ImmutableList<SkylarkType> types;
-    private Union(ImmutableList<SkylarkType> types) {
+
+    @VisibleForSerialization
+    Union(ImmutableList<SkylarkType> types) {
       this.types = types;
     }
 
@@ -518,10 +536,8 @@ public abstract class SkylarkType implements Serializable {
     return Combination.of(t1, t2);
   }
 
-
-  /**
-   * A class representing the type of a Skylark function.
-   */
+  /** A class representing the type of a Skylark function. */
+  @AutoCodec
   public static final class SkylarkFunctionType extends SkylarkType {
     private final String name;
     @Nullable private final SkylarkType returnType;
@@ -562,12 +578,12 @@ public abstract class SkylarkType implements Serializable {
       return new SkylarkFunctionType(name, returnType);
     }
 
-    private SkylarkFunctionType(String name, SkylarkType returnType) {
+    @VisibleForSerialization
+    SkylarkFunctionType(String name, SkylarkType returnType) {
       this.name = name;
       this.returnType = returnType;
     }
   }
-
 
   // Utility functions regarding types
 
