@@ -32,7 +32,7 @@ public class BuildOptionsTest {
       ImmutableList.<Class<? extends FragmentOptions>>of(BuildConfiguration.Options.class);
 
   @Test
-  public void testOptionSetCaching() throws Exception {
+  public void optionSetCaching() {
     BuildOptions a = BuildOptions.of(TEST_OPTIONS, OptionsParser.newOptionsParser(TEST_OPTIONS));
     BuildOptions b = BuildOptions.of(TEST_OPTIONS, OptionsParser.newOptionsParser(TEST_OPTIONS));
     // The cache keys of the OptionSets must be equal even if these are
@@ -42,7 +42,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void testCachingSpecialCases() throws Exception {
+  public void cachingSpecialCases() throws Exception {
     // You can add options here to test that their string representations are good.
     String[] options = new String[] { "--run_under=//run_under" };
     BuildOptions a = BuildOptions.of(TEST_OPTIONS, options);
@@ -51,7 +51,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void testOptionsEquality() throws Exception {
+  public void optionsEquality() throws Exception {
     String[] options1 = new String[] { "--compilation_mode=opt" };
     String[] options2 = new String[] { "--compilation_mode=dbg" };
     // Distinct instances with the same values are equal:
@@ -73,7 +73,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void testOptionsDiff() throws Exception {
+  public void optionsDiff() throws Exception {
     BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
     BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
     BuildOptions three = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
@@ -90,7 +90,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void testOptionsDiff_differentFragments() throws Exception {
+  public void optionsDiff_differentFragments() throws Exception {
     BuildOptions one =
         BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of(CppOptions.class));
     BuildOptions two = BuildOptions.of(TEST_OPTIONS);
