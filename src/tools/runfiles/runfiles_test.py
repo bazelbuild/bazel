@@ -30,16 +30,8 @@ class RunfilesTest(unittest.TestCase):
     self.assertRaises(TypeError, lambda: r.Rlocation(1))
     self.assertRaisesRegexp(ValueError, "contains uplevel",
                             lambda: r.Rlocation("foo/.."))
-    if RunfilesTest.IsWindows():
-      self.assertRaisesRegexp(ValueError, "is absolute",
-                              lambda: r.Rlocation("\\foo"))
-      self.assertRaisesRegexp(ValueError, "is absolute",
-                              lambda: r.Rlocation("c:/foo"))
-      self.assertRaisesRegexp(ValueError, "is absolute",
-                              lambda: r.Rlocation("c:\\foo"))
-    else:
-      self.assertRaisesRegexp(ValueError, "is absolute",
-                              lambda: r.Rlocation("/foo"))
+    self.assertRaisesRegexp(ValueError, "is absolute without a drive letter",
+                            lambda: r.Rlocation("\\foo"))
 
   def testCreatesManifestBasedRunfiles(self):
     with _MockFile(contents=["a/b c/d"]) as mf:
@@ -141,6 +133,11 @@ class RunfilesTest(unittest.TestCase):
       self.assertEqual(
           r.Rlocation("Foo/Bar/runfile3"), "D:\\the path\\run file 3.txt")
       self.assertIsNone(r.Rlocation("unknown"))
+      if RunfilesTest.IsWindows():
+        self.assertEqual(r.Rlocation("c:/foo"), "c:/foo")
+        self.assertEqual(r.Rlocation("c:\\foo"), "c:\\foo")
+      else:
+        self.assertEqual(r.Rlocation("/foo"), "/foo")
 
   def testDirectoryBasedRlocation(self):
     # The _DirectoryBased strategy simply joins the runfiles directory and the
@@ -148,6 +145,11 @@ class RunfilesTest(unittest.TestCase):
     # nor does it check that the path exists.
     r = runfiles.CreateDirectoryBased("foo/bar baz//qux/")
     self.assertEqual(r.Rlocation("arg"), "foo/bar baz//qux/arg")
+    if RunfilesTest.IsWindows():
+      self.assertEqual(r.Rlocation("c:/foo"), "c:/foo")
+      self.assertEqual(r.Rlocation("c:\\foo"), "c:\\foo")
+    else:
+      self.assertEqual(r.Rlocation("/foo"), "/foo")
 
   @staticmethod
   def IsWindows():
