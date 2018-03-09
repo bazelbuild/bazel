@@ -32,6 +32,8 @@ from third_party.py import gflags
 gflags.DEFINE_string('name', '', 'The name of the software being packaged.')
 gflags.DEFINE_string('version', '',
                      'The version of the software being packaged.')
+gflags.DEFINE_string('release', '',
+                     'The release of the software being packaged.')
 gflags.DEFINE_string('arch', '',
                      'The CPU architecture of the software being packaged.')
 
@@ -160,9 +162,10 @@ class RpmBuilder(object):
   TEMP_DIR = 'TMP'
   DIRS = [SOURCE_DIR, BUILD_DIR, TEMP_DIR]
 
-  def __init__(self, name, version, arch):
+  def __init__(self, name, version, release, arch):
     self.name = name
     self.version = GetFlagValue(version)
+    self.release = GetFlagValue(release)
     self.arch = arch
     self.files = []
     self.rpmbuild_path = FindRpmbuild()
@@ -193,6 +196,8 @@ class RpmBuilder(object):
     replacements = {}
     if self.version:
       replacements['Version:'] = self.version
+    if self.release:
+      replacements['Release:'] = self.release
     CopyAndRewrite(spec_origin, self.spec_file, replacements)
 
   def CallRpmBuild(self, dirname):
@@ -247,7 +252,7 @@ class RpmBuilder(object):
 
 def main(argv=()):
   try:
-    builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.arch)
+    builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.release, FLAGS.arch)
     builder.AddFiles(argv[1:])
     return builder.Build(FLAGS.spec_file, FLAGS.out_file)
   except NoRpmbuildFound:
