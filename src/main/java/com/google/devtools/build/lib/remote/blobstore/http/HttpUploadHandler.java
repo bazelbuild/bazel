@@ -30,6 +30,7 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.stream.ChunkedStream;
 import io.netty.util.internal.StringUtil;
+import java.io.IOException;
 
 /** ChannelHandler for uploads. */
 final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
@@ -40,8 +41,11 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
 
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
-  protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse response)
-      throws Exception {
+  protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse response) {
+    if (!response.decoderResult().isSuccess()) {
+      failAndResetUserPromise(new IOException("Failed to parse the HTTP response."));
+      return;
+    }
     try {
       checkState(userPromise != null, "response before request");
       if (!response.status().equals(HttpResponseStatus.OK)
@@ -51,7 +55,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
         // Supporting more than OK status to be compatible with nginx webdav.
         failAndResetUserPromise(
             new HttpException(
-                response.status(), "Download failed with " + "Status: " + response.status(), null));
+                response, "Upload failed with status: " + response.status(), null));
       } else {
         succeedAndResetUserPromise();
       }
@@ -82,7 +86,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
               if (f.isSuccess()) {
                 return;
               }
-              body.close();
               failAndResetUserPromise(f.cause());
             });
     ctx.writeAndFlush(body)
@@ -91,7 +94,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
               if (f.isSuccess()) {
                 return;
               }
-              body.close();
               failAndResetUserPromise(f.cause());
             });
   }

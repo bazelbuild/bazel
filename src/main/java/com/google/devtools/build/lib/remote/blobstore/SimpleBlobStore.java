@@ -32,6 +32,8 @@ public interface SimpleBlobStore {
   /**
    * Fetches the BLOB associated with the {@code key} from the CAS and writes it to {@code out}.
    *
+   * <p>The caller is responsible to close {@code out}.
+   *
    * @return {@code true} if the {@code key} was found. {@code false} otherwise.
    */
   boolean get(String key, OutputStream out) throws IOException, InterruptedException;
@@ -40,6 +42,8 @@ public interface SimpleBlobStore {
    * Fetches the BLOB associated with the {@code key} from the Action Cache and writes it to
    * {@code out}.
    *
+   * <p>The caller is responsible to close {@code out}.
+   *
    * @return {@code true} if the {@code key} was found. {@code false} otherwise.
    */
   boolean getActionResult(String actionKey, OutputStream out) throws IOException,
@@ -47,6 +51,8 @@ public interface SimpleBlobStore {
 
   /**
    * Uploads a BLOB (as {@code in}) with length {@code length} indexed by {@code key} to the CAS.
+   *
+   * <p>The caller is responsible to close {@code in}.
    */
   void put(String key, long length, InputStream in) throws IOException, InterruptedException;
 

@@ -165,7 +165,9 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   }
 
   private Digest uploadBlob(byte[] blob, Digest digest) throws IOException, InterruptedException {
-    return uploadStream(digest, new ByteArrayInputStream(blob));
+    try(InputStream in = new ByteArrayInputStream(blob)) {
+      return uploadStream(digest, in);
+    }
   }
 
   public Digest uploadStream(Digest digest, InputStream in)

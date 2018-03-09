@@ -14,19 +14,19 @@
 
 package com.google.devtools.build.lib.remote.blobstore.http;
 
-import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpResponse;
 import java.io.IOException;
 
 /** An exception that propagates the http status. */
 final class HttpException extends IOException {
-  private final HttpResponseStatus status;
+  private final HttpResponse response;
 
-  HttpException(HttpResponseStatus status, String message, Throwable cause) {
+  HttpException(HttpResponse response, String message, Throwable cause) {
     super(message, cause);
-    this.status = status;
+    this.response = response;
   }
 
-  public HttpResponseStatus status() {
-    return status;
+  public HttpResponse response() {
+    return response;
   }
 }
