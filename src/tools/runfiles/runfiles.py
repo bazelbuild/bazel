@@ -128,8 +128,10 @@ class _Runfiles(object):
       raise TypeError()
     if ".." in path:
       raise ValueError("path contains uplevel references: \"%s\"" % path)
-    if os.path.isabs(path) or path[0] == os.sep:
-      raise ValueError("path is absolute: \"%s\"" % path)
+    if path[0] == "\\":
+      raise ValueError("path is absolute without a drive letter: \"%s\"" % path)
+    if os.path.isabs(path):
+      return path
     return self._strategy.RlocationChecked(path)
 
   def EnvVars(self):
