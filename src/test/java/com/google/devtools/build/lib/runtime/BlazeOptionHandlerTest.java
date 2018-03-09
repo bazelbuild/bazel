@@ -945,6 +945,54 @@ public class BlazeOptionHandlerTest {
         .inOrder();
   }
 
+  private void testParseOptions_recursiveConfigWithDifferentTokens() {
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--default_override=0:c0=--test_multiple_string=rc",
+            "--default_override=0:c0:other=--test_multiple_string=other",
+            "--default_override=0:c0:conf=--test_multiple_string=config1",
+            "--default_override=0:c0:conf=--config",
+            "--default_override=0:c0:conf=other",
+            "--rc_source=/somewhere/.blazerc",
+            "--config=conf"),
+        eventHandler);
+  }
+
+  @Test
+  public void testParseOptions_recursiveConfigWithDifferentTokens_fixedPoint() {
+    makeFixedPointExpandingConfigOptionHandler();
+    testParseOptions_recursiveConfigWithDifferentTokens();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
+                + "  'c0' options: --test_multiple_string=rc",
+            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+                + "--test_multiple_string=config1 --config other",
+            "Found applicable config definition c0:other in file /somewhere/.blazerc: "
+                + "--test_multiple_string=other");
+
+    // The 2nd config, --config other, is expanded after the config that added it.
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testMultipleString).containsExactly("rc", "config1", "other").inOrder();
+  }
+
+  @Test
+  public void testParseOptions_recursiveConfigWithDifferentTokens_inPlace() {
+    makeInPlaceExpandingConfigOptionHandler();
+    testParseOptions_recursiveConfigWithDifferentTokens();
+    assertThat(eventHandler.getEvents())
+        .containsExactly(
+            Event.error(
+                "In file /somewhere/.blazerc, the definition of config conf expands to another "
+                    + "config that either has no value or is not in the form --config=value. For "
+                    + "recursive config definitions, please do not provide the value in a "
+                    + "separate token, such as in the form '--config value'."));
+  }
+
   private void parseComplexConfigOrderCommandLine() {
     optionHandler.parseOptions(
         ImmutableList.of(
