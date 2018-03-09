@@ -63,10 +63,12 @@ public class UserDefinedFunction extends BaseFunction {
               getName(), env.getCurrentFunction().getName()));
     }
 
-    Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN, getName());
+    ImmutableList<String> names = signature.getSignature().getNames();
+    LexicalFrame lexicalFrame =
+        LexicalFrame.createForUserDefinedFunctionCall(env.mutability(), /*numArgs=*/ names.size());
     try {
-      env.enterScope(this, LexicalFrame.create(env.mutability()), ast, definitionGlobals);
-      ImmutableList<String> names = signature.getSignature().getNames();
+      Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN, getName());
+      env.enterScope(this, lexicalFrame, ast, definitionGlobals);
 
       // Registering the functions's arguments as variables in the local Environment
       int i = 0;

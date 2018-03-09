@@ -200,6 +200,18 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testFunctionParamCanShadowGlobalVarAfterGlobalVarIsRead() throws Exception {
+    eval("a = 1",
+        "def func2(a):",
+        "  return 0",
+        "def func1():",
+        "  dummy = a",
+        "  return func2(2)",
+        "b = func1()\n");
+    assertThat(lookup("b")).isEqualTo(0);
+  }
+
+  @Test
   public void testSingleLineFunction() throws Exception {
     eval("def func(): return 'a'",
         "s = func()\n");

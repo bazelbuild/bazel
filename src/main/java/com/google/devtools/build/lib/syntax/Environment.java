@@ -142,6 +142,11 @@ public final class Environment implements Freezable {
           ? ImmutableEmptyLexicalFrame.INSTANCE
           : new MutableLexicalFrame(mutability);
     }
+
+    static LexicalFrame createForUserDefinedFunctionCall(Mutability mutability, int numArgs) {
+      Preconditions.checkState(!mutability.isFrozen());
+      return new MutableLexicalFrame(mutability, /*initialCapacity=*/ numArgs);
+    }
   }
 
   private static final class ImmutableEmptyLexicalFrame implements LexicalFrame {
@@ -184,10 +189,16 @@ public final class Environment implements Freezable {
   private static final class MutableLexicalFrame implements LexicalFrame {
     private final Mutability mutability;
     /** Bindings are maintained in order of creation. */
-    private final LinkedHashMap<String, Object> bindings = new LinkedHashMap<>();
+    private final LinkedHashMap<String, Object> bindings;
 
-    public MutableLexicalFrame(Mutability mutability) {
+    private MutableLexicalFrame(Mutability mutability, int initialCapacity) {
       this.mutability = mutability;
+      this.bindings = new LinkedHashMap<>(initialCapacity);
+    }
+
+    private MutableLexicalFrame(Mutability mutability) {
+      this.mutability = mutability;
+      this.bindings = new LinkedHashMap<>();
     }
 
     @Override
