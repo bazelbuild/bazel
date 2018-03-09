@@ -49,8 +49,11 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import javax.net.ssl.SSLEngine;
 
 /**
@@ -86,7 +89,13 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private final ChannelPool downloadChannels;
   private final ChannelPool uploadChannels;
   private final URI uri;
+
+  private final Object credentialsLock = new Object();
+
+  @GuardedBy("credentialsLock")
   private final Credentials creds;
+  @GuardedBy("credentialsLock")
+  private long lastRefreshTime;
 
   public HttpBlobStore(URI uri, int timeoutMillis, @Nullable final Credentials creds)
       throws Exception {
@@ -125,13 +134,13 @@ public final class HttpBlobStore implements SimpleBlobStore {
             clientBootstrap,
             new ChannelPoolHandler() {
               @Override
-              public void channelReleased(Channel ch) throws Exception {}
+              public void channelReleased(Channel ch) {}
 
               @Override
-              public void channelAcquired(Channel ch) throws Exception {}
+              public void channelAcquired(Channel ch) {}
 
               @Override
-              public void channelCreated(Channel ch) throws Exception {
+              public void channelCreated(Channel ch) {
                 ChannelPipeline p = ch.pipeline();
                 if (sslCtx != null) {
                   SSLEngine engine = sslCtx.newEngine(ch.alloc());
@@ -147,13 +156,13 @@ public final class HttpBlobStore implements SimpleBlobStore {
             clientBootstrap,
             new ChannelPoolHandler() {
               @Override
-              public void channelReleased(Channel ch) throws Exception {}
+              public void channelReleased(Channel ch) {}
 
               @Override
-              public void channelAcquired(Channel ch) throws Exception {}
+              public void channelAcquired(Channel ch) {}
 
               @Override
-              public void channelCreated(Channel ch) throws Exception {
+              public void channelCreated(Channel ch) {
                 ChannelPipeline p = ch.pipeline();
                 if (sslCtx != null) {
                   SSLEngine engine = sslCtx.newEngine(ch.alloc());
@@ -185,9 +194,16 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @SuppressWarnings("FutureReturnValueIgnored")
   private boolean get(String key, OutputStream out, boolean casDownload)
       throws IOException, InterruptedException {
-
+    final AtomicBoolean dataWritten = new AtomicBoolean();
     OutputStream wrappedOut =
         new FilterOutputStream(out) {
+
+          @Override
+          public void write(int b) throws IOException {
+            dataWritten.set(true);
+            super.write(b);
+          }
+
           @Override
           public void close() {
             // Ensure that the OutputStream can't be closed somewhere in the Netty
@@ -195,7 +211,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
             // the finally block below.
           }
         };
-    DownloadCommand download = new DownloadCommand(uri, casDownload, key, wrappedOut);
+    DownloadCommand download = new DownloadCommand(uri, casDownload, key, wrappedOut);;
     Channel ch = null;
     try {
       ch = acquireDownloadChannel();
@@ -207,11 +223,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
       // checked exception that hasn't been declared in the method signature.
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
-        if (authTokenExpired(response)) {
+        if (!dataWritten.get() && authTokenExpired(response)) {
           // The error is due to an auth token having expired. Let's try again.
-          synchronized (this) {
-            creds.refresh();
-          }
+          refreshCredentials();
           return getAfterCredentialRefresh(download);
         }
         if (cacheMiss(response.status())) {
@@ -220,7 +234,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
       }
       throw e;
     } finally {
-      out.close();
       if (ch != null) {
         downloadChannels.release(ch);
       }
@@ -285,9 +298,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       if (e instanceof HttpException) {
         HttpResponse response = ((HttpException) e).response();
         if (authTokenExpired(response)) {
-          synchronized (this) {
-            creds.refresh();
-          }
+          refreshCredentials();
           // The error is due to an auth token having expired. Let's try again.
           if (!reset(in)) {
             // The InputStream can't be reset and thus we can't retry as most likely
@@ -326,6 +337,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       return true;
     }
     if (in instanceof FileInputStream) {
+      // FileInputStream does not support reset().
       ((FileInputStream) in).getChannel().position(0);
       return true;
     }
@@ -333,9 +345,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public void putActionResult(String actionKey, byte[] in)
+  public void putActionResult(String actionKey, byte[] data)
       throws IOException, InterruptedException {
-    put(actionKey, in.length, new ByteArrayInputStream(in), false);
+    try (InputStream in = new ByteArrayInputStream(data)) {
+      put(actionKey, data.length, in, false);
+    }
   }
 
   /**
@@ -360,8 +374,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
    * See https://tools.ietf.org/html/rfc6750#section-3.1
    */
   private boolean authTokenExpired(HttpResponse response) {
-    if (creds == null) {
-      return false;
+    synchronized (credentialsLock) {
+      if (creds == null) {
+        return false;
+      }
     }
     List<String> values = response.headers().getAllAsString(HttpHeaderNames.WWW_AUTHENTICATE);
     String value = String.join(",", values);
@@ -387,6 +403,20 @@ public final class HttpBlobStore implements SimpleBlobStore {
     } catch (ExecutionException e) {
       PlatformDependent.throwException(e.getCause());
       return null;
+    }
+  }
+
+  private void refreshCredentials() throws IOException {
+    synchronized (credentialsLock) {
+      long now = System.currentTimeMillis();
+      // Call creds.refresh() at most once per second. The one second was arbitrarily chosen, as
+      // a small enough value that we don't expect to interfere with actual token lifetimes, but
+      // it should just make sure that potentially hundreds of threads don't call this method
+      // at the same time.
+      if ((now - lastRefreshTime) > TimeUnit.SECONDS.toMillis(1)) {
+        lastRefreshTime = now;
+        creds.refresh();
+      }
     }
   }
 }

@@ -63,7 +63,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       if (!response.status().equals(HttpResponseStatus.OK)) {
         failAndReset(
             new HttpException(
-                response, "Download failed with Status: " + response.status(), null),
+                response, "Download failed with status: " + response.status(), null),
             ctx);
       }
     } else if (msg instanceof HttpContent) {
@@ -138,7 +138,6 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       if (!keepAlive) {
         ctx.close();
       }
-      out.close();
     } finally {
       contentLength = -1;
       bytesReceived = 0;

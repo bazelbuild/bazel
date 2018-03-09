@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.blobstore.http;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.google.common.net.HttpHeaders;
@@ -83,7 +84,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
 
     assertThat(writePromise.isDone()).isTrue();
     assertThat(out.toByteArray()).isEqualTo(new byte[] {1, 2, 3, 4, 5});
-    verify(out).close();
+    verify(out, never()).close();
     assertThat(ch.isActive()).isTrue();
   }
 
@@ -106,7 +107,8 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
         .isEqualTo(HttpResponseStatus.NOT_FOUND);
     // No data should have been written to the OutputStream and it should have been closed.
     assertThat(out.size()).isEqualTo(0);
-    verify(out).close();
+    // The caller is responsible for closing the stream.
+    verify(out, never()).close();
     assertThat(ch.isOpen()).isFalse();
   }
 }

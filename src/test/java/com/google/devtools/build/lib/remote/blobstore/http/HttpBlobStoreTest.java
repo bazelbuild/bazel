@@ -18,6 +18,7 @@ import static java.util.Collections.singletonList;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -102,7 +103,8 @@ public class HttpBlobStoreTest {
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
       verify(credentials, times(2)).hasRequestMetadata();
-      verify(out, times(1)).close();
+      // The caller is responsible to the close the stream.
+      verify(out, never()).close();
       verifyNoMoreInteractions(credentials);
     } finally {
       if (server != null) {

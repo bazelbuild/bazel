@@ -55,7 +55,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
         // Supporting more than OK status to be compatible with nginx webdav.
         failAndResetUserPromise(
             new HttpException(
-                response, "Download failed with " + "Status: " + response.status(), null));
+                response, "Upload failed with status: " + response.status(), null));
       } else {
         succeedAndResetUserPromise();
       }
@@ -86,7 +86,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
               if (f.isSuccess()) {
                 return;
               }
-              body.close();
               failAndResetUserPromise(f.cause());
             });
     ctx.writeAndFlush(body)
@@ -95,7 +94,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
               if (f.isSuccess()) {
                 return;
               }
-              body.close();
               failAndResetUserPromise(f.cause());
             });
   }
