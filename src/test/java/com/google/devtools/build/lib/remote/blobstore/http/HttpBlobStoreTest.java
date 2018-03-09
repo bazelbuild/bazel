@@ -107,10 +107,7 @@ public class HttpBlobStoreTest {
       verify(out, never()).close();
       verifyNoMoreInteractions(credentials);
     } finally {
-      if (server != null) {
-        server.close();
-        server.eventLoop().shutdownGracefully();
-      }
+      closeServerChannel(server);
     }
   }
 
@@ -137,21 +134,18 @@ public class HttpBlobStoreTest {
       verify(credentials, times(2)).hasRequestMetadata();
       verifyNoMoreInteractions(credentials);
     } finally {
-      if (server != null) {
-        server.close();
-        server.eventLoop().shutdownGracefully();
-      }
+      closeServerChannel(server);
     }
   }
 
 
   @Test
-  public void errorCodesThatShouldNotBeRetried_get() {
+  public void errorCodesThatShouldNotBeRetried_get() throws InterruptedException {
     errorCodeThatShouldNotBeRetried_get(ErrorType.INSUFFICIENT_SCOPE);
     errorCodeThatShouldNotBeRetried_get(ErrorType.INVALID_REQUEST);
   }
 
-  private void errorCodeThatShouldNotBeRetried_get(ErrorType errorType) {
+  private void errorCodeThatShouldNotBeRetried_get(ErrorType errorType) throws InterruptedException {
     ServerSocketChannel server = null;
     try {
       server = startServer(new NotAuthorizedHandler(errorType));
@@ -166,20 +160,17 @@ public class HttpBlobStoreTest {
       assertThat(e).isInstanceOf(HttpException.class);
       assertThat(((HttpException) e).response().status()).isEqualTo(HttpResponseStatus.UNAUTHORIZED);
     } finally {
-      if (server != null) {
-        server.close();
-        server.eventLoop().shutdownGracefully();
-      }
+      closeServerChannel(server);
     }
   }
 
   @Test
-  public void errorCodesThatShouldNotBeRetried_put() {
+  public void errorCodesThatShouldNotBeRetried_put() throws InterruptedException {
     errorCodeThatShouldNotBeRetried_put(ErrorType.INSUFFICIENT_SCOPE);
     errorCodeThatShouldNotBeRetried_put(ErrorType.INVALID_REQUEST);
   }
 
-  private void errorCodeThatShouldNotBeRetried_put(ErrorType errorType) {
+  private void errorCodeThatShouldNotBeRetried_put(ErrorType errorType) throws InterruptedException {
     ServerSocketChannel server = null;
     try {
       server = startServer(new NotAuthorizedHandler(errorType));
@@ -194,10 +185,7 @@ public class HttpBlobStoreTest {
       assertThat(e).isInstanceOf(HttpException.class);
       assertThat(((HttpException) e).response().status()).isEqualTo(HttpResponseStatus.UNAUTHORIZED);
     } finally {
-      if (server != null) {
-        server.close();
-        server.eventLoop().shutdownGracefully();
-      }
+      closeServerChannel(server);
     }
   }
 
@@ -277,6 +265,14 @@ public class HttpBlobStoreTest {
         ctx.writeAndFlush(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
             HttpResponseStatus.INTERNAL_SERVER_ERROR)).addListener(ChannelFutureListener.CLOSE);
       }
+    }
+  }
+
+  private void closeServerChannel(ServerSocketChannel server) throws InterruptedException {
+    if (server != null) {
+      server.close();
+      server.closeFuture().sync();
+      server.eventLoop().shutdownGracefully().sync();
     }
   }
 }
