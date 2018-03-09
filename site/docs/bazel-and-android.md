@@ -22,6 +22,7 @@ The following resources will help you work with Bazel on Android projects:
 *  [Android rules](https://docs.bazel.build/versions/master/be/android.html)
 *  [mobile-install for Android](mobile-install.html)
 *  [Integration with Android Studio](ide.html)
+*  [How Android Builds work in Bazel](https://blog.bazel.build/2018/02/14/how-android-builds-work-in-bazel.html)
 
 ## Android and new rules
 
