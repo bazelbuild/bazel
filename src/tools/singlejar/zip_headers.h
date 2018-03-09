@@ -29,8 +29,8 @@
 #include <endian.h>
 #elif defined(__FreeBSD__)
 #include <sys/endian.h>
-#elif defined(__APPLE__)
-// Hopefully OSX will keep running solely on little endian CPUs, so:
+#elif defined(__APPLE__) || defined(COMPILER_MSVC)
+// Hopefully OSX and Windows will keep running solely on little endian CPUs, so:
 #define le16toh(x) (x)
 #define le32toh(x) (x)
 #define le64toh(x) (x)
@@ -43,6 +43,13 @@
 
 #include <string>
 #include <type_traits>
+
+#ifdef COMPILER_MSVC
+#pragma pack(push, 1)
+#define attr_packed
+#else
+#define attr_packed  __attribute__((packed))
+#endif
 
 class ziph {
  public:
@@ -116,7 +123,8 @@ class ExtraField {
  protected:
   uint16_t tag_;
   uint16_t payload_size_;
-} __attribute__((packed));
+} attr_packed;
+
 static_assert(4 == sizeof(ExtraField),
               "ExtraField class fields layout is incorrect.");
 
@@ -149,7 +157,7 @@ class Zip64ExtraField : public ExtraField {
   int attr_count() const { return payload_size() / sizeof(attr_[0]); }
   void attr_count(int n) { payload_size(n * sizeof(attr_[0])); }
 
-  // Space needed for this field to accomodate n_attr attributes
+  // Space needed for this field to accommodate n_attr attributes
   static uint16_t space_needed(int n_attrs) {
     return n_attrs > 0 ? sizeof(Zip64ExtraField) + n_attrs * sizeof(uint64_t)
                        : 0;
@@ -157,7 +165,7 @@ class Zip64ExtraField : public ExtraField {
 
  private:
   uint64_t attr_[];
-} __attribute__((packed));
+} attr_packed;
 static_assert(4 == sizeof(Zip64ExtraField),
               "Zip64ExtraField class fields layout is incorrect.");
 
@@ -194,7 +202,7 @@ class UnixTimeExtraField : public ExtraField {
  private:
   uint8_t flags_;
   uint32_t timestamp_[];
-} __attribute__((packed));
+} attr_packed;
 static_assert(5 == sizeof(UnixTimeExtraField),
               "UnixTimeExtraField layout is incorrect");
 
@@ -318,7 +326,7 @@ class LH {
   uint16_t extra_fields_length_;
   char file_name_[0];
   // Followed by extra_fields.
-} __attribute__((packed));
+} attr_packed;
 static_assert(30 == sizeof(LH), "The fields layout for class LH is incorrect");
 
 /* Data descriptor Record:
@@ -359,7 +367,7 @@ class DDR {
 
  private:
   uint32_t optional_signature_;
-} __attribute__((packed));
+} attr_packed;
 
 /* Central Directory Header.  */
 class CDH {
@@ -519,7 +527,7 @@ class CDH {
   uint32_t local_header_offset32_;
   char file_name_[0];
   // Followed by extra fields and then comment.
-} __attribute__((packed));
+} attr_packed;
 static_assert(46 == sizeof(CDH), "Class CDH fields layout is incorrect.");
 
 /* Zip64 End of Central Directory Locator.  */
@@ -542,7 +550,7 @@ class ECD64Locator {
   uint32_t ecd64_disk_nr_;
   uint64_t ecd64_offset_;
   uint32_t total_disks_;
-} __attribute__((packed));
+} attr_packed;
 static_assert(20 == sizeof(ECD64Locator),
               "ECD64Locator class fields layout is incorrect.");
 
@@ -595,7 +603,7 @@ class ECD {
   uint32_t cen_offset32_;
   uint16_t comment_length_;
   uint8_t comment_[0];
-} __attribute__((packed));
+} attr_packed;
 static_assert(22 == sizeof(ECD), "ECD class fields layout is incorrect.");
 
 /* Zip64 end of central directory.  */
@@ -642,7 +650,13 @@ class ECD64 {
   uint64_t total_entries_;
   uint64_t cen_size_;
   uint64_t cen_offset_;
-} __attribute__((packed));
+} attr_packed;
 static_assert(56 == sizeof(ECD64), "ECD64 class fields layout is incorrect.");
+
+#ifdef COMPILER_MSVC
+#pragma pack(pop)
+#endif
+
+#undef attr_packed
 
 #endif  // BAZEL_SRC_TOOLS_SINGLEJAR_ZIP_HEADERS_H_

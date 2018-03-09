@@ -33,16 +33,18 @@
 #include <string.h>
 #include <windows.h>
 #define _diag_msg(prefix, msg, ...) \
-  { fprintf(stderr, prefix " [" __FILE__ ":%d]" msg, __LINE__, __VA_ARGS__); }
-#define _diag_msgx(eval, prefix, msg, ...) \
-  {                                        \
-    _diag_msg(prefix, msg, __VA_ARGS__);   \
-    ::ExitProcess(eval);                   \
+  { fprintf(stderr, prefix msg, __VA_ARGS__); }
+#define _diag_msgx(exit_value, prefix, msg, ...) \
+  { \
+    _diag_msg(prefix, msg, __VA_ARGS__); \
+    ::ExitProcess(exit_value); \
   }
-#define diag_err(eval, fmt, ...) _diag_msgx(eval, "ERROR", fmt, __VA_ARGS__)
-#define diag_errx(eval, ...) _diag_msgx(eval, "ERROR", "", __VA_ARGS__)
-#define diag_warn(...) _diag_msg("WARNING", __VA_ARGS__)
-#define diag_warnx(...) _diag_msg("WARNING")
+#define diag_err(exit_value, fmt, ...) \
+  _diag_msgx(exit_value, "ERROR: ", fmt, __VA_ARGS__)
+#define diag_errx(exit_value, fmt, ...) \
+  _diag_msgx(exit_value, "ERROR: ", fmt, __VA_ARGS__)
+#define diag_warn(fmt, ...) _diag_msg("WARNING: ", fmt, __VA_ARGS__)
+#define diag_warnx(fmt, ...) _diag_msg("WARNING: ", fmt, __VA_ARGS__)
 
 #else
 #error Unknown platform
