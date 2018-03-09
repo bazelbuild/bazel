@@ -150,7 +150,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     // If this rule is the run_under target, then check that we have an executable; note that
     // run_under is only set in the target configuration, and the target must also be analyzed for
     // the target configuration.
-    RunUnder runUnder = getConfiguration().getRunUnder();
+    RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
     if (runUnder != null && getLabel().equals(runUnder.getLabel())) {
       if (getProvider(FilesToRunProvider.class).getExecutable() == null) {
         ruleContext.ruleError("run_under target " + runUnder.getLabel() + " is not executable");
