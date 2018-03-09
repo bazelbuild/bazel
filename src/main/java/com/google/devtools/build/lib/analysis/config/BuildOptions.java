@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -32,17 +34,18 @@ import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Stores the command-line options from a set of configuration fragments. */
@@ -297,6 +300,23 @@ public final class BuildOptions implements Cloneable, Serializable {
     this.fragmentOptionsMap = fragmentOptionsMap;
   }
 
+  BuildOptions applyDiff(OptionsDiffForReconstruction optionsDiff) {
+    if (optionsDiff.isEmpty()) {
+      return this;
+    }
+    Builder builder = builder();
+    for (FragmentOptions options : fragmentOptionsMap.values()) {
+      FragmentOptions newOptions = optionsDiff.transformOptions(options);
+      if (newOptions != null) {
+        builder.add(newOptions);
+      }
+    }
+    for (FragmentOptions extraSecondFragment : optionsDiff.extraSecondFragments) {
+      builder.add(extraSecondFragment);
+    }
+    return builder.build();
+  }
+
   /**
    * Creates a builder object for BuildOptions
    */
@@ -346,8 +366,11 @@ public final class BuildOptions implements Cloneable, Serializable {
             .stream()
             .map(FragmentOptions::getClass)
             .collect(ImmutableSet.toImmutableSet());
-    Sets.difference(firstOptionClasses, secondOptionClasses).forEach(diff::addExtraFirstFragments);
-    Sets.difference(secondOptionClasses, firstOptionClasses).forEach(diff::addExtraSecondFragments);
+    Sets.difference(firstOptionClasses, secondOptionClasses).forEach(diff::addExtraFirstFragment);
+    Sets.difference(secondOptionClasses, firstOptionClasses)
+        .stream()
+        .map(second::get)
+        .forEach(diff::addExtraSecondFragment);
     // For fragments in common, report differences.
     for (Class<? extends FragmentOptions> clazz :
         Sets.intersection(firstOptionClasses, secondOptionClasses)) {
@@ -360,7 +383,7 @@ public final class BuildOptions implements Cloneable, Serializable {
           Object firstValue = firstClazzOptions.get(name);
           Object secondValue = secondClazzOptions.get(name);
           if (!Objects.equals(firstValue, secondValue)) {
-            diff.addDiff(definition, firstValue, secondValue);
+            diff.addDiff(clazz, definition, firstValue, secondValue);
           }
         }
       }
@@ -369,31 +392,62 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
+   * Returns a {@link OptionsDiffForReconstruction} object that can be applied to {@code first} via
+   * {@link #applyDiff} to get a {@link BuildOptions} object equal to {@code second}.
+   */
+  public static OptionsDiffForReconstruction diffForReconstruction(
+      BuildOptions first, BuildOptions second) {
+    OptionsDiff diff = diff(first, second);
+    if (diff.areSame()) {
+      return OptionsDiffForReconstruction.EMPTY;
+    }
+    ImmutableMap.Builder<Class<? extends FragmentOptions>, ImmutableMap<String, Object>>
+        differingOptionsBuilder =
+            ImmutableMap.builderWithExpectedSize(diff.differingOptions.keySet().size());
+    for (Class<? extends FragmentOptions> clazz : diff.differingOptions.keySet()) {
+      Collection<OptionDefinition> fields = diff.differingOptions.get(clazz);
+      ImmutableMap.Builder<String, Object> valuesMapBuilder =
+          ImmutableMap.builderWithExpectedSize(fields.size());
+      for (OptionDefinition optionDefinition : fields) {
+        valuesMapBuilder.put(
+            optionDefinition.getField().getName(), diff.second.get(optionDefinition));
+      }
+      differingOptionsBuilder.put(clazz, valuesMapBuilder.build());
+    }
+    return new OptionsDiffForReconstruction(
+        differingOptionsBuilder.build(),
+        ImmutableSet.copyOf(diff.extraFirstFragments),
+        ImmutableList.copyOf(diff.extraSecondFragments));
+  }
+
+  /**
    * A diff class for BuildOptions. Fields are meant to be populated and returned by
    * {@link BuildOptions#diff}
    */
   public static class OptionsDiff{
+    private final Multimap<Class<? extends FragmentOptions>, OptionDefinition> differingOptions =
+        ArrayListMultimap.create();
     private final Map<OptionDefinition, Object> first = new HashMap<>();
     private final Map<OptionDefinition, Object> second = new HashMap<>();
-    private final List<Class<? extends FragmentOptions>> extraFirstFragments = new ArrayList<>();
-    private final List<Class<? extends FragmentOptions>> extraSecondFragments = new ArrayList<>();
+    private final Set<Class<? extends FragmentOptions>> extraFirstFragments = new HashSet<>();
+    private final Set<FragmentOptions> extraSecondFragments = new HashSet<>();
 
-    private void addExtraFirstFragments(Class<? extends FragmentOptions> clazz) {
-      extraFirstFragments.add(clazz);
+    private void addExtraFirstFragment(Class<? extends FragmentOptions> options) {
+      extraFirstFragments.add(options);
     }
 
-    private void addExtraSecondFragments(Class<? extends FragmentOptions> clazz) {
-      extraSecondFragments.add(clazz);
+    private void addExtraSecondFragment(FragmentOptions options) {
+      extraSecondFragments.add(options);
     }
 
-    /** Return the extra fragments from the first configuration. */
-    public List<Class<? extends FragmentOptions>> getExtraFirstFragments() {
+    /** Return the extra fragments classes from the first configuration. */
+    public Set<Class<? extends FragmentOptions>> getExtraFirstFragmentClasses() {
       return extraFirstFragments;
     }
 
-    /** Return the extra fragments from the second configuration. */
-    public List<Class<? extends FragmentOptions>> getExtraSecondFragments() {
-      return extraSecondFragments;
+    /** Return the extra fragments classes from the second configuration. */
+    public Set<Class<?>> getExtraSecondFragmentClasses() {
+      return extraSecondFragments.stream().map(Object::getClass).collect(Collectors.toSet());
     }
 
     public Map<OptionDefinition, Object> getFirst() {
@@ -404,8 +458,12 @@ public final class BuildOptions implements Cloneable, Serializable {
       return second;
     }
 
-
-    private void addDiff(OptionDefinition option, Object firstValue, Object secondValue) {
+    private void addDiff(
+        Class<? extends FragmentOptions> fragmentOptionsClass,
+        OptionDefinition option,
+        Object firstValue,
+        Object secondValue) {
+      differingOptions.put(fragmentOptionsClass, option);
       first.put(option, firstValue);
       second.put(option, secondValue);
     }
@@ -418,7 +476,8 @@ public final class BuildOptions implements Cloneable, Serializable {
       return first.isEmpty()
           && second.isEmpty()
           && extraSecondFragments.isEmpty()
-          && extraFirstFragments.isEmpty();
+          && extraFirstFragments.isEmpty()
+          && differingOptions.isEmpty();
     }
 
     public String prettyPrint() {
@@ -433,6 +492,80 @@ public final class BuildOptions implements Cloneable, Serializable {
             .append(System.lineSeparator());
       }
       return toReturn.toString();
+    }
+  }
+
+  /**
+   * An object that encapsulates the data needed to transform one {@link BuildOptions} object into
+   * another: the full fragments of the second one, the fragment classes of the first that should be
+   * omitted, and the values of any fields that should be changed.
+   */
+  @AutoCodec
+  static class OptionsDiffForReconstruction {
+    @AutoCodec
+    static final OptionsDiffForReconstruction EMPTY =
+        new OptionsDiffForReconstruction(ImmutableMap.of(), ImmutableSet.of(), ImmutableList.of());
+
+    private final ImmutableMap<Class<? extends FragmentOptions>, ImmutableMap<String, Object>>
+        differingOptions;
+    private final ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses;
+    private final ImmutableList<FragmentOptions> extraSecondFragments;
+
+    @AutoCodec.VisibleForSerialization
+    OptionsDiffForReconstruction(
+        ImmutableMap<Class<? extends FragmentOptions>, ImmutableMap<String, Object>>
+            differingOptions,
+        ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses,
+        ImmutableList<FragmentOptions> extraSecondFragments) {
+      this.differingOptions = differingOptions;
+      this.extraFirstFragmentClasses = extraFirstFragmentClasses;
+      this.extraSecondFragments = extraSecondFragments;
+    }
+
+    @Nullable
+    private FragmentOptions transformOptions(FragmentOptions input) {
+      Class<? extends FragmentOptions> clazz = input.getClass();
+      if (extraFirstFragmentClasses.contains(clazz)) {
+        return null;
+      }
+      Map<String, Object> changedOptions = differingOptions.get(clazz);
+      if (changedOptions.isEmpty()) {
+        return input;
+      }
+      FragmentOptions newOptions = input.clone();
+      for (Map.Entry<String, Object> entry : changedOptions.entrySet()) {
+        try {
+          clazz.getField(entry.getKey()).set(newOptions, entry.getValue());
+        } catch (IllegalAccessException | NoSuchFieldException e) {
+          throw new IllegalStateException("Couldn't set " + entry + " for " + newOptions, e);
+        }
+      }
+      return newOptions;
+    }
+
+    private boolean isEmpty() {
+      return differingOptions.isEmpty()
+          && extraFirstFragmentClasses.isEmpty()
+          && extraSecondFragments.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      OptionsDiffForReconstruction that = (OptionsDiffForReconstruction) o;
+      return differingOptions.equals(that.differingOptions)
+          && extraFirstFragmentClasses.equals(that.extraFirstFragmentClasses)
+          && this.extraSecondFragments.equals(that.extraSecondFragments);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(differingOptions, extraFirstFragmentClasses, extraSecondFragments);
     }
   }
 }

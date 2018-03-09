@@ -98,7 +98,23 @@ public class BuildOptionsTest {
     OptionsDiff diff = BuildOptions.diff(one, two);
 
     assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getExtraFirstFragments()).containsExactly(CppOptions.class);
-    assertThat(diff.getExtraSecondFragments()).isEqualTo(TEST_OPTIONS);
+    assertThat(diff.getExtraFirstFragmentClasses()).containsExactly(CppOptions.class);
+    assertThat(diff.getExtraSecondFragmentClasses()).containsExactlyElementsIn(TEST_OPTIONS);
+  }
+
+  @Test
+  public void applyDiff() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
+    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+    assertThat(reconstructedTwo).isEqualTo(two);
+    assertThat(reconstructedTwo).isNotSameAs(two);
+    BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
+    assertThat(reconstructedOne).isSameAs(one);
+    BuildOptions otherFragment = BuildOptions.of(ImmutableList.of(CppOptions.class));
+    assertThat(one.applyDiff(BuildOptions.diffForReconstruction(one, otherFragment)))
+        .isEqualTo(otherFragment);
+    assertThat(otherFragment.applyDiff(BuildOptions.diffForReconstruction(otherFragment, one)))
+        .isEqualTo(one);
   }
 }
