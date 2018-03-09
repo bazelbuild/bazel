@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -203,7 +205,7 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(path, "foo contents");
     // We need the intermediate sym1 and sym2 so that we can dirty a child of symlink without
     // actually changing the FileValue calculated for symlink (if we changed the contents of foo,
-    // the the FileValue created for symlink would notice, since it stats foo).
+    // the FileValue created for symlink would notice, since it stats foo).
     Path sym1 = fs.getPath("/sym1");
     Path sym2 = fs.getPath("/sym2");
     Path symlink = fs.getPath("/bar");
@@ -269,6 +271,8 @@ public class FilesystemValueCheckerTest {
 
   @Test
   public void testExplicitFiles() throws Exception {
+    TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(new JavaClock());
+    tsgm.setCommandStartTime();
     FilesystemValueChecker checker = new FilesystemValueChecker(null, null);
 
     Path path1 = fs.getPath("/foo1");
@@ -291,10 +295,18 @@ public class FilesystemValueCheckerTest {
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
+    // Wait for the timestamp granularity to elapse, so updating the files will observably advance
+    // their ctime.
+    tsgm.notifyDependenceOnFileTime(PathFragment.create("dummy"), System.currentTimeMillis());
+    tsgm.waitForTimestampGranularity(OutErr.SYSTEM_OUT_ERR);
+    // Update path1's contents and mtime. This will update the file's ctime.
     FileSystemUtils.writeContentAsLatin1(path1, "hello1");
-    FileSystemUtils.writeContentAsLatin1(path1, "hello2");
     path1.setLastModifiedTime(27);
+    // Update path2's mtime but not its contents. We expect that an mtime change suffices to update
+    // the ctime.
     path2.setLastModifiedTime(42);
+    // Assert that both files changed. The change detection relies, among other things, on ctime
+    // change.
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), key1, key2);
 
     differencer.invalidate(skyKeys);
