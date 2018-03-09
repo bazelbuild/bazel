@@ -373,6 +373,17 @@ public class CppOptions extends FragmentOptions {
   public List<String> ltoindexoptList;
 
   @Option(
+    name = "ltobackendopt",
+    defaultValue = "",
+    category = "flags",
+    allowMultiple = true,
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "Additional option to pass to the LTO backend step (under --features=thin_lto)."
+  )
+  public List<String> ltobackendoptList;
+
+  @Option(
     name = "stripopt",
     allowMultiple = true,
     defaultValue = "",
@@ -687,6 +698,28 @@ public class CppOptions extends FragmentOptions {
             + "except bar.cc."
   )
   public List<PerLabelOptions> perFileCopts;
+
+  @Option(
+    name = "per_file_ltobackendopt",
+    allowMultiple = true,
+    converter = PerLabelOptions.PerLabelOptionsConverter.class,
+    defaultValue = "",
+    category = "semantics",
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+    help =
+        "Additional options to selectively pass to LTO backend (under --features=thin_lto) when "
+            + "compiling certain backend objects. This option can be passed multiple times. "
+            + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
+            + "for a list of include and exclude regular expression patterns. "
+            + "option_1 to option_n stand for arbitrary command line options. "
+            + "If an option contains a comma it has to be quoted with a backslash. "
+            + "Options can contain @. Only the first @ is used to split the string. Example: "
+            + "--per_file_ltobackendopt=//foo/.*\\.o,-//foo/bar\\.o@-O0 adds the -O0 "
+            + "command line option to the LTO backend command line of all o files in //foo/ "
+            + "except bar.o."
+  )
+  public List<PerLabelOptions> perFileLtoBackendOpts;
 
   @Option(
     name = "host_crosstool_top",

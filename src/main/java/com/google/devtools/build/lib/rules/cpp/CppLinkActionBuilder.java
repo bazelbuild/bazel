@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
@@ -592,10 +593,21 @@ public class CppLinkActionBuilder {
     return ltoArtifact;
   }
 
+  private ImmutableList<String> collectPerFileLtoBackendOpts(Artifact objectFile) {
+    return cppConfiguration
+        .getPerFileLtoBackendOpts()
+        .stream()
+        .filter(perLabelOptions -> perLabelOptions.isIncluded(objectFile))
+        .map(PerLabelOptions::getOptions)
+        .flatMap(options -> options.stream())
+        .collect(ImmutableList.toImmutableList());
+  }
+
   private List<String> getLtoBackendCommandLineOptions(ImmutableSet<String> features) {
     List<String> argv = new ArrayList<>();
     argv.addAll(toolchain.getLinkOptions());
     argv.addAll(CppHelper.getCompilerOptions(cppConfiguration, toolchain, features));
+    argv.addAll(cppConfiguration.getLtoBackendOptions());
     return argv;
   }
 
@@ -639,13 +651,15 @@ public class CppLinkActionBuilder {
       for (Artifact objectFile : lib.getObjectFiles()) {
         if (compiled.contains(objectFile)) {
           if (allowLtoIndexing) {
+            List<String> backendArgv = new ArrayList<>(argv);
+            backendArgv.addAll(collectPerFileLtoBackendOpts(objectFile));
             LtoBackendArtifacts ltoArtifacts =
                 createLtoArtifact(
                     objectFile,
                     allBitcode,
                     ltoOutputRootPrefix,
                     /* createSharedNonLto= */ false,
-                    argv);
+                    backendArgv);
             ltoOutputs.add(ltoArtifacts);
           } else {
             // We should have created shared LTO backends when the library was created.
@@ -660,9 +674,15 @@ public class CppLinkActionBuilder {
     }
     for (LinkerInput input : objectFiles) {
       if (this.ltoBitcodeFiles.containsKey(input.getArtifact())) {
+        List<String> backendArgv = new ArrayList<>(argv);
+        backendArgv.addAll(collectPerFileLtoBackendOpts(input.getArtifact()));
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
-                input.getArtifact(), allBitcode, ltoOutputRootPrefix, !allowLtoIndexing, argv);
+                input.getArtifact(),
+                allBitcode,
+                ltoOutputRootPrefix,
+                !allowLtoIndexing,
+                backendArgv);
         ltoOutputs.add(ltoArtifacts);
       }
     }
@@ -686,13 +706,15 @@ public class CppLinkActionBuilder {
 
     for (LinkerInput input : objectFiles) {
       if (this.ltoBitcodeFiles.containsKey(input.getArtifact())) {
+        List<String> backendArgv = new ArrayList<>(argv);
+        backendArgv.addAll(collectPerFileLtoBackendOpts(input.getArtifact()));
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
                 input.getArtifact(),
                 /* allBitcode= */ null,
                 ltoOutputRootPrefix,
                 /* createSharedNonLto= */ true,
-                argv);
+                backendArgv);
         sharedNonLtoBackends.put(input.getArtifact(), ltoArtifacts);
       }
     }

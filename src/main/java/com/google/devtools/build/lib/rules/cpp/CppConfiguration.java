@@ -187,6 +187,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
 
   private final ImmutableList<String> linkOptions;
   private final ImmutableList<String> ltoindexOptions;
+  private final ImmutableList<String> ltobackendOptions;
 
   private final CppOptions cppOptions;
   private final CpuTransformer cpuTransformerEnum;
@@ -312,6 +313,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(cppOptions.cxxoptList),
         linkoptsBuilder.build(),
         ImmutableList.copyOf(cppOptions.ltoindexoptList),
+        ImmutableList.copyOf(cppOptions.ltobackendoptList),
         cppOptions,
         params.cpuTransformer,
         (cppOptions.stripBinaries == StripMode.ALWAYS
@@ -349,6 +351,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       ImmutableList<String> cxxopts,
       ImmutableList<String> linkOptions,
       ImmutableList<String> ltoindexOptions,
+      ImmutableList<String> ltobackendOptions,
       CppOptions cppOptions,
       CpuTransformer cpuTransformerEnum,
       boolean stripBinaries,
@@ -380,6 +383,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.cxxopts = cxxopts;
     this.linkOptions = linkOptions;
     this.ltoindexOptions = ltoindexOptions;
+    this.ltobackendOptions = ltobackendOptions;
     this.cppOptions = cppOptions;
     this.cpuTransformerEnum = cpuTransformerEnum;
     this.stripBinaries = stripBinaries;
@@ -720,6 +724,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return ltoindexOptions;
   }
 
+  /** Returns the set of command-line LTO backend options. */
+  public ImmutableList<String> getLtoBackendOptions() {
+    return ltobackendOptions;
+  }
+
   /**
    * Returns the immutable list of linker options for fully statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
@@ -972,6 +981,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public ImmutableList<PerLabelOptions> getPerFileCopts() {
     return ImmutableList.copyOf(cppOptions.perFileCopts);
+  }
+
+  /**
+   * Returns the {@link PerLabelOptions} to apply to the LTO Backend command line, if the compiled
+   * object matches the regular expression.
+   */
+  public ImmutableList<PerLabelOptions> getPerFileLtoBackendOpts() {
+    return ImmutableList.copyOf(cppOptions.perFileLtoBackendOpts);
   }
 
   /**
