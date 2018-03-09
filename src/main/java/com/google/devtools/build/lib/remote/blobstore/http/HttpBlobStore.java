@@ -240,6 +240,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     }
   }
 
+  @SuppressWarnings("FutureReturnValueIgnored")
   private boolean getAfterCredentialRefresh(DownloadCommand cmd) throws InterruptedException {
     Channel ch = null;
     try {
@@ -318,6 +319,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     }
   }
 
+  @SuppressWarnings("FutureReturnValueIgnored")
   private void putAfterCredentialRefresh(UploadCommand cmd) throws InterruptedException {
     Channel ch = null;
     try {
