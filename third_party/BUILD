@@ -20,7 +20,6 @@ filegroup(
         "//third_party/java/jcommander:srcs",
         "//third_party/java/jopt-simple:srcs",
         "//third_party/java/jdk/langtools:srcs",
-        "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
         "//third_party/checker_framework_dataflow:srcs",
