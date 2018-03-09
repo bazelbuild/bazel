@@ -266,6 +266,12 @@ public class CppRuleClasses {
    */
   public static final String INCLUDE_PATHS = "include_paths";
 
+  /** A string constant for the feature signalling static linking mode. */
+  public static final String STATIC_LINKING_MODE = "static_linking_mode";
+
+  /** A string constant for the feature signalling dynamic linking mode. */
+  public static final String DYNAMIC_LINKING_MODE = "dynamic_linking_mode";
+
   /**
    * A string constant for the ThinLTO feature.
    */

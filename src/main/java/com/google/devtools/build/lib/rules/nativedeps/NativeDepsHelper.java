@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.nativedeps;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -216,7 +218,12 @@ public abstract class NativeDepsHelper {
     }
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
-    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext, toolchain);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeatures(
+            ruleContext,
+            /* requestedFeatures= */ ImmutableSet.of(STATIC_LINKING_MODE),
+            /* unsupportedFeatures= */ ImmutableSet.of(),
+            toolchain);
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
