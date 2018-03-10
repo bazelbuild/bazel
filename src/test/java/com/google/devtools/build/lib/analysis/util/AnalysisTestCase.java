@@ -58,7 +58,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -390,12 +390,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return update(new EventBus(), defaultFlags(), aspects, labels);
   }
 
-  protected ConfiguredTargetAndTarget getConfiguredTargetAndTarget(String label)
+  protected ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)
       throws InterruptedException {
     return getConfiguredTargetAndTarget(label, getTargetConfiguration());
   }
 
-  protected ConfiguredTargetAndTarget getConfiguredTargetAndTarget(
+  protected ConfiguredTargetAndData getConfiguredTargetAndTarget(
       String label, BuildConfiguration config) {
     ensureUpdateWasCalled();
     Label parsedLabel;

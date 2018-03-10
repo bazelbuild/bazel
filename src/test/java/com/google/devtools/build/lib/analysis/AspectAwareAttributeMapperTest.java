@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,7 +42,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Before
   public final void createMapper() throws Exception {
-    ConfiguredTargetAndTarget ctat =
+    ConfiguredTargetAndData ctad =
         scratchConfiguredTargetAndTarget(
             "foo",
             "myrule",
@@ -51,8 +51,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
             "    srcs = [':a.cc'],",
             "    linkstatic = select({'//conditions:default': 1}))");
 
-    RuleConfiguredTarget ct = (RuleConfiguredTarget) ctat.getConfiguredTarget();
-    rule = (Rule) ctat.getTarget();
+    RuleConfiguredTarget ct = (RuleConfiguredTarget) ctad.getConfiguredTarget();
+    rule = (Rule) ctad.getTarget();
     Attribute aspectAttr = new Attribute.Builder<Label>("fromaspect", BuildType.LABEL)
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .build();

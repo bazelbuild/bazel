@@ -72,7 +72,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -249,14 +249,14 @@ public final class ObjcCommon {
       return this;
     }
 
-    Builder addDeps(List<ConfiguredTargetAndTarget> deps) {
+    Builder addDeps(List<ConfiguredTargetAndData> deps) {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps =
           ImmutableList.<ObjcProvider>builder();
       ImmutableList.Builder<CcCompilationInfo> cppDeps = ImmutableList.<CcCompilationInfo>builder();
       ImmutableList.Builder<CcLinkParamsInfo> cppDepLinkParams =
           ImmutableList.<CcLinkParamsInfo>builder();
 
-      for (ConfiguredTargetAndTarget dep : deps) {
+      for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
         addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
         addAnyProviders(cppDeps, depCT, CcCompilationInfo.PROVIDER);
@@ -567,7 +567,7 @@ public final class ObjcCommon {
       return new ObjcCommon(objcProvider.build(), compilationArtifacts);
     }
 
-    private static boolean isCcLibrary(ConfiguredTargetAndTarget info) {
+    private static boolean isCcLibrary(ConfiguredTargetAndData info) {
       try {
         String targetName = info.getTarget().getTargetKind();
 

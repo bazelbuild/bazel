@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkNativeAspect;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
  * Aspect that gathers the proto dependencies of the attached rule target, and propagates the proto
@@ -47,7 +47,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters)
+      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     ConfiguredAspect.Builder aspectBuilder = new ConfiguredAspect.Builder(
         this, parameters, ruleContext);

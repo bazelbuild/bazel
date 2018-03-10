@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,8 +46,8 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
    * Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration.
    */
   private ConfiguredAttributeMapper getMapper(String label) throws Exception {
-    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget(label);
-    return getMapperFromConfiguredTargetAndTarget(ctat);
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget(label);
+    return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 
   private void writeConfigRules() throws Exception {

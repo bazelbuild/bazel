@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -92,7 +92,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Rule ruleTarget = (Rule) getTarget("//pkg:foo");
     assertThat(ruleTarget.getRuleClass()).isEqualTo("genrule");
 
-    ConfiguredTargetAndTarget ruleCTAT = getConfiguredTargetAndTarget("//pkg:foo");
+    ConfiguredTargetAndData ruleCTAT = getConfiguredTargetAndTarget("//pkg:foo");
 
     assertThat(ruleCTAT.getTarget()).isSameAs(ruleTarget);
   }
@@ -116,9 +116,9 @@ public class BuildViewTest extends BuildViewTestBase {
     //scratch.file("tests/small_test_1.py");
 
     update("//tests:smallTests");
-    ConfiguredTargetAndTarget test1 = getConfiguredTargetAndTarget("//tests:small_test_1");
-    ConfiguredTargetAndTarget test2 = getConfiguredTargetAndTarget("//tests:small_test_2");
-    ConfiguredTargetAndTarget suite = getConfiguredTargetAndTarget("//tests:smallTests");
+    ConfiguredTargetAndData test1 = getConfiguredTargetAndTarget("//tests:small_test_1");
+    ConfiguredTargetAndData test2 = getConfiguredTargetAndTarget("//tests:small_test_2");
+    ConfiguredTargetAndData suite = getConfiguredTargetAndTarget("//tests:smallTests");
 
     ConfiguredTarget test1CT = test1.getConfiguredTarget();
     ConfiguredTarget test2CT = test2.getConfiguredTarget();

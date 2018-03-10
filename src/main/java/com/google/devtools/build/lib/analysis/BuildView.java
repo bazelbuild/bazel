@@ -81,7 +81,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStati
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
@@ -967,7 +967,7 @@ public class BuildView {
                 getDirectPrerequisiteDependenciesForTesting(
                         eventHandler, ct, configurations, /*toolchainContext=*/ null)
                     .values())),
-        ConfiguredTargetAndTarget::getConfiguredTarget);
+        ConfiguredTargetAndData::getConfiguredTarget);
   }
 
   @VisibleForTesting
@@ -1080,7 +1080,7 @@ public class BuildView {
     return ImmutableMap.copyOf(keys);
   }
 
-  private OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> getPrerequisiteMapForTesting(
+  private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> getPrerequisiteMapForTesting(
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
       BuildConfigurationCollection configurations,
@@ -1091,11 +1091,11 @@ public class BuildView {
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainContext);
 
-    ImmutableMultimap<Dependency, ConfiguredTargetAndTarget> cts =
+    ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts =
         skyframeExecutor.getConfiguredTargetMapForTesting(
             eventHandler, target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()));
 
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> result = OrderedSetMultimap.create();
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
       result.putAll(entry.getKey(), cts.get(entry.getValue()));
     }
@@ -1144,7 +1144,7 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  public ConfiguredTargetAndTarget getConfiguredTargetAndTargetForTesting(
+  public ConfiguredTargetAndData getConfiguredTargetAndTargetForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config) {
     return skyframeExecutor.getConfiguredTargetAndTargetForTesting(eventHandler, label, config);
   }
@@ -1200,7 +1200,7 @@ public class BuildView {
     ToolchainContext toolchainContext =
         skyframeExecutor.getToolchainContextForTesting(
             requiredToolchains, targetConfig, eventHandler);
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap =
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
             eventHandler, configuredTarget, configurations, toolchainContext);
     toolchainContext.resolveToolchains(prerequisiteMap);
@@ -1239,11 +1239,11 @@ public class BuildView {
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
              InconsistentAspectOrderException {
-    Collection<ConfiguredTargetAndTarget> configuredTargets =
+    Collection<ConfiguredTargetAndData> configuredTargets =
         getPrerequisiteMapForTesting(
                 eventHandler, dependentTarget, configurations, /*toolchainContext=*/ null)
             .values();
-    for (ConfiguredTargetAndTarget ct : configuredTargets) {
+    for (ConfiguredTargetAndData ct : configuredTargets) {
       if (ct.getTarget().getLabel().equals(desiredTarget)) {
         return ct.getConfiguredTarget();
       }

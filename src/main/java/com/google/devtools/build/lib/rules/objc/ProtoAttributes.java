@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 
 /** Common rule attributes used by an objc_proto_library. */
@@ -91,7 +91,7 @@ final class ProtoAttributes {
     return ruleContext.attributes().has(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
   }
 
-  private boolean isObjcProtoLibrary(ConfiguredTargetAndTarget dependency) {
+  private boolean isObjcProtoLibrary(ConfiguredTargetAndData dependency) {
     try {
       String targetName = dependency.getTarget().getTargetKind();
       return targetName.equals("objc_proto_library rule");
@@ -247,7 +247,7 @@ final class ProtoAttributes {
   }
 
   private boolean hasObjcProtoLibraryDependencies() {
-    for (ConfiguredTargetAndTarget dep :
+    for (ConfiguredTargetAndData dep :
         ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET)) {
       if (isObjcProtoLibrary(dep)) {
         return true;

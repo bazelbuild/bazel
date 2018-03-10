@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
  * A provider that gives information about the aliases a rule was resolved through.
@@ -66,7 +66,7 @@ public final class AliasProvider implements TransitiveInfoProvider {
     return aliasChain;
   }
 
-  public static String printLabelWithAliasChain(ConfiguredTargetAndTarget target) {
+  public static String printLabelWithAliasChain(ConfiguredTargetAndData target) {
     AliasProvider aliasProvider = target.getConfiguredTarget().getProvider(AliasProvider.class);
     String suffix = aliasProvider == null
         ? ""

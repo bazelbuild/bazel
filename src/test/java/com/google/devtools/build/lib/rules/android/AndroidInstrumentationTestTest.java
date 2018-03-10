@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -118,7 +118,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testTestExecutableRunfiles() throws Exception {
-    ConfiguredTargetAndTarget androidInstrumentationTest =
+    ConfiguredTargetAndData androidInstrumentationTest =
         getConfiguredTargetAndTarget("//javatests/com/app/ait");
     NestedSet<Artifact> runfiles =
         androidInstrumentationTest

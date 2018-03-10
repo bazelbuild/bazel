@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,7 +47,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters) {
+      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters) {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
       return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
@@ -72,7 +72,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
                 AndroidCommon.collectTransitiveNeverlinkLibraries(
                     ruleContext,
                     deps,
-                    ctatBase
+                    ctadBase
                         .getConfiguredTarget()
                         .getProvider(JavaRuntimeJarProvider.class)
                         .getRuntimeJars())))

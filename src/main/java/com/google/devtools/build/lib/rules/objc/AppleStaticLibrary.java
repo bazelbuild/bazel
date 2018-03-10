@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -76,7 +76,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
 
-    ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndTarget>
+    ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
         configToCTATDepsCollectionMap =
             ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps", Mode.SPLIT);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configToObjcAvoidDepsMap =
@@ -208,7 +208,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      List<ConfiguredTargetAndTarget> propagatedConfigredTargetAndTargetDeps,
+      List<ConfiguredTargetAndData> propagatedConfigredTargetAndTargetDeps,
       Optional<ObjcProvider> protosObjcProvider) {
 
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder().build();

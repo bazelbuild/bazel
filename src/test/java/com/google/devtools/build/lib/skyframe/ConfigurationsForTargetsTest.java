@@ -119,9 +119,9 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
      * deps of given target.
      */
     static class Value implements SkyValue {
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depMap;
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depMap;
 
-      Value(OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depMap) {
+      Value(OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depMap) {
         this.depMap = depMap;
       }
     }
@@ -130,7 +130,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws EvalException, InterruptedException {
       try {
-        OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depMap =
+        OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depMap =
             ConfiguredTargetFunction.computeDependencies(
                 env,
                 new SkyframeDependencyResolver(env),
@@ -209,7 +209,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    * Returns the configured deps for a given target, assuming the target uses the target
    * configuration.
    */
-  private Multimap<Attribute, ConfiguredTargetAndTarget> getConfiguredDeps(String targetLabel)
+  private Multimap<Attribute, ConfiguredTargetAndData> getConfiguredDeps(String targetLabel)
       throws Exception {
     update(targetLabel);
     SkyKey key = ComputeDependenciesFunction.key(getTarget(targetLabel), getTargetConfiguration());
@@ -230,12 +230,12 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   protected List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
-    Multimap<Attribute, ConfiguredTargetAndTarget> allDeps = getConfiguredDeps(targetLabel);
+    Multimap<Attribute, ConfiguredTargetAndData> allDeps = getConfiguredDeps(targetLabel);
     for (Attribute attribute : allDeps.keySet()) {
       if (attribute.getName().equals(attrName)) {
         return ImmutableList.copyOf(
             Collections2.transform(
-                allDeps.get(attribute), ConfiguredTargetAndTarget::getConfiguredTarget));
+                allDeps.get(attribute), ConfiguredTargetAndData::getConfiguredTarget));
       }
     }
     throw new AssertionError(

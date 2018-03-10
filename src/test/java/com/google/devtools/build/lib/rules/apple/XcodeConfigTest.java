@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -805,7 +805,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
    * Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration.
    */
   private ConfiguredAttributeMapper getMapper(String label) throws Exception {
-    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget(label);
-    return getMapperFromConfiguredTargetAndTarget(ctat);
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget(label);
+    return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 }

@@ -50,7 +50,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndTarget ctatBase, RuleContext ruleContext, AspectParameters parameters)
+      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("aspect")) {
@@ -77,7 +77,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
             skylarkAspect
                 .getImplementation()
                 .call(
-                    /*args=*/ ImmutableList.of(ctatBase.getConfiguredTarget(), skylarkRuleContext),
+                    /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
                     /* kwargs= */ ImmutableMap.of(),
                     /*ast=*/ null,
                     env);
@@ -94,7 +94,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         }
         return createAspect(aspectSkylarkObject, aspectDescriptor, ruleContext);
       } catch (EvalException e) {
-        addAspectToStackTrace(ctatBase.getTarget(), e);
+        addAspectToStackTrace(ctadBase.getTarget(), e);
         ruleContext.ruleError("\n" + e.print());
         return null;
       }

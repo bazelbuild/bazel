@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -434,7 +434,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     // Configuration a:
     useConfiguration("--test_arg=a");
-    ConfiguredTargetAndTarget binary = getConfiguredTargetAndTarget("//test:the_rule");
+    ConfiguredTargetAndData binary = getConfiguredTargetAndTarget("//test:the_rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(binary);
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("a2");
 
@@ -1080,8 +1080,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
 
     useConfiguration("--test_arg=a");
-    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget("//srctest:gen");
-    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctat);
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//srctest:gen");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }
 
@@ -1099,8 +1099,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    boolean_attr = 1)");
 
     useConfiguration("--test_arg=a");
-    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget("//foo:rule");
-    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctat);
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//foo:rule");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributes.get("dep", BuildType.LABEL)).isEqualTo(
         Label.parseAbsolute("//foo:default"));
   }

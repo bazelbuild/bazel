@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -93,7 +93,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      */
     void validate(
         RuleContext.Builder contextBuilder,
-        ConfiguredTargetAndTarget prerequisite,
+        ConfiguredTargetAndData prerequisite,
         Attribute attribute);
   }
 
@@ -103,7 +103,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public void validate(
         RuleContext.Builder contextBuilder,
-        ConfiguredTargetAndTarget prerequisite,
+        ConfiguredTargetAndData prerequisite,
         Attribute attribute) {
       validateDirectPrerequisiteForDeprecation(
           contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
@@ -154,7 +154,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     public static void validateDirectPrerequisiteForDeprecation(
         RuleErrorConsumer errors,
         Rule rule,
-        ConfiguredTargetAndTarget prerequisite,
+        ConfiguredTargetAndData prerequisite,
         boolean forAspect) {
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();

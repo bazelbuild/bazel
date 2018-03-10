@@ -1284,7 +1284,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns the {@link ConfiguredTargetAndTarget}s corresponding to the given keys.
+   * Returns the {@link ConfiguredTargetAndData}s corresponding to the given keys.
    *
    * <p>For use for legacy support and tests calling through {@code BuildView} only.
    *
@@ -1292,7 +1292,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  public ImmutableList<ConfiguredTargetAndTarget> getConfiguredTargetsForTesting(
+  public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys) {
@@ -1300,7 +1300,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns a map from {@link Dependency} inputs to the {@link ConfiguredTargetAndTarget}s
+   * Returns a map from {@link Dependency} inputs to the {@link ConfiguredTargetAndData}s
    * corresponding to those dependencies.
    *
    * <p>For use for legacy support and tests calling through {@code BuildView} only.
@@ -1309,7 +1309,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  public ImmutableMultimap<Dependency, ConfiguredTargetAndTarget> getConfiguredTargetMapForTesting(
+  public ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys) {
@@ -1347,7 +1347,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       reportCycles(eventHandler, entry.getValue().getCycleInfo(), entry.getKey());
     }
 
-    ImmutableMultimap.Builder<Dependency, ConfiguredTargetAndTarget> cts =
+    ImmutableMultimap.Builder<Dependency, ConfiguredTargetAndData> cts =
         ImmutableMultimap.builder();
 
     // Logic copied from ConfiguredTargetFunction#computeDependencies.
@@ -1399,11 +1399,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           }
 
           try {
+            ConfiguredTarget mergedTarget =
+                MergedConfiguredTarget.of(configuredTarget, configuredAspects);
             cts.put(
                 key,
-                new ConfiguredTargetAndTarget(
-                    MergedConfiguredTarget.of(configuredTarget, configuredAspects),
-                    packageValue.getPackage().getTarget(configuredTarget.getLabel().getName())));
+                new ConfiguredTargetAndData(
+                    mergedTarget,
+                    packageValue.getPackage().getTarget(configuredTarget.getLabel().getName()),
+                    mergedTarget.getConfiguration()));
 
           } catch (DuplicateException | NoSuchTargetException e) {
             throw new IllegalStateException(
@@ -1661,21 +1664,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label,
       BuildConfiguration configuration,
       ConfigurationTransition transition) {
-    ConfiguredTargetAndTarget configuredTargetAndTarget =
+    ConfiguredTargetAndData configuredTargetAndData =
         getConfiguredTargetAndTargetForTesting(eventHandler, label, configuration, transition);
-    return configuredTargetAndTarget == null
-        ? null
-        : configuredTargetAndTarget.getConfiguredTarget();
+    return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
   }
 
   @VisibleForTesting
   @Nullable
-  public ConfiguredTargetAndTarget getConfiguredTargetAndTargetForTesting(
+  public ConfiguredTargetAndData getConfiguredTargetAndTargetForTesting(
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
       ConfigurationTransition transition) {
-    ConfiguredTargetAndTarget configuredTargetAndTarget =
+    ConfiguredTargetAndData configuredTargetAndData =
         Iterables.getFirst(
             getConfiguredTargetsForTesting(
                 eventHandler,
@@ -1686,12 +1687,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                         : Dependency.withTransitionAndAspects(
                             label, transition, AspectCollection.EMPTY))),
             null);
-    return configuredTargetAndTarget;
+    return configuredTargetAndData;
   }
 
   @VisibleForTesting
   @Nullable
-  public ConfiguredTargetAndTarget getConfiguredTargetAndTargetForTesting(
+  public ConfiguredTargetAndData getConfiguredTargetAndTargetForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration) {
     return getConfiguredTargetAndTargetForTesting(
         eventHandler, label, configuration, NoTransition.INSTANCE);

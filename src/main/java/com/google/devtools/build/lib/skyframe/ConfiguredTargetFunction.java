@@ -258,7 +258,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Calculate the dependencies of this target.
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depValueMap =
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depValueMap =
           computeDependencies(
               env,
               resolver,
@@ -382,7 +382,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    *     the host configuration as early as possible and pass this reference to all consumers
    */
   @Nullable
-  static OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> computeDependencies(
+  static OrderedSetMultimap<Attribute, ConfiguredTargetAndData> computeDependencies(
       Environment env,
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
@@ -432,7 +432,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Resolve configured target dependencies and handle errors.
-    Map<SkyKey, ConfiguredTargetAndTarget> depValues =
+    Map<SkyKey, ConfiguredTargetAndData> depValues =
         resolveConfiguredTargetDependencies(
             env,
             depValueNames.values(),
@@ -522,7 +522,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
     configValueNames = staticConfigs.build();
 
-    Map<SkyKey, ConfiguredTargetAndTarget> configValues =
+    Map<SkyKey, ConfiguredTargetAndData> configValues =
         resolveConfiguredTargetDependencies(
             env,
             configValueNames,
@@ -555,12 +555,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * Resolves the targets referenced in depValueNames and returns their {@link
-   * ConfiguredTargetAndTarget} instances.
+   * ConfiguredTargetAndData} instances.
    *
    * <p>Returns null if not all instances are available yet.
    */
   @Nullable
-  private static Map<SkyKey, ConfiguredTargetAndTarget> resolveConfiguredTargetDependencies(
+  private static Map<SkyKey, ConfiguredTargetAndData> resolveConfiguredTargetDependencies(
       Environment env,
       Collection<Dependency> deps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
@@ -582,7 +582,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 deps, input -> PackageValue.key(input.getLabel().getPackageIdentifier())));
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
             env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
-    Map<SkyKey, ConfiguredTargetAndTarget> result = Maps.newHashMapWithExpectedSize(deps.size());
+    Map<SkyKey, ConfiguredTargetAndData> result = Maps.newHashMapWithExpectedSize(deps.size());
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
     List<Dependency> aliasDepsToRedo = new ArrayList<>();
     Map<SkyKey, SkyValue> aliasPackageValues = null;
@@ -629,9 +629,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             try {
               result.put(
                   key,
-                  new ConfiguredTargetAndTarget(
+                  new ConfiguredTargetAndData(
                       depValue.getConfiguredTarget(),
-                      pkgValue.getPackage().getTarget(depLabel.getName())));
+                      pkgValue.getPackage().getTarget(depLabel.getName()),
+                      depValue.getConfiguredTarget().getConfiguration()));
             } catch (NoSuchTargetException e) {
               throw new IllegalStateException("Target already verified for " + dep, e);
             }
@@ -676,7 +677,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       Target target,
       BuildConfiguration configuration,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> depValueMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)

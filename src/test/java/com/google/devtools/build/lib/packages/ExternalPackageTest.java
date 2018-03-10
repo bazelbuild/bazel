@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -101,9 +101,9 @@ public class ExternalPackageTest extends BuildViewTestCase {
         "java_library(name = 'c', srcs = [])");
     invalidatePackages();
     useConfiguration("--define", "foo=bar");
-    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget("//:a");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//:a");
     ConfiguredAttributeMapper configuredAttributeMapper =
-        getMapperFromConfiguredTargetAndTarget(ctat);
+        getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(configuredAttributeMapper.get("runtime_deps", BuildType.LABEL_LIST))
         .containsExactly(Label.parseAbsolute("//:b"));
   }

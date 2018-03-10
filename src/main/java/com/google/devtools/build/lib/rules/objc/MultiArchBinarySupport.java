@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -211,7 +211,7 @@ public class MultiArchBinarySupport {
   public ImmutableSet<DependencySpecificConfiguration> getDependencySpecificConfigurations(
       Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
-      ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndTarget>
+      ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
           configToCTATDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
       Iterable<TransitiveInfoCollection> dylibProviders)
@@ -299,7 +299,7 @@ public class MultiArchBinarySupport {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      List<ConfiguredTargetAndTarget> propagatedConfiguredTargetAndTargetDeps,
+      List<ConfiguredTargetAndData> propagatedConfiguredTargetAndDataDeps,
       List<ObjcProvider> nonPropagatedObjcDeps,
       Iterable<ObjcProvider> additionalDepProviders) {
 
@@ -307,7 +307,7 @@ public class MultiArchBinarySupport {
         new ObjcCommon.Builder(ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-            .addDeps(propagatedConfiguredTargetAndTargetDeps)
+            .addDeps(propagatedConfiguredTargetAndDataDeps)
             .addDepObjcProviders(additionalDepProviders)
             .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
             .setIntermediateArtifacts(intermediateArtifacts)

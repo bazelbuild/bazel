@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -170,8 +170,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
     invalidatePackages();
 
-    ConfiguredTargetAndTarget cpufeatures =
-        getConfiguredTargetAndTarget("@androidndk//:cpufeatures");
+    ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndTarget("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
     AttributeContainer attributes =
         cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();

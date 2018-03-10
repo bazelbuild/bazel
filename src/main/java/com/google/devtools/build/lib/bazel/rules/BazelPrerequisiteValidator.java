@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */
@@ -33,7 +33,7 @@ public class BazelPrerequisiteValidator
 
   @Override
   public void validate(
-      RuleContext.Builder context, ConfiguredTargetAndTarget prerequisite, Attribute attribute) {
+      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Attribute attribute) {
     validateDirectPrerequisiteVisibility(context, prerequisite, attribute.getName());
     validateDirectPrerequisiteForTestOnly(context, prerequisite);
     ConfiguredRuleClassProvider.DeprecationValidator.validateDirectPrerequisiteForDeprecation(
@@ -41,7 +41,7 @@ public class BazelPrerequisiteValidator
   }
 
   private void validateDirectPrerequisiteVisibility(
-      RuleContext.Builder context, ConfiguredTargetAndTarget prerequisite, String attrName) {
+      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, String attrName) {
     Rule rule = context.getRule();
     Target prerequisiteTarget = prerequisite.getTarget();
     if (!context
@@ -100,7 +100,7 @@ public class BazelPrerequisiteValidator
   }
 
   private void validateDirectPrerequisiteForTestOnly(
-      RuleContext.Builder context, ConfiguredTargetAndTarget prerequisite) {
+      RuleContext.Builder context, ConfiguredTargetAndData prerequisite) {
     Rule rule = context.getRule();
 
     if (rule.getRuleClassObject().getAdvertisedProviders().canHaveAnyProvider()) {

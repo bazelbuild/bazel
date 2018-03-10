@@ -504,7 +504,7 @@ public final class SkyframeBuildView {
       Target target,
       BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {

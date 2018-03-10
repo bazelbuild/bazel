@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -133,8 +133,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "       '//conditions:default': 'error'",
         "    }))");
 
-    ConfiguredTargetAndTarget ctat = getConfiguredTargetAndTarget("//test:gen");
-    ConfiguredAttributeMapper attributeMapper = getMapperFromConfiguredTargetAndTarget(ctat);
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//test:gen");
+    ConfiguredAttributeMapper attributeMapper = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributeMapper.get("cmd", Type.STRING)).isEqualTo("hello");
   }
 

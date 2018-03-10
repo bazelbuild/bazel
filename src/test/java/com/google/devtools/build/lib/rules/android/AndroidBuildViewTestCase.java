@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoO
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -138,7 +138,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         transitive ? info.getTransitiveAndroidResources() : info.getDirectAndroidResources());
   }
 
-  protected Artifact getResourceClassJar(final ConfiguredTargetAndTarget target) {
+  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) {
     JavaRuleOutputJarsProvider jarProvider =
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();

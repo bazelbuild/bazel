@@ -66,7 +66,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -100,7 +100,7 @@ public final class ConfiguredTargetFactory {
    * to the {@code AnalysisEnvironment}.
    */
   private NestedSet<PackageGroupContents> convertVisibility(
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       EventHandler reporter,
       Target target,
       BuildConfiguration packageGroupConfiguration) {
@@ -148,10 +148,10 @@ public final class ConfiguredTargetFactory {
   }
 
   private TransitiveInfoCollection findPrerequisite(
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       Label label,
       BuildConfiguration config) {
-    for (ConfiguredTargetAndTarget prerequisite : prerequisiteMap.get(null)) {
+    for (ConfiguredTargetAndData prerequisite : prerequisiteMap.get(null)) {
       if (prerequisite.getTarget().getLabel().equals(label)
           && (prerequisite.getConfiguredTarget().getConfiguration() == config)) {
         return prerequisite.getConfiguredTarget();
@@ -231,7 +231,7 @@ public final class ConfiguredTargetFactory {
       Target target,
       BuildConfiguration config,
       BuildConfiguration hostConfig,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
@@ -305,7 +305,7 @@ public final class ConfiguredTargetFactory {
       Rule rule,
       BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
@@ -414,11 +414,11 @@ public final class ConfiguredTargetFactory {
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
-      ConfiguredTargetAndTarget associatedTarget,
+      ConfiguredTargetAndData associatedTarget,
       ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
