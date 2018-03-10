@@ -289,7 +289,7 @@ public class Memoizer {
      * @throws SerializationException on a logical error during serialization
      * @throws IOException on {@link IOException} during serialization
      */
-    public <T> void serialize(
+    <T> void serialize(
         SerializationContext context,
         T obj,
         MemoizingCodec<? super T> codec,
@@ -437,7 +437,7 @@ public class Memoizer {
      * @throws SerializationException on a logical error during deserialization
      * @throws IOException on {@link IOException} during deserialization
      */
-    public <T> T deserialize(
+    <T> T deserialize(
         DeserializationContext context, MemoizingCodec<? extends T> codec, CodedInputStream codedIn)
         throws SerializationException, IOException {
       Strategy strategy = codec.getStrategy();
