@@ -22,10 +22,17 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Deserializer;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -55,6 +62,12 @@ public class SerializationTester {
 
   private final ImmutableList<Object> subjects;
   private final ImmutableMap.Builder<Class<?>, Object> dependenciesBuilder;
+  private final ArrayList<MemoizingCodec<?>> memoizingCodecs = new ArrayList<>();
+  // TODO(janakr): in future, there may be tests that want to start with default serialization but
+  // need memoizing codecs, so they should be able to set this to false even after adding a
+  // memoizing codec.
+  private boolean useMemoization = false;
+  private Object additionalDeserializationData;
 
   @SuppressWarnings("rawtypes")
   private VerificationFunction verificationFunction =
@@ -74,6 +87,18 @@ public class SerializationTester {
 
   public <D> SerializationTester addDependency(Class<? super D> type, D dependency) {
     dependenciesBuilder.put(type, dependency);
+    return this;
+  }
+
+  public SerializationTester addMemoizingCodec(MemoizingCodec<?> memoizingCodec) {
+    memoizingCodecs.add(memoizingCodec);
+    useMemoization = true;
+    return this;
+  }
+
+  public SerializationTester setAdditionalDeserializationData(
+      Object additionalDeserializationData) {
+    this.additionalDeserializationData = additionalDeserializationData;
     return this;
   }
 
@@ -97,10 +122,37 @@ public class SerializationTester {
     for (Object val : dependencies.values()) {
       registryBuilder.addConstant(val);
     }
+    for (MemoizingCodec<?> memoizingCodec : memoizingCodecs) {
+      registryBuilder.addMemoizing(memoizingCodec);
+    }
     ObjectCodecs codecs = new ObjectCodecs(registryBuilder.build(), dependencies);
     testSerializeDeserialize(codecs);
     testStableSerialization(codecs);
     testDeserializeJunkData(codecs);
+  }
+
+  private ByteString serialize(Object subject, ObjectCodecs codecs)
+      throws SerializationException, IOException {
+    if (!useMemoization) {
+      return codecs.serialize(subject);
+    }
+    ByteString.Output output = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
+    new Memoizer.Serializer()
+        .serialize(codecs.getSerializationContextForTesting(), subject, codedOut);
+    codedOut.flush();
+    return output.toByteString();
+  }
+
+  private Object deserialize(ByteString serialized, ObjectCodecs codecs)
+      throws SerializationException, IOException {
+    if (!useMemoization) {
+      return codecs.deserialize(serialized);
+    }
+    return (additionalDeserializationData == null
+            ? new Deserializer()
+            : new Memoizer.Deserializer(additionalDeserializationData))
+        .deserialize(codecs.getDeserializationContextForTesting(), serialized.newCodedInput());
   }
 
   /** Runs serialization/deserialization tests. */
@@ -110,9 +162,9 @@ public class SerializationTester {
     int totalBytes = 0;
     for (int i = 0; i < repetitions; ++i) {
       for (Object subject : subjects) {
-        ByteString serialized = codecs.serialize(subject);
+        ByteString serialized = serialize(subject, codecs);
         totalBytes += serialized.size();
-        Object deserialized = codecs.deserialize(serialized);
+        Object deserialized = deserialize(serialized, codecs);
         verificationFunction.verifyDeserialized(subject, deserialized);
       }
     }
@@ -126,25 +178,26 @@ public class SerializationTester {
   }
 
   /** Runs serialized bytes stability tests. */
-  private void testStableSerialization(ObjectCodecs codecs) throws SerializationException {
+  private void testStableSerialization(ObjectCodecs codecs)
+      throws SerializationException, IOException {
     for (Object subject : subjects) {
-      ByteString serialized = codecs.serialize(subject);
-      Object deserialized = codecs.deserialize(serialized);
-      ByteString reserialized = codecs.serialize(deserialized);
+      ByteString serialized = serialize(subject, codecs);
+      Object deserialized = deserialize(serialized, codecs);
+      ByteString reserialized = serialize(deserialized, codecs);
       assertThat(reserialized).isEqualTo(serialized);
     }
   }
 
   /** Runs junk-data recognition tests. */
-  private static void testDeserializeJunkData(ObjectCodecs codecs) {
+  private void testDeserializeJunkData(ObjectCodecs codecs) throws IOException {
     Random rng = new Random(0);
     for (int i = 0; i < DEFAULT_JUNK_INPUTS; ++i) {
       byte[] junkData = new byte[rng.nextInt(JUNK_LENGTH_UPPER_BOUND)];
       rng.nextBytes(junkData);
       try {
-        codecs.deserialize(ByteString.copyFrom(junkData));
+        deserialize(ByteString.copyFrom(junkData), codecs);
         // OK. Junk string was coincidentally parsed.
-      } catch (SerializationException e) {
+      } catch (SerializationException | InvalidProtocolBufferException e) {
         // OK. Deserialization of junk failed.
         return;
       }

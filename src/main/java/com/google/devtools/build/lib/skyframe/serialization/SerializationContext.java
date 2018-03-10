@@ -16,13 +16,15 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingAfterObjectCodecAdapter;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.MemoizingCodecDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** Stateful class for providing additional context to a single serialization "session". */
-// TODO(bazel-team): This class is just a shell, fill in.
 public class SerializationContext {
 
   private final ObjectCodecRegistry registry;
@@ -38,16 +40,24 @@ public class SerializationContext {
     this(AutoRegistry.get(), dependencies);
   }
 
-  @Nullable
-  private ObjectCodecRegistry.CodecDescriptor recordAndGetDescriptorIfNotConstantOrNull(
-      @Nullable Object object, CodedOutputStream codedOut) throws IOException, NoCodecException {
+  private boolean writeNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)
+      throws IOException {
     if (object == null) {
       codedOut.writeSInt32NoTag(0);
-      return null;
+      return true;
     }
     Integer tag = registry.maybeGetTagForConstant(object);
     if (tag != null) {
       codedOut.writeSInt32NoTag(tag);
+      return true;
+    }
+    return false;
+  }
+
+  @Nullable
+  private ObjectCodecRegistry.CodecDescriptor recordAndGetDescriptorIfNotConstantOrNull(
+      @Nullable Object object, CodedOutputStream codedOut) throws IOException, NoCodecException {
+    if (writeNullOrConstant(object, codedOut)) {
       return null;
     }
     ObjectCodecRegistry.CodecDescriptor descriptor = registry.getCodecDescriptor(object.getClass());
@@ -65,23 +75,25 @@ public class SerializationContext {
     }
   }
 
-  /**
-   * Returns the {@link ObjectCodec} to use when serializing {@code object}. The codec's tag is
-   * written to {@code codedOut} so that {@link DeserializationContext#getCodecRecordedInInput} can
-   * return the correct codec as well. Only to be used by {@code MemoizingCodec}.
-   *
-   * <p>If the return value is null, this indicates that the value was serialized directly as null
-   * or a constant. The caller needs do nothing further to serialize {@code object} in this case.
-   */
-  @SuppressWarnings("unchecked") // cast to ObjectCodec<? super T>.
-  public <T> ObjectCodec<? super T> recordAndMaybeReturnCodec(T object, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
-    ObjectCodecRegistry.CodecDescriptor descriptor =
-        recordAndGetDescriptorIfNotConstantOrNull(object, codedOut);
-    if (descriptor == null) {
+  @Nullable
+  public <T> MemoizingCodec<? super T> recordAndMaybeGetMemoizingCodec(
+      T object, CodedOutputStream codedOut) throws IOException, NoCodecException {
+    if (writeNullOrConstant(object, codedOut)) {
       return null;
     }
-    return (ObjectCodec<? super T>) descriptor.getCodec();
+    @SuppressWarnings("unchecked")
+    Class<T> clazz = (Class<T>) object.getClass();
+    MemoizingCodecDescriptor<? super T> memoizingCodecDescriptor =
+        registry.getMemoizingCodecDescriptor(clazz);
+    if (memoizingCodecDescriptor != null) {
+      codedOut.writeSInt32NoTag(memoizingCodecDescriptor.getTag());
+      return memoizingCodecDescriptor.getMemoizingCodec();
+    }
+    ObjectCodecRegistry.CodecDescriptor codecDescriptor = registry.getCodecDescriptor(clazz);
+    codedOut.writeSInt32NoTag(codecDescriptor.getTag());
+    @SuppressWarnings("unchecked")
+    ObjectCodec<? super T> objectCodec = (ObjectCodec<? super T>) codecDescriptor.getCodec();
+    return new MemoizingAfterObjectCodecAdapter<>(objectCodec);
   }
 
   @SuppressWarnings("unchecked")

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -164,5 +165,15 @@ public class ObjectCodecs {
               + ")",
           e);
     }
+  }
+
+  @VisibleForTesting
+  public SerializationContext getSerializationContextForTesting() {
+    return serializationContext;
+  }
+
+  @VisibleForTesting
+  public DeserializationContext getDeserializationContextForTesting() {
+    return deserializationContext;
   }
 }

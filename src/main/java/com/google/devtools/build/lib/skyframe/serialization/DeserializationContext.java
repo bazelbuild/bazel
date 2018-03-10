@@ -16,10 +16,15 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Deserializer;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingAfterObjectCodecAdapter;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingCodec;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Strategy;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Stateful class for providing additional context to a single deserialization "session". */
 // TODO(bazel-team): This class is just a shell, fill in.
@@ -52,38 +57,53 @@ public class DeserializationContext {
   }
 
   /**
-   * Returns an {@link ObjectCodec} appropriate for deserializing the next object on the wire. Only
-   * to be used by {@code MemoizingCodec}.
+   * Returns a {@link MemoizingCodec} appropriate for deserializing the next object on the wire.
+   * Only for use by {@link Memoizer.Deserializer}.
    */
   @SuppressWarnings("unchecked")
-  public <T> ObjectCodec<T> getCodecRecordedInInput(CodedInputStream codedIn)
-      throws IOException, NoCodecException {
+  public MemoizingCodec<?> getMemoizingCodecRecordedInInput(CodedInputStream codedIn)
+      throws IOException, SerializationException {
     int tag = codedIn.readSInt32();
     if (tag == 0) {
-      return null;
+      return new InitializedMemoizingCodec<>(null);
     }
-    T constant = (T) registry.maybeGetConstantByTag(tag);
-    return constant == null
-        ? (ObjectCodec<T>) registry.getCodecDescriptorByTag(tag).getCodec()
-        : new InitializedObjectCodec<>(constant);
+    Object constant = registry.maybeGetConstantByTag(tag);
+    if (constant != null) {
+      return new InitializedMemoizingCodec<>(constant);
+    }
+    MemoizingCodec<?> codec = registry.maybeGetMemoizingCodecByTag(tag);
+    if (codec != null) {
+      return codec;
+    }
+    return new MemoizingAfterObjectCodecAdapter<>(registry.getCodecDescriptorByTag(tag).getCodec());
   }
 
-  private static class InitializedObjectCodec<T> implements ObjectCodec<T> {
+  private static class InitializedMemoizingCodec<T> implements MemoizingCodec<T> {
     private final T obj;
     private boolean deserialized = false;
 
-    private InitializedObjectCodec(T obj) {
+    private InitializedMemoizingCodec(T obj) {
       this.obj = obj;
     }
 
     @Override
-    public void serialize(SerializationContext context, T obj, CodedOutputStream codedOut) {
+    public Strategy getStrategy() {
+      return Strategy.DO_NOT_MEMOIZE;
+    }
+
+    @Override
+    public void serializePayload(
+        SerializationContext context, T obj, CodedOutputStream codedOut, Serializer serializer) {
       throw new UnsupportedOperationException("Unexpected serialize: " + obj);
     }
 
     @Override
-    public T deserialize(DeserializationContext context, CodedInputStream codedIn) {
-      Preconditions.checkState(!deserialized, "Deserialize called twice: %s", obj);
+    public T deserializePayload(
+        DeserializationContext context,
+        @Nullable T initial,
+        CodedInputStream codedIn,
+        Deserializer deserializer) {
+      Preconditions.checkState(!deserialized, "Already deserialized: %s", obj);
       deserialized = true;
       return obj;
     }
@@ -94,7 +114,6 @@ public class DeserializationContext {
       return (Class<T>) obj.getClass();
     }
   }
-
   @SuppressWarnings("unchecked")
   public <T> T getDependency(Class<T> type) {
     Preconditions.checkNotNull(type);

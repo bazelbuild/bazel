@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,10 +27,11 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value that represents a Skylark import lookup result. The lookup value corresponds to
- * exactly one Skylark file, identified by an absolute {@link Label} {@link SkyKey} argument. The
- * Label should not reference the special {@code external} package.
+ * A value that represents a Skylark import lookup result. The lookup value corresponds to exactly
+ * one Skylark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label
+ * should not reference the special {@code external} package.
  */
+@AutoCodec
 public class SkylarkImportLookupValue implements SkyValue {
 
   private final Extension environmentExtension;
@@ -40,6 +42,7 @@ public class SkylarkImportLookupValue implements SkyValue {
    */
   private final SkylarkFileDependency dependency;
 
+  @VisibleForTesting
   public SkylarkImportLookupValue(
       Extension environmentExtension, SkylarkFileDependency dependency) {
     this.environmentExtension = Preconditions.checkNotNull(environmentExtension);

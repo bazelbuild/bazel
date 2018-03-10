@@ -17,13 +17,17 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
+import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.Builder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.RegisteredSingletonDoNotUse;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.function.Predicate;
@@ -57,6 +61,7 @@ public class CodecScanner {
       throws IOException, ReflectiveOperationException {
     log.info("Building ObjectCodecRegistry");
     ArrayList<Class<? extends ObjectCodec<?>>> codecs = new ArrayList<>();
+    ArrayList<Class<? extends MemoizingCodec<?>>> memoizingCodecs = new ArrayList<>();
     ArrayList<Class<? extends CodecRegisterer<?>>> registerers = new ArrayList<>();
     List<ClassInfo> classInfos = getClassInfos(packagePrefix).collect(Collectors.toList());
     getCodecs(classInfos)
@@ -64,8 +69,11 @@ public class CodecScanner {
             type -> {
               if (!ObjectCodec.class.equals(type) && ObjectCodec.class.isAssignableFrom(type)) {
                 codecs.add((Class<? extends ObjectCodec<?>>) type);
-              }
-              if (!CodecRegisterer.class.equals(type)
+              } else if (!MemoizingCodec.class.equals(type)
+                  && MemoizingCodec.class.isAssignableFrom(type)
+                  && !Modifier.isAbstract(type.getModifiers())) {
+                memoizingCodecs.add((Class<? extends MemoizingCodec<?>>) type);
+              } else if (!CodecRegisterer.class.equals(type)
                   && CodecRegisterer.class.isAssignableFrom(type)) {
                 registerers.add((Class<? extends CodecRegisterer<?>>) type);
               }
@@ -109,6 +117,7 @@ public class CodecScanner {
         runRegisterers(builder, registerers);
 
     applyDefaultRegistration(builder, alreadyRegistered, codecs);
+    applyMemoizingCodecRegistration(builder, memoizingCodecs);
     return builder;
   }
 
@@ -131,6 +140,24 @@ public class CodecScanner {
       constructor.newInstance().register(builder);
     }
     return registered;
+  }
+
+  private static void applyMemoizingCodecRegistration(
+      Builder builder, List<Class<? extends MemoizingCodec<?>>> memoizingCodecs)
+      throws ReflectiveOperationException {
+    for (Class<? extends MemoizingCodec<?>> codecType : memoizingCodecs) {
+      try {
+        Constructor<? extends MemoizingCodec<?>> constructor = codecType.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        builder.addMemoizing(constructor.newInstance());
+      } catch (NoSuchMethodException e) {
+        log.log(
+            Level.FINE,
+            "Skipping registration of " + codecType + " because it had no default constructor.");
+      } catch (InstantiationException e) {
+        throw new IllegalStateException("Couldn't instantiate " + codecType, e);
+      }
+    }
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})
@@ -224,13 +251,15 @@ public class CodecScanner {
     return -1;
   }
 
+  /** Return the {@link ClassInfo} objects matching {@code packagePrefix}, sorted by name. */
   private static Stream<ClassInfo> getClassInfos(String packagePrefix) throws IOException {
     return ClassPath.from(ClassLoader.getSystemClassLoader())
         .getResources()
         .stream()
         .filter(r -> r instanceof ClassInfo)
         .map(r -> (ClassInfo) r)
-        .filter(c -> c.getPackageName().startsWith(packagePrefix));
+        .filter(c -> c.getPackageName().startsWith(packagePrefix))
+        .sorted(Comparator.comparing(ClassInfo::getName));
   }
 
   /**

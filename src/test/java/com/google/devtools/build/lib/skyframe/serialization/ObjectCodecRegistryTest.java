@@ -111,20 +111,71 @@ public class ObjectCodecRegistryTest {
   }
 
   @Test
+  public void constantsOrderedByLastOccurrenceInIteration() {
+    Object constant1 = new Object();
+    Object constant2 = new Object();
+    ObjectCodecRegistry underTest1 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .addConstant(constant1)
+            .addConstant(constant2)
+            .addConstant(constant1)
+            .build();
+    ObjectCodecRegistry underTest2 =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .addConstant(constant1)
+            .addConstant(constant2)
+            .build();
+    assertThat(underTest1.maybeGetTagForConstant(constant1)).isEqualTo(3);
+    assertThat(underTest1.maybeGetTagForConstant(constant2)).isEqualTo(2);
+    assertThat(underTest2.maybeGetTagForConstant(constant1)).isEqualTo(1);
+    assertThat(underTest2.maybeGetTagForConstant(constant2)).isEqualTo(2);
+  }
+
+  @Test
+  public void memoizingOrderedByClassName() {
+    Memoizer.MemoizingCodec<String> memoizingCodec1 =
+        new Memoizer.ObjectCodecAdaptor<>(SingletonCodec.of("value1", "mnemonic1"));
+    Memoizer.MemoizingCodec<Object> memoizingCodec2 =
+        new Memoizer.ObjectCodecAdaptor<>(SingletonCodec.of(new Object(), "mnemonic2"));
+    ObjectCodecRegistry underTest =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .addMemoizing(memoizingCodec1)
+            .addMemoizing(memoizingCodec2)
+            .build();
+
+    assertThat(underTest.getMemoizingCodecDescriptor(Object.class).getMemoizingCodec())
+        .isEqualTo(memoizingCodec2);
+    assertThat(underTest.getMemoizingCodecDescriptor(String.class).getMemoizingCodec())
+        .isEqualTo(memoizingCodec1);
+    assertThat(underTest.maybeGetMemoizingCodecByTag(1)).isEqualTo(memoizingCodec2);
+    assertThat(underTest.maybeGetMemoizingCodecByTag(2)).isEqualTo(memoizingCodec1);
+  }
+
+  @Test
   public void testGetBuilder() throws NoCodecException {
     SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
     SingletonCodec<String> codec2 = SingletonCodec.of("value2", "mnemonic2");
+    Object constant = new Object();
+    Memoizer.MemoizingCodec<String> memoizingCodec = new Memoizer.ObjectCodecAdaptor<>(codec1);
 
     ObjectCodecRegistry underTest =
         ObjectCodecRegistry.newBuilder()
             .setAllowDefaultCodec(false)
             .add("foo", codec1)
             .add("bar", codec2)
+            .addConstant(constant)
+            .addMemoizing(memoizingCodec)
             .build();
 
     ObjectCodecRegistry copy = underTest.getBuilder().build();
     assertThat(copy.getCodecDescriptor("bar").getTag()).isEqualTo(1);
     assertThat(copy.getCodecDescriptor("foo").getTag()).isEqualTo(2);
+    assertThat(copy.getMemoizingCodecDescriptor(String.class).getMemoizingCodec())
+        .isEqualTo(memoizingCodec);
+    assertThat(copy.maybeGetTagForConstant(constant)).isNotNull();
     assertThrows(NoCodecException.class, () -> copy.getCodecDescriptor("baz"));
   }
 }
