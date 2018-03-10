@@ -54,11 +54,11 @@ public final class NonRuleConfiguredTargetValue
   NonRuleConfiguredTargetValue(
       ArrayList<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex,
-      ConfiguredTarget configuredTarget,
-      NestedSet<Package> transitivePackagesForPackageRootResolution) {
-    super(actions, generatingActionIndex, false);
+      ConfiguredTarget configuredTarget) {
+    super(actions, generatingActionIndex, /*removeActionsAfterEvaluation=*/ false);
     this.configuredTarget = configuredTarget;
-    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
+    // Transitive packages are not serialized.
+    this.transitivePackagesForPackageRootResolution = null;
   }
 
   NonRuleConfiguredTargetValue(

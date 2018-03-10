@@ -48,11 +48,13 @@ public final class RuleConfiguredTargetValue extends ActionLookupValue
   // May be null either after clearing or because transitive packages are not tracked.
   @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
 
+  // Transitive packages are not serialized.
   @AutoCodec.Instantiator
-  RuleConfiguredTargetValue(
-      RuleConfiguredTarget configuredTarget,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
-    this(configuredTarget, transitivePackagesForPackageRootResolution, false);
+  RuleConfiguredTargetValue(RuleConfiguredTarget configuredTarget) {
+    this(
+        configuredTarget,
+        /*transitivePackagesForPackageRootResolution=*/ null,
+        /*removeActionsAfterEvaluation=*/ false);
   }
 
   RuleConfiguredTargetValue(
