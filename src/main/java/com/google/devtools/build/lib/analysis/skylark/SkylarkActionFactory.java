@@ -241,9 +241,7 @@ public class SkylarkActionFactory implements SkylarkValue {
         "Creates a file write action. When the action is executed, it will write the given content "
             + "to a file. This is used to generate files using information available in the "
             + "analysis phase. If the file is large and with a lot of static content, consider "
-            + "using <a href=\"#expand_template\"><code>expand_template</code></a>. "
-            + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl\">"
-            + "See example of use</a>",
+            + "using <a href=\"#expand_template\"><code>expand_template</code></a>.",
     parameters = {
       @Param(name = "output", type = Artifact.class, doc = "The output file.", named = true),
       @Param(

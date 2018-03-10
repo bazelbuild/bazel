@@ -220,12 +220,10 @@ output*. There are multiple ways for a rule to introduce a predeclared output:
   label is chosen automatically as specified by the entry, usually by
   substituting into a string template. This is the most common way to define
   outputs.
-  [See example](https://github.com/bazelbuild/examples/blob/master/rules/default_outputs/extension.bzl)
 
 * The rule can have an attribute of type [`output`](lib/attr.html#output) or
   [`output_list`](lib/attr.html#output_list). In this case the user explicitly
   chooses the label for the output when they instantiate the rule.
-  [See example](https://github.com/bazelbuild/examples/blob/master/rules/custom_outputs/extension.bzl)
 
 * **(Deprecated)** If the rule is marked
   [`executable`](lib/globals.html#rule.executable) or
@@ -235,7 +233,6 @@ output*. There are multiple ways for a rule to introduce a predeclared output:
   predeclared output.) By default, this file serves as the binary to run if the
   target appears on the command line of a `bazel run` or `bazel test` command.
   See [Executable rules](#executable-rules-and-test-rules) below.
-  [See example](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
 
 All predeclared outputs can be accessed within the rule's implementation
 function under the [`ctx.outputs`](lib/ctx.html#output) struct; see that page
@@ -250,6 +247,8 @@ Although the input files of a target -- those files passed through attributes of
 files that are predeclared using attributes of `attr.output` or
 `attr.output_list` type, `ctx.attr` will only return the label, and you must use
 `ctx.outputs` to get the actual `File` object.
+
+[See example of predeclared outputs](https://github.com/bazelbuild/examples/blob/master/rules/predeclared_outputs/hash.bzl)
 
 ## Actions
 
