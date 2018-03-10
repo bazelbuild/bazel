@@ -56,7 +56,7 @@ public abstract class ActionOwner {
       @Nullable String mnemonic,
       @Nullable String targetKind,
       String configurationChecksum,
-      @Nullable BuildConfigurationInterface configuration,
+      @Nullable BuildConfigurationEvent configuration,
       @Nullable String additionalProgressInfo,
       @Nullable PlatformInfo executionPlatform) {
     return new AutoValue_ActionOwner(
@@ -94,11 +94,11 @@ public abstract class ActionOwner {
   public abstract String getConfigurationChecksum();
 
   /**
-   * Return the configuration of the action owner, if any, as it should be reported in the build
-   * event protocol.
+   * Return the {@link BuildConfigurationEvent} associated with the action owner, if any, as it
+   * should be reported in the build event protocol.
    */
   @Nullable
-  public abstract BuildConfigurationInterface getConfiguration();
+  public abstract BuildConfigurationEvent getConfiguration();
 
   /** Returns the target kind (rule class name) for this ActionOwner, if any; null otherwise. */
   @Nullable

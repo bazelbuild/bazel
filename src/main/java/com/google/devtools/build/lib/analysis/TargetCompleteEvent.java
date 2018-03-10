@@ -254,7 +254,7 @@ public final class TargetCompleteEvent
   public Collection<BuildEvent> getConfigurations() {
     BuildConfiguration configuration = target.getConfiguration();
     if (configuration != null) {
-      return ImmutableList.of(target.getConfiguration());
+      return ImmutableList.of(target.getConfiguration().toBuildEvent());
     } else {
       return ImmutableList.<BuildEvent>of();
     }

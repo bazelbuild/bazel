@@ -15,25 +15,25 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer.Builder;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
-/**
- * Cache for BuildConfigurations in the action graph.
- */
-public class KnownConfigurations
-    extends BaseCache<BuildConfiguration, AnalysisProtos.Configuration> {
+/** Cache for BuildConfigurations in the action graph. */
+public class KnownConfigurations extends BaseCache<BuildEvent, AnalysisProtos.Configuration> {
 
   KnownConfigurations(Builder actionGraphBuilder) {
     super(actionGraphBuilder);
   }
 
   @Override
-  AnalysisProtos.Configuration createProto(BuildConfiguration buildConfiguration, String id) {
+  AnalysisProtos.Configuration createProto(BuildEvent config, String id) {
+    BuildEventStreamProtos.Configuration configProto =
+        config.asStreamProto(/*converters=*/ null).getConfiguration();
     return AnalysisProtos.Configuration.newBuilder()
-            .setMnemonic(buildConfiguration.getMnemonic())
-            .setPlatformName(buildConfiguration.getPlatformName())
-            .setId(id)
-            .build();
+        .setMnemonic(configProto.getMnemonic())
+        .setPlatformName(configProto.getPlatformName())
+        .setId(id)
+        .build();
   }
 
   @Override

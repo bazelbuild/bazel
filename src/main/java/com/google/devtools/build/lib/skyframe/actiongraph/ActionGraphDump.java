@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
@@ -103,7 +103,7 @@ public class ActionGraphDump {
     // store environment
     if (action instanceof SpawnAction) {
       SpawnAction spawnAction = (SpawnAction) action;
-      // TODO(twerth): This handles the fixed environemnt. We probably want to output the inherited
+      // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment();
       for (Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
@@ -122,8 +122,8 @@ public class ActionGraphDump {
 
     ActionOwner actionOwner = action.getOwner();
     if (actionOwner != null) {
-      BuildConfiguration buildConfiguration = (BuildConfiguration) actionOwner.getConfiguration();
-      actionBuilder.setConfigurationId(knownConfigurations.dataToId(buildConfiguration));
+      BuildEvent event = actionOwner.getConfiguration();
+      actionBuilder.setConfigurationId(knownConfigurations.dataToId(event));
 
       // store aspect
       for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors()) {

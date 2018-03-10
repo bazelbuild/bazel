@@ -61,6 +61,6 @@ public class VisibilityErrorEvent implements BuildEventWithConfiguration {
 
   @Override
   public Collection<BuildEvent> getConfigurations() {
-    return ImmutableList.<BuildEvent>of(configuration);
+    return ImmutableList.<BuildEvent>of(configuration.toBuildEvent());
   }
 }
