@@ -26,6 +26,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.net.URI;
+import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map;
 
@@ -93,56 +94,61 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   @Override
-  public void exceptionCaught(ChannelHandlerContext channelHandlerContext, Throwable throwable)
-      throws Exception {
+  public void exceptionCaught(ChannelHandlerContext channelHandlerContext, Throwable throwable) {
     failAndResetUserPromise(throwable);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
-  public void bind(ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise)
-      throws Exception {
+  public void bind(ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) {
     ctx.bind(localAddress, promise);
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored") 
+  @SuppressWarnings("FutureReturnValueIgnored")
   @Override
   public void connect(
       ChannelHandlerContext ctx,
       SocketAddress remoteAddress,
       SocketAddress localAddress,
-      ChannelPromise promise)
-      throws Exception {
+      ChannelPromise promise) {
     ctx.connect(remoteAddress, localAddress, promise);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
-  public void disconnect(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {   
+  public void disconnect(ChannelHandlerContext ctx, ChannelPromise promise) {
+    failAndResetUserPromise(new ClosedChannelException());
     ctx.disconnect(promise);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
-  public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
+  public void close(ChannelHandlerContext ctx, ChannelPromise promise) {
+    failAndResetUserPromise(new ClosedChannelException());
     ctx.close(promise);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
-  public void deregister(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
+  public void deregister(ChannelHandlerContext ctx, ChannelPromise promise) {
     ctx.deregister(promise);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
-  public void read(ChannelHandlerContext ctx) throws Exception { 
+  public void read(ChannelHandlerContext ctx) {
     ctx.read();
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored") 
+  @SuppressWarnings("FutureReturnValueIgnored")
   @Override
-  public void flush(ChannelHandlerContext ctx) throws Exception {  
+  public void flush(ChannelHandlerContext ctx) {
     ctx.flush();
+  }
+
+  @Override
+  public void channelInactive(ChannelHandlerContext channelHandlerContext) throws Exception {
+    failAndResetUserPromise(new ClosedChannelException());
+    super.channelInactive(channelHandlerContext);
   }
 }

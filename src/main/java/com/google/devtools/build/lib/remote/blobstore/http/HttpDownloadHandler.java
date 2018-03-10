@@ -38,6 +38,8 @@ import java.io.OutputStream;
 /** ChannelHandler for downloads. */
 final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
+  private long contentLength = -1;
+  private long bytesReceived;
   private OutputStream out;
   private boolean keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
 
@@ -47,20 +49,27 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) throws Exception {
+    if (!msg.decoderResult().isSuccess()) {
+      failAndResetUserPromise(new IOException("Failed to parse the HTTP response."));
+      return;
+    }
     checkState(userPromise != null, "response before request");
     if (msg instanceof HttpResponse) {
       HttpResponse response = (HttpResponse) msg;
       keepAlive = HttpUtil.isKeepAlive((HttpResponse) msg);
+      if (HttpUtil.isContentLengthSet(response)) {
+        contentLength = HttpUtil.getContentLength(response);
+      }
       if (!response.status().equals(HttpResponseStatus.OK)) {
         failAndReset(
-            new HttpException(
-                response.status(), "Download failed with Status: " + response.status(), null),
+            new HttpException(response, "Download failed with status: " + response.status(), null),
             ctx);
       }
     } else if (msg instanceof HttpContent) {
       ByteBuf content = ((HttpContent) msg).content();
+      bytesReceived += content.readableBytes();
       content.readBytes(out, content.readableBytes());
-      if (msg instanceof LastHttpContent) {
+      if (bytesReceived == contentLength || msg instanceof LastHttpContent) {
         succeedAndReset(ctx);
       }
     } else {
@@ -128,8 +137,9 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       if (!keepAlive) {
         ctx.close();
       }
-      out.close();
     } finally {
+      contentLength = -1;
+      bytesReceived = 0;
       out = null;
       keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
     }
