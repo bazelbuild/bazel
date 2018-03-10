@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.skyframe.SkyframeLabelVisitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -329,7 +330,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // Only do the full visitation if "maxDepth" is large enough. Otherwise, the benefits of
       // preloading will be outweighed by the cost of doing more work than necessary.
       Set<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
-      transitivePackageLoader.sync(eventHandler, labels, keepGoing, loadingPhaseThreads);
+      ((SkyframeLabelVisitor) transitivePackageLoader)
+          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, false);
     }
   }
 
