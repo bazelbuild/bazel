@@ -26,8 +26,6 @@ import java.io.IOException;
  * serving as a layer between the streaming-oriented {@link ObjectCodec} interface and users.
  */
 public class ObjectCodecs {
-
-  private final ObjectCodecRegistry codecRegistry;
   // TODO(shahan): when per-invocation state is needed, for example, memoization, these may
   // need to be constructed each time.
   private final SerializationContext serializationContext;
@@ -39,7 +37,6 @@ public class ObjectCodecs {
    */
   public ObjectCodecs(
       ObjectCodecRegistry codecRegistry, ImmutableMap<Class<?>, Object> dependencies) {
-    this.codecRegistry = codecRegistry;
     serializationContext = new SerializationContext(codecRegistry, dependencies);
     deserializationContext = new DeserializationContext(codecRegistry, dependencies);
   }
@@ -64,42 +61,6 @@ public class ObjectCodecs {
     }
   }
 
-  /**
-   * Serialize {@code subject}, using the serialization strategy determined by {@code classifier},
-   * returning a {@link ByteString} containing the serialized representation.
-   */
-  public ByteString serialize(String classifier, Object subject) throws SerializationException {
-    ByteString.Output resultOut = ByteString.newOutput();
-    CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
-    ObjectCodec<?> codec = codecRegistry.getCodecDescriptor(classifier).getCodec();
-    try {
-      doSerialize(classifier, codec, subject, codedOut);
-      codedOut.flush();
-      return resultOut.toByteString();
-    } catch (IOException e) {
-      throw new SerializationException(
-          "Failed to serialize " + subject + " using " + codec + " for " + classifier, e);
-    }
-  }
-
-  /**
-   * Similar to {@link #serialize(String, Object)}, except allows the caller to specify a {@link
-   * CodedOutputStream} to serialize {@code subject} to. Has less object overhead than {@link
-   * #serialize(String, Object)} and as such is preferrable when serializing objects in bulk.
-   *
-   * <p>{@code codedOut} is not flushed by this method.
-   */
-  public void serialize(String classifier, Object subject, CodedOutputStream codedOut)
-      throws SerializationException {
-    ObjectCodec<?> codec = codecRegistry.getCodecDescriptor(classifier).getCodec();
-    try {
-      doSerialize(classifier, codec, subject, codedOut);
-    } catch (IOException e) {
-      throw new SerializationException(
-          "Failed to serialize " + subject + " using " + codec + " for " + classifier, e);
-    }
-  }
-
   public Object deserialize(ByteString data) throws SerializationException {
     return deserialize(data.newCodedInput());
   }
@@ -109,61 +70,6 @@ public class ObjectCodecs {
       return deserializationContext.deserialize(codedIn);
     } catch (IOException e) {
       throw new SerializationException("Failed to deserialize data", e);
-    }
-  }
-
-  /**
-   * Deserialize {@code data} using the serialization strategy determined by {@code classifier}.
-   * {@code classifier} should be the utf-8 encoded {@link ByteString} representation of the {@link
-   * String} classifier used to serialize {@code data}. This is preferred since callers typically
-   * have parsed {@code classifier} from a protocol buffer, for which {@link ByteString}s are
-   * cheaper to use.
-   */
-  public Object deserialize(ByteString classifier, ByteString data) throws SerializationException {
-    return deserialize(classifier, data.newCodedInput());
-  }
-
-  /**
-   * Similar to {@link #deserialize(ByteString, ByteString)}, except allows the caller to specify a
-   * {@link CodedInputStream} to deserialize data from. This is useful for decoding objects
-   * serialized in bulk by {@link #serialize(String, Object, CodedOutputStream)}.
-   */
-  public Object deserialize(ByteString classifier, CodedInputStream codedIn)
-      throws SerializationException {
-    ObjectCodec<?> codec = codecRegistry.getCodecDescriptor(classifier).getCodec();
-    // If safe, this will allow CodedInputStream to return a direct view of the underlying bytes
-    // in some situations, bypassing a copy.
-    codedIn.enableAliasing(true);
-    try {
-      Object result = codec.deserialize(deserializationContext, codedIn);
-      if (result == null) {
-        throw new NullPointerException(
-            "ObjectCodec " + codec + " for " + classifier.toStringUtf8() + " returned null");
-      }
-      return result;
-    } catch (IOException e) {
-      throw new SerializationException(
-          "Failed to deserialize data using " + codec + " for " + classifier.toStringUtf8(), e);
-    }
-  }
-
-  private <T> void doSerialize(
-      String classifier, ObjectCodec<T> codec, Object subject, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
-    try {
-      codec.serialize(serializationContext, codec.getEncodedClass().cast(subject), codedOut);
-    } catch (ClassCastException e) {
-      throw new SerializationException(
-          "Codec "
-              + codec
-              + " for "
-              + classifier
-              + " is incompatible with "
-              + subject
-              + " (of type "
-              + subject.getClass().getName()
-              + ")",
-          e);
     }
   }
 
