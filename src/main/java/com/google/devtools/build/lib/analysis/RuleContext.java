@@ -375,6 +375,14 @@ public final class RuleContext extends TargetContext
     return Multimaps.transformValues(targetMap, ConfiguredTargetAndData::getConfiguredTarget);
   }
 
+  /**
+   * Returns an immutable map from attribute name to list of {@link ConfiguredTargetAndData} objects
+   * for that attribute.
+   */
+  public ListMultimap<String, ConfiguredTargetAndData> getConfiguredTargetAndDataMap() {
+    return targetMap;
+  }
+
   private List<ConfiguredTargetAndData> getConfiguredTargetAndTargetDeps(String key) {
     return targetMap.get(key);
   }

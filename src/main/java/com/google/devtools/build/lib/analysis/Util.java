@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -83,10 +84,10 @@ public abstract class Util {
     Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();
     Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
     AttributeMap attributes = ruleContext.attributes();
-    ListMultimap<String, ? extends TransitiveInfoCollection> targetMap =
-        ruleContext.getConfiguredTargetMap();
+    ListMultimap<String, ConfiguredTargetAndData> targetMap =
+        ruleContext.getConfiguredTargetAndDataMap();
     for (String attrName : attributes.getAttributeNames()) {
-      List<? extends TransitiveInfoCollection> attrValues = targetMap.get(attrName);
+      List<ConfiguredTargetAndData> attrValues = targetMap.get(attrName);
       if (attrValues != null && !attrValues.isEmpty()) {
         if (attributes.isAttributeValueExplicitlySpecified(attrName)) {
           addLabelsAndConfigs(explicitDeps, attrValues);
@@ -111,8 +112,11 @@ public abstract class Util {
   }
 
   private static void addLabelsAndConfigs(
-      Set<ConfiguredTargetKey> set, List<? extends TransitiveInfoCollection> deps) {
+      Set<ConfiguredTargetKey> set, List<ConfiguredTargetAndData> deps) {
     deps.forEach(
-        target -> set.add(ConfiguredTargetKey.of(target.getLabel(), target.getConfiguration())));
+        target ->
+            set.add(
+                ConfiguredTargetKey.of(
+                    target.getConfiguredTarget().getLabel(), target.getConfiguration())));
   }
 }
