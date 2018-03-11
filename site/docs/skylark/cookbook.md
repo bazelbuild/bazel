@@ -5,7 +5,7 @@ title: Extensions examples
 
 # Extensions examples
 
-**Tip:** For further examples, see the [GitHub repository](https://github.com/bazelbuild/examples/tree/master/rules/custom_outputs).
+**Tip:** For further examples, see the [GitHub repository](https://github.com/bazelbuild/examples/tree/master/rules).
 
 <!-- [TOC] -->
 

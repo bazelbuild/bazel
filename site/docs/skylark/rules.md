@@ -235,7 +235,7 @@ output*. There are multiple ways for a rule to introduce a predeclared output:
   See [Executable rules](#executable-rules-and-test-rules) below.
 
 All predeclared outputs can be accessed within the rule's implementation
-function under the [`ctx.outputs`](lib/ctx.html#output) struct; see that page
+function under the [`ctx.outputs`](lib/ctx.html#outputs) struct; see that page
 for details and restrictions. Non-predeclared outputs are created during
 analysis using the [`ctx.actions.declare_file`](lib/actions.html#declare_file)
 and [`ctx.actions.declare_directory`](lib/actions.html#declare_directory)
@@ -666,7 +666,7 @@ specify one using `DefaultInfo`; it must not be used otherwise. This output
 mechanism is deprecated because it does not support customizing the executable
 file's name at analysis time.
 
-See examples of an [executable rule](https://github.com/bazelbuild/examples/blob/master/rules/executable/executable.bzl)
+See examples of an [executable rule](https://github.com/bazelbuild/examples/blob/master/rules/executable/fortune.bzl)
 and a [test rule](https://github.com/bazelbuild/examples/blob/master/rules/test_rule/line_length.bzl).
 
 Test rules inherit the following attributes: `args`, `flaky`, `local`,
