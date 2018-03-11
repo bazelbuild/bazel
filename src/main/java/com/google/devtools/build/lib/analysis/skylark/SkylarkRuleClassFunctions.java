@@ -237,7 +237,7 @@ public class SkylarkRuleClassFunctions {
             + "<a href='File.html'><code>File</code></a> object representing the file that should "
             + "be executed to run the target. By default it is the predeclared output "
             + "<code>ctx.outputs.executable</code>."
-            + "<li><code>files</code>: A <a href='depset.html'><code>depset<code></a> of "
+            + "<li><code>files</code>: A <a href='depset.html'><code>depset</code></a> of "
             + "<a href='File.html'><code>File</code></a> objects representing the default outputs "
             + "to build when this target is specified on the blaze command line. By default it is "
             + "all predeclared outputs."
