@@ -375,10 +375,6 @@ public final class RuleContext extends TargetContext
     return Multimaps.transformValues(targetMap, ConfiguredTargetAndData::getConfiguredTarget);
   }
 
-  private List<? extends TransitiveInfoCollection> getDeps(String key) {
-    return Lists.transform(targetMap.get(key), ConfiguredTargetAndData::getConfiguredTarget);
-  }
-
   private List<ConfiguredTargetAndData> getConfiguredTargetAndTargetDeps(String key) {
     return targetMap.get(key);
   }
@@ -852,8 +848,19 @@ public final class RuleContext extends TargetContext
    * assertion will be raised. Returns null if the attribute is empty.
    */
   public TransitiveInfoCollection getPrerequisite(String attributeName, Mode mode) {
+    ConfiguredTargetAndData result = getPrerequisiteConfiguredTargetAndData(attributeName, mode);
+    return result == null ? null : result.getConfiguredTarget();
+  }
+
+  /**
+   * Returns the {@link ConfiguredTargetAndData} that feeds ino this target through the specified
+   * attribute. Note that you need to specify the correct mode for the attribute, otherwise an
+   * assertion will be raised. Returns null if the attribute is empty.
+   */
+  public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(
+      String attributeName, Mode mode) {
     checkAttribute(attributeName, mode);
-    List<? extends TransitiveInfoCollection> elements = getDeps(attributeName);
+    List<ConfiguredTargetAndData> elements = getConfiguredTargetAndTargetDeps(attributeName);
     if (elements.size() > 1) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
           + " produces more than one prerequisite");
