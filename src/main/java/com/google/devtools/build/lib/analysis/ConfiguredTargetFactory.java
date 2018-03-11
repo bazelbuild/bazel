@@ -153,7 +153,7 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration config) {
     for (ConfiguredTargetAndData prerequisite : prerequisiteMap.get(null)) {
       if (prerequisite.getTarget().getLabel().equals(label)
-          && (prerequisite.getConfiguredTarget().getConfiguration() == config)) {
+          && (prerequisite.getConfiguration() == config)) {
         return prerequisite.getConfiguredTarget();
       }
     }

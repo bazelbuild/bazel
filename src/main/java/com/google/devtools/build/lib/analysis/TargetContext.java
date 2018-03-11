@@ -117,7 +117,7 @@ public class TargetContext {
       BuildConfiguration config) {
     for (ConfiguredTargetAndData prerequisite : directPrerequisites) {
       if (prerequisite.getTarget().getLabel().equals(label)
-          && (Objects.equal(prerequisite.getConfiguredTarget().getConfiguration(), config))) {
+          && (Objects.equal(prerequisite.getConfiguration(), config))) {
         return prerequisite.getConfiguredTarget();
       }
     }

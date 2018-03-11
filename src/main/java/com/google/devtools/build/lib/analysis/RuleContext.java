@@ -822,8 +822,8 @@ public final class RuleContext extends TargetContext
     ImmutableListMultimap.Builder<Optional<String>, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData t : deps) {
-      if (t.getConfiguredTarget().getConfiguration() != null) {
-        result.put(Optional.of(t.getConfiguredTarget().getConfiguration().getCpu()), t);
+      if (t.getConfiguration() != null) {
+        result.put(Optional.of(t.getConfiguration().getCpu()), t);
       } else {
         // Source files don't have a configuration, so we add them to all architecture entries.
         for (String cpu : cpus) {
@@ -872,7 +872,7 @@ public final class RuleContext extends TargetContext
     ImmutableListMultimap.Builder<BuildConfiguration, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData ctad : ctatCollection) {
-      result.put(ctad.getConfiguredTarget().getConfiguration(), ctad);
+      result.put(ctad.getConfiguration(), ctad);
     }
     return result.build();
   }
