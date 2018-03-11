@@ -792,7 +792,11 @@ public final class RuleContext extends TargetContext
     return getConfiguredTargetAndTargetDeps(attributeName);
   }
 
-  private Map<Optional<String>, List<ConfiguredTargetAndData>>
+  /**
+   * Returns the prerequisites keyed by the CPU of their configurations. If the split transition is
+   * not active (e.g. split() returned an empty list), the key is an empty Optional.
+   */
+  public Map<Optional<String>, List<ConfiguredTargetAndData>>
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
     checkAttribute(attributeName, Mode.SPLIT);
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);

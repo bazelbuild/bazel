@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -207,11 +208,12 @@ public final class NativeLibs {
   private static Map<String, BuildConfiguration> getBuildConfigurationsByCpu(
       RuleContext ruleContext) {
     Map<String, BuildConfiguration> configurationMap = new LinkedHashMap<>();
-    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
-        ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
+    for (Map.Entry<Optional<String>, ? extends List<ConfiguredTargetAndData>> entry :
+        ruleContext
+            .getSplitPrerequisiteConfiguredTargetAndTargets(":cc_toolchain_split")
+            .entrySet()) {
       String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
-      TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
-      configurationMap.put(cpu, dep.getConfiguration());
+      configurationMap.put(cpu, Iterables.getOnlyElement(entry.getValue()).getConfiguration());
     }
     return configurationMap;
   }
