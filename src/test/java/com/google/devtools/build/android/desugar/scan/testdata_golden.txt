@@ -2,7 +2,7 @@
   *** println(java.lang.String);
 }
 -keep class java.lang.AssertionError {
-  *** <init>();
+  <init>();
 }
 -keep class java.lang.Class {
   *** cast(java.lang.Object);
@@ -11,7 +11,7 @@
 -keep class java.lang.IndexOutOfBoundsException {
 }
 -keep class java.lang.Object {
-  *** <init>();
+  <init>();
 }
 -keep class java.lang.String {
 }
@@ -21,8 +21,8 @@
 -keep class java.util.AbstractList {
 }
 -keep class java.util.ArrayList {
-  *** <init>();
-  *** <init>(int);
+  <init>();
+  <init>(int);
   *** add(java.lang.Object);
   *** get(int);
   *** iterator();
@@ -30,7 +30,7 @@
 -keep class java.util.Collection {
 }
 -keep class java.util.Date {
-  *** <init>(long);
+  <init>(long);
   *** getTime();
 }
 -keep class java.util.Iterator {
