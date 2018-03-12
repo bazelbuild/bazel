@@ -30,7 +30,9 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
 /**
- * A class for Skylark functions provided as builtins by the Skylark implementation
+ * A class for Skylark functions provided as builtins by the Skylark implementation. Instances of
+ * this class do not need to be serializable because they should effectively be treated as
+ * constants.
  */
 public class BuiltinFunction extends BaseFunction {
 
