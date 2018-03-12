@@ -14,6 +14,7 @@
 """Rules to create RPM archives."""
 
 rpm_filetype = [".rpm"]
+
 spec_filetype = [".spec"]
 
 def _pkg_rpm_impl(ctx):
@@ -36,11 +37,22 @@ def _pkg_rpm_impl(ctx):
   if ctx.attr.architecture:
     args += ["--arch=" + ctx.attr.architecture]
 
-  if ctx.attr.spec_file:
-    args += ["--spec_file=" + ctx.file.spec_file.path]
-    files += [ctx.file.spec_file]
-  else:
+  if not ctx.attr.spec_file:
     fail("spec_file was not specified")
+
+  # Expand the spec file template.
+  spec_file = ctx.actions.declare_file("%s.spec" % ctx.label.name)
+  # Create the default substitutions based on the data files.
+  substitutions = {}
+  for data_file in ctx.files.data:
+    key = "{%s}" % data_file.basename
+    substitutions[key] = data_file.path
+  ctx.actions.expand_template(
+    template = ctx.file.spec_file,
+    output = spec_file,
+    substitutions = substitutions)
+  args += ["--spec_file=" + spec_file.path]
+  files += [spec_file]
 
   args += ["--out_file=" + ctx.outputs.rpm.path]
 
@@ -55,7 +67,7 @@ def _pkg_rpm_impl(ctx):
 
   # Call the generator script.
   # TODO(katre): Generate a source RPM.
-  ctx.action(
+  ctx.actions.run(
       executable = ctx.executable._make_rpm,
       use_default_shell_env = True,
       arguments = args,
@@ -64,34 +76,55 @@ def _pkg_rpm_impl(ctx):
       mnemonic = "MakeRpm")
 
   # Link the RPM to the expected output name.
-  ctx.action(
-      command = "ln -s %s %s" % (ctx.outputs.rpm.basename, ctx.outputs.out.path),
+  ctx.actions.run(
+      executable = "ln",
+      arguments = [
+        "-s",
+        ctx.outputs.rpm.basename,
+        ctx.outputs.out.path,
+      ],
       inputs = [ctx.outputs.rpm],
       outputs = [ctx.outputs.out])
 
 # Define the rule.
 pkg_rpm = rule(
-    implementation = _pkg_rpm_impl,
     attrs = {
-        "spec_file" : attr.label(mandatory=True, allow_files=spec_filetype, single_file=True),
-        "architecture": attr.string(default="all"),
-        "version_file": attr.label(allow_files=True, single_file=True),
+        "spec_file": attr.label(
+            mandatory = True,
+            allow_files = spec_filetype,
+            single_file = True,
+        ),
+        "architecture": attr.string(default = "all"),
+        "version_file": attr.label(
+            allow_files = True,
+            single_file = True,
+        ),
         "version": attr.string(),
-        "changelog" : attr.label(allow_files=True, single_file=True),
-        "data": attr.label_list(mandatory=True, allow_files=True),
+        "changelog": attr.label(
+            allow_files = True,
+            single_file = True,
+        ),
+        "data": attr.label_list(
+            mandatory = True,
+            allow_files = True,
+        ),
 
         # Implicit dependencies.
         "_make_rpm": attr.label(
-            default=Label("//tools/build_defs/pkg:make_rpm"),
-            cfg="host",
-            executable=True,
-            allow_files=True),
+            default = Label("//tools/build_defs/pkg:make_rpm"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
     },
+    executable = False,
     outputs = {
         "out": "%{name}.rpm",
         "rpm": "%{name}-%{architecture}.rpm",
     },
-    executable = False)
+    implementation = _pkg_rpm_impl,
+)
+
 """Creates an RPM format package from the data files.
 
 This runs rpmbuild (and requires it to be installed beforehand) to generate
@@ -101,6 +134,8 @@ Args:
   spec_file: The RPM spec file to use. If the version or version_file
     attributes are provided, the Version in the spec will be overwritten.
     Any Sources listed in the spec file must be provided as data dependencies.
+    The base names of data dependencies can be replaced with the actual location
+    using "{basename}" syntax.
   version: The version of the package to generate. This will overwrite any
     Version provided in the spec file. Only specify one of version and
     version_file.
