@@ -50,10 +50,6 @@ public final class SelectorValue implements SkylarkValue {
     this.noMatchError = noMatchError;
   }
 
-  /**
-   * Returns an {@link ImmutableMap} containing the entries in the map provided to {@link
-   * #SelectorValue} in sorted order.
-   */
   public ImmutableMap<?, ?> getDictionary() {
     return dictionary;
   }
