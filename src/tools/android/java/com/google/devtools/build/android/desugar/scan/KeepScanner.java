@@ -15,11 +15,11 @@ package com.google.devtools.build.android.desugar.scan;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
@@ -140,18 +140,20 @@ class KeepScanner {
   private static byte[] readFully(ZipFile zip, ZipEntry entry) {
     byte[] result = new byte[(int) entry.getSize()];
     try (InputStream content = zip.getInputStream(entry)) {
-      checkState(content.read(result) == result.length);
-      checkState(content.read() == -1);
+      ByteStreams.readFully(content, result);
+      return result;
     } catch (IOException e) {
       throw new IOError(e);
     }
-    return result;
   }
 
   private static CharSequence toKeepDescriptor(KeepReference member) {
     StringBuilder result = new StringBuilder();
     if (member.isMethodReference()) {
-      result.append("*** ").append(member.name()).append("(");
+      if (!"<init>".equals(member.name())) {
+        result.append("*** ");
+      }
+      result.append(member.name()).append("(");
       // Ignore return type as it's unique in the source language
       boolean first = true;
       for (Type param : Type.getMethodType(member.desc()).getArgumentTypes()) {
