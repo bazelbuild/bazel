@@ -85,15 +85,20 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   private static final String DEFAULTDEP_INPUT = "bin java/hello/libdefaultdep.jar";
 
   /**
-   * Checks that, given the specified configuration parameters, the input rule *has* the
-   * expected dependencies and *doesn't have* the unexpected dependencies.
+   * Checks that, given the specified configuration parameters, the input rule *has* the expected
+   * attribute values and *doesn't have* the unexpected attribute values.
    */
-  private void checkRule(String ruleLabel, Collection<String> options,
-      Iterable<String> expected, Iterable<String> notExpected) throws Exception {
+  private void checkRule(
+      String ruleLabel,
+      String attributeName,
+      Collection<String> options,
+      Iterable<String> expected,
+      Iterable<String> notExpected)
+      throws Exception {
     useConfiguration(options.toArray(new String[options.size()]));
     ConfiguredTarget binary = getConfiguredTarget(ruleLabel);
     assertThat(binary).isNotNull();
-    Set<String> actualDeps = artifactsToStrings(getPrerequisiteArtifacts(binary, "deps"));
+    Set<String> actualDeps = artifactsToStrings(getPrerequisiteArtifacts(binary, attributeName));
     expected.forEach(expectedInput -> assertThat(actualDeps).contains(expectedInput));
     notExpected.forEach(unexpectedInput -> assertThat(actualDeps).doesNotContain(unexpectedInput));
   }
@@ -101,6 +106,15 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   private void checkRule(String ruleLabel, String option,
       Iterable<String> expected, Iterable<String> notExpected) throws Exception {
     checkRule(ruleLabel, ImmutableList.of(option), expected, notExpected);
+  }
+
+  private void checkRule(
+      String ruleLabel,
+      Collection<String> options,
+      Iterable<String> expected,
+      Iterable<String> notExpected)
+      throws Exception {
+    checkRule(ruleLabel, "deps", options, expected, notExpected);
   }
 
   private static final MockRule RULE_WITH_OUTPUT_ATTR =
@@ -1148,29 +1162,47 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
   @Test
     public void selectOnConstraints() throws Exception {
-      writeHelloRules(/*includeDefaultCondition=*/true);
-      scratch.file("conditions/BUILD",
-          "constraint_setting(name = 'fruit')",
-          "constraint_value(name = 'apple', constraint_setting = 'fruit')",
-          "constraint_value(name = 'banana', constraint_setting = 'fruit')",
-          "platform(",
-          "    name = 'apple_platform',",
-          "    constraint_values = [':apple'],",
-          ")",
-          "platform(",
-          "    name = 'banana_platform',",
-          "    constraint_values = [':banana'],",
-          ")",
-          "config_setting(",
-          "    name = 'a',",
-          "    constraint_values = [':apple']",
-          ")",
-          "config_setting(",
-          "    name = 'b',",
-          "    constraint_values = [':banana']",
-          ")");
-      checkRule("//java/hello:hello", "--experimental_platforms=//conditions:apple_platform",
-          /*expected:*/ ImmutableList.of(ADEP_INPUT),
-          /*not expected:*/ ImmutableList.of(BDEP_INPUT, DEFAULTDEP_INPUT));
+    // create some useful constraints and platforms.
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'fruit')",
+        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
+        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
+        "platform(",
+        "    name = 'apple_platform',",
+        "    constraint_values = [':apple'],",
+        ")",
+        "platform(",
+        "    name = 'banana_platform',",
+        "    constraint_values = [':banana'],",
+        ")",
+        "config_setting(",
+        "    name = 'a',",
+        "    constraint_values = [':apple']",
+        ")",
+        "config_setting(",
+        "    name = 'b',",
+        "    constraint_values = [':banana']",
+        ")");
+    scratch.file("afile", "acontents");
+    scratch.file("bfile", "bcontents");
+    scratch.file("defaultfile", "defaultcontents");
+    scratch.file(
+        "check/BUILD",
+        "filegroup(name = 'adep', srcs = ['afile'])",
+        "filegroup(name = 'bdep', srcs = ['bfile'])",
+        "filegroup(name = 'defaultdep', srcs = ['defaultfile'])",
+        "filegroup(name = 'hello',",
+        "    srcs = select({",
+        "        '//conditions:a': [':adep'],",
+        "        '//conditions:b': [':bdep'],",
+        "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [':defaultdep'],",
+        "    }))");
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--experimental_platforms=//conditions:apple_platform"),
+        /*expected:*/ ImmutableList.of("src check/afile"),
+        /*not expected:*/ ImmutableList.of("src check/bfile", "src check/defaultfile"));
     }
 }
