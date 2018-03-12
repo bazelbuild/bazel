@@ -81,4 +81,8 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment {
   public List<Label> getEnabledToolchainTypes() {
     return enabledToolchainTypes;
   }
+
+  public boolean isToolchainTypeEnabled(Label toolchainType) {
+    return getEnabledToolchainTypes().contains(toolchainType);
+  }
 }

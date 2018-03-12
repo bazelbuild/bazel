@@ -78,8 +78,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
             == MakeVariableSource.TOOLCHAIN
         && ruleContext
             .getFragment(PlatformConfiguration.class)
-            .getEnabledToolchainTypes()
-            .contains(ruleContext.getLabel())) {
+            .isToolchainTypeEnabled(ruleContext.getLabel())) {
       ResolvedToolchainProviders providers =
           (ResolvedToolchainProviders)
               ruleContext.getToolchainContext().getResolvedToolchainProviders();
