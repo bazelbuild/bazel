@@ -86,16 +86,6 @@ public class DumpCommand implements BlazeCommand {
     public boolean dumpPackages;
 
     @Option(
-      name = "vfs",
-      defaultValue = "false",
-      category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Dump virtual filesystem cache content."
-    )
-    public boolean dumpVfs;
-
-    @Option(
       name = "action_cache",
       defaultValue = "false",
       category = "verbosity",
@@ -212,7 +202,6 @@ public class DumpCommand implements BlazeCommand {
 
     boolean anyOutput =
         dumpOptions.dumpPackages
-            || dumpOptions.dumpVfs
             || dumpOptions.dumpActionCache
             || dumpOptions.dumpActionGraph != null
             || dumpOptions.dumpRuleClasses
@@ -242,13 +231,6 @@ public class DumpCommand implements BlazeCommand {
 
       if (dumpOptions.dumpPackages) {
         env.getPackageManager().dump(out);
-        out.println();
-      }
-
-      if (dumpOptions.dumpVfs) {
-        // TODO(b/72498697): Remove this flag
-        out.println("Filesystem cache");
-        out.println("dump --vfs is no longer meaningful");
         out.println();
       }
 
