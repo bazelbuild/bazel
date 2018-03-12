@@ -21,15 +21,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Arrays;
 import java.util.List;
 
 /** A Skylark value that is a result of an 'aspect(..)' function call. */
+@AutoCodec
 public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private final BaseFunction implementation;
   private final ImmutableList<String> attributeAspects;
@@ -42,7 +44,6 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private final ImmutableSet<String> hostFragments;
   private final ImmutableList<Label> requiredToolchains;
 
-  private final Environment funcallEnv;
   private SkylarkAspectClass aspectClass;
 
   public SkylarkDefinedAspect(
@@ -56,8 +57,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       // The host transition is in lib.analysis, so we can't reference it directly here.
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
-      ImmutableList<Label> requiredToolchains,
-      Environment funcallEnv) {
+      ImmutableList<Label> requiredToolchains) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
@@ -68,7 +68,27 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
     this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
     this.requiredToolchains = requiredToolchains;
-    this.funcallEnv = funcallEnv;
+  }
+
+  /** Constructor for post export reconstruction for serialization. */
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  SkylarkDefinedAspect(
+      BaseFunction implementation,
+      ImmutableList<String> attributeAspects,
+      ImmutableList<Attribute> attributes,
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableSet<SkylarkProviderIdentifier> provides,
+      ImmutableSet<String> paramAttributes,
+      ImmutableSet<String> fragments,
+      // The host transition is in lib.analysis, so we can't reference it directly here.
+      ConfigurationTransition hostTransition,
+      ImmutableSet<String> hostFragments,
+      ImmutableList<Label> requiredToolchains,
+      SkylarkAspectClass aspectClass) {
+    this(implementation, attributeAspects, attributes, requiredAspectProviders, provides,
+        paramAttributes, fragments, hostTransition, hostFragments, requiredToolchains);
+    this.aspectClass = aspectClass;
   }
 
   public BaseFunction getImplementation() {
@@ -77,10 +97,6 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
 
   public ImmutableList<String> getAttributeAspects() {
     return attributeAspects;
-  }
-
-  public Environment getFuncallEnv() {
-    return funcallEnv;
   }
 
   public ImmutableList<Attribute> getAttributes() {
