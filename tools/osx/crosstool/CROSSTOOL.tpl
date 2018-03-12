@@ -250,12 +250,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -328,9 +325,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -341,9 +335,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -358,9 +349,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -372,9 +360,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -386,9 +371,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -403,9 +385,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -417,9 +396,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -431,9 +407,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -445,9 +418,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -459,9 +429,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -1021,9 +988,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -1180,9 +1144,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -1718,48 +1679,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
@@ -2008,12 +1927,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -2086,9 +2002,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -2099,9 +2012,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -2116,9 +2026,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -2130,9 +2037,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -2144,9 +2048,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -2161,9 +2062,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -2175,9 +2073,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -2189,9 +2084,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -2203,9 +2095,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -2217,9 +2106,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -2779,9 +2665,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -2943,9 +2826,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -3483,48 +3363,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
@@ -3773,12 +3611,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -3851,9 +3686,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -3864,9 +3696,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -3881,9 +3710,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -3895,9 +3721,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -3909,9 +3732,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -3926,9 +3746,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -3940,9 +3757,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -3954,9 +3768,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -3968,9 +3779,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -3982,9 +3790,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -4546,9 +4351,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -4710,9 +4512,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -5238,48 +5037,6 @@ toolchain {
   action_config {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
       execution_requirement: "requires-darwin"
@@ -5541,12 +5298,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -5619,9 +5373,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -5632,9 +5383,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -5649,9 +5397,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -5663,9 +5408,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -5677,9 +5419,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -5694,9 +5433,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -5708,9 +5444,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -5722,9 +5455,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -5736,9 +5466,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -5750,9 +5477,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -6312,9 +6036,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -6497,9 +6218,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -7035,48 +6753,6 @@ toolchain {
   action_config {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
       execution_requirement: "requires-darwin"
@@ -7337,12 +7013,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -7415,9 +7088,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -7428,9 +7098,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -7445,9 +7112,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -7459,9 +7123,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -7473,9 +7134,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -7490,9 +7148,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -7504,9 +7159,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -7518,9 +7170,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -7532,9 +7181,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -7546,9 +7192,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -8108,9 +7751,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -8272,9 +7912,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -8800,48 +8437,6 @@ toolchain {
   action_config {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
       execution_requirement: "requires-darwin"
@@ -9102,12 +8697,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -9180,9 +8772,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -9193,9 +8782,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -9210,9 +8796,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -9224,9 +8807,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -9238,9 +8818,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -9255,9 +8832,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -9269,9 +8843,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -9283,9 +8854,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -9297,9 +8865,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -9311,9 +8876,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -9873,9 +9435,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -10027,9 +9586,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -10565,48 +10121,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
@@ -10855,12 +10369,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -10933,9 +10444,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -10946,9 +10454,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -10963,9 +10468,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -10977,9 +10479,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -10991,9 +10490,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -11008,9 +10504,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -11022,9 +10515,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -11036,9 +10526,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -11050,9 +10537,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -11064,9 +10548,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -11628,9 +11109,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -11782,9 +11260,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -12320,48 +11795,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
@@ -12611,12 +12044,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -12689,9 +12119,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -12702,9 +12129,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -12719,9 +12143,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -12733,9 +12154,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -12747,9 +12165,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -12764,9 +12179,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -12778,9 +12190,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -12792,9 +12201,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -12806,9 +12212,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -12820,9 +12223,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -13382,9 +12782,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -13557,9 +12954,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -14105,48 +13499,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
@@ -14395,12 +13747,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -14473,9 +13822,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -14486,9 +13832,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -14503,9 +13846,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -14517,9 +13857,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -14531,9 +13868,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -14548,9 +13882,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -14562,9 +13893,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -14576,9 +13904,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -14590,9 +13915,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -14604,9 +13926,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -15166,9 +14485,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -15320,9 +14636,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -15846,48 +15159,6 @@ toolchain {
   action_config {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
       execution_requirement: "requires-darwin"
@@ -16151,12 +15422,9 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-pic-static-library"
     implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
-    implies: "c++-link-alwayslink-static-library"
-    implies: "c++-link-alwayslink-pic-static-library"
     implies: "c++-link-executable"
   }
   feature {
@@ -16229,9 +15497,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-all_load"
       }
@@ -16242,9 +15507,6 @@ toolchain {
     name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
@@ -16259,9 +15521,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
@@ -16273,9 +15532,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
@@ -16287,9 +15543,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
@@ -16304,9 +15557,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
@@ -16318,9 +15568,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
@@ -16332,9 +15579,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
@@ -16346,9 +15590,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
@@ -16360,9 +15601,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag_group {
           flag: "-Wl,--start-lib"
@@ -16922,9 +16160,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
@@ -17076,9 +16311,6 @@ toolchain {
     }
     flag_set {
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
       }
@@ -17602,48 +16834,6 @@ toolchain {
   action_config {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-static-library"
-    action_name: "c++-link-alwayslink-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-pic-static-library"
-    action_name: "c++-link-pic-static-library"
-    tool {
-      tool_path: "wrapped_ar"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "global_whole_archive_open"
-    implies: "runtime_root_flags"
-    implies: "archiver_flags"
-    implies: "input_param_flags"
-    implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-alwayslink-pic-static-library"
-    action_name: "c++-link-alwayslink-pic-static-library"
     tool {
       tool_path: "wrapped_ar"
       execution_requirement: "requires-darwin"

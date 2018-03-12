@@ -109,10 +109,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
                 Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
                 Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
-                Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName()));
+                Link.LinkTargetType.STATIC_LIBRARY.getActionName()));
   }
 
   @Test
