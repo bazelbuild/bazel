@@ -18,8 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.sun.tools.javac.util.Context;
-import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
 
 /** The output from a {@link JavacTurbineCompiler} compilation. */
 class JavacTurbineCompileResult {
@@ -32,14 +30,14 @@ class JavacTurbineCompileResult {
   private final ImmutableMap<String, byte[]> files;
   private final Status status;
   private final String output;
-  private final ImmutableList<Diagnostic<? extends JavaFileObject>> diagnostics;
+  private final ImmutableList<FormattedDiagnostic> diagnostics;
   private final Context context;
 
   JavacTurbineCompileResult(
       ImmutableMap<String, byte[]> files,
       Status status,
       String output,
-      ImmutableList<Diagnostic<? extends JavaFileObject>> diagnostics,
+      ImmutableList<FormattedDiagnostic> diagnostics,
       Context context) {
     this.files = files;
     this.status = status;
@@ -59,7 +57,7 @@ class JavacTurbineCompileResult {
   }
 
   /** The diagnostics from the compilation. */
-  ImmutableList<Diagnostic<? extends JavaFileObject>> diagnostics() {
+  ImmutableList<FormattedDiagnostic> diagnostics() {
     return diagnostics;
   }
 

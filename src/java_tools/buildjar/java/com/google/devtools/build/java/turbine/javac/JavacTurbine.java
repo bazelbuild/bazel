@@ -46,14 +46,11 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.zip.ZipOutputStream;
-import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -250,8 +247,8 @@ public class JavacTurbine implements AutoCloseable {
           turbineOptions, compileResult.files(), transitive.collectTransitiveDependencies());
       dependencyModule.emitDependencyInformation(actualClasspath, compileResult.success());
     } else {
-      for (Diagnostic<? extends JavaFileObject> diagnostic : compileResult.diagnostics()) {
-        out.println(diagnostic.getMessage(Locale.getDefault()));
+      for (FormattedDiagnostic diagnostic : compileResult.diagnostics()) {
+        out.println(diagnostic.message());
       }
       out.print(compileResult.output());
     }
@@ -444,8 +441,8 @@ public class JavacTurbine implements AutoCloseable {
     if (result.success()) {
       return false;
     }
-    for (Diagnostic<? extends JavaFileObject> diagnostic : result.diagnostics()) {
-      String code = diagnostic.getCode();
+    for (FormattedDiagnostic diagnostic : result.diagnostics()) {
+      String code = diagnostic.diagnostic().getCode();
       if (code.contains("doesnt.exist")
           || code.contains("cant.resolve")
           || code.contains("cant.access")) {
@@ -453,7 +450,7 @@ public class JavacTurbine implements AutoCloseable {
       }
       // handle -Xdoclint:reference errors, which don't have a diagnostic code
       // TODO(cushon): this is locale-dependent
-      if (diagnostic.getMessage(Locale.getDefault()).contains("error: reference not found")) {
+      if (diagnostic.message().contains("error: reference not found")) {
         return true;
       }
     }
