@@ -106,8 +106,9 @@ import javax.annotation.Nullable;
   name = "configuration",
   category = SkylarkModuleCategory.BUILTIN,
   doc =
-      "Data required for the analysis of a target that comes from targets that "
-          + "depend on it and not targets that it depends on."
+      "This object holds information about the environment in which the build is running. See "
+          + "the <a href='../rules.$DOC_EXT#configurations'>Rules page</a> for more on the general "
+          + "concept of configurations."
 )
 // TODO(janakr): If overhead of fragments class names is too high, add constructor that just takes
 // fragments and gets names from them.
