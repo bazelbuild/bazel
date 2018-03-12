@@ -135,7 +135,7 @@ Args:
     attributes are provided, the Version in the spec will be overwritten.
     Any Sources listed in the spec file must be provided as data dependencies.
     The base names of data dependencies can be replaced with the actual location
-   using "{basename}" syntax.
+    using "{basename}" syntax.
   version: The version of the package to generate. This will overwrite any
     Version provided in the spec file. Only specify one of version and
     version_file.
