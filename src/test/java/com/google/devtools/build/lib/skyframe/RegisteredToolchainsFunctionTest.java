@@ -41,7 +41,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasEntryThat(toolchainsKey).isNotNull();
 
     RegisteredToolchainsValue value = result.get(toolchainsKey);
-    // We have two registered toolchains, and a default for c++
+    // We have two registered toolchains, and a default toolchain for C++.
     assertThat(value.registeredToolchains()).hasSize(3);
 
     assertThat(
@@ -121,6 +121,74 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .contains(
             "invalid registered toolchain '//error:not_a_toolchain': "
                 + "target does not provide the DeclaredToolchainInfo provider");
+  }
+
+  @Test
+  public void testRegisteredToolchains_targetPattern_workspace() throws Exception {
+    scratch.appendFile("extra/BUILD", "filegroup(name = 'not_a_platform')");
+    addToolchain(
+        "extra",
+        "extra_toolchain1",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "foo");
+    addToolchain(
+        "extra",
+        "extra_toolchain2",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:mac"),
+        "bar");
+    addToolchain(
+        "extra/more",
+        "more_toolchain",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace("register_toolchains('//extra/...')");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsAllOf(
+            makeLabel("//extra:extra_toolchain1_impl"),
+            makeLabel("//extra:extra_toolchain2_impl"),
+            makeLabel("//extra/more:more_toolchain_impl"));
+  }
+
+  @Test
+  public void testRegisteredToolchains_targetPattern_flagOverride() throws Exception {
+    scratch.appendFile("extra/BUILD", "filegroup(name = 'not_a_platform')");
+    addToolchain(
+        "extra",
+        "extra_toolchain1",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "foo");
+    addToolchain(
+        "extra",
+        "extra_toolchain2",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:mac"),
+        "bar");
+    addToolchain(
+        "extra/more",
+        "more_toolchain",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    useConfiguration("--extra_toolchains=//extra/...");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsAllOf(
+            makeLabel("//extra:extra_toolchain1_impl"),
+            makeLabel("//extra:extra_toolchain2_impl"),
+            makeLabel("//extra/more:more_toolchain_impl"));
   }
 
   @Test

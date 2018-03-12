@@ -539,7 +539,7 @@ use_toolchain(
 EOF
 
   bazel build //demo:use &> $TEST_log && fail "Build failure expected"
-  expect_log 'In register_toolchains: unable to parse toolchain label /:invalid:label:syntax'
+  expect_log "invalid registered toolchain '/:invalid:label:syntax': not a valid absolute pattern"
 }
 
 function test_register_toolchain_error_invalid_target() {
