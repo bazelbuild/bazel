@@ -833,6 +833,10 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   BlazeServerStartup *server_startup;
   server_pid = StartServer(workspace_layout, &server_startup);
 
+  fprintf(stderr, "Starting local %s server and connecting to it...",
+          globals->options->product_name.c_str());
+  fflush(stderr);
+
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
   auto try_until_time(std::chrono::system_clock::now() +
@@ -842,10 +846,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
     auto next_attempt_time(std::chrono::system_clock::now() +
                            std::chrono::milliseconds(100));
     if (server->Connect()) {
-      if (had_to_wait && !globals->options->client_debug) {
-        fputc('\n', stderr);
-        fflush(stderr);
-      }
+      fputc('\n', stderr);
+      fflush(stderr);
       delete server_startup;
       return;
     }
