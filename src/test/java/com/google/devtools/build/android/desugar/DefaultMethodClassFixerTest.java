@@ -15,7 +15,7 @@ package com.google.devtools.build.android.desugar;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.android.desugar.DefaultMethodClassFixer.InterfaceComparator.INSTANCE;
+import static com.google.devtools.build.android.desugar.DefaultMethodClassFixer.SubtypeComparator.INSTANCE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
