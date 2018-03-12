@@ -111,8 +111,13 @@ public class RootedPath implements Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(root, rootRelativePath);
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + root.hashCode();
+    result = prime * result + rootRelativePath.hashCode();
+    return result;
   }
+
 
   @Override
   public String toString() {
