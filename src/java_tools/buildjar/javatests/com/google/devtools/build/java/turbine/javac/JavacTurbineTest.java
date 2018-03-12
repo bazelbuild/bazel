@@ -1350,5 +1350,25 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
                     || name.equals(JavacTurbine.MANIFEST_NAME)))
         .collect(toSet());
   }
+
+  @Test
+  public void diagnosticFormattingTest() throws Exception {
+    addSourceLines(
+        "A.java", //
+        "class A {",
+        "}}");
+
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    StringWriter output = new StringWriter();
+    Result result;
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(output, true), optionsBuilder.build())) {
+      result = turbine.compile();
+    }
+
+    assertThat(result).isEqualTo(Result.ERROR);
+    assertThat(output.toString()).contains("A.java:2: error: class, interface, or enum expected");
+  }
 }
 
