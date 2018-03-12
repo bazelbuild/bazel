@@ -285,9 +285,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "/nologo"
       }
@@ -488,47 +485,6 @@ toolchain {
   }
 
   action_config {
-    config_name: 'c++-link-alwayslink-static-library'
-    action_name: 'c++-link-alwayslink-static-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'archiver_flags'
-    implies: 'input_param_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
-  # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
-  # But do we really need them on Windows?
-  action_config {
-    config_name: 'c++-link-pic-static-library'
-    action_name: 'c++-link-pic-static-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'archiver_flags'
-    implies: 'input_param_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
-  action_config {
-    config_name: 'c++-link-alwayslink-pic-static-library'
-    action_name: 'c++-link-alwayslink-pic-static-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'archiver_flags'
-    implies: 'input_param_flags'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
-  action_config {
     config_name: 'c++-link-interface-dynamic-library'
     action_name: 'c++-link-interface-dynamic-library'
     tool {
@@ -574,9 +530,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-alwayslink-static-library"
-      action: "c++-link-pic-static-library"
-      action: "c++-link-alwayslink-pic-static-library"
       env_entry {
         key: "PATH"
         value: "%{msvc_env_path}"
@@ -725,9 +678,6 @@ toolchain {
     flag_set {
       expand_if_all_available: 'output_execpath'
       action: 'c++-link-static-library'
-      action: 'c++-link-alwayslink-static-library'
-      action: 'c++-link-pic-static-library'
-      action: 'c++-link-alwayslink-pic-static-library'
       flag_group {
         flag: '/OUT:%{output_execpath}'
       }
@@ -760,9 +710,6 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       action: 'c++-link-static-library'
-      action: 'c++-link-alwayslink-static-library'
-      action: 'c++-link-pic-static-library'
-      action: 'c++-link-alwayslink-pic-static-library'
       flag_group {
         iterate_over: 'libraries_to_link'
         flag_group {
@@ -888,9 +835,6 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       action: 'c++-link-static-library'
-      action: 'c++-link-alwayslink-static-library'
-      action: 'c++-link-pic-static-library'
-      action: 'c++-link-alwayslink-pic-static-library'
       flag_group {
         flag: '@%{linker_param_file}'
       }
