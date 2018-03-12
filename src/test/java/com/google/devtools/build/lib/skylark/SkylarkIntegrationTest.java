@@ -1652,7 +1652,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
               .getSkyFunctionsForTesting();
       SkylarkImportLookupFunction skylarkImportLookupFunction =
           new SkylarkImportLookupFunction(this.getRuleClassProvider(), this.getPackageFactory());
-      skylarkImportLookupFunction.resetCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
           .setSkylarkImportLookupFunctionForInliningForTesting(skylarkImportLookupFunction);
     }
