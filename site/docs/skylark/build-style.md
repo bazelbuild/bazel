@@ -42,7 +42,7 @@ py_test(
         "//foo",
         "//third_party/java/jdk:jdk-k8",
     ],
-    flaky = 1,
+    flaky = True,
     deps = [
         ":check_bar_lib",
         ":foo_data_check",
@@ -166,6 +166,12 @@ is more error-prone and less obvious than an empty list.
  * The value of the name attribute should be a literal constant string (except
    in macros). *Rationale*: External tools use the name attribute to refer a
    rule. They need to find rules without having to interpret code.
+
+ * When setting boolean-type attributes, use boolean values, not integer values.
+   For legacy reasons, rules will still convert integers to booleans as needed,
+   but this is discouraged. *Rationale*: `flaky = 1` could be misread as saying
+   "deflake this target by rerunning it once". `flaky = True` unambiguously says
+   "this test is flaky".
 
 ## Differences with Python style guide
 
