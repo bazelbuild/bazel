@@ -14,7 +14,9 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Stream.concat;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
@@ -265,10 +267,13 @@ class CoreLibrarySupport {
       Class<?> root = group
           .stream()
           .map(EmulatedMethod::owner)
-          .max(DefaultMethodClassFixer.InterfaceComparator.INSTANCE)
+          .max(DefaultMethodClassFixer.SubtypeComparator.INSTANCE)
           .get();
       checkState(group.stream().map(m -> m.owner()).allMatch(o -> root.isAssignableFrom(o)),
           "Not a single unique method: %s", group);
+      String methodName = group.stream().findAny().get().name();
+
+      ImmutableList<Class<?>> customOverrides = findCustomOverrides(root, methodName);
 
       for (EmulatedMethod methodDefinition : group) {
         Class<?> owner = methodDefinition.owner();
@@ -288,20 +293,39 @@ class CoreLibrarySupport {
 
         // Types to check for before calling methodDefinition's companion, sub- before super-types
         ImmutableList<Class<?>> typechecks =
-            group
-                .stream()
-                .map(EmulatedMethod::owner)
+            concat(group.stream().map(EmulatedMethod::owner), customOverrides.stream())
                 .filter(o -> o != owner && owner.isAssignableFrom(o))
-                .distinct()  // should already be but just in case
-                .sorted(DefaultMethodClassFixer.InterfaceComparator.INSTANCE)
+                .distinct() // should already be but just in case
+                .sorted(DefaultMethodClassFixer.SubtypeComparator.INSTANCE)
                 .collect(ImmutableList.toImmutableList());
         makeDispatchHelperMethod(dispatchHelper, methodDefinition, typechecks);
       }
     }
   }
 
+  private ImmutableList<Class<?>> findCustomOverrides(Class<?> root, String methodName) {
+    ImmutableList.Builder<Class<?>> customOverrides = ImmutableList.builder();
+    for (ImmutableMap.Entry<String, String> move : memberMoves.entrySet()) {
+      // move.getKey is a string <owner>#<name> which we validated in the constructor.
+      // We need to take the string apart here to compare owner and name separately.
+      if (!methodName.equals(move.getKey().substring(move.getKey().indexOf('#') + 1))) {
+        continue;
+      }
+      Class<?> target =
+          loadFromInternal(
+              rewriter.getPrefix() + move.getKey().substring(0, move.getKey().indexOf('#')));
+      if (!root.isAssignableFrom(target)) {
+        continue;
+      }
+      checkState(!target.isInterface(), "can't move emulated interface method: %s", move);
+      customOverrides.add(target);
+    }
+    return customOverrides.build();
+  }
+
   private void makeDispatchHelperMethod(
       ClassVisitor helper, EmulatedMethod method, ImmutableList<Class<?>> typechecks) {
+    checkArgument(method.owner().isInterface());
     String owner = method.owner().getName().replace('.', '/');
     Type methodType = Type.getMethodType(method.descriptor());
     String companionDesc =
@@ -341,24 +365,27 @@ class CoreLibrarySupport {
       dispatchMethod.visitFrame(Opcodes.F_SAME, 0, EMPTY_FRAME, 0, EMPTY_FRAME);
     }
 
-    // Next, check for emulated subtypes and call their companion methods
+    // Next, check for subtypes with specialized implementations and call them
     for (Class<?> tested : typechecks) {
-      checkState(tested.isInterface(), "Dispatch emulation not supported for classes: %s", tested);
       Label fallthrough = new Label();
-      String emulatedInterface = tested.getName().replace('.', '/');
+      String testedName = tested.getName().replace('.', '/');
+      // In case of a class this must be a member move; for interfaces use the companion.
+      String target =
+          tested.isInterface()
+              ? InterfaceDesugaring.getCompanionClassName(testedName)
+              : checkNotNull(memberMoves.get(rewriter.unprefix(testedName) + '#' + method.name()));
       dispatchMethod.visitVarInsn(Opcodes.ALOAD, 0);  // load "receiver"
-      dispatchMethod.visitTypeInsn(Opcodes.INSTANCEOF, emulatedInterface);
+      dispatchMethod.visitTypeInsn(Opcodes.INSTANCEOF, testedName);
       dispatchMethod.visitJumpInsn(Opcodes.IFEQ, fallthrough);
       dispatchMethod.visitVarInsn(Opcodes.ALOAD, 0);  // load "receiver"
-      dispatchMethod.visitTypeInsn(Opcodes.CHECKCAST, emulatedInterface);  // make verifier happy
+      dispatchMethod.visitTypeInsn(Opcodes.CHECKCAST, testedName);  // make verifier happy
 
       visitLoadArgs(dispatchMethod, methodType, 1 /* receiver already loaded above */);
       dispatchMethod.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          InterfaceDesugaring.getCompanionClassName(emulatedInterface),
+          target,
           method.name(),
-          InterfaceDesugaring.companionDefaultMethodDescriptor(
-              emulatedInterface, method.descriptor()),
+          InterfaceDesugaring.companionDefaultMethodDescriptor(testedName, method.descriptor()),
           /*itf=*/ false);
       dispatchMethod.visitInsn(methodType.getReturnType().getOpcode(Opcodes.IRETURN));
 
@@ -400,7 +427,7 @@ class CoreLibrarySupport {
     return collectImplementedInterfaces(clazz, new LinkedHashSet<>())
         .stream()
         // search more subtypes before supertypes
-        .sorted(DefaultMethodClassFixer.InterfaceComparator.INSTANCE)
+        .sorted(DefaultMethodClassFixer.SubtypeComparator.INSTANCE)
         .map(itf -> findMethod(itf, name, desc))
         .filter(Objects::nonNull)
         .findFirst()

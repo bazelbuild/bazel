@@ -203,7 +203,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   }
 
   private void stubMissingDefaultAndBridgeMethods() {
-    TreeSet<Class<?>> allInterfaces = new TreeSet<>(InterfaceComparator.INSTANCE);
+    TreeSet<Class<?>> allInterfaces = new TreeSet<>(SubtypeComparator.INSTANCE);
     for (String direct : directInterfaces) {
       // Loading ensures all transitively implemented interfaces can be loaded, which is necessary
       // to produce correct default method stubs in all cases.  We could do without classloading but
@@ -647,18 +647,17 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     }
   }
 
-  /** Comparator for interfaces that compares by whether interfaces extend one another. */
-  enum InterfaceComparator implements Comparator<Class<?>> {
+  /** Comparator for classes and interfaces that compares by whether subtyping relationship. */
+  enum  SubtypeComparator implements Comparator<Class<?>> {
     /** Orders subtypes before supertypes and breaks ties lexicographically. */
     INSTANCE;
 
     @Override
     public int compare(Class<?> o1, Class<?> o2) {
-      checkArgument(o1.isInterface());
-      checkArgument(o2.isInterface());
       if (o1 == o2) {
         return 0;
       }
+      // order subtypes before supertypes
       if (o1.isAssignableFrom(o2)) { // o1 is supertype of o2
         return 1; // we want o1 to come after o2
       }
