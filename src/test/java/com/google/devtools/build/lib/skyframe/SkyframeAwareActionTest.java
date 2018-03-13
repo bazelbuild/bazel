@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -351,7 +352,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     if (changeRequest.changeMtime()) {
       long ctime = path.stat().getLastChangeTime();
       // Ensure enough time elapsed for file updates to have a visible effect on the file's ctime.
-      tsgm.waitForTimestampGranularity(ctime, reporter.getOutErr());
+      TimestampGranularityUtils.waitForTimestampGranularity(ctime, reporter.getOutErr());
       // waitForTimestampGranularity waits long enough for System.currentTimeMillis() to be greater
       // than the time at the setCommandStartTime() call. Therefore setting
       // System.currentTimeMillis() is guaranteed to advance the file's ctime.
@@ -363,7 +364,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     if (changeRequest.changeContent()) {
       long ctime = path.stat().getLastChangeTime();
       // Ensure enough time elapsed for file updates to have a visible effect on the file's ctime.
-      tsgm.waitForTimestampGranularity(ctime, reporter.getOutErr());
+      TimestampGranularityUtils.waitForTimestampGranularity(ctime, reporter.getOutErr());
       appendToFile(path);
       // Sanity check: ensure that appending to the file indeed advanced its ctime.
       checkCtimeUpdated(path, ctime);

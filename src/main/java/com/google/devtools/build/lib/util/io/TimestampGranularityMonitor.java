@@ -199,18 +199,6 @@ public class TimestampGranularityMonitor {
     }
   }
 
-  /** Wait enough such that changes to a file with the given ctime will have observable effects. */
-  public void waitForTimestampGranularity(long ctimeMillis, OutErr outErr) {
-    setCommandStartTime();
-    notifyDependenceOnFileTime(null, ctimeMillis);
-    waitForTimestampGranularity(outErr);
-  }
-
-  /** Wait enough such that changes to a file with the given ctime will have observable effects. */
-  public static void waitForTimestampGranularity(long ctimeMillis, Clock clock, OutErr outErr) {
-    new TimestampGranularityMonitor(clock).waitForTimestampGranularity(ctimeMillis, outErr);
-  }
-
   /**
    * Rounds the specified time, in milliseconds, down to the nearest second,
    * and returns the result in milliseconds.
@@ -218,5 +206,4 @@ public class TimestampGranularityMonitor {
   private static long roundDown(long millis) {
     return millis / 1000 * 1000;
   }
-
 }
