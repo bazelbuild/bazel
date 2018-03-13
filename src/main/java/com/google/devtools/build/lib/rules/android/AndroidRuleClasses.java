@@ -707,8 +707,6 @@ public final class AndroidRuleClasses {
           want to use a key other than the default key, so this attribute should be omitted.
           <p><em class="harmful">WARNING: Do not use your production keys, they should be
           strictly safeguarded and not kept in your source tree</em>.</p>
-          <p>This keystore must contain a single key named "AndroidDebugKey", and
-          have a keystore password of "android".
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("debug_key", LABEL)
