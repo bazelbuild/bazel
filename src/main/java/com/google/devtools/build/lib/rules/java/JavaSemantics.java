@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -282,7 +281,7 @@ public interface JavaSemantics {
    * (java code) and {@code resources} into {@code output}.
    */
   CustomCommandLine buildSingleJarCommandLine(
-      BuildConfiguration configuration,
+      String toolchainIdentifier,
       Artifact output,
       String mainClass,
       ImmutableList<String> manifestLines,

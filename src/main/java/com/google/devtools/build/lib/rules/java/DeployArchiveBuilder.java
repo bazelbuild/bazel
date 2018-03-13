@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import java.util.HashSet;
 import java.util.List;
@@ -352,7 +353,8 @@ public class DeployArchiveBuilder {
 
     CommandLine commandLine =
         semantics.buildSingleJarCommandLine(
-            ruleContext.getConfiguration(),
+            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
+                .getToolchainIdentifier(),
             outputJar,
             javaStartClass,
             deployManifestLines,
