@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
@@ -30,7 +31,7 @@ import javax.annotation.Nullable;
  */
 public abstract class ActionLookupValue implements SkyValue {
 
-  private final boolean removeActionsAfterEvaluation;
+  @AutoCodec.VisibleForSerialization protected final boolean removeActionsAfterEvaluation;
 
   public ActionLookupValue(boolean removeActionsAfterEvaluation) {
     this.removeActionsAfterEvaluation = removeActionsAfterEvaluation;

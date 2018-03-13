@@ -28,6 +28,7 @@ import java.util.Objects;
 /**
  * A value which represents every toolchain known to Bazel and available for toolchain resolution.
  */
+@AutoCodec
 @AutoValue
 public abstract class RegisteredToolchainsValue implements SkyValue {
 
@@ -77,9 +78,10 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
     }
   }
 
+  @AutoCodec.Instantiator
   public static RegisteredToolchainsValue create(
-      Iterable<DeclaredToolchainInfo> registeredToolchains) {
-    return new AutoValue_RegisteredToolchainsValue(ImmutableList.copyOf(registeredToolchains));
+      ImmutableList<DeclaredToolchainInfo> registeredToolchains) {
+    return new AutoValue_RegisteredToolchainsValue(registeredToolchains);
   }
 
   public abstract ImmutableList<DeclaredToolchainInfo> registeredToolchains();

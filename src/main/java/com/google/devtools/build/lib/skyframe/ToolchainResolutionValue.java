@@ -30,6 +30,7 @@ import java.util.List;
  * type. Callers will need to consider all toolchain types that are required and merge the results
  * together appropriately.
  */
+@AutoCodec
 @AutoValue
 public abstract class ToolchainResolutionValue implements SkyValue {
 
@@ -76,6 +77,7 @@ public abstract class ToolchainResolutionValue implements SkyValue {
     }
   }
 
+  @AutoCodec.Instantiator
   public static ToolchainResolutionValue create(
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels) {
     return new AutoValue_ToolchainResolutionValue(availableToolchainLabels);

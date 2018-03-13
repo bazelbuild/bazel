@@ -135,8 +135,6 @@ import java.util.zip.ZipFile;
 @Immutable
 @AutoCodec
 public class FdoSupport {
-  public static final ObjectCodec<FdoSupport> CODEC = new FdoSupport_AutoCodec();
-
   /**
    * The FDO mode we are operating in.
    *
