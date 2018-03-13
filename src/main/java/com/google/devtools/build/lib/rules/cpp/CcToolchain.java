@@ -675,9 +675,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     PlatformConfiguration platformConfig =
         Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
 
-    if (!platformConfig
-        .getEnabledToolchainTypes()
-        .contains(CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+    if (!platformConfig.isToolchainTypeEnabled(
+        CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
       return null;
     }
 

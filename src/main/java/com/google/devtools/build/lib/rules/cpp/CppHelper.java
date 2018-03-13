@@ -158,8 +158,7 @@ public class CppHelper {
             == MakeVariableSource.TOOLCHAIN)
         && (ruleContext
             .getFragment(PlatformConfiguration.class)
-            .getEnabledToolchainTypes()
-            .contains(toolchainType));
+            .isToolchainTypeEnabled(toolchainType));
   }
 
   /**
@@ -527,8 +526,7 @@ public class CppHelper {
     if (toolchainType != null
         && ruleContext
             .getFragment(PlatformConfiguration.class)
-            .getEnabledToolchainTypes()
-            .contains(toolchainType)) {
+            .isToolchainTypeEnabled(toolchainType)) {
       return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
     }
     return getToolchainFromCrosstoolTop(ruleContext, dep);
