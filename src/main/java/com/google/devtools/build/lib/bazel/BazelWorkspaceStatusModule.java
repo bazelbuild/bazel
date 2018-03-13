@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.NetUtil;
@@ -73,18 +74,24 @@ import java.util.UUID;
  * invalidate the node representing the workspace status action.
  */
 public class BazelWorkspaceStatusModule extends BlazeModule {
-  private static class BazelWorkspaceStatusAction extends WorkspaceStatusAction {
+  @AutoCodec
+  @AutoCodec.VisibleForSerialization
+  static class BazelWorkspaceStatusAction extends WorkspaceStatusAction {
     private final Artifact stableStatus;
     private final Artifact volatileStatus;
     private final Options options;
     private final String username;
     private final String hostname;
     private final com.google.devtools.build.lib.shell.Command getWorkspaceStatusCommand;
-    private final Map<String, String> clientEnv;
+    private final ImmutableMap<String, String> clientEnv;
 
-    private BazelWorkspaceStatusAction(
+    @SuppressWarnings("unused") // Read by serialization.
+    private final Path workspace;
+
+    @AutoCodec.VisibleForSerialization
+    BazelWorkspaceStatusAction(
         WorkspaceStatusAction.Options options,
-        Map<String, String> clientEnv,
+        ImmutableMap<String, String> clientEnv,
         Path workspace,
         Artifact stableStatus,
         Artifact volatileStatus,
@@ -111,6 +118,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
                   .setWorkingDir(workspace)
                   .useShell(true)
                   .build();
+      this.workspace = workspace;
     }
 
     private String getAdditionalWorkspaceStatus(ActionExecutionContext actionExecutionContext)
@@ -314,8 +322,13 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       Artifact volatileArtifact = factory.getConstantMetadataArtifact(
           PathFragment.create("volatile-status.txt"), root, artifactOwner);
 
-      return new BazelWorkspaceStatusAction(options, env.getClientEnv(),
-          env.getDirectories().getWorkspace(), stableArtifact, volatileArtifact, getHostname());
+      return new BazelWorkspaceStatusAction(
+          options,
+          ImmutableMap.copyOf(env.getClientEnv()),
+          env.getDirectories().getWorkspace(),
+          stableArtifact,
+          volatileArtifact,
+          getHostname());
     }
 
     /**

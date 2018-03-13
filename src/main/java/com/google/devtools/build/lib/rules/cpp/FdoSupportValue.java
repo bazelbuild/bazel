@@ -35,6 +35,7 @@ import java.util.Objects;
  * <p>The eventual plan is to migrate FDO functionality to the execution phase once directory
  * artifacts work better, so this may not be worth it.
  */
+@AutoCodec
 @Immutable
 public class FdoSupportValue implements SkyValue {
   public static final SkyFunctionName SKYFUNCTION = SkyFunctionName.create("FDO_SUPPORT");
