@@ -143,7 +143,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     CcToolchainProvider toolchain =
         (CcToolchainProvider)
             providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
-    assertThat(toolchain.getToolchain().getTargetCpu()).isEqualTo("piii");
+    assertThat(toolchain.getToolchainIdentifier()).endsWith("piii");
   }
 
   @Test
