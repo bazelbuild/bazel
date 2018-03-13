@@ -15,13 +15,21 @@ package com.google.devtools.build.android.desugar.scan;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.util.Comparator.comparing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import com.google.devtools.build.android.desugar.io.HeaderClassLoader;
+import com.google.devtools.build.android.desugar.io.IndexedInputs;
+import com.google.devtools.build.android.desugar.io.InputFileProvider;
+import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -32,9 +40,11 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -55,6 +65,32 @@ class KeepScanner {
       help = "Input Jar with classes to scan."
     )
     public Path inputJars;
+
+    @Option(
+      name = "classpath_entry",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      help =
+          "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
+              + "javac's -cp flag."
+    )
+    public List<Path> classpath;
+
+    @Option(
+      name = "bootclasspath_entry",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      help =
+          "Bootclasspath that was used to compile the --input Jar with, like javac's "
+              + "-bootclasspath flag (required)."
+    )
+    public List<Path> bootclasspath;
 
     @Option(
       name = "keep_file",
@@ -81,10 +117,25 @@ class KeepScanner {
     parser.setAllowResidue(false);
     parser.enableParamsFileSupport(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     parser.parseAndExitUponError(args);
-
     KeepScannerOptions options = parser.getOptions(KeepScannerOptions.class);
-    Map<String, ImmutableSet<KeepReference>> seeds =
-        scan(checkNotNull(options.inputJars), options.prefix);
+
+    Map<String, ImmutableSet<KeepReference>> seeds;
+    try (Closer closer = Closer.create()) {
+      // TODO(kmb): Try to share more of this code with Desugar binary
+      IndexedInputs classpath =
+          new IndexedInputs(toRegisteredInputFileProvider(closer, options.classpath));
+      IndexedInputs bootclasspath =
+          new IndexedInputs(toRegisteredInputFileProvider(closer, options.bootclasspath));
+
+      // Construct classloader from classpath.  Since we're assuming the prefix we're looking for
+      // isn't part of the input itself we shouldn't need to include the input in the classloader.
+      CoreLibraryRewriter noopRewriter = new CoreLibraryRewriter("");
+      ClassLoader classloader =
+          new HeaderClassLoader(classpath, noopRewriter,
+              new HeaderClassLoader(bootclasspath, noopRewriter,
+                  new ThrowingClassLoader()));
+      seeds = scan(checkNotNull(options.inputJars), options.prefix, classloader);
+    }
 
     try (PrintStream out =
         new PrintStream(
@@ -117,11 +168,9 @@ class KeepScanner {
             });
   }
 
-  /**
-   * Scans for and returns references with owners matching the given prefix grouped by owner.
-   */
-  private static Map<String, ImmutableSet<KeepReference>> scan(Path jarFile, String prefix)
-      throws IOException {
+  /** Scans for and returns references with owners matching the given prefix grouped by owner. */
+  private static Map<String, ImmutableSet<KeepReference>> scan(
+      Path jarFile, String prefix, ClassLoader classpath) throws IOException {
     // We read the Jar sequentially since ZipFile uses locks anyway but then allow scanning each
     // class in parallel.
     try (ZipFile zip = new ZipFile(jarFile.toFile())) {
@@ -131,6 +180,8 @@ class KeepScanner {
           .parallel()
           .flatMap(
               content -> PrefixReferenceScanner.scan(new ClassReader(content), prefix).stream())
+          .distinct() // so we don't process the same reference multiple times next
+          .map(ref -> nearestDeclaration(ref, classpath))
           .collect(
               Collectors.groupingByConcurrent(
                   KeepReference::internalName, ImmutableSet.toImmutableSet()));
@@ -145,6 +196,68 @@ class KeepScanner {
     } catch (IOException e) {
       throw new IOError(e);
     }
+  }
+
+  /**
+   * Find the nearest definition of the given reference in the class hierarchy and return the
+   * modified reference.  This is needed b/c bytecode sometimes refers to a method or field using
+   * an owner type that inherits the method or field instead of defining the member itself.
+   * In that case we need to find and keep the inherited definition.
+   */
+  private static KeepReference nearestDeclaration(KeepReference ref, ClassLoader classpath) {
+    if (!ref.isMemberReference() || "<init>".equals(ref.name())) {
+      return ref; // class and constructor references don't need any further work
+    }
+
+    Class<?> clazz;
+    try {
+      clazz = classpath.loadClass(ref.internalName().replace('/', '.'));
+    } catch (ClassNotFoundException e) {
+      throw (NoClassDefFoundError) new NoClassDefFoundError("Couldn't load " + ref).initCause(e);
+    }
+
+    Class<?> owner = findDeclaringClass(clazz, ref);
+    if (owner == clazz) {
+      return ref;
+    }
+    String parent = checkNotNull(owner, "Can't resolve: %s", ref).getName().replace('.', '/');
+    return KeepReference.memberReference(parent, ref.name(), ref.desc());
+  }
+
+  private static Class<?> findDeclaringClass(Class<?> clazz, KeepReference ref) {
+    if (ref.isFieldReference()) {
+      try {
+        return clazz.getField(ref.name()).getDeclaringClass();
+      } catch (NoSuchFieldException e) {
+        // field must be non-public, so search class hierarchy
+        do {
+          try {
+            return clazz.getDeclaredField(ref.name()).getDeclaringClass();
+          } catch (NoSuchFieldException ignored) {
+            // fall through for clarity
+          }
+          clazz = clazz.getSuperclass();
+        } while (clazz != null);
+      }
+    } else {
+      checkState(ref.isMethodReference());
+      Type descriptor = Type.getMethodType(ref.desc());
+      for (Method m : clazz.getMethods()) {
+        if (m.getName().equals(ref.name()) && Type.getType(m).equals(descriptor)) {
+          return m.getDeclaringClass();
+        }
+      }
+      do {
+        // Method must be non-public, so search class hierarchy
+        for (Method m : clazz.getDeclaredMethods()) {
+          if (m.getName().equals(ref.name()) && Type.getType(m).equals(descriptor)) {
+            return m.getDeclaringClass();
+          }
+        }
+        clazz = clazz.getSuperclass();
+      } while (clazz != null);
+    }
+    return null;
   }
 
   private static CharSequence toKeepDescriptor(KeepReference member) {
@@ -170,6 +283,20 @@ class KeepScanner {
       result.append("*** ").append(member.name()); // field names are unique so ignore descriptor
     }
     return result;
+  }
+
+  /**
+   * Transform a list of Path to a list of InputFileProvider and register them with the given
+   * closer.
+   */
+  @SuppressWarnings("MustBeClosedChecker")
+  private static ImmutableList<InputFileProvider> toRegisteredInputFileProvider(
+      Closer closer, List<Path> paths) throws IOException {
+    ImmutableList.Builder<InputFileProvider> builder = new ImmutableList.Builder<>();
+    for (Path path : paths) {
+      builder.add(closer.register(InputFileProvider.open(path)));
+    }
+    return builder.build();
   }
 
   private KeepScanner() {}

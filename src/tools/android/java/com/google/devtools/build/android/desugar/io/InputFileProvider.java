@@ -11,15 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.android.desugar;
+package com.google.devtools.build.android.desugar.io;
 
+import com.google.errorprone.annotations.MustBeClosed;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 
 /** Input file provider allows to iterate on relative path filename of a directory or a jar file. */
-interface InputFileProvider extends Closeable, Iterable<String> {
+public interface InputFileProvider extends Closeable, Iterable<String> {
 
   /**
    * Return a ZipEntry for {@code filename}. If the provider is a {@link ZipInputFileProvider}, the
@@ -33,4 +36,14 @@ interface InputFileProvider extends Closeable, Iterable<String> {
    * responsibility of the caller to close this stream.
    */
   InputStream getInputStream(String filename) throws IOException;
+
+  /** Transform a Path to an InputFileProvider that needs to be closed by the caller. */
+  @MustBeClosed
+  public static InputFileProvider open(Path path) throws IOException {
+    if (Files.isDirectory(path)) {
+      return new DirectoryInputFileProvider(path);
+    } else {
+      return new ZipInputFileProvider(path);
+    }
+  }
 }

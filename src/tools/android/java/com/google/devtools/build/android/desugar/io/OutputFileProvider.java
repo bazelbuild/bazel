@@ -11,12 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.android.desugar;
+package com.google.devtools.build.android.desugar.io;
 
+import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /** Output file provider allows to write files in directory or jar files. */
-interface OutputFileProvider extends AutoCloseable {
+public interface OutputFileProvider extends AutoCloseable {
 
   /** Filename to use to write out dependency metadata for later consistency checking. */
   public static final String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
@@ -29,4 +32,14 @@ interface OutputFileProvider extends AutoCloseable {
 
   /** Write {@code content} in {@code filename} to this output */
   void write(String filename, byte[] content) throws IOException;
+
+  /** Transform a Path to an {@link OutputFileProvider} */
+  @MustBeClosed
+  public static OutputFileProvider create(Path path) throws IOException {
+    if (Files.isDirectory(path)) {
+      return new DirectoryOutputFileProvider(path);
+    } else {
+      return new ZipOutputFileProvider(path);
+    }
+  }
 }

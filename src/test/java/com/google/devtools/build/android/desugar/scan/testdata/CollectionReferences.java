@@ -54,6 +54,10 @@ public class CollectionReferences {
     return result;
   }
 
+  public void expire(long before) {
+    dates.removeIf(d -> d.getTime() < before);
+  }
+
   static {
     System.out.println("Hello!");
   }

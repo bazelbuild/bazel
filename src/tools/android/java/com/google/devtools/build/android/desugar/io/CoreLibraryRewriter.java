@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.android.desugar;
+package com.google.devtools.build.android.desugar.io;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,7 +25,7 @@ import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.Remapper;
 
 /** Utility class to prefix or unprefix class names of core library classes */
-class CoreLibraryRewriter {
+public class CoreLibraryRewriter {
   private final String prefix;
 
   public CoreLibraryRewriter(String prefix) {
@@ -178,11 +178,11 @@ class CoreLibraryRewriter {
 
     /** Returns the (unprefixed) name of the class once written. */
     @Nullable
-    String getClassName() {
+    public String getClassName() {
       return finalClassName;
     }
 
-    byte[] toByteArray() {
+    public byte[] toByteArray() {
       return writer.toByteArray();
     }
 

@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.BytecodeTypeInference.InferredType;
+import com.google.devtools.build.android.desugar.io.BitFlags;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;

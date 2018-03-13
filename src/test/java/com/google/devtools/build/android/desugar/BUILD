@@ -13,6 +13,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/io:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
@@ -367,6 +368,7 @@ java_test(
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar:deps_collector_api",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//third_party:asm",
         "//third_party:asm-tree",
         "//third_party:guava",
@@ -388,35 +390,13 @@ java_test(
 )
 
 java_test(
-    name = "FieldInfoTest",
-    size = "small",
-    srcs = ["FieldInfoTest.java"],
-    deps = [
-        "//src/tools/android/java/com/google/devtools/build/android/desugar",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "Java7CompatibilityTest",
     size = "small",
     srcs = ["Java7CompatibilityTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//third_party:asm",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "IndexedInputsTest",
-    size = "small",
-    srcs = ["IndexedInputsTest.java"],
-    deps = [
-        "//src/tools/android/java/com/google/devtools/build/android/desugar",
-        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -439,6 +419,7 @@ java_test(
         ":testdata",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:asm",
         "//third_party:guava",
@@ -464,6 +445,7 @@ java_test(
         ":testdata",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:asm",
         "//third_party:guava",
@@ -490,6 +472,7 @@ java_test(
         ":testdata",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:asm",
         "//third_party:guava",
@@ -1971,6 +1954,7 @@ test_suite(
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:all_windows_tests",
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/android/desugar/io:all_windows_tests",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:all_windows_tests",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],

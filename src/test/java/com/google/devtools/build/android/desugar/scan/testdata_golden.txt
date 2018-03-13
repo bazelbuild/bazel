@@ -18,6 +18,19 @@
 -keep class java.lang.System {
   *** out;
 }
+-keep class java.lang.invoke.CallSite {
+}
+-keep class java.lang.invoke.LambdaMetafactory {
+  *** metafactory(java.lang.invoke.MethodHandles$Lookup, java.lang.String, java.lang.invoke.MethodType, java.lang.invoke.MethodType, java.lang.invoke.MethodHandle, java.lang.invoke.MethodType);
+}
+-keep class java.lang.invoke.MethodHandle {
+}
+-keep class java.lang.invoke.MethodHandles {
+}
+-keep class java.lang.invoke.MethodHandles$Lookup {
+}
+-keep class java.lang.invoke.MethodType {
+}
 -keep class java.util.AbstractList {
 }
 -keep class java.util.ArrayList {
@@ -28,6 +41,7 @@
   *** iterator();
 }
 -keep class java.util.Collection {
+  *** removeIf(java.util.function.Predicate);
 }
 -keep class java.util.Date {
   <init>(long);
@@ -43,4 +57,6 @@
   *** add(java.lang.Object);
   *** get(int);
   *** iterator();
+}
+-keep class java.util.function.Predicate {
 }

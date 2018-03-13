@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.android.desugar;
+package com.google.devtools.build.android.desugar.io;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
  * scanning all inputs over and over for each class to load. An indexed inputs can have a parent
  * that is firstly used when a file name is searched.
  */
-class IndexedInputs {
+public class IndexedInputs {
 
   private final ImmutableMap<String, InputFileProvider> inputFiles;
 

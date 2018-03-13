@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.devtools.build.android.desugar.io.BitFlags;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
