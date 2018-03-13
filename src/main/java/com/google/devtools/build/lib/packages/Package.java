@@ -203,8 +203,8 @@ public class Package {
   private ImmutableList<Event> events;
   private ImmutableList<Postable> posts;
 
-  private ImmutableList<Label> registeredExecutionPlatformLabels;
-  private ImmutableList<Label> registeredToolchainLabels;
+  private ImmutableList<String> registeredExecutionPlatforms;
+  private ImmutableList<String> registeredToolchains;
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -340,9 +340,8 @@ public class Package {
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.events = ImmutableList.copyOf(builder.events);
     this.posts = ImmutableList.copyOf(builder.posts);
-    this.registeredExecutionPlatformLabels =
-        ImmutableList.copyOf(builder.registeredExecutionPlatformLabels);
-    this.registeredToolchainLabels = ImmutableList.copyOf(builder.registeredToolchainLabels);
+    this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
+    this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
   }
 
   /**
@@ -659,12 +658,12 @@ public class Package {
     return defaultRestrictedTo;
   }
 
-  public ImmutableList<Label> getRegisteredExecutionPlatformLabels() {
-    return registeredExecutionPlatformLabels;
+  public ImmutableList<String> getRegisteredExecutionPlatforms() {
+    return registeredExecutionPlatforms;
   }
 
-  public ImmutableList<Label> getRegisteredToolchainLabels() {
-    return registeredToolchainLabels;
+  public ImmutableList<String> getRegisteredToolchains() {
+    return registeredToolchains;
   }
 
   @Override
@@ -789,8 +788,8 @@ public class Package {
     protected Map<Label, Path> subincludes = null;
     protected ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
 
-    protected List<Label> registeredExecutionPlatformLabels = new ArrayList<>();
-    protected List<Label> registeredToolchainLabels = new ArrayList<>();
+    protected List<String> registeredExecutionPlatforms = new ArrayList<>();
+    protected List<String> registeredToolchains = new ArrayList<>();
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -1313,12 +1312,12 @@ public class Package {
       addRuleUnchecked(rule);
     }
 
-    public void addRegisteredExecutionPlatformLabels(List<Label> platforms) {
-      this.registeredExecutionPlatformLabels.addAll(platforms);
+    public void addRegisteredExecutionPlatforms(List<String> platforms) {
+      this.registeredExecutionPlatforms.addAll(platforms);
     }
 
-    void addRegisteredToolchainLabels(List<Label> toolchains) {
-      this.registeredToolchainLabels.addAll(toolchains);
+    void addRegisteredToolchains(List<String> toolchains) {
+      this.registeredToolchains.addAll(toolchains);
     }
 
     private Builder beforeBuild(boolean discoverAssumedInputFiles)

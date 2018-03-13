@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -189,9 +188,9 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
     assertThatEvaluationResult(result).hasNoError();
 
-    assertThat(result.get(key).registeredToolchainLabels())
+    assertThat(result.get(key).registeredToolchains())
         // There are default toolchains that are always registered, so just check for the ones added
-        .containsAllOf(makeLabel("//toolchain:tc1"), makeLabel("//toolchain:tc2"))
+        .containsAllOf("//toolchain:tc1", "//toolchain:tc2")
         .inOrder();
   }
 
@@ -206,8 +205,8 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
     assertThatEvaluationResult(result).hasNoError();
 
-    assertThat(result.get(key).registeredExecutionPlatformLabels())
-        .containsExactly(makeLabel("//platform:ep1"), makeLabel("//platform:ep2"))
+    assertThat(result.get(key).registeredExecutionPlatforms())
+        .containsExactly("//platform:ep1", "//platform:ep2")
         .inOrder();
   }
 
@@ -279,11 +278,11 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @AutoValue
   abstract static class GetRegisteredToolchainsValue implements SkyValue {
-    abstract ImmutableList<Label> registeredToolchainLabels();
+    abstract ImmutableList<String> registeredToolchains();
 
-    static GetRegisteredToolchainsValue create(Iterable<Label> registeredToolchainLabels) {
+    static GetRegisteredToolchainsValue create(Iterable<String> registeredToolchains) {
       return new AutoValue_ExternalPackageUtilTest_GetRegisteredToolchainsValue(
-          ImmutableList.copyOf(registeredToolchainLabels));
+          ImmutableList.copyOf(registeredToolchains));
     }
   }
 
@@ -293,12 +292,11 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<Label> registeredToolchainLabels =
-          RegisteredToolchainsFunction.getRegisteredToolchainLabels(env);
-      if (registeredToolchainLabels == null) {
+      List<String> registeredToolchains = RegisteredToolchainsFunction.getRegisteredToolchains(env);
+      if (registeredToolchains == null) {
         return null;
       }
-      return GetRegisteredToolchainsValue.create(registeredToolchainLabels);
+      return GetRegisteredToolchainsValue.create(registeredToolchains);
     }
 
     @Nullable
@@ -327,12 +325,12 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @AutoValue
   abstract static class GetRegisteredExecutionPlatformsValue implements SkyValue {
-    abstract ImmutableList<Label> registeredExecutionPlatformLabels();
+    abstract ImmutableList<String> registeredExecutionPlatforms();
 
     static GetRegisteredExecutionPlatformsValue create(
-        Iterable<Label> registeredExecutionPlatformLabels) {
+        Iterable<String> registeredExecutionPlatforms) {
       return new AutoValue_ExternalPackageUtilTest_GetRegisteredExecutionPlatformsValue(
-          ImmutableList.copyOf(registeredExecutionPlatformLabels));
+          ImmutableList.copyOf(registeredExecutionPlatforms));
     }
   }
 
@@ -342,12 +340,12 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<Label> registeredExecutionPlatformLabels =
+      List<String> registeredExecutionPlatforms =
           RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
-      if (registeredExecutionPlatformLabels == null) {
+      if (registeredExecutionPlatforms == null) {
         return null;
       }
-      return GetRegisteredExecutionPlatformsValue.create(registeredExecutionPlatformLabels);
+      return GetRegisteredExecutionPlatformsValue.create(registeredExecutionPlatforms);
     }
 
     @Nullable
