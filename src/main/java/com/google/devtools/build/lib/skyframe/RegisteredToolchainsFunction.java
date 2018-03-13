@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -21,7 +23,9 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -51,22 +55,36 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     BuildConfiguration configuration = buildConfigurationValue.getConfiguration();
 
-    ImmutableList.Builder<Label> registeredToolchainLabels = new ImmutableList.Builder<>();
+    ImmutableList.Builder<String> targetPatterns = new ImmutableList.Builder<>();
 
     // Get the toolchains from the configuration.
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
-    registeredToolchainLabels.addAll(platformConfiguration.getExtraToolchains());
+    targetPatterns.addAll(platformConfiguration.getExtraToolchains());
 
     // Get the registered toolchains from the WORKSPACE.
-    registeredToolchainLabels.addAll(getWorkspaceToolchains(env));
+    targetPatterns.addAll(getWorkspaceToolchains(env));
     if (env.valuesMissing()) {
       return null;
     }
 
+    // Expand target patterns.
+    ImmutableList<Label> toolchainLabels;
+    try {
+      toolchainLabels =
+          ToolchainUtil.expandTargetPatterns(
+              env, targetPatterns.build(), FilteringPolicies.ruleType("toolchain", true));
+      if (env.valuesMissing()) {
+        return null;
+      }
+    } catch (ToolchainUtil.InvalidTargetPatternException e) {
+      throw new RegisteredToolchainsFunctionException(
+          new InvalidToolchainLabelException(e), Transience.PERSISTENT);
+    }
+
     // Load the configured target for each, and get the declared toolchain providers.
     ImmutableList<DeclaredToolchainInfo> registeredToolchains =
-        configureRegisteredToolchains(env, configuration, registeredToolchainLabels.build());
+        configureRegisteredToolchains(env, configuration, toolchainLabels);
     if (env.valuesMissing()) {
       return null;
     }
@@ -74,23 +92,23 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return RegisteredToolchainsValue.create(registeredToolchains);
   }
 
-  private Iterable<? extends Label> getWorkspaceToolchains(Environment env)
+  private Iterable<? extends String> getWorkspaceToolchains(Environment env)
       throws InterruptedException {
-    List<Label> labels = getRegisteredToolchainLabels(env);
-    if (labels == null) {
+    List<String> patterns = getRegisteredToolchains(env);
+    if (patterns == null) {
       return ImmutableList.of();
     }
-    return labels;
+    return patterns;
   }
 
   /**
-   * Loads the external package and then returns the registered toolchain labels.
+   * Loads the external package and then returns the registered toolchains.
    *
    * @param env the environment to use for lookups
    */
-  @Nullable @VisibleForTesting
-  public static List<Label> getRegisteredToolchainLabels(Environment env)
-      throws InterruptedException {
+  @Nullable
+  @VisibleForTesting
+  public static List<String> getRegisteredToolchains(Environment env) throws InterruptedException {
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER));
     if (externalPackageValue == null) {
@@ -98,7 +116,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
 
     Package externalPackage = externalPackageValue.getPackage();
-    return externalPackage.getRegisteredToolchainLabels();
+    return externalPackage.getRegisteredToolchains();
   }
 
   private ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
@@ -108,7 +126,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         labels
             .stream()
             .map(label -> ConfiguredTargetKey.of(label, configuration))
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
         env.getValuesOrThrow(keys, ConfiguredValueCreationException.class);
@@ -156,25 +174,27 @@ public class RegisteredToolchainsFunction implements SkyFunction {
    */
   public static final class InvalidToolchainLabelException extends Exception {
 
-    private final Label invalidLabel;
-
     public InvalidToolchainLabelException(Label invalidLabel) {
       super(
           String.format(
               "invalid registered toolchain '%s': "
                   + "target does not provide the DeclaredToolchainInfo provider",
               invalidLabel));
-      this.invalidLabel = invalidLabel;
+    }
+
+    public InvalidToolchainLabelException(ToolchainUtil.InvalidTargetPatternException e) {
+      this(e.getInvalidPattern(), e.getTpe());
+    }
+
+    public InvalidToolchainLabelException(String invalidPattern, TargetParsingException e) {
+      super(
+          String.format("invalid registered toolchain '%s': %s", invalidPattern, e.getMessage()),
+          e);
     }
 
     public InvalidToolchainLabelException(Label invalidLabel, ConfiguredValueCreationException e) {
       super(
           String.format("invalid registered toolchain '%s': %s", invalidLabel, e.getMessage()), e);
-      this.invalidLabel = invalidLabel;
-    }
-
-    public Label getInvalidLabel() {
-      return invalidLabel;
     }
   }
 

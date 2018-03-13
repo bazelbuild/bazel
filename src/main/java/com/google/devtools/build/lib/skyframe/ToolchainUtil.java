@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
@@ -375,6 +377,67 @@ public class ToolchainUtil {
         platforms.get(targetPlatformKey),
         requiredToolchains,
         toolchains);
+  }
+
+  @Nullable
+  static ImmutableList<Label> expandTargetPatterns(
+      Environment env, List<String> targetPatterns, FilteringPolicy filteringPolicy)
+      throws InvalidTargetPatternException, InterruptedException {
+
+    // First parse the patterns, and throw any errors immediately.
+    List<TargetPatternValue.TargetPatternKey> patternKeys = new ArrayList<>();
+    for (TargetPatternValue.TargetPatternSkyKeyOrException keyOrException :
+        TargetPatternValue.keys(targetPatterns, filteringPolicy, "")) {
+
+      try {
+        patternKeys.add(keyOrException.getSkyKey());
+      } catch (TargetParsingException e) {
+        throw new InvalidTargetPatternException(keyOrException.getOriginalPattern(), e);
+      }
+    }
+
+    // Then, resolve the patterns.
+    ImmutableList.Builder<Label> labels = new ImmutableList.Builder<>();
+    Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
+        env.getValuesOrThrow(patternKeys, TargetParsingException.class);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    for (TargetPatternValue.TargetPatternKey pattern : patternKeys) {
+      TargetPatternValue value;
+      try {
+        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
+        labels.addAll(value.getTargets().getTargets());
+      } catch (TargetParsingException e) {
+        throw new InvalidTargetPatternException(pattern.getPattern(), e);
+      }
+    }
+
+    return labels.build();
+  }
+
+  /**
+   * Exception used when an error occurs in {@link #expandTargetPatterns(Environment, List,
+   * FilteringPolicy)}.
+   */
+  static final class InvalidTargetPatternException extends Exception {
+    private String invalidPattern;
+    private TargetParsingException tpe;
+
+    public InvalidTargetPatternException(String invalidPattern, TargetParsingException tpe) {
+      super(tpe);
+      this.invalidPattern = invalidPattern;
+      this.tpe = tpe;
+    }
+
+    public String getInvalidPattern() {
+      return invalidPattern;
+    }
+
+    public TargetParsingException getTpe() {
+      return tpe;
+    }
   }
 
   /** Exception used when a platform label is not a valid platform. */
