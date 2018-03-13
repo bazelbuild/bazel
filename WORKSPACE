@@ -36,7 +36,8 @@ bind(
 http_archive(
     name = "bazel_j2objc",
     url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
-    sha256 = "529ee99e6f0e3f88edef61aeae4f13dc6e5eb8183993ced191338422b0e1fbeb",
+    # Computed using "shasum -a 256 j2objc-2.0.3.zip"
+    sha256 = "a36bac432d0dbd8c98249e484b2b69dd5720afa4abb58711a3c3def1c0bfa21d",
     strip_prefix = "j2objc-2.0.3",
 )
 
