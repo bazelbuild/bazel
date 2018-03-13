@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,6 +44,7 @@ import org.junit.runners.JUnit4;
 public class AarImportTest extends BuildViewTestCase {
   @Before
   public void setup() throws Exception {
+    useConfiguration("--experimental_import_deps_checking=ERROR");
     scratch.file("a/BUILD",
         "aar_import(",
         "    name = 'foo',",
@@ -121,6 +124,28 @@ public class AarImportTest extends BuildViewTestCase {
             resourceTreeArtifact.getExecPathString(),
             "--output_assets_dir",
             assetsTreeArtifact.getExecPathString());
+  }
+
+  @Test
+  public void testDepsCheckerActionExists() throws Exception {
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
+    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+    NestedSet<Artifact> outputGroup =
+        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+    Artifact artifact = Iterables.getOnlyElement(outputGroup);
+    assertThat(artifact.isTreeArtifact()).isFalse();
+    assertThat(artifact.getExecPathString())
+        .endsWith("_aar/bar/aar_import_deps_checker_result.txt");
+
+    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
+    List<String> arguments = checkerAction.getArguments();
+    assertThat(arguments)
+        .containsAllOf(
+            "--bootclasspath_entry",
+            "--classpath_entry",
+            "--input",
+            "--output",
+            "--fail_on_errors");
   }
 
   @Test

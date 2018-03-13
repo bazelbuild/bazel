@@ -878,6 +878,7 @@ java_library(
         "rules/java/BuildInfoPropertiesTranslator.java",
         "rules/java/ClasspathConfiguredFragment.java",
         "rules/java/DeployArchiveBuilder.java",
+        "rules/java/ImportDepsCheckActionBuilder.java",
         "rules/java/JavaBuildInfoFactory.java",
         "rules/java/JavaCommon.java",
         "rules/java/JavaCompilationArgs.java",
