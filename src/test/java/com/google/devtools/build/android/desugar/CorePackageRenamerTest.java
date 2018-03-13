@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;

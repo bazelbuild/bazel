@@ -17,6 +17,7 @@ import static org.objectweb.asm.Opcodes.ASM6;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.LCMP;
 
+import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 

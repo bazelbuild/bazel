@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;

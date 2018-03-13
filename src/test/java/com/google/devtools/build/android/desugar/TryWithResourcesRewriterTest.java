@@ -25,6 +25,7 @@ import static org.objectweb.asm.Opcodes.ASM5;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
+import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.runtime.ThrowableExtension;
 import com.google.devtools.build.android.desugar.testdata.ClassUsingTryWithResources;
 import java.io.IOException;

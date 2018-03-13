@@ -19,7 +19,10 @@ import static com.google.devtools.build.android.desugar.DefaultMethodClassFixer.
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
-import com.google.devtools.build.android.desugar.Desugar.ThrowingClassLoader;
+import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import com.google.devtools.build.android.desugar.io.HeaderClassLoader;
+import com.google.devtools.build.android.desugar.io.IndexedInputs;
+import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
