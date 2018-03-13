@@ -76,7 +76,7 @@ public final class StringCodecs {
     @Override
     public void register(ObjectCodecRegistry.Builder builder) {
       if (!supportsOptimizedAscii()) {
-        builder.add(String.class, simple());
+        builder.add(simple());
       }
     }
   }
@@ -90,7 +90,7 @@ public final class StringCodecs {
     @Override
     public void register(ObjectCodecRegistry.Builder builder) {
       if (supportsOptimizedAscii()) {
-        builder.add(String.class, asciiOptimized());
+        builder.add(asciiOptimized());
       }
     }
   }

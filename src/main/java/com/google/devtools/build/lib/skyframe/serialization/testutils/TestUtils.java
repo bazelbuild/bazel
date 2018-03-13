@@ -18,16 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Deserializer;
-import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingCodec;
-import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.protobuf.ByteString;
@@ -54,16 +49,21 @@ public class TestUtils {
 
   public static <T> ByteString toBytes(T value, ImmutableMap<Class<?>, Object> dependencies)
       throws IOException, SerializationException {
-    return toBytes(value, new SerializationContext(dependencies));
+    return toBytes(new SerializationContext(dependencies), value);
   }
 
-  private static <T> ByteString toBytes(T value, SerializationContext serializationContext)
+  public static <T> ByteString toBytes(SerializationContext serializationContext, T value)
       throws IOException, SerializationException {
     ByteString.Output output = ByteString.newOutput();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
     serializationContext.serialize(value, codedOut);
     codedOut.flush();
     return output.toByteString();
+  }
+
+  public static Object fromBytes(DeserializationContext deserializationContext, ByteString bytes)
+      throws IOException, SerializationException {
+    return deserializationContext.deserialize(bytes.newCodedInput());
   }
 
   /** Deserialize a value from a byte array. */
@@ -81,7 +81,11 @@ public class TestUtils {
     ObjectCodecRegistry registry = builder.build();
     return new DeserializationContext(registry, dependencies)
         .deserialize(
-            toBytes(value, new SerializationContext(registry, dependencies)).newCodedInput());
+            toBytes(new SerializationContext(registry, dependencies), value).newCodedInput());
+  }
+
+  public static <T> T roundTrip(T value) throws IOException, SerializationException {
+    return TestUtils.roundTrip(value, ImmutableMap.of());
   }
 
   /**
@@ -106,81 +110,50 @@ public class TestUtils {
       throws IOException, SerializationException {
     ByteString.Output output = ByteString.newOutput();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
-    new Serializer()
-        .serialize(new SerializationContext(registry, ImmutableMap.of()), original, codedOut);
+    new SerializationContext(registry, ImmutableMap.of())
+        .newMemoizingContext()
+        .serialize(original, codedOut);
     codedOut.flush();
     return output.toByteString();
   }
 
   public static Object fromBytesMemoized(ByteString bytes, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return new Deserializer()
-        .deserialize(
-            new DeserializationContext(registry, ImmutableMap.of()), bytes.newCodedInput());
+    return new DeserializationContext(registry, ImmutableMap.of())
+        .newMemoizingContext(Mutability.create("deserialize skylark"))
+        .deserialize(bytes.newCodedInput());
   }
 
   public static <T> T roundTripMemoized(T original, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return roundTripMemoized(original, /*mutability=*/ null, registry);
+    return roundTripMemoized(original, Mutability.create("deserialize skylark"), registry);
   }
 
-  @SuppressWarnings("unchecked") // Cast to T in return.
   public static <T> T roundTripMemoized(
       T original, @Nullable Mutability mutability, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return (T)
-        (mutability == null ? new Deserializer() : new Deserializer(mutability))
-            .deserialize(
-                new DeserializationContext(registry, ImmutableMap.of()),
-                toBytesMemoized(original, registry).newCodedInput());
+    return new DeserializationContext(registry, ImmutableMap.of())
+        .newMemoizingContext(mutability)
+        .deserialize(toBytesMemoized(original, registry).newCodedInput());
   }
 
-  public static <T> T roundTripMemoized(T original, MemoizingCodec<?>... codecs)
+  public static <T> T roundTripMemoized(T original, ObjectCodec<?>... codecs)
       throws IOException, SerializationException {
-    return roundTripMemoized(original, getBuilderWithMemoized(codecs).build());
+    return roundTripMemoized(original, getBuilderWithAdditionalCodecs(codecs).build());
   }
 
   public static <T> T roundTripMemoized(
-      T original, @Nullable Mutability mutability, MemoizingCodec<?>... codecs)
+      T original, @Nullable Mutability mutability, ObjectCodec<?>... codecs)
       throws IOException, SerializationException {
-    return roundTripMemoized(original, mutability, getBuilderWithMemoized(codecs).build());
+    return roundTripMemoized(original, mutability, getBuilderWithAdditionalCodecs(codecs).build());
   }
 
-  public static ObjectCodecRegistry.Builder getBuilderWithMemoized(MemoizingCodec<?>... codecs) {
+  public static ObjectCodecRegistry.Builder getBuilderWithAdditionalCodecs(
+      ObjectCodec<?>... codecs) {
     ObjectCodecRegistry.Builder builder = AutoRegistry.get().getBuilder();
-    for (MemoizingCodec<?> codec : codecs) {
-      builder.addMemoizing(codec);
+    for (ObjectCodec<?> codec : codecs) {
+      builder.add(codec);
     }
     return builder;
-  }
-
-  /**
-   * Fake string codec that replaces all input and output string values with the constant "dummy".
-   */
-  public static class ConstantStringCodec implements ObjectCodec<String> {
-
-    private static final ObjectCodec<String> stringCodec = StringCodecs.simple();
-
-    @Override
-    public Class<String> getEncodedClass() {
-      return String.class;
-    }
-
-    @Override
-    public void serialize(SerializationContext context, String value, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      stringCodec.serialize(context, "dummy", codedOut);
-    }
-
-    @Override
-    public String deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      stringCodec.deserialize(context, codedIn);
-      return "dummy";
-    }
-
-    /** Disables auto-registration of ConstantStringCodec. */
-    private static class ConstantStringCodecRegisterer
-        implements CodecRegisterer<ConstantStringCodec> {}
   }
 }

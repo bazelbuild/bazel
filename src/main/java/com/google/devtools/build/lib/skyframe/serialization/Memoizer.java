@@ -14,27 +14,22 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
  * A framework for serializing and deserializing with memo tables. Memoization is useful both for
  * performance and, in the case of cyclic data structures, to help avoid infinite recursion.
- *
- * <p><b>Usage:</b> To add support for a new type of value, create a class that implements {@link
- * MemoizingCodec}. To serialize, instantiate a new {@link Serializer} and call its {@link
- * Serializer#serialize serialize} method with the value and a codec for that value; and similarly
- * to deserialize, instantiate a {@link Deserializer} and call {@link Deserializer#deserialize
- * deserialize}. The memo table lives for the lifetime of the {@code Serializer}/{@code
- * Deserializer} instance. Do not call {@link MemoizingCodec#serializePayload} and {@link
- * MemoizingCodec#deserializePayload} directly, since that will bypass the memoization logic for the
- * top-level value to be encoded or decoded.
  *
  * <p>The memo table associates each value with an integer identifier.
  *
@@ -135,7 +130,7 @@ import javax.annotation.Nullable;
 // that instead of failing with a stack overflow, we detect the cycle and throw
 // SerializationException. This requires just a little extra memo tracking for the MEMOIZE_AFTER
 // case.
-public class Memoizer {
+class Memoizer {
 
   /**
    * Constants used in the wire format to signal whether the next bytes are content or a
@@ -150,139 +145,9 @@ public class Memoizer {
 
   private Memoizer() {}
 
-  /** Indicates how a {@link MemoizingCodec} uses the memo table. */
-  public enum Strategy {
-    /**
-     * Indicates that the memo table is not directly used by this codec.
-     *
-     * <p>Codecs with this strategy will always serialize payloads, never backreferences, even if
-     * the same value has been serialized before. This does not apply to other codecs that are
-     * delegated to via {@link Serializer#serialize}. Deserialization behaves
-     * analogously.
-     *
-     * <p>This strategy is useful for codecs that write very little data themselves, but that still
-     * delegate to other codecs.
-     */
-    DO_NOT_MEMOIZE,
-
-    /**
-     * Indicates that the value is memoized before recursing to its children, so that it is
-     * available to form cyclic references from its children. If this strategy is used, {@link
-     * MemoizingCodec#makeInitialValue} must be overridden.
-     *
-     * <p>This should be used for all types where it is feasible to provide an initial value. Any
-     * cycle that does not go through at least one {@code MEMOIZE_BEFORE} type of value (e.g., a
-     * pathological self-referential tuple) is unserializable.
-     */
-    MEMOIZE_BEFORE,
-
-    /**
-     * Indicates that the value is memoized after recursing to its children, so that it cannot be
-     * referred to until after it has been constructed (regardless of whether its children are still
-     * under construction).
-     *
-     * <p>This is typically used for immutable types, since they cannot be created by mutating an
-     * initial value.
-     */
-    MEMOIZE_AFTER
-  }
-
-  /**
-   * A codec that knows how to serialize/deserialize {@code T} using a memo strategy.
-   *
-   * <p>Codecs do not interact with memo tables directly; rather, they just define a memo strategy
-   * and let {@link Serializer} and {@link Deserializer} take care of the memo logic and metadata. A
-   * codec can dispatch to a subcodec to handle components of {@code T} compositionally; this
-   * dispatching occurs via the {@code Serializer} or {@code Deserializer} so that the memo table is
-   * consulted.
-   *
-   * <p>Codecs may access additional data from the deserialization context. For instance, Skylark
-   * codecs may retrieve a {@link com.google.devtools.build.lib.syntax.Mutability} object to
-   * associate with the value they construct. The type of this additional data is checked
-   * dynamically, and a mistyping will result in a {@link SerializationException}.
-   */
-  // It is technically possible to work the type of the additional data into the generic type of
-  // MemoizingCodec and Deserializer. But it makes the types ugly, and probably isn't worth the
-  // damage to readability.
-  public interface MemoizingCodec<T> extends BaseCodec<T> {
-
-    /**
-     * Returns the memoization strategy for this codec.
-     *
-     * <p>If set to {@link Strategy#MEMOIZE_BEFORE}, then {@link #makeInitialValue} must be
-     * implemented.
-     *
-     * <p>Implementations of this method should just return a constant, since the choice of strategy
-     * is usually intrinsic to {@code T}.
-     */
-    Strategy getStrategy();
-
-    /**
-     * If {@link #getStrategy} returns {@link Strategy#MEMOIZE_BEFORE}, then this method is called
-     * to obtain a new initial / empty instance of {@code T} for deserialization. The returned
-     * instance will be populated by {@link #deserializePayload}.
-     *
-     * <p>If any other strategy is used, this method is ignored. The default implementation throws
-     * {@link UnsupportedOperationException}.
-     *
-     * <p>The passed in deserialization context can provide additional data that is used to help
-     * initialize the value. For instance, it may contain a Skylark {@link
-     * com.google.devtools.build.lib.syntax.Mutability}.
-     */
-    default T makeInitialValue(Deserializer deserializer) throws SerializationException {
-      throw new UnsupportedOperationException(
-          "No initial value was provided for codec class " + getClass().getName());
-    }
-
-    /**
-     * Serializes an object's payload.
-     *
-     * <p>To delegate to a subcodec, an implementation should call {@code serializer}'s {@link
-     * Serializer#serialize serialize} method with the appropriate piece of {@code obj} and the
-     * subcodec. Do not call the subcodec's {@code serializePayload} method directly, as that would
-     * bypass the memo table.
-     */
-    void serializePayload(
-        SerializationContext context,
-        T obj,
-        CodedOutputStream codedOut,
-        Serializer serializer)
-        throws SerializationException, IOException;
-
-    /**
-     * Deserializes an object's payload.
-     *
-     * <p>To delegate to a subcodec, an implementation should call {@code deserializer}'s {@link
-     * Deserializer#deserialize deserialize} method with the appropriate subcodec. Do not call the
-     * subcodec's {@code deserializePayload} method directly, as that would bypass the memo table.
-     *
-     * If this codec uses the {@link Strategy#MEMOIZE_BEFORE} strategy (as determined by {@link
-     * #getStrategy}), then the {@code initial} parameter will be a new value of {@code T} that can
-     * be mutated into the result. In that case, this function must return {@code initial}. If any
-     * other strategy is used, then {@code initial} will be null and this function must instantiate
-     * the value to return.
-     */
-    T deserializePayload(
-        DeserializationContext context,
-        @Nullable T initial,
-        CodedInputStream codedIn,
-        Deserializer deserializer)
-        throws SerializationException, IOException;
-  }
-
-  /** A context for serializing; wraps a memo table. */
-  public static class Serializer {
+  /** A context for serializing; wraps a memo table. Not thread-safe. */
+  static class Serializer {
     private final SerializingMemoTable memo = new SerializingMemoTable();
-
-    public <T> void serialize(SerializationContext context, T obj, CodedOutputStream codedOut)
-        throws IOException, SerializationException {
-      MemoizingCodec<? super T> memoizingCodec =
-          context.recordAndMaybeGetMemoizingCodec(obj, codedOut);
-      if (memoizingCodec != null) {
-        serialize(context, obj, memoizingCodec, codedOut);
-      }
-    }
-
     /**
      * Serializes an object using the given codec and current memo table state.
      *
@@ -292,12 +157,12 @@ public class Memoizer {
     <T> void serialize(
         SerializationContext context,
         T obj,
-        MemoizingCodec<? super T> codec,
+        ObjectCodec<? super T> codec,
         CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      Strategy strategy = codec.getStrategy();
-      if (strategy == Strategy.DO_NOT_MEMOIZE) {
-        codec.serializePayload(context, obj, codedOut, this);
+      MemoizationStrategy strategy = codec.getStrategy();
+      if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
+        codec.serialize(context, obj, codedOut);
       } else {
         Integer id = memo.lookupNullable(obj);
         if (id != null) {
@@ -314,19 +179,19 @@ public class Memoizer {
     private <T> void serializeMemoContent(
         SerializationContext context,
         T obj,
-        MemoizingCodec<T> codec,
+        ObjectCodec<T> codec,
         CodedOutputStream codedOut,
-        Strategy strategy)
+        MemoizationStrategy strategy)
         throws SerializationException, IOException {
       switch(strategy) {
         case MEMOIZE_BEFORE: {
           int id = memo.memoize(obj);
           codedOut.writeInt32NoTag(id);
-          codec.serializePayload(context, obj, codedOut, this);
+            codec.serialize(context, obj, codedOut);
           break;
         }
         case MEMOIZE_AFTER: {
-          codec.serializePayload(context, obj, codedOut, this);
+            codec.serialize(context, obj, codedOut);
           // If serializing the children caused the parent object itself to be serialized due to a
           // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new id.
           Integer cylicallyCreatedId = memo.lookupNullable(obj);
@@ -368,9 +233,13 @@ public class Memoizer {
     }
   }
 
-  /** A context for deserializing; wraps a memo table and possibly additional data. */
-  public static class Deserializer {
+  /**
+   * A context for deserializing; wraps a memo table and possibly additional data. Not thread-safe.
+   */
+  static class Deserializer {
     private final DeserializingMemoTable memo = new DeserializingMemoTable();
+    @Nullable private Integer tagForMemoizedBefore = null;
+    private final Deque<Object> memoizedBeforeStackForSanityChecking = new ArrayDeque<>();
 
     /**
      * Additional data is dynamically typed, and retrieved using a type token.
@@ -378,15 +247,9 @@ public class Memoizer {
      * <p>If we need to support multiple kinds of additional data in the future, this could become
      * a mapping.
      */
-    @Nullable
     private final Object additionalData;
 
-    public Deserializer() {
-      this.additionalData = null;
-    }
-
-    @VisibleForTesting
-    public Deserializer(Object additionalData) {
+    Deserializer(Object additionalData) {
       Preconditions.checkNotNull(additionalData);
       this.additionalData = additionalData;
     }
@@ -399,9 +262,6 @@ public class Memoizer {
      * @throws IllegalArgumentException if the additional data is not an instance of {@code klass}
      */
     <T> T getAdditionalData(Class<T> klass) {
-      Preconditions.checkNotNull(additionalData,
-          "Codec requires additional data of type %s, but no additional data is defined",
-          klass.getName());
       try {
         return klass.cast(additionalData);
       } catch (ClassCastException e) {
@@ -414,41 +274,27 @@ public class Memoizer {
     }
 
     /**
-     * For use with generic types where a {@link Class} object is not available at runtime, or where
-     * {@link Object} is the desired return type anyway.
-     */
-    public Object deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      return deserialize(context, codedIn, Object.class);
-    }
-
-    public <T> T deserialize(
-        DeserializationContext context, CodedInputStream codedIn, Class<T> deserializedClass)
-        throws SerializationException, IOException {
-      @SuppressWarnings("unchecked")
-      MemoizingCodec<? extends T> codec =
-          (MemoizingCodec<? extends T>) context.getMemoizingCodecRecordedInInput(codedIn);
-      return deserializedClass.cast(deserialize(context, codec, codedIn));
-    }
-
-    /**
      * Deserializes an object using the given codec and current memo table state.
      *
      * @throws SerializationException on a logical error during deserialization
      * @throws IOException on {@link IOException} during deserialization
      */
     <T> T deserialize(
-        DeserializationContext context, MemoizingCodec<? extends T> codec, CodedInputStream codedIn)
+        DeserializationContext context, ObjectCodec<? extends T> codec, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      Strategy strategy = codec.getStrategy();
-      if (strategy == Strategy.DO_NOT_MEMOIZE) {
-        return codec.deserializePayload(context, null, codedIn, this);
+      Preconditions.checkState(
+          tagForMemoizedBefore == null,
+          "non-null memoized-before tag %s (%s)",
+          tagForMemoizedBefore,
+          codec);
+      MemoizationStrategy strategy = codec.getStrategy();
+      if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
+        return codec.deserialize(context, codedIn);
       } else {
-        MemoEntry memoEntry =
-            memoEntryCodec.deserialize(context, codedIn);
+        MemoEntry memoEntry = memoEntryCodec.deserialize(context, codedIn);
         if (memoEntry == MemoEntry.BACKREF) {
           int id = codedIn.readInt32();
-          return lookupBackreference(id, codec.getEncodedClass());
+          return lookupBackreference(id, codec);
         } else if (memoEntry == MemoEntry.NEW_VALUE) {
           switch (strategy) {
             case MEMOIZE_BEFORE:
@@ -464,33 +310,71 @@ public class Memoizer {
       }
     }
 
+    private <T> T safeCast(Object obj, ObjectCodec<T> codec) throws SerializationException {
+      if (obj == null) {
+        return null;
+      }
+      ImmutableSet<Class<? extends T>> expectedTypes =
+          codec.additionalEncodedClasses().isEmpty()
+              ? ImmutableSet.of(codec.getEncodedClass())
+              : ImmutableSet.<Class<? extends T>>builderWithExpectedSize(
+                      codec.additionalEncodedClasses().size() + 1)
+                  .add(codec.getEncodedClass())
+                  .addAll(codec.additionalEncodedClasses())
+                  .build();
+      Class<?> objectClass = obj.getClass();
+      if (expectedTypes.contains(objectClass)) {
+        @SuppressWarnings("unchecked")
+        T checkedResult = (T) obj;
+        return checkedResult;
+      }
+      for (Class<? extends T> expectedType : expectedTypes) {
+        if (expectedType.isAssignableFrom(objectClass)) {
+          return expectedType.cast(obj);
+        }
+      }
+      throw new SerializationException(
+          "Object "
+              + obj
+              + ") has type "
+              + objectClass.getName()
+              + " but expected type one of "
+              + expectedTypes);
+    }
+
+    private <T> T castedDeserialize(
+        DeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
+        throws IOException, SerializationException {
+      return safeCast(codec.deserialize(context, codedIn), codec);
+    }
     /** Retrieves a memo entry, validating that it exists and has the expected type. */
-    private <T> T lookupBackreference(int id, Class<T> expectedType) throws SerializationException {
+    private <T> T lookupBackreference(int id, ObjectCodec<T> codec) throws SerializationException {
       Object savedUnchecked = memo.lookup(id);
       if (savedUnchecked == null) {
         throw new SerializationException(
             "Found backreference to non-existent memo id (" + id + ")");
       }
-      try {
-        return expectedType.cast(savedUnchecked);
-      } catch (ClassCastException e) {
-        throw new SerializationException(
-            "Backreference (to memo id " + id + ") has type "
-                + savedUnchecked.getClass().getName()
-                + " but expected type " + expectedType.getName());
-      }
+      return safeCast(savedUnchecked, codec);
+    }
+
+    <A, T> T makeInitialValue(Function<A, T> initialValueFunction, Class<A> klass) {
+      T initial = initialValueFunction.apply(getAdditionalData(klass));
+      int tag =
+          Preconditions.checkNotNull(
+              tagForMemoizedBefore, " Not called with memoize before: %s", initial);
+      tagForMemoizedBefore = null;
+      memo.memoize(tag, initial);
+      memoizedBeforeStackForSanityChecking.addLast(initial);
+      return initial;
     }
 
     // Corresponds to MemoBeforeContent in the abstract grammar.
     private <T> T deserializeMemoBeforeContent(
-        DeserializationContext context,
-        MemoizingCodec<T> codec,
-        CodedInputStream codedIn)
+        DeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      int id = codedIn.readInt32();
-      T initial = codec.makeInitialValue(this);
-      memo.memoize(id, initial);
-      T value = codec.deserializePayload(context, initial, codedIn, this);
+      this.tagForMemoizedBefore = codedIn.readInt32();
+      T value = castedDeserialize(context, codec, codedIn);
+      Object initial = memoizedBeforeStackForSanityChecking.removeLast();
       if (value != initial) {
         // This indicates a bug in the particular codec subclass.
         throw new SerializationException("doDeserialize did not return the initial instance");
@@ -500,11 +384,9 @@ public class Memoizer {
 
     // Corresponds to MemoAfterContent in the abstract grammar.
     private <T> T deserializeMemoAfterContent(
-        DeserializationContext context,
-        MemoizingCodec<T> codec,
-        CodedInputStream codedIn)
+        DeserializationContext context, ObjectCodec<T> codec, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      T value = codec.deserializePayload(context, null, codedIn, this);
+      T value = castedDeserialize(context, codec, codedIn);
       int id = codedIn.readInt32();
       // If deserializing the children caused the parent object itself to be deserialized due to
       // a cycle, then there's now a memo entry for the parent. Reuse that object, discarding
@@ -512,18 +394,7 @@ public class Memoizer {
       // the object graph.
       Object cyclicallyCreatedObject = memo.lookup(id);
       if (cyclicallyCreatedObject != null) {
-        Class<T> expectedType = codec.getEncodedClass();
-        try {
-          return expectedType.cast(cyclicallyCreatedObject);
-        } catch (ClassCastException e) {
-          // This indicates either some kind of type reification mismatch, or a memo id
-          // collision.
-          throw new SerializationException(
-              "While trying to deserialize a value of type " + expectedType.getName()
-                  + " marked with memo id " + id + ", another value having that id was "
-                  + "recursively created; but that value had unexpected type "
-                  + cyclicallyCreatedObject.getClass().getName());
-        }
+        return safeCast(cyclicallyCreatedObject, codec);
       } else {
         memo.memoize(id, value);
         return value;
@@ -551,101 +422,6 @@ public class Memoizer {
       private Object lookup(int id) {
         return table.get(id);
       }
-    }
-  }
-
-  /**
-   * An adaptor for treating an {@link ObjectCodec} as a {@link MemoizingCodec} that does not use
-   * memoization.
-   */
-  static class ObjectCodecAdaptor<T> implements MemoizingCodec<T> {
-
-    private final ObjectCodec<T> codec;
-
-    ObjectCodecAdaptor(ObjectCodec<T> codec) {
-      this.codec = codec;
-    }
-
-    @Override
-    public Class<T> getEncodedClass() {
-      return codec.getEncodedClass();
-    }
-
-    @Override
-    public Strategy getStrategy() {
-      return Strategy.DO_NOT_MEMOIZE;
-    }
-
-    @Override
-    public void serializePayload(
-        SerializationContext context,
-        T obj,
-        CodedOutputStream codedOut,
-        Serializer serializer)
-        throws SerializationException, IOException {
-      codec.serialize(context, obj, codedOut);
-    }
-
-    @Override
-    public T deserializePayload(DeserializationContext context,
-        T initial,
-        CodedInputStream codedIn,
-        Deserializer deserializer)
-        throws SerializationException, IOException {
-      return codec.deserialize(context, codedIn);
-    }
-  }
-
-  /** An adapter for {@link ObjectCodec} that allows the values to be memoized after creation. */
-  static class MemoizingAfterObjectCodecAdapter<T> extends ObjectCodecAdaptor<T> {
-    MemoizingAfterObjectCodecAdapter(ObjectCodec<T> codec) {
-      super(codec);
-    }
-
-    @Override
-    public Strategy getStrategy() {
-      return Strategy.MEMOIZE_AFTER;
-    }
-  }
-
-  /**
-   * An adaptor for treating a {@link MemoizingCodec} as an {@link ObjectCodec}. By default, each
-   * call to {@link ObjectCodec#serialize} or {@link ObjectCodec#deserialize} uses a fresh memo
-   * table.
-   *
-   * <p>A subclass can override the {@link #getDeserializer} hook to add additional context
-   * information, e.g. a Skylark {@link com.google.devtools.build.lib.syntax.Mutability} to share
-   * among all deserialized Skylark values. Note that if a {@code Deserializer} is reused across
-   * multiple calls to this hook, this adaptor may become stateful.
-   */
-  static class MemoizingCodecAdaptor<T> implements ObjectCodec<T> {
-
-    private final MemoizingCodec<T> codec;
-
-    MemoizingCodecAdaptor(MemoizingCodec<T> codec) {
-      this.codec = codec;
-    }
-
-    /** Provides the context used in {@link #deserialize}. */
-    Deserializer getDeserializer() {
-      return new Deserializer();
-    }
-
-    @Override
-    public Class<T> getEncodedClass() {
-      return codec.getEncodedClass();
-    }
-
-    @Override
-    public void serialize(SerializationContext context, T obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      new Serializer().serialize(context, obj, codec, codedOut);
-    }
-
-    @Override
-    public T deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      return getDeserializer().deserialize(context, codec, codedIn);
     }
   }
 }
