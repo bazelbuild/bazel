@@ -57,6 +57,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -2249,6 +2250,51 @@ public final class Attribute implements Comparable<Attribute> {
   @Override
   public int compareTo(Attribute other) {
     return name.compareTo(other.name);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    Attribute attribute = (Attribute) o;
+    return Objects.equals(name, attribute.name)
+        && Objects.equals(type, attribute.type)
+        && Objects.equals(propertyFlags, attribute.propertyFlags)
+        && Objects.equals(defaultValue, attribute.defaultValue)
+        && Objects.equals(configTransition, attribute.configTransition)
+        && Objects.equals(splitTransitionProvider, attribute.splitTransitionProvider)
+        && Objects.equals(allowedRuleClassesForLabels, attribute.allowedRuleClassesForLabels)
+        && Objects.equals(
+            allowedRuleClassesForLabelsWarning, attribute.allowedRuleClassesForLabelsWarning)
+        && Objects.equals(allowedFileTypesForLabels, attribute.allowedFileTypesForLabels)
+        && Objects.equals(validityPredicate, attribute.validityPredicate)
+        && Objects.equals(condition, attribute.condition)
+        && Objects.equals(allowedValues, attribute.allowedValues)
+        && Objects.equals(requiredProviders, attribute.requiredProviders)
+        && Objects.equals(aspects, attribute.aspects);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        name,
+        type,
+        propertyFlags,
+        defaultValue,
+        configTransition,
+        splitTransitionProvider,
+        allowedRuleClassesForLabels,
+        allowedRuleClassesForLabelsWarning,
+        allowedFileTypesForLabels,
+        validityPredicate,
+        condition,
+        allowedValues,
+        requiredProviders,
+        aspects);
   }
 
   /**

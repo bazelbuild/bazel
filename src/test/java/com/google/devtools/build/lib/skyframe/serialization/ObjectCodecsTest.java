@@ -24,12 +24,14 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.NotSerializableException;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +49,13 @@ public class ObjectCodecsTest {
     @Override
     public Class<Integer> getEncodedClass() {
       return Integer.class;
+    }
+
+    // We have to override the default explicitly here because Mockito can't delegate to default
+    // methods on interfaces.
+    @Override
+    public List<Class<? extends Integer>> additionalEncodedClasses() {
+      return ImmutableList.of();
     }
 
     @Override
@@ -74,8 +83,7 @@ public class ObjectCodecsTest {
     spyObjectCodec = spy(new IntegerCodec());
     this.underTest =
         new ObjectCodecs(
-            ObjectCodecRegistry.newBuilder().add(Integer.class, spyObjectCodec).build(),
-            ImmutableMap.of());
+            ObjectCodecRegistry.newBuilder().add(spyObjectCodec).build(), ImmutableMap.of());
   }
 
   @Test

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /** A Skylark value that is a result of an 'aspect(..)' function call. */
 @AutoCodec
@@ -223,5 +224,43 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
           loc, "Aspects should be top-level values in extension files that define them.");
     }
     attrBuilder.aspect(this, loc);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    SkylarkDefinedAspect that = (SkylarkDefinedAspect) o;
+    return Objects.equals(implementation, that.implementation)
+        && Objects.equals(attributeAspects, that.attributeAspects)
+        && Objects.equals(attributes, that.attributes)
+        && Objects.equals(requiredAspectProviders, that.requiredAspectProviders)
+        && Objects.equals(provides, that.provides)
+        && Objects.equals(paramAttributes, that.paramAttributes)
+        && Objects.equals(fragments, that.fragments)
+        && Objects.equals(hostTransition, that.hostTransition)
+        && Objects.equals(hostFragments, that.hostFragments)
+        && Objects.equals(requiredToolchains, that.requiredToolchains)
+        && Objects.equals(aspectClass, that.aspectClass);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        implementation,
+        attributeAspects,
+        attributes,
+        requiredAspectProviders,
+        provides,
+        paramAttributes,
+        fragments,
+        hostTransition,
+        hostFragments,
+        requiredToolchains,
+        aspectClass);
   }
 }

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -301,6 +302,25 @@ public final class RequiredProviders {
       joiner.appendTo(result, ids.stream().map(describeOne).iterator());
       result.append((ids.size() > 1) ? "]" : "");
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    RequiredProviders that = (RequiredProviders) o;
+    return constraint == that.constraint
+        && Objects.equals(nativeProviders, that.nativeProviders)
+        && Objects.equals(skylarkProviders, that.skylarkProviders);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(constraint, nativeProviders, skylarkProviders);
   }
 
   /**

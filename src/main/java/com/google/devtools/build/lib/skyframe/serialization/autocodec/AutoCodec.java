@@ -83,6 +83,20 @@ public @interface AutoCodec {
 
   Strategy strategy() default Strategy.INSTANTIATOR;
 
+  /** Whether to start memoizing values below this codec. */
+  enum Memoization {
+    /** Do not start memoization, but also do not disable memoization if it is already happening. */
+    UNCHANGED,
+    /**
+     * Start memoizing. Memoization is assumed to always need a Skylark "Mutability" object. If this
+     * package does not have access to the {@link com.google.devtools.build.lib.syntax.Mutability}
+     * class, memoization cannot be started here.
+     */
+    START_MEMOIZING
+  }
+
+  Memoization memoization() default Memoization.UNCHANGED;
+
   /**
    * Signals that the annotated element is only visible for use by serialization. It should not be
    * used by other callers.

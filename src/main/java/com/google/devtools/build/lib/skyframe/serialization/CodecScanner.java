@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
-import com.google.devtools.build.lib.skyframe.serialization.Memoizer.MemoizingCodec;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.Builder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.RegisteredSingletonDoNotUse;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -35,7 +33,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 
 /**
  * Scans the classpath to find {@link ObjectCodec} and {@link CodecRegisterer} instances.
@@ -61,18 +58,15 @@ public class CodecScanner {
       throws IOException, ReflectiveOperationException {
     log.info("Building ObjectCodecRegistry");
     ArrayList<Class<? extends ObjectCodec<?>>> codecs = new ArrayList<>();
-    ArrayList<Class<? extends MemoizingCodec<?>>> memoizingCodecs = new ArrayList<>();
     ArrayList<Class<? extends CodecRegisterer<?>>> registerers = new ArrayList<>();
     List<ClassInfo> classInfos = getClassInfos(packagePrefix).collect(Collectors.toList());
     getCodecs(classInfos)
         .forEach(
             type -> {
-              if (!ObjectCodec.class.equals(type) && ObjectCodec.class.isAssignableFrom(type)) {
-                codecs.add((Class<? extends ObjectCodec<?>>) type);
-              } else if (!MemoizingCodec.class.equals(type)
-                  && MemoizingCodec.class.isAssignableFrom(type)
+              if (!ObjectCodec.class.equals(type)
+                  && ObjectCodec.class.isAssignableFrom(type)
                   && !Modifier.isAbstract(type.getModifiers())) {
-                memoizingCodecs.add((Class<? extends MemoizingCodec<?>>) type);
+                codecs.add((Class<? extends ObjectCodec<?>>) type);
               } else if (!CodecRegisterer.class.equals(type)
                   && CodecRegisterer.class.isAssignableFrom(type)) {
                 registerers.add((Class<? extends CodecRegisterer<?>>) type);
@@ -117,7 +111,6 @@ public class CodecScanner {
         runRegisterers(builder, registerers);
 
     applyDefaultRegistration(builder, alreadyRegistered, codecs);
-    applyMemoizingCodecRegistration(builder, memoizingCodecs);
     return builder;
   }
 
@@ -142,24 +135,6 @@ public class CodecScanner {
     return registered;
   }
 
-  private static void applyMemoizingCodecRegistration(
-      Builder builder, List<Class<? extends MemoizingCodec<?>>> memoizingCodecs)
-      throws ReflectiveOperationException {
-    for (Class<? extends MemoizingCodec<?>> codecType : memoizingCodecs) {
-      try {
-        Constructor<? extends MemoizingCodec<?>> constructor = codecType.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        builder.addMemoizing(constructor.newInstance());
-      } catch (NoSuchMethodException e) {
-        log.log(
-            Level.FINE,
-            "Skipping registration of " + codecType + " because it had no default constructor.");
-      } catch (InstantiationException e) {
-        throw new IllegalStateException("Couldn't instantiate " + codecType, e);
-      }
-    }
-  }
-
   @SuppressWarnings({"rawtypes", "unchecked"})
   private static void applyDefaultRegistration(
       ObjectCodecRegistry.Builder builder,
@@ -170,19 +145,10 @@ public class CodecScanner {
       if (alreadyRegistered.contains(codecType)) {
         continue;
       }
-      Class<?> serializedType = getSerializedType(codecType);
-      if (serializedType == null) {
-        log.log(
-            Level.FINE,
-            "Skipping registration of "
-                + codecType
-                + " because its generic parameter is not reified.");
-        continue;
-      }
       try {
         Constructor constructor = codecType.getDeclaredConstructor();
         constructor.setAccessible(true);
-        builder.add((Class) serializedType, (ObjectCodec) constructor.newInstance());
+        builder.add((ObjectCodec<?>) constructor.newInstance());
       } catch (NoSuchMethodException e) {
         log.log(
             Level.FINE,
@@ -193,7 +159,7 @@ public class CodecScanner {
 
   @SuppressWarnings("unchecked")
   private static Class<? extends ObjectCodec<?>> getObjectCodecType(
-      Class<? extends CodecRegisterer<?>> registererType) throws ReflectiveOperationException {
+      Class<? extends CodecRegisterer<?>> registererType) {
     Type typeArg =
         ((ParameterizedType)
                 registererType.getGenericInterfaces()[getCodecRegistererIndex(registererType)])
@@ -218,37 +184,6 @@ public class CodecScanner {
     // The following line is reached when there are multiple layers of inheritance involving
     // CodecRegisterer, which is prohibited.
     throw new IllegalStateException(registererType + " doesn't directly implement CodecRegisterer");
-  }
-
-  /** Returns the serialized class if available and null otherwise. */
-  @Nullable
-  private static Class<?> getSerializedType(Class<? extends ObjectCodec<?>> codecType) {
-    int objectCodecIndex = getObjectCodecIndex(codecType);
-    if (objectCodecIndex < 0) {
-      // This occurs if ObjectCodec is implemented by a superclass of codecType. There's no clear
-      // way to get the generic type parameter in this case.
-      return null;
-    }
-    Type typeArg =
-        ((ParameterizedType) codecType.getGenericInterfaces()[objectCodecIndex])
-            .getActualTypeArguments()[0];
-    if (typeArg instanceof ParameterizedType) {
-      typeArg = ((ParameterizedType) typeArg).getRawType();
-    }
-    if (!(typeArg instanceof Class)) {
-      return null;
-    }
-    return (Class<?>) typeArg;
-  }
-
-  private static int getObjectCodecIndex(Class<? extends ObjectCodec<?>> codecType) {
-    Class<?>[] interfaces = codecType.getInterfaces();
-    for (int i = 0; i < interfaces.length; ++i) {
-      if (ObjectCodec.class.equals(interfaces[i])) {
-        return i;
-      }
-    }
-    return -1;
   }
 
   /** Return the {@link ClassInfo} objects matching {@code packagePrefix}, sorted by name. */
