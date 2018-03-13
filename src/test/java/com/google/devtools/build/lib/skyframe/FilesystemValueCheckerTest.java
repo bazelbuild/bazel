@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -271,8 +271,6 @@ public class FilesystemValueCheckerTest {
 
   @Test
   public void testExplicitFiles() throws Exception {
-    TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(new JavaClock());
-    tsgm.setCommandStartTime();
     FilesystemValueChecker checker = new FilesystemValueChecker(null, null);
 
     Path path1 = fs.getPath("/foo1");
@@ -297,8 +295,8 @@ public class FilesystemValueCheckerTest {
 
     // Wait for the timestamp granularity to elapse, so updating the files will observably advance
     // their ctime.
-    tsgm.notifyDependenceOnFileTime(PathFragment.create("dummy"), System.currentTimeMillis());
-    tsgm.waitForTimestampGranularity(OutErr.SYSTEM_OUT_ERR);
+    TimestampGranularityUtils.waitForTimestampGranularity(
+        System.currentTimeMillis(), OutErr.SYSTEM_OUT_ERR);
     // Update path1's contents and mtime. This will update the file's ctime.
     FileSystemUtils.writeContentAsLatin1(path1, "hello1");
     path1.setLastModifiedTime(27);
