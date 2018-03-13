@@ -138,6 +138,7 @@ public class BazelBuildEventServiceModuleTest {
   private BuildEventStreamer createBuildEventStreamerForCommand(
       BazelBuildEventServiceModule module, String commandName) {
     return module.tryCreateStreamer(
+        /* startupOptionsProvider= */ null,
         optionsProvider,
         commandLineReporter,
         moduleEnvironment,
@@ -221,7 +222,7 @@ public class BazelBuildEventServiceModuleTest {
   public void testKeywords() throws Exception {
     besOptions.besKeywords = ImmutableList.of("keyword0", "keyword1", "keyword0");
     BazelBuildEventServiceModule module = new BazelBuildEventServiceModule();
-    assertThat(module.keywords(besOptions))
+    assertThat(module.keywords(besOptions, null))
         .containsExactly("user_keyword=keyword0", "user_keyword=keyword1");
   }
 

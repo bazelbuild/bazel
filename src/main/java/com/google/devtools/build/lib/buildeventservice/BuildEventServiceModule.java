@@ -79,6 +79,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
     BuildEventStreamer streamer =
         tryCreateStreamer(
+            commandEnvironment.getRuntime().getStartupOptionsProvider(),
             commandEnvironment.getOptions(),
             commandEnvironment.getReporter(),
             commandEnvironment.getBlazeModuleEnvironment(),
@@ -131,6 +132,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Nullable
   @VisibleForTesting
   BuildEventStreamer tryCreateStreamer(
+      OptionsProvider startupOptionsProvider,
       OptionsProvider optionsProvider,
       EventHandler commandLineReporter,
       ModuleEnvironment moduleEnvironment,
@@ -164,7 +166,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                 moduleEnvironment,
                 clock,
                 pathConverter,
-                commandLineReporter);
+                commandLineReporter,
+                startupOptionsProvider);
       } catch (Exception e) {
         if (besOptions.besBestEffort) {
           commandLineReporter.handle(Event.warn(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
@@ -206,7 +209,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       ModuleEnvironment moduleEnvironment,
       Clock clock,
       PathConverter pathConverter,
-      EventHandler commandLineReporter) throws IOException {
+      EventHandler commandLineReporter,
+      OptionsProvider startupOptionsProvider) throws IOException {
     if (isNullOrEmpty(besOptions.besBackend)) {
       logger.fine("BuildEventServiceTransport is disabled.");
       return null;
@@ -234,7 +238,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               pathConverter,
               commandLineReporter,
               besOptions.projectId,
-              keywords(besOptions));
+              keywords(besOptions, startupOptionsProvider));
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
     }
@@ -254,7 +258,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   protected abstract Set<String> whitelistedCommands();
 
-  protected Set<String> keywords(T besOptions) {
+  protected Set<String> keywords(T besOptions, @Nullable OptionsProvider startupOptionsProvider) {
     return besOptions
         .besKeywords
         .stream()
