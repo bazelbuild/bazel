@@ -32,6 +32,7 @@ import com.google.testing.junit.runner.sharding.testing.StubShardingEnvironment;
 import com.google.testing.junit.runner.util.FakeTicker;
 import com.google.testing.junit.runner.util.Ticker;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.Request;
@@ -92,6 +93,18 @@ public class JUnit4TestModelBuilderTest {
   }
 
   @Test
+  public void testCreateModel_topLevelIgnore() throws Exception {
+    Class<?> testClass = SampleTestCaseWithTopLevelIgnore.class;
+    Request request = Request.classWithoutSuiteMethod(testClass);
+    String testClassName = testClass.getCanonicalName();
+    JUnit4TestModelBuilder modelBuilder =
+        builder(request, testClassName, stubShardingEnvironment, null, xmlResultWriter);
+
+    TestSuiteModel testSuiteModel = modelBuilder.get();
+    assertThat(testSuiteModel.getNumTestCases()).isEqualTo(0);
+  }
+
+  @Test
   public void testCreateModel_singleTestClass() throws Exception {
     Class<?> testClass = SampleTestCaseWithTwoTests.class;
     Request request = Request.classWithoutSuiteMethod(testClass);
@@ -140,7 +153,6 @@ public class JUnit4TestModelBuilderTest {
     assertThat(model.getNumTestCases()).isEqualTo(1);
   }
 
-
   /** Sample test case with two tests. */
   @RunWith(JUnit4.class)
   public static class SampleTestCaseWithTwoTests {
@@ -153,6 +165,16 @@ public class JUnit4TestModelBuilderTest {
     }
   }
 
+  /** Sample test case with top level @Ignore */
+  @Ignore
+  @RunWith(JUnit4.class)
+  public static class SampleTestCaseWithTopLevelIgnore {
+    @Test
+    public void testOne() {}
+
+    @Test
+    public void testTwo() {}
+  }
 
   /** Sample test case with one test. */
   @RunWith(JUnit4.class)
@@ -161,7 +183,6 @@ public class JUnit4TestModelBuilderTest {
     public void testOne() {
     }
   }
-
 
   /** Sample suite with one test. */
   @RunWith(Suite.class)
