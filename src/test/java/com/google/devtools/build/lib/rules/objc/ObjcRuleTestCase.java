@@ -2590,15 +2590,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains(getSourceArtifact("x/c.plist").getExecPathString());
   }
 
-  protected void checkBundleMergeInputContainsPlMergeOutput(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch, INFOPLIST_ATTR, RuleType.OMIT_REQUIRED_ATTR);
-
-    Artifact mergedPlist = getMergedInfoPlist(getConfiguredTarget("//x:x"));
-    CommandAction mergeAction = (CommandAction) getGeneratingAction(mergedPlist);
-
-    assertThat(bundleMergeAction("//x:x").getInputs()).containsAllIn(mergeAction.getOutputs());
-  }
-
   /**
    * Computes expected variable substitutions for "x" with full bundle name.
    */
