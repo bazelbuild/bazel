@@ -29,15 +29,15 @@ abstract class JavaCompilationArgsHelper {
 
   abstract JavaCompilationArtifacts compilationArtifacts();
 
-  abstract List<JavaCompilationArgsProvider> depsCompilationArgs();
+  abstract List<JavaInfo> depsCompilationArgs();
 
   abstract Iterable<? extends TransitiveInfoCollection> deps();
 
-  abstract List<JavaCompilationArgsProvider> runtimeDepsCompilationArgs();
+  abstract List<JavaInfo> runtimeDepsCompilationArgs();
 
   abstract Iterable<? extends TransitiveInfoCollection> runtimeDeps();
 
-  abstract List<JavaCompilationArgsProvider> exportsCompilationArgs();
+  abstract List<JavaInfo> exportsCompilationArgs();
 
   abstract Iterable<? extends TransitiveInfoCollection> exports();
 
@@ -63,15 +63,15 @@ abstract class JavaCompilationArgsHelper {
 
     abstract Builder setCompilationArtifacts(JavaCompilationArtifacts value);
 
-    abstract Builder setDepsCompilationArgs(List<JavaCompilationArgsProvider> value);
+    abstract Builder setDepsCompilationArgs(List<JavaInfo> value);
 
     abstract Builder setDeps(Iterable<? extends TransitiveInfoCollection> value);
 
-    abstract Builder setRuntimeDepsCompilationArgs(List<JavaCompilationArgsProvider> value);
+    abstract Builder setRuntimeDepsCompilationArgs(List<JavaInfo> value);
 
     abstract Builder setRuntimeDeps(Iterable<? extends TransitiveInfoCollection> value);
 
-    abstract Builder setExportsCompilationArgs(List<JavaCompilationArgsProvider> value);
+    abstract Builder setExportsCompilationArgs(List<JavaInfo> value);
 
     abstract Builder setExports(Iterable<? extends TransitiveInfoCollection> value);
 
