@@ -102,8 +102,6 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # This test builds an android_binary with Java 8 code.
-    tags = ["jdk8"],
 )
 
 sh_test(

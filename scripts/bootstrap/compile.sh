@@ -60,17 +60,6 @@ LDFLAGS=${LDFLAGS:-""}
 
 MSYS_DLLS=""
 
-function get_minor_java_version() {
-  get_java_version
-  java_minor_version=$(echo $JAVA_VERSION | sed 's/[^.][^.]*\.//' | sed 's/\..*$//')
-  javac_minor_version=$(echo $JAVAC_VERSION | sed 's/[^.][^.]*\.//' | sed 's/\..*$//')
-}
-
-# Check that javac -version returns a upper version than $JAVA_VERSION.
-get_minor_java_version
-[ ${java_minor_version} -le ${javac_minor_version} ] || \
-  fail "JDK version (${JAVAC_VERSION}) is lower than ${JAVA_VERSION}, please set \$JAVA_HOME."
-
 JAR="${JAVA_HOME}/bin/jar"
 
 # Compiles java classes.
@@ -115,7 +104,7 @@ function java_compilation() {
   fi
 
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
-      -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
+      -d "${output}/classes" \
       -encoding UTF-8 "@${paramfile}"
 
   log "Extracting helper classes for $name..."

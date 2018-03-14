@@ -149,7 +149,6 @@ sh_test(
     srcs = ["bazel_coverage_test.sh"],
     data = [":test-deps"],
     tags = [
-        "jdk8",  # TODO(elenairina): Re-enable for JDK7 once https://github.com/bazelbuild/bazel/issues/2890 is fixed.
         "local",
     ],
 )
@@ -284,14 +283,6 @@ sh_test(
     srcs = ["local_repository_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
-)
-
-sh_test(
-    name = "local_repository_test_jdk8",
-    size = "medium",
-    srcs = ["local_repository_test_jdk8.sh"],
-    data = [":test-deps"],
-    tags = ["jdk8"],
 )
 
 sh_test(
@@ -498,7 +489,6 @@ sh_test(
         ":test-deps",
         "//:bazel-distfile",
     ],
-    tags = ["jdk8"],
 )
 
 sh_test(
@@ -511,7 +501,6 @@ sh_test(
         "//:bazel-distfile",
     ],
     tags = [
-        "jdk8",
         "slow",
     ],
 )

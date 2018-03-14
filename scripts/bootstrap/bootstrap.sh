@@ -29,25 +29,13 @@ if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
 fi
 
-: ${JAVA_VERSION:="1.8"}
-
-if [ "${JAVA_VERSION}" = "1.7" ]; then
-  _BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
-        --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
-        --spawn_strategy=standalone \
-        --nojava_header_compilation \
-        --define JAVA_VERSION=1.7 --ignore_unsupported_sandboxing \
-        --compilation_mode=opt \
-        ${EXTRA_BAZEL_ARGS:-}"
-else
-  _BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-        --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-        --spawn_strategy=standalone \
-        --nojava_header_compilation \
-        --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
-        --compilation_mode=opt \
-        ${EXTRA_BAZEL_ARGS:-}"
-fi
+_BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+      --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+      --spawn_strategy=standalone \
+      --nojava_header_compilation \
+      --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
+      --compilation_mode=opt \
+      ${EXTRA_BAZEL_ARGS:-}"
 
 if [ -z "${BAZEL-}" ]; then
   function _run_bootstrapping_bazel() {
@@ -55,7 +43,7 @@ if [ -z "${BAZEL-}" ]; then
     shift
     run_bazel_jar $command \
         ${_BAZEL_ARGS} --verbose_failures \
-        --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
+        --javacopt="-g" "${@}"
   }
 else
   function _run_bootstrapping_bazel() {
@@ -63,7 +51,7 @@ else
     shift
     ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} $command \
         ${_BAZEL_ARGS} --verbose_failures \
-        --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
+        --javacopt="-g" "${@}"
   }
 fi
 

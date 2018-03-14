@@ -110,7 +110,7 @@ if [ -z "${JAVA_HOME-}" ]; then
       BASHRC="~/.bashrc"
       ;;
     darwin)
-      JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" || true
+      JAVA_HOME="$(/usr/libexec/java_home -v 1.8+ 2> /dev/null)" || true
       BASHRC="~/.bash_profile"
       ;;
   esac
