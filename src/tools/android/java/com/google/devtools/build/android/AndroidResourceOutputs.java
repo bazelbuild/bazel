@@ -299,8 +299,6 @@ public class AndroidResourceOutputs {
     try {
       Files.createDirectories(manifestOut.getParent());
       Files.copy(provider.getManifest(), manifestOut);
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -332,8 +330,6 @@ public class AndroidResourceOutputs {
         // outputs. This state occurs when there are no resource directories.
         Files.createFile(rOutput);
       }
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(rOutput, FileTime.fromMillis(0L));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -349,8 +345,6 @@ public class AndroidResourceOutputs {
         visitor.writeEntries();
         visitor.writeManifestContent();
       }
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(classJar, FileTime.fromMillis(0L));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -366,8 +360,6 @@ public class AndroidResourceOutputs {
         Files.walkFileTree(root, visitor);
         visitor.writeEntries();
       }
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(archive, FileTime.fromMillis(0L));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -383,8 +375,6 @@ public class AndroidResourceOutputs {
         Files.walkFileTree(generatedSourcesRoot, visitor);
         visitor.writeEntries();
       }
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(srcJar, FileTime.fromMillis(0L));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

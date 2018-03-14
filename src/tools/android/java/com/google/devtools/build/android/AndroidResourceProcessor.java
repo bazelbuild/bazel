@@ -343,23 +343,16 @@ public class AndroidResourceProcessor {
           dependencyData, customPackageForR, androidManifest, sourceOut);
     }
     // Reset the output date stamps.
-    if (proguardOut != null) {
-      Files.setLastModifiedTime(proguardOut, FileTime.fromMillis(0L));
-    }
-    if (mainDexProguardOut != null) {
-      Files.setLastModifiedTime(mainDexProguardOut, FileTime.fromMillis(0L));
-    }
     if (packageOut != null) {
-      Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
       if (!splits.isEmpty()) {
         Iterable<Path> splitFilenames = findAndRenameSplitPackages(packageOut, splits);
         for (Path splitFilename : splitFilenames) {
-          Files.setLastModifiedTime(splitFilename, FileTime.fromMillis(0L));
+          // Iterate over the elements to get the side-effects of findAndRenameSplitPackages.
+          // TODO(ajmichael): find out if findAndRenameSplitPackages's side-effects are actually
+          // needed for anything, and turn the function into an eager one if so or delete it
+          // otherwise.
         }
       }
-    }
-    if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
-      Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
     }
     return new MergedAndroidData(resourceDir, assetsDir, androidManifest);
   }
