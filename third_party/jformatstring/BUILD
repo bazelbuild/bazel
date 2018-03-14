@@ -4,17 +4,12 @@ licenses(["restricted"])  # GNU GPL v2 with Classpath exception
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = ["jFormatString-3.0.0.jar"],
 )
 
-java_library(
-    name = "jformatstring",
-    srcs = glob(["java/**"]),
-)
-
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
-
-bootstrap_java_library(
-    name = "bootstrap",
-    srcs = glob(["java/**"]),
+java_import(
+     name = "jformatstring",
+     jars = [
+         "jFormatString-3.0.0.jar",
+     ],
 )
