@@ -159,6 +159,8 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "cc_toolchain(",
         "   name = 'incomplete_cc-compiler-piii',",
         "   cpu = 'piii',",
+        "   ar_files = 'ar-piii',",
+        "   as_files = 'as-piii',",
         "   compiler_files = 'compile-piii',",
         "   dwp_files = 'dwp-piii',",
         "   linker_files = 'link-piii',",

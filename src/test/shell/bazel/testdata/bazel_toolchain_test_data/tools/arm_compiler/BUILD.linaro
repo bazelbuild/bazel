@@ -70,6 +70,8 @@ filegroup(
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     all_files = ":linaro_linux_all_files",
+    ar_files = "//tools/arm_compiler/linaro_linux_gcc:ar",
+    as_files = "//tools/arm_compiler/linaro_linux_gcc:as",
     compiler_files = ":linaro_linux_compiler_files",
     cpu = "armeabi-v7a",
     dwp_files = ":empty",
@@ -85,6 +87,8 @@ cc_toolchain(
 cc_toolchain(
     name = "cc-compiler-k8",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
