@@ -106,7 +106,7 @@ public class JavaCommon {
       targetsTreatedAsDeps;
 
   private final ImmutableList<Artifact> sources;
-  private ImmutableList<JavaPluginInfoProvider> activePlugins = ImmutableList.of();
+  private ImmutableList<JavaInfo> activePlugins = ImmutableList.of();
 
   private final RuleContext ruleContext;
   private final JavaSemantics semantics;
@@ -216,7 +216,8 @@ public class JavaCommon {
 
   public NestedSet<Artifact> getProcessorClasspathJars() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-    for (JavaPluginInfoProvider plugin : activePlugins) {
+    for (JavaPluginInfoProvider plugin :
+        JavaInfo.getProvidersFromListOfJavaProviders(JavaPluginInfoProvider.class, activePlugins)) {
       builder.addTransitive(plugin.getProcessorClasspath());
     }
     return builder.build();
@@ -224,7 +225,8 @@ public class JavaCommon {
 
   public ImmutableList<String> getProcessorClassNames() {
     Set<String> processorNames = new LinkedHashSet<>();
-    for (JavaPluginInfoProvider plugin : activePlugins) {
+    for (JavaPluginInfoProvider plugin :
+        JavaInfo.getProvidersFromListOfJavaProviders(JavaPluginInfoProvider.class, activePlugins)) {
       processorNames.addAll(plugin.getProcessorClasses());
     }
     return ImmutableList.copyOf(processorNames);
@@ -786,8 +788,9 @@ public class JavaCommon {
    * to the given attributes. Plugins having repetitive names/paths will be added only once.
    */
   public static void addPlugins(
-      JavaTargetAttributes.Builder attributes, Iterable<JavaPluginInfoProvider> activePlugins) {
-    for (JavaPluginInfoProvider plugin : activePlugins) {
+      JavaTargetAttributes.Builder attributes, Iterable<JavaInfo> activePlugins) {
+    for (JavaPluginInfoProvider plugin :
+        JavaInfo.getProvidersFromListOfJavaProviders(JavaPluginInfoProvider.class, activePlugins)) {
       for (String name : plugin.getProcessorClasses()) {
         attributes.addProcessorName(name);
       }
@@ -802,8 +805,8 @@ public class JavaCommon {
     }
   }
 
-  private ImmutableList<JavaPluginInfoProvider> collectPlugins() {
-    List<JavaPluginInfoProvider> result = new ArrayList<>();
+  private ImmutableList<JavaInfo> collectPlugins() {
+    List<JavaInfo> result = new ArrayList<>();
     Iterables.addAll(result,
         getPluginInfoProvidersForAttribute(ruleContext, ":java_plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "plugins", Mode.HOST));
@@ -811,11 +814,10 @@ public class JavaCommon {
     return ImmutableList.copyOf(result);
   }
 
-  private static Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(
+  private static Iterable<JavaInfo> getPluginInfoProvidersForAttribute(
       RuleContext ruleContext, String attribute, Mode mode) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-      return JavaInfo.getProvidersFromListOfTargets(
-          JavaPluginInfoProvider.class, ruleContext.getPrerequisites(attribute, mode));
+      return JavaInfo.getJavaInfosFromListOfTargets(ruleContext.getPrerequisites(attribute, mode));
     }
     return ImmutableList.of();
   }
@@ -851,9 +853,10 @@ public class JavaCommon {
   }
 
   public static JavaPluginInfoProvider getTransitivePlugins(RuleContext ruleContext) {
-    return JavaPluginInfoProvider.merge(Iterables.concat(
-        getPluginInfoProvidersForAttribute(ruleContext, "exported_plugins", Mode.HOST),
-        getPluginInfoProvidersForAttribute(ruleContext, "exports", Mode.TARGET)));
+    return JavaInfo.merge(Iterables.concat(
+            getPluginInfoProvidersForAttribute(ruleContext, "exported_plugins", Mode.HOST),
+            getPluginInfoProvidersForAttribute(ruleContext, "exports", Mode.TARGET)))
+        .getProvider(JavaPluginInfoProvider.class);
   }
 
   public static Runfiles getRunfiles(
