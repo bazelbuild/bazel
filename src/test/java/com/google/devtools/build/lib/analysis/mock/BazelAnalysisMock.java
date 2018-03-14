@@ -271,8 +271,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
+    embeddedBinariesRoot.createDirectoryAndParents();
     Path jdkWorkspacePath = embeddedBinariesRoot.getRelative("jdk.WORKSPACE");
-    FileSystemUtils.createDirectoryAndParents(jdkWorkspacePath.getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(jdkWorkspacePath, "");
   }
 

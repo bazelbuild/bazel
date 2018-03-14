@@ -51,6 +51,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
   @Before
   public final void createSkyframeExecutor() throws Exception {
+    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
     skyframeExecutor = getSkyframeExecutor();
   }
 
@@ -63,7 +64,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
   private RecursivePkgValue buildRecursivePkgValue(Path root, PathFragment rootRelativePath)
       throws Exception {
-    return buildRecursivePkgValue(root, rootRelativePath, ImmutableSet.<PathFragment>of());
+    return buildRecursivePkgValue(root, rootRelativePath, ImmutableSet.of());
   }
 
   private RecursivePkgValue buildRecursivePkgValue(
@@ -139,8 +140,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
     assertThat(
             exists(
-                buildRecursivePkgKey(
-                    rootDirectory, excludedPathFragment, ImmutableSet.<PathFragment>of()),
+                buildRecursivePkgKey(rootDirectory, excludedPathFragment, ImmutableSet.of()),
                 graph))
         .isFalse();
 
@@ -148,8 +148,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     // because that key was evaluated.
     assertThat(
             exists(
-                buildRecursivePkgKey(
-                    rootDirectory, PathFragment.create("a/c"), ImmutableSet.<PathFragment>of()),
+                buildRecursivePkgKey(rootDirectory, PathFragment.create("a/c"), ImmutableSet.of()),
                 graph))
         .isTrue();
   }
