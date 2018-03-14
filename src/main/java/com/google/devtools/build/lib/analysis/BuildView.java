@@ -320,14 +320,14 @@ public class BuildView {
     private final ImmutableSet<ConfiguredTarget> parallelTests;
     private final ImmutableSet<ConfiguredTarget> exclusiveTests;
     @Nullable private final TopLevelArtifactContext topLevelContext;
-    private final ImmutableList<AspectValue> aspects;
+    private final ImmutableSet<AspectValue> aspects;
     private final PackageRoots packageRoots;
     private final String workspaceName;
     List<TargetAndConfiguration> topLevelTargetsWithConfigs;
 
     private AnalysisResult(
         Collection<ConfiguredTarget> targetsToBuild,
-        Collection<AspectValue> aspects,
+        ImmutableSet<AspectValue> aspects,
         Collection<ConfiguredTarget> targetsToTest,
         Collection<ConfiguredTarget> targetsToSkip,
         @Nullable String error,
@@ -340,7 +340,7 @@ public class BuildView {
         String workspaceName,
         List<TargetAndConfiguration> topLevelTargetsWithConfigs) {
       this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
-      this.aspects = ImmutableList.copyOf(aspects);
+      this.aspects = aspects;
       this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
       this.targetsToSkip = ImmutableSet.copyOf(targetsToSkip);
       this.error = error;
@@ -372,7 +372,7 @@ public class BuildView {
      * <p>If this list is empty, build the targets returned by {@code getTargetsToBuild()}.
      * Otherwise, only build these aspects of the targets returned by {@code getTargetsToBuild()}.
      */
-    public Collection<AspectValue> getAspects() {
+    public ImmutableSet<AspectValue> getAspects() {
       return aspects;
     }
 
@@ -641,7 +641,7 @@ public class BuildView {
     Collection<Target> testsToRun = loadingResult.getTestsToRun();
     Set<ConfiguredTarget> configuredTargets =
         Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
-    Collection<AspectValue> aspects = skyframeAnalysisResult.getAspects();
+    ImmutableSet<AspectValue> aspects = ImmutableSet.copyOf(skyframeAnalysisResult.getAspects());
 
     Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
