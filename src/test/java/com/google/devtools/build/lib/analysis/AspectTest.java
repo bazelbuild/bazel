@@ -837,4 +837,22 @@ public class AspectTest extends AnalysisTestCase {
         .isNull();
   }
 
+  @Test
+  public void duplicateAspectsDeduped() throws Exception {
+    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
+        ImmutableList.<RuleDefinition>of());
+    pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
+            "//a:x_deploy.jar");
+    AspectValue aspect = Iterables.getOnlyElement(analysisResult.getAspects());
+    AspectApplyingToFiles.Provider provider =
+        aspect.getConfiguredAspect().getProvider(AspectApplyingToFiles.Provider.class);
+    assertThat(provider.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
+  }
 }
