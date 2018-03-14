@@ -457,6 +457,8 @@ public class LicensingTests extends BuildViewTestCase {
         "    name = 'c',",
         "    output_licenses = ['notice'],",
         "    cpu = 'cherry',",
+        "    ar_files = 'ar-cherry',",
+        "    as_files = 'as-cherry',",
         "    compiler_files = 'compile-cherry',",
         "    dwp_files = 'dwp-cherry',",
         "    coverage_files = 'gcov-cherry',",

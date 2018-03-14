@@ -293,6 +293,8 @@ public final class MockObjcSupport {
             "apple_cc_toolchain(",
             "    name = 'cc-compiler-" + arch + "',",
             "    all_files = ':empty',",
+            "    ar_files = ':empty',",
+            "    as_files = ':empty',",
             "    compiler_files = ':empty',",
             "    cpu = 'ios',",
             "    dwp_files = ':empty',",

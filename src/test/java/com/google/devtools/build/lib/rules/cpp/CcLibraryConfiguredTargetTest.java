@@ -180,6 +180,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'cc-compiler-k8',",
         "    output_licenses = ['unencumbered'],",
         "    cpu = 'k8',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
         "    compiler_files = ':empty',",
         "    dwp_files = ':empty',",
         "    coverage_files = ':empty',",
