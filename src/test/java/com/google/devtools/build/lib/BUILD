@@ -77,10 +77,14 @@ filegroup(
 java_library(
     name = "testutil",
     testonly = 1,
-    srcs = glob(["testutil/*.java"]),
+    srcs = glob(
+        ["testutil/*.java"],
+        exclude = ["testutil/BazelPackageBuilderHelperForTesting.java"],
+    ),
     visibility = ["//visibility:public"],
     deps = [
         ":guava_junit_truth",
+        ":testutil/BazelPackageBuilderHelperForTesting",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -88,6 +92,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:packages/BuilderFactoryForTesting",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -98,6 +103,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/protobuf:invocation_policy_java_proto",
+    ],
+)
+
+java_library(
+    name = "testutil/BazelPackageBuilderHelperForTesting",
+    testonly = 0,
+    srcs = ["testutil/BazelPackageBuilderHelperForTesting.java"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/packages",
+        "//third_party:guava",
     ],
 )
 

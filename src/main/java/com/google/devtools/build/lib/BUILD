@@ -373,10 +373,13 @@ java_library(
 
 java_library(
     name = "packages-internal",
-    srcs = glob([
-        "packages/*.java",
-        "pkgcache/*.java",
-    ]),
+    srcs = glob(
+        [
+            "packages/*.java",
+            "pkgcache/*.java",
+        ],
+        exclude = ["packages/BuilderFactoryForTesting.java"],
+    ),
     exports = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -406,6 +409,17 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "packages/BuilderFactoryForTesting",
+    srcs = ["packages/BuilderFactoryForTesting.java"],
+    deps = [
+        ":build-base",
+        ":packages-internal",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -612,8 +626,35 @@ java_library(
 )
 
 java_library(
+    name = "bazel/BazelRepositoryModule",
+    srcs = ["bazel/BazelRepositoryModule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:bazel-commands",
+        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
+        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "bazel-main",
-    srcs = glob(["bazel/*.java"]),
+    srcs = glob(
+        ["bazel/*.java"],
+        exclude = ["bazel/BazelRepositoryModule.java"],
+    ),
     resources = [
         "bazel/rules/java/java_stub_template.txt",
         "bazel/rules/java/java_stub_template_windows.txt",
@@ -621,6 +662,7 @@ java_library(
         "bazel/rules/sh/sh_stub_template_windows.txt",
     ],
     deps = [
+        ":bazel/BazelRepositoryModule",
         "//src/main/java/com/google/devtools/build/lib:bazel",
         "//src/main/java/com/google/devtools/build/lib:bazel-commands",
         "//src/main/java/com/google/devtools/build/lib:bazel-repository",
@@ -648,6 +690,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib:testutil/BazelPackageBuilderHelperForTesting",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

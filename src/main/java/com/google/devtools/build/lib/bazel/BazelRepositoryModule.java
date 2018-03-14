@@ -89,9 +89,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/**
- * Adds support for fetching external code.
- */
+/** Adds support for fetching external code. */
 public class BazelRepositoryModule extends BlazeModule {
 
   // Default location (relative to output user root) of the repository cache.
@@ -111,21 +109,25 @@ public class BazelRepositoryModule extends BlazeModule {
 
   public BazelRepositoryModule() {
     this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(httpDownloader);
-    this.repositoryHandlers =
-        ImmutableMap.<String, RepositoryFunction>builder()
-            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-            .put(HttpArchiveRule.NAME, new HttpArchiveFunction(httpDownloader))
-            .put(GitRepositoryRule.NAME, new GitRepositoryFunction(httpDownloader))
-            .put(HttpJarRule.NAME, new HttpJarFunction(httpDownloader))
-            .put(HttpFileRule.NAME, new HttpFileFunction(httpDownloader))
-            .put(MavenJarRule.NAME, new MavenJarFunction(mavenDownloader))
-            .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction(httpDownloader))
-            .put(NewGitRepositoryRule.NAME, new NewGitRepositoryFunction(httpDownloader))
-            .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
-            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-            .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
-            .put(MavenServerRule.NAME, new MavenServerRepositoryFunction())
-            .build();
+    this.repositoryHandlers = repositoryRules(httpDownloader, mavenDownloader);
+  }
+
+  public static ImmutableMap<String, RepositoryFunction> repositoryRules(
+      HttpDownloader httpDownloader, MavenDownloader mavenDownloader) {
+    return ImmutableMap.<String, RepositoryFunction>builder()
+        .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
+        .put(HttpArchiveRule.NAME, new HttpArchiveFunction(httpDownloader))
+        .put(GitRepositoryRule.NAME, new GitRepositoryFunction(httpDownloader))
+        .put(HttpJarRule.NAME, new HttpJarFunction(httpDownloader))
+        .put(HttpFileRule.NAME, new HttpFileFunction(httpDownloader))
+        .put(MavenJarRule.NAME, new MavenJarFunction(mavenDownloader))
+        .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction(httpDownloader))
+        .put(NewGitRepositoryRule.NAME, new NewGitRepositoryFunction(httpDownloader))
+        .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
+        .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
+        .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
+        .put(MavenServerRule.NAME, new MavenServerRepositoryFunction())
+        .build();
   }
 
   /**
@@ -185,9 +187,11 @@ public class BazelRepositoryModule extends BlazeModule {
     for (Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
       RuleDefinition ruleDefinition;
       try {
-        ruleDefinition = handler.getValue().getRuleDefinition().getDeclaredConstructor()
-            .newInstance();
-      } catch (IllegalAccessException | InstantiationException | NoSuchMethodException
+        ruleDefinition =
+            handler.getValue().getRuleDefinition().getDeclaredConstructor().newInstance();
+      } catch (IllegalAccessException
+          | InstantiationException
+          | NoSuchMethodException
           | InvocationTargetException e) {
         throw new IllegalStateException(e);
       }
@@ -266,8 +270,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public ImmutableList<Injected> getPrecomputedValues() {
     return ImmutableList.of(
-        PrecomputedValue.injected(
-            RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides));
+        PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides));
   }
 
   @Override

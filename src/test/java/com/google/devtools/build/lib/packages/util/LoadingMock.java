@@ -33,7 +33,7 @@ public class LoadingMock {
   public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting(
       BlazeDirectories directories) {
     return (PackageFactoryBuilderWithSkyframeForTesting)
-        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder();
+        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder(directories);
   }
 
   public ConfiguredRuleClassProvider createRuleClassProvider() {

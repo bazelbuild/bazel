@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
@@ -89,6 +90,11 @@ public final class ServerDirectories {
 
   /** Returns the installed embedded binaries directory, under the shared installBase location. */
   public Path getEmbeddedBinariesRoot() {
+    return getEmbeddedBinariesRoot(installBase);
+  }
+
+  @VisibleForTesting
+  public static Path getEmbeddedBinariesRoot(Path installBase) {
     return installBase.getChild("_embedded_binaries");
   }
 

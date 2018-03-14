@@ -117,7 +117,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
-                            .builder()
+                            .builder(directories)
                             .build(
                                 TestRuleClassProvider.getRuleClassProvider(), root.getFileSystem()),
                         directories))

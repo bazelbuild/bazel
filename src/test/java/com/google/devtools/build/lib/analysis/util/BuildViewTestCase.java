@@ -205,6 +205,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
+    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
+  }
+
+  public void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
     analysisMock = getAnalysisMock();
     directories =
         new BlazeDirectories(
@@ -227,13 +231,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
             ImmutableMap.<RepositoryName, PathFragment>of()));
-    pkgFactory =
+    PackageFactory.BuilderForTesting pkgFactoryBuilder =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
             .setEnvironmentExtensions(getEnvironmentExtensions())
-            .setPlatformSetRegexps(getPlatformSetRegexps())
-            .build(ruleClassProvider, scratch.getFileSystem());
+            .setPlatformSetRegexps(getPlatformSetRegexps());
+    if (!doPackageLoadingChecks) {
+      pkgFactoryBuilder.disableChecks();
+    }
+    pkgFactory = pkgFactoryBuilder.build(ruleClassProvider, scratch.getFileSystem());
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(

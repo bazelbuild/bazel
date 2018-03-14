@@ -372,15 +372,6 @@ public final class PackageFactory {
     public abstract PackageFactory build(RuleClassProvider ruleClassProvider, FileSystem fs);
   }
 
-  /**
-   * Factory for {@link PackageFactory.BuilderForTesting} instances. Intended to only be used by
-   * unit tests.
-   */
-  @VisibleForTesting
-  public abstract static class BuilderFactoryForTesting {
-    public abstract BuilderForTesting builder();
-  }
-
   @VisibleForTesting
   public Package.Builder.Helper getPackageBuilderHelperForTesting() {
     return packageBuilderHelper;

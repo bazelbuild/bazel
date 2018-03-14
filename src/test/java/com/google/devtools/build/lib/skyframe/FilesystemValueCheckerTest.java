@@ -132,10 +132,13 @@ public class FilesystemValueCheckerTest {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.WORKSPACE_AST,
         new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()));
-    skyFunctions.put(SkyFunctions.WORKSPACE_FILE,
-        new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
-            TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
-                TestRuleClassProvider.getRuleClassProvider(), fs),
+    skyFunctions.put(
+        SkyFunctions.WORKSPACE_FILE,
+        new WorkspaceFileFunction(
+            TestRuleClassProvider.getRuleClassProvider(),
+            TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                .builder(directories)
+                .build(TestRuleClassProvider.getRuleClassProvider(), fs),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 

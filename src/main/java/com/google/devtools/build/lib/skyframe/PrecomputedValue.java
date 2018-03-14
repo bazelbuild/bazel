@@ -90,7 +90,7 @@ public final class PrecomputedValue implements SkyValue {
 
   static final Precomputed<UUID> BUILD_ID = new Precomputed<>(Key.create("build_id"));
 
-  static final Precomputed<Map<String, String>> ACTION_ENV =
+  public static final Precomputed<Map<String, String>> ACTION_ENV =
       new Precomputed<>(Key.create("action_env"));
 
   static final Precomputed<ImmutableList<ActionAnalysisMetadata>> COVERAGE_REPORT_KEY =

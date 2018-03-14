@@ -55,7 +55,7 @@ public final class ClientEnvironmentFunction implements SkyFunction {
 
   private final AtomicReference<Map<String, String>> clientEnv;
 
-  ClientEnvironmentFunction(AtomicReference<Map<String, String>> clientEnv) {
+  public ClientEnvironmentFunction(AtomicReference<Map<String, String>> clientEnv) {
     this.clientEnv = clientEnv;
   }
 
