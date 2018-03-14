@@ -62,7 +62,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     assertThat(variables.getStringVariable(CcCompilationHelper.SOURCE_FILE_VARIABLE_NAME))
         .contains("x/bin.cc");
     assertThat(variables.getStringVariable(CcCompilationHelper.OUTPUT_FILE_VARIABLE_NAME))
-        .contains("x/bin");
+        .contains("_objs/bin/bin");
   }
 
   @Test

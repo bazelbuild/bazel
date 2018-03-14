@@ -64,11 +64,15 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
+
 import javax.annotation.Nullable;
 
 /**
@@ -1346,11 +1350,15 @@ public final class CcCompilationHelper {
       }
     }
 
+    ObjectFilePathHelper objectFilePathHelper =
+        new ObjectFilePathHelper(compilationUnitSources.stream()
+            .map(source -> source.getSource())
+            .collect(Collectors.toList()));
+
     for (CppSource source : compilationUnitSources) {
       Artifact sourceArtifact = source.getSource();
       Label sourceLabel = source.getLabel();
-      String outputName =
-          FileSystemUtils.removeExtension(sourceArtifact.getRootRelativePath()).getPathString();
+
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
       builder
@@ -1361,6 +1369,8 @@ public final class CcCompilationHelper {
       boolean bitcodeOutput =
           featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
+
+      String outputName = objectFilePathHelper.getOutputName(sourceArtifact);
 
       if (!sourceArtifact.isTreeArtifact()) {
         switch (source.getType()) {
@@ -1401,6 +1411,7 @@ public final class CcCompilationHelper {
                 createCompileActionTemplate(
                     env,
                     source,
+                    outputName,
                     builder,
                     ImmutableList.of(
                         ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
@@ -1410,7 +1421,7 @@ public final class CcCompilationHelper {
           case SOURCE:
             Artifact objectFile =
                 createCompileActionTemplate(
-                    env, source, builder, ImmutableList.of(ArtifactCategory.OBJECT_FILE), false);
+                    env, source, outputName, builder, ImmutableList.of(ArtifactCategory.OBJECT_FILE), false);
             result.addObjectFile(objectFile);
 
             if (getGeneratePicActions()) {
@@ -1418,6 +1429,7 @@ public final class CcCompilationHelper {
                   createCompileActionTemplate(
                       env,
                       source,
+                      outputName,
                       builder,
                       ImmutableList.of(ArtifactCategory.PIC_OBJECT_FILE),
                       true);
@@ -1437,12 +1449,13 @@ public final class CcCompilationHelper {
   private Artifact createCompileActionTemplate(
       AnalysisEnvironment env,
       CppSource source,
+      String outputName,
       CppCompileActionBuilder builder,
       Iterable<ArtifactCategory> outputCategories,
       boolean usePic) {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     SpecialArtifact outputFiles =
-        CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact, usePic);
+        CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact, outputName, usePic);
     // TODO(rduan): Dotd file output is not supported yet.
     builder.setOutputs(outputFiles, /* dotdFile= */ null);
     setupCompileBuildVariables(

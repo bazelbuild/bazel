@@ -639,7 +639,7 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  Artifact getOutputFile() {
+  public Artifact getOutputFile() {
     return outputFile;
   }
 
