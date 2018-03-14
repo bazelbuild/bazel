@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNam
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -295,42 +296,44 @@ public class CcCommonTest extends BuildViewTestCase {
             "3.pic.ii", "3.pic.s");
   }
 
-  @Test
-  public void testTempsForCc() throws Exception {
-    for (String cpu : new String[] {"k8", "piii"}) {
-      useConfiguration("--cpu=" + cpu, "--save_temps");
-      ConfiguredTarget foo = getConfiguredTarget("//foo:foo");
-      CcToolchainProvider toolchain =
-          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(foo));
-      List<String> temps =
-          ActionsTestUtil.baseArtifactNames(getOutputGroup(foo, OutputGroupInfo.TEMP_FILES));
-      if (CppHelper.usePicForBinaries(
-          getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
-        assertThat(temps).named(cpu).containsExactly("foo.pic.ii", "foo.pic.s");
-      } else {
-        assertThat(temps).named(cpu).containsExactly("foo.ii", "foo.s");
-      }
-    }
+  /**
+   * Returns the {@link IterableSubject} for the {@link OutputGroupInfo#TEMP_FILES} generated when
+   * {@code testTarget} is built for {@code cpu}.
+   */
+  private IterableSubject assertTempsForTarget(String cpu, String testTarget) throws Exception {
+    useConfiguration("--cpu=" + cpu, "--host_cpu=" + cpu, "--save_temps");
+    ConfiguredTarget target = getConfiguredTarget(testTarget);
+    assertThat(target).isNotNull();
+
+    List<String> temps =
+        ActionsTestUtil.baseArtifactNames(getOutputGroup(target, OutputGroupInfo.TEMP_FILES));
+
+    // Return the IterableSubject for the temp files.
+    return assertThat(temps).named(cpu);
   }
 
   @Test
-  public void testTempsForC() throws Exception {
+  public void testTempsForCc_k8() throws Exception {
+    assertTempsForTarget("k8", "//foo:foo").containsExactly("foo.pic.ii", "foo.pic.s");
+  }
+
+  @Test
+  public void testTempsForCc_piii() throws Exception {
+    // PIII does not use PIC.
+    assertTempsForTarget("piii", "//foo:foo").containsExactly("foo.ii", "foo.s");
+  }
+
+  @Test
+  public void testTempsForC_k8() throws Exception {
     scratch.file("csrc/BUILD", "cc_library(name='csrc', srcs=['foo.c'])");
-    for (String cpu : new String[] {"k8", "piii"}) {
-      useConfiguration("--cpu=" + cpu, "--save_temps");
-      // Now try with a .c source file.
-      ConfiguredTarget csrc = getConfiguredTarget("//csrc:csrc");
-      CcToolchainProvider toolchain =
-          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(csrc));
-      List<String> temps =
-          ActionsTestUtil.baseArtifactNames(getOutputGroup(csrc, OutputGroupInfo.TEMP_FILES));
-      if (CppHelper.usePicForBinaries(
-          getTargetConfiguration().getFragment(CppConfiguration.class), toolchain)) {
-        assertThat(temps).named(cpu).containsExactly("foo.pic.i", "foo.pic.s");
-      } else {
-        assertThat(temps).named(cpu).containsExactly("foo.i", "foo.s");
-      }
-    }
+    assertTempsForTarget("k8", "//csrc:csrc").containsExactly("foo.pic.i", "foo.pic.s");
+  }
+
+  @Test
+  public void testTempsForC_piii() throws Exception {
+    scratch.file("csrc/BUILD", "cc_library(name='csrc', srcs=['foo.c'])");
+    // PIII does not use PIC.
+    assertTempsForTarget("piii", "//csrc:csrc").containsExactly("foo.i", "foo.s");
   }
 
   @Test
