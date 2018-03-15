@@ -217,9 +217,6 @@ public class ManifestMergerAction {
       if (!mergedManifest.equals(options.manifestOutput)) {
         Files.copy(options.manifest, options.manifestOutput, StandardCopyOption.REPLACE_EXISTING);
       }
-
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(options.manifestOutput, FileTime.fromMillis(0L));
     } catch (AndroidManifestProcessor.ManifestProcessingException e) {
       System.exit(1);
     } catch (Exception e) {
