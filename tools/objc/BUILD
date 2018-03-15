@@ -27,20 +27,7 @@ java_import(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + [
-        "//tools/objc/memleaks:srcs",
-        "//tools/objc/sim_devices:srcs",
-    ],
-)
-
-filegroup(
-    name = "testrunner",
-    srcs = [":testrunner_stub"],
-)
-
-filegroup(
-    name = "memleaks_plugin",
-    srcs = [":memleaks_plugin_stub"],
+    srcs = glob(["**"]),
 )
 
 sh_binary(
