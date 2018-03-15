@@ -698,6 +698,7 @@ public final class CcCommon {
       CcToolchainProvider toolchain) {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
+    unsupportedFeaturesBuilder.addAll(ruleContext.getDisabledFeatures());
     if (!toolchain.supportsHeaderParsing()) {
       // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
@@ -726,40 +727,6 @@ public final class CcCommon {
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
     }
 
-    CppConfiguration cppConfiguration = toolchain.getCppConfiguration();
-
-    allRequestedFeaturesBuilder.addAll(getCoverageFeatures(ruleContext));
-
-    if (cppConfiguration.getFdoInstrument() != null
-        && !ruleContext.getDisabledFeatures().contains(CppRuleClasses.FDO_INSTRUMENT)) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_INSTRUMENT);
-    }
-
-    FdoMode fdoMode = toolchain.getFdoMode();
-    boolean isFdo = fdoMode != FdoMode.OFF && toolchain.getCompilationMode() == CompilationMode.OPT;
-    if (isFdo
-        && fdoMode != FdoMode.AUTO_FDO
-        && !ruleContext.getDisabledFeatures().contains(CppRuleClasses.FDO_OPTIMIZE)) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_OPTIMIZE);
-    }
-    if (isFdo && fdoMode == FdoMode.AUTO_FDO) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.AUTOFDO);
-      // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
-      // explicitly disabled.
-      if (toolchain.isLLVMCompiler()
-          && !ruleContext.getDisabledFeatures().contains(CppRuleClasses.THIN_LTO)) {
-        allRequestedFeaturesBuilder.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
-      }
-    }
-    if (cppConfiguration.isLipoOptimizationOrInstrumentation()) {
-      // Map LIPO to ThinLTO for LLVM builds.
-      if (toolchain.isLLVMCompiler() && fdoMode != FdoMode.OFF) {
-        allRequestedFeaturesBuilder.add(CppRuleClasses.THIN_LTO);
-      } else {
-        allRequestedFeaturesBuilder.add(CppRuleClasses.LIPO);
-      }
-    }
-
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
             .addAll(
@@ -772,6 +739,42 @@ public final class CcCommon {
     if (CppHelper.useFission(ruleContext.getFragment(CppConfiguration.class), toolchain)) {
       allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
+
+    CppConfiguration cppConfiguration = toolchain.getCppConfiguration();
+
+    allFeatures.addAll(getCoverageFeatures(ruleContext));
+
+    if (cppConfiguration.getFdoInstrument() != null
+        && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
+      allFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
+    }
+
+    FdoMode fdoMode = toolchain.getFdoMode();
+    boolean isFdo = fdoMode != FdoMode.OFF && toolchain.getCompilationMode() == CompilationMode.OPT;
+    if (isFdo
+        && fdoMode != FdoMode.AUTO_FDO
+        && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
+      allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
+    }
+    if (isFdo && fdoMode == FdoMode.AUTO_FDO) {
+      allFeatures.add(CppRuleClasses.AUTOFDO);
+      // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
+      // explicitly disabled.
+      if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+      }
+    }
+    if (cppConfiguration.isLipoOptimizationOrInstrumentation()) {
+      // Map LIPO to ThinLTO for LLVM builds.
+      if (toolchain.isLLVMCompiler() && fdoMode != FdoMode.OFF) {
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+          allFeatures.add(CppRuleClasses.THIN_LTO);
+        }
+      } else {
+        allFeatures.add(CppRuleClasses.LIPO);
+      }
+    }
+
     for (String feature : allFeatures.build()) {
       if (!allUnsupportedFeatures.contains(feature)) {
         allRequestedFeaturesBuilder.add(feature);
