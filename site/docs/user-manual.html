@@ -25,6 +25,8 @@ title: User Manual
     <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
     <a href='#clean'>clean</a>               Removes output files and optionally stops the server.
 
+    <a href='#query'>cquery</a>              Executes a <a href='#analysis-phase'>post-analysis</a> dependency graph query.
+
     <a href='#dump'>dump</a>                Dumps the internal state of the Bazel server process.
 
     <a href='#help'>help</a>                Prints help for commands, or the index.
@@ -3035,7 +3037,10 @@ in an environment closer to the current shell environment. Note that none of the
 
 <p>
   Bazel includes a query language for asking questions about the
-  dependency graph used during the build.  The query tool is an
+  dependency graph used during the build.  The query language is used
+  by two commands: query and cquery. The major difference between the
+  two commands is that query runs after the <a href='#loading-phase'>loading phase</a>
+  and cquery runs after the <a href='#analysis-phase'>analysis phase</a>. These tool are an
   invaluable aid to many software engineering tasks.
 </p>
 <p>
