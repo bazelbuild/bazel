@@ -122,15 +122,14 @@ public class CodecScanner {
     HashSet<Class<? extends ObjectCodec<?>>> registered = new HashSet<>();
     for (Class<? extends CodecRegisterer<?>> registererType : registerers) {
       Class<? extends ObjectCodec<?>> objectCodecType = getObjectCodecType(registererType);
-      Preconditions.checkState(
-          !registered.contains(objectCodecType),
-          "%s has multiple associated CodecRegisterer definitions!",
-          objectCodecType);
       registered.add(objectCodecType);
       Constructor<CodecRegisterer<?>> constructor =
           (Constructor<CodecRegisterer<?>>) registererType.getDeclaredConstructor();
       constructor.setAccessible(true);
-      constructor.newInstance().register(builder);
+      CodecRegisterer<?> registerer = constructor.newInstance();
+      for (ObjectCodec<?> codec : registerer.getCodecsToRegister()) {
+        builder.add(codec);
+      }
     }
     return registered;
   }

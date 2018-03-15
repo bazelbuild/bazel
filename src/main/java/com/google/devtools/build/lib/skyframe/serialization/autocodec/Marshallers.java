@@ -26,11 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
-import com.google.protobuf.AbstractMessage;
-import com.google.protobuf.ExtensionRegistryLite;
-import com.google.protobuf.ProtocolMessageEnum;
 import com.squareup.javapoet.TypeName;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -38,10 +34,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
@@ -331,70 +324,6 @@ class Marshallers {
         }
       };
 
-  private final Marshaller enumMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return env.getTypeUtils().asElement(type).getKind() == ElementKind.ENUM;
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          if (isProtoEnum(context.getDeclaredType())) {
-            context.builder.addStatement("codedOut.writeInt32NoTag($L.getNumber())", context.name);
-          } else {
-            context.builder.addStatement("codedOut.writeInt32NoTag($L.ordinal())", context.name);
-          }
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          if (isProtoEnum(context.getDeclaredType())) {
-            context.builder.addStatement(
-                "$L = $T.forNumber(codedIn.readInt32())", context.name, context.getTypeName());
-          } else {
-            // TODO(shahan): memoize this expensive call to values().
-            context.builder.addStatement(
-                "$L = $T.values()[codedIn.readInt32()]", context.name, context.getTypeName());
-          }
-        }
-
-        private boolean isProtoEnum(DeclaredType type) {
-          return env.getTypeUtils()
-              .isSubtype(
-                  type,
-                  env.getElementUtils()
-                      .getTypeElement(ProtocolMessageEnum.class.getCanonicalName())
-                      .asType());
-        }
-      };
-
-  private static void addStringDeserializationCode(Context context) {
-    context.builder.addStatement(
-        "$L = $T.asciiOptimized().deserialize(context, codedIn)", context.name, StringCodecs.class);
-  }
-
-  private final Marshaller stringMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesType(type, String.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          context.builder.addStatement(
-              "$T.asciiOptimized().serialize(context, $L, codedOut)",
-              StringCodecs.class,
-              context.name);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          addStringDeserializationCode(context);
-        }
-      };
-
   private final Marshaller charSequenceMarshaller =
       new Marshaller() {
         @Override
@@ -412,37 +341,10 @@ class Marshallers {
 
         @Override
         public void addDeserializationCode(Context context) {
-          addStringDeserializationCode(context);
-        }
-      };
-
-  private final Marshaller uuidMarshller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesType(type, UUID.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
           context.builder.addStatement(
-              "codedOut.writeInt64NoTag($L.getMostSignificantBits())", context.name);
-          context.builder.addStatement(
-              "codedOut.writeInt64NoTag($L.getLeastSignificantBits())", context.name);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          String mostSignificantBitsName = context.makeName("mostSignificantBits");
-          String leastSignificantBitsName = context.makeName("leastSignificantBits");
-          context.builder.addStatement("long $L = codedIn.readInt64()", mostSignificantBitsName);
-          context.builder.addStatement("long $L = codedIn.readInt64()", leastSignificantBitsName);
-          context.builder.addStatement(
-              "$L = new $T($L, $L)",
+              "$L = $T.asciiOptimized().deserialize(context, codedIn)",
               context.name,
-              UUID.class,
-              mostSignificantBitsName,
-              leastSignificantBitsName);
+              StringCodecs.class);
         }
       };
 
@@ -737,63 +639,6 @@ class Marshallers {
         }
       };
 
-  /** Since we cannot add a codec to {@link Pattern}, it needs to be supported natively. */
-  private final Marshaller patternMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesType(type, Pattern.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          context.builder.addStatement(
-              "$T.asciiOptimized().serialize(context, $L.pattern(), codedOut)",
-              StringCodecs.class,
-              context.name);
-          context.builder.addStatement("codedOut.writeInt32NoTag($L.flags())", context.name);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          context.builder.addStatement(
-              "$L = $T.compile("
-                  + "$T.asciiOptimized().deserialize(context, codedIn), "
-                  + "codedIn.readInt32())",
-              context.name,
-              Pattern.class,
-              StringCodecs.class);
-        }
-      };
-
-  private final Marshaller protoMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return isSubtype(type, AbstractMessage.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          context.builder.addStatement("codedOut.writeMessageNoTag($L)", context.name);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          String builderName = context.makeName("builder");
-          context.builder.addStatement(
-              "$T.Builder $L = $T.newBuilder()",
-              context.getTypeName(),
-              builderName,
-              context.getTypeName());
-          context.builder.addStatement(
-              "codedIn.readMessage($L, $T.getEmptyRegistry())",
-              builderName,
-              ExtensionRegistryLite.class);
-          context.builder.addStatement("$L = $L.build()", context.name, builderName);
-        }
-      };
-
   /** Delegates marshalling back to the context. */
   private final Marshaller contextMarshaller =
       new Marshaller() {
@@ -813,31 +658,6 @@ class Marshallers {
         }
       };
 
-  private final Marshaller charsetMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesType(type, Charset.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          context.builder.addStatement(
-              "$T.asciiOptimized().serialize(context, $L.name(), codedOut)",
-              StringCodecs.class,
-              context.name);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          context.builder.addStatement(
-              "$L = $T.forName($T.asciiOptimized().deserialize(context, codedIn))",
-              context.name,
-              Charset.class,
-              StringCodecs.class);
-        }
-      };
-
   private final ImmutableList<PrimitiveValueSerializationCodeGenerator> primitiveGenerators =
       ImmutableList.of(
           INT_CODE_GENERATOR,
@@ -848,30 +668,19 @@ class Marshallers {
 
   private final ImmutableList<Marshaller> marshallers =
       ImmutableList.of(
-          enumMarshaller,
-          stringMarshaller,
           charSequenceMarshaller,
           supplierMarshaller,
-          uuidMarshller,
           mapEntryMarshaller,
           listMarshaller,
           immutableSetMarshaller,
           immutableSortedSetMarshaller,
           mapMarshaller,
           multimapMarshaller,
-          patternMarshaller,
-          protoMarshaller,
-          charsetMarshaller,
           contextMarshaller);
 
   /** True when {@code type} has the same type as {@code clazz}. */
   private boolean matchesType(TypeMirror type, Class<?> clazz) {
     return env.getTypeUtils().isSameType(type, getType(clazz));
-  }
-
-  /** True when {@code type} is a subtype of {@code clazz}. */
-  private boolean isSubtype(TypeMirror type, Class<?> clazz) {
-    return env.getTypeUtils().isSubtype(type, getType(clazz));
   }
 
   /** True when erasure of {@code type} matches erasure of {@code clazz}. */

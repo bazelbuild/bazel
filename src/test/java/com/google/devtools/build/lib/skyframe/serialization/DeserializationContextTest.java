@@ -118,7 +118,7 @@ public class DeserializationContextTest {
     @SuppressWarnings("unchecked")
     ObjectCodec<Object> codec = Mockito.mock(ObjectCodec.class);
     when(codec.getStrategy()).thenReturn(MemoizationStrategy.MEMOIZE_AFTER);
-    when(codec.getEncodedClass()).thenReturn(Object.class);
+    when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
     when(codec.additionalEncodedClasses()).thenReturn(ImmutableList.of());
     ObjectCodecRegistry.CodecDescriptor codecDescriptor =
         Mockito.mock(ObjectCodecRegistry.CodecDescriptor.class);
