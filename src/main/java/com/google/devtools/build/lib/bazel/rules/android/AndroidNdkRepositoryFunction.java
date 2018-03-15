@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkRelease;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.GnuLibStdCppStlImpl;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.LibCppStlImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -219,7 +221,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
 
-    String buildFile = createBuildFile(ruleName, crosstoolsAndStls.build());
+    String defaultCrosstool = getDefaultCrosstool(ndkRelease.majorRevision);
+
+    String buildFile = createBuildFile(ruleName, defaultCrosstool, crosstoolsAndStls.build());
     writeBuildFile(outputDirectory, buildFile);
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
@@ -229,12 +233,18 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     return AndroidNdkRepositoryRule.class;
   }
 
+  private static String getDefaultCrosstool(Integer majorRevision) {
+    // From NDK 17, libc++ replaces gnu-libstdc++ as the default STL.
+    return majorRevision <= 16 ? GnuLibStdCppStlImpl.NAME : LibCppStlImpl.NAME;
+  }
+
   private static PathFragment getAndroidNdkHomeEnvironmentVar(
       Path workspace, Map<String, String> env) {
     return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
   }
 
-  private static String createBuildFile(String ruleName, List<CrosstoolStlPair> crosstools) {
+  private static String createBuildFile(
+      String ruleName, String defaultCrosstool, List<CrosstoolStlPair> crosstools) {
 
     String buildFileTemplate = getTemplate("android_ndk_build_file_template.txt");
     String ccToolchainSuiteTemplate = getTemplate("android_ndk_cc_toolchain_suite_template.txt");
@@ -286,6 +296,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
     return buildFileTemplate
         .replace("%ruleName%", ruleName)
+        .replace("%defaultCrosstool%", "//:toolchain-" + defaultCrosstool)
         .replace("%ccToolchainSuites%", ccToolchainSuites)
         .replace("%ccToolchainRules%", ccToolchainRules)
         .replace("%stlFilegroups%", stlFilegroups)
