@@ -22,11 +22,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Utility methods for use by ConfiguredTarget implementations.
@@ -113,10 +115,19 @@ public abstract class Util {
 
   private static void addLabelsAndConfigs(
       Set<ConfiguredTargetKey> set, List<ConfiguredTargetAndData> deps) {
-    deps.forEach(
-        target ->
-            set.add(
-                ConfiguredTargetKey.of(
-                    target.getConfiguredTarget().getLabel(), target.getConfiguration())));
+    for (ConfiguredTarget dep :
+        deps.stream()
+            .map(ConfiguredTargetAndData::getConfiguredTarget)
+            .collect(Collectors.toList())) {
+      // This must be done because {@link AliasConfiguredTarget#getLabel} returns the label of the
+      // "actual" configured target instead of the alias.
+      if (dep instanceof AliasConfiguredTarget) {
+        set.add(
+            ConfiguredTargetKey.of(
+                ((AliasConfiguredTarget) dep).getOriginalLabel(), dep.getConfiguration()));
+      } else {
+        set.add(ConfiguredTargetKey.of(dep.getLabel(), dep.getConfiguration()));
+      }
+    }
   }
 }
