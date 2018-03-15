@@ -146,6 +146,26 @@ public class PathFragmentTest {
   }
 
   @Test
+  public void testIsNormalizedRelativePath() {
+    assertThat(PathFragment.isNormalizedRelativePath("/a")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("a///b")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("../a")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("a/../b")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("a/b")).isTrue();
+    assertThat(PathFragment.isNormalizedRelativePath("ab")).isTrue();
+  }
+
+  @Test
+  public void testContainsSeparator() {
+    assertThat(PathFragment.containsSeparator("/a")).isTrue();
+    assertThat(PathFragment.containsSeparator("a///b")).isTrue();
+    assertThat(PathFragment.containsSeparator("../a")).isTrue();
+    assertThat(PathFragment.containsSeparator("a/../b")).isTrue();
+    assertThat(PathFragment.containsSeparator("a/b")).isTrue();
+    assertThat(PathFragment.containsSeparator("ab")).isFalse();
+  }
+
+  @Test
   public void testGetChildWorks() {
     PathFragment pf = create("../some/path");
     assertThat(pf.getChild("hi")).isEqualTo(create("../some/path/hi"));
