@@ -137,6 +137,16 @@ public final class PathFragment
     return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
   }
 
+  public static boolean isNormalizedRelativePath(String path) {
+    int driveStrLength = OS.getDriveStrLength(path);
+    int normalizationLevel = OS.needsToNormalize(path);
+    return driveStrLength == 0 && normalizationLevel == OsPathPolicy.NORMALIZED;
+  }
+
+  public static boolean containsSeparator(String path) {
+    return path.lastIndexOf(SEPARATOR_CHAR) != -1;
+  }
+
   /**
    * Returns a {@link PathFragment} instance representing the relative path between this {@link
    * PathFragment} and the given path.
