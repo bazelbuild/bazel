@@ -54,12 +54,14 @@ import java.util.Map;
 @AutoCodec
 public final class LtoBackendArtifacts {
   // A file containing mapping of symbol => bitcode file containing the symbol.
+  // It will be null when this is a shared non-lto backend.
   private final Artifact index;
 
   // The bitcode file which is the input of the compile.
   private final Artifact bitcodeFile;
 
   // A file containing a list of bitcode files necessary to run the backend step.
+  // It will be null when this is a shared non-lto backend.
   private final Artifact imports;
 
   // The result of executing the above command line, an ELF object file.
@@ -164,6 +166,12 @@ public final class LtoBackendArtifacts {
   }
 
   public void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
+    // For objects from linkstatic libraries, we may not be including them in the LTO indexing
+    // step when linked into a test, but rather will use shared non-LTO backends for better
+    // scalability when running large numbers of tests.
+    if (index == null) {
+      return;
+    }
     builder.add(imports);
     builder.add(index);
   }
