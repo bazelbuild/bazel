@@ -15,7 +15,6 @@ java_library(
     deps = [
         ":kryo",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
@@ -542,41 +540,6 @@ class Marshallers {
     writeListDeserializationLoopAndBuild(context, repeated, builderName);
   }
 
-  private final Marshaller iterableMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesErased(type, Iterable.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          // A runtime check on the type of the Iterable.  If its a NestedSet, we need to use the
-          // custom NestedSetCodec.
-          // TODO(cpeyser): Remove this runtime check once AutoCodec Runtime is available.  Runtime
-          // checks in AutoCodec are very problematic because they will confuse the role of
-          // AutoCodec Runtime.
-          context.builder.beginControlFlow("if ($L instanceof $T)", context.name, NestedSet.class);
-          context.builder.addStatement("codedOut.writeBoolNoTag(true)"); // nested set
-          addSerializationCodeForNestedSet(context);
-          context.builder.nextControlFlow("else");
-          context.builder.addStatement("codedOut.writeBoolNoTag(false)"); // not nested set
-          addSerializationCodeForIterable(context);
-          context.builder.endControlFlow();
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          String isNestedSetName = context.makeName("isNestedSet");
-          context.builder.addStatement("boolean $L = codedIn.readBool()", isNestedSetName);
-          context.builder.beginControlFlow("if ($L)", isNestedSetName);
-          addDeserializationCodeForNestedSet(context);
-          context.builder.nextControlFlow("else");
-          addDeserializationCodeForIterable(context);
-          context.builder.endControlFlow();
-        }
-      };
-
   private final Marshaller listMarshaller =
       new Marshaller() {
         @Override
@@ -831,65 +794,6 @@ class Marshallers {
         }
       };
 
-  private void addSerializationCodeForNestedSet(Context context) {
-    TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
-    if (typeParameter instanceof TypeVariable) {
-      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
-    }
-    String nestedSetCodec = context.makeName("nestedSetCodec");
-    context.builder.addStatement(
-        "$T<$T> $L = new $T<>()",
-        NestedSetCodec.class,
-        typeParameter,
-        nestedSetCodec,
-        NestedSetCodec.class);
-    context.builder.addStatement(
-        "$L.serialize(context, ($T<$T>) $L, codedOut)",
-        nestedSetCodec,
-        NestedSet.class,
-        typeParameter,
-        context.name);
-  }
-
-  private void addDeserializationCodeForNestedSet(Context context) {
-    TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
-          String nestedSetCodec = context.makeName("nestedSetCodec");
-    if (typeParameter instanceof TypeVariable) {
-      typeParameter = ((TypeVariable) typeParameter).getUpperBound();
-    }
-    context.builder.addStatement(
-        "$T<$T> $L = new $T<>()",
-        NestedSetCodec.class,
-        typeParameter,
-        nestedSetCodec,
-        NestedSetCodec.class);
-    context.builder.addStatement(
-        "$L = $L.deserialize(context, codedIn)", context.name, nestedSetCodec);
-  }
-
-  private final Marshaller nestedSetMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          // env.getElementUtils().getTypeElement mysteriously does not recognize NestedSet, so we
-          // do String comparison.
-          return env.getTypeUtils()
-              .erasure(type)
-              .toString()
-              .equals("com.google.devtools.build.lib.collect.nestedset.NestedSet");
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          addSerializationCodeForNestedSet(context);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          addDeserializationCodeForNestedSet(context);
-        }
-      };
-
   /** Delegates marshalling back to the context. */
   private final Marshaller contextMarshaller =
       new Marshaller() {
@@ -955,10 +859,8 @@ class Marshallers {
           immutableSortedSetMarshaller,
           mapMarshaller,
           multimapMarshaller,
-          nestedSetMarshaller,
           patternMarshaller,
           protoMarshaller,
-          iterableMarshaller,
           charsetMarshaller,
           contextMarshaller);
 
