@@ -32,6 +32,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -56,7 +57,7 @@ public class AndroidResourceOutputs {
 
     // The earliest date representable in a zip file, 1-1-1980 (the DOS epoch).
     private static final long ZIP_EPOCH =
-        new GregorianCalendar(1980, 01, 01, 0, 0).getTimeInMillis();
+        new GregorianCalendar(1980, Calendar.JANUARY, 01, 0, 0).getTimeInMillis();
 
     private final ZipOutputStream zip;
 
