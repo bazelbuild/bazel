@@ -139,7 +139,8 @@ public class CqueryBuildTool extends BuildTool {
                   BuildConfiguration config = configuredTarget.getConfiguration();
                   StringBuilder output =
                       new StringBuilder()
-                          .append(configuredTarget.getLabel())
+                          .append(
+                              ConfiguredTargetQueryEnvironment.getCorrectLabel(configuredTarget))
                           .append(" (")
                           .append(config != null && config.isHostConfiguration() ? "HOST" : config)
                           .append(")");
