@@ -27,6 +27,11 @@ cc_library(
     srcs = [],
 )
 
+alias(
+    name = "default_crosstool",
+    actual = "%defaultCrosstool%",
+)
+
 ################################################################
 # cc toolchain suite rules (one for each STL in the NDK)
 ################################################################

@@ -24,14 +24,14 @@ import java.util.List;
  */
 public final class StlImpls {
 
-  public static final String DEFAULT_STL_NAME = "gnu-libstdcpp";
-  
   private StlImpls() {}
   
   public static class GnuLibStdCppStlImpl extends StlImpl {
 
+    public static final String NAME = "gnu-libstdcpp";
+
     public GnuLibStdCppStlImpl(NdkPaths ndkPaths) {
-      super(DEFAULT_STL_NAME, ndkPaths);
+      super(NAME, ndkPaths);
     }
 
     @Override
@@ -44,8 +44,10 @@ public final class StlImpls {
 
   public static class LibCppStlImpl extends StlImpl {
 
+    public static final String NAME = "libcpp";
+
     public LibCppStlImpl(NdkPaths ndkPaths) {
-      super("libcpp", ndkPaths);
+      super(NAME, ndkPaths);
     }
 
     @Override
@@ -58,8 +60,10 @@ public final class StlImpls {
 
   public static class StlPortStlImpl extends StlImpl {
 
+    public static final String NAME = "stlport";
+
     public StlPortStlImpl(NdkPaths ndkPaths) {
-      super("stlport", ndkPaths);
+      super(NAME, ndkPaths);
     }
 
     @Override

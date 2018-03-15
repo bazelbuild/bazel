@@ -21,7 +21,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -38,16 +37,12 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_ndk_repository";
 
   private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
-      rule -> {
-        String defaultToolchainName =
-            AndroidNdkRepositoryFunction.createToolchainName(StlImpls.DEFAULT_STL_NAME);
-
-        return ImmutableMap.of(
-            "android/crosstool",
-            Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:" + defaultToolchainName),
-            "android_ndk_for_testing",
-            Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
-      };
+      rule ->
+          ImmutableMap.of(
+              "android/crosstool",
+              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:default_crosstool"),
+              "android_ndk_for_testing",
+              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
