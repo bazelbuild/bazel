@@ -15,10 +15,12 @@
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
@@ -37,6 +39,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -340,12 +343,11 @@ public final class DependencyModule {
     private static class DefaultFixMessage implements FixMessage {
       @Override
       public String get(Iterable<JarOwner> missing, String recipient, DependencyModule depModule) {
-        StringBuilder missingTargetsStr = new StringBuilder();
-        for (JarOwner owner : missing) {
-          missingTargetsStr.append(owner.label());
-          missingTargetsStr.append(" ");
-        }
-
+        // TODO(cushon): remove the extra whitespace at the end, and fix local_repository_test_jdk8
+        String missingTargetsStr =
+            Streams.stream(missing)
+                .flatMap(owner -> owner.label().map(Stream::of).orElse(Stream.empty()))
+                .collect(joining(" ", "", " "));
         return String.format(
             "%1$s ** Please add the following dependencies:%2$s \n  %3$s to %4$s \n"
                 + "%1$s ** You can use the following buildozer command:%2$s "
