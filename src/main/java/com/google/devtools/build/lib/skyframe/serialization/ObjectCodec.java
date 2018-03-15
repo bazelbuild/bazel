@@ -31,7 +31,7 @@ public interface ObjectCodec<T> {
    * <p>This is useful for automatically dispatching to the correct codec, e.g. in {@link
    * ObjectCodecs}.
    */
-  Class<T> getEncodedClass();
+  Class<? extends T> getEncodedClass();
 
   /**
    * Returns additional subtypes of {@code T} that may be serialized/deserialized using this codec
