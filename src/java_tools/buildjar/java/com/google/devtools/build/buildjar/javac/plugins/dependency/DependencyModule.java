@@ -343,11 +343,10 @@ public final class DependencyModule {
     private static class DefaultFixMessage implements FixMessage {
       @Override
       public String get(Iterable<JarOwner> missing, String recipient, DependencyModule depModule) {
-        // TODO(cushon): remove the extra whitespace at the end, and fix local_repository_test_jdk8
         String missingTargetsStr =
             Streams.stream(missing)
                 .flatMap(owner -> owner.label().map(Stream::of).orElse(Stream.empty()))
-                .collect(joining(" ", "", " "));
+                .collect(joining(" "));
         return String.format(
             "%1$s ** Please add the following dependencies:%2$s \n  %3$s to %4$s \n"
                 + "%1$s ** You can use the following buildozer command:%2$s "
