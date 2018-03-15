@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -117,6 +119,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
     when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
     when(actionExecutionContext.getEventBus()).thenReturn(eventBus);
+    when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
@@ -189,6 +192,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
     when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
     when(actionExecutionContext.getEventBus()).thenReturn(eventBus);
+    when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
+
     Path outPath = tmpDirRoot.getRelative("test-out.txt");
     Path errPath = tmpDirRoot.getRelative("test-err.txt");
     FileOutErr outErr = new FileOutErr(outPath, errPath);
@@ -272,6 +277,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getClientEnv()).thenReturn(ImmutableMap.of());
     when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
     when(actionExecutionContext.getEventBus()).thenReturn(eventBus);
+    when(actionExecutionContext.getInputPath(any())).thenAnswer(this::getInputPathMock);
     Path outPath = tmpDirRoot.getRelative("test-out.txt");
     Path errPath = tmpDirRoot.getRelative("test-err.txt");
     FileOutErr outErr = new FileOutErr(outPath, errPath);
@@ -306,5 +312,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
       fail("Test stdout file missing: " + outPath);
     }
     assertThat(errPath.exists()).isFalse();
+  }
+
+  private Path getInputPathMock(InvocationOnMock invocation) {
+    return outputBase
+        .getRelative("execroot/" + WORKSPACE_NAME)
+        .getRelative(invocation.getArgumentAt(0, ActionInput.class).getExecPath());
   }
 }

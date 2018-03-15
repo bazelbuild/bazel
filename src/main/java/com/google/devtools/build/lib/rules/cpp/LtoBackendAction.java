@@ -121,12 +121,16 @@ public final class LtoBackendAction extends SpawnAction {
     // Build set of files this LTO backend artifact will import from.
     HashSet<PathFragment> importSet = new HashSet<>();
     try {
-      for (String line : FileSystemUtils.iterateLinesAsLatin1(imports.getPath())) {
+      for (String line :
+          FileSystemUtils.iterateLinesAsLatin1(actionExecutionContext.getInputPath(imports))) {
         if (!line.isEmpty()) {
           PathFragment execPath = PathFragment.create(line);
           if (execPath.isAbsolute()) {
             throw new ActionExecutionException(
-                "Absolute paths not allowed in imports file " + imports.getPath() + ": " + execPath,
+                "Absolute paths not allowed in imports file "
+                    + actionExecutionContext.getInputPath(imports)
+                    + ": "
+                    + execPath,
                 this,
                 false);
           }
@@ -135,14 +139,20 @@ public final class LtoBackendAction extends SpawnAction {
       }
     } catch (IOException e) {
       throw new ActionExecutionException(
-          "error iterating imports file " + imports.getPath(), e, this, false);
+          "error iterating imports file " + actionExecutionContext.getInputPath(imports),
+          e,
+          this,
+          false);
     }
 
     // Convert the import set of paths to the set of bitcode file artifacts.
     Set<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet);
     if (bitcodeInputSet.size() != importSet.size()) {
       throw new ActionExecutionException(
-          "error computing inputs from imports file " + imports.getPath(), this, false);
+          "error computing inputs from imports file "
+              + actionExecutionContext.getInputPath(imports),
+          this,
+          false);
     }
     updateInputs(createInputs(bitcodeInputSet, getMandatoryInputs()));
     return bitcodeInputSet;

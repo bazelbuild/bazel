@@ -237,10 +237,19 @@ public class FakeCppCompileAction extends CppCompileAction {
       // both.
       Preconditions.checkState(outputFile.getExecPath().getParentDirectory().equals(
           getDotdFile().getSafeExecPath().getParentDirectory()));
-      FileSystemUtils.writeContent(outputFile.getPath(), ISO_8859_1,
-          outputFile.getPath().getBaseName() + ": "
-          + "mkdir -p " + outputPrefix + "$(dirname " + outputFile.getExecPath() + ")"
-          + " && " + argv + "\n");
+      FileSystemUtils.writeContent(
+          actionExecutionContext.getInputPath(outputFile),
+          ISO_8859_1,
+          actionExecutionContext.getInputPath(outputFile).getBaseName()
+              + ": "
+              + "mkdir -p "
+              + outputPrefix
+              + "$(dirname "
+              + outputFile.getExecPath()
+              + ")"
+              + " && "
+              + argv
+              + "\n");
     } catch (IOException e) {
       throw new ActionExecutionException("failed to create fake compile command for rule '"
           + getOwner().getLabel() + ": " + e.getMessage(), this, false);

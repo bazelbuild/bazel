@@ -387,7 +387,8 @@ public abstract class TestStrategy implements TestActionContext {
       // an up-to-date check.
       if (!outputManifest.isSymbolicLink()
           && Arrays.equals(
-              outputManifest.getDigest(), execSettings.getInputManifest().getPath().getDigest())) {
+              outputManifest.getDigest(),
+              actionExecutionContext.getInputPath(execSettings.getInputManifest()).getDigest())) {
         return;
       }
     } catch (IOException e1) {
@@ -402,7 +403,10 @@ public abstract class TestStrategy implements TestActionContext {
                     + execSettings.getExecutable().prettyPrint()
                     + "'."));
 
-    new SymlinkTreeHelper(execSettings.getInputManifest().getPath(), runfilesDir, false)
+    new SymlinkTreeHelper(
+            actionExecutionContext.getInputPath(execSettings.getInputManifest()),
+            runfilesDir,
+            false)
         .createSymlinks(
             testAction,
             actionExecutionContext,

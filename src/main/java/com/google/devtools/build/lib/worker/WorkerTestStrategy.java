@@ -124,7 +124,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
 
     TestResultData.Builder builder = TestResultData.newBuilder();
 
-    Path testLogPath = action.getTestLog().getPath();
+    Path testLogPath = actionExecutionContext.getInputPath(action.getTestLog());
     Worker worker = null;
     WorkerKey key = null;
     long startTime = actionExecutionContext.getClock().currentTimeMillis();

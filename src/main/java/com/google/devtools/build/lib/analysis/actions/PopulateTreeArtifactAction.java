@@ -185,7 +185,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
     try {
       for (ActionInput fileEntry : spawn.getOutputFiles()) {
         FileSystemUtils.createDirectoryAndParents(
-            ((Artifact) fileEntry).getPath().getParentDirectory());
+            actionExecutionContext.getInputPath(((Artifact) fileEntry)).getParentDirectory());
       }
     } catch (IOException e) {
       throw new ActionExecutionException(e, this, false);

@@ -98,7 +98,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
 
     final Map<String, String> values = new LinkedHashMap<>();
     for (Artifact valueFile : getInputs()) {
-      values.putAll(WorkspaceStatusAction.parseValues(valueFile.getPath()));
+      values.putAll(WorkspaceStatusAction.parseValues(ctx.getInputPath(valueFile)));
     }
 
     final boolean redacted = Iterables.isEmpty(getInputs());

@@ -165,7 +165,7 @@ public final class ExtraAction extends SpawnAction {
     if (createDummyOutput) {
       for (Artifact output : getOutputs()) {
         try {
-          FileSystemUtils.touchFile(output.getPath());
+          FileSystemUtils.touchFile(actionExecutionContext.getInputPath(output));
         } catch (IOException e) {
           throw new ActionExecutionException(e.getMessage(), e, this, false);
         }

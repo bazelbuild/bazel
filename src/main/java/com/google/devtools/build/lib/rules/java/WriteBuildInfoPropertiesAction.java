@@ -152,7 +152,7 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
         WorkspaceStatusAction.Context context = ctx.getContext(WorkspaceStatusAction.Context.class);
         Map<String, String> values = new LinkedHashMap<>();
         for (Artifact valueFile : getInputs()) {
-          values.putAll(WorkspaceStatusAction.parseValues(valueFile.getPath()));
+          values.putAll(WorkspaceStatusAction.parseValues(ctx.getInputPath(valueFile)));
         }
 
         Map<String, String> keys = new HashMap<>();

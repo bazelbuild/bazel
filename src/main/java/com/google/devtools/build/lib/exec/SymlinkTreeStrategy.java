@@ -56,16 +56,19 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       try {
         if (outputService != null && outputService.canCreateSymlinkTree()) {
           outputService.createSymlinkTree(
-              action.getInputManifest().getPath(),
-              action.getOutputManifest().getPath(),
+              actionExecutionContext.getInputPath(action.getInputManifest()),
+              actionExecutionContext.getInputPath(action.getOutputManifest()),
               action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
           return ImmutableList.of();
         } else {
-          SymlinkTreeHelper helper = new SymlinkTreeHelper(
-              action.getInputManifest().getPath(),
-              action.getOutputManifest().getPath().getParentDirectory(),
-              action.isFilesetTree());
+          SymlinkTreeHelper helper =
+              new SymlinkTreeHelper(
+                  actionExecutionContext.getInputPath(action.getInputManifest()),
+                  actionExecutionContext
+                      .getInputPath(action.getOutputManifest())
+                      .getParentDirectory(),
+                  action.isFilesetTree());
           return helper.createSymlinks(
               action,
               actionExecutionContext,

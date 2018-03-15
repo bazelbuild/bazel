@@ -68,8 +68,8 @@ public final class CreateIncSymlinkAction extends AbstractAction {
       throws ActionExecutionException {
     try {
       for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
-        Path symlink = entry.getKey().getPath();
-        symlink.createSymbolicLink(entry.getValue().getPath());
+        Path symlink = actionExecutionContext.getInputPath(entry.getKey());
+        symlink.createSymbolicLink(actionExecutionContext.getInputPath(entry.getValue()));
       }
     } catch (IOException e) {
       String message = "IO Error while creating symlink";
