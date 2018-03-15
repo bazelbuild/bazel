@@ -34,7 +34,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
@@ -217,9 +216,6 @@ public class ManifestMergerAction {
       if (!mergedManifest.equals(options.manifestOutput)) {
         Files.copy(options.manifest, options.manifestOutput, StandardCopyOption.REPLACE_EXISTING);
       }
-
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(options.manifestOutput, FileTime.fromMillis(0L));
     } catch (AndroidManifestProcessor.ManifestProcessingException e) {
       System.exit(1);
     } catch (Exception e) {

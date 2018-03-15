@@ -57,7 +57,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -343,23 +342,10 @@ public class AndroidResourceProcessor {
           dependencyData, customPackageForR, androidManifest, sourceOut);
     }
     // Reset the output date stamps.
-    if (proguardOut != null) {
-      Files.setLastModifiedTime(proguardOut, FileTime.fromMillis(0L));
-    }
-    if (mainDexProguardOut != null) {
-      Files.setLastModifiedTime(mainDexProguardOut, FileTime.fromMillis(0L));
-    }
     if (packageOut != null) {
-      Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
       if (!splits.isEmpty()) {
-        Iterable<Path> splitFilenames = findAndRenameSplitPackages(packageOut, splits);
-        for (Path splitFilename : splitFilenames) {
-          Files.setLastModifiedTime(splitFilename, FileTime.fromMillis(0L));
-        }
+        renameSplitPackages(packageOut, splits);
       }
-    }
-    if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
-      Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
     }
     return new MergedAndroidData(resourceDir, assetsDir, androidManifest);
   }
@@ -623,8 +609,8 @@ public class AndroidResourceProcessor {
     }
   }
 
-  /** Finds aapt's split outputs and renames them according to the input flags. */
-  private Iterable<Path> findAndRenameSplitPackages(Path packageOut, Iterable<String> splits)
+  /** Renames aapt's split outputs according to the input flags. */
+  private void renameSplitPackages(Path packageOut, Iterable<String> splits)
       throws UnrecognizedSplitsException, IOException {
     String prefix = packageOut.getFileName().toString() + "_";
     // The regex java string literal below is received as [\\{}\[\]*?] by the regex engine,
@@ -641,16 +627,13 @@ public class AndroidResourceProcessor {
     }
     Map<String, String> outputs =
         SplitConfigurationFilter.mapFilenamesToSplitFlags(filenameSuffixes.build(), splits);
-    ImmutableList.Builder<Path> outputPaths = new ImmutableList.Builder<>();
     for (Map.Entry<String, String> splitMapping : outputs.entrySet()) {
       Path resultPath = packageOut.resolveSibling(prefix + splitMapping.getValue());
-      outputPaths.add(resultPath);
       if (!splitMapping.getKey().equals(splitMapping.getValue())) {
         Path sourcePath = packageOut.resolveSibling(prefix + splitMapping.getKey());
         Files.move(sourcePath, resultPath);
       }
     }
-    return outputPaths.build();
   }
 
   /** A logger that will print messages to a target OutputStream. */
