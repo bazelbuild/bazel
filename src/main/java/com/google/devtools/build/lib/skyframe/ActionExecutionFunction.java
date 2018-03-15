@@ -87,8 +87,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     stateMap = Maps.newConcurrentMap();
   }
 
-  private static final Function<String, SkyKey> VAR_TO_SKYKEY = ClientEnvironmentFunction::key;
-
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws ActionExecutionFunctionException,
       InterruptedException {
@@ -111,7 +109,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     // Look up the parts of the environment that influence the action.
     Map<SkyKey, SkyValue> clientEnvLookup =
-        env.getValues(Iterables.transform(action.getClientEnvironmentVariables(), VAR_TO_SKYKEY));
+        env.getValues(
+            Iterables.transform(
+                action.getClientEnvironmentVariables(), ClientEnvironmentFunction::key));
     if (env.valuesMissing()) {
       return null;
     }
