@@ -220,12 +220,14 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         // Only update the stableStatus contents if they are different than what we have on disk.
         // This is to preserve the old file's mtime so that we do not generate an unnecessary dirty
         // file on each incremental build.
-        FileSystemUtils.maybeUpdateContent(stableStatus.getPath(), printStatusMap(stableMap));
+        FileSystemUtils.maybeUpdateContent(
+            actionExecutionContext.getInputPath(stableStatus), printStatusMap(stableMap));
 
         // Contrary to the stableStatus, write the contents of volatileStatus unconditionally
         // because we know it will be different. This output file is marked as "constant metadata"
         // so its dirtiness will be ignored anyway.
-        FileSystemUtils.writeContent(volatileStatus.getPath(), printStatusMap(volatileMap));
+        FileSystemUtils.writeContent(
+            actionExecutionContext.getInputPath(volatileStatus), printStatusMap(volatileMap));
       } catch (IOException e) {
         throw new ActionExecutionException(
             "Failed to run workspace status command " + options.workspaceStatusCommand,

@@ -164,13 +164,18 @@ public class StandaloneTestStrategy extends TestStrategy {
       }
       processLastTestAttempt(attempt, dataBuilder, standaloneTestResult.testResultData());
       ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
-      if (action.getTestLog().getPath().exists()) {
+      if (actionExecutionContext.getInputPath(action.getTestLog()).exists()) {
         testOutputsBuilder.add(
-            Pair.of(TestFileNameConstants.TEST_LOG, action.getTestLog().getPath()));
+            Pair.of(
+                TestFileNameConstants.TEST_LOG,
+                actionExecutionContext.getInputPath(action.getTestLog())));
       }
-      if (action.getCoverageData() != null && action.getCoverageData().getPath().exists()) {
+      if (action.getCoverageData() != null
+          && actionExecutionContext.getInputPath(action.getCoverageData()).exists()) {
         testOutputsBuilder.add(
-            Pair.of(TestFileNameConstants.TEST_COVERAGE, action.getCoverageData().getPath()));
+            Pair.of(
+                TestFileNameConstants.TEST_COVERAGE,
+                actionExecutionContext.getInputPath(action.getCoverageData())));
       }
       testOutputsBuilder.addAll(TestResult.testOutputsFromPaths(resolvedPaths));
       actionExecutionContext
@@ -207,18 +212,21 @@ public class StandaloneTestStrategy extends TestStrategy {
     // Rename outputs
     String namePrefix =
         FileSystemUtils.removeExtension(action.getTestLog().getExecPath().getBaseName());
-    Path testRoot = action.getTestLog().getPath().getParentDirectory();
+    Path testRoot = actionExecutionContext.getInputPath(action.getTestLog()).getParentDirectory();
     Path attemptsDir = testRoot.getChild(namePrefix + "_attempts");
     attemptsDir.createDirectory();
     String attemptPrefix = "attempt_" + attempt;
     Path testLog = attemptsDir.getChild(attemptPrefix + ".log");
-    if (action.getTestLog().getPath().exists()) {
-      action.getTestLog().getPath().renameTo(testLog);
+    if (actionExecutionContext.getInputPath(action.getTestLog()).exists()) {
+      actionExecutionContext.getInputPath(action.getTestLog()).renameTo(testLog);
       testOutputsBuilder.add(Pair.of(TestFileNameConstants.TEST_LOG, testLog));
     }
-    if (action.getCoverageData() != null && action.getCoverageData().getPath().exists()) {
+    if (action.getCoverageData() != null
+        && actionExecutionContext.getInputPath(action.getCoverageData()).exists()) {
       testOutputsBuilder.add(
-          Pair.of(TestFileNameConstants.TEST_COVERAGE, action.getCoverageData().getPath()));
+          Pair.of(
+              TestFileNameConstants.TEST_COVERAGE,
+              actionExecutionContext.getInputPath(action.getCoverageData())));
     }
 
     // Get the normal test output paths, and then update them to use "attempt_N" names, and
@@ -300,8 +308,9 @@ public class StandaloneTestStrategy extends TestStrategy {
     prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
 
     try (FileOutErr fileOutErr =
-            new FileOutErr(
-                action.getTestLog().getPath(), action.resolve(execRoot).getTestStderr())) {
+        new FileOutErr(
+            actionExecutionContext.getInputPath(action.getTestLog()),
+            action.resolve(execRoot).getTestStderr())) {
       StandaloneTestResult standaloneTestResult =
           executeTest(action, spawn, actionExecutionContext.withFileOutErr(fileOutErr));
       appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
@@ -334,7 +343,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action, Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, IOException {
     Closeable streamed = null;
-    Path testLogPath = action.getTestLog().getPath();
+    Path testLogPath = actionExecutionContext.getInputPath(action.getTestLog());
     TestResultData.Builder builder = TestResultData.newBuilder();
 
     long startTime = actionExecutionContext.getClock().currentTimeMillis();

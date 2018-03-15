@@ -115,7 +115,7 @@ public class SymlinkAction extends AbstractAction {
       throws ActionExecutionException {
     Path srcPath;
     if (inputPath == null) {
-      srcPath = getPrimaryInput().getPath();
+      srcPath = actionExecutionContext.getInputPath(getPrimaryInput());
     } else {
       srcPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
     }

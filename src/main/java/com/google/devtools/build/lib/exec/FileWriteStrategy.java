@@ -51,7 +51,8 @@ public final class FileWriteStrategy implements FileWriteActionContext {
         AutoProfiler.logged(
             "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
-        Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
+        Path outputPath =
+            actionExecutionContext.getInputPath(Iterables.getOnlyElement(action.getOutputs()));
         try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {
           action.newDeterministicWriter(actionExecutionContext).writeOutputFile(out);
         }

@@ -158,12 +158,14 @@ public interface IncludeScanner {
         // the root path for such includes
         if (included.getRoot().getRoot().isAbsolute()) {
           if (FileSystemUtils.startsWithAny(
-              included.getPath().asFragment(), absoluteBuiltInIncludeDirs)) {
+              actionExecutionContext.getInputPath(included).asFragment(),
+              absoluteBuiltInIncludeDirs)) {
             // Skip include files found in absolute include directories.
             continue;
           }
           throw new UserExecException(
-              "illegal absolute path to include file: " + included.getPath());
+              "illegal absolute path to include file: "
+                  + actionExecutionContext.getInputPath(included));
         }
         inputs.add(included);
       }

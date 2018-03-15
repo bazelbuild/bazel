@@ -113,7 +113,8 @@ public final class SymlinkTreeHelper {
       Artifact inputManifestArtifact,
       boolean enableRunfiles)
           throws ExecException, InterruptedException {
-    Preconditions.checkState(inputManifestArtifact.getPath().equals(inputManifest));
+    Preconditions.checkState(
+        actionExecutionContext.getInputPath(inputManifestArtifact).equals(inputManifest));
     if (enableRunfiles) {
       return actionExecutionContext
           .getSpawnActionContext(owner.getMnemonic())
