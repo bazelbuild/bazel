@@ -17,10 +17,16 @@ package com.google.devtools.skylark.skylint;
 import static com.google.devtools.skylark.skylint.DocstringUtils.extractDocstring;
 
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
+import com.google.devtools.build.lib.syntax.Argument;
+import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.ASTNode;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.DictionaryLiteral;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionDefStatement;
+
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Parameter;
 import com.google.devtools.build.lib.syntax.ReturnStatement;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -30,14 +36,18 @@ import com.google.devtools.skylark.skylint.DocstringUtils.DocstringInfo;
 import com.google.devtools.skylark.skylint.DocstringUtils.DocstringParseError;
 import com.google.devtools.skylark.skylint.DocstringUtils.ParameterDoc;
 import com.google.devtools.skylark.skylint.LocationRange.Location;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 
 /** Checks the existence of docstrings. */
 public class DocstringChecker extends SyntaxTreeVisitor {
   private static final String MISSING_MODULE_DOCSTRING_CATEGORY = "missing-module-docstring";
   private static final String MISSING_FUNCTION_DOCSTRING_CATEGORY = "missing-function-docstring";
+  private static final String MISSING_RULE_DOCUMENTATION = "missing-rule-documentation";
+  private static final String MISSING_ATTRIBUTE_DOCUMENTATION = "missing-attribute-documentation";
   private static final String INCONSISTENT_DOCSTRING_CATEGORY = "inconsistent-docstring";
   private static final String BAD_DOCSTRING_FORMAT_CATEGORY = "bad-docstring-format";
   private static final String ARGS_ARGUMENTS_DOCSTRING_CATEGORY = "args-arguments-docstring";
@@ -71,6 +81,13 @@ public class DocstringChecker extends SyntaxTreeVisitor {
         issues.add(docstringParseErrorToIssue(moduleDocstring, error));
       }
     }
+
+    for (Statement statement: node.getStatements()) {
+      if (statement.kind() == Statement.Kind.ASSIGNMENT) {
+        checkRuleDocstring((AssignmentStatement) statement);
+      }
+    }
+
     super.visit(node);
   }
 
@@ -123,6 +140,80 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       checkMultilineFunctionDocstring(
           node, functionDocstring, info, containsReturnWithValue, issues);
     }
+    preferArgsToArguments(functionDocstring, info);
+  }
+
+  private void checkRuleDocstring(AssignmentStatement statement) {
+    Expression lvalue = statement.getLValue().getExpression();
+    Expression rhs = statement.getExpression();
+    if (lvalue instanceof Identifier && rhs instanceof FuncallExpression) {
+      FuncallExpression funcall = (FuncallExpression) rhs;
+      Expression function = funcall.getFunction();
+      String name = ((Identifier) lvalue).getName();
+      if (!name.startsWith("_")) {
+        if (function instanceof Identifier &&
+          (((Identifier) function).getName().equals("rule") ||
+            ((Identifier) function).getName().equals("repository_rule"))) {
+          String functionName = ((Identifier) function).getName();
+          Argument.Passed doc = null;
+          DictionaryLiteral attrs = null;
+          for (Argument.Passed passed: funcall.getArguments()) {
+            if (Objects.equals(passed.getName(), "doc")) {
+              doc = passed;
+            } else if (Objects.equals(passed.getName(), "attrs")
+                && passed.getValue() instanceof DictionaryLiteral) {
+              attrs = (DictionaryLiteral) passed.getValue();
+            }
+          }
+
+          if (doc == null || !(doc.getValue() instanceof StringLiteral)) {
+            issues.add(Issue.create(
+              MISSING_RULE_DOCUMENTATION,
+              functionName
+                  + " '"
+                  + name
+                  + "' has no doc parameter"
+                  + " (if this rule is intended to be private,"
+                  + " the name should start with an underscore: '_"
+                  + name
+                  + "')",
+              rhs.getLocation()));
+          }
+
+          if (attrs != null) {
+            checkRuleAttrsDocstring(attrs);
+          }
+        }
+      }
+    }
+  }
+
+  private void checkRuleAttrsDocstring(DictionaryLiteral attrs) {
+    for (DictionaryLiteral.DictionaryEntryLiteral entry: attrs.getEntries()) {
+      if (entry.getKey() instanceof StringLiteral && entry.getValue() instanceof FuncallExpression) {
+        String key = ((StringLiteral) entry.getKey()).getValue();
+        FuncallExpression attr = (FuncallExpression) entry.getValue();
+        if (!key.startsWith("_")) {
+          boolean isDocumented = false;
+
+          for (Argument.Passed passed: attr.getArguments()) {
+            if (Objects.equals(passed.getName(), "doc") && passed.getValue() instanceof StringLiteral)
+              isDocumented = true;
+          }
+
+          if (!isDocumented) {
+            issues.add(
+              Issue.create(
+                MISSING_ATTRIBUTE_DOCUMENTATION,
+                "incomplete documentation: attr '" + key + "' has no doc parameter",
+                entry.getValue().getLocation()));
+          }
+        }
+      }
+    }
+  }
+
+  private void preferArgsToArguments(StringLiteral functionDocstring, DocstringInfo info) {
     if (info.argumentsLocation != null) {
       int lineOffset = functionDocstring.getLocation().getStartLine() - 1;
       issues.add(

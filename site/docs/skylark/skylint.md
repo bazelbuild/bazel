@@ -139,6 +139,27 @@ def example_function2(foo, bar):
     This function is deprecated for <reason>. Use <alternative> instead.
   """
   return "baz"
+
+def _new_rule_impl(ctx):
+  print("new_rule")
+
+new_rule = rule(
+  _new_rule_impl
+  attrs = {
+    "foo": attr.label(
+      doc = """documentation of the first attribute.
+
+with multiline description
+"""),
+    "bar": attr.string(
+      doc = "documentation of the second attribute"
+    ),
+  },
+  doc = """Illustrates the format for rule definitions
+
+After the one-line summary comes the description body.
+It contains additional information about the rule.
+""")
 ```
 
 #### Indentation
@@ -159,6 +180,7 @@ The analyzer **requires docstrings** for:
 *   each **module** (.bzl file)
 *   each **public function** (i.e. a function not starting with an underscore)
     that contains at least 5 statements
+*   each **public rule definition**
 
 If a **function has a multi-line docstring**, you also have to document (in
 order):

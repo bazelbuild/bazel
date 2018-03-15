@@ -59,6 +59,39 @@ public class DocstringCheckerTest {
   }
 
   @Test
+  public void reportMissingRuleDoc() throws Exception {
+    String errorMessage =
+      findIssues(
+        "# no module docstring",
+        "new_rule = rule()",
+        "  # no function docstring")
+        .toString();
+    Truth.assertThat(errorMessage)
+      .contains("1:1-2:1: file has no module docstring [missing-module-docstring]");
+    Truth.assertThat(errorMessage)
+      .contains(
+        "2:12-2:17: rule 'new_rule' has no doc parameter"
+          + " (if this rule is intended to be private,"
+          + " the name should start with an underscore: '_new_rule')"
+          + " [missing-rule-documentation]");
+
+    errorMessage =
+      findIssues(
+        "# no module docstring",
+        "new_repository_rule = repository_rule()",
+        "  # no function docstring")
+        .toString();
+    Truth.assertThat(errorMessage)
+      .contains("1:1-2:1: file has no module docstring [missing-module-docstring]");
+    Truth.assertThat(errorMessage)
+      .contains(
+        "2:23-2:39: repository_rule 'new_repository_rule' has no doc parameter"
+          + " (if this rule is intended to be private,"
+          + " the name should start with an underscore: '_new_repository_rule')"
+          + " [missing-rule-documentation]");
+  }
+
+  @Test
   public void reportMissingParameterDocumentation() throws Exception {
     List<Issue> errors =
         findIssues(
@@ -104,6 +137,26 @@ public class DocstringCheckerTest {
         .contains(
             "2:3-6:5: incomplete docstring: parameter 'baz' not documented"
                 + " [inconsistent-docstring]");
+
+    errorMessage =
+        findIssues(
+          "new_rule = rule(",
+            "    attrs = {",
+            "        'foo': attr.string(),",
+            "        'bar': attr.string(doc=''),",
+            "        'baz': attr.string(),",
+            "    },",
+            "    doc = \"\"\"summary\"\"\"",
+            ")")
+            .toString();
+    Truth.assertThat(errorMessage)
+        .contains(
+            "3:16-3:28: incomplete documentation: attr 'foo' has no doc parameter"
+                + " [missing-attribute-documentation]");
+    Truth.assertThat(errorMessage)
+        .contains(
+            "5:16-5:28: incomplete documentation: attr 'baz' has no doc parameter"
+                + " [missing-attribute-documentation]");
   }
 
   @Test
@@ -238,6 +291,15 @@ public class DocstringCheckerTest {
                 "",
                 "  \"\"\""))
         .isEmpty();
+
+    Truth.assertThat(
+            findIssues(
+                "\"\"\"This is a module docstring",
+                "\n\"\"\"",
+                "new_rule = rule(doc = \"\"\"This is a rule docstring",
+                "",
+                "\"\"\")"))
+            .isEmpty();
   }
 
   @Test
@@ -249,6 +311,13 @@ public class DocstringCheckerTest {
                 "  \"\"\"single line docstring is fine\"\"\"",
                 "  return True"))
         .isEmpty();
+
+    Truth.assertThat(
+            findIssues(
+                "\"\"\"This is a module docstring",
+                "\n\"\"\"",
+                "new_rule = rule(doc = \"\"\"This is a rule docstring\"\"\")"))
+            .isEmpty();
   }
 
   @Test
@@ -259,6 +328,12 @@ public class DocstringCheckerTest {
                 "def _private_function():",
                 "  pass # no docstring necessary for private functions"))
         .isEmpty();
+
+    Truth.assertThat(
+            findIssues(
+                "\"\"\" Module docstring\n\"\"\"",
+                "_new_rule = rule()"))
+            .isEmpty();
   }
 
   @Test
@@ -286,5 +361,25 @@ public class DocstringCheckerTest {
                 "  \"\"\"",
                 "  return True"))
         .isEmpty();
+
+    Truth.assertThat(
+            findIssues(
+              "\"\"\" module docstring \"\"\"",
+              "new_rule = rule(",
+              "    attrs = {",
+              "        'pararm1': attr.string(",
+              "            doc = \"foo\"",
+              "        ),",
+              "        'pararm2': attr.string(",
+              "            doc = \"foo\"",
+              "        ),",
+              "        '_pararm3': attr.string()",
+              "    },",
+              "    doc = \"\"\"summary",
+              "    ",
+              "bar",
+              "\"\"\"",
+              ")"))
+            .isEmpty();
   }
 }
