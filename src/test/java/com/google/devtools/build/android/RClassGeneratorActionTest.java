@@ -24,10 +24,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,7 +125,6 @@ public class RClassGeneratorActionTest {
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
-    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
 
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
@@ -144,6 +145,7 @@ public class RClassGeneratorActionTest {
               "com/google/app/R$string.class",
               "com/google/app/R.class",
               "META-INF/MANIFEST.MF");
+      assertZipEntriesHaveStableTimestamp(zipEntries);
     }
   }
 
@@ -175,7 +177,6 @@ public class RClassGeneratorActionTest {
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
-    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
 
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
@@ -190,6 +191,7 @@ public class RClassGeneratorActionTest {
               "com/google/bar/R$drawable.class",
               "com/google/bar/R.class",
               "META-INF/MANIFEST.MF");
+      assertZipEntriesHaveStableTimestamp(zipEntries);
     }
   }
 
@@ -219,7 +221,6 @@ public class RClassGeneratorActionTest {
     ).toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
-    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
 
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
@@ -233,6 +234,7 @@ public class RClassGeneratorActionTest {
               "com/google/app/R$string.class",
               "com/google/app/R.class",
               "META-INF/MANIFEST.MF");
+      assertZipEntriesHaveStableTimestamp(zipEntries);
     }
   }
 
@@ -244,12 +246,12 @@ public class RClassGeneratorActionTest {
     ).toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
-    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
 
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
       Iterable<String> entries = getZipFilenames(zipEntries);
       assertThat(entries).containsExactly("META-INF/MANIFEST.MF");
+      assertZipEntriesHaveStableTimestamp(zipEntries);
     }
   }
 
@@ -285,7 +287,6 @@ public class RClassGeneratorActionTest {
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
-    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
 
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
@@ -299,6 +300,7 @@ public class RClassGeneratorActionTest {
               "com/custom/er/R$string.class",
               "com/custom/er/R.class",
               "META-INF/MANIFEST.MF");
+      assertZipEntriesHaveStableTimestamp(zipEntries);
     }
   }
 
@@ -323,12 +325,12 @@ public class RClassGeneratorActionTest {
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
-    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
 
     try (ZipFile zip = new ZipFile(jarPath.toFile())) {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
       Iterable<String> entries = getZipFilenames(zipEntries);
       assertThat(entries).containsExactly("META-INF/MANIFEST.MF");
+      assertZipEntriesHaveStableTimestamp(zipEntries);
     }
   }
 
@@ -348,5 +350,26 @@ public class RClassGeneratorActionTest {
             return input.getName();
           }
         });
+  }
+
+  private static void assertZipEntriesHaveStableTimestamp(
+      Iterable<? extends ZipEntry> entries) throws Exception {
+    // The ZIP epoch is the same as the MS-DOS epoch, 1980-01-01T00:00:00Z.
+    // Additionally AndroidResourceOutputs.ZipBuilder increments the timestamp for some files by the
+    // timestamp resolution of ZIP files (2 seconds), which is the mtime resolution of the FAT
+    // filesystem.
+    // We don't care about the exact logic, and asserting exact timestamps would introduce too much
+    // coupling between the test and tested code. So here we only test that the timestams are on
+    // 1980-01-01, ignoring the time.
+    long zipEpoch = Instant.parse("1980-01-01T00:00:00Z").getEpochSecond();
+    long zipEpochPlusOneDay = Instant.parse("1980-01-02T00:00:00Z").getEpochSecond();
+    for (ZipEntry e : entries) {
+      // getLastModifiedTime().toMillis() returns milliseconds, Instant.getEpochSecond() returns
+      // seconds.
+      long mtime = e.getLastModifiedTime().toMillis() / 1000;
+      if (mtime < zipEpoch || mtime > zipEpochPlusOneDay) {
+        Assert.fail(String.format("e=(%s), mtime=(%s)", e.getName(), e.getLastModifiedTime()));
+      }
+    }
   }
 }
