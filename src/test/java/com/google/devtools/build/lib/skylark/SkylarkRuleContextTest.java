@@ -94,7 +94,15 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Before
   public final void generateBuildFile() throws Exception {
     scratch.file(
+        "foo/do_nothing.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.do_nothing(mnemonic='do_nothing')",
+        "do_nothing = rule(_impl)"
+    );
+
+    scratch.file(
         "foo/BUILD",
+        "load(':do_nothing.bzl', 'do_nothing')",
         "package(features = ['-f1', 'f2', 'f3'])",
         "genrule(name = 'foo',",
         "  cmd = 'dummy_cmd',",
@@ -125,7 +133,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "cc_library(name = 'cc_with_features',",
         "           srcs = ['dummy.cc'],",
         "           features = ['f1', '-f3'],",
-        ")"
+        ")",
+        "do_nothing(name='bar2')"
     );
   }
 
@@ -792,31 +801,88 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testDeriveArtifactLegacy() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar2");
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ruleContext.new_file(ruleContext.genfiles_dir," + "  'a/b.txt')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
+            "ruleContext.new_file('a/b.txt')");
+    assertThat(((Artifact) result).getExecPathString()).matches("bazel-out/[^/]+/bin/foo/a/b.txt");
+  }
+
+  @Test
+  public void testDeriveArtifactLegacyGenrule() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    Object result =
+      evalRuleContextCode(
+        ruleContext,
+        "ruleContext.new_file('a/b.txt')");
+    assertThat(((Artifact) result).getExecPathString()).matches("bazel-out/[^/]+/genfiles/foo/a/b.txt");
+  }
+
+  @Test
+  public void testDeriveArtifactLegacyGenfileDir() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    Object result =
+      evalRuleContextCode(
+        ruleContext,
+        "ruleContext.new_file(ruleContext.genfiles_dir, 'a/b.txt')");
+    assertThat(((Artifact) result).getExecPathString()).matches("bazel-out/[^/]+/genfiles/foo/a/b.txt");
   }
 
   @Test
   public void testDeriveArtifact() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar2");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.actions.declare_file('a/b.txt')");
+    assertThat(((Artifact) result).getExecPathString()).matches("bazel-out/[^/]+/bin/foo/a/b.txt");
+  }
+
+  @Test
+  public void testDeriveArtifactGenrule() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.new_file('a/b.txt')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.actions.declare_file('a/b.txt')");
+    assertThat(((Artifact) result).getExecPathString()).matches("bazel-out/[^/]+/genfiles/foo/a/b.txt");
+  }
+
+  @Test
+  public void testDeriveArtifactGenfilesDir() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar2");
+    Object result = evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.declare_file('a/b.txt',",
+        "root=ruleContext.genfiles_dir)");
+    assertThat(((Artifact) result).getExecPathString()).matches("bazel-out/[^/]+/genfiles/foo/a/b.txt");
   }
 
   @Test
   public void testDeriveTreeArtifact() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar2");
+    Object result =
+        evalRuleContextCode(ruleContext, "ruleContext.actions.declare_directory('a/b')");
+    Artifact artifact = (Artifact) result;
+    assertThat(artifact.getExecPathString()).matches("bazel-out/[^/]+/bin/foo/a/b");
+    assertThat(artifact.isTreeArtifact()).isTrue();
+  }
+
+  @Test
+  public void testDeriveTreeArtifactGenrule() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(ruleContext, "ruleContext.actions.declare_directory('a/b')");
     Artifact artifact = (Artifact) result;
-    PathFragment fragment = artifact.getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/a/b");
+    assertThat(artifact.getExecPathString()).matches("bazel-out/[^/]+/genfiles/foo/a/b");
+    assertThat(artifact.isTreeArtifact()).isTrue();
+  }
+
+  @Test
+  public void testDeriveTreeArtifactGenfilesDir() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar2");
+    Object result =
+        evalRuleContextCode(
+            ruleContext,
+            "ruleContext.actions.declare_directory('a/b', ",
+            "root=ruleContext.genfiles_dir)");
+    Artifact artifact = (Artifact) result;
+    assertThat(artifact.getExecPathString()).matches("bazel-out/[^/]+/genfiles/foo/a/b");
     assertThat(artifact.isTreeArtifact()).isTrue();
   }
 
@@ -824,13 +890,58 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testDeriveTreeArtifactType() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
-        evalRuleContextCode(ruleContext,
-            "b = ruleContext.actions.declare_directory('a/b')\n"
-            + "type(b)");
+        evalRuleContextCode(
+          ruleContext,
+          "b = ruleContext.actions.declare_directory('a/b')\n",
+           "type(b)");
     assertThat(result).isInstanceOf(String.class);
     assertThat(result).isEqualTo("File");
   }
 
+  @Test
+  public void testDeriveArtifactNextToSibling() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar2");
+    Object result =
+      evalRuleContextCode(
+        ruleContext,
+        "b = ruleContext.actions.declare_file('a/b.txt')\n",
+          "ruleContext.actions.declare_file('c.txt', sibling=b)");
+    Artifact artifact = (Artifact) result;
+    assertThat(artifact.getExecPathString()).matches("bazel-out/[^/]+/bin/foo/a/c.txt");
+  }
+
+  @Test
+  public void testDeriveArtifactGenruleNextToSibling() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    Object result =
+      evalRuleContextCode(
+        ruleContext,
+        "b = ruleContext.actions.declare_file('a/b.txt')\n",
+        "ruleContext.actions.declare_file('c.txt', sibling=b)");
+    Artifact artifact = (Artifact) result;
+    assertThat(artifact.getExecPathString()).matches("bazel-out/[^/]+/genfiles/foo/a/c.txt");
+  }
+
+  @Test
+  public void testDeriveArtifacSiblingAndRoot() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+      "my_rule.bzl",
+      "def _impl(ctx):",
+      "  b = ctx.actions.declare_file('a/b.txt')",
+      "  ctx.actions.declare_file('c', sibling=b, root=ctx.bin_dir)",
+      "my_rule = rule(_impl)");
+
+    scratch.file(
+      "BUILD",
+      "load('//:my_rule.bzl', 'my_rule')",
+      "my_rule(name='r')");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent("my_rule.bzl\", line 3, in _impl");
+    assertContainsEvent("set either 'sibling' or 'root'");
+  }
 
   @Test
   public void testDeriveTreeArtifactNextToSibling() throws Exception {
@@ -838,8 +949,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "b = ruleContext.actions.declare_directory('a/b')\n"
-                + "ruleContext.actions.declare_directory('c', sibling=b)");
+            "b = ruleContext.actions.declare_directory('a/b')\n",
+            "ruleContext.actions.declare_directory('c', sibling=b)");
     Artifact artifact = (Artifact) result;
     PathFragment fragment = artifact.getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/c");
@@ -852,8 +963,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ruleContext.new_file(ruleContext.bin_dir,"
-                + "ruleContext.files.tools[0], '.params')");
+            "ruleContext.new_file(ruleContext.bin_dir,",
+            "ruleContext.files.tools[0], '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
   }
@@ -864,8 +975,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ruleContext.new_file(ruleContext.files.tools[0], "
-                + "ruleContext.files.tools[0].basename + '.params')");
+            "ruleContext.new_file(ruleContext.files.tools[0], ",
+            "ruleContext.files.tools[0].basename + '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
   }
@@ -876,8 +987,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ruleContext.actions.declare_file(ruleContext.files.tools[0].basename + '.params', "
-                + "sibling = ruleContext.files.tools[0])");
+            "ruleContext.actions.declare_file(ruleContext.files.tools[0].basename + '.params', " ,
+            "sibling = ruleContext.files.tools[0])");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
   }
@@ -1991,9 +2102,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       "new_file('foo.txt')",
       "new_file(file, 'foo.txt')",
       "actions.declare_file('foo.txt')",
-      "actions.declare_file('foo.txt', sibling = file)",
       "actions.declare_directory('foo.txt')",
-      "actions.declare_directory('foo.txt', sibling = file)",
       "actions.do_nothing(mnemonic = 'foo', inputs = [file])",
       "actions.expand_template(template = file, output = file, substitutions = {})",
       "actions.run(executable = file, outputs = [file])",

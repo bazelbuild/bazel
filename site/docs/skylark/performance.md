@@ -144,7 +144,7 @@ Example:
 def _impl(ctx):
   ...
   args = ctx.actions.Args()
-  file = ctx.declare_file(...)
+  file = ctx.actions.declare_file(...)
   files = depset(...)
 
   # Bad, constructs a full string "--foo=<file path>" for each rule instance

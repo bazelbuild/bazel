@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -500,7 +501,7 @@ final class JavaInfoBuildHelper {
       ConfiguredTarget javaToolchainConfiguredTarget)
       throws EvalException {
     String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
-    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar);
+    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar, Runtime.NONE);
     FilesToRunProvider ijarTarget =
         getJavaToolchainProvider(javaToolchainConfiguredTarget).getIjar();
     SpawnAction.Builder actionBuilder =

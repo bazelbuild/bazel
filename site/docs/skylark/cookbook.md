@@ -449,7 +449,7 @@ only to executable rules or files.
 ```python
 def _impl(ctx):
   # ctx.actions.declare_file is used for temporary files.
-  f = ctx.actions.declare_file(ctx.configuration.bin_dir, "hello")
+  f = ctx.actions.declare_file("hello", root=ctx.genfiles_dir)
   # As with outputs, each time you declare a file,
   # you need an action to generate it.
   ctx.actions.write(output=f, content=ctx.attr.input_content)

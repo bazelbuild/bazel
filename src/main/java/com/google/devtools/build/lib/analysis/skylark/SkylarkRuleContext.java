@@ -857,7 +857,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     SkylarkRuleImplementationFunctions.checkDeprecated(
         "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
-    return actionFactory.declareFile(filename, Runtime.NONE);
+    return actionFactory.declareFile(filename, Runtime.NONE, Runtime.NONE);
   }
 
   // Kept for compatibility with old code.
@@ -889,7 +889,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     SkylarkRuleImplementationFunctions.checkDeprecated(
         "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
-    return actionFactory.declareFile(newBaseName, baseArtifact);
+    return actionFactory.declareFile(newBaseName, baseArtifact, Runtime.NONE);
   }
 
   // Kept for compatibility with old code.
@@ -920,7 +920,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     SkylarkRuleImplementationFunctions.checkDeprecated(
         "ctx.actions.declare_directory", "ctx.experimental_new_directory", null, skylarkSemantics);
     checkMutable("experimental_new_directory");
-    return actionFactory.declareDirectory(name, siblingArtifactUnchecked);
+    return actionFactory.declareDirectory(name, siblingArtifactUnchecked, Runtime.NONE);
   }
 
   @SkylarkCallable(documented = false)

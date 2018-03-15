@@ -129,8 +129,25 @@ public class SkylarkActionFactory implements SkylarkValue {
         name = "sibling",
         doc =
             "A file that lives in the same directory as the newly created file. "
-                + "The file must be in the current package.",
-        type = Artifact.class,
+                + "The file must be in the current package."
+                + "Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
+        allowedTypes = {
+          @ParamType(type = Artifact.class),
+          @ParamType(type = ArtifactRoot.class),
+        },
+        noneable = true,
+        positional = false,
+        named = true,
+        defaultValue = "None"
+      ),
+      @Param(
+        name = "root",
+        doc =
+            "The output root."
+                + " Use <code>ctx.genfiles_dir</code> for a temporary directory in "
+                + " <code>genfiles</code> directory."
+                + " Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
+        type = ArtifactRoot.class,
         noneable = true,
         positional = false,
         named = true,
@@ -138,52 +155,86 @@ public class SkylarkActionFactory implements SkylarkValue {
       )
     }
   )
-  public Artifact declareFile(String filename, Object sibling) throws EvalException {
+  public Artifact declareFile(String filename, Object sibling, Object root) throws EvalException {
     context.checkMutable("actions.declare_file");
-    if (Runtime.NONE.equals(sibling)) {
-      return ruleContext.getPackageRelativeArtifact(filename, newFileRoot());
-    } else {
+    if (sibling instanceof  Artifact && root instanceof ArtifactRoot) {
+      throw new EvalException(
+        ruleContext.getRule().getAttributeLocation("sibling"),
+        "set either 'sibling' or 'root'");
+    }
+
+    if (sibling instanceof Artifact) {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
       PathFragment fragment = original.replaceName(filename);
       return ruleContext.getDerivedArtifact(fragment, newFileRoot());
+    } else if (root instanceof ArtifactRoot) {
+      return ruleContext.getPackageRelativeArtifact(filename, (ArtifactRoot) root);
     }
+
+    return ruleContext.getPackageRelativeArtifact(filename, newFileRoot());
   }
 
+
   @SkylarkCallable(
-      name = "declare_directory",
-      doc =
-          "Declares that rule or aspect create a directory with the given name, in the "
-              + "current package. You must create an action that generates the directory.",
-      parameters = {
-          @Param(
-              name = "filename",
-              type = String.class,
-              doc =
-                  "If no 'sibling' provided, path of the new directory, relative "
-                      + "to the current package. Otherwise a base name for a file "
-                      + "('sibling' defines a directory)."
-          ),
-          @Param(
-              name = "sibling",
-              doc = "A file that lives in the same directory as the newly declared directory.",
-              type = Artifact.class,
-              noneable = true,
-              positional = false,
-              named = true,
-              defaultValue = "None"
-          )
-      }
+    name = "declare_directory",
+    doc =
+        "Declares that rule or aspect create a directory with the given name, in the "
+            + "current package. You must create an action that generates the directory.",
+    parameters = {
+      @Param(
+        name = "filename",
+        type = String.class,
+        doc =
+            "If no 'sibling' provided, path of the new directory, relative "
+                + "to the current package. Otherwise a base name for a file "
+                + "('sibling' defines a directory)."
+      ),
+      @Param(
+        name = "sibling",
+        doc =
+            "A file that lives in the same directory as the newly declared directory."
+                + "Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
+        type = Artifact.class,
+        noneable = true,
+        positional = false,
+        named = true,
+        defaultValue = "None"
+      ),
+      @Param(
+        name = "root",
+        doc =
+            "The output root."
+                + " Use <code>ctx.genfiles_dir</code> for a temporary directory in "
+                + " <code>genfiles</code> directory."
+                + " Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
+        type = ArtifactRoot.class,
+        noneable = true,
+        positional = false,
+        named = true,
+        defaultValue = "None"
+      )
+    }
   )
-  public Artifact declareDirectory(String filename, Object sibling) throws EvalException {
+  public Artifact declareDirectory(String filename, Object sibling, Object root) throws EvalException {
     context.checkMutable("actions.declare_directory");
-    if (Runtime.NONE.equals(sibling)) {
-      return ruleContext.getPackageRelativeTreeArtifact(
-          PathFragment.create(filename), newFileRoot());
-    } else {
+    if (sibling instanceof  Artifact && root instanceof ArtifactRoot) {
+      throw new EvalException(
+        ruleContext.getRule().getAttributeLocation("sibling"),
+        "set either 'sibling' or 'root'");
+    }
+
+    if (sibling instanceof  Artifact) {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
       PathFragment fragment = original.replaceName(filename);
       return ruleContext.getTreeArtifact(fragment, newFileRoot());
     }
+    else if (root instanceof ArtifactRoot) {
+      return ruleContext.getPackageRelativeTreeArtifact(
+        PathFragment.create(filename), (ArtifactRoot) root);
+    }
+
+    return ruleContext.getPackageRelativeTreeArtifact(
+        PathFragment.create(filename), newFileRoot());
   }
 
 
