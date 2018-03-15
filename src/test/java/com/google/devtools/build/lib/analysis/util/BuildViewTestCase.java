@@ -217,8 +217,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             analysisMock.getProductName());
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
-    analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+    initializeMockClient();
 
     packageCacheOptions = parsePackageCacheOptions();
     skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
@@ -279,6 +278,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
     // Also initializes ResourceManager.
     ResourceManager.instance().setAvailableResources(getStartingResources());
+  }
+
+  public void initializeMockClient() throws IOException {
+    analysisMock.setupMockClient(mockToolsConfig);
+    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
   }
 
   protected Map<String, String> getPlatformSetRegexps() {

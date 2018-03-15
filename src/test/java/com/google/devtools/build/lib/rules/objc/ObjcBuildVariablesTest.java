@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.LinkBuildVariablesTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import org.junit.Before;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,8 +43,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
-  @Before
-  public void initializeToolsConfigMock() throws Exception {
+  @Override
+  public void initializeMockClient() throws IOException {
+    super.initializeMockClient();
     MockObjcSupport.setup(mockToolsConfig);
   }
 
