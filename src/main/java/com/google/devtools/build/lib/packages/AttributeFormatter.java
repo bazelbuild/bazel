@@ -33,7 +33,6 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -98,8 +97,7 @@ public class AttributeFormatter {
         encodeBooleanAndTriStateAsIntegerAndString);
   }
 
-  @VisibleForTesting
-  static Build.Attribute getAttributeProto(
+  private static Build.Attribute getAttributeProto(
       String name,
       Type<?> type,
       @Nullable Object value,
