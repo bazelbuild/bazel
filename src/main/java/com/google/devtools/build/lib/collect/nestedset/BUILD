@@ -12,6 +12,7 @@ java_library(
     srcs = [
         "NestedSet.java",
         "NestedSetBuilder.java",
+        "NestedSetCodec.java",
         "NestedSetView.java",
         "NestedSetVisitor.java",
         "Order.java",
@@ -19,22 +20,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "serialization",
-    srcs = [
-        "NestedSetCodec.java",
-        "NestedSetSerializer.java",
-    ],
-    deps = [
-        ":nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:kryo",
-        "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
     ],
 )

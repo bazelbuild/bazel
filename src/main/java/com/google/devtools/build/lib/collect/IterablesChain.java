@@ -40,7 +40,7 @@ public final class IterablesChain<T> implements Iterable<T> {
 
   private final Iterable<T> chain;
 
-  private IterablesChain(Iterable<T> chain) {
+  IterablesChain(Iterable<T> chain) {
     this.chain = chain;
   }
 
@@ -103,7 +103,7 @@ public final class IterablesChain<T> implements Iterable<T> {
     }
 
     /**
-     * If this is called, the the resulting {@link IterablesChain} object uses a hash set to remove
+     * If this is called, the resulting {@link IterablesChain} object uses a hash set to remove
      * duplicate elements.
      */
     public Builder<T> deduplicate() {
