@@ -169,9 +169,10 @@ Creates a tar file from a list of inputs.
     <tr>
       <td><code>mode</code></td>
       <td>
-        <code>String, default to 0555</code>
+        <code>String, default to None</code>
         <p>
-          Set the mode of files added by the <code>files</code> attribute.
+          Set the mode of files added by the <code>files</code> attribute. If
+          "None" the mode for the file is preserved.
         </p>
       </td>
     </tr>
