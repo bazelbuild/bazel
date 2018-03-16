@@ -213,9 +213,9 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   cat <<EOF >${BAZEL_TOOLS_REPO}/WORKSPACE
 worksapce(name = 'bazel_tools')
 EOF
-  ln -s `pwd`/src ${BAZEL_TOOLS_REPO}/src
-  ln -s `pwd`/third_party ${BAZEL_TOOLS_REPO}/third_party
-  ln -s `pwd`/tools ${BAZEL_TOOLS_REPO}/tools
+  link_dir `pwd`/src ${BAZEL_TOOLS_REPO}/src
+  link_dir `pwd`/third_party ${BAZEL_TOOLS_REPO}/third_party
+  link_dir `pwd`/tools ${BAZEL_TOOLS_REPO}/tools
 
   # Set up @bazel_tools//platforms properly
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms
