@@ -55,8 +55,6 @@ import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.Context;
 import io.grpc.Status.Code;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -239,27 +237,33 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedException();
     }
-    if (options.remoteLocalFallback && !(cause instanceof TimeoutException)) {
+    if (options.remoteLocalFallback
+        && !(cause instanceof RetryException
+            && RemoteRetrierUtils.causedByExecTimeout((RetryException) cause))) {
       return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
     }
     return handleError(cause, policy.getFileOutErr());
   }
 
-  private SpawnResult handleError(IOException exception, FileOutErr outErr) throws IOException,
-      ExecException {
+  private SpawnResult handleError(IOException exception, FileOutErr outErr)
+      throws ExecException, InterruptedException, IOException {
     final Throwable cause = exception.getCause();
-    if (exception instanceof TimeoutException || cause instanceof TimeoutException) {
-      // TODO(buchgr): provide stdout/stderr from the action that timed out.
-      // Remove the unsuported message once remote execution tests no longer check for it.
-      try (OutputStream out = outErr.getOutputStream()) {
-        String msg = "Log output for timeouts is not yet supported in remote execution.\n";
-        out.write(msg.getBytes(StandardCharsets.UTF_8));
+    if (cause instanceof ExecutionStatusException) {
+      ExecutionStatusException e = (ExecutionStatusException) cause;
+      if (e.getResponse() != null) {
+        ExecuteResponse resp = e.getResponse();
+        if (resp.hasResult()) {
+          // We try to download all (partial) results even on server error, for debuggability.
+          remoteCache.download(resp.getResult(), execRoot, outErr);
+        }
       }
-      return new SpawnResult.Builder()
-          .setRunnerName(getName())
-          .setStatus(Status.TIMEOUT)
-          .setExitCode(POSIX_TIMEOUT_EXIT_CODE)
-          .build();
+      if (e.isExecutionTimeout()) {
+        return new SpawnResult.Builder()
+            .setRunnerName(getName())
+            .setStatus(Status.TIMEOUT)
+            .setExitCode(POSIX_TIMEOUT_EXIT_CODE)
+            .build();
+      }
     }
     final Status status;
     if (exception instanceof RetryException

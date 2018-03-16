@@ -73,29 +73,23 @@ class GrpcRemoteExecutor {
         .withCallCredentials(callCredentials);
   }
 
-  private void handleStatus(Status statusProto) throws IOException {
-    StatusRuntimeException e = StatusProto.toStatusRuntimeException(statusProto);
-    if (e.getStatus().getCode() == Code.OK) {
+  private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) throws IOException {
+    if (statusProto.getCode() == Code.OK.value()) {
       return;
     }
-    if (e.getStatus().getCode() == Code.DEADLINE_EXCEEDED) {
-      // This was caused by the command itself exceeding the timeout,
-      // therefore it is not retriable.
-      throw new TimeoutException();
-    }
-    throw e;
+    throw new ExecutionStatusException(statusProto, resp);
   }
 
   private @Nullable ExecuteResponse getOperationResponse(Operation op) throws IOException {
     if (op.getResultCase() == Operation.ResultCase.ERROR) {
-      handleStatus(op.getError());
+      handleStatus(op.getError(), null);
     }
     if (op.getDone()) {
       Preconditions.checkState(op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET);
       try {
         ExecuteResponse resp = op.getResponse().unpack(ExecuteResponse.class);
         if (resp.hasStatus()) {
-          handleStatus(resp.getStatus());
+          handleStatus(resp.getStatus(), resp);
         }
         return resp;
       } catch (InvalidProtocolBufferException e) {
