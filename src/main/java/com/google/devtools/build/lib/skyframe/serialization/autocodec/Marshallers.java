@@ -21,18 +21,13 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.squareup.javapoet.TypeName;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
@@ -94,21 +89,6 @@ class Marshallers {
     }
   }
 
-  /**
-   * Writes out the deserialization loop and build code for any entity serialized as a list.
-   *
-   * @param context context object for list with possibly another type.
-   * @param repeated context for generic type deserialization.
-   * @param builderName String for referencing the entity builder.
-   */
-  private void writeListDeserializationLoopAndBuild(
-      Context context, Context repeated, String builderName) {
-    if (matchesErased(context.getDeclaredType(), ImmutableList.class)) {
-      writeIterableDeserializationLoopWithoutNullsAndBuild(context, repeated, builderName);
-    } else {
-      writeListDeserializationLoopWithNullsAndBuild(context, repeated, builderName);
-    }
-  }
 
   private void writeIterableDeserializationLoopWithoutNullsAndBuild(
       Context context, Context repeated, String builderName) {
@@ -123,35 +103,6 @@ class Marshallers {
     context.builder.addStatement("$L = $L.build()", context.name, builderName);
   }
 
-  private void writeListDeserializationLoopWithNullsAndBuild(
-      Context context, Context repeated, String builderName) {
-    String lengthName = context.makeName("length");
-    context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-    String arrayListInCaseNull = context.makeName("arrayListInCaseNull");
-    context.builder.addStatement("$T $L = null", ArrayList.class, arrayListInCaseNull);
-    String indexName = context.makeName("i");
-    context.builder.beginControlFlow(
-        "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-    writeDeserializationCode(repeated);
-    context
-        .builder
-        .beginControlFlow("if ($L == null && $L == null)", repeated.name, arrayListInCaseNull)
-        .addStatement("$L = new ArrayList($L.build())", arrayListInCaseNull, builderName)
-        .endControlFlow()
-        .beginControlFlow("if ($L == null)", arrayListInCaseNull)
-        .addStatement("$L.add($L)", builderName, repeated.name)
-        .nextControlFlow("else")
-        .addStatement("$L.add($L)", arrayListInCaseNull, repeated.name)
-        .endControlFlow()
-        .endControlFlow()
-        .addStatement(
-            "$L = $L == null ? $L.build() : $T.unmodifiableList($L)",
-            context.name,
-            arrayListInCaseNull,
-            builderName,
-            Collections.class,
-            arrayListInCaseNull);
-  }
 
   private SerializationCodeGenerator getMatchingCodeGenerator(TypeMirror type) {
     if (type.getKind() == TypeKind.ARRAY) {
@@ -375,36 +326,6 @@ class Marshallers {
         }
       };
 
-  private final Marshaller mapEntryMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesErased(type, Map.Entry.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          DeclaredType keyType = (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
-          writeSerializationCode(context.with(keyType, context.name + ".getKey()"));
-          DeclaredType valueType =
-              (DeclaredType) context.getDeclaredType().getTypeArguments().get(1);
-          writeSerializationCode(context.with(valueType, context.name + ".getValue()"));
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          DeclaredType keyType = (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
-          String keyName = context.makeName("key");
-          writeDeserializationCode(context.with(keyType, keyName));
-          DeclaredType valueType =
-              (DeclaredType) context.getDeclaredType().getTypeArguments().get(1);
-          String valueName = context.makeName("value");
-          writeDeserializationCode(context.with(valueType, valueName));
-          context.builder.addStatement(
-              "$L = $T.immutableEntry($L, $L)", context.name, Maps.class, keyName, valueName);
-        }
-      };
-
   private void addSerializationCodeForIterable(Context context) {
     // Writes the target count to the stream so deserialization knows when to stop.
     context.builder.addStatement(
@@ -423,45 +344,6 @@ class Marshallers {
           context.builder.endControlFlow();
   }
 
-  private void addDeserializationCodeForIterable(Context context) {
-    Context repeated =
-        context.with(
-            context.getDeclaredType().getTypeArguments().get(0), context.makeName("repeated"));
-    TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
-    // If this is generic we have to get the erasure since we don't know what <T> or <?> are.
-    if (isVariableOrWildcardType(typeParameter)) {
-      typeParameter = env.getTypeUtils().erasure(typeParameter);
-    }
-    String builderName = context.makeName("builder");
-    context.builder.addStatement(
-        "$T<$T> $L = new $T<>()",
-        ImmutableList.Builder.class,
-        typeParameter,
-        builderName,
-        ImmutableList.Builder.class);
-    writeListDeserializationLoopAndBuild(context, repeated, builderName);
-  }
-
-  private final Marshaller listMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          // TODO(shahan): refine this as needed by splitting this into separate marshallers.
-          return matchesErased(type, Collection.class)
-              || matchesErased(type, List.class)
-              || matchesErased(type, ImmutableList.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          addSerializationCodeForIterable(context);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          addDeserializationCodeForIterable(context);
-        }
-      };
 
   private final Marshaller immutableSetMarshaller =
       new Marshaller() {
@@ -472,7 +354,7 @@ class Marshallers {
 
         @Override
         public void addSerializationCode(Context context) {
-          listMarshaller.addSerializationCode(context);
+          addSerializationCodeForIterable(context);
         }
 
         @Override
@@ -501,7 +383,7 @@ class Marshallers {
 
         @Override
         public void addSerializationCode(Context context) {
-          listMarshaller.addSerializationCode(context);
+          addSerializationCodeForIterable(context);
         }
 
         @Override
@@ -670,8 +552,6 @@ class Marshallers {
       ImmutableList.of(
           charSequenceMarshaller,
           supplierMarshaller,
-          mapEntryMarshaller,
-          listMarshaller,
           immutableSetMarshaller,
           immutableSortedSetMarshaller,
           mapMarshaller,
