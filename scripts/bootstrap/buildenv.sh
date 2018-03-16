@@ -308,7 +308,7 @@ function link_dir() {
   local dest=$2
 
   if [ "${PLATFORM}" == "windows" ]; then
-    cmd.exe /C 'mklink /J "${dest}" "${source}"'
+    cmd.exe /C "'mklink /J \"${dest}\" \"${source}\"'"
   else
     ln -s "${source}" "${dest}"
   fi
