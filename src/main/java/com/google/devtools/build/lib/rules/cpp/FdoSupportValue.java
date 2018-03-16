@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -48,10 +47,10 @@ public class FdoSupportValue implements SkyValue {
 
     private final LipoMode lipoMode;
     private final Path fdoZip;
-    private final PathFragment fdoInstrument;
+    private final String fdoInstrument;
     private final FdoMode fdoMode;
 
-    private Key(LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument, FdoMode fdoMode) {
+    private Key(LipoMode lipoMode, Path fdoZip, String fdoInstrument, FdoMode fdoMode) {
       this.lipoMode = lipoMode;
       this.fdoZip = fdoZip;
       this.fdoInstrument = fdoInstrument;
@@ -60,7 +59,7 @@ public class FdoSupportValue implements SkyValue {
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument, FdoMode fdoMode) {
+    static Key of(LipoMode lipoMode, Path fdoZip, String fdoInstrument, FdoMode fdoMode) {
       return interner.intern(new Key(lipoMode, fdoZip, fdoInstrument, fdoMode));
     }
 
@@ -72,7 +71,7 @@ public class FdoSupportValue implements SkyValue {
       return fdoZip;
     }
 
-    public PathFragment getFdoInstrument() {
+    public String getFdoInstrument() {
       return fdoInstrument;
     }
 
@@ -119,7 +118,7 @@ public class FdoSupportValue implements SkyValue {
   }
 
   public static SkyKey key(
-      LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument, FdoMode fdoMode) {
+      LipoMode lipoMode, Path fdoZip, String fdoInstrument, FdoMode fdoMode) {
     return Key.of(lipoMode, fdoZip, fdoInstrument, fdoMode);
   }
 }

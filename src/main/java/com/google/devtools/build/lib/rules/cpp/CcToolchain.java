@@ -507,7 +507,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             "COVERAGE_GCOV_PATH", toolchainInfo.getToolPathFragment(Tool.GCOV).getPathString()));
     if (cppConfiguration.getFdoInstrument() != null) {
       coverageEnvironment.add(
-          Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
+          Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
     }
 
     // This tries to convert LLVM profiles to the indexed format if necessary.
