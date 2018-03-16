@@ -417,7 +417,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/sh
+#!/bin/bash
 for i in {1..3}
 do
     echo "Sleeping $i..."
