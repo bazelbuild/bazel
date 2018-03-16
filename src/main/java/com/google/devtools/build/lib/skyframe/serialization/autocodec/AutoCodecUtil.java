@@ -32,6 +32,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 
 /** Static utilities for AutoCodec processors. */
 class AutoCodecUtil {
@@ -140,5 +141,13 @@ class AutoCodecUtil {
    */
   private static String getCodecName(Element element) {
     return getGeneratedName(element, GENERATED_CLASS_NAME_SUFFIX);
+  }
+
+  static TypeMirror getType(Class<?> clazz, ProcessingEnvironment env) {
+    return env.getElementUtils().getTypeElement((clazz.getCanonicalName())).asType();
+  }
+
+  static boolean isSubType(TypeMirror type, Class<?> clazz, ProcessingEnvironment env) {
+    return env.getTypeUtils().isSubtype(type, getType(clazz, env));
   }
 }
