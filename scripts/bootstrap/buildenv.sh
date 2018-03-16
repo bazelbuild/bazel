@@ -307,7 +307,7 @@ function link_dir() {
   local source=$1
   local dest=$2
 
-  if [ "${PLATFORM}" == "windows" ]; then
+  if [[ "${PLATFORM}" == "windows" ]]; then
     cmd.exe /C "mklink /J \"$(cygpath "$dest")\" \"$(cygpath "$source")\""
   else
     ln -s "${source}" "${dest}"
