@@ -124,7 +124,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
       DottedVersion.fromString(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
-  private String artifactPrefix;
 
   /**
    * Returns the configuration obtained by applying the apple crosstool configuration transtion to
@@ -2637,14 +2636,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return PlMergeProtos.Control.parseFrom(in);
   }
 
-  protected void setArtifactPrefix(String artifactPrefix) {
-    this.artifactPrefix = artifactPrefix;
-  }
-
   private String artifactName(String artifactName) {
-    if (artifactPrefix != null) {
-      return String.format("-%s%s", artifactPrefix, artifactName);
-    }
     return artifactName;
   }
 
