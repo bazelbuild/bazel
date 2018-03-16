@@ -167,7 +167,7 @@ public class FdoSupport {
    * Coverage information output directory passed to {@code --fdo_instrument},
    * or {@code null} if FDO instrumentation is disabled.
    */
-  private final PathFragment fdoInstrument;
+  private final String fdoInstrument;
 
   /**
    * Path of the profile file passed to {@code --fdo_optimize}, or
@@ -238,7 +238,7 @@ public class FdoSupport {
       LipoMode lipoMode,
       ArtifactRoot fdoRoot,
       PathFragment fdoRootExecPath,
-      PathFragment fdoInstrument,
+      String fdoInstrument,
       Path fdoProfile,
       FdoZipContents fdoZipContents) {
     this.fdoInstrument = fdoInstrument;
@@ -277,7 +277,7 @@ public class FdoSupport {
   /** Creates an initialized {@link FdoSupport} instance. */
   static FdoSupport create(
       SkyFunction.Environment env,
-      PathFragment fdoInstrument,
+      String fdoInstrument,
       Path fdoProfile,
       LipoMode lipoMode,
       Path execRoot,
@@ -606,7 +606,7 @@ public class FdoSupport {
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument.getPathString());
+      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
     }
 
     // Optimization phase
@@ -779,7 +779,7 @@ public class FdoSupport {
       CcToolchainFeatures.Variables.Builder buildVariables
       ) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument.getPathString());
+      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
     }
   }
 

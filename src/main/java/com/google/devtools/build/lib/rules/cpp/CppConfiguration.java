@@ -1343,7 +1343,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         "compiler", getCompiler());
   }
 
-  public PathFragment getFdoInstrument() {
+  public String getFdoInstrument() {
     return cppOptions.getFdoInstrument();
   }
 
