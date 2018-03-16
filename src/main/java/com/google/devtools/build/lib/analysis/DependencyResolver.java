@@ -90,7 +90,7 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspect the aspect applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   * @param toolchainContext {@link ToolchainContext} for this target
+   * @param toolchainLabels required toolchain labels
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
@@ -98,7 +98,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ToolchainContext toolchainContext)
+      ImmutableSet<Label> toolchainLabels)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException {
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.<Label>stableOrder();
@@ -108,7 +108,7 @@ public abstract class DependencyResolver {
             hostConfig,
             aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
             configConditions,
-            toolchainContext,
+            toolchainLabels,
             rootCauses);
     if (!rootCauses.isEmpty()) {
       throw new IllegalStateException(rootCauses.build().iterator().next().toString());
@@ -141,7 +141,7 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspects the aspects applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   * @param toolchainContext context information for required toolchains
+   * @param toolchainLabels required toolchain labels
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded @return a
    *     mapping of each attribute in this rule or aspects to its dependent nodes
    */
@@ -150,7 +150,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      ImmutableSet<Label> toolchainLabels,
       NestedSetBuilder<Label> rootCauses)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException {
@@ -168,7 +168,7 @@ public abstract class DependencyResolver {
       visitTargetVisibility(node, rootCauses, outgoingEdges.get(null));
     } else if (target instanceof Rule) {
       visitRule(
-          node, hostConfig, aspects, configConditions, toolchainContext, rootCauses, outgoingEdges);
+          node, hostConfig, aspects, configConditions, toolchainLabels, rootCauses, outgoingEdges);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, rootCauses, outgoingEdges.get(null));
     } else {
@@ -183,7 +183,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      ImmutableSet<Label> toolchainLabels,
       NestedSetBuilder<Label> rootCauses,
       OrderedSetMultimap<Attribute, Dependency> outgoingEdges)
       throws EvalException, InvalidConfigurationException, InconsistentAspectOrderException,
@@ -201,11 +201,9 @@ public abstract class DependencyResolver {
     resolveEarlyBoundAttributes(depResolver);
     resolveLateBoundAttributes(depResolver, ruleConfig, hostConfig);
 
-    if (toolchainContext != null) {
-      Attribute toolchainsAttribute =
-          attributeMap.getAttributeDefinition(PlatformSemantics.TOOLCHAINS_ATTR);
-      resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainContext);
-    }
+    Attribute toolchainsAttribute =
+        attributeMap.getAttributeDefinition(PlatformSemantics.TOOLCHAINS_ATTR);
+    resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainLabels);
   }
 
   /**
@@ -405,8 +403,8 @@ public abstract class DependencyResolver {
   }
 
   private void resolveToolchainDependencies(
-      Set<Dependency> dependencies, ToolchainContext toolchainContext) {
-    for (Label label : toolchainContext.getResolvedToolchainLabels()) {
+      Set<Dependency> dependencies, ImmutableSet<Label> toolchainLabels) {
+    for (Label label : toolchainLabels) {
       Dependency dependency =
           Dependency.withTransitionAndAspects(
               label, HostTransition.INSTANCE, AspectCollection.EMPTY);

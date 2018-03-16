@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -124,7 +125,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
               hostConfiguration,
               /*aspect=*/ null,
               configConditions,
-              /*toolchainContext=*/ null);
+              /*toolchainLabels=*/ ImmutableSet.of());
       if (ct.getConfiguration() != null) {
         deps = ConfigurationResolver.resolveConfigurations(env, ctgValue, deps, hostConfiguration,
             ruleClassProvider);
