@@ -98,9 +98,6 @@ public final class OptionsParser {
    * @throws InvalidCommandLineException on an invalid option being passed.
    */
   private void processCommandlineArgs(Deque<String> argQueue) throws InvalidCommandLineException {
-    boolean foundNewDependencyArgument = false;
-    boolean foundLegacyDependencyArgument = false;
-
     for (String arg = argQueue.pollFirst(); arg != null; arg = argQueue.pollFirst()) {
       switch (arg) {
         case "--javacopts":
@@ -109,25 +106,7 @@ public final class OptionsParser {
           break;
         case "--direct_dependencies":
           collectFlagArguments(directJars, argQueue, "--");
-          foundNewDependencyArgument = true;
           break;
-        case "--direct_dependency":
-          {
-            // TODO(b/72379900): Remove this
-            String jar = getArgument(argQueue, arg);
-            getArgument(argQueue, arg);
-            directJars.add(jar);
-            foundLegacyDependencyArgument = true;
-            break;
-          }
-        case "--indirect_dependency":
-          {
-            // TODO(b/72379900): Remove this
-            getArgument(argQueue, arg);
-            getArgument(argQueue, arg);
-            foundLegacyDependencyArgument = true;
-            break;
-          }
         case "--strict_java_deps":
           strictJavaDeps = getArgument(argQueue, arg);
           break;
@@ -212,15 +191,6 @@ public final class OptionsParser {
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
       }
-    }
-    // TODO(b/72379900): Remove the legacy part of this code
-    if (foundLegacyDependencyArgument && foundNewDependencyArgument) {
-      throw new InvalidCommandLineException(
-          "Found both new-style and old-style dependency arguments: "
-              + "Cannot use arguments from both "
-              + "(--direct_dependencies) and "
-              + "(--direct_dependency, --indirect_dependency) "
-              + "at the same time.");
     }
   }
 
