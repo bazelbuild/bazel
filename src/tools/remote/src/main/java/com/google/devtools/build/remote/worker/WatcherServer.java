@@ -17,6 +17,7 @@ package com.google.devtools.build.remote.worker;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.longrunning.Operation;
@@ -58,45 +59,57 @@ final class WatcherServer extends WatcherImplBase {
       return;
     }
 
-    future.addListener(() -> {
-      try {
-        try {
-          ActionResult result = future.get();
-          responseObserver.onNext(
-              packExists(
-                  Operation.newBuilder()
-                      .setName(opName)
-                      .setDone(true)
-                      .setResponse(
-                          Any.pack(ExecuteResponse.newBuilder().setResult(result).build()))));
-          responseObserver.onCompleted();
-        } catch (ExecutionException e) {
-          Throwables.throwIfUnchecked(e.getCause());
-          throw (Exception) e.getCause();
-        }
-      } catch (Exception e) {
-        logger.log(Level.SEVERE, "Work failed: " + opName, e);
-        responseObserver.onNext(
-            ChangeBatch.newBuilder()
-                .addChanges(
-                    Change.newBuilder()
-                        .setState(Change.State.EXISTS)
-                        .setData(
-                            Any.pack(
-                                Operation.newBuilder()
-                                    .setName(opName)
-                                    .setError(StatusUtils.internalErrorStatus(e))
-                                    .build()))
-                        .build())
-                .build());
-        responseObserver.onCompleted();
-        if (e instanceof InterruptedException) {
-          Thread.currentThread().interrupt();
-        }
-      } finally {
-        operationsCache.remove(opName);
-      }
-    }, MoreExecutors.directExecutor());
+    future.addListener(
+        () -> {
+          try {
+            try {
+              ActionResult result = future.get();
+              responseObserver.onNext(
+                  packExists(
+                      Operation.newBuilder()
+                          .setName(opName)
+                          .setDone(true)
+                          .setResponse(
+                              Any.pack(ExecuteResponse.newBuilder().setResult(result).build()))));
+              responseObserver.onCompleted();
+            } catch (ExecutionException e) {
+              Throwables.throwIfUnchecked(e.getCause());
+              throw (Exception) e.getCause();
+            }
+          } catch (Exception e) {
+            ExecuteResponse resp;
+            if (e instanceof ExecutionStatusException) {
+              resp = ((ExecutionStatusException) e).getResponse();
+            } else {
+              logger.log(Level.SEVERE, "Work failed: " + opName, e);
+              resp =
+                  ExecuteResponse.newBuilder()
+                      .setStatus(StatusUtils.internalErrorStatus(e))
+                      .build();
+            }
+            responseObserver.onNext(
+                ChangeBatch.newBuilder()
+                    .addChanges(
+                        Change.newBuilder()
+                            .setState(Change.State.EXISTS)
+                            .setData(
+                                Any.pack(
+                                    Operation.newBuilder()
+                                        .setName(opName)
+                                        .setDone(true)
+                                        .setResponse(Any.pack(resp))
+                                        .build()))
+                            .build())
+                    .build());
+            responseObserver.onCompleted();
+            if (e instanceof InterruptedException) {
+              Thread.currentThread().interrupt();
+            }
+          } finally {
+            operationsCache.remove(opName);
+          }
+        },
+        MoreExecutors.directExecutor());
   }
 
   /** Constructs a ChangeBatch with an exists state change that contains the given operation. */

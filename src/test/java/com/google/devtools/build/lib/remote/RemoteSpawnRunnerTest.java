@@ -63,6 +63,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
+import com.google.rpc.Code;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
@@ -536,7 +537,18 @@ public class RemoteSpawnRunnerTest {
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
-    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new TimeoutException());
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(cachedResult)
+            .setStatus(
+                com.google.rpc.Status.newBuilder()
+                    .setCode(Code.DEADLINE_EXCEEDED.getNumber())
+                    .build())
+            .build();
+    when(executor.executeRemotely(any(ExecuteRequest.class)))
+        .thenThrow(
+            new Retrier.RetryException(
+                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
 
@@ -546,7 +558,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
   }
 
   @Test
@@ -572,7 +584,18 @@ public class RemoteSpawnRunnerTest {
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
-    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new TimeoutException());
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(cachedResult)
+            .setStatus(
+                com.google.rpc.Status.newBuilder()
+                    .setCode(Code.DEADLINE_EXCEEDED.getNumber())
+                    .build())
+            .build();
+    when(executor.executeRemotely(any(ExecuteRequest.class)))
+        .thenThrow(
+            new Retrier.RetryException(
+                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
 
@@ -582,7 +605,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
     verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
 

@@ -418,7 +418,11 @@ EOF
 
   cat > a/sleep.sh <<'EOF'
 #!/bin/sh
-sleep 2
+for i in {1..3}
+do
+    echo "Sleeping $i..."
+    sleep 1
+done
 EOF
   chmod +x a/sleep.sh
   bazel test \
@@ -429,6 +433,10 @@ EOF
       //a:sleep >& $TEST_log \
       && fail "Test failure (timeout) expected" || true
   expect_log "TIMEOUT"
+  expect_log "Sleeping 1..."
+  # The current implementation of the remote worker does not terminate actions
+  # when they time out, therefore we cannot verify that:
+  # expect_not_log "Sleeping 3..."
 }
 
 function test_passed_env_user() {

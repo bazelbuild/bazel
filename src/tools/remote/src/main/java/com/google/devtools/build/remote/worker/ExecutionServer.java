@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -40,6 +41,7 @@ import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.Command.EnvironmentVariable;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
+import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
@@ -49,7 +51,6 @@ import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.Context;
 import io.grpc.StatusException;
-import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -251,17 +252,19 @@ final class ExecutionServer extends ExecutionImplBase {
         (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
             || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
     final int exitCode;
+    ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
     if (wasTimeout) {
       final String errMessage =
           String.format(
               "Command:\n%s\nexceeded deadline of %f seconds.",
               Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
       logger.warning(errMessage);
-      throw StatusProto.toStatusException(
+      resp.setStatus(
           Status.newBuilder()
               .setCode(Code.DEADLINE_EXCEEDED.getNumber())
               .setMessage(errMessage)
               .build());
+      exitCode = LOCAL_EXEC_ERROR;
     } else if (cmdResult == null) {
       exitCode = LOCAL_EXEC_ERROR;
     } else {
@@ -277,6 +280,10 @@ final class ExecutionServer extends ExecutionImplBase {
     if (exitCode == 0 && !action.getDoNotCache()) {
       ActionKey actionKey = digestUtil.computeActionKey(action);
       cache.setCachedActionResult(actionKey, finalResult);
+    }
+    resp.setResult(finalResult);
+    if (wasTimeout) {
+      throw new ExecutionStatusException(resp.getStatus(), resp.build());
     }
     return finalResult;
   }
