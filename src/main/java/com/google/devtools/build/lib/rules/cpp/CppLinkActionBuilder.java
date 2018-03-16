@@ -1188,18 +1188,17 @@ public class CppLinkActionBuilder {
     if (linkCommandLine.getParamFile() != null) {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
       // Pass along tree artifacts, so they can be properly expanded.
-      ImmutableSet<Artifact> expandedNonLibraryTreeArtifactInputs =
-          ImmutableSet.<Artifact>builder()
-              .addAll(objectArtifacts)
-              .addAll(linkstampObjectArtifacts)
-              .build()
+      ImmutableSet<Artifact> paramFileActionInputs =
+          ImmutableSet.<LinkerInput>copyOf(linkerInputs)
               .stream()
+              .map(LinkerInput::getArtifact)
               .filter(a -> a.isTreeArtifact())
               .collect(ImmutableSet.toImmutableSet());
+
       Action parameterFileWriteAction =
           new ParameterFileWriteAction(
               getOwner(),
-              expandedNonLibraryTreeArtifactInputs,
+              paramFileActionInputs,
               paramFile,
               linkCommandLine.paramCmdLine(),
               ParameterFile.ParameterFileType.UNQUOTED,
@@ -2221,7 +2220,7 @@ public class CppLinkActionBuilder {
       if (Link.useStartEndLib(input, CppHelper.getArchiveType(cppConfiguration, toolchain))) {
         Iterable<Artifact> archiveMembers = input.getObjectFiles();
         if (!Iterables.isEmpty(archiveMembers)) {
-          ImmutableList.Builder<String> nonLtoArchiveMembersBuilder = ImmutableList.builder();
+          ImmutableList.Builder<Artifact> nonLtoArchiveMembersBuilder = ImmutableList.builder();
           for (Artifact member : archiveMembers) {
             Artifact a;
             if (ltoMap != null && (a = ltoMap.remove(member)) != null) {
@@ -2236,9 +2235,9 @@ public class CppLinkActionBuilder {
               // instead of the bitcode object.
               member = a;
             }
-            nonLtoArchiveMembersBuilder.add(member.getExecPathString());
+            nonLtoArchiveMembersBuilder.add(member);
           }
-          ImmutableList<String> nonLtoArchiveMembers = nonLtoArchiveMembersBuilder.build();
+          ImmutableList<Artifact> nonLtoArchiveMembers = nonLtoArchiveMembersBuilder.build();
           if (!nonLtoArchiveMembers.isEmpty()) {
             boolean inputIsWholeArchive = !isRuntimeLinkerInput && needWholeArchive;
             librariesToLink.addValue(
@@ -2279,7 +2278,8 @@ public class CppLinkActionBuilder {
         if (artifactCategory.equals(ArtifactCategory.OBJECT_FILE)) {
           if (inputArtifact.isTreeArtifact()) {
             librariesToLink.addValue(
-                LibraryToLinkValue.forObjectDirectory(inputArtifact, inputIsWholeArchive));
+                LibraryToLinkValue.forObjectFileGroup(
+                    ImmutableList.<Artifact>of(inputArtifact), inputIsWholeArchive));
           } else {
             librariesToLink.addValue(LibraryToLinkValue.forObjectFile(name, inputIsWholeArchive));
           }

@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -704,9 +705,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
             .setLibraryIdentifier("foo")
-            .addObjectFiles(ImmutableList.of(testTreeArtifact))
-            // Makes sure this doesn't use a params file.
-            .setFake(true);
+            .addObjectFiles(ImmutableList.of(testTreeArtifact));
 
     CppLinkAction linkAction = builder.build();
 
@@ -715,12 +714,72 @@ public class CppLinkActionTest extends BuildViewTestCase {
         ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
 
     // Should only reference the tree artifact.
-    verifyArguments(linkAction.getCommandLine(null), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(
+        linkAction.getLinkCommandLine().getRawLinkArgv(),
+        treeArtifactsPaths,
+        treeFileArtifactsPaths);
+
+    // Should only reference tree file artifacts.
+    verifyArguments(
+        linkAction.getLinkCommandLine().getRawLinkArgv(expander),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
+  }
+
+  @Test
+  public void testLinksTreeArtifactLibraryForDeps() throws Exception {
+    // This test only makes sense if start/end lib archives are supported.
+    analysisMock.ccSupport().setupCrosstool(mockToolsConfig, "supports_start_end_lib: true");
+    useConfiguration("--start_end_lib");
+
+    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
+
+    TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library1.o");
+
+    ArtifactExpander expander =
+        new ArtifactExpander() {
+          @Override
+          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+            if (artifact.equals(testTreeArtifact)) {
+              output.add(library0);
+              output.add(library1);
+            }
+          };
+        };
+
+    Artifact archiveFile = scratchArtifact("library.a");
+
+    CppLinkActionBuilder builder =
+        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+            .setLibraryIdentifier("foo")
+            .addLibrary(
+                LinkerInputs.newInputLibrary(
+                    archiveFile,
+                    ArtifactCategory.STATIC_LIBRARY,
+                    null,
+                    ImmutableList.<Artifact>of(testTreeArtifact),
+                    ImmutableMap.<Artifact, Artifact>of(),
+                    null));
+
+    CppLinkAction linkAction = builder.build();
+
+    Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
+    Iterable<String> treeFileArtifactsPaths =
+        ImmutableList.of(library0.getExecPathString(), library1.getExecPathString());
+
+    // Should only reference the tree artifact.
+    verifyArguments(
+        linkAction.getLinkCommandLine().getRawLinkArgv(),
+        treeArtifactsPaths,
+        treeFileArtifactsPaths);
     verifyArguments(linkAction.getArguments(), treeArtifactsPaths, treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
     verifyArguments(
-        linkAction.getCommandLine(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkAction.getLinkCommandLine().getRawLinkArgv(expander),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
   }
 
   @Test

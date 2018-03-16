@@ -1394,61 +1394,47 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       private final String name;
-      private final Artifact directory;
-      private final ImmutableList<String> objectFiles;
+      private final ImmutableList<Artifact> objectFiles;
       private final boolean isWholeArchive;
       private final Type type;
 
       public static LibraryToLinkValue forDynamicLibrary(String name) {
         return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, false, Type.DYNAMIC_LIBRARY);
+            Preconditions.checkNotNull(name), null, false, Type.DYNAMIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forVersionedDynamicLibrary(
           String name) {
         return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
+            Preconditions.checkNotNull(name), null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forInterfaceLibrary(String name) {
         return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, false, Type.INTERFACE_LIBRARY);
+            Preconditions.checkNotNull(name), null, false, Type.INTERFACE_LIBRARY);
       }
 
       public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
         return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, isWholeArchive, Type.STATIC_LIBRARY);
+            Preconditions.checkNotNull(name), null, isWholeArchive, Type.STATIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
         return new LibraryToLinkValue(
-            Preconditions.checkNotNull(name), null, null, isWholeArchive, Type.OBJECT_FILE);
+            Preconditions.checkNotNull(name), null, isWholeArchive, Type.OBJECT_FILE);
       }
 
       public static LibraryToLinkValue forObjectFileGroup(
-          ImmutableList<String> objects, boolean isWholeArchive) {
+          ImmutableList<Artifact> objects, boolean isWholeArchive) {
         Preconditions.checkNotNull(objects);
         Preconditions.checkArgument(!objects.isEmpty());
-        return new LibraryToLinkValue(null, null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
-      }
-
-      public static LibraryToLinkValue forObjectDirectory(
-          Artifact directory, boolean isWholeArchive) {
-        Preconditions.checkNotNull(directory);
-        Preconditions.checkArgument(directory.isTreeArtifact());
-        return new LibraryToLinkValue(
-            null, directory, null, isWholeArchive, Type.OBJECT_FILE_GROUP);
+        return new LibraryToLinkValue(null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
       }
 
       @VisibleForSerialization
       LibraryToLinkValue(
-          String name,
-          Artifact directory,
-          ImmutableList<String> objectFiles,
-          boolean isWholeArchive,
-          Type type) {
+          String name, ImmutableList<Artifact> objectFiles, boolean isWholeArchive, Type type) {
         this.name = name;
-        this.directory = directory;
         this.objectFiles = objectFiles;
         this.isWholeArchive = isWholeArchive;
         this.type = type;
@@ -1462,17 +1448,14 @@ public class CcToolchainFeatures implements Serializable {
           return new StringValue(name);
         } else if (OBJECT_FILES_FIELD_NAME.equals(field) && type.equals(Type.OBJECT_FILE_GROUP)) {
           ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
-          if (objectFiles != null) {
-            expandedObjectFiles.addAll(objectFiles);
-          } else if (directory != null) {
-            if (expander != null) {
+          for (Artifact objectFile : objectFiles) {
+            if (objectFile.isTreeArtifact() && (expander != null)) {
               List<Artifact> artifacts = new ArrayList<>();
-              expander.expand(directory, artifacts);
-
+              expander.expand(objectFile, artifacts);
               expandedObjectFiles.addAll(
                   Iterables.transform(artifacts, artifact -> artifact.getExecPathString()));
             } else {
-              expandedObjectFiles.add(directory.getExecPathString());
+              expandedObjectFiles.add(objectFile.getExecPathString());
             }
           }
           return new StringSequence(expandedObjectFiles.build());
