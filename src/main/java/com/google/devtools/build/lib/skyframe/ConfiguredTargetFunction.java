@@ -404,7 +404,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               hostConfiguration,
               aspects,
               configConditions,
-              toolchainContext,
+              toolchainContext == null
+                  ? ImmutableSet.of()
+                  : toolchainContext.getResolvedToolchainLabels(),
               transitiveLoadingRootCauses);
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Skylark attributes in the current rule.
