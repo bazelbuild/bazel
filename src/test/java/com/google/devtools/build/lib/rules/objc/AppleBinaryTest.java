@@ -936,16 +936,14 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   public void testLinkActionHasCorrectIosSimulatorMinVersion() throws Exception {
     getRuleType().scratchTarget(scratch, "platform_type", "'ios'");
     useConfiguration("--ios_multi_cpus=x86_64", "--ios_sdk_version=10.0", "--ios_minimum_os=8.0");
-    checkLinkMinimumOSVersion(
-        ConfigurationDistinguisher.APPLEBIN_IOS, "x86_64", "-mios-simulator-version-min=8.0");
+    checkLinkMinimumOSVersion("-mios-simulator-version-min=8.0");
   }
 
   @Test
   public void testLinkActionHasCorrectIosMinVersion() throws Exception {
     getRuleType().scratchTarget(scratch, "platform_type", "'ios'");
     useConfiguration("--ios_multi_cpus=arm64", "--ios_sdk_version=10.0", "--ios_minimum_os=8.0");
-    checkLinkMinimumOSVersion(
-        ConfigurationDistinguisher.APPLEBIN_IOS, "arm64", "-miphoneos-version-min=8.0");
+    checkLinkMinimumOSVersion("-miphoneos-version-min=8.0");
   }
 
   @Test
@@ -1333,8 +1331,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'watchos'");
     useConfiguration(
         "--watchos_cpus=i386", "--watchos_sdk_version=3.0", "--watchos_minimum_os=2.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_WATCHOS, "i386",
-        "-mwatchos-simulator-version-min=2.0");
+    checkLinkMinimumOSVersion("-mwatchos-simulator-version-min=2.0");
   }
 
   @Test
@@ -1343,8 +1340,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'watchos'");
     useConfiguration(
         "--watchos_cpus=armv7k", "--watchos_sdk_version=3.0", "--watchos_minimum_os=2.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_WATCHOS, "armv7k",
-        "-mwatchos-version-min=2.0");
+    checkLinkMinimumOSVersion("-mwatchos-version-min=2.0");
   }
 
   @Test
@@ -1353,8 +1349,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'tvos'");
     useConfiguration(
         "--tvos_cpus=x86_64", "--tvos_sdk_version=10.1", "--tvos_minimum_os=10.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_TVOS, "x86_64",
-        "-mtvos-simulator-version-min=10.0");
+    checkLinkMinimumOSVersion("-mtvos-simulator-version-min=10.0");
   }
 
   @Test
@@ -1363,8 +1358,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "platform_type", "'tvos'");
     useConfiguration(
         "--tvos_cpus=arm64", "--tvos_sdk_version=10.1", "--tvos_minimum_os=10.0");
-    checkLinkMinimumOSVersion(ConfigurationDistinguisher.APPLEBIN_TVOS, "arm64",
-        "-mtvos-version-min=10.0");
+    checkLinkMinimumOSVersion("-mtvos-version-min=10.0");
   }
 
   @Test
