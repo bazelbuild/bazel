@@ -53,9 +53,9 @@ public final class JavaLibraryHelper {
   /**
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
    */
-  private final List<JavaInfo> deps = new ArrayList<>();
-  private final List<JavaInfo> exports = new ArrayList<>();
-  private final List<JavaInfo> plugins = new ArrayList<>();
+  private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
+  private final List<JavaCompilationArgsProvider> exports = new ArrayList<>();
+  private final List<JavaPluginInfoProvider> plugins = new ArrayList<>();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
@@ -98,7 +98,7 @@ public final class JavaLibraryHelper {
     return this;
   }
 
-  public JavaLibraryHelper addDep(JavaInfo provider) {
+  public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
     checkNotNull(provider);
     this.deps.add(provider);
     return this;
@@ -112,17 +112,18 @@ public final class JavaLibraryHelper {
     return this;
   }
 
-  public JavaLibraryHelper addAllDeps(Iterable<JavaInfo> providers) {
+  public JavaLibraryHelper addAllDeps(
+      Iterable<JavaCompilationArgsProvider> providers) {
     Iterables.addAll(deps, providers);
     return this;
   }
 
-  public JavaLibraryHelper addAllExports(Iterable<JavaInfo> providers) {
+  public JavaLibraryHelper addAllExports(Iterable<JavaCompilationArgsProvider> providers) {
     Iterables.addAll(exports, providers);
     return this;
   }
 
-  public JavaLibraryHelper addAllPlugins(Iterable<JavaInfo> providers) {
+  public JavaLibraryHelper addAllPlugins(Iterable<JavaPluginInfoProvider> providers) {
     Iterables.addAll(plugins, providers);
     return this;
   }
@@ -202,7 +203,8 @@ public final class JavaLibraryHelper {
     }
 
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      JavaCompilationHelper.addDependencyArtifactsToAttributes(attributes, deps);
+      JavaCompilationHelper.addDependencyArtifactsToAttributes(
+          attributes, deps);
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
@@ -304,13 +306,14 @@ public final class JavaLibraryHelper {
         JavaCompilationArgs.builder()
             .merge(helper.compilationArtifacts(), helper.isNeverLink())
             .addTransitiveTargets(helper.exports(), helper.recursive(), type)
-            .addTransitiveDependencies(helper.exportsCompilationArgs(), helper.recursive(), type);
+            .addTransitiveCompilationArgs(
+                helper.exportsCompilationArgs(), helper.recursive(), type);
     // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
     if (helper.recursive() || helper.srcLessDepsExport()) {
       builder
-          .addTransitiveDependencies(helper.depsCompilationArgs(), helper.recursive(), type)
+          .addTransitiveCompilationArgs(helper.depsCompilationArgs(), helper.recursive(), type)
           .addTransitiveTargets(helper.deps(), helper.recursive(), type)
-          .addTransitiveDependencies(
+          .addTransitiveCompilationArgs(
               helper.runtimeDepsCompilationArgs(), helper.recursive(), ClasspathType.RUNTIME_ONLY)
           .addTransitiveTargets(
               helper.runtimeDeps(), helper.recursive(), ClasspathType.RUNTIME_ONLY);

@@ -192,14 +192,32 @@ public abstract class JavaCompilationArgs {
       return this;
     }
 
+    public Builder addTransitiveCompilationArgs(
+        JavaCompilationArgsProvider dep, boolean recursive, ClasspathType type) {
+      JavaCompilationArgs args = recursive
+          ? dep.getRecursiveJavaCompilationArgs()
+          : dep.getJavaCompilationArgs();
+      addTransitiveArgs(args, type);
+      return this;
+    }
+
+    public Builder addTransitiveCompilationArgs(
+        Iterable<JavaCompilationArgsProvider> args, boolean recursive, ClasspathType type) {
+      for (JavaCompilationArgsProvider provider : args) {
+        addTransitiveCompilationArgs(provider, recursive, type);
+      }
+      return this;
+    }
+
     /**
      * Merges the artifacts of another target.
      */
-    public Builder addTransitiveTarget(
-        TransitiveInfoCollection dep, boolean recursive, ClasspathType type) {
-      JavaInfo javaInfo = (JavaInfo) dep.get(JavaInfo.PROVIDER.getKey());
-      if (javaInfo != null) {
-        addTransitiveDependency(javaInfo, recursive, type);
+    public Builder addTransitiveTarget(TransitiveInfoCollection dep, boolean recursive,
+        ClasspathType type) {
+      JavaCompilationArgsProvider provider =
+          JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
+      if (provider != null) {
+        addTransitiveCompilationArgs(provider, recursive, type);
         return this;
       } else {
         NestedSet<Artifact> filesToBuild =
@@ -241,21 +259,19 @@ public abstract class JavaCompilationArgs {
     /**
      * Merges the artifacts of a collection of targets.
      */
-    public Builder addTransitiveDependencies(
-        Iterable<JavaInfo> deps, boolean recursive, ClasspathType type) {
-      for (JavaInfo dep : deps) {
-        addTransitiveDependency(dep, recursive, type);
+    public Builder addTransitiveDependencies(Iterable<JavaCompilationArgsProvider> deps,
+        boolean recursive) {
+      for (JavaCompilationArgsProvider dep : deps) {
+        addTransitiveDependency(dep, recursive, ClasspathType.BOTH);
       }
       return this;
     }
 
-
-    /**
-     * Merges the artifacts of a collection of targets.
-     */
-    public Builder addTransitiveDependencies(Iterable<JavaInfo> deps, boolean recursive) {
-      for (JavaInfo dep : deps) {
-        addTransitiveDependency(dep, recursive, ClasspathType.BOTH);
+    /** Merges the artifacts of a collection of targets. */
+    public Builder addTransitiveDependencies(
+        Iterable<JavaCompilationArgsProvider> deps, boolean recursive, ClasspathType type) {
+      for (JavaCompilationArgsProvider dep : deps) {
+        addTransitiveDependency(dep, recursive, type);
       }
       return this;
     }
@@ -263,14 +279,12 @@ public abstract class JavaCompilationArgs {
     /**
      * Merges the artifacts of another target.
      */
-    private Builder addTransitiveDependency(JavaInfo dep, boolean recursive, ClasspathType type) {
-      JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
-      if (provider != null) {
-        JavaCompilationArgs args = recursive
-            ? provider.getRecursiveJavaCompilationArgs()
-            : provider.getJavaCompilationArgs();
-        addTransitiveArgs(args, type);
-      }
+    private Builder addTransitiveDependency(JavaCompilationArgsProvider dep, boolean recursive,
+        ClasspathType type) {
+      JavaCompilationArgs args = recursive
+          ? dep.getRecursiveJavaCompilationArgs()
+          : dep.getJavaCompilationArgs();
+      addTransitiveArgs(args, type);
       return this;
     }
 

@@ -719,10 +719,10 @@ public final class JavaCompilationHelper {
   }
 
   static void addDependencyArtifactsToAttributes(
-      JavaTargetAttributes.Builder attributes, Iterable<JavaInfo> deps) {
+      JavaTargetAttributes.Builder attributes,
+      Iterable<? extends JavaCompilationArgsProvider> deps) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (JavaCompilationArgsProvider provider :
-        JavaInfo.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class)) {
+    for (JavaCompilationArgsProvider provider : deps) {
       result.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
     }
     attributes.addCompileTimeDependencyArtifacts(result.build());
@@ -744,7 +744,15 @@ public final class JavaCompilationHelper {
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      addDependencyArtifactsToAttributes(attributes, JavaInfo.getJavaInfo(deps));
+      List<JavaCompilationArgsProvider> compilationArgsProviders = new ArrayList<>();
+      for (TransitiveInfoCollection dep : deps) {
+        JavaCompilationArgsProvider provider =
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
+        if (provider != null) {
+          compilationArgsProviders.add(provider);
+        }
+      }
+      addDependencyArtifactsToAttributes(attributes, compilationArgsProviders);
     }
   }
 

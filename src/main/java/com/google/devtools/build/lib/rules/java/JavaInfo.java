@@ -315,7 +315,7 @@ public final class JavaInfo extends NativeInfo {
    * in the given list are merged into one provider that is added to the resulting
    * {@link JavaInfo}.
    */
-  public static JavaInfo merge(Iterable<JavaInfo> providers) {
+  public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
@@ -391,7 +391,7 @@ public final class JavaInfo extends NativeInfo {
     if (provider != null) {
       return provider;
     }
-    JavaInfo javaInfo = getJavaInfo(target);
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
     if (javaInfo == null) {
       return null;
     }
@@ -438,33 +438,6 @@ public final class JavaInfo extends NativeInfo {
       }
     }
     return providersList.build();
-  }
-
-  public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
-    return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
-  }
-
-  public static List<JavaInfo> getJavaInfo(Iterable<? extends TransitiveInfoCollection> targets) {
-    ImmutableList.Builder<JavaInfo> javaInfos = new ImmutableList.Builder<>();
-    for (TransitiveInfoCollection target : targets) {
-      JavaInfo javaInfo = getJavaInfo(target);
-      if (javaInfo != null) {
-        javaInfos.add(javaInfo);
-      }
-    }
-    return javaInfos.build();
-  }
-
-  public static List<JavaInfo> getJavaInfosFromListOfTargets(
-      Iterable<? extends TransitiveInfoCollection> targets) {
-    List<JavaInfo> providersList = new ArrayList<>();
-    for (TransitiveInfoCollection target : targets) {
-      JavaInfo provider = getJavaInfo(target);
-      if (provider != null) {
-        providersList.add(provider);
-      }
-    }
-    return providersList;
   }
 
   @VisibleForSerialization
