@@ -129,13 +129,10 @@ public class JavaProtoAspectCommon {
             .setOutput(outputJar)
             .addSourceJars(sourceJar)
             .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
-    helper.addDep(
-        JavaInfo.Builder.create()
-          .addProvider(JavaCompilationArgsProvider.class, dep)
-          .build()
-    ).setCompilationStrictDepsMode(StrictDepsMode.OFF);
+    helper.addDep(dep).setCompilationStrictDepsMode(StrictDepsMode.OFF);
     for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {
-      JavaInfo provider = JavaInfo.getJavaInfo(t);
+      JavaCompilationArgsProvider provider =
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, t);
       if (provider != null) {
         helper.addDep(provider);
       }
