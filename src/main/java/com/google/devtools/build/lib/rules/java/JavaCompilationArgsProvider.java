@@ -22,26 +22,26 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
 
-/**
- * An interface for objects that provide information on how to include them in
- * Java builds.
- */
+/** An interface for objects that provide information on how to include them in Java builds. */
 @AutoValue
 @Immutable
+@AutoCodec
 public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvider {
 
+  @AutoCodec.Instantiator
   public static JavaCompilationArgsProvider create(
       JavaCompilationArgs javaCompilationArgs,
       JavaCompilationArgs recursiveJavaCompilationArgs,
-      NestedSet<Artifact> compileTimeJavaDepArtifacts,
-      NestedSet<Artifact> runTimeJavaDepArtifacts) {
+      NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
+      NestedSet<Artifact> runTimeJavaDependencyArtifacts) {
     return new AutoValue_JavaCompilationArgsProvider(
         javaCompilationArgs,
         recursiveJavaCompilationArgs,
-        compileTimeJavaDepArtifacts,
-        runTimeJavaDepArtifacts);
+        compileTimeJavaDependencyArtifacts,
+        runTimeJavaDependencyArtifacts);
   }
 
   public static JavaCompilationArgsProvider create(

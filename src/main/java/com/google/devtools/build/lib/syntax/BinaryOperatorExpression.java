@@ -331,7 +331,7 @@ public final class BinaryOperatorExpression extends Expression {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, location);
+      return SkylarkNestedSet.of((SkylarkNestedSet) lval, rval, location);
     }
     throw typeException(lval, rval, Operator.PLUS, location);
   }
@@ -348,7 +348,7 @@ public final class BinaryOperatorExpression extends Expression {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, location);
+      return SkylarkNestedSet.of((SkylarkNestedSet) lval, rval, location);
     }
     throw typeException(lval, rval, Operator.PIPE, location);
   }

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.function.Consumer;
 
 /**
@@ -174,7 +175,9 @@ public final class SingleJarActionBuilder {
     return args.build();
   }
 
-  private static class ResourceArgMapFn extends CommandLineItem.ParametrizedMapFn<Artifact> {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class ResourceArgMapFn extends CommandLineItem.ParametrizedMapFn<Artifact> {
     private final JavaSemantics semantics;
 
     ResourceArgMapFn(JavaSemantics semantics) {

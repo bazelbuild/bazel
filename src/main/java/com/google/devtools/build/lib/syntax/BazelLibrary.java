@@ -81,10 +81,11 @@ public class BazelLibrary {
         name = "items",
         type = Object.class,
         defaultValue = "[]",
-        doc = "Deprecated: Either an iterable whose items become the direct elements of "
-            + "the new depset, in left-to-right order, or else a depset that becomes "
-            + "a transitive element of the new depset. In the latter case, <code>transitive</code> "
-            + "cannot be specified."
+        doc =
+            "Deprecated: Either an iterable whose items become the direct elements of "
+                + "the new depset, in left-to-right order, or else a depset that becomes "
+                + "a transitive element of the new depset. In the latter case, "
+                + "<code>transitive</code> cannot be specified."
       ),
       @Param(
         name = "order",
@@ -95,13 +96,13 @@ public class BazelLibrary {
                 + "the possible values."
       ),
       @Param(
-          name = "direct",
-          type = SkylarkList.class,
-          defaultValue = "None",
-          positional = false,
-          named = true,
-          noneable = true,
-          doc =  "A list of <i>direct</i> elements of a depset."
+        name = "direct",
+        type = SkylarkList.class,
+        defaultValue = "None",
+        positional = false,
+        named = true,
+        noneable = true,
+        doc = "A list of <i>direct</i> elements of a depset."
       ),
       @Param(
         name = "transitive",
@@ -119,11 +120,7 @@ public class BazelLibrary {
   private static final BuiltinFunction depset =
       new BuiltinFunction("depset") {
         public SkylarkNestedSet invoke(
-            Object items,
-            String orderString,
-            Object direct,
-            Object transitive,
-            Location loc)
+            Object items, String orderString, Object direct, Object transitive, Location loc)
             throws EvalException {
           Order order;
           try {
@@ -134,7 +131,7 @@ public class BazelLibrary {
 
           if (transitive == Runtime.NONE && direct == Runtime.NONE) {
             // Legacy behavior.
-            return new SkylarkNestedSet(order, items, loc);
+            return SkylarkNestedSet.of(order, items, loc);
           }
 
           if (direct != Runtime.NONE && !isEmptySkylarkList(items)) {
@@ -154,8 +151,8 @@ public class BazelLibrary {
           Iterable<SkylarkNestedSet> transitiveList;
           if (transitive != Runtime.NONE) {
             SkylarkType.checkType(transitive, SkylarkList.class, "transitive");
-            transitiveList = ((SkylarkList<?>) transitive).getContents(
-                SkylarkNestedSet.class, "transitive");
+            transitiveList =
+                ((SkylarkList<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");
           } else {
             transitiveList = ImmutableList.of();
           }
@@ -206,7 +203,7 @@ public class BazelLibrary {
           // newElements' type is Object because of the polymorphism on unioning two
           // SkylarkNestedSets versus a set and another kind of iterable.
           // Can't use EvalUtils#toIterable since that would discard this information.
-          return new SkylarkNestedSet(input, newElements, loc);
+          return SkylarkNestedSet.of(input, newElements, loc);
         }
       };
 

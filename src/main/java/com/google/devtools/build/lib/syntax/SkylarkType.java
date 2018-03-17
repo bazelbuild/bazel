@@ -733,7 +733,8 @@ public abstract class SkylarkType implements Serializable {
    */
   static Object convertToSkylark(Object object, Method method, @Nullable Environment env) {
     if (object instanceof NestedSet<?>) {
-      return new SkylarkNestedSet(getGenericTypeFromMethod(method), (NestedSet<?>) object);
+      return SkylarkNestedSet.of(
+          SkylarkType.of(getGenericTypeFromMethod(method)), (NestedSet<?>) object);
     }
     return convertToSkylark(object, env);
   }
