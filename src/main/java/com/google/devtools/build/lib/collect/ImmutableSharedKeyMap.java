@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,8 +44,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
   private static final Interner<OffsetTable> offsetTables = BlazeInterners.newWeakInterner();
 
   private final OffsetTable<K> offsetTable;
-  // Visible only for serialization.
-  protected final Object[] values;
+  @VisibleForSerialization protected final Object[] values;
 
   private static final class OffsetTable<K> {
     private final Object[] keys;
@@ -139,6 +139,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
 
   /** Do not use! Present only for serialization. (Annotated as @Deprecated just to prevent use.) */
   @Deprecated
+  @VisibleForSerialization
   public Object[] getKeys() {
     return offsetTable.keys;
   }

@@ -14,17 +14,19 @@
 
 package com.google.devtools.build.lib.collect;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Iterator;
 
 /**
  * A wrapper that signals the immutability of a certain iterable.
  *
- * <p>Intended for use in scenarios when you have an iterable that is de facto immutable,
- * but is not recognized as such by {@link CollectionUtils#checkImmutable(Iterable)}.
+ * <p>Intended for use in scenarios when you have an iterable that is de facto immutable, but is not
+ * recognized as such by {@link CollectionUtils#checkImmutable(Iterable)}.
  *
- * <p>Only use this when you know that the contents of the underlying iterable will never change,
- * or you will be setting yourself up for aliasing bugs.
+ * <p>Only use this when you know that the contents of the underlying iterable will never change, or
+ * you will be setting yourself up for aliasing bugs.
  */
+@AutoCodec
 public final class ImmutableIterable<T> implements Iterable<T> {
 
   private final Iterable<T> iterable;
@@ -38,10 +40,9 @@ public final class ImmutableIterable<T> implements Iterable<T> {
     return iterable.iterator();
   }
 
-  /**
-   * Creates an {@link ImmutableIterable} instance.
-   */
+  /** Creates an {@link ImmutableIterable} instance. */
   // Use a factory method in order to avoid having to specify generic arguments.
+  @AutoCodec.Instantiator
   public static <T> ImmutableIterable<T> from(Iterable<T> iterable) {
     return new ImmutableIterable<>(iterable);
   }
