@@ -32,6 +32,7 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -89,7 +90,8 @@ class CoreLibrarySupport {
     this.emulatedInterfaces = classBuilder.build();
 
     // We can call isRenamed and rename below b/c we initialized the necessary fields above
-    ImmutableMap.Builder<String, String> movesBuilder = ImmutableMap.builder();
+    // Use LinkedHashMap to tolerate identical duplicates
+    LinkedHashMap<String, String> movesBuilder = new LinkedHashMap<>();
     Splitter splitter = Splitter.on("->").trimResults().omitEmptyStrings();
     for (String move : memberMoves) {
       List<String> pair = splitter.splitToList(move);
@@ -103,9 +105,12 @@ class CoreLibrarySupport {
       checkArgument(!this.excludeFromEmulation.contains(pair.get(0)),
           "Retargeted invocation %s shouldn't overlap with excluded", move);
 
-      movesBuilder.put(pair.get(0), renameCoreLibrary(pair.get(1)));
+      String value = renameCoreLibrary(pair.get(1));
+      String existing = movesBuilder.put(pair.get(0), value);
+      checkArgument(existing == null || existing.equals(value),
+          "Two move destinations %s and %s configured for %s", existing, value, pair.get(0));
     }
-    this.memberMoves = movesBuilder.build();
+    this.memberMoves = ImmutableMap.copyOf(movesBuilder);
   }
 
   public boolean isRenamedCoreLibrary(String internalName) {
@@ -165,9 +170,13 @@ class CoreLibrarySupport {
    * core interface, this methods returns that interface.  This is a helper method for
    * {@link CoreLibraryInvocationRewriter}.
    *
-   * <p>Always returns an interface (or {@code null}), even if {@code owner} is a class. Can only
-   * return non-{@code null} if {@code owner} is a core library type.
+   * <p>This method can only return non-{@code null} if {@code owner} is a core library type.
+   * It usually returns an emulated interface, unless the given invocation is a super-call to a
+   * core class's implementation of an emulated method that's being moved (other implementations
+   * of emulated methods in core classes are ignored). In that case the class is returned and the
+   * caller can use {@link #getMoveTarget} to find out where to redirect the invokespecial to.
    */
+  // TODO(kmb): Rethink this API and consider combining it with getMoveTarget().
   @Nullable
   public Class<?> getCoreInterfaceRewritingTarget(
       int opcode, String owner, String name, String desc, boolean itf) {
@@ -175,15 +184,20 @@ class CoreLibrarySupport {
       // Regular desugaring handles generated classes, no emulation is needed
       return null;
     }
-    if (!itf && (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)) {
-      // Ignore staticly dispatched invocations on classes--they never need rewriting
+    if (!itf && opcode == Opcodes.INVOKESTATIC) {
+      // Ignore static invocations on classes--they never need rewriting (unless moved but that's
+      // handled separately).
       return null;
     }
+    if ("<init>".equals(name)) {
+      return null; // Constructors aren't rewritten
+    }
+
     Class<?> clazz;
     if (isRenamedCoreLibrary(owner)) {
       // For renamed invocation targets we just need to do what InterfaceDesugaring does, that is,
       // only worry about invokestatic and invokespecial interface invocations; nothing to do for
-      // invokevirtual and invokeinterface.  InterfaceDesugaring ignores bootclasspath interfaces,
+      // classes and invokeinterface.  InterfaceDesugaring ignores bootclasspath interfaces,
       // so we have to do its work here for renamed interfaces.
       if (itf
           && (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)) {
@@ -213,6 +227,19 @@ class CoreLibrarySupport {
       if (isExcluded(callee)) {
         return null;
       }
+
+      if (!itf && opcode == Opcodes.INVOKESPECIAL) {
+        // See if the invoked implementation is moved; note we ignore all other overrides in classes
+        Class<?> impl = clazz; // we know clazz is not an interface because !itf
+        while (impl != null) {
+          String implName = impl.getName().replace('.', '/');
+          if (getMoveTarget(implName, name) != null) {
+            return impl;
+          }
+          impl = impl.getSuperclass();
+        }
+      }
+
       Class<?> result = callee.getDeclaringClass();
       if (isRenamedCoreLibrary(result.getName().replace('.', '/'))
           || emulatedInterfaces.stream().anyMatch(emulated -> emulated.isAssignableFrom(result))) {
@@ -232,7 +259,7 @@ class CoreLibrarySupport {
       checkState(!roots.hasNext(), "Ambiguous emulation substitute: %s", callee);
       return substitute;
     } else {
-      checkArgument(opcode != Opcodes.INVOKESPECIAL,
+      checkArgument(!itf || opcode != Opcodes.INVOKESPECIAL,
           "Couldn't resolve interface super call %s.super.%s : %s", owner, name, desc);
     }
     return null;

@@ -233,11 +233,13 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         // superclass is also rewritten and already implements this interface, so we _must_ skip it.
         continue;
       }
-      stubMissingDefaultAndBridgeMethods(interfaceToVisit.getName().replace('.', '/'));
+      stubMissingDefaultAndBridgeMethods(
+          interfaceToVisit.getName().replace('.', '/'), mayNeedStubsForSuperclass);
     }
   }
 
-  private void stubMissingDefaultAndBridgeMethods(String implemented) {
+  private void stubMissingDefaultAndBridgeMethods(
+      String implemented, boolean mayNeedStubsForSuperclass) {
     ClassReader bytecode;
     boolean isBootclasspath;
     if (bootclasspath.isKnown(implemented)) {
@@ -258,7 +260,9 @@ public class DefaultMethodClassFixer extends ClassVisitor {
               "Couldn't find interface %s implemented by %s", implemented, internalName);
       isBootclasspath = false;
     }
-    bytecode.accept(new DefaultMethodStubber(isBootclasspath), ClassReader.SKIP_DEBUG);
+    bytecode.accept(
+        new DefaultMethodStubber(isBootclasspath, mayNeedStubsForSuperclass),
+        ClassReader.SKIP_DEBUG);
   }
 
   private Class<?> loadFromInternal(String internalName) {
@@ -281,7 +285,8 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   }
 
   private void recordInheritedMethods() {
-    InstanceMethodRecorder recorder = new InstanceMethodRecorder();
+    InstanceMethodRecorder recorder =
+        new InstanceMethodRecorder(mayNeedInterfaceStubsForEmulatedSuperclass());
     String internalName = superName;
     while (internalName != null) {
       ClassReader bytecode = bootclasspath.readIfKnown(internalName);
@@ -429,11 +434,15 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private class DefaultMethodStubber extends ClassVisitor {
 
     private final boolean isBootclasspathInterface;
+    private final boolean mayNeedStubsForSuperclass;
+
     private String stubbedInterfaceName;
 
-    public DefaultMethodStubber(boolean isBootclasspathInterface) {
+    public DefaultMethodStubber(
+        boolean isBootclasspathInterface, boolean mayNeedStubsForSuperclass) {
       super(Opcodes.ASM6);
       this.isBootclasspathInterface = isBootclasspathInterface;
+      this.mayNeedStubsForSuperclass = mayNeedStubsForSuperclass;
     }
 
     @Override
@@ -472,6 +481,21 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         MethodVisitor stubMethod =
             DefaultMethodClassFixer.this.visitMethod(access, name, desc, (String) null, exceptions);
 
+        String receiverName = stubbedInterfaceName;
+        String owner = InterfaceDesugaring.getCompanionClassName(stubbedInterfaceName);
+        if (mayNeedStubsForSuperclass) {
+          // Reflect what CoreLibraryInvocationRewriter would do if it encountered a super-call to a
+          // moved implementation of an emulated method.  Equivalent to emitting the invokespecial
+          // super call here and relying on CoreLibraryInvocationRewriter for the rest
+          Class<?> emulatedImplementation =
+              coreLibrarySupport.getCoreInterfaceRewritingTarget(
+                  Opcodes.INVOKESPECIAL, superName, name, desc, /*itf=*/ false);
+          if (emulatedImplementation != null && !emulatedImplementation.isInterface()) {
+            receiverName = emulatedImplementation.getName().replace('.', '/');
+            owner = checkNotNull(coreLibrarySupport.getMoveTarget(receiverName, name));
+          }
+        }
+
         int slot = 0;
         stubMethod.visitVarInsn(Opcodes.ALOAD, slot++); // load the receiver
         Type neededType = Type.getMethodType(desc);
@@ -481,10 +505,10 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         }
         stubMethod.visitMethodInsn(
             Opcodes.INVOKESTATIC,
-            InterfaceDesugaring.getCompanionClassName(stubbedInterfaceName),
+            owner,
             name,
-            InterfaceDesugaring.companionDefaultMethodDescriptor(stubbedInterfaceName, desc),
-            /*itf*/ false);
+            InterfaceDesugaring.companionDefaultMethodDescriptor(receiverName, desc),
+            /*itf=*/ false);
         stubMethod.visitInsn(neededType.getReturnType().getOpcode(Opcodes.IRETURN));
 
         stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
@@ -563,8 +587,13 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
   private class InstanceMethodRecorder extends ClassVisitor {
 
-    public InstanceMethodRecorder() {
+    private final boolean ignoreEmulatedMethods;
+
+    private String className;
+
+    public InstanceMethodRecorder(boolean ignoreEmulatedMethods) {
       super(Opcodes.ASM6);
+      this.ignoreEmulatedMethods = ignoreEmulatedMethods;
     }
 
     @Override
@@ -576,13 +605,23 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         String superName,
         String[] interfaces) {
       checkArgument(BitFlags.noneSet(access, Opcodes.ACC_INTERFACE));
+      className = name;  // updated every time we start visiting another superclass
       super.visit(version, access, name, signature, superName, interfaces);
     }
 
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
-      // TODO(kmb): what if this method only exists on some devices, e.g., ArrayList.spliterator?
+      if (ignoreEmulatedMethods
+          && BitFlags.noneSet(access, Opcodes.ACC_STATIC) // short-circuit
+          && coreLibrarySupport.getCoreInterfaceRewritingTarget(
+                  Opcodes.INVOKEVIRTUAL, className, name, desc, /*itf=*/ false)
+              != null) {
+        // *don't* record emulated core library method implementations in immediate subclasses of
+        // emulated core library clasess so that they can be stubbed (since the inherited
+        // implementation may be missing at runtime).
+        return null;
+      }
       recordIfInstanceMethod(access, name, desc);
       return null;
     }
