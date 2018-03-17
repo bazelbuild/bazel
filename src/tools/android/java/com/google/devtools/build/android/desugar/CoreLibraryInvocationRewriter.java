@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import org.objectweb.asm.ClassVisitor;
@@ -65,9 +66,13 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
         }
 
         if (opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL) {
-          checkArgument(itf, "Expected interface to rewrite %s.%s : %s", owner, name, desc);
-          owner = InterfaceDesugaring.getCompanionClassName(coreInterfaceName);
+          checkArgument(itf || opcode == Opcodes.INVOKESPECIAL,
+              "Expected interface to rewrite %s.%s : %s", owner, name, desc);
+          owner = coreInterface.isInterface()
+              ? InterfaceDesugaring.getCompanionClassName(coreInterfaceName)
+              : checkNotNull(support.getMoveTarget(coreInterfaceName, name));
         } else {
+          checkState(coreInterface.isInterface());
           owner = coreInterfaceName + "$$Dispatch";
         }
 

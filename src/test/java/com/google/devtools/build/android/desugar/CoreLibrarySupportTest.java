@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import org.junit.Test;
@@ -162,6 +163,58 @@ public class CoreLibrarySupportTest {
                 "(Ljava/util/function/Predicate;)Z",
                 true))
         .isNull();
+  }
+
+  @Test
+  public void testGetCoreInterfaceRewritingTarget_emulatedImplementationMoved() throws Exception {
+    CoreLibrarySupport support =
+        new CoreLibrarySupport(
+            new CoreLibraryRewriter(""),
+            Thread.currentThread().getContextClassLoader(),
+            ImmutableList.of("java/util/Moved"),
+            ImmutableList.of("java/util/Map"),
+            ImmutableList.of("java/util/LinkedHashMap#forEach->java/util/Moved"),
+            ImmutableList.of());
+    assertThat(
+            support.getCoreInterfaceRewritingTarget(
+                Opcodes.INVOKEINTERFACE,
+                "java/util/Map",
+                "forEach",
+                "(Ljava/util/function/BiConsumer;)V",
+                true))
+        .isEqualTo(Map.class);
+    assertThat(
+            support.getCoreInterfaceRewritingTarget(
+                Opcodes.INVOKESPECIAL,
+                "java/util/Map",
+                "forEach",
+                "(Ljava/util/function/BiConsumer;)V",
+                true))
+        .isEqualTo(Map.class);
+    assertThat(
+            support.getCoreInterfaceRewritingTarget(
+                Opcodes.INVOKEVIRTUAL,
+                "java/util/LinkedHashMap",
+                "forEach",
+                "(Ljava/util/function/BiConsumer;)V",
+                false))
+        .isEqualTo(Map.class);
+    assertThat(
+            support.getCoreInterfaceRewritingTarget(
+                Opcodes.INVOKESPECIAL,
+                "java/util/LinkedHashMap",
+                "forEach",
+                "(Ljava/util/function/BiConsumer;)V",
+                false))
+        .isEqualTo(LinkedHashMap.class);
+    assertThat(
+            support.getCoreInterfaceRewritingTarget(
+                Opcodes.INVOKESPECIAL,
+                "java/util/HashMap",
+                "forEach",
+                "(Ljava/util/function/BiConsumer;)V",
+                false))
+        .isEqualTo(Map.class);
   }
 
   @Test
