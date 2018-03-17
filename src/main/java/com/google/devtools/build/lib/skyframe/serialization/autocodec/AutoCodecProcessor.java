@@ -281,6 +281,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
         builderType = (TypeElement) element;
       }
     }
+    if (builderType == null) {
+      throw new IllegalArgumentException(
+          "Couldn't find @AutoValue.Builder-annotated static class inside " + encodedType);
+    }
     return builderType;
   }
 
@@ -342,14 +346,14 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   private ExecutableElement findBuildMethod(TypeElement encodedType, TypeElement builderType) {
     ExecutableElement abstractBuildMethod = null;
-    ExecutableElement concreteBuildMethod = null;
     for (ExecutableElement method :
         ElementFilter.methodsIn(env.getElementUtils().getAllMembers(builderType))) {
       if (method.getModifiers().contains(Modifier.STATIC)) {
         continue;
       }
-      if (method.getParameters().isEmpty() && method.getReturnType().equals(encodedType.asType())) {
-        if (method.getModifiers().contains(Modifier.ABSTRACT)) {
+      if (method.getParameters().isEmpty()
+          && method.getReturnType().equals(encodedType.asType())
+          && method.getModifiers().contains(Modifier.ABSTRACT)) {
           if (abstractBuildMethod != null) {
             throw new IllegalArgumentException(
                 "Type "
@@ -362,27 +366,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
                     + method);
           }
           abstractBuildMethod = method;
-        } else {
-          if (concreteBuildMethod != null) {
-            throw new IllegalArgumentException(
-                "Type "
-                    + builderType
-                    + " had multiple concrete methods to create an element of type "
-                    + encodedType
-                    + ": "
-                    + concreteBuildMethod
-                    + " and "
-                    + method);
-          }
-          concreteBuildMethod = method;
-        }
       }
     }
-    if (abstractBuildMethod == null && concreteBuildMethod == null) {
+    if (abstractBuildMethod == null) {
       throw new IllegalArgumentException(
           "Couldn't find build method for " + encodedType + " and " + builderType);
     }
-    return abstractBuildMethod == null ? concreteBuildMethod : abstractBuildMethod;
+    return abstractBuildMethod;
   }
 
   private String buildDeserializeBodyWithBuilder(
@@ -424,20 +414,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
         ElementFilter.methodsIn(env.getElementUtils().getAllMembers(builderType));
     String varName = getNameFromGetter(getter);
     TypeMirror type = getter.getReturnType();
-
-    ImmutableSet.Builder<String> possibleSetterNamesBuilder =
-        ImmutableSet.<String>builder().add(addCamelCasePrefix(varName, "set"));
-
-    if (AutoCodecUtil.isSubType(type, Iterable.class, env)) {
-      possibleSetterNamesBuilder.add(addCamelCasePrefix(varName, "add"));
-    }
-    ImmutableSet<String> possibleSetterNames = possibleSetterNamesBuilder.build();
+    String setterName = addCamelCasePrefix(varName, "set");
 
     ExecutableElement setterMethod = null;
     for (ExecutableElement method : methods) {
       if (!method.getModifiers().contains(Modifier.STATIC)
           && !method.getModifiers().contains(Modifier.PRIVATE)
-          && possibleSetterNames.contains(method.getSimpleName().toString())
+          && method.getSimpleName().toString().equals(setterName)
           && method.getReturnType().equals(builderType.asType())
           && method.getParameters().size() == 1
           && env.getTypeUtils()
