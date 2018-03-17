@@ -557,15 +557,24 @@ public final class Environment implements Freezable {
       for (String name : names) {
         Object value = bindings.get(name);
         Object otherValue = otherBindings.get(name);
-        if (!value.equals(otherValue)) {
-          badEntries.add(String.format(
-              "%s: this one has %s (class %s), but given one has %s (class %s)",
-              name,
-              Printer.repr(value),
-              value.getClass().getName(),
-              Printer.repr(otherValue),
-              otherValue.getClass().getName()));
+        if (value.equals(otherValue)) {
+          continue;
         }
+        if (value instanceof SkylarkNestedSet
+            && otherValue instanceof SkylarkNestedSet
+            && (((SkylarkNestedSet) value)
+                .toCollection()
+                .equals(((SkylarkNestedSet) otherValue).toCollection()))) {
+          continue;
+        }
+        badEntries.add(
+            String.format(
+                "%s: this one has %s (class %s), but given one has %s (class %s)",
+                name,
+                Printer.repr(value),
+                value.getClass().getName(),
+                Printer.repr(otherValue),
+                otherValue.getClass().getName()));
       }
       if (!badEntries.isEmpty()) {
         throw new IllegalStateException(

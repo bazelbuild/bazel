@@ -511,15 +511,15 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     //  (b) at least one order is "default"
 
     for (Order first : Order.values()) {
-      SkylarkNestedSet s1 = new SkylarkNestedSet(first, Tuple.of("1", "11"), null);
+      SkylarkNestedSet s1 = SkylarkNestedSet.of(first, Tuple.of("1", "11"), null);
 
       for (Order second : Order.values()) {
-        SkylarkNestedSet s2 = new SkylarkNestedSet(second, Tuple.of("2", "22"), null);
+        SkylarkNestedSet s2 = SkylarkNestedSet.of(second, Tuple.of("2", "22"), null);
 
         boolean compatible = true;
 
         try {
-          new SkylarkNestedSet(s1, s2, null);
+          SkylarkNestedSet.of(s1, s2, null);
         } catch (Exception ex) {
           compatible = false;
         }
@@ -539,16 +539,17 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     List<String> preOrder = Arrays.asList("1", "11", "2", "22", "3", "33", "4", "44");
     List<String> postOrder = Arrays.asList("2", "22", "3", "33", "4", "44", "1", "11");
 
-    MergeStrategy strategy = new MergeStrategy() {
-      @Override
-      public SkylarkNestedSet merge(SkylarkNestedSet[] sets) throws Exception {
-        SkylarkNestedSet union = new SkylarkNestedSet(sets[0], sets[1], null);
-        union = new SkylarkNestedSet(union, sets[2], null);
-        union = new SkylarkNestedSet(union, sets[3], null);
+    MergeStrategy strategy =
+        new MergeStrategy() {
+          @Override
+          public SkylarkNestedSet merge(SkylarkNestedSet[] sets) throws Exception {
+            SkylarkNestedSet union = SkylarkNestedSet.of(sets[0], sets[1], null);
+            union = SkylarkNestedSet.of(union, sets[2], null);
+            union = SkylarkNestedSet.of(union, sets[3], null);
 
-        return union;
-      }
-    };
+            return union;
+          }
+        };
 
     runComplexOrderTest(strategy, preOrder, postOrder);
   }
@@ -559,16 +560,17 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     List<String> preOrder = Arrays.asList("1", "11", "2", "22", "3", "33", "4", "44");
     List<String> postOrder = Arrays.asList("2", "22", "4", "44", "3", "33", "1", "11");
 
-    MergeStrategy strategy = new MergeStrategy() {
-      @Override
-      public SkylarkNestedSet merge(SkylarkNestedSet[] sets) throws Exception {
-        SkylarkNestedSet leftUnion = new SkylarkNestedSet(sets[0], sets[1], null);
-        SkylarkNestedSet rightUnion = new SkylarkNestedSet(sets[2], sets[3], null);
-        SkylarkNestedSet union = new SkylarkNestedSet(leftUnion, rightUnion, null);
+    MergeStrategy strategy =
+        new MergeStrategy() {
+          @Override
+          public SkylarkNestedSet merge(SkylarkNestedSet[] sets) throws Exception {
+            SkylarkNestedSet leftUnion = SkylarkNestedSet.of(sets[0], sets[1], null);
+            SkylarkNestedSet rightUnion = SkylarkNestedSet.of(sets[2], sets[3], null);
+            SkylarkNestedSet union = SkylarkNestedSet.of(leftUnion, rightUnion, null);
 
-        return union;
-      }
-    };
+            return union;
+          }
+        };
 
     runComplexOrderTest(strategy, preOrder, postOrder);
   }
@@ -579,16 +581,17 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     List<String> preOrder = Arrays.asList("1", "11", "2", "22", "3", "33", "4", "44");
     List<String> postOrder = Arrays.asList("4", "44", "3", "33", "2", "22", "1", "11");
 
-    MergeStrategy strategy = new MergeStrategy() {
-      @Override
-      public SkylarkNestedSet merge(SkylarkNestedSet[] sets) throws Exception {
-        SkylarkNestedSet union = new SkylarkNestedSet(sets[2], sets[3], null);
-        union = new SkylarkNestedSet(sets[1], union, null);
-        union = new SkylarkNestedSet(sets[0], union, null);
+    MergeStrategy strategy =
+        new MergeStrategy() {
+          @Override
+          public SkylarkNestedSet merge(SkylarkNestedSet[] sets) throws Exception {
+            SkylarkNestedSet union = SkylarkNestedSet.of(sets[2], sets[3], null);
+            union = SkylarkNestedSet.of(sets[1], union, null);
+            union = SkylarkNestedSet.of(sets[0], union, null);
 
-        return union;
-      }
-    };
+            return union;
+          }
+        };
 
     runComplexOrderTest(strategy, preOrder, postOrder);
   }
@@ -623,9 +626,10 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   private SkylarkNestedSet[] makeFourSets(Order order) throws Exception {
     return new SkylarkNestedSet[] {
-        new SkylarkNestedSet(order, Tuple.of("1", "11"), null),
-        new SkylarkNestedSet(order, Tuple.of("2", "22"), null),
-        new SkylarkNestedSet(order, Tuple.of("3", "33"), null),
-        new SkylarkNestedSet(order, Tuple.of("4", "44"), null)};
+      SkylarkNestedSet.of(order, Tuple.of("1", "11"), null),
+      SkylarkNestedSet.of(order, Tuple.of("2", "22"), null),
+      SkylarkNestedSet.of(order, Tuple.of("3", "33"), null),
+      SkylarkNestedSet.of(order, Tuple.of("4", "44"), null)
+    };
   }
 }

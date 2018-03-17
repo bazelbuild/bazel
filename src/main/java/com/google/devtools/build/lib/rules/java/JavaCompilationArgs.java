@@ -21,10 +21,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 
 /** A container of Java compilation artifacts. */
 @AutoValue
+@AutoCodec
 public abstract class JavaCompilationArgs {
   // TODO(bazel-team): It would be desirable to use LinkOrderNestedSet here so that
   // parents-before-deps is preserved for graphs that are not trees. However, the legacy
@@ -45,7 +47,9 @@ public abstract class JavaCompilationArgs {
           NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER));
 
-  private static JavaCompilationArgs create(
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  static JavaCompilationArgs create(
       NestedSet<Artifact> runtimeJars,
       NestedSet<Artifact> compileTimeJars,
       NestedSet<Artifact> fullCompileTimeJars,

@@ -20,31 +20,27 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
- * A collection of artifacts for java compilations. It concisely describes the
- * outputs of a java-related rule, with runtime jars, compile-time jars,
- * unfiltered compile-time jars (these are run through ijar if they are
- * dependent upon by another target), source ijars, and instrumentation
- * manifests. Not all rules generate all kinds of artifacts. Each java-related
- * rule should add both a runtime jar and either a compile-time jar or an
- * unfiltered compile-time jar.
+ * A collection of artifacts for java compilations. It concisely describes the outputs of a
+ * java-related rule, with runtime jars, compile-time jars, unfiltered compile-time jars (these are
+ * run through ijar if they are dependent upon by another target), source ijars, and instrumentation
+ * manifests. Not all rules generate all kinds of artifacts. Each java-related rule should add both
+ * a runtime jar and either a compile-time jar or an unfiltered compile-time jar.
  *
- * <p>An instance of this class only collects the data for the current target,
- * not for the transitive closure of targets, so these still need to be
- * collected using some other mechanism, such as the {@link
- * JavaCompilationArgsProvider}.
+ * <p>An instance of this class only collects the data for the current target, not for the
+ * transitive closure of targets, so these still need to be collected using some other mechanism,
+ * such as the {@link JavaCompilationArgsProvider}.
  */
+@AutoCodec
 @Immutable
 @AutoValue
 public abstract class JavaCompilationArtifacts {
-
-  public static final JavaCompilationArtifacts EMPTY = new Builder().build();
+  @AutoCodec public static final JavaCompilationArtifacts EMPTY = new Builder().build();
 
   public abstract ImmutableList<Artifact> getRuntimeJars();
   public abstract ImmutableList<Artifact> getCompileTimeJars();
@@ -56,6 +52,24 @@ public abstract class JavaCompilationArtifacts {
   /** Returns a builder for a {@link JavaCompilationArtifacts}. */
   public static Builder builder() {
     return new Builder();
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  static JavaCompilationArtifacts create(
+      ImmutableList<Artifact> runtimeJars,
+      ImmutableList<Artifact> compileTimeJars,
+      ImmutableList<Artifact> fullCompileTimeJars,
+      ImmutableList<Artifact> instrumentationMetadata,
+      Artifact compileTimeDependencyArtifact,
+      Artifact instrumentedJar) {
+    return new AutoValue_JavaCompilationArtifacts(
+        ImmutableList.copyOf(runtimeJars),
+        ImmutableList.copyOf(compileTimeJars),
+        ImmutableList.copyOf(fullCompileTimeJars),
+        ImmutableList.copyOf(instrumentationMetadata),
+        compileTimeDependencyArtifact,
+        instrumentedJar);
   }
 
   /**
@@ -71,7 +85,7 @@ public abstract class JavaCompilationArtifacts {
 
     public JavaCompilationArtifacts build() {
       Preconditions.checkState(fullCompileTimeJars.size() == compileTimeJars.size());
-      return new AutoValue_JavaCompilationArtifacts(
+      return create(
           ImmutableList.copyOf(runtimeJars),
           ImmutableList.copyOf(compileTimeJars),
           ImmutableList.copyOf(fullCompileTimeJars),

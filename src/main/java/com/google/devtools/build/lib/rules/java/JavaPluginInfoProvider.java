@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * Provider for users of Java plugins.
- */
+/** Provider for users of Java plugins. */
+@AutoCodec
 @Immutable
 public final class JavaPluginInfoProvider implements TransitiveInfoProvider {
 
