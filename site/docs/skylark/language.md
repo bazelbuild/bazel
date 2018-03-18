@@ -1,15 +1,15 @@
 ---
 layout: documentation
-title: Extensions - Overview
+title: Skylark Language
 ---
 
-# Language
+# Skylark Language
 
 <!-- [TOC] -->
 
 The page is an overview of Skylark, the language used in Bazel. This should be
 enough to get you started, but you may be interested in a more complete
-[specification of Skylark](spec.md). For a complete list of functions and
+[Skylark Language Specification](spec.md). For a complete list of functions and
 types, please check the [API reference](lib/skylark-overview.html).
 
 ## Syntax

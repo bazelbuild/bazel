@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Style guide for BUILD files
+title: BUILD Style Guide
 ---
 
-# BUILD file style guide
+# BUILD Style Guide
 
 
 In `BUILD` files, we take the same approach as in Go: We let the machine take care

@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Style guide for bzl files
+title: .bzl Style Guide
 ---
 
-# .bzl file style guide
+# .bzl Style Guide
 
 
 Skylark is a language that defines how software is built, and as such it is both

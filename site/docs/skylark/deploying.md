@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Deploying new Skylark rules
+title: Deploying Rules
 ---
 
-# Deploying new rules
+# Deploying Rules
 
 This documentation is for rule writers who are planning to make their
 rules available to others.

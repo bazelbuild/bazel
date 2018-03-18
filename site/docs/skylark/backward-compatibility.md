@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Extensions - Backward compatibility
+title: Backward Compatibility
 ---
 
-# Backward compatibility
+# Backward Compatibility
 
 Bazel is still in Beta and new releases may include backward incompatible
 changes. As we make changes and polish the extension mechanism, old features
