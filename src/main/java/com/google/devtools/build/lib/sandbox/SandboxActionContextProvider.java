@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -53,12 +52,8 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     ImmutableList.Builder<ActionContext> contexts = ImmutableList.builder();
 
     OptionsProvider options = cmdEnv.getOptions();
-    int timeoutKillDelaySeconds =
-        options.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds;
-    Optional<Duration> timeoutKillDelay = Optional.empty();
-    if (timeoutKillDelaySeconds >= 0) {
-      timeoutKillDelay = Optional.of(Duration.ofSeconds(timeoutKillDelaySeconds));
-    }
+    Duration timeoutKillDelay = Duration.ofSeconds(
+        options.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds);
     String productName = cmdEnv.getRuntime().getProductName();
 
     // This works on most platforms, but isn't the best choice, so we put it first and let later
@@ -78,7 +73,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, productName, timeoutKillDelay));
+              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay));
       contexts.add(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -88,7 +83,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, productName, timeoutKillDelay));
+              new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, timeoutKillDelay));
       contexts.add(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 

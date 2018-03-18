@@ -213,7 +213,7 @@ public class RunCommand implements BlazeCommand  {
     // of executing it directly.
     if (OS.getCurrent() != OS.WINDOWS && runOptions.scriptPath == null) {
       Preconditions.checkState(ProcessWrapperUtil.isSupported(env),
-          "process-wraper not found in embedded tools");
+          "process-wrapper not found in embedded tools");
       cmdLine.add(ProcessWrapperUtil.getProcessWrapper(env).getPathString());
     }
     List<String> prettyCmdLine = new ArrayList<>();

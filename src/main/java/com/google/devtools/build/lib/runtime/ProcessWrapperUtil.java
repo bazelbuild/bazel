@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Utility functions for the process wrapper embedded tool, which should work on most platforms and
@@ -55,11 +54,11 @@ public final class ProcessWrapperUtil {
   public static class CommandLineBuilder {
     private final String processWrapperPath;
     private final List<String> commandArguments;
-    private Optional<String> stdoutPath = Optional.empty();
-    private Optional<String> stderrPath = Optional.empty();
-    private Optional<Duration> timeout = Optional.empty();
-    private Optional<Duration> killDelay = Optional.empty();
-    private Optional<String> statisticsPath = Optional.empty();
+    private Path stdoutPath;
+    private Path stderrPath;
+    private Duration timeout;
+    private Duration killDelay;
+    private Path statisticsPath;
 
     private CommandLineBuilder(String processWrapperPath, List<String> commandArguments) {
       this.processWrapperPath = processWrapperPath;
@@ -67,20 +66,20 @@ public final class ProcessWrapperUtil {
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
-    public CommandLineBuilder setStdoutPath(String stdoutPath) {
-      this.stdoutPath = Optional.of(stdoutPath);
+    public CommandLineBuilder setStdoutPath(Path stdoutPath) {
+      this.stdoutPath = stdoutPath;
       return this;
     }
 
     /** Sets the path to use for redirecting stderr, if any. */
-    public CommandLineBuilder setStderrPath(String stderrPath) {
-      this.stderrPath = Optional.of(stderrPath);
+    public CommandLineBuilder setStderrPath(Path stderrPath) {
+      this.stderrPath = stderrPath;
       return this;
     }
 
     /** Sets the timeout for the command run using the process-wrapper tool. */
     public CommandLineBuilder setTimeout(Duration timeout) {
-      this.timeout = Optional.of(timeout);
+      this.timeout = timeout;
       return this;
     }
 
@@ -89,13 +88,13 @@ public final class ProcessWrapperUtil {
      * timeout.
      */
     public CommandLineBuilder setKillDelay(Duration killDelay) {
-      this.killDelay = Optional.of(killDelay);
+      this.killDelay = killDelay;
       return this;
     }
 
     /** Sets the path for writing execution statistics (e.g. resource usage). */
-    public CommandLineBuilder setStatisticsPath(String statisticsPath) {
-      this.statisticsPath = Optional.of(statisticsPath);
+    public CommandLineBuilder setStatisticsPath(Path statisticsPath) {
+      this.statisticsPath = statisticsPath;
       return this;
     }
 
@@ -104,20 +103,20 @@ public final class ProcessWrapperUtil {
       List<String> fullCommandLine = new ArrayList<>();
       fullCommandLine.add(processWrapperPath);
 
-      if (timeout.isPresent()) {
-        fullCommandLine.add("--timeout=" + timeout.get().getSeconds());
+      if (timeout != null) {
+        fullCommandLine.add("--timeout=" + timeout.getSeconds());
       }
-      if (killDelay.isPresent()) {
-        fullCommandLine.add("--kill_delay=" + killDelay.get().getSeconds());
+      if (killDelay != null) {
+        fullCommandLine.add("--kill_delay=" + killDelay.getSeconds());
       }
-      if (stdoutPath.isPresent()) {
-        fullCommandLine.add("--stdout=" + stdoutPath.get());
+      if (stdoutPath != null) {
+        fullCommandLine.add("--stdout=" + stdoutPath);
       }
-      if (stderrPath.isPresent()) {
-        fullCommandLine.add("--stderr=" + stderrPath.get());
+      if (stderrPath != null) {
+        fullCommandLine.add("--stderr=" + stderrPath);
       }
-      if (statisticsPath.isPresent()) {
-        fullCommandLine.add("--stats=" + statisticsPath.get());
+      if (statisticsPath != null) {
+        fullCommandLine.add("--stats=" + statisticsPath);
       }
 
       fullCommandLine.addAll(commandArguments);
