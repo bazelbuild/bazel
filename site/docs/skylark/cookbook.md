@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Extensions examples
+title: Skylark Examples
 ---
 
-# Extensions examples
+# Skylark Examples
 
 **Tip:** For further examples, see the [GitHub repository](https://github.com/bazelbuild/examples/tree/master/rules).
 

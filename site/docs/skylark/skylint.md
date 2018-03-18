@@ -1,13 +1,13 @@
 ---
 layout: documentation
-title: Skylark Linter Documentation
+title: Skylint
 ---
 
-# Skylark Linter Documentation
+# Skylint
 
 [Style guide](https://docs.bazel.build/versions/master/skylark/bzl-style.html)
 
-This document explains how to use the Skylark linter.
+This document explains how to use Skylint, the Skylark linter.
 
 <!-- [TOC] -->
 

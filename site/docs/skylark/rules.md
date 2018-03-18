@@ -681,35 +681,3 @@ _example_test = rule(
  ...
 )
 ```
-
-## Troubleshooting
-
-### Why is the action never executed?
-
-Bazel executes an action only when at least one of its outputs are requested. If
-the target is built directly, make sure the output you need is in the [default
-outputs](#requesting-output-files).
-
-When the target is used as a dependency, check which providers are used and consumed.
-
-### Why is the implementation function not executed?
-
-Bazel analyzes only the targets that are requested for the build. You should
-either build the target, or build something that depends on the target.
-
-### A file is missing during execution
-
-When you create an action, you need to specify all the inputs. Please
-double-check that you didn't forget anything.
-
-If a binary requires files at runtime, such as dynamic libraries or data files,
-you may need to [specify the runfiles](#runfiles).
-
-### How to choose which files are shown in the output of `bazel build`?
-
-Use the [`DefaultInfo`](lib/globals.html#DefaultInfo) provider to
-[set the default outputs](#requesting-output-files).
-
-### How to run a program in the analysis phase?
-
-It is not possible.

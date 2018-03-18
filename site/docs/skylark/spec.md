@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Extensions - Language definition
+title: Skylark Language Specification
 ---
 
-# Skylark: Language definition
+# Skylark Language Specification
 
 Skylark is a dialect of Python intended for use as a configuration
 language.  A Skylark interpreter is typically embedded within a larger
