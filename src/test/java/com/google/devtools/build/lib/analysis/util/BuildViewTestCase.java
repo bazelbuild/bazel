@@ -648,6 +648,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
     return null;
   }
+  
+  protected final ActionAnalysisMetadata getGeneratingActionAnalysisMetadata(Artifact artifact) {
+    Preconditions.checkNotNull(artifact);
+    ActionAnalysisMetadata actionAnalysisMetadata =
+        mutableActionGraph.getGeneratingAction(artifact);
+
+    if (actionAnalysisMetadata == null) {
+      actionAnalysisMetadata = getActionGraph().getGeneratingAction(artifact);
+    }
+
+    return actionAnalysisMetadata;
+  }
 
   protected Action getGeneratingAction(ConfiguredTarget target, String outputName) {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
@@ -666,12 +678,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected final Action getGeneratingAction(Artifact artifact) {
-    Preconditions.checkNotNull(artifact);
-    ActionAnalysisMetadata action = mutableActionGraph.getGeneratingAction(artifact);
-
-    if (action == null) {
-      action = getActionGraph().getGeneratingAction(artifact);
-    }
+    ActionAnalysisMetadata action = getGeneratingActionAnalysisMetadata(artifact);
 
     if (action != null) {
       Preconditions.checkState(
