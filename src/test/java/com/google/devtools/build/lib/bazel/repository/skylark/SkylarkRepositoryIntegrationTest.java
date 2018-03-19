@@ -142,7 +142,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
             .add("repo(name='foo', path='/repo2')")
             .build());
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndTarget("@foo//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
@@ -170,7 +170,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
             .add("repo(name='foo')")
             .build());
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndTarget("@foo//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
@@ -199,7 +199,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
             .add("repo(name='foo')")
             .build());
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndTarget("@foo//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
@@ -229,7 +229,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
             .add("repo(name='foobar')")
             .build());
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndTarget("@foobar//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foobar//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
     assertThat(path).isEqualTo("foobar");
   }

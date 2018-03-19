@@ -448,13 +448,13 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     // Configuration a:
     useConfiguration("--test_arg=a");
-    ConfiguredTargetAndData binary = getConfiguredTargetAndTarget("//test:the_rule");
+    ConfiguredTargetAndData binary = getConfiguredTargetAndData("//test:the_rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(binary);
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("a2");
 
     // configuration b:
     useConfiguration("--test_arg=b");
-    binary = getConfiguredTargetAndTarget("//test:the_rule");
+    binary = getConfiguredTargetAndData("//test:the_rule");
     attributes = getMapperFromConfiguredTargetAndTarget(binary);
     assertThat(attributes.get("$computed_attr", Type.STRING)).isEqualTo("b2");
   }
@@ -1094,7 +1094,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    }))");
 
     useConfiguration("--test_arg=a");
-    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//srctest:gen");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//srctest:gen");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }
@@ -1113,7 +1113,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    boolean_attr = 1)");
 
     useConfiguration("--test_arg=a");
-    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//foo:rule");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributes.get("dep", BuildType.LABEL)).isEqualTo(
         Label.parseAbsolute("//foo:default"));

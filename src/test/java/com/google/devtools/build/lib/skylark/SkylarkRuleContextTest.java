@@ -1404,7 +1404,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     assertThat(
             (List<Label>)
-                getConfiguredTargetAndTarget("@foo//:baz")
+                getConfiguredTargetAndData("@foo//:baz")
                     .getTarget()
                     .getAssociatedRule()
                     .getAttributeContainer()

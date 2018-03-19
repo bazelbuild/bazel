@@ -954,20 +954,57 @@ public class BuildView {
 
   // For testing
   @VisibleForTesting
-  public Iterable<ConfiguredTarget> getDirectPrerequisitesForTesting(
-      ExtendedEventHandler eventHandler, ConfiguredTarget ct,
+  public Collection<ConfiguredTarget> getDirectPrerequisitesForTesting(
+      ExtendedEventHandler eventHandler,
+      ConfiguredTarget ct,
       BuildConfigurationCollection configurations)
-      throws EvalException, InvalidConfigurationException,
-      InterruptedException, InconsistentAspectOrderException {
+      throws EvalException, InvalidConfigurationException, InterruptedException,
+          InconsistentAspectOrderException {
     return Collections2.transform(
-        skyframeExecutor.getConfiguredTargetsForTesting(
-            eventHandler,
-            ct.getConfiguration(),
-            ImmutableSet.copyOf(
-                getDirectPrerequisiteDependenciesForTesting(
-                        eventHandler, ct, configurations, /*toolchainContext=*/ null)
-                    .values())),
+        getConfiguredTargetAndDataDirectPrerequisitesForTesting(eventHandler, ct, configurations),
         ConfiguredTargetAndData::getConfiguredTarget);
+  }
+
+  // TODO(janakr): pass the configuration in as a parameter here and above.
+  @VisibleForTesting
+  public Collection<ConfiguredTargetAndData>
+      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+          ExtendedEventHandler eventHandler,
+          ConfiguredTarget ct,
+          BuildConfigurationCollection configurations)
+          throws EvalException, InvalidConfigurationException, InterruptedException,
+              InconsistentAspectOrderException {
+    return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+        eventHandler, ct, ct.getConfiguration(), configurations);
+  }
+
+  @VisibleForTesting
+  public Collection<ConfiguredTargetAndData>
+      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+          ExtendedEventHandler eventHandler,
+          ConfiguredTargetAndData ct,
+          BuildConfigurationCollection configurations)
+          throws EvalException, InvalidConfigurationException, InterruptedException,
+              InconsistentAspectOrderException {
+    return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+        eventHandler, ct.getConfiguredTarget(), ct.getConfiguration(), configurations);
+  }
+
+  private Collection<ConfiguredTargetAndData>
+      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+          ExtendedEventHandler eventHandler,
+          ConfiguredTarget ct,
+          BuildConfiguration configuration,
+          BuildConfigurationCollection configurations)
+          throws EvalException, InvalidConfigurationException, InterruptedException,
+              InconsistentAspectOrderException {
+    return skyframeExecutor.getConfiguredTargetsForTesting(
+        eventHandler,
+        configuration,
+        ImmutableSet.copyOf(
+            getDirectPrerequisiteDependenciesForTesting(
+                    eventHandler, ct, configurations, /*toolchainContext=*/ null)
+                .values()));
   }
 
   @VisibleForTesting
@@ -1146,9 +1183,9 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  public ConfiguredTargetAndData getConfiguredTargetAndTargetForTesting(
+  public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config) {
-    return skyframeExecutor.getConfiguredTargetAndTargetForTesting(eventHandler, label, config);
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(eventHandler, label, config);
   }
 
   /**

@@ -105,7 +105,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   public void testGeneratedAarImport() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule aarImport =
-        getConfiguredTargetAndTarget("//com.google.android:bar-1.0.0")
+        getConfiguredTargetAndData("//com.google.android:bar-1.0.0")
             .getTarget()
             .getAssociatedRule();
     assertThat(aarImport.getRuleClass()).isEqualTo("aar_import");
@@ -120,7 +120,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   public void testGeneratedJavaImport() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule javaImport =
-        getConfiguredTargetAndTarget("//com.google.android:foo-1.0.0")
+        getConfiguredTargetAndData("//com.google.android:foo-1.0.0")
             .getTarget()
             .getAssociatedRule();
     assertThat(javaImport.getRuleClass()).isEqualTo("java_import");
@@ -134,7 +134,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   public void testGeneratedRuleForInvalidPackaging() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule invalidPackagingGenrule =
-        getConfiguredTargetAndTarget("//com.google.android:baz-1.0.0")
+        getConfiguredTargetAndData("//com.google.android:baz-1.0.0")
             .getTarget()
             .getAssociatedRule();
     assertThat(invalidPackagingGenrule.getRuleClass()).isEqualTo("genrule");

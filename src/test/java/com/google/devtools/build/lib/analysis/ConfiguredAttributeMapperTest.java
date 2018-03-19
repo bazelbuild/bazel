@@ -46,7 +46,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
    * Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration.
    */
   private ConfiguredAttributeMapper getMapper(String label) throws Exception {
-    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget(label);
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData(label);
     return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 

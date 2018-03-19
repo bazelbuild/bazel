@@ -404,7 +404,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    return skyframeExecutor.getConfiguredTargetAndTargetForTesting(reporter, parsedLabel, config);
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
   }
 
   protected Target getTarget(String label) throws InterruptedException {
@@ -416,9 +416,21 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
   }
 
-  protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration configuration) {
+  protected final ConfiguredTargetAndData getConfiguredTargetAndData(
+      String label, BuildConfiguration configuration) {
     ensureUpdateWasCalled();
     return getConfiguredTargetForSkyframe(label, configuration);
+  }
+
+  protected final ConfiguredTargetAndData getConfiguredTargetAndData(String label)
+      throws InterruptedException {
+    return getConfiguredTargetAndData(label, getTargetConfiguration());
+  }
+
+  protected final ConfiguredTarget getConfiguredTarget(
+      String label, BuildConfiguration configuration) {
+    ConfiguredTargetAndData result = getConfiguredTargetAndData(label, configuration);
+    return result == null ? null : result.getConfiguredTarget();
   }
 
   /**
@@ -429,15 +441,16 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return getConfiguredTarget(label, getTargetConfiguration());
   }
 
-  private ConfiguredTarget getConfiguredTargetForSkyframe(String label,
-      BuildConfiguration configuration) {
+  private ConfiguredTargetAndData getConfiguredTargetForSkyframe(
+      String label, BuildConfiguration configuration) {
     Label parsedLabel;
     try {
       parsedLabel = Label.parseAbsolute(label);
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    return skyframeExecutor.getConfiguredTargetForTesting(reporter, parsedLabel, configuration);
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(
+        reporter, parsedLabel, configuration);
   }
 
   /**

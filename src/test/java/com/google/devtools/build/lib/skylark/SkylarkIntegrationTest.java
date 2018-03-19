@@ -108,7 +108,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   private AttributeContainer getContainerForTarget(String targetName) throws Exception {
-    ConfiguredTargetAndData target = getConfiguredTargetAndTarget("//test/skylark:" + targetName);
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("//test/skylark:" + targetName);
     return target.getTarget().getAssociatedRule().getAttributeContainer();
   }
 
