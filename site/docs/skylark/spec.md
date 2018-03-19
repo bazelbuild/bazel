@@ -272,8 +272,7 @@ non-zero.
 100 // 5 * 9 + 32               # 212
 3 // 2                          # 1
 111111111 * 111111111           # 12345678987654321
-"0x%x" % (0x1234 & 0xf00f)      # "0x1004"
-int("0xffff")                   # 65535
+int("0xffff", 16)               # 65535
 ```
 
 
@@ -311,7 +310,6 @@ non-empty.
 Strings have several built-in methods:
 
 * [`capitalize`](#string·capitalize)
-* [`codepoints`](#string·codepoints)
 * [`count`](#string·count)
 * [`endswith`](#string·endswith)
 * [`find`](#string·find)
@@ -1508,12 +1506,9 @@ argument it uses and how to convert it to a string.
 
 Each `%` character marks the start of a conversion specifier, unless
 it is immediately followed by another `%`, in which cases both
-characters denote a literal percent sign.
+characters together denote a single literal percent sign.
 
-If the `"%"` is immediately followed by `"(key)"`, the parenthesized
-substring specifies the key of the `args` dictionary whose
-corresponding value is the operand to convert.
-Otherwise, the conversion's operand is the next element of `args`,
+The conversion's operand is the next element of `args`,
 which must be a tuple with exactly one component per conversion,
 unless the format string contains only a single conversion, in which
 case `args` itself is its operand.
@@ -1521,7 +1516,7 @@ case `args` itself is its operand.
 Skylark does not support the flag, width, and padding specifiers
 supported by Python's `%` and other variants of C's `printf`.
 
-After the optional `(key)` comes a single letter indicating what
+After the `%` comes a single letter indicating what
 operand types are valid and how to convert the operand `x` to a string:
 
 ```text
@@ -1529,12 +1524,6 @@ operand types are valid and how to convert the operand `x` to a string:
 s       any             as if by str(x)
 r       any             as if by repr(x)
 d       number          signed integer decimal
-i       number          signed integer decimal
-o       number          signed octal
-x       number          signed hexadecimal, lowercase
-X       number          signed hexadecimal, uppercase
-c       string          x (string must encode a single Unicode code point)
-        int             as if by chr(x)
 ```
 
 It is an error if the argument does not have the type required by the
@@ -1543,13 +1532,9 @@ conversion specifier.  A Boolean argument is not considered a number.
 Examples:
 
 ```python
+"Hello %s" % "Bob"                              # "Hello Bob"
+
 "Hello %s, your score is %d" % ("Bob", 75)      # "Hello Bob, your score is 75"
-
-"%d %o %x %c" % (65, 65, 65, 65)                # "65 101 41 A" (decimal, octal, hexadecimal, Unicode)
-
-"%(greeting)s, %(audience)s" % dict(            # "Hello, world"
-  greeting="Hello",
-  audience="world",
 )
 ```
 
@@ -2345,15 +2330,17 @@ implies `hash(x) == hash(y)`.
 If x is an `int`, the result is x.
 If x is a `bool`, the result is 0 for `False` or 1 for `True`.
 
-If x is a string, it is interpreted like a string literal;
-an optional base prefix (`0`, `0x`, `0X`) determines which base to use.
-The string may specify an arbitrarily large integer,
-whereas true integer literals are restricted to 64 bits.
-If a non-zero `base` argument is provided, the string is interpreted
-in that base and no base prefix is permitted; the base argument may
-specified by name.
+If x is a string, it is interpreted as an integer using the base argument
+(default is `10`). If base is `0`, x is interpreted like an integer literal, the
+base being inferred from an optional base prefix (for example `0o` or `0x`).
 
-`int()` with no arguments returns 0.
+```python
+int("21")          # 21
+int("1234", 16)    # 4660
+int("0x1234", 16)  # 4660
+int("0x1234", 0)   # 4660
+int("0x1234")      # error (invalid base 10 number)
+```
 
 ### len
 
