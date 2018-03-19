@@ -170,15 +170,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     return result.build();
   }
 
-  ImmutableList<String> getDefaultsRules() {
-    ImmutableList.Builder<String> result = ImmutableList.builder();
-    for (FragmentOptions fragment : fragmentOptionsMap.values()) {
-      result.addAll(fragment.getDefaultsRules());
-    }
-
-    return result.build();
-  }
-
   /**
    * Returns true if actions should be enabled for this configuration.
    */

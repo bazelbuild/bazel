@@ -849,11 +849,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       return host;
     }
-
-    @Override
-    public ImmutableList<String> getDefaultsRules() {
-      return ImmutableList.of("android_tools_defaults_jar(name = 'android_jar')");
-    }
   }
 
   /** Configuration loader for the Android fragment. */

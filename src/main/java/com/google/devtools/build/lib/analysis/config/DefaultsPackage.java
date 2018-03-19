@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -83,11 +82,9 @@ public final class DefaultsPackage {
    * The map from entries to their values.
    */
   private ImmutableMap<String, ImmutableSet<Label>> values;
-  private ImmutableList<String> rules;
 
   private DefaultsPackage(BuildOptions buildOptions) {
     values = buildOptions.getDefaultsLabels();
-    rules = buildOptions.getDefaultsRules();
   }
 
   private String labelsToString(Set<Label> labels) {
@@ -113,10 +110,6 @@ public final class DefaultsPackage {
           .append(entry.getKey().toLowerCase(Locale.US)).append("',\n")
           .append("          srcs = [")
           .append(labelsToString(entry.getValue())).append("])\n");
-    }
-
-    for (String rule : rules) {
-      result.append(rule).append("\n");
     }
 
     return result.toString();
