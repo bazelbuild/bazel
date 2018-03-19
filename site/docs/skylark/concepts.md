@@ -1,15 +1,15 @@
 ---
 layout: documentation
-title: Skylark Overview
+title: Extension Overview
 ---
 
-# Skylark Overview
+# Extension Overview
 
 <!-- [TOC] -->
 
 ## Loading an extension
 
-Skylark extensions are files ending in `.bzl`. Use the `load` statement to
+Bazel extensions are files ending in `.bzl`. Use the `load` statement to
 import a symbol from an extension.
 
 ```python

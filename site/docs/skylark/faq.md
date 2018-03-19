@@ -1,11 +1,11 @@
 ---
 layout: documentation
-title: Skylark FAQ
+title: Extension FAQ
 ---
 
 # Frequently Asked Questions
 
-These are some common issues and questions with writing using Skylark.
+These are some common issues and questions with writing extensions.
 
 <!-- [TOC] -->
 
