@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Options;
@@ -34,19 +33,6 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   @SuppressWarnings("unused")
   public Map<String, Set<Label>> getDefaultsLabels() {
     return ImmutableMap.of();
-  }
-
-  /**
-   * Returns the extra rules contributed to the default package by this fragment.
-   *
-   * <p>The return value should be a list of strings, which are merged into the BUILD files of the
-   * defaults package.
-   *
-   * <p><strong>WARNING;</strong> this method should only be used when absolutely necessary. Always
-   * prefer {@code getDefaultsLabels()} to this.
-   */
-  public ImmutableList<String> getDefaultsRules() {
-    return ImmutableList.of();
   }
 
   /**
