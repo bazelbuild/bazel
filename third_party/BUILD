@@ -380,7 +380,7 @@ filegroup(
         "error_prone/error_prone_annotations-2.2.0.jar",
         "error_prone/error_prone_check_api-2.2.0.jar",
         "error_prone/error_prone_core-2.2.0.jar",
-        "guava/guava-23.1-jre.jar",
+        "guava/guava-24.1-jre.jar",
         "hungarian_algorithm/software-and-algorithms-1.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
@@ -396,7 +396,7 @@ java_import(
         "error_prone/error_prone_annotations-2.2.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
-        "guava/guava-23.1-jre.jar",
+        "guava/guava-24.1-jre.jar",
     ],
 )
 
@@ -418,7 +418,7 @@ java_import(
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-23.1-jre.jar"],
+    srcs = ["guava/guava-24.1-jre.jar"],
 )
 
 java_import(
@@ -515,7 +515,7 @@ filegroup(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-23.1-jre.jar"],
+    jars = ["guava/guava-testlib-24.1-jre.jar"],
 )
 
 java_import(
