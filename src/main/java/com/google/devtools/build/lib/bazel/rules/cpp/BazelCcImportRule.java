@@ -95,7 +95,7 @@ cc_import(
 )
 </pre>
 
-4. Linking a shared library with <code>system_provided=1</code> (Windows)
+4. Linking a shared library with <code>system_provided=True</code> (Windows)
 <pre class="code">
 cc_import(
   name = "mylib",
