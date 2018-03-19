@@ -397,9 +397,14 @@ public final class PackageFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
-    threadPool = new ThreadPoolExecutor(100, Integer.MAX_VALUE, 15L, TimeUnit.SECONDS,
-        new LinkedBlockingQueue<Runnable>(),
-        new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").build());
+    threadPool =
+        new ThreadPoolExecutor(
+            100,
+            Integer.MAX_VALUE,
+            15L,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<Runnable>(),
+            new ThreadFactoryBuilder().setNameFormat("Legacy globber %d").setDaemon(true).build());
     // Do not consume threads when not in use.
     threadPool.allowCoreThreadTimeOut(true);
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
