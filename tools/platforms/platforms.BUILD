@@ -4,7 +4,7 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
-# These match values in //src/main/java/com/google/build/lib/util:CPU.java
+# These match values in //src/main/java/com/google/devtools/build/lib/util:CPU.java
 constraint_setting(name = "cpu")
 
 constraint_value(
@@ -32,7 +32,7 @@ constraint_value(
     constraint_setting = ":cpu",
 )
 
-# These match values in //src/main/java/com/google/build/lib/util:OS.java
+# These match values in //src/main/java/com/google/devtools/build/lib/util:OS.java
 constraint_setting(name = "os")
 
 constraint_value(
