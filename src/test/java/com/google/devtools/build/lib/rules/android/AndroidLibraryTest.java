@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
@@ -1430,29 +1431,52 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
 
     useConfiguration("--android_sdk=//sdk:sdk");
-    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
-    ConfiguredTarget b =  getDirectPrerequisite(a, "//java/a:b");
-    ConfiguredTarget sdk = getDirectPrerequisite(a, "//sdk:sdk");
+    ConfiguredTargetAndData a = getConfiguredTargetAndData("//java/a:a");
+    ConfiguredTargetAndData b = getConfiguredTargetAndDataDirectPrerequisite(a, "//java/a:b");
+    ConfiguredTargetAndData sdk = getConfiguredTargetAndDataDirectPrerequisite(a, "//sdk:sdk");
     SpawnAction compileAction =
         getGeneratingSpawnAction(
-            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+            getImplicitOutputArtifact(
+                a.getConfiguredTarget(),
+                a.getConfiguration(),
+                a.getConfiguration(),
+                AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(compileAction).isNotNull();
 
     SpawnAction linkAction =
         getGeneratingSpawnAction(
-            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+            getImplicitOutputArtifact(
+                a.getConfiguredTarget(),
+                a.getConfiguration(),
+                a.getConfiguration(),
+                AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
     assertThat(linkAction.getInputs())
         .containsAllOf(
-            sdk.getProvider(AndroidSdkProvider.class).getAndroidJar(),
-            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
+            sdk.getConfiguredTarget().getProvider(AndroidSdkProvider.class).getAndroidJar(),
             getImplicitOutputArtifact(
-                b, a.getConfiguration(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+                a.getConfiguredTarget(),
+                a.getConfiguration(),
+                a.getConfiguration(),
+                AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
+            getImplicitOutputArtifact(
+                b.getConfiguredTarget(),
+                b.getConfiguration(),
+                a.getConfiguration(),
+                AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
         .containsAllOf(
-            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT),
-            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR));
+            getImplicitOutputArtifact(
+                a.getConfiguredTarget(),
+                a.getConfiguration(),
+                a.getConfiguration(),
+                AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT),
+            getImplicitOutputArtifact(
+                a.getConfiguredTarget(),
+                a.getConfiguration(),
+                a.getConfiguration(),
+                AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR));
   }
 
   @Test

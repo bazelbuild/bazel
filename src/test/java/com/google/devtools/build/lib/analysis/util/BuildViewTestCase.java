@@ -2014,11 +2014,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Artifact getImplicitOutputArtifact(
       ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
-    return getImplicitOutputArtifact(target, target.getConfiguration(), outputFunction);
+    return getImplicitOutputArtifact(
+        target, target.getConfiguration(), target.getConfiguration(), outputFunction);
   }
 
-  protected Artifact getImplicitOutputArtifact(
+  protected final Artifact getImplicitOutputArtifact(
       ConfiguredTarget target,
+      BuildConfiguration targetConfiguration,
       BuildConfiguration configuration,
       SafeImplicitOutputsFunction outputFunction) {
     Rule rule;
