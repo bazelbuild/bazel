@@ -318,9 +318,9 @@ sh_test(
 )
 
 sh_test(
-    name = "local_action_cache_test",
+    name = "build_cache_test",
     size = "small",
-    srcs = ["local_action_cache_test.sh"],
+    srcs = ["build_cache_test.sh"],
     data = [":test-deps"],
 )
 

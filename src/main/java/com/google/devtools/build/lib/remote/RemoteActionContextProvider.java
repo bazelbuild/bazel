@@ -60,7 +60,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     String buildRequestId = env.getBuildRequestId().toString();
     String commandId = env.getCommandId().toString();
 
-    if (remoteOptions.experimentalRemoteSpawnCache || remoteOptions.experimentalLocalDiskCache) {
+    if (remoteOptions.experimentalRemoteSpawnCache || remoteOptions.buildCache != null) {
       RemoteSpawnCache spawnCache =
           new RemoteSpawnCache(
               env.getExecRoot(),
