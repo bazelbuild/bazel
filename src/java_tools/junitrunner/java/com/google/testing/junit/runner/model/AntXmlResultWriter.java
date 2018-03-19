@@ -112,6 +112,9 @@ public final class AntXmlResultWriter implements XmlResultWriter {
   private void writeTestCases(XmlWriter writer, TestResult result,
       Iterable<Throwable> parentFailures) throws IOException {
     for (TestResult child : result.getChildResults()) {
+      if (child.getStatus() == TestResult.Status.FILTERED) {
+        continue;
+      }
       if (child.getChildResults().isEmpty()) {
         writeTestCase(writer, child, parentFailures);
       }
