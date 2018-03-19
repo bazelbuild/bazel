@@ -13,14 +13,28 @@
 // limitations under the License.
 #include "tools/runfiles/runfiles.h"
 
+#ifdef COMPILER_MSVC
+#include <windows.h>
+#else  // not COMPILER_MSVC
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif  // COMPILER_MSVC
+
 #include <fstream>
 #include <map>
 #include <sstream>
 #include <vector>
 
+#ifdef COMPILER_MSVC
+#include <memory>
+#endif  // COMPILER_MSVC
+
 namespace bazel {
 namespace runfiles {
 
+using std::function;
 using std::map;
 using std::pair;
 using std::string;
@@ -30,9 +44,9 @@ namespace {
 
 class RunfilesImpl : public Runfiles {
  public:
-  // TODO(laszlocsomor): implement Create(
-  //   const string& argv0, function<string(const string&)> env_lookup, string*
-  //   error);
+  static Runfiles* Create(const string& argv0,
+                          function<string(const string&)> env_lookup,
+                          string* error);
 
   string Rlocation(const string& path) const override;
 
@@ -92,6 +106,58 @@ class DirectoryBased : public RunfilesImpl {
   const string runfiles_path_;
 };
 
+bool IsReadableFile(const string& path) {
+  return std::ifstream(path).is_open();
+}
+
+bool IsDirectory(const string& path) {
+#ifdef COMPILER_MSVC
+  DWORD attrs = GetFileAttributesA(path.c_str());
+  return (attrs != INVALID_FILE_ATTRIBUTES) &&
+         (attrs & FILE_ATTRIBUTE_DIRECTORY);
+#else
+  struct stat buf;
+  return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
+#endif
+}
+
+Runfiles* RunfilesImpl::Create(const string& argv0,
+                               function<string(const string&)> env_lookup,
+                               string* error) {
+  string manifest(std::move(env_lookup("RUNFILES_MANIFEST_FILE")));
+  if (!manifest.empty()) {
+    return ManifestBased::Create(manifest, error);
+  }
+
+  string directory(std::move(env_lookup("RUNFILES_DIR")));
+  if (!directory.empty()) {
+    return new DirectoryBased(directory);
+  }
+
+  manifest = argv0 + ".runfiles_manifest";
+  if (IsReadableFile(manifest)) {
+    return CreateManifestBased(manifest, error);
+  }
+
+  manifest = argv0 + ".runfiles/MANIFEST";
+  if (IsReadableFile(manifest)) {
+    return CreateManifestBased(manifest, error);
+  }
+
+  directory = argv0 + ".runfiles";
+  if (IsDirectory(directory)) {
+    return CreateDirectoryBased(std::move(directory), error);
+  }
+
+  if (error) {
+    std::ostringstream err;
+    err << "ERROR: " << __FILE__ << "(" << __LINE__
+        << "): cannot find runfiles (argv0=\"" << argv0 << "\")";
+    *error = err.str();
+  }
+  return nullptr;
+}
+
 bool IsAbsolute(const string& path) {
   if (path.empty()) {
     return false;
@@ -100,6 +166,21 @@ bool IsAbsolute(const string& path) {
   return (c == '/') || (path.size() >= 3 &&
                         ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) &&
                         path[1] == ':' && (path[2] == '\\' || path[2] == '/'));
+}
+
+string GetEnv(const string& key) {
+#ifdef COMPILER_MSVC
+  DWORD size = ::GetEnvironmentVariableA(key.c_str(), NULL, 0);
+  if (size == 0) {
+    return std::move(string());  // unset or empty envvar
+  }
+  std::unique_ptr<char[]> value(new char[size]);
+  ::GetEnvironmentVariableA(key.c_str(), value.get(), size);
+  return move(string(value.get()));
+#else
+  char* result = getenv(key.c_str());
+  return std::move((result == NULL) ? string() : string(result));
+#endif
 }
 
 string RunfilesImpl::Rlocation(const string& path) const {
@@ -195,9 +276,29 @@ vector<pair<string, string> > DirectoryBased::EnvVars() const {
 
 namespace testing {
 
+Runfiles* TestOnly_CreateRunfiles(const std::string& argv0,
+                                  function<string(const string&)> env_lookup,
+                                  string* error) {
+  return RunfilesImpl::Create(argv0, env_lookup, error);
+}
+
 bool TestOnly_IsAbsolute(const string& path) { return IsAbsolute(path); }
 
 }  // namespace testing
+
+Runfiles* Runfiles::Create(const string& argv0, string* error) {
+  return RunfilesImpl::Create(
+      argv0,
+      [](const string& key) {
+        if (key == "RUNFILES_MANIFEST_FILE" || key == "RUNFILES_DIR") {
+          string val(GetEnv(key));
+          return std::move(val);
+        } else {
+          return std::move(string());
+        }
+      },
+      error);
+}
 
 Runfiles* Runfiles::CreateManifestBased(const string& manifest_path,
                                         string* error) {

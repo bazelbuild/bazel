@@ -14,11 +14,57 @@
 
 // Runfiles lookup library for Bazel-built C++ binaries and tests.
 //
-// TODO(laszlocsomor): add usage information and examples.
+// Usage:
+//
+//   #include "tools/runfiles/runfiles.h"
+//   ...
+//
+//   int main(int argc, char** argv) {
+//     std::string error;
+//     std::unique_ptr<bazel::runfiles::Runfiles> runfiles(
+//         bazel::runfiles::Runfiles::Create(argv[0], &error));
+//     if (runfiles == nullptr) {
+//       ...  // error handling
+//     }
+//     std::string path(runfiles->Rlocation("io_bazel/src/bazel"));
+//     std::ifstream data(path);
+//     if (data.is_open()) {
+//       ...  // use the runfile
+//
+// The code above creates a manifest- or directory-based implementations
+// depending on it finding a runfiles manifest or -directory near argv[0] or
+// finding appropriate environment variables that tell it where to find the
+// manifest or directory. See `Runfiles::Create` for more info.
+//
+// If you want to explicitly create a manifest- or directory-based
+// implementation, you can do so as follows:
+//
+//   std::unique_ptr<bazel::runfiles::Runfiles> runfiles1(
+//       bazel::runfiles::Runfiles::CreateManifestBased(
+//           "path/to/foo.runfiles/MANIFEST", &error));
+//
+//   std::unique_ptr<bazel::runfiles::Runfiles> runfiles2(
+//       bazel::runfiles::Runfiles::CreateDirectoryBased(
+//           "path/to/foo.runfiles", &error));
+//
+// If you want to start child processes that also need runfiles, you need to set
+// the right environment variables for them:
+//
+//   std::unique_ptr<bazel::runfiles::Runfiles> runfiles(
+//       bazel::runfiles::Runfiles::Create(argv[0], &error));
+//
+//   for (const auto i : runfiles->EnvVars()) {
+//     setenv(i.first, i.second, 1);
+//   }
+//   std::string path(runfiles->Rlocation("path/to/binary"));
+//   if (!path.empty()) {
+//     pid_t child = fork();
+//     ...
 
 #ifndef BAZEL_SRC_TOOLS_RUNFILES_RUNFILES_H_
 #define BAZEL_SRC_TOOLS_RUNFILES_RUNFILES_H_ 1
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,6 +75,32 @@ namespace runfiles {
 class Runfiles {
  public:
   virtual ~Runfiles() {}
+
+  // Returns a new `Runfiles` instance.
+  //
+  // The returned object is either:
+  // - manifest-based, meaning it looks up runfile paths from a manifest file,
+  //   or
+  // - directory-based, meaning it looks up runfile paths under a given
+  //   directory path
+  //
+  // This method:
+  // 1. checks the RUNFILES_MANIFEST_FILE or RUNFILES_DIR environment variables;
+  //    if either is non-empty, returns a manifest- or directory-based Runfiles
+  //    object; otherwise
+  // 2. checks if there's a runfiles manifest (argv0 + ".runfiles_manifest") or
+  //    runfiles directory (argv0 + ".runfiles") next to this binary; if so,
+  //    returns a manifest- or directory-based Runfiles object; otherwise
+  // 3. returns nullptr.
+  //
+  // The manifest-based Runfiles object eagerly reads and caches the whole
+  // manifest file upon instantiation; this may be relevant for performance
+  // consideration.
+  //
+  // Returns nullptr on error. If `error` is provided, the method prints an
+  // error message into it.
+  static Runfiles* Create(const std::string& argv0,
+                          std::string* error = nullptr);
 
   // Returns a new manifest-based `Runfiles` instance.
   // Returns nullptr on error. If `error` is provided, the method prints an
@@ -82,6 +154,21 @@ class Runfiles {
 // public API for the benefit of the tests.
 // These functions and their interface may change without notice.
 namespace testing {
+
+// For testing only.
+//
+// Create a new Runfiles instance, looking up environment variables using
+// `env_lookup`.
+//
+// Args:
+//   argv0: name of the binary; if this string is not empty, then the function
+//     looks for a runfiles manifest or directory next to this
+//   env_lookup: a function that returns envvar values if an envvar is known, or
+//     empty string otherwise
+Runfiles* TestOnly_CreateRunfiles(
+    const std::string& argv0,
+    std::function<std::string(const std::string&)> env_lookup,
+    std::string* error);
 
 // For testing only.
 // Returns true if `path` is an absolute Unix or Windows path.

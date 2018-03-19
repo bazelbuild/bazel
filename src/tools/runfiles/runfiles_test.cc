@@ -34,9 +34,11 @@ namespace bazel {
 namespace runfiles {
 namespace {
 
+using bazel::runfiles::testing::TestOnly_CreateRunfiles;
 using bazel::runfiles::testing::TestOnly_IsAbsolute;
 using std::cerr;
 using std::endl;
+using std::function;
 using std::pair;
 using std::string;
 using std::unique_ptr;
@@ -69,7 +71,18 @@ class RunfilesTest : public ::testing::Test {
   };
 
   static string GetTemp();
+
+  static function<string(const string&)> kEnvWithTestSrcdir;
 };
+
+function<string(const string&)> RunfilesTest::kEnvWithTestSrcdir =
+    [](const string& key) {
+      if (key == "TEST_SRCDIR") {
+        return string("always ignored");
+      } else {
+        return string();
+      }
+    };
 
 string RunfilesTest::GetTemp() {
 #ifdef COMPILER_MSVC
@@ -120,6 +133,71 @@ RunfilesTest::MockFile* RunfilesTest::MockFile::Create(
 }
 
 RunfilesTest::MockFile::~MockFile() { std::remove(path_.c_str()); }
+
+TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromManifestNextToBinary) {
+  unique_ptr<MockFile> mf(
+      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a/b c/d"}));
+  EXPECT_TRUE(mf != nullptr);
+  string argv0(mf->Path().substr(
+      0, mf->Path().size() - string(".runfiles_manifest").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(
+      TestOnly_CreateRunfiles(argv0, kEnvWithTestSrcdir, &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(r->Rlocation("a/b"), "c/d");
+  // We know it's manifest-based because it returns empty string for unknown
+  // paths.
+  EXPECT_EQ(r->Rlocation("unknown"), "");
+}
+
+TEST_F(RunfilesTest,
+       CreatesManifestBasedRunfilesFromManifestInRunfilesDirectory) {
+  unique_ptr<MockFile> mf(
+      MockFile::Create("foo" LINE() ".runfiles/MANIFEST", {"a/b c/d"}));
+  EXPECT_TRUE(mf != nullptr);
+  string argv0(mf->Path().substr(
+      0, mf->Path().size() - string(".runfiles/MANIFEST").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(
+      TestOnly_CreateRunfiles(argv0, kEnvWithTestSrcdir, &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(r->Rlocation("a/b"), "c/d");
+  // We know it's manifest-based because it returns empty string for unknown
+  // paths.
+  EXPECT_EQ(r->Rlocation("unknown"), "");
+}
+
+TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
+  unique_ptr<MockFile> mf(
+      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a/b c/d"}));
+  EXPECT_TRUE(mf != nullptr);
+
+  string error;
+  unique_ptr<Runfiles> r(TestOnly_CreateRunfiles(
+      "ignore-argv0",
+      [&mf](const string& key) {
+        if (key == "RUNFILES_MANIFEST_FILE") {
+          return mf->Path();
+        } else if (key == "RUNFILES_DIR") {
+          return string("ignored when RUNFILES_MANIFEST_FILE has a value");
+        } else if (key == "TEST_SRCDIR") {
+          return string("always ignored");
+        } else {
+          return string();
+        }
+      },
+      &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(r->Rlocation("a/b"), "c/d");
+  // We know it's manifest-based because it returns empty string for unknown
+  // paths.
+  EXPECT_EQ(r->Rlocation("unknown"), "");
+}
 
 TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
   unique_ptr<MockFile> mf(
@@ -199,6 +277,49 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
   }
 }
 
+TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromDirectoryNextToBinary) {
+  // We create a directory as a side-effect of creating a mock file.
+  unique_ptr<MockFile> mf(
+      MockFile::Create(string("foo" LINE() ".runfiles/dummy")));
+  string argv0(mf->Path().substr(
+      0, mf->Path().size() - string(".runfiles/dummy").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(
+      TestOnly_CreateRunfiles(argv0, kEnvWithTestSrcdir, &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+
+  EXPECT_EQ(r->Rlocation("a/b"), argv0 + ".runfiles/a/b");
+  // We know it's directory-based because it returns some result for unknown
+  // paths.
+  EXPECT_EQ(r->Rlocation("unknown"), argv0 + ".runfiles/unknown");
+}
+
+TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
+  string error;
+  unique_ptr<Runfiles> r(
+      TestOnly_CreateRunfiles("ignore-argv0",
+                              [](const string& key) {
+                                if (key == "RUNFILES_DIR") {
+                                  return string("runfiles/dir");
+                                } else if (key == "TEST_SRCDIR") {
+                                  return string("always ignored");
+                                } else {
+                                  return string();
+                                }
+                              },
+                              &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+
+  EXPECT_EQ(r->Rlocation("a/b"), "runfiles/dir/a/b");
+  EXPECT_EQ(r->Rlocation("foo"), "runfiles/dir/foo");
+  EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
+  EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
+  EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
+}
+
 TEST_F(RunfilesTest, DirectoryBasedRunfilesEnvVars) {
   string error;
   unique_ptr<Runfiles> r(
@@ -217,6 +338,47 @@ TEST_F(RunfilesTest, FailsToCreateManifestBasedBecauseManifestDoesNotExist) {
       Runfiles::CreateManifestBased("non-existent-file", &error));
   ASSERT_EQ(r, nullptr);
   EXPECT_NE(error.find("cannot open runfiles manifest"), string::npos);
+}
+
+TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
+  unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE())));
+  EXPECT_TRUE(mf != nullptr);
+
+  string error;
+  unique_ptr<Runfiles> r(
+      TestOnly_CreateRunfiles("ignore-argv0",
+                              [&mf](const string& key) {
+                                if (key == "RUNFILES_MANIFEST_FILE") {
+                                  return mf->Path();
+                                } else if (key == "RUNFILES_DIR") {
+                                  return string("whatever");
+                                } else if (key == "TEST_SRCDIR") {
+                                  return string("always ignored");
+                                } else {
+                                  return string();
+                                }
+                              },
+                              &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+
+  r.reset(TestOnly_CreateRunfiles("ignore-argv0",
+                                  [](const string& key) {
+                                    if (key == "RUNFILES_DIR") {
+                                      return string("whatever");
+                                    } else if (key == "TEST_SRCDIR") {
+                                      return string("always ignored");
+                                    } else {
+                                      return string();
+                                    }
+                                  },
+                                  &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
+
+  r.reset(TestOnly_CreateRunfiles("ignore-argv0", kEnvWithTestSrcdir, &error));
+  ASSERT_EQ(r, nullptr);
+  EXPECT_NE(error.find("cannot find runfiles"), string::npos);
 }
 
 TEST_F(RunfilesTest, MockFileTest) {
