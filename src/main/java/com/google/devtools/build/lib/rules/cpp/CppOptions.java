@@ -322,7 +322,7 @@ public class CppOptions extends FragmentOptions {
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "When building a target //a:a, generate a header map containing all of the headrs that //a:a depends "
+        "When building a target //a:a, generate a header map containing all of the headers that //a:a depends "
             + "on (if header processing is enabled for the toolchain)."
   )
   public boolean experimentalEnableImplicitHeaderMaps;

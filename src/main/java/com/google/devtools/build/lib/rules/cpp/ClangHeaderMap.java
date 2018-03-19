@@ -304,7 +304,6 @@ public final class ClangHeaderMap {
     return hash;
   }
 
-  // Utils from Guava ( FIXME: use those utils )
   public static String toLowerCaseAscii(String string) {
     int length = string.length();
     StringBuilder builder = new StringBuilder(length);

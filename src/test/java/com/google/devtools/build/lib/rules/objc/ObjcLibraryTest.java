@@ -1820,7 +1820,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")",
         "objc_library(",
         "   name = 'dep_libb',",
-        "   header_namespace = 'some',",
+        "   include_prefix = 'some',",
         "   hdrs = ['headerb.h'],",
         ")");
 

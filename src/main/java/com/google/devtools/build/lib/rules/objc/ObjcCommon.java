@@ -68,34 +68,26 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
-
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.HeaderMapAction;
 import com.google.devtools.build.lib.rules.cpp.HeaderMapInfo;
 import com.google.devtools.build.lib.rules.cpp.HeaderMapInfoProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
-
 
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.HashMap;
 import java.util.Map;
-/**
-import com.google.devtools.build.lib.actions.Root;
-*/
+import java.util.Set;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -368,16 +360,19 @@ public final class ObjcCommon {
       HeaderMapInfo.Builder headerMapInfo = new HeaderMapInfo.Builder();
       String includePrefix;
       if (ruleContext.attributes().has("include_prefix")) {
-         includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
+        includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
       } else {
-         includePrefix = ruleContext.getRule().getName();
+        includePrefix = ruleContext.getRule().getName();
       }
 
       headerMapInfo.setIncludePrefix(includePrefix);
       headerMapInfo.addIncludePrefixdHeaders(hdrs);
 
-      // TODO flatten_virtual_headers
-      headerMapInfo.addHeaders(hdrs);
+      boolean flattenVirtualHeaders = ruleContext.attributes().has("flatten_virtual_headers") &&
+          ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
+      if (flattenVirtualHeaders) {
+        headerMapInfo.addHeaders(hdrs);
+      }
 
       if (ruleContext.attributes().has("deps")){
         // Propagate all of the dep sources

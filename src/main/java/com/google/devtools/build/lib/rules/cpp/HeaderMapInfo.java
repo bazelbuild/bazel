@@ -38,8 +38,8 @@ public class HeaderMapInfo {
     /**
      * Signals that the build uses headers.
      *
-     * If `flatten_virtual_headers` is set, the headers will be mapped to
-     * "Header.h" -> path/to/Header.
+     * This is used when `flatten_virtual_headers` is set: these headers will be
+     * mapped to "Header.h" -> path/to/Header.
      */
     public Builder addHeaders(Iterable<Artifact> headers) {
       this.basicHeaders.addAll(headers);
@@ -77,12 +77,10 @@ public class HeaderMapInfo {
       // If there is no includePrefix, don't add a slash
       if (includePrefix.equals("") == false) {
         for (Artifact hdr : includePrefixdHeaders.build()) {
+          // Set the include prefix:
+          // IncludePrefix/Header.h -> Path/To/Header.h
           String includePrefixdKey = includePrefix + "/" + hdr.getPath().getBaseName();
           inputMap.put(includePrefixdKey, hdr.getExecPath().getPathString());
-        }
-      } else {
-        for (Artifact hdr : includePrefixdHeaders.build()) {
-          inputMap.put(hdr.getPath().getBaseName(), hdr.getExecPath().getPathString());
         }
       }
       return new HeaderMapInfo(ImmutableMap.copyOf(inputMap));

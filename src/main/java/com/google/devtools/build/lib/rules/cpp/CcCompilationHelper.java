@@ -24,6 +24,8 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -70,10 +72,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
-
-
-import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that
@@ -1039,6 +1037,7 @@ public final class CcCompilationHelper {
       }
     }
 
+    // Setup Experimental implicit header maps if needed
     if (ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
       ImmutableList.Builder<Artifact> headerMapsBuilder = ImmutableList.builder();
       String targetName = ruleContext.getTarget().getName();
@@ -1067,7 +1066,7 @@ public final class CcCompilationHelper {
 
       // Construct the dep headermap.
       // This header map additionally contains include prefixed headers so that a user
-      // can import headers of the form Namespace/Header.h from headers within
+      // can import headers of the form IncludePrefix/Header.h from headers within
       // the current target.
       HeaderMapInfo.Builder depHeaderMapInfo = new HeaderMapInfo.Builder();
       depHeaderMapInfo.setIncludePrefix(includePrefix);
@@ -1075,10 +1074,14 @@ public final class CcCompilationHelper {
       depHeaderMapInfo.addIncludePrefixdHeaders(privateHeaders);
       depHeaderMapInfo.addIncludePrefixdHeaders(publicTextualHeaders);
 
-      // TODO flatten_virtual_headers
-      depHeaderMapInfo.addHeaders(publicTextualHeaders);
-      depHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
-      depHeaderMapInfo.addHeaders(privateHeaders);
+      // Flatten virtual headers into the headermap.
+      boolean flattenVirtualHeaders = ruleContext.attributes().has("flatten_virtual_headers") &&
+          ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
+      if (flattenVirtualHeaders) {
+        depHeaderMapInfo.addHeaders(publicTextualHeaders);
+        depHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
+        depHeaderMapInfo.addHeaders(privateHeaders);
+      }
 
       // Merge all of the header map info from deps. The headers within a given
       // target have precedence over over dep headers ( See
@@ -1103,10 +1106,9 @@ public final class CcCompilationHelper {
       // the working directory ( i.e. exec root ) in this form
       // and it must be after including the header map files
       ccCompilationInfoBuilder.addIncludeDir(PathFragment.create("."));
-	    ImmutableList headerMaps = headerMapsBuilder.build();
+      ImmutableList headerMaps = headerMapsBuilder.build();
       ccCompilationInfoBuilder.setHeaderMaps(headerMaps);
     }
-
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
       if (cppModuleMap == null) {
