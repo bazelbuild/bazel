@@ -245,6 +245,11 @@ public class GraphTester {
       return this;
     }
 
+    public TestFunction setBuilderUnconditionally(SkyFunction builder) {
+      this.builder = builder;
+      return this;
+    }
+
     public TestFunction setHasTransientError(boolean hasError) {
       this.hasTransientError = hasError;
       return this;
