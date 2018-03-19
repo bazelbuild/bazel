@@ -251,14 +251,14 @@ public final class ClassCache implements Closeable {
     @Override
     public FieldVisitor visitField(
         int access, String name, String desc, String signature, Object value) {
-      members.add(MemberInfo.create(internalName, name, desc));
+      members.add(MemberInfo.create(name, desc));
       return null;
     }
 
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
-      members.add(MemberInfo.create(internalName, name, desc));
+      members.add(MemberInfo.create(name, desc));
       return null;
     }
 

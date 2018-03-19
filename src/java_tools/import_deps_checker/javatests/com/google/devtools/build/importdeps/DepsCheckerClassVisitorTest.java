@@ -16,7 +16,7 @@ package com.google.devtools.build.importdeps;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -80,19 +80,19 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
     assertThat(collector.getSortedMissingClassInternalNames()).isEmpty();
     assertThat(collector.getSortedMissingMembers())
         .containsExactly(
-            MemberInfo.create(
+            MissingMember.create(
                 "com/google/devtools/build/importdeps/testdata/Library$Class1",
                 "I",
                 "Lcom/google/devtools/build/importdeps/testdata/Library$Class1;"),
-            MemberInfo.create(
+            MissingMember.create(
                 "com/google/devtools/build/importdeps/testdata/Library$Class3",
                 "field",
                 "Lcom/google/devtools/build/importdeps/testdata/Library$Class4;"),
-            MemberInfo.create(
+            MissingMember.create(
                 "com/google/devtools/build/importdeps/testdata/Library$Class4",
                 "createClass5",
                 "()Lcom/google/devtools/build/importdeps/testdata/Library$Class5;"),
-            MemberInfo.create(
+            MissingMember.create(
                 "com/google/devtools/build/importdeps/testdata/Library$Class5",
                 "create",
                 "(Lcom/google/devtools/build/importdeps/testdata/Library$Class7;)"
@@ -111,9 +111,10 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
     ResultCollector resultCollector = new ResultCollector();
     try (ClassCache cache = new ClassCache(ImmutableList.copyOf(classpath));
         ZipFile zipFile = new ZipFile(clientJar.toFile())) {
-
-      AbstractClassEntryState state = cache.getClassState("java/lang/invoke/LambdaMetafactory");
-      System.out.println(state);
+      assertThat(cache.getClassState("java/lang/invoke/LambdaMetafactory").isExistingState())
+          .isTrue();
+      AbstractClassEntryState state = cache.getClassState("java/lang/Enum");
+      assertThat(state.isExistingState()).isTrue();
       for (String clientClass : clientClasses) {
         ZipEntry entry = zipFile.getEntry(clientClass + ".class");
         try (InputStream classStream = zipFile.getInputStream(entry)) {

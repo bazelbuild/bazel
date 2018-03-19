@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
-import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import java.io.Closeable;
 import java.io.IOError;
 import java.io.IOException;
@@ -76,6 +76,12 @@ public final class ImportDepsChecker implements Closeable {
                     reader.accept(checker, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                   } catch (IOException e) {
                     throw new IOError(e);
+                  } catch (RuntimeException e) {
+                    System.err.printf(
+                        "A runtime exception occurred when processing the class %s "
+                            + "in the zip file %s\n",
+                        name, path);
+                    throw e;
                   }
                 });
       }
@@ -116,8 +122,8 @@ public final class ImportDepsChecker implements Closeable {
                   .collect(Collectors.joining(" -> ")))
           .append('\n');
     }
-    ImmutableList<MemberInfo> missingMembers = resultCollector.getSortedMissingMembers();
-    for (MemberInfo missing : missingMembers) {
+    ImmutableList<MissingMember> missingMembers = resultCollector.getSortedMissingMembers();
+    for (MissingMember missing : missingMembers) {
       builder
           .append("Missing member '")
           .append(missing.memberName())

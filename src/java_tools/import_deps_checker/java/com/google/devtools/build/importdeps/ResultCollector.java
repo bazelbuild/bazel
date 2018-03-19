@@ -16,6 +16,8 @@ package com.google.devtools.build.importdeps;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
@@ -28,7 +30,7 @@ public class ResultCollector {
 
   private final HashSet<String> missingClasss = new HashSet<>();
   private final HashMap<String, IncompleteState> incompleteClasses = new HashMap<>();
-  private final HashSet<MemberInfo> missingMembers = new HashSet<>();
+  private final HashSet<MissingMember> missingMembers = new HashSet<>();
 
   public ResultCollector() {}
 
@@ -57,8 +59,8 @@ public class ResultCollector {
     return missingClasss.isEmpty() && incompleteClasses.isEmpty() && missingMembers.isEmpty();
   }
 
-  public void addMissingMember(MemberInfo member) {
-    missingMembers.add(member);
+  public void addMissingMember(String owner, MemberInfo member) {
+    missingMembers.add(MissingMember.create(owner, member));
   }
 
   public ImmutableList<String> getSortedMissingClassInternalNames() {
@@ -70,7 +72,44 @@ public class ResultCollector {
         Comparator.comparing(a -> a.classInfo().get().internalName()), incompleteClasses.values());
   }
 
-  public ImmutableList<MemberInfo> getSortedMissingMembers() {
+  public ImmutableList<MissingMember> getSortedMissingMembers() {
     return ImmutableList.sortedCopyOf(missingMembers);
+  }
+
+  /**
+   * A missing member on the classpath. This class does not contain the member name and description,
+   * but also the owner of the member.
+   */
+  @AutoValue
+  public abstract static class MissingMember implements Comparable<MissingMember> {
+
+    public static MissingMember create(String owner, String memberName, String descriptor) {
+      return create(owner, MemberInfo.create(memberName, descriptor));
+    }
+
+    public static MissingMember create(String owner, MemberInfo member) {
+      return new AutoValue_ResultCollector_MissingMember(owner, member);
+    }
+
+    public abstract String owner();
+
+    public abstract MemberInfo member();
+
+    public final String memberName() {
+      return member().memberName();
+    }
+
+    public final String descriptor() {
+      return member().descriptor();
+    }
+
+    @Override
+    public int compareTo(MissingMember other) {
+      return ComparisonChain.start()
+          .compare(this.owner(), other.owner())
+          .compare(this.memberName(), other.memberName())
+          .compare(this.descriptor(), other.descriptor())
+          .result();
+    }
   }
 }

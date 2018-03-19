@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Strings;
-import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -60,17 +59,13 @@ public abstract class ClassInfo {
 
   /** A member is either a method or a field. */
   @AutoValue
-  public abstract static class MemberInfo implements Comparable<MemberInfo> {
+  public abstract static class MemberInfo {
 
-    public static MemberInfo create(String owner, String memberName, String descriptor) {
-      checkArgument(!Strings.isNullOrEmpty(owner), "Empty owner name: %s", owner);
+    public static MemberInfo create(String memberName, String descriptor) {
       checkArgument(!Strings.isNullOrEmpty(memberName), "Empty method name: %s", memberName);
       checkArgument(!Strings.isNullOrEmpty(descriptor), "Empty descriptor: %s", descriptor);
-      return new AutoValue_ClassInfo_MemberInfo(owner, memberName, descriptor);
+      return new AutoValue_ClassInfo_MemberInfo(memberName, descriptor);
     }
-
-    /** The declaring class of this member. */
-    public abstract String owner();
 
     /** The name of the member. */
     public abstract String memberName();
@@ -81,14 +76,5 @@ public abstract class ClassInfo {
     @Memoized
     @Override
     public abstract int hashCode();
-
-    @Override
-    public int compareTo(MemberInfo other) {
-      return ComparisonChain.start()
-          .compare(this.owner(), other.owner())
-          .compare(this.memberName(), other.memberName())
-          .compare(this.descriptor(), other.descriptor())
-          .result();
-    }
   }
 }
