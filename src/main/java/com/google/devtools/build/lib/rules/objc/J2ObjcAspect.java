@@ -111,7 +111,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       LabelLateBoundDefault.fromTargetConfiguration(
           J2ObjcConfiguration.class,
           null,
-          (rule, attributes, j2objcConfig) -> j2objcConfig.deadCodeReport().orNull());
+          (rule, attributes, j2objcConfig) -> j2objcConfig.deadCodeReport());
 
   /** Adds additional attribute aspects and attributes to the given AspectDefinition.Builder. */
   protected AspectDefinition.Builder addAdditionalAttributes(AspectDefinition.Builder builder) {

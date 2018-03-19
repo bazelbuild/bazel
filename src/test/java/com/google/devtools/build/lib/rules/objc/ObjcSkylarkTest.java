@@ -25,9 +25,11 @@ import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -525,6 +527,41 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(iosSimulatorVersion).isEqualTo("8.4");
     assertThat(signingCertificateName).isEqualTo("'Apple Developer'");
     assertThat(generateDsym).isTrue();
+  }
+
+  @Test
+  public void testSkylarkCanAccessJ2objcConfiguration() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/objc_rules.bzl",
+        "def test_rule_impl(ctx):",
+        "   dead_code_report = ctx.fragments.j2objc.dead_code_report",
+        "   return struct(",
+        "      dead_code_report=dead_code_report,",
+        "   )",
+        "test_rule = rule(",
+        "    implementation = test_rule_impl,",
+        "    fragments = ['j2objc']",
+        ")");
+
+    scratch.file(
+        "examples/objc_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:objc_rules.bzl', 'test_rule')",
+        "test_rule(",
+        "   name='my_target',",
+        ")");
+
+    useConfiguration();
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
+    assertThat(skylarkTarget.get("dead_code_report")).isEqualTo(Runtime.NONE);
+
+    useConfiguration("--j2objc_dead_code_report=//foo:bar");
+    skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
+
+    @SuppressWarnings("unchecked")
+    Label label = (Label) skylarkTarget.get("dead_code_report");
+    assertThat(label.getCanonicalForm()).isEqualTo("//foo:bar");
   }
 
   @Test
