@@ -420,21 +420,21 @@ public class BazelCppRuleClasses {
            <li> MOSTLY STATIC, in which all user libraries are linked statically (if a static
              version is available), but where system libraries are linked dynamically, e.g.
              "<code>gcc foo.o libfoo.a libbaz.a -lm</code>".<br/>
-             This mode is enabled by specifying <code>linkstatic=1</code>.</li>
+             This mode is enabled by specifying <code>linkstatic=True</code>.</li>
            <li> DYNAMIC, in which all libraries are linked dynamically (if a dynamic version is
              available), e.g. "<code>gcc foo.o libfoo.so libbaz.so -lm</code>".<br/>
-             This mode is enabled by specifying <code>linkstatic=0</code>.</li>
+             This mode is enabled by specifying <code>linkstatic=False</code>.</li>
            </ul>
            <p>
            The <code>linkstatic</code> attribute has a different meaning if used on a
            <a href="${link cc_library}"><code>cc_library()</code></a> rule.
-           For a C++ library, <code>linkstatic=1</code> indicates that only
-           static linking is allowed, so no <code>.so</code> will be produced. linkstatic=0 does not
-           prevent static libraries from being created. The attribute is meant to control the
+           For a C++ library, <code>linkstatic=True</code> indicates that only
+           static linking is allowed, so no <code>.so</code> will be produced. linkstatic=False does
+           not prevent static libraries from being created. The attribute is meant to control the
            creation of dynamic libraries.
            </p>
            <p>
-           If <code>linkstatic=0</code>, then the build tool will create symlinks to
+           If <code>linkstatic=False</code>, then the build tool will create symlinks to
            depended-upon shared libraries in the <code>*.runfiles</code> area.
            </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -560,7 +560,7 @@ public class BazelCppRuleClasses {
             which is an empty library so the binary ends up using libc malloc.
             This label must refer to a <code>cc_library</code>. If compilation is for a non-C++
             rule, this option has no effect. The value of this attribute is ignored if
-            <code>linkshared=1</code> is specified.
+            <code>linkshared=True</code> is specified.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(

@@ -47,7 +47,7 @@ public final class BazelCcBinaryRule implements RuleDefinition {
         .setImplicitOutputsFunction(BazelCppRuleClasses.CC_BINARY_IMPLICIT_OUTPUTS)
         /*<!-- #BLAZE_RULE(cc_binary).ATTRIBUTE(linkshared) -->
         Create a shared library.
-        To enable this attribute, include <code>linkshared=1</code> in your rule. By default
+        To enable this attribute, include <code>linkshared=True</code> in your rule. By default
         this option is off. If you enable it, you must name your binary
         <code>lib<i>foo</i>.so</code> (or whatever is the naming convention of libraries on the
         target platform) for some sensible value of <i>foo</i>.
@@ -63,9 +63,9 @@ public final class BazelCcBinaryRule implements RuleDefinition {
           instead.
         </p>
         <p>
-          If you specify both <code>linkopts=['-static']</code> and <code>linkshared=1</code>,
+          If you specify both <code>linkopts=['-static']</code> and <code>linkshared=True</code>,
           you get a single completely self-contained unit. If you specify both
-          <code>linkstatic=1</code> and <code>linkshared=1</code>, you get a single, mostly
+          <code>linkstatic=1</code> and <code>linkshared=True</code>, you get a single, mostly
           self-contained unit.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
