@@ -1058,25 +1058,27 @@ public final class CcCompilationHelper {
       ccCompilationInfoBuilder.addQuoteIncludeDir(internalHeaderMap.getExecPath());
       headerMapsBuilder.add(internalHeaderMap);
 
-      String namespace;
-      if (ruleContext.attributes().has("header_namespace")) {
-         namespace = ruleContext.attributes().get("header_namespace", Type.STRING);
+      String includePrefix;
+      if (ruleContext.attributes().has("include_prefix")) {
+         includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
       } else {
-         namespace = ruleContext.getRule().getName();
+         includePrefix = ruleContext.getRule().getName();
       }
 
       // Construct the dep headermap.
-      // This header map additionally contains namespaced headers so that a user
+      // This header map additionally contains include prefixed headers so that a user
       // can import headers of the form Namespace/Header.h from headers within
       // the current target.
       HeaderMapInfo.Builder depHeaderMapInfo = new HeaderMapInfo.Builder();
-      depHeaderMapInfo.setNamespace(namespace);
-      depHeaderMapInfo.addNamespacedHeaders(publicHeaders.getHeaders());
-      depHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
-      depHeaderMapInfo.addNamespacedHeaders(privateHeaders);
-      depHeaderMapInfo.addHeaders(privateHeaders);
-      depHeaderMapInfo.addNamespacedHeaders(publicTextualHeaders);
+      depHeaderMapInfo.setIncludePrefix(includePrefix);
+      depHeaderMapInfo.addIncludePrefixdHeaders(publicHeaders.getHeaders());
+      depHeaderMapInfo.addIncludePrefixdHeaders(privateHeaders);
+      depHeaderMapInfo.addIncludePrefixdHeaders(publicTextualHeaders);
+
+      // TODO flatten_virtual_headers
       depHeaderMapInfo.addHeaders(publicTextualHeaders);
+      depHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
+      depHeaderMapInfo.addHeaders(privateHeaders);
 
       // Merge all of the header map info from deps. The headers within a given
       // target have precedence over over dep headers ( See

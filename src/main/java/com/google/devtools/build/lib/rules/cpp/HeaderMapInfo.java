@@ -25,25 +25,30 @@ public class HeaderMapInfo {
   /** Builder for HeaderMapInfo */
   public static class Builder {
     private final ImmutableList.Builder<Artifact> basicHeaders = ImmutableList.builder();
-    private final ImmutableList.Builder<Artifact> namespacedHeaders = ImmutableList.builder();
+    private final ImmutableList.Builder<Artifact> includePrefixdHeaders = ImmutableList.builder();
     private final ImmutableList.Builder<HeaderMapInfo> mergedHeaderMapInfos = ImmutableList.builder();
-    private String namespace = "";
+    private String includePrefix = "";
 
-    /** Set the namespace. */
-    public Builder setNamespace(String namespace) {
-      this.namespace = namespace;
+    /** Set include prefix. */
+    public Builder setIncludePrefix(String includePrefix) {
+      this.includePrefix = includePrefix;
       return this;
     }
 
-    /** Signals that the build uses headers. */
+    /**
+     * Signals that the build uses headers.
+     *
+     * If `flatten_virtual_headers` is set, the headers will be mapped to
+     * "Header.h" -> path/to/Header.
+     */
     public Builder addHeaders(Iterable<Artifact> headers) {
       this.basicHeaders.addAll(headers);
       return this;
     }
 
-    /** Signals that the build uses headers under the namespace. */
-    public Builder addNamespacedHeaders(Iterable<Artifact> headers) {
-      this.namespacedHeaders.addAll(headers);
+    /** Signals that the build uses headers under the includePrefix. */
+    public Builder addIncludePrefixdHeaders(Iterable<Artifact> headers) {
+      this.includePrefixdHeaders.addAll(headers);
       return this;
     }
 
@@ -69,14 +74,14 @@ public class HeaderMapInfo {
         inputMap.put(hdr.getPath().getBaseName(), hdr.getExecPath().getPathString());
       }
 
-      // If there is no namespace, don't add a slash
-      if (namespace.equals("") == false) {
-        for (Artifact hdr : namespacedHeaders.build()) {
-          String namespacedKey = namespace + "/" + hdr.getPath().getBaseName();
-          inputMap.put(namespacedKey, hdr.getExecPath().getPathString());
+      // If there is no includePrefix, don't add a slash
+      if (includePrefix.equals("") == false) {
+        for (Artifact hdr : includePrefixdHeaders.build()) {
+          String includePrefixdKey = includePrefix + "/" + hdr.getPath().getBaseName();
+          inputMap.put(includePrefixdKey, hdr.getExecPath().getPathString());
         }
       } else {
-        for (Artifact hdr : namespacedHeaders.build()) {
+        for (Artifact hdr : includePrefixdHeaders.build()) {
           inputMap.put(hdr.getPath().getBaseName(), hdr.getExecPath().getPathString());
         }
       }

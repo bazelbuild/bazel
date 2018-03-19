@@ -366,16 +366,18 @@ public final class ObjcCommon {
 
     public HeaderMapInfoProvider getHeaderMapInfoProvider(RuleContext ruleContext, ImmutableList<Artifact>hdrs){
       HeaderMapInfo.Builder headerMapInfo = new HeaderMapInfo.Builder();
-      String namespace;
-      if (ruleContext.attributes().has("header_namespace")) {
-         namespace = ruleContext.attributes().get("header_namespace", Type.STRING);
+      String includePrefix;
+      if (ruleContext.attributes().has("include_prefix")) {
+         includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
       } else {
-         namespace = ruleContext.getRule().getName();
+         includePrefix = ruleContext.getRule().getName();
       }
 
-      headerMapInfo.setNamespace(namespace);
+      headerMapInfo.setIncludePrefix(includePrefix);
+      headerMapInfo.addIncludePrefixdHeaders(hdrs);
+
+      // TODO flatten_virtual_headers
       headerMapInfo.addHeaders(hdrs);
-      headerMapInfo.addNamespacedHeaders(hdrs);
 
       if (ruleContext.attributes().has("deps")){
         // Propagate all of the dep sources
