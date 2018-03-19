@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.MissingState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,9 +51,9 @@ public class ResultCollectorTest {
     assertThat(collector.getSortedMissingClassInternalNames()).containsExactly("java.lang.String");
     assertThat(collector.getSortedMissingMembers()).isEmpty();
 
-    collector.addMissingMember(MemberInfo.create("java/lang/Object", "field", "I"));
+    collector.addMissingMember("java/lang/Object", MemberInfo.create("field", "I"));
     assertThat(collector.getSortedMissingMembers())
-        .containsExactly(MemberInfo.create("java/lang/Object", "field", "I"));
+        .containsExactly(MissingMember.create("java/lang/Object", "field", "I"));
     assertThat(collector.getSortedMissingClassInternalNames()).containsExactly("java.lang.String");
   }
 
@@ -77,5 +78,36 @@ public class ResultCollectorTest {
     assertThat(collector.getSortedMissingClassInternalNames())
         .containsExactly("java.lang.String", "java.lang.Integer", "java.lang.Object");
     assertThat(collector.getSortedMissingMembers()).isEmpty();
+  }
+
+  @Test
+  public void testMissingMember() {
+    String owner = "owner";
+    String name = "name";
+    String desc = "desc";
+    MissingMember member = MissingMember.create(owner, name, desc);
+    assertThat(member.owner()).isEqualTo(owner);
+    assertThat(member.memberName()).isEqualTo(name);
+    assertThat(member.descriptor()).isEqualTo(desc);
+    assertThat(member.member()).isEqualTo(MemberInfo.create(name, desc));
+
+    MissingMember member2 = MissingMember.create(owner, MemberInfo.create(name, desc));
+    assertThat(member2).isEqualTo(member);
+  }
+
+  @Test
+  public void testMemberComparison() {
+    MissingMember member1 = MissingMember.create("A", MemberInfo.create("B", "C"));
+    MissingMember member2 = MissingMember.create("A", MemberInfo.create("B", "C"));
+    assertThat(member1.compareTo(member2)).isEqualTo(0);
+
+    MissingMember member3 = MissingMember.create("B", MemberInfo.create("B", "C"));
+    assertThat(member1.compareTo(member3)).isEqualTo(-1);
+    assertThat(member3.compareTo(member1)).isEqualTo(1);
+
+    MissingMember member4 = MissingMember.create("A", MemberInfo.create("C", "C"));
+    assertThat(member1.compareTo(member4)).isEqualTo(-1);
+
+    assertThat(member3.compareTo(member4)).isEqualTo(1);
   }
 }

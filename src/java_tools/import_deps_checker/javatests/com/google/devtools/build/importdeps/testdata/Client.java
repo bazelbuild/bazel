@@ -57,6 +57,15 @@ public class Client<@TypeAnnotation T> extends Library implements LibraryInterfa
     Class8[][] array = new Class8[10][10];
     Class9[] array2 = new Class9[10];
     array2[0] = new Class10();
+    Object[] copy = array.clone();
+    array = (Class8[][]) copy;
+    System.out.println(array.clone().length);
+  }
+
+  public void testEnums() {
+    EnumTest a = EnumTest.A;
+    System.out.println(a.ordinal());
+    System.out.println(a.name());
   }
 
   /** An inner annotation. */
@@ -64,4 +73,10 @@ public class Client<@TypeAnnotation T> extends Library implements LibraryInterfa
   @Target(ElementType.TYPE)
   @AnnotationAnnotation
   public @interface NestedAnnotation {}
+
+  public enum EnumTest {
+    A,
+    B,
+    C
+  }
 }

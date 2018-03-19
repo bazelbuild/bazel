@@ -32,7 +32,7 @@ public class LazyClassEntryStateTest {
 
   public static final String LIST_CLASS_NAME = "java/util/List";
   public static final ImmutableSet<MemberInfo> METHOD_LIST =
-      ImmutableSet.of(MemberInfo.create(LIST_CLASS_NAME, "hashCode", "()I"));
+      ImmutableSet.of(MemberInfo.create("hashCode", "()I"));
   public static final ClassInfo LIST_CLASS_INFO =
       ClassInfo.create(LIST_CLASS_NAME, ImmutableList.of(), METHOD_LIST);
 
@@ -51,8 +51,7 @@ public class LazyClassEntryStateTest {
     ClassInfo classInfo = state.classInfo().get();
     assertThat(classInfo.internalName()).isEqualTo("java/util/List");
     assertThat(classInfo.declaredMembers()).hasSize(1);
-    assertThat(classInfo.declaredMembers())
-        .containsExactly(MemberInfo.create("java/util/List", "hashCode", "()I"));
+    assertThat(classInfo.declaredMembers()).containsExactly(MemberInfo.create("hashCode", "()I"));
   }
 
   @Test
@@ -74,8 +73,7 @@ public class LazyClassEntryStateTest {
     ClassInfo classInfo = state.classInfo().get();
     assertThat(classInfo.internalName()).isEqualTo("java/util/List");
     assertThat(classInfo.declaredMembers()).hasSize(1);
-    assertThat(classInfo.declaredMembers())
-        .containsExactly(MemberInfo.create("java/util/List", "hashCode", "()I"));
+    assertThat(classInfo.declaredMembers()).containsExactly(MemberInfo.create("hashCode", "()I"));
 
     ImmutableList<String> failurePath = state.getResolutionFailurePath();
     assertThat(failurePath).hasSize(1);

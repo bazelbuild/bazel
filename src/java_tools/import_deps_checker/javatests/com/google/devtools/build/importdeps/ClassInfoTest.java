@@ -27,8 +27,8 @@ import org.junit.runners.JUnit4;
 public class ClassInfoTest {
 
   public static final String JAVA_LANG_OBJECT = "java/lang/Object";
-  private final MemberInfo hashCodeMethod = MemberInfo.create(JAVA_LANG_OBJECT, "hashCode", "()I");
-  private final MemberInfo sizeMethod = MemberInfo.create(JAVA_LANG_OBJECT, "clear", "()V");
+  private final MemberInfo hashCodeMethod = MemberInfo.create("hashCode", "()I");
+  private final MemberInfo sizeMethod = MemberInfo.create("clear", "()V");
 
   private final ClassInfo objectClass =
       ClassInfo.create(JAVA_LANG_OBJECT, ImmutableList.of(), ImmutableSet.of(hashCodeMethod));
@@ -39,23 +39,22 @@ public class ClassInfoTest {
 
   @Test
   public void testMemberInfo() {
-    MemberInfo memberInfo = MemberInfo.create(JAVA_LANG_OBJECT, "a", "I");
+    MemberInfo memberInfo = MemberInfo.create("a", "I");
     assertThat(memberInfo.memberName()).isEqualTo("a");
     assertThat(memberInfo.descriptor()).isEqualTo("I");
-    assertThat(memberInfo).isEqualTo(MemberInfo.create("java/lang/Object", "a", "I"));
+    assertThat(memberInfo).isEqualTo(MemberInfo.create("a", "I"));
 
-    assertThat(hashCodeMethod).isEqualTo(MemberInfo.create("java/lang/Object", "hashCode", "()I"));
-    assertThat(sizeMethod).isEqualTo(MemberInfo.create("java/lang/Object", "clear", "()V"));
+    assertThat(hashCodeMethod).isEqualTo(MemberInfo.create("hashCode", "()I"));
+    assertThat(sizeMethod).isEqualTo(MemberInfo.create("clear", "()V"));
   }
 
   @Test
   public void testClassInfoCorrectlySet() {
     assertThat(objectClass.internalName()).isEqualTo("java/lang/Object");
     assertThat(objectClass.declaredMembers())
-        .containsExactly(MemberInfo.create("java/lang/Object", "hashCode", "()I"))
+        .containsExactly(MemberInfo.create("hashCode", "()I"))
         .inOrder();
-    assertThat(objectClass.containsMember(MemberInfo.create("java/lang/Object", "hashCode", "()I")))
-        .isTrue();
+    assertThat(objectClass.containsMember(MemberInfo.create("hashCode", "()I"))).isTrue();
 
     assertThat(listClass.internalName()).isEqualTo("java/util/List");
     assertThat(listClass.declaredMembers()).containsExactly(sizeMethod);
@@ -67,16 +66,11 @@ public class ClassInfoTest {
     ClassInfo parent = objectClass;
     ClassInfo child = listClass;
     assertThat(child.superClasses()).contains(parent);
-    assertThat(parent.containsMember(MemberInfo.create("java/lang/Object", "hashCode", "()I")))
-        .isTrue();
-    assertThat(parent.containsMember(MemberInfo.create("java/lang/Object", "size", "()I")))
-        .isFalse();
-    assertThat(parent.containsMember(MemberInfo.create("java/lang/Object", "clear", "()V")))
-        .isFalse();
+    assertThat(parent.containsMember(MemberInfo.create("hashCode", "()I"))).isTrue();
+    assertThat(parent.containsMember(MemberInfo.create("size", "()I"))).isFalse();
+    assertThat(parent.containsMember(MemberInfo.create("clear", "()V"))).isFalse();
 
-    assertThat(child.containsMember(MemberInfo.create("java/lang/Object", "hashCode", "()I")))
-        .isTrue();
-    assertThat(child.containsMember(MemberInfo.create("java/lang/Object", "clear", "()V")))
-        .isTrue();
+    assertThat(child.containsMember(MemberInfo.create("hashCode", "()I"))).isTrue();
+    assertThat(child.containsMember(MemberInfo.create("clear", "()V"))).isTrue();
   }
 }
