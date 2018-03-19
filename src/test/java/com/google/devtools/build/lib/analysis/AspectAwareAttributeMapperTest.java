@@ -43,7 +43,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
   @Before
   public final void createMapper() throws Exception {
     ConfiguredTargetAndData ctad =
-        scratchConfiguredTargetAndTarget(
+        scratchConfiguredTargetAndData(
             "foo",
             "myrule",
             "cc_binary(",

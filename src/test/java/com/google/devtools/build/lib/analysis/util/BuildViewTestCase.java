@@ -530,12 +530,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * used; instead tests should only assert on properties of the exposed provider instances and / or
    * the action graph.
    */
-  protected Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
+  protected final Collection<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
       throws Exception {
     return view.getDirectPrerequisitesForTesting(reporter, target, masterConfig);
   }
 
-  protected ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
+  protected final Collection<ConfiguredTargetAndData> getDirectPrerequisites(
+      ConfiguredTargetAndData ctad) throws Exception {
+    return view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+        reporter, ctad, masterConfig);
+  }
+
+  protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
       throws Exception {
     Label candidateLabel = Label.parseAbsolute(label);
     for (ConfiguredTarget candidate : getDirectPrerequisites(target)) {
@@ -544,6 +550,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
     }
 
+    return null;
+  }
+
+  protected final ConfiguredTargetAndData getConfiguredTargetAndDataDirectPrerequisite(
+      ConfiguredTargetAndData ctad, String label) throws Exception {
+    Label candidateLabel = Label.parseAbsolute(label);
+    for (ConfiguredTargetAndData candidate : getDirectPrerequisites(ctad)) {
+      if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
+        return candidate;
+      }
+    }
     return null;
   }
 
@@ -764,9 +781,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /**
    * Returns a ConfiguredTargetAndData for the specified label, using the given build configuration.
    */
-  protected ConfiguredTargetAndData getConfiguredTargetAndTarget(
+  protected ConfiguredTargetAndData getConfiguredTargetAndData(
       Label label, BuildConfiguration config) {
-    return view.getConfiguredTargetAndTargetForTesting(reporter, label, config);
+    return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
 
   /**
@@ -774,9 +791,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * target with a top-level configuration transition, that transition is applied to the given
    * config in the ConfiguredTargetAndData's ConfiguredTarget.
    */
-  public ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)
+  public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
       throws LabelSyntaxException {
-    return getConfiguredTargetAndTarget(Label.parseAbsolute(label), targetConfig);
+    return getConfiguredTargetAndData(Label.parseAbsolute(label), targetConfig);
   }
 
   /**
@@ -854,12 +871,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       String packageName, String ruleName, BuildConfiguration config, String... lines)
       throws IOException, Exception {
     ConfiguredTargetAndData ctad =
-        scratchConfiguredTargetAndTarget(packageName, ruleName, config, lines);
+        scratchConfiguredTargetAndData(packageName, ruleName, config, lines);
     return ctad == null ? null : ctad.getConfiguredTarget();
   }
 
   /**
-   * Creates and returns a configured scratch rule and it's target.
+   * Creates and returns a configured scratch rule and its data.
    *
    * @param packageName the package name of the rule.
    * @param rulename the name of the rule.
@@ -867,13 +884,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @return the configured tatarget and target instance for the created rule.
    * @throws Exception
    */
-  protected ConfiguredTargetAndData scratchConfiguredTargetAndTarget(
+  protected ConfiguredTargetAndData scratchConfiguredTargetAndData(
       String packageName, String rulename, String... lines) throws Exception {
-    return scratchConfiguredTargetAndTarget(packageName, rulename, targetConfig, lines);
+    return scratchConfiguredTargetAndData(packageName, rulename, targetConfig, lines);
   }
 
   /**
-   * Creates and returns a configured scratch rule and it's target.
+   * Creates and returns a configured scratch rule and its data.
    *
    * @param packageName the package name of the rule.
    * @param ruleName the name of the rule.
@@ -883,11 +900,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @throws IOException
    * @throws Exception
    */
-  protected ConfiguredTargetAndData scratchConfiguredTargetAndTarget(
+  protected ConfiguredTargetAndData scratchConfiguredTargetAndData(
       String packageName, String ruleName, BuildConfiguration config, String... lines)
       throws Exception {
     Target rule = scratchRule(packageName, ruleName, lines);
-    return view.getConfiguredTargetAndTargetForTesting(reporter, rule.getLabel(), config);
+    return view.getConfiguredTargetAndDataForTesting(reporter, rule.getLabel(), config);
   }
 
   /**
@@ -1100,11 +1117,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So
-   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
-   * be "foo.o".
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
    */
-  protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
+  protected final Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
@@ -1599,7 +1616,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected AttributeMap attributes(RuleConfiguredTarget ct) {
     ConfiguredTargetAndData ctad;
     try {
-      ctad = getConfiguredTargetAndTarget(ct.getLabel().toString());
+      ctad = getConfiguredTargetAndData(ct.getLabel().toString());
     } catch (LabelSyntaxException e) {
       throw new RuntimeException(e);
     }

@@ -119,7 +119,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
   @Test
   public void testTestExecutableRunfiles() throws Exception {
     ConfiguredTargetAndData androidInstrumentationTest =
-        getConfiguredTargetAndTarget("//javatests/com/app/ait");
+        getConfiguredTargetAndData("//javatests/com/app/ait");
     NestedSet<Artifact> runfiles =
         androidInstrumentationTest
             .getConfiguredTarget()

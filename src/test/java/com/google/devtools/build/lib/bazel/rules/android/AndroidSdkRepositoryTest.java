@@ -93,7 +93,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     invalidatePackages();
 
     ConfiguredTargetAndData aarImportTarget =
-        getConfiguredTargetAndTarget("@androidsdk//com.google.android:foo-1.0.0");
+        getConfiguredTargetAndData("@androidsdk//com.google.android:foo-1.0.0");
     assertThat(aarImportTarget).isNotNull();
     assertThat(aarImportTarget.getTarget().getAssociatedRule().getRuleClass())
         .isEqualTo("aar_import");

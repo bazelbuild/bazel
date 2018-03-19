@@ -1665,36 +1665,34 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       BuildConfiguration configuration,
       ConfigurationTransition transition) {
     ConfiguredTargetAndData configuredTargetAndData =
-        getConfiguredTargetAndTargetForTesting(eventHandler, label, configuration, transition);
+        getConfiguredTargetAndDataForTesting(eventHandler, label, configuration, transition);
     return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
   }
 
   @VisibleForTesting
   @Nullable
-  public ConfiguredTargetAndData getConfiguredTargetAndTargetForTesting(
+  public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
       ConfigurationTransition transition) {
-    ConfiguredTargetAndData configuredTargetAndData =
-        Iterables.getFirst(
-            getConfiguredTargetsForTesting(
-                eventHandler,
-                configuration,
-                ImmutableList.of(
-                    configuration == null
-                        ? Dependency.withNullConfiguration(label)
-                        : Dependency.withTransitionAndAspects(
-                            label, transition, AspectCollection.EMPTY))),
-            null);
-    return configuredTargetAndData;
+    return Iterables.getFirst(
+        getConfiguredTargetsForTesting(
+            eventHandler,
+            configuration,
+            ImmutableList.of(
+                configuration == null
+                    ? Dependency.withNullConfiguration(label)
+                    : Dependency.withTransitionAndAspects(
+                        label, transition, AspectCollection.EMPTY))),
+        null);
   }
 
   @VisibleForTesting
   @Nullable
-  public ConfiguredTargetAndData getConfiguredTargetAndTargetForTesting(
+  public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration) {
-    return getConfiguredTargetAndTargetForTesting(
+    return getConfiguredTargetAndDataForTesting(
         eventHandler, label, configuration, NoTransition.INSTANCE);
   }
 

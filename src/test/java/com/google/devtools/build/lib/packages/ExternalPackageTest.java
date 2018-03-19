@@ -101,7 +101,7 @@ public class ExternalPackageTest extends BuildViewTestCase {
         "java_library(name = 'c', srcs = [])");
     invalidatePackages();
     useConfiguration("--define", "foo=bar");
-    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//:a");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//:a");
     ConfiguredAttributeMapper configuredAttributeMapper =
         getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(configuredAttributeMapper.get("runtime_deps", BuildType.LABEL_LIST))

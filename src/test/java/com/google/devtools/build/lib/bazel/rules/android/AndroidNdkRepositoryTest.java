@@ -170,7 +170,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
     invalidatePackages();
 
-    ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndTarget("@androidndk//:cpufeatures");
+    ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndData("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
     AttributeContainer attributes =
         cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();

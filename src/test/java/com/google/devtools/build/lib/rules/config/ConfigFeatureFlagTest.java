@@ -133,7 +133,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "       '//conditions:default': 'error'",
         "    }))");
 
-    ConfiguredTargetAndData ctad = getConfiguredTargetAndTarget("//test:gen");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//test:gen");
     ConfiguredAttributeMapper attributeMapper = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributeMapper.get("cmd", Type.STRING)).isEqualTo("hello");
   }
