@@ -616,7 +616,7 @@ x intersect (y union z)</pre>
   operator, except that the "universe set" is whatever the <code>--universe_scope</code> flag
   evaluated to, instead of being separately specified. Thus, if
   <code>--universe_scope=//foo/...</code> was passed, then <code>allrdeps(//bar)</code> is
-  equivalent to <code>rdeps(//bar, //foo/...)</code>.
+  equivalent to <code>rdeps(//foo/..., //bar)</code>.
 </p>
 
 <h3 id="siblings">Dealing with a target's package: siblings</h3>
