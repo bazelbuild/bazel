@@ -15,10 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,16 +26,6 @@ public class NestedSetCodecTest {
 
   private static final NestedSet<String> SHARED_NESTED_SET =
       NestedSetBuilder.<String>stableOrder().add("e").build();
-
-  @Before
-  public void setUp() {
-    SerializationConstants.shouldSerializeNestedSet = true;
-  }
-
-  @After
-  public void tearDown() {
-    SerializationConstants.shouldSerializeNestedSet = false;
-  }
 
   @Test
   public void testCodec() throws Exception {
