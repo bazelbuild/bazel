@@ -227,7 +227,7 @@ function test_sandbox_cleanup() {
   bazel build examples/genrule:tools_work &> $TEST_log \
     || fail "Hermetic genrule failed: examples/genrule:tools_work"
   bazel shutdown &> $TEST_log || fail "bazel shutdown failed"
-  if [[ -n "$(ls -A "$(bazel info output_base)/bazel-sandbox")" ]]; then
+  if [[ -n "$(ls -A "$(bazel info output_base)/sandbox")" ]]; then
     fail "Build left files around afterwards"
   fi
 }
@@ -562,7 +562,7 @@ EOF
   expect_log "Executing genrule //:broken failed"
   expect_not_log "Use --sandbox_debug to see verbose messages from the sandbox"
   # This will appear a lot in the sandbox failure details.
-  expect_log "bazel-sandbox"
+  expect_log "/sandbox/"  # Part of the path to the sandbox location.
 }
 
 function test_sandbox_mount_customized_path () {

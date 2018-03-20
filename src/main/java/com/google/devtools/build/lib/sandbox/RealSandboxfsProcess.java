@@ -99,13 +99,16 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
    * read-only throughout the lifetime of this instance.  Writable subdirectories can later be
    * mapped via {@link #map(List)}.
    *
-   * @param binary path to the sandboxfs binary
+   * @param binary path to the sandboxfs binary.  This is a {@link PathFragment} and not a
+   *     {@link Path} because we want to support "bare" (non-absolute) names for the location of
+   *     the sandboxfs binary; such names are automatically looked for in the {@code PATH}.
    * @param mountPoint directory on which to mount the sandboxfs instance
    * @param logFile path to the file that will receive all sandboxfs logging output
    * @return a new handle that represents the running process
    * @throws IOException if there is a problem starting the process
    */
-  static SandboxfsProcess mount(Path binary, Path mountPoint, Path logFile) throws IOException {
+  static SandboxfsProcess mount(PathFragment binary, Path mountPoint, Path logFile)
+      throws IOException {
     log.info("Mounting sandboxfs (" + binary + ") onto " + mountPoint);
 
     // TODO(jmmv): Before starting a sandboxfs serving instance, we must query the current version
