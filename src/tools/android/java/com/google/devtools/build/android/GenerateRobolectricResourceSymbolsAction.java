@@ -104,6 +104,26 @@ public class GenerateRobolectricResourceSymbolsAction {
       help = "Path for the generated java class jar."
     )
     public Path classJarOutput;
+
+    @Option(
+      name = "targetLabel",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A label to add to the output jar's manifest as 'Target-Label'"
+    )
+    public String targetLabel;
+
+    @Option(
+      name = "injectingRuleKind",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
+    )
+    public String injectingRuleKind;
   }
 
   public static void main(String[] args) throws Exception {
@@ -176,7 +196,8 @@ public class GenerateRobolectricResourceSymbolsAction {
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(
+          generatedSources, options.classJarOutput, options.targetLabel, options.injectingRuleKind);
       logger.fine(
           String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

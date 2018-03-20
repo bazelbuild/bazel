@@ -82,6 +82,7 @@ public class LibraryRGeneratorActionBuilder {
     }
 
     builder.addExecPath("--classJarOutput", rJavaClassJar);
+    builder.addLabel("--targetLabel", ruleContext.getLabel());
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());

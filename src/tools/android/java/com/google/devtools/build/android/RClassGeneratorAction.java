@@ -137,6 +137,26 @@ public class RClassGeneratorAction {
       help = "Path for the generated jar of R.class files."
     )
     public Path classJarOutput;
+
+    @Option(
+      name = "targetLabel",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A label to add to the output jar's manifest as 'Target-Label'"
+    )
+    public String targetLabel;
+
+    @Option(
+      name = "injectingRuleKind",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
+    )
+    public String injectingRuleKind;
   }
 
   public static void main(String[] args) throws Exception {
@@ -190,7 +210,8 @@ public class RClassGeneratorAction {
       }
       // We write .class files to temp, then jar them up after (we create a dummy jar, even if
       // there are no class files).
-      AndroidResourceOutputs.createClassJar(classOutPath, options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(
+          classOutPath, options.classJarOutput, options.targetLabel, options.injectingRuleKind);
       logger.fine(
           String.format("createClassJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     } finally {

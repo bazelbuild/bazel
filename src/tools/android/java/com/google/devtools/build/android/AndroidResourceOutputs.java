@@ -37,13 +37,13 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Objects;
 import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import javax.annotation.Nullable;
 
 /** Collects all the functionationality for an action to create the final output artifacts. */
 public class AndroidResourceOutputs {
@@ -127,13 +127,22 @@ public class AndroidResourceOutputs {
       super(zip, root, null);
     }
 
-    private byte[] manifestContent() throws IOException {
+    private byte[] manifestContent(@Nullable String targetLabel, @Nullable String injectingRuleKind)
+        throws IOException {
       Manifest manifest = new Manifest();
       Attributes attributes = manifest.getMainAttributes();
       attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
       Attributes.Name createdBy = new Attributes.Name("Created-By");
       if (attributes.getValue(createdBy) == null) {
         attributes.put(createdBy, "bazel");
+      }
+      if (targetLabel != null) {
+        // Enable add_deps support. add_deps expects this attribute in the jar manifest.
+        attributes.putValue("Target-Label", targetLabel);
+      }
+      if (injectingRuleKind != null) {
+        // add_deps support for aspects. Usually null.
+        attributes.putValue("Injecting-Rule-Kind", injectingRuleKind);
       }
       ByteArrayOutputStream out = new ByteArrayOutputStream();
       manifest.write(out);
@@ -150,8 +159,10 @@ public class AndroidResourceOutputs {
       }
     }
 
-    void writeManifestContent() throws IOException {
-      addEntry(root.resolve(JarFile.MANIFEST_NAME), manifestContent());
+    void writeManifestContent(@Nullable String targetLabel, @Nullable String injectingRuleKind)
+        throws IOException {
+      addEntry("META-INF/", new byte[] {});
+      addEntry("META-INF/MANIFEST.MF", manifestContent(targetLabel, injectingRuleKind));
     }
   }
 
@@ -247,6 +258,10 @@ public class AndroidResourceOutputs {
       zipBuilder.addEntry(directoryPrefix + root.relativize(file), content, storageMethod);
     }
 
+    protected void addEntry(String entry, byte[] content) throws IOException {
+      zipBuilder.addEntry(entry, content, storageMethod);
+    }
+
     protected void addDirEntry(Path file) throws IOException {
       Preconditions.checkArgument(file.startsWith(root), "%s does not start with %s", file, root);
       String entryName = directoryPrefix + root.relativize(file);
@@ -336,14 +351,18 @@ public class AndroidResourceOutputs {
   }
 
   /** Creates a zip archive from all found R.class (and inner class) files. */
-  public static void createClassJar(Path generatedClassesRoot, Path classJar) {
+  public static void createClassJar(
+      Path generatedClassesRoot,
+      Path classJar,
+      @Nullable String targetLabel,
+      @Nullable String injectingRuleKind) {
     try {
       Files.createDirectories(classJar.getParent());
       try (final ZipBuilder zip = ZipBuilder.createFor(classJar)) {
         ClassJarBuildingVisitor visitor = new ClassJarBuildingVisitor(zip, generatedClassesRoot);
         Files.walkFileTree(generatedClassesRoot, visitor);
+        visitor.writeManifestContent(targetLabel, injectingRuleKind);
         visitor.writeEntries();
-        visitor.writeManifestContent();
       }
     } catch (IOException e) {
       throw new RuntimeException(e);

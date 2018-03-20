@@ -118,6 +118,8 @@ public class RobolectricResourceSymbolsActionBuilder {
         .addTransitive(dependencies.getTransitiveSymbolsBin());
 
     builder.addExecPath("--classJarOutput", classJarOut);
+    builder.addLabel("--targetLabel", ruleContext.getLabel());
+
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
 
     ParamFileInfo.Builder paramFile = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);

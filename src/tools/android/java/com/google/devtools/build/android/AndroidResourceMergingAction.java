@@ -193,6 +193,26 @@ public class AndroidResourceMergingAction {
       help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
     )
     public boolean throwOnResourceConflict;
+
+    @Option(
+      name = "targetLabel",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A label to add to the output jar's manifest as 'Target-Label'"
+    )
+    public String targetLabel;
+
+    @Option(
+      name = "injectingRuleKind",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
+    )
+    public String injectingRuleKind;
   }
 
   public static void main(String[] args) throws Exception {
@@ -267,7 +287,11 @@ public class AndroidResourceMergingAction {
       }
 
       if (options.classJarOutput != null) {
-        AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
+        AndroidResourceOutputs.createClassJar(
+            generatedSources,
+            options.classJarOutput,
+            options.targetLabel,
+            options.injectingRuleKind);
         logger.fine(
             String.format(
                 "Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
