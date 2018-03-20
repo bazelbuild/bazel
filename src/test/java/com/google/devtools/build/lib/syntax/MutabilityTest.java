@@ -233,4 +233,26 @@ public final class MutabilityTest {
     assertThat(expected).hasMessageThat().contains(
         "trying to check the lock of an object from a different context");
   }
+
+  @Test
+  public void checkUnsafeShallowFreezePrecondition_FailsWhenAlreadyFrozen() throws Exception {
+    Mutability mutability = Mutability.create("test").freeze();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Freezable.checkUnsafeShallowFreezePrecondition(new DummyFreezable(mutability)));
+  }
+
+  @Test
+  public void checkUnsafeShallowFreezePrecondition_FailsWhenDisallowed() throws Exception {
+    Mutability mutability = Mutability.create("test");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Freezable.checkUnsafeShallowFreezePrecondition(new DummyFreezable(mutability)));
+  }
+
+  @Test
+  public void checkUnsafeShallowFreezePrecondition_SucceedsWhenAllowed() throws Exception {
+    Mutability mutability = Mutability.createAllowingShallowFreeze("test");
+    Freezable.checkUnsafeShallowFreezePrecondition(new DummyFreezable(mutability));
+  }
 }

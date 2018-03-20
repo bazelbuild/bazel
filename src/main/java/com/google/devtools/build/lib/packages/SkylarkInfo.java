@@ -61,6 +61,9 @@ public abstract class SkylarkInfo extends Info implements Concatable, SkylarkCla
     if (!getProvider().isExported()) {
       return false;
     }
+    // TODO(bazel-team): If we export at the end of a full module's evaluation, instead of at the
+    // end of every top-level statement, then we can assume that exported implies frozen, and just
+    // return true here without a traversal.
     for (Object item : getValues()) {
       if (item != null && !EvalUtils.isImmutable(item)) {
         return false;

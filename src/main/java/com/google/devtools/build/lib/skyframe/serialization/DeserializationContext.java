@@ -97,6 +97,14 @@ public class DeserializationContext {
    * {@link A}.
    */
   public <A, T> T makeInitialValue(Function<A, T> initialValueFunction, Class<A> klass) {
+    // TODO(janakr): Possibly remove the "additional data" mechanism entirely now that it's no
+    // longer needed to thread Skylark Mutability's around. Instead of initial value functions, we
+    // can just have codecs construct their initial values directly. The only reasons to keep
+    // additional data around are 1) if we think something else might need it in the future (but
+    // YAGNI), or 2) if we want to share the same Mutability across multiple deserializations
+    // (within a single thread) to reduce garbage. For 2), we could even access the Mutability
+    // through dedicated methods instead of a generic "additional data" mechanism, though it might
+    // require subclassing DeserializationContext to avoid adding a dependency on Skylark.
     return deserializer.makeInitialValue(initialValueFunction, klass);
   }
 
