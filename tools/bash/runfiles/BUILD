@@ -16,20 +16,8 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "runfiles.sh",
     ],
     visibility = ["//tools/bash:__pkg__"],
-)
-
-sh_library(
-    name = "runfiles_sh_lib",
-    srcs = ["runfiles.sh"],
-)
-
-sh_test(
-    name = "runfiles_sh_test",
-    srcs = ["runfiles_sh_test.sh"],
-    deps = [":runfiles_sh_lib"],
 )
 
 test_suite(
