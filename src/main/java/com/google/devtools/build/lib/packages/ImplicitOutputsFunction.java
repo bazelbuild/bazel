@@ -450,12 +450,10 @@ public abstract class ImplicitOutputsFunction {
       List<String> placeholders = Lists.<String>newArrayList();
       String formatStr = createPlaceholderSubstitutionFormatString(rawTemplate, placeholders);
       if (placeholders.isEmpty()) {
-        return new AutoValue_ImplicitOutputsFunction_ParsedTemplate(
-            rawTemplate, rawTemplate, ImmutableList.of());
+        placeholders = ImmutableList.of();
       }
-
       return new AutoValue_ImplicitOutputsFunction_ParsedTemplate(
-          rawTemplate, formatStr, placeholders);
+            rawTemplate, formatStr, placeholders);
     }
 
     ImmutableList<String> substituteAttributes(
