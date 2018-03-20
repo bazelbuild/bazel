@@ -105,7 +105,8 @@ public class SkylarkActionFactory implements SkylarkValue {
     doc =
         "Declares that the rule or aspect creates a file with the given filename. "
             + "If <code>sibling</code> is not specified, the file name is relative to the package"
-            + "directory, otherwise the file is in the same directory as <code>sibling</code>."
+            + "directory, otherwise the file is in the same directory as <code>sibling</code>. "
+            + "If <code>root</code> is provided, the file is declared in the output tree of root. "
             + "Files cannot be created outside of the current package."
             + "<p>Remember that in addition to declaring a file, you must separately create an "
             + "action that emits the file. Creating that action will require passing the returned "
@@ -121,9 +122,9 @@ public class SkylarkActionFactory implements SkylarkValue {
         name = "filename",
         type = String.class,
         doc =
-            "If no 'sibling' provided, path of the new file, relative "
-                + "to the current package. Otherwise a base name for a file "
-                + "('sibling' determines a directory)."
+            "If no <code>sibling</code> provided, path of the new file, relative to the current "
+                + "package in output tree of <code>root</code>. Otherwise a base name for a file "
+                + "(<code>sibling</code> determines the directory)."
       ),
       @Param(
         name = "sibling",
@@ -131,10 +132,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             "A file that lives in the same directory as the newly created file. "
                 + "The file must be in the current package."
                 + "Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
-        allowedTypes = {
-          @ParamType(type = Artifact.class),
-          @ParamType(type = ArtifactRoot.class),
-        },
+        type = Artifact.class,
         noneable = true,
         positional = false,
         named = true,
@@ -143,10 +141,9 @@ public class SkylarkActionFactory implements SkylarkValue {
       @Param(
         name = "root",
         doc =
-            "The output root."
-                + " Use <code>ctx.genfiles_dir</code> for a temporary directory in "
-                + " <code>genfiles</code> directory."
-                + " Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
+            "The output root. Defaults to <code>ctx.bin_dir</code> or the root of <code>sibling</code> "
+                + "if provided. Use <code>ctx.genfiles_dir</code> for a temporary file. "
+                + "Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
         type = ArtifactRoot.class,
         noneable = true,
         positional = false,
@@ -157,10 +154,8 @@ public class SkylarkActionFactory implements SkylarkValue {
   )
   public Artifact declareFile(String filename, Object sibling, Object root) throws EvalException {
     context.checkMutable("actions.declare_file");
-    if (sibling instanceof  Artifact && root instanceof ArtifactRoot) {
-      throw new EvalException(
-        ruleContext.getRule().getAttributeLocation("sibling"),
-        "set either 'sibling' or 'root'");
+    if (!Runtime.NONE.equals(sibling) && !Runtime.NONE.equals(root)) {
+      throw new EvalException(null, "set either 'sibling' or 'root'");
     }
 
     if (sibling instanceof Artifact) {
@@ -185,9 +180,9 @@ public class SkylarkActionFactory implements SkylarkValue {
         name = "filename",
         type = String.class,
         doc =
-            "If no 'sibling' provided, path of the new directory, relative "
-                + "to the current package. Otherwise a base name for a file "
-                + "('sibling' defines a directory)."
+          "If no <code>sibling</code> provided, path of the new directory, relative to the current "
+            + "package in output tree of <code>root</code>. Otherwise a name for a directory in the "
+            + "directory of <code>sibling</code>."
       ),
       @Param(
         name = "sibling",
@@ -203,10 +198,9 @@ public class SkylarkActionFactory implements SkylarkValue {
       @Param(
         name = "root",
         doc =
-            "The output root."
-                + " Use <code>ctx.genfiles_dir</code> for a temporary directory in "
-                + " <code>genfiles</code> directory."
-                + " Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
+          "The output root. Defaults to <code>ctx.bin_dir</code> or the root of <code>sibling</code> "
+            + "if provided. Use <code>ctx.genfiles_dir</code> for a temporary directory. "
+            + "Note that only one of either <code>sibling</code> or <code>root</code> can be defined.",
         type = ArtifactRoot.class,
         noneable = true,
         positional = false,
@@ -217,10 +211,8 @@ public class SkylarkActionFactory implements SkylarkValue {
   )
   public Artifact declareDirectory(String filename, Object sibling, Object root) throws EvalException {
     context.checkMutable("actions.declare_directory");
-    if (sibling instanceof  Artifact && root instanceof ArtifactRoot) {
-      throw new EvalException(
-        ruleContext.getRule().getAttributeLocation("sibling"),
-        "set either 'sibling' or 'root'");
+    if (!Runtime.NONE.equals(sibling) && !Runtime.NONE.equals(root)) {
+      throw new EvalException(null, "set either 'sibling' or 'root'");
     }
 
     if (sibling instanceof  Artifact) {
