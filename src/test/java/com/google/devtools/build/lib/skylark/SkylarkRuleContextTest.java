@@ -923,7 +923,42 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testDeriveArtifacSiblingAndRoot() throws Exception {
+  public void testDeriveTreeArtifactNextToSibling() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    Object result =
+        evalRuleContextCode(
+            ruleContext,
+            "b = ruleContext.actions.declare_directory('a/b')\n",
+            "ruleContext.actions.declare_directory('c', sibling=b)");
+    Artifact artifact = (Artifact) result;
+    PathFragment fragment = artifact.getRootRelativePath();
+    assertThat(fragment.getPathString()).isEqualTo("foo/a/c");
+    assertThat(artifact.isTreeArtifact()).isTrue();
+  }
+
+  @Test
+  public void testDeriveArtifactSiblingAndRoot() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+      "my_rule.bzl",
+      "def _impl(ctx):",
+      "  b = ctx.actions.declare_directory('a/b')",
+      "  ctx.actions.declare_directory('c', sibling=b, root=ctx.bin_dir)",
+      "my_rule = rule(_impl)");
+
+    scratch.file(
+      "BUILD",
+      "load('//:my_rule.bzl', 'my_rule')",
+      "my_rule(name='r')");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent("File \"/workspace/my_rule.bzl\", line 3, in _impl");
+    assertContainsEvent("set either 'sibling' or 'root'");
+  }
+
+  @Test
+  public void testDeriveTreeArtifactSiblingAndRoot() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
       "my_rule.bzl",
@@ -939,22 +974,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:r");
-    assertContainsEvent("my_rule.bzl\", line 3, in _impl");
+    assertContainsEvent("File \"/workspace/my_rule.bzl\", line 3, in _impl");
     assertContainsEvent("set either 'sibling' or 'root'");
-  }
-
-  @Test
-  public void testDeriveTreeArtifactNextToSibling() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result =
-        evalRuleContextCode(
-            ruleContext,
-            "b = ruleContext.actions.declare_directory('a/b')\n",
-            "ruleContext.actions.declare_directory('c', sibling=b)");
-    Artifact artifact = (Artifact) result;
-    PathFragment fragment = artifact.getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/a/c");
-    assertThat(artifact.isTreeArtifact()).isTrue();
   }
 
   @Test
