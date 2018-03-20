@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.TemplateSubstitution;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -252,14 +253,14 @@ public final class SkylarkRuleContext implements SkylarkValue {
       if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
         SkylarkImplicitOutputsFunction func =
             (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
-        for (Map.Entry<String, String> entry :
+        for (Map.Entry<String, TemplateSubstitution> entry :
             func.calculateOutputs(
                     ruleContext.getAnalysisEnvironment().getEventHandler(),
                     RawAttributeMapper.of(ruleContext.getRule()))
                 .entrySet()) {
           outputs.addOutput(
               entry.getKey(),
-              ruleContext.getImplicitOutputArtifact(entry.getValue()));
+              ruleContext.getImplicitOutputArtifacts(entry.getValue()));
         }
       }
 

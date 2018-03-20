@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
@@ -41,6 +42,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,13 +67,15 @@ public abstract class ImplicitOutputsFunction {
    */
   public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
 
-    public abstract ImmutableMap<String, String> calculateOutputs(
+    public abstract ImmutableMap<String, TemplateSubstitution> calculateOutputs(
         EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException;
 
     @Override
-    public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap map)
+    public TemplateSubstitution getImplicitOutputs(EventHandler eventHandler, AttributeMap map)
         throws EvalException, InterruptedException {
-      return calculateOutputs(eventHandler, map).values();
+      TemplateSubstitution implicitOutputs = new TemplateSubstitution();
+      implicitOutputs.setPlural(Iterables.concat(calculateOutputs(eventHandler, map).values()));
+      return implicitOutputs;
     }
   }
 
@@ -91,7 +95,7 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(
+    public ImmutableMap<String, TemplateSubstitution> calculateOutputs(
         EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException {
       Map<String, Object> attrValues = new HashMap<>();
       for (String attrName : map.getAttributeNames()) {
@@ -109,7 +113,7 @@ public abstract class ImplicitOutputsFunction {
               "Attribute '%s' either doesn't exist "
                   + "or uses a select() (i.e. could have multiple values)");
       try {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, TemplateSubstitution> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry :
             castMap(
                     callback.call(eventHandler, attrs),
@@ -118,18 +122,9 @@ public abstract class ImplicitOutputsFunction {
                     "implicit outputs function return value")
                 .entrySet()) {
 
-          // Returns empty string only in case of invalid templates
-          Iterable<String> substitutions =
+          TemplateSubstitution substitution =
               fromTemplates(entry.getValue()).getImplicitOutputs(eventHandler, map);
-          if (Iterables.isEmpty(substitutions)) {
-            throw new EvalException(
-                loc,
-                String.format(
-                    "For attribute '%s' in outputs: %s",
-                    entry.getKey(), "Invalid placeholder(s) in template"));
-          }
-
-          builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+          builder.put(entry.getKey(), substitution);
         }
         return builder.build();
       } catch (IllegalArgumentException e) {
@@ -151,25 +146,15 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(
+    public ImmutableMap<String, TemplateSubstitution> calculateOutputs(
         EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException {
 
-      ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+      ImmutableMap.Builder<String, TemplateSubstitution> builder = ImmutableMap.builder();
       for (Map.Entry<String, String> entry : outputMap.entrySet()) {
-        // Empty iff invalid placeholders present.
         ImplicitOutputsFunction outputsFunction =
             fromUnsafeTemplates(ImmutableList.of(entry.getValue()));
-        Iterable<String> substitutions = outputsFunction.getImplicitOutputs(eventHandler, map);
-        if (Iterables.isEmpty(substitutions)) {
-          throw new EvalException(
-              null,
-              String.format(
-                  "For attribute '%s' in outputs: %s",
-                  entry.getKey(), "Invalid placeholder(s) in template"));
-
-        }
-
-        builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+        TemplateSubstitution substitution = outputsFunction.getImplicitOutputs(eventHandler, map);
+        builder.put(entry.getKey(), substitution);
       }
       return builder.build();
     }
@@ -180,7 +165,7 @@ public abstract class ImplicitOutputsFunction {
    */
   public abstract static class SafeImplicitOutputsFunction extends ImplicitOutputsFunction {
     @Override
-    public abstract Iterable<String> getImplicitOutputs(
+    public abstract TemplateSubstitution getImplicitOutputs(
         EventHandler eventHandler, AttributeMap map);
   }
 
@@ -191,7 +176,7 @@ public abstract class ImplicitOutputsFunction {
     /**
      * Returns the value(s) of attribute "attr" in "rule", or empty set if attribute unknown.
      */
-    Set<String> get(AttributeMap rule, String attr);
+    Object get(AttributeMap rule, String attr);
   }
 
   /**
@@ -203,7 +188,7 @@ public abstract class ImplicitOutputsFunction {
   public static final AttributeValueGetter DEFAULT_RULE_ATTRIBUTE_GETTER =
       new AttributeValueGetter() {
         @Override
-        public Set<String> get(AttributeMap rule, String attr) {
+        public Object get(AttributeMap rule, String attr) {
           return attributeValues(rule, attr);
         }
       };
@@ -214,15 +199,15 @@ public abstract class ImplicitOutputsFunction {
    * Given a newly-constructed Rule instance (with attributes populated), returns the list of output
    * files that this rule produces implicitly.
    */
-  public abstract Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
+  public abstract TemplateSubstitution getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
       throws EvalException, InterruptedException;
 
   /** The implicit output function that returns no files. */
   public static final SafeImplicitOutputsFunction NONE =
       new SafeImplicitOutputsFunction() {
         @Override
-        public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
-          return Collections.emptyList();
+        public TemplateSubstitution getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+          return new TemplateSubstitution();
         }
       };
 
@@ -232,6 +217,47 @@ public abstract class ImplicitOutputsFunction {
   public static SafeImplicitOutputsFunction fromTemplates(String... templates) {
     return fromTemplates(Arrays.asList(templates));
   }
+
+  public static final class TemplateSubstitution implements Iterable<String> {
+    public TemplateSubstitution() {
+      plural = true;
+      pluralValue = ImmutableList.<String>of();
+    }
+
+    public void setSingular( String value ) {
+      plural = false;
+      singularValue = value;
+    }
+
+    public void setPlural( Iterable<String> value ) {
+      plural = true;
+      pluralValue = value;
+    }
+
+    public boolean isPlural() {
+      return plural;
+    }
+
+    public Iterable<String> plural() {
+      return plural ? pluralValue : null;
+    }
+
+    public String singular() {
+      return plural ? null : singularValue;
+    }
+
+    /**
+     * provides simple mechanism for invariance between singular and plural behaviors
+     */
+    @Override
+    public Iterator<String> iterator() {
+      return plural ? pluralValue.iterator() : Iterators.singletonIterator(singularValue);
+    }
+
+    private boolean plural;
+    private Iterable<String> pluralValue;
+    private String singularValue;
+  };
 
   /**
    * The implicit output function that generates files based on a set of template substitutions
@@ -248,17 +274,25 @@ public abstract class ImplicitOutputsFunction {
     return new SafeImplicitOutputsFunction() {
       // TODO(bazel-team): parse the templates already here
       @Override
-      public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
-        ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
+      public TemplateSubstitution getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+        TemplateSubstitution result = null;
         for (String template : templates) {
-          List<String> substitutions = substitutePlaceholderIntoTemplate(template, rule);
-          if (substitutions.isEmpty()) {
+          TemplateSubstitution substitution = substitutePlaceholderIntoTemplate(template, rule);
+          if (Iterables.isEmpty(substitution)) {
             continue;
           }
-          result.addAll(substitutions);
+          if (result == null) {
+            result = substitution;
+          } else {
+            TemplateSubstitution concatResult = new TemplateSubstitution();
+            concatResult.setPlural(Iterables.concat(result, substitution));
+            result = concatResult;
+          }
         }
-
-        return result.build();
+        if (result == null) {
+          result = new TemplateSubstitution();
+        }
+        return result;
       }
 
       @Override
@@ -285,20 +319,28 @@ public abstract class ImplicitOutputsFunction {
     return new ImplicitOutputsFunction() {
       // TODO(bazel-team): parse the templates already here
       @Override
-      public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
+      public TemplateSubstitution getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
           throws EvalException {
-        ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
+        TemplateSubstitution result = null;
         for (String template : templates) {
-          List<String> substitutions =
+          TemplateSubstitution substitution = 
               substitutePlaceholderIntoUnsafeTemplate(
                   template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER);
-          if (substitutions.isEmpty()) {
+          if (Iterables.isEmpty(substitution)) {
             continue;
           }
-          result.addAll(substitutions);
+          if (result == null) {
+            result = substitution;
+          } else {
+            TemplateSubstitution concatResult = new TemplateSubstitution();
+            concatResult.setPlural(Iterables.concat(result, substitution));
+            result = concatResult;
+          }
         }
-
-        return result.build();
+        if (result == null) {
+          result = new TemplateSubstitution();
+        }
+        return result;
       }
 
       @Override
@@ -328,12 +370,25 @@ public abstract class ImplicitOutputsFunction {
       final Iterable<SafeImplicitOutputsFunction> functions) {
     return new SafeImplicitOutputsFunction() {
       @Override
-      public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
-        Collection<String> result = new LinkedHashSet<>();
+      public TemplateSubstitution getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+        Iterable<String> result = ImmutableList.<String>of();
+        int functionCount = 0;
+        boolean singular = true;
         for (SafeImplicitOutputsFunction function : functions) {
-          Iterables.addAll(result, function.getImplicitOutputs(eventHandler, rule));
+          TemplateSubstitution implicitOutputs = function.getImplicitOutputs(eventHandler, rule);
+          result = Iterables.concat(result, implicitOutputs);
+          if (implicitOutputs.isPlural()) {
+            singular = false;
+          }
+          functionCount++;
         }
-        return result;
+        TemplateSubstitution substitution = new TemplateSubstitution();
+        if (functionCount == 1 && singular) {
+          substitution.setSingular(Iterables.getOnlyElement(result));
+        } else {
+          substitution.setPlural(result);
+        }
+        return substitution;
       }
 
       @Override
@@ -347,12 +402,12 @@ public abstract class ImplicitOutputsFunction {
    * Coerces attribute "attrName" of the specified rule into a sequence of
    * strings.  Helper function for {@link #fromTemplates(Iterable)}.
    */
-  private static Set<String> attributeValues(AttributeMap rule, String attrName) {
+  private static Object attributeValues(AttributeMap rule, String attrName) {
     if (attrName.equals("dirname")) {
       PathFragment dir = PathFragment.create(rule.getName()).getParentDirectory();
-      return (dir.segmentCount() == 0) ? singleton("") : singleton(dir.getPathString() + "/");
+      return (dir.segmentCount() == 0) ? "" : (dir.getPathString() + "/");
     } else if (attrName.equals("basename")) {
-      return singleton(PathFragment.create(rule.getName()).getBaseName());
+      return PathFragment.create(rule.getName()).getBaseName();
     }
 
     Type<?> attrType = rule.getAttributeType(attrName);
@@ -361,14 +416,14 @@ public abstract class ImplicitOutputsFunction {
     }
     // String attributes and lists are easy.
     if (Type.STRING == attrType) {
-      return singleton(rule.get(attrName, Type.STRING));
+      return rule.get(attrName, Type.STRING);
     } else if (Type.STRING_LIST == attrType) {
       return Sets.newLinkedHashSet(rule.get(attrName, Type.STRING_LIST));
     } else if (BuildType.LABEL == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
       Label label = rule.get(attrName, BuildType.LABEL);
-      return singleton(FileSystemUtils.removeExtension(label.getName()));
+      return FileSystemUtils.removeExtension(label.getName());
     } else if (BuildType.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
@@ -378,7 +433,7 @@ public abstract class ImplicitOutputsFunction {
           .collect(toCollection(LinkedHashSet::new));
     } else if (BuildType.OUTPUT == attrType) {
       Label out = rule.get(attrName, BuildType.OUTPUT);
-      return singleton(out.getName());
+      return out.getName();
     } else if (BuildType.OUTPUT_LIST == attrType) {
       return rule.get(attrName, BuildType.OUTPUT_LIST)
           .stream()
@@ -433,7 +488,7 @@ public abstract class ImplicitOutputsFunction {
    * the values from attributeSource.  If there are multiple placeholders, then
    * the output is the cross product of substitutions.
    */
-  public static ImmutableList<String> substitutePlaceholderIntoTemplate(String template,
+  public static TemplateSubstitution substitutePlaceholderIntoTemplate(String template,
       AttributeMap rule) {
     return substitutePlaceholderIntoTemplate(template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER);
   }
@@ -458,25 +513,39 @@ public abstract class ImplicitOutputsFunction {
           rawTemplate, formatStr, placeholders);
     }
 
-    ImmutableList<String> substituteAttributes(
+    TemplateSubstitution substituteAttributes(
         AttributeMap attributeMap, AttributeValueGetter attributeGetter) {
+      TemplateSubstitution substitution = new TemplateSubstitution();
       if (attributeNames().isEmpty()) {
-        return ImmutableList.of(template());
+        substitution.setSingular(template());
+        return substitution;
       }
 
       List<Set<String>> values = Lists.newArrayListWithCapacity(attributeNames().size());
+      boolean singular = true;
       for (String placeholder : attributeNames()) {
-        Set<String> attrValues = attributeGetter.get(attributeMap, placeholder);
-        if (attrValues.isEmpty()) {
-          return ImmutableList.<String>of();
+        Object attrValue = attributeGetter.get(attributeMap, placeholder);
+        Set<String> attrValues;
+        if (attrValue instanceof Set) {
+          attrValues = (Set<String>) attrValue;
+          if (attrValues.isEmpty()) {
+            return substitution;
+          }
+          singular = false;
+        } else {
+          attrValues = singleton(attrValue.toString());
         }
         values.add(attrValues);
       }
-      ImmutableList.Builder<String> out = new ImmutableList.Builder<>();
-      for (List<String> combination : Sets.cartesianProduct(values)) {
-        out.add(String.format(formatStr(), combination.toArray()));
+      Iterable<String> result = Iterables.transform(
+          Sets.cartesianProduct(values),
+          (combination) -> String.format(formatStr(), combination.toArray()));
+      if (singular) {
+        substitution.setSingular(Iterables.getOnlyElement(result));
+      } else {
+        substitution.setPlural(result);
       }
-      return out.build();
+      return substitution;
     }
   }
 
@@ -490,7 +559,7 @@ public abstract class ImplicitOutputsFunction {
    * @return all possible combinations of the attributes referenced by the placeholders, substituted
    *     into the template; empty if any of the placeholders expands to no values
    */
-  public static ImmutableList<String> substitutePlaceholderIntoTemplate(
+  public static TemplateSubstitution substitutePlaceholderIntoTemplate(
       String template, AttributeMap rule, AttributeValueGetter attributeGetter) {
     // Parse the template to get the attribute names and format string.
     ParsedTemplate parsedTemplate = ParsedTemplate.parse(template);
@@ -499,7 +568,7 @@ public abstract class ImplicitOutputsFunction {
     return parsedTemplate.substituteAttributes(rule, attributeGetter);
   }
 
-  private static ImmutableList<String> substitutePlaceholderIntoUnsafeTemplate(
+  private static TemplateSubstitution substitutePlaceholderIntoUnsafeTemplate(
       String unsafeTemplate, AttributeMap rule, AttributeValueGetter attributeGetter)
       throws EvalException {
     // Parse the template to get the attribute names and format string.

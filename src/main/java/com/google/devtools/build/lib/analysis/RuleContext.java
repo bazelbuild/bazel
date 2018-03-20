@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static java.util.Collections.singleton;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -77,6 +79,7 @@ import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.TemplateSubstitution;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -1269,16 +1272,19 @@ public final class RuleContext extends TargetContext
    */
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function)
       throws InterruptedException {
-    Iterable<String> result;
+    TemplateSubstitution result;
     try {
       result =
           function.getImplicitOutputs(
               getAnalysisEnvironment().getEventHandler(), RawAttributeMapper.of(rule));
+      if (result.isPlural()) {
+        throw new IllegalStateException("implicit output must be singular");
+      }
     } catch (EvalException e) {
       // It's ok as long as we don't use this method from Skylark.
       throw new IllegalStateException(e);
     }
-    return getImplicitOutputArtifact(Iterables.getOnlyElement(result));
+    return getImplicitOutputArtifact(result.singular());
   }
 
   /**
@@ -1286,6 +1292,21 @@ public final class RuleContext extends TargetContext
    */
   public Artifact getImplicitOutputArtifact(String path) {
     return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory());
+  }
+
+  /**
+   * Only use from Skylark. Returns the implicit output artifacts for a given output paths list.
+   */
+  public Object getImplicitOutputArtifacts(TemplateSubstitution substitution) {
+    if (!substitution.isPlural()) {
+      return getPackageRelativeArtifact(substitution.singular(), getBinOrGenfilesDirectory());
+    }
+
+    List<Artifact> result = Lists.<Artifact>newArrayList();
+    for( String path : substitution.plural() ) {
+      result.add(getPackageRelativeArtifact(path, getBinOrGenfilesDirectory()));
+    }
+    return result;
   }
 
   /**
