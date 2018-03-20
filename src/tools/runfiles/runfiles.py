@@ -13,35 +13,52 @@
 # limitations under the License.
 """Runfiles lookup library for Bazel-built Python binaries and tests.
 
+This library lets you access data-dependencies (runfiles) of py_binary and
+py_test rules in a platform-independent way.
+
 Usage:
 
-from bazel_tools.tools.runfiles import runfiles
+1.  Add the following dependency to your py_binary or py_test rule:
 
-r = runfiles.Create()
-with open(r.Rlocation("io_bazel/foo/bar.txt"), "r") as f:
-  contents = f.readlines()
+      py_binary(
+          name = "my_binary",
+          ...
+          deps = ["@bazel_tools//tools/runfiles:py-runfiles"],
+      )
 
-The code above creates a manifest- or directory-based implementations based on
-the environment variables in os.environ. See `Create()` for more info.
+    Note: this only works with Bazel 0.12.0 and later versions.
 
-If you want to explicitly create a manifest- or directory-based
-implementations, you can do so as follows:
+2.  Use the "runfiles" module in your source file:
 
-  r1 = runfiles.CreateManifestBased("path/to/foo.runfiles_manifest")
+      from bazel_tools.tools.runfiles import runfiles
+      ...
+      r = runfiles.Create()
+      with open(r.Rlocation("io_bazel/foo/bar.txt"), "r") as f:
+        contents = f.readlines()
 
-  r2 = runfiles.CreateDirectoryBased("path/to/foo.runfiles/")
+    The code above creates a manifest- or directory-based implementations based
+    on the environment variables in os.environ. See `Create()` for more info.
 
-If you want to start subprocesses that also need runfiles, you need to set the
-right environment variables for them:
+    If you want to explicitly create a manifest- or directory-based
+    implementations, you can do so as follows:
 
-  import subprocess
-  from bazel_tools.tools.runfiles import runfiles
+      r1 = runfiles.CreateManifestBased("path/to/foo.runfiles_manifest")
 
-  r = runfiles.Create()
-  env = {}
-  ...
-  env.update(r.EnvVars())
-  p = subprocess.Popen([r.Rlocation("path/to/binary")], env, ...)
+    or:
+
+      r2 = runfiles.CreateDirectoryBased("path/to/foo.runfiles/")
+
+3.  If you want to start subprocesses that also need runfiles, you need to set
+    the right environment variables for them:
+
+      import subprocess
+      from bazel_tools.tools.runfiles import runfiles
+      ...
+      r = runfiles.Create()
+      env = {}
+      ...
+      env.update(r.EnvVars())
+      p = subprocess.Popen([r.Rlocation("path/to/binary")], env, ...)
 """
 
 import os
