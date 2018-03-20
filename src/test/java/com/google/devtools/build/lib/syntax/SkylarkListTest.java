@@ -279,6 +279,20 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testCannotMutateAfterShallowFreeze() throws Exception {
+    Mutability mutability = Mutability.createAllowingShallowFreeze("test");
+    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    list.unsafeShallowFreeze();
+
+    try {
+      list.add(4, null, mutability);
+      fail("expected exception");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
+    }
+  }
+
+  @Test
   public void testCopyOfTakesCopy() throws EvalException {
     ArrayList<String> copyFrom = Lists.newArrayList("hi");
     Mutability mutability = Mutability.create("test");

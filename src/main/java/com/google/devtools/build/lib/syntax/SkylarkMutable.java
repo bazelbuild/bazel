@@ -63,6 +63,9 @@ public abstract class SkylarkMutable implements Freezable, SkylarkValue {
 
   @Override
   public boolean isImmutable() {
+    // By the Mutability invariants, if we're frozen and our Mutability is not SHALLOW_IMMUTABLE,
+    // then all contained values are also deeply frozen. Only tuples use SHALLOW_IMMUTABLE and they
+    // override this method anyway, so we can just do a constant-time check here.
     return mutability().isFrozen();
   }
 
