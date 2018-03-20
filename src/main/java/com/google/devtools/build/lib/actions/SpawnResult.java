@@ -324,12 +324,13 @@ public interface SpawnResult {
         explanation += ". Note: Remote connection/protocol failed with: " + errorDetail;
       }
       if (status() == Status.TIMEOUT) {
-        Preconditions.checkState(
-            getWallTime().isPresent(), "SpawnAction timed out but wall time wasn't set");
-        explanation +=
-            String.format(
-                " (failed due to timeout after %.2f seconds.)",
-                getWallTime().get().toMillis() / 1000.0);
+        if (getWallTime().isPresent()) {
+          explanation += String.format(
+              " (failed due to timeout after %.2f seconds.)",
+              getWallTime().get().toMillis() / 1000.0);
+        } else {
+          explanation += " (failed due to timeout.)";
+        }
       } else if (status() == Status.OUT_OF_MEMORY) {
         explanation += " (Remote action was terminated due to Out of Memory.)";
       }
