@@ -367,6 +367,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "sandboxfs_test",
+    size = "medium",
+    srcs = ["sandboxfs_test.sh"],
+    data = [":test-deps"],
+)
+
 ########################################################################
 # Test suites.
 

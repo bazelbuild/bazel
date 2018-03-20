@@ -179,6 +179,30 @@ public class SandboxOptions extends OptionsBase {
   )
   public List<ImmutableMap.Entry<String, String>> sandboxAdditionalMounts;
 
+  @Option(
+    name = "experimental_use_sandboxfs",
+    defaultValue = "false",
+    category = "config",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Use sandboxfs to create the actions' execroot directories instead of building a symlink "
+            + "tree."
+  )
+  public boolean useSandboxfs;
+
+  @Option(
+    name = "experimental_sandboxfs_path",
+    defaultValue = "sandboxfs",
+    category = "config",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Path to the sandboxfs binary to use when --experimental_use_sandboxfs is true. If a "
+            + "bare name, use the first binary of that name found in the PATH."
+  )
+  public String sandboxfsPath;
+
   public ImmutableSet<Path> getInaccessiblePaths(FileSystem fs) {
     List<Path> inaccessiblePaths = new ArrayList<>();
     for (String path : sandboxBlockPath) {
