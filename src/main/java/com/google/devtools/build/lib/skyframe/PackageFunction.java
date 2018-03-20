@@ -77,7 +77,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -750,12 +749,10 @@ public class PackageFunction implements SkyFunction {
         }
       } else {
         // Inlining calls to SkylarkImportLookupFunction
-        LinkedHashMap<Label, SkylarkImportLookupValue> alreadyVisitedImports =
-            Maps.newLinkedHashMapWithExpectedSize(importLookupKeys.size());
         for (SkyKey importLookupKey : importLookupKeys) {
           SkyValue skyValue =
               skylarkImportLookupFunctionForInlining.computeWithInlineCalls(
-                  importLookupKey, env, alreadyVisitedImports);
+                  importLookupKey, env, importLookupKeys.size());
           if (skyValue == null) {
             Preconditions.checkState(
                 env.valuesMissing(), "no skylark import value for %s", importLookupKey);
