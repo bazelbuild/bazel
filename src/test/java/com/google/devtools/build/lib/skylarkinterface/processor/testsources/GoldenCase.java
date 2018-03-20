@@ -74,7 +74,8 @@ public class GoldenCase {
     parameters = {
       @Param(name = "one", type = String.class, named = true),
       @Param(name = "two", type = Integer.class, named = true),
-      @Param(name = "three", type = String.class, named = true),
+      @Param(name = "three", type = String.class, named = true, defaultValue = "None",
+          noneable = true),
     })
   public String threeArgMethodWithParams(String one, Integer two, String three) {
     return "baz";

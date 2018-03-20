@@ -23,8 +23,8 @@ import java.lang.annotation.RetentionPolicy;
 public @interface Param {
 
   /**
-   * Name of the parameter, as viewed from Skylark. Used for named parameters and for generating
-   * documentation.
+   * Name of the parameter, as viewed from Skylark. Used for matching keyword arguments and for
+   * generating documentation.
    */
   String name();
 
@@ -34,7 +34,16 @@ public @interface Param {
   String doc() default "";
 
   /**
-   * Default value for the parameter, as a Skylark value (e.g. "False", "True", "[]", "None").
+   * Default value for the parameter, written as a Skylark expression (e.g. "False", "True", "[]",
+   * "None").
+   *
+   * <p>If this is empty (the default), the parameter is treated as mandatory. (Thus an exception
+   * will be thrown if left unspecified by the caller).
+   *
+   * <p>If the function implementation needs to distinguish the case where the caller does not
+   * supply a value for this parameter, you can set the default to the magic string "unbound", which
+   * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Runtime#UNBOUND}
+   * (which can't appear in normal Skylark code).
    */
   String defaultValue() default "";
 
@@ -45,8 +54,9 @@ public @interface Param {
   Class<?> type() default Object.class;
 
   /**
-   * List of allowed types for the parameter if multiple types are allowed, and {@link #type()} is
-   * set to Object.class.
+   * List of allowed types for the parameter if multiple types are allowed.
+   *
+   * <p>If using this, {@link #type()} should be set to {@code Object.class}.
    */
   ParamType[] allowedTypes() default {};
 
@@ -69,7 +79,7 @@ public @interface Param {
   boolean callbackEnabled() default false;
 
   /**
-   * If true, this parameter can be passed the "None" value.
+   * If true, this parameter can be passed the "None" value in addition to whatever types it allows.
    */
   boolean noneable() default false;
 

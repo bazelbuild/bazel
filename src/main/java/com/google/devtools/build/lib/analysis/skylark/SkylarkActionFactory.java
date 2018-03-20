@@ -517,7 +517,6 @@ public class SkylarkActionFactory implements SkylarkValue {
           @ParamType(type = SkylarkList.class, generic1 = String.class),
           @ParamType(type = Runtime.NoneType.class),
         },
-        defaultValue = "None",
         named = true,
         positional = false,
         doc =
