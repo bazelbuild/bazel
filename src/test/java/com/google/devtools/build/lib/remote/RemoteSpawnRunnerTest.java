@@ -227,6 +227,54 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   @SuppressWarnings("unchecked")
+  public void noRemoteUploadResultsShouldNotBeCached() throws Exception {
+    // Test that if remoteUploadLocalResults is false, an action can miss cache with a
+    // cacheable action key, but be executed remotely with an action definition with
+    // do_not_cache=true, so that the action result is not saved in the remote cache.
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteAcceptCached = true;
+    options.remoteLocalFallback = false;
+    options.remoteUploadLocalResults = false;
+
+    RemoteSpawnRunner runner =
+        new RemoteSpawnRunner(
+            execRoot,
+            options,
+            localRunner,
+            true,
+            /*cmdlineReporter=*/ null,
+            "build-req-id",
+            "command-id",
+            cache,
+            executor,
+            digestUtil);
+
+    ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(
+        ActionResult.newBuilder().setExitCode(0).build()).build();
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionPolicy policy = new FakeSpawnExecutionPolicy(spawn);
+
+    runner.exec(spawn, policy);
+
+    ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
+    verify(executor).executeRemotely(requestCaptor.capture());
+    assertThat(requestCaptor.getValue().getAction().getDoNotCache()).isTrue();
+
+    verify(cache, never())
+        .upload(
+            any(ActionKey.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            any(Boolean.class));
+    verifyZeroInteractions(localRunner);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   public void failedActionShouldOnlyUploadOutputs() throws Exception {
     // Test that the outputs of a failed locally executed action are uploaded to a remote cache,
     // but the action result itself is not.
