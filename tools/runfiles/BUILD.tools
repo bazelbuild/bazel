@@ -4,8 +4,3 @@ alias(
     name = "java-runfiles",
     actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles",
 )
-
-py_library(
-    name = "py-runfiles",
-    srcs = ["runfiles.py"],
-)
