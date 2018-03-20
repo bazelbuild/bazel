@@ -405,7 +405,7 @@ public abstract class AbstractParallelEvaluator {
                 reifiedBuilderException,
                 isTransitivelyTransient);
             registerNewlyDiscoveredDepsForDoneEntry(
-                skyKey, state, newlyRequestedDeps, oldDeps, env);
+                skyKey, state, newlyRequestedDeps, oldDeps, env, evaluatorContext.keepGoing());
             env.setError(state, errorInfo);
             Set<SkyKey> rdepsToBubbleUpTo =
                 env.commit(
@@ -443,7 +443,8 @@ public abstract class AbstractParallelEvaluator {
               state,
               graph.getBatch(skyKey, Reason.RDEP_ADDITION, env.getNewlyRequestedDeps()),
               oldDeps,
-              env);
+              env,
+              evaluatorContext.keepGoing());
           env.commit(state, EnqueueParentBehavior.ENQUEUE);
           return;
         }
@@ -600,20 +601,26 @@ public abstract class AbstractParallelEvaluator {
       NodeEntry entry,
       Map<SkyKey, ? extends NodeEntry> newlyRequestedDepMap,
       Set<SkyKey> oldDeps,
-      SkyFunctionEnvironment env)
+      SkyFunctionEnvironment env,
+      boolean keepGoing)
       throws InterruptedException {
+
     Iterator<SkyKey> it = env.getNewlyRequestedDeps().iterator();
     if (!it.hasNext()) {
       return;
     }
-    Set<SkyKey> unfinishedDeps = new HashSet<>();
-    while (it.hasNext()) {
-      SkyKey dep = it.next();
-      if (!isDoneForBuild(newlyRequestedDepMap.get(dep))) {
-        unfinishedDeps.add(dep);
+    // We don't expect any unfinished deps in a keep-going build.
+    if (!keepGoing) {
+      Set<SkyKey> unfinishedDeps = new HashSet<>();
+      while (it.hasNext()) {
+        SkyKey dep = it.next();
+        if (!isDoneForBuild(newlyRequestedDepMap.get(dep))) {
+          unfinishedDeps.add(dep);
+        }
       }
+      env.getNewlyRequestedDeps().remove(unfinishedDeps);
     }
-    env.getNewlyRequestedDeps().remove(unfinishedDeps);
+
     Set<SkyKey> uniqueNewDeps = entry.addTemporaryDirectDeps(env.getNewlyRequestedDeps());
     for (SkyKey newDep : uniqueNewDeps) {
       // Note that this depEntry can't be null. If env.newlyRequestedDeps contained a key with a
