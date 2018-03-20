@@ -123,4 +123,14 @@ public final class SkylarkCallableProcessorTest {
                 + "but annotation declared 1 user-supplied parameters "
                 + "and 0 extra interpreter parameters.");
   }
+
+  @Test
+  public void testInvalidParamNoneDefault() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("InvalidParamNoneDefault.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter 'a_parameter' has 'None' default value but is not noneable.");
+  }
 }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor;
 
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.util.List;
 import java.util.Set;
@@ -81,6 +82,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
 
       try {
+        verifyParamSemantics(methodElement, annotation);
         verifyNumberOfParameters(methodElement, annotation);
         verifyExtraInterpreterParams(methodElement, annotation);
       } catch (SkylarkCallableProcessorException exception) {
@@ -89,6 +91,20 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
 
     return true;
+  }
+
+  private void verifyParamSemantics(ExecutableElement methodElement, SkylarkCallable annotation)
+      throws SkylarkCallableProcessorException {
+    for (Param parameter : annotation.parameters()) {
+      if ("None".equals(parameter.defaultValue()) && !parameter.noneable()) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format("Parameter '%s' has 'None' default value but is not noneable. "
+                + "(If this is intended as a mandatory parameter, leave the defaultValue field "
+                + "empty)",
+                parameter.name()));
+      }
+    }
   }
 
   private void verifyNumberOfParameters(ExecutableElement methodElement, SkylarkCallable annotation)
