@@ -131,15 +131,19 @@ class RunfilesTest(test_base.TestBase):
 
       i += 2
 
-  def testPythonRunfilesLibraryInBazelToolsRepo(self):
-    self._AssertPythonRunfilesLibraryInBazelToolsRepo("py", "Python")
+  # TODO(laszlocsomor): re-enable after
+  # https://github.com/bazelbuild/bazel/issues/4878 is fixed.
+  # def testPythonRunfilesLibraryInBazelToolsRepo(self):
+  #  self._AssertPythonRunfilesLibraryInBazelToolsRepo("py", "Python")
 
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
     for s, t in [
         ("WORKSPACE.mock", "WORKSPACE"),
         ("bar/BUILD.mock", "bar/BUILD"),
-        ("bar/bar.py", "bar/bar.py"),
-        ("bar/bar-py-data.txt", "bar/bar-py-data.txt"),
+        # TODO(laszlocsomor): uncomment Python files after
+        # https://github.com/bazelbuild/bazel/issues/4878 is fixed.
+        # ("bar/bar.py", "bar/bar.py"),
+        # ("bar/bar-py-data.txt", "bar/bar-py-data.txt"),
         ("bar/Bar.java", "bar/Bar.java"),
         ("bar/bar-java-data.txt", "bar/bar-java-data.txt"),
     ]:
@@ -151,10 +155,12 @@ class RunfilesTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(["build", "//bar:all"])
+    exit_code, _, stderr = self.RunBazel(["build", "//bar:bar-java"])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java")]:
+    # TODO(laszlocsomor): add Python after
+    # https://github.com/bazelbuild/bazel/issues/4878 is fixed.
+    for lang in [("java", "Java", "Bar.java")]:
       if test_base.TestBase.IsWindows():
         bin_path = os.path.join(bazel_bin, "bar/bar-%s.exe" % lang[0])
       else:
