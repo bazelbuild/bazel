@@ -91,7 +91,8 @@ public class AndroidCompiledResourceMergingAction {
           executorService);
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(
+          generatedSources, options.classJarOutput, options.targetLabel, options.injectingRuleKind);
       logger.fine(
           String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

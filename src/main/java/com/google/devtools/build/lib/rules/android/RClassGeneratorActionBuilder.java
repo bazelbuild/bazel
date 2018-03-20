@@ -113,6 +113,7 @@ public class RClassGeneratorActionBuilder {
     }
     builder.addExecPath("--classJarOutput", classJarOut);
     outs.add(classJarOut);
+    builder.addLabel("--targetLabel", ruleContext.getLabel());
 
     // Create the spawn action.
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();

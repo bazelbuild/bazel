@@ -240,7 +240,7 @@ public class AndroidResourceMergingActionBuilder {
             .build(context));
   }
 
-  public ResourceContainer build(ActionConstructionContext context) {
+  public ResourceContainer build(RuleContext context) {
     CustomCommandLine.Builder parsedMergeBuilder =
         new CustomCommandLine.Builder().add("--tool").add("MERGE").add("--");
     CustomCommandLine.Builder compiledMergeBuilder =
@@ -267,6 +267,7 @@ public class AndroidResourceMergingActionBuilder {
 
     if (classJarOut != null) {
       jarAndManifestBuilder.addExecPath("--classJarOutput", classJarOut);
+      jarAndManifestBuilder.addLabel("--targetLabel", ruleContext.getLabel());
       jarAndManifestOutputs.add(classJarOut);
     }
 
