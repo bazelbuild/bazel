@@ -24,4 +24,8 @@ public interface ConfigurationTransition {
   default boolean isHostTransition() {
     return false;
   }
+
+  default String getName() {
+    return this.getClass().getSimpleName();
+  }
 }

@@ -40,6 +40,11 @@ public class ComposingSplitTransition implements SplitTransition {
   private ConfigurationTransition transition1;
   private ConfigurationTransition transition2;
 
+  @Override
+  public String getName() {
+    return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+  }
+
   /**
    * Creates a {@link ComposingSplitTransition} that applies the sequence: {@code fromOptions ->
    * transition1 -> transition2 -> toOptions }.
