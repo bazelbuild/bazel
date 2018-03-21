@@ -841,7 +841,6 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   // debugger.
   auto try_until_time(std::chrono::system_clock::now() +
                       std::chrono::seconds(120));
-  bool had_to_wait = false;
   while (std::chrono::system_clock::now() < try_until_time) {
     auto next_attempt_time(std::chrono::system_clock::now() +
                            std::chrono::milliseconds(100));
@@ -852,7 +851,6 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
       return;
     }
 
-    had_to_wait = true;
     if (!globals->options->client_debug) {
       fputc('.', stderr);
       fflush(stderr);
