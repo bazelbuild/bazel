@@ -168,17 +168,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowUncalledSetConstructor;
 
   @Option(
-    name = "incompatible_load_argument_is_label",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "no op - will be removed soon"
-  )
-  public boolean incompatibleLoadArgumentIsLabel;
-
-  @Option(
       name = "incompatible_new_actions_api",
       defaultValue = "false",
       category = "incompatible changes",
@@ -265,7 +254,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowThreeArgVardef(incompatibleDisallowThreeArgVardef)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleDisallowUncalledSetConstructor(incompatibleDisallowUncalledSetConstructor)
-        .incompatibleLoadArgumentIsLabel(incompatibleLoadArgumentIsLabel)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)

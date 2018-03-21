@@ -128,7 +128,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disallow_three_arg_vardef=" + rand.nextBoolean(),
         "--incompatible_disallow_toplevel_if_statement=" + rand.nextBoolean(),
         "--incompatible_disallow_uncalled_set_constructor=" + rand.nextBoolean(),
-        "--incompatible_load_argument_is_label=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_remove_native_git_repository=" + rand.nextBoolean(),
         "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
@@ -153,7 +152,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisallowThreeArgVardef(rand.nextBoolean())
         .incompatibleDisallowToplevelIfStatement(rand.nextBoolean())
         .incompatibleDisallowUncalledSetConstructor(rand.nextBoolean())
-        .incompatibleLoadArgumentIsLabel(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleRemoveNativeGitRepository(rand.nextBoolean())
         .incompatibleRemoveNativeHttpArchive(rand.nextBoolean())

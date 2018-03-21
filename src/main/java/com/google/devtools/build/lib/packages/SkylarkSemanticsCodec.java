@@ -52,7 +52,6 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowThreeArgVardef());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowToplevelIfStatement());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowUncalledSetConstructor());
-    codedOut.writeBoolNoTag(semantics.incompatibleLoadArgumentIsLabel());
     codedOut.writeBoolNoTag(semantics.incompatibleNewActionsApi());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeGitRepository());
     codedOut.writeBoolNoTag(semantics.incompatibleRemoveNativeHttpArchive());
@@ -76,7 +75,6 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleDisallowThreeArgVardef(codedIn.readBool());
     builder.incompatibleDisallowToplevelIfStatement(codedIn.readBool());
     builder.incompatibleDisallowUncalledSetConstructor(codedIn.readBool());
-    builder.incompatibleLoadArgumentIsLabel(codedIn.readBool());
     builder.incompatibleNewActionsApi(codedIn.readBool());
     builder.incompatibleRemoveNativeGitRepository(codedIn.readBool());
     builder.incompatibleRemoveNativeHttpArchive(codedIn.readBool());
