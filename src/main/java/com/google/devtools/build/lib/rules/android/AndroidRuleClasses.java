@@ -980,11 +980,10 @@ public final class AndroidRuleClasses {
           Possible values:
           <ul>
               <li><code>aapt_version = "aapt"</code>: Use aapt. This is the current default
-                behaviour, and should be used for production binaries. The android_sdk rule must
-                have an aapt binary to use this option.</li>
+                behaviour, and should be used for production binaries.</li>
               <li><code>aapt_version = "aapt2"</code>: Use aapt2. This is the new resource
                packaging system that provides improved incremental resource processing, smaller apks
-               and more. The android_sdk rule must have the aapt2 binary to use this option.</li>
+               and more.</li>
               <li><code>aapt_version = "auto"</code>: aapt is controlled by the
                 --android_aapt flag.</li>
           </ul>
