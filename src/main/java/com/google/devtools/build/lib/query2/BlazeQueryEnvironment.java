@@ -28,14 +28,15 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
@@ -72,7 +73,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternEvaluator targetPatternEvaluator;
   private final TransitivePackageLoader transitivePackageLoader;
-  private final PackageProvider packageProvider;
+  private final TargetProvider targetProvider;
+  private final CachingPackageLocator cachingPackageLocator;
   private final Digraph<Target> graph = new Digraph<>();
   private final ErrorPrintingTargetEdgeErrorObserver errorObserver;
   private final LabelVisitor labelVisitor;
@@ -94,7 +96,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    */
   BlazeQueryEnvironment(
       TransitivePackageLoader transitivePackageLoader,
-      PackageProvider packageProvider,
+      TargetProvider targetProvider,
+      CachingPackageLocator cachingPackageLocator,
       TargetPatternEvaluator targetPatternEvaluator,
       boolean keepGoing,
       boolean strictScope,
@@ -106,10 +109,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternEvaluator = targetPatternEvaluator;
     this.transitivePackageLoader = transitivePackageLoader;
-    this.packageProvider = packageProvider;
+    this.targetProvider = targetProvider;
+    this.cachingPackageLocator = cachingPackageLocator;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(packageProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
   }
 
   @Override
@@ -368,7 +372,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private Target getTargetOrThrow(Label label)
       throws NoSuchThingException, SkyframeRestartQueryException, InterruptedException {
-    Target target = packageProvider.getTarget(eventHandler, label);
+    Target target = targetProvider.getTarget(eventHandler, label);
     if (target == null) {
       throw new SkyframeRestartQueryException();
     }
@@ -416,7 +420,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           // Also add the BUILD file of the subinclude.
           if (buildFiles) {
             Path buildFileForSubinclude =
-                packageProvider.getBuildFileForPackage(
+                cachingPackageLocator.getBuildFileForPackage(
                     subincludeTarget.getLabel().getLabel().getPackageIdentifier());
             if (buildFileForSubinclude != null) {
               Label buildFileLabel =
