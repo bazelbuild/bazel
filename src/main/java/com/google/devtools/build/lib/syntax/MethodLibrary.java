@@ -894,6 +894,27 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkSignature(
+    name = "elems",
+    objectType = StringModule.class,
+    returnType = SkylarkList.class,
+    doc =
+        "Returns an iterable value containing successive 1-element substrings of the string. "
+            + "Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the "
+            + "returned value might not be a list.",
+    parameters = {@Param(name = "self", type = String.class, doc = "This string.")}
+  )
+  private static final BuiltinFunction elems =
+      new BuiltinFunction("elems") {
+        public SkylarkList<String> invoke(String self) throws ConversionException {
+          ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+          for (char c : self.toCharArray()) {
+            builder.add(String.valueOf(c));
+          }
+          return SkylarkList.createImmutable(builder.build());
+        }
+      };
+
   @SkylarkSignature(name = "endswith", objectType = StringModule.class, returnType = Boolean.class,
       doc = "Returns True if the string ends with <code>sub</code>, "
           + "otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], "
