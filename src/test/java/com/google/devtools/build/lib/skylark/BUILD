@@ -39,14 +39,12 @@ java_library(
     ],
 )
 
-# TODO(b/75273057): Remove flaky tag when the test is no longer flaky.
 java_test(
     name = "SkylarkTests",
     timeout = "long",
     srcs = glob([
         "*.java",
     ]),
-    flaky = 1,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":testutil",
