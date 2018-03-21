@@ -400,7 +400,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
     category = "server startup",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    help = "If true, log debug information from the client to stderr"
+    help =
+        "If true, log debug information from the client to stderr. Changing this option will not "
+            + "cause the server to restart."
   )
   public boolean clientDebug;
 

@@ -30,15 +30,15 @@ function tear_down() {
 function test_client_debug() {
   # Test that --client_debug sends log statements to stderr.
   bazel --client_debug version >&$TEST_log || fail "'bazel version' failed"
-  expect_log "Debug logging active"
+  expect_log "Debug logging requested"
   bazel --client_debug --batch version >&$TEST_log || fail "'bazel version' failed"
-  expect_log "Debug logging active"
+  expect_log "Debug logging requested"
 
   # Test that --client_debug is off by default.
   bazel version >&$TEST_log || fail "'bazel version' failed"
-  expect_not_log "Debug logging active"
+  expect_not_log "Debug logging requested"
   bazel --batch version >&$TEST_log || fail "'bazel version' failed"
-  expect_not_log "Debug logging active"
+  expect_not_log "Debug logging requested"
 }
 
 function test_client_debug_change_does_not_restart_server() {

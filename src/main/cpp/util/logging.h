@@ -28,6 +28,7 @@ namespace blaze_util {
 
 enum LogLevel {
   LOGLEVEL_INFO,
+  LOGLEVEL_USER,
   LOGLEVEL_WARNING,
   LOGLEVEL_ERROR,
   LOGLEVEL_FATAL,
@@ -142,7 +143,9 @@ class LogHandler {
   virtual ~LogHandler() {}
   virtual void HandleMessage(LogLevel level, const std::string& filename,
                              int line, const std::string& message) = 0;
-  virtual void SetOutputDir(const std::string& output_base) = 0;
+
+  virtual void SetOutputStream(std::unique_ptr<std::ostream> output_stream) = 0;
+  virtual void SetOutputStreamToStderr() = 0;
 };
 
 // Sets the log handler that routes all log messages.
@@ -150,8 +153,9 @@ class LogHandler {
 // at initialization time, and probably not from library code.
 void SetLogHandler(std::unique_ptr<LogHandler> new_handler);
 
-// Sets the current handler's output directory, given that the Handler cares.
-void SetLogfileDirectory(const std::string& output_dir);
+// Set the stream to which all log statements will be sent.
+void SetLoggingOutputStream(std::unique_ptr<std::ostream> output_stream);
+void SetLoggingOutputStreamToStderr();
 
 }  // namespace blaze_util
 

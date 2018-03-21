@@ -26,6 +26,5 @@ int main(int argc, const char *argv[]) {
       new blaze::StartupOptions(workspace_layout.get()));
   return blaze::Main(argc, argv, workspace_layout.get(),
                      new blaze::OptionProcessor(workspace_layout.get(),
-                                                std::move(startup_options)),
-                     nullptr /* TODO(b/32939567): Enable Bazel logging. */);
+                                                std::move(startup_options)));
 }

@@ -40,6 +40,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
@@ -1166,7 +1167,7 @@ static string GetMsysBash() {
                         KEY_QUERY_VALUE,  // _In_     REGSAM  samDesired,
                     &h_uninstall          // _Out_    PHKEY   phkResult
                     )) {
-    debug_log("Cannot open HKCU\\%s", key);
+    BAZEL_LOG(INFO) << "Cannot open HKCU\\" << key;
     return string();
   }
   AutoHandle auto_uninstall(h_uninstall);
@@ -1191,7 +1192,7 @@ static string GetMsysBash() {
                       0,  // _Out_opt_   LPDWORD   lpcbSecurityDescriptor,
                       0   // _Out_opt_   PFILETIME lpftLastWriteTime
                       )) {
-    debug_log("Cannot query HKCU\\%s", key);
+    BAZEL_LOG(INFO) << "Cannot query HKCU\\" << key;
     return string();
   }
 
@@ -1202,7 +1203,8 @@ static string GetMsysBash() {
                     subkey_name,         // _Out_ LPTSTR lpName,
                     sizeof(subkey_name)  // _In_  DWORD  cchName
                     )) {
-      debug_log("Cannot get %d subkey of HKCU\\%s", key_index, key);
+      BAZEL_LOG(INFO) << "Cannot get " << key_index << " subkey of HKCU\\"
+                      << key;
       continue;  // try next subkey
     }
 
@@ -1213,7 +1215,8 @@ static string GetMsysBash() {
                      KEY_QUERY_VALUE,  // _In_     REGSAM  samDesired,
                      &h_subkey         // _Out_    PHKEY   phkResult
                      )) {
-      debug_log("Failed to open subkey HKCU\\%s\\%s", key, subkey_name);
+      BAZEL_LOG(ERROR) << "Failed to open subkey HKCU\\" << key << "\\"
+                       << subkey_name;
       continue;  // try next subkey
     }
     AutoHandle auto_subkey(h_subkey);
@@ -1229,14 +1232,15 @@ static string GetMsysBash() {
                         value,          // _Out_opt_   LPBYTE  lpData,
                         &value_length   // _Inout_opt_ LPDWORD lpcbData
                         )) {
-      debug_log("Failed to query DisplayName of HKCU\\%s\\%s", key,
-                subkey_name);
+      BAZEL_LOG(ERROR) << "Failed to query DisplayName of HKCU\\" << key << "\\"
+                       << subkey_name;
       continue;  // try next subkey
     }
 
     if (value_type == REG_SZ &&
         0 == memcmp(msys_display_name, value, sizeof(msys_display_name))) {
-      debug_log("Getting install location of HKCU\\%s\\%s", key, subkey_name);
+      BAZEL_LOG(INFO) << "Getting install location of HKCU\\" << key << "\\"
+                      << subkey_name;
       BYTE path[REG_VALUE_BUFFER_SIZE];
       DWORD path_length = sizeof(path);
       DWORD path_type;
@@ -1248,27 +1252,28 @@ static string GetMsysBash() {
               path,               // _Out_opt_   LPBYTE  lpData,
               &path_length        // _Inout_opt_ LPDWORD lpcbData
               )) {
-        debug_log("Failed to query InstallLocation of HKCU\\%s\\%s", key,
-                  subkey_name);
+        BAZEL_LOG(ERROR) << "Failed to query InstallLocation of HKCU\\" << key
+                         << "\\" << subkey_name;
         continue;  // try next subkey
       }
 
       if (path_length == 0 || path_type != REG_SZ) {
-        debug_log("Zero-length (%d) install location or wrong type (%d)",
-                  path_length, path_type);
+        BAZEL_LOG(ERROR) << "Zero-length (" << path_length
+                         << ") install location or wrong type (" << path_type
+                         << ")";
         continue;  // try next subkey
       }
 
-      debug_log("Install location of HKCU\\%s\\%s is %s", key, subkey_name,
-                path);
+      BAZEL_LOG(INFO) << "Install location of HKCU\\" << key << "\\"
+                      << subkey_name << " is " << path;
       string path_as_string(path, path + path_length - 1);
       string bash_exe = path_as_string + "\\usr\\bin\\bash.exe";
       if (!blaze_util::PathExists(bash_exe)) {
-        debug_log("%s does not exist", bash_exe.c_str());
+        BAZEL_LOG(INFO) << bash_exe.c_str() << " does not exist";
         continue;  // try next subkey
       }
 
-      debug_log("Detected msys bash at %s", bash_exe.c_str());
+      BAZEL_LOG(INFO) << "Detected msys bash at " << bash_exe.c_str();
       return bash_exe;
     }
   }
@@ -1288,12 +1293,12 @@ static string GetBashFromGitOnWin() {
                     KEY_QUERY_VALUE,       // _In_     REGSAM  samDesired,
                     &h_GitOnWin_uninstall  // _Out_    PHKEY   phkResult
                     )) {
-    debug_log("Cannot open HKCU\\%s", key);
+    BAZEL_LOG(INFO) << "Cannot open HKCU\\" << key;
     return string();
   }
   AutoHandle auto_h_GitOnWin_uninstall(h_GitOnWin_uninstall);
 
-  debug_log("Getting install location of HKLM\\%s", key);
+  BAZEL_LOG(INFO) << "Getting install location of HKLM\\" << key;
   BYTE path[REG_VALUE_BUFFER_SIZE];
   DWORD path_length = sizeof(path);
   DWORD path_type;
@@ -1304,25 +1309,26 @@ static string GetBashFromGitOnWin() {
                       path,                  // _Out_opt_   LPBYTE  lpData,
                       &path_length           // _Inout_opt_ LPDWORD lpcbData
                       )) {
-    debug_log("Failed to query InstallLocation of HKLM\\%s", key);
+    BAZEL_LOG(ERROR) << "Failed to query InstallLocation of HKLM\\" << key;
     return string();
   }
 
   if (path_length == 0 || path_type != REG_SZ) {
-    debug_log("Zero-length (%d) install location or wrong type (%d)",
-              path_length, path_type);
+    BAZEL_LOG(ERROR) << "Zero-length (" << path_length
+                     << ") install location or wrong type (" << path_type
+                     << ")";
     return string();
   }
 
-  debug_log("Install location of HKLM\\%s is %s", key, path);
+  BAZEL_LOG(INFO) << "Install location of HKLM\\" << key << " is " << path;
   string path_as_string(path, path + path_length - 1);
   string bash_exe = path_as_string + "\\usr\\bin\\bash.exe";
   if (!blaze_util::PathExists(bash_exe)) {
-    debug_log("%s does not exist", bash_exe.c_str());
+    BAZEL_LOG(ERROR) << "%s does not exist", bash_exe.c_str();
     return string();
   }
 
-  debug_log("Detected git-on-Windows bash at %s", bash_exe.c_str());
+  BAZEL_LOG(INFO) << "Detected git-on-Windows bash at " << bash_exe.c_str();
   return bash_exe;
 }
 
@@ -1350,7 +1356,7 @@ static string GetBinaryFromPath(const string& binary_name) {
                     found,                // _Out_     LPTSTR  lpBuffer,
                     0                     // _Out_opt_ LPTSTR  *lpFilePart
                     )) {
-      debug_log("%s found on PATH: %s", binary_name.c_str(), found);
+      BAZEL_LOG(INFO) << binary_name.c_str() << " found on PATH: " << found;
       return string(found);
     }
     if (end == string::npos) {
@@ -1359,7 +1365,7 @@ static string GetBinaryFromPath(const string& binary_name) {
     start = end + 1;
   } while (true);
 
-  debug_log("%s not found on PATH", binary_name.c_str());
+  BAZEL_LOG(ERROR) << binary_name.c_str() << " not found on PATH";
   return string();
 }
 
@@ -1384,8 +1390,8 @@ void DetectBashOrDie() {
 
   string bash = LocateBash();
   uint64_t end = blaze::GetMillisecondsMonotonic();
-  debug_log("BAZEL_SH detection took %lu msec, found %s", end - start,
-            bash.c_str());
+  BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
+                  << " msec, found " << bash.c_str();
 
   if (!bash.empty()) {
     // Set process environment variable.
