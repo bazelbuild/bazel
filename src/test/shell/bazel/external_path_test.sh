@@ -262,6 +262,67 @@ EOF
       || fail "Expected output 'Hello World'"
 }
 
+repo_with_local_path_reference() {
+  # create, in the current working directory, a pacakge called
+  # withpath, that contains rule depending on hard-code path relative
+  # to the repository root.
+  mkdir -p withpath
+  cat > withpath/BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["double.sh", "data.txt"],
+  outs = ["it.txt"],
+  cmd = "sh $(location double.sh) > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > withpath/double.sh <<'EOF'
+#!/bin/sh
+cat withpath/data.txt withpath/data.txt
+EOF
+  cat > withpath/data.txt <<'EOF'
+Hello world
+EOF
+}
+
+test_fixed_path_local() {
+  # Verify that hard-coded path relative to the repository root can
+  # be used in internal targets.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir main
+  cd main
+  touch WORKSPACE
+  repo_with_local_path_reference
+
+  bazel build //withpath:it || fail "Expected success"
+}
+
+# TODO(aehlig): enable, once our execroot change is far enough
+# to make this (desirbale) property true.
+DISABLED_test_fixed_path_remote() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir remote
+  (cd remote && repo_with_local_path_reference)
+  tar cvf remote.tar remote
+  rm -rf remote
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="remote",
+  strip_prefix="remote",
+  urls=["file://${WRKDIR}/remote.tar"],
+)
+EOF
+
+  bazel build @remote//withpath:it || fail "Expected success"
+}
 repo_with_local_implicit_dependencies() {
   # create, in the current working directory, a package called rule
   # that has an implicit dependency on a target in the same repository;
