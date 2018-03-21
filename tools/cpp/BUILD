@@ -219,16 +219,6 @@ filegroup(
     srcs = ["lib_cc_configure.bzl"],
 )
 
-filegroup(
-    name = "crosstool_utils",
-    srcs = ["crosstool_utils.bzl"],
-)
-
-filegroup(
-    name = "crosstool_lib",
-    srcs = ["crosstool_lib.bzl"],
-)
-
 cc_toolchain_type(name = "toolchain_type")
 
 # A dummy toolchain is necessary to satisfy toolchain resolution until platforms
