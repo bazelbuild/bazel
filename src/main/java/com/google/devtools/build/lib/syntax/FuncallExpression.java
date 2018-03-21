@@ -440,7 +440,7 @@ public final class FuncallExpression extends Expression {
       } else {
         errorMessage =
             String.format(
-                "%s, in method %s of '%s'",
+                "%s, in method call %s of '%s'",
                 argumentListConversionResult.getError(),
                 formatMethod(methodName, args, kwargs),
                 EvalUtils.getDataTypeNameFromClass(objClass));
@@ -538,7 +538,8 @@ public final class FuncallExpression extends Expression {
         } else if (!type.contains(value)) {
           return ArgumentListConversionResult.fromError(
               String.format(
-                  "Cannot convert parameter '%s' to type %s", param.name(), type.toString()));
+                  "expected value of type '%s' for parameter '%s'",
+                  type.toString(), param.name()));
         }
         i++;
       } else if (param.named() && keys.remove(param.name())) {
@@ -547,7 +548,8 @@ public final class FuncallExpression extends Expression {
         if (!type.contains(value)) {
           return ArgumentListConversionResult.fromError(
               String.format(
-                  "Cannot convert parameter '%s' to type %s", param.name(), type.toString()));
+                  "expected value of type '%s' for parameter '%s'",
+                  type.toString(), param.name()));
         }
       } else {
         // Use default value
