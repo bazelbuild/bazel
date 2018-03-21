@@ -120,6 +120,7 @@ public class GrpcRemoteExecutionClientTest {
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
   private Path execRoot;
+  private Path logDir;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
   private Digest inputDigest;
@@ -195,6 +196,7 @@ public class GrpcRemoteExecutionClientTest {
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
     fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
+    logDir = fs.getPath("/server-logs");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn =
@@ -255,7 +257,8 @@ public class GrpcRemoteExecutionClientTest {
             "command-id",
             remoteCache,
             executor,
-            DIGEST_UTIL);
+            DIGEST_UTIL,
+            logDir);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 

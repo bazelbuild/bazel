@@ -49,6 +49,7 @@ import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
+import com.google.devtools.remoteexecution.v1test.LogFile;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
@@ -83,6 +84,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final String buildRequestId;
   private final String commandId;
   private final DigestUtil digestUtil;
+  private final Path logDir;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -97,7 +99,8 @@ class RemoteSpawnRunner implements SpawnRunner {
       String commandId,
       @Nullable AbstractRemoteActionCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      Path logDir) {
     this.execRoot = execRoot;
     this.options = options;
     this.fallbackRunner = fallbackRunner;
@@ -108,6 +111,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.digestUtil = digestUtil;
+    this.logDir = logDir;
   }
 
   @Override
@@ -196,6 +200,7 @@ class RemoteSpawnRunner implements SpawnRunner {
                 .setAction(action)
                 .setSkipCacheLookup(!acceptCachedResult);
         ExecuteResponse reply = remoteExecutor.executeRemotely(request.build());
+        maybeDownloadServerLogs(reply, actionKey);
         result = reply.getResult();
         remoteCacheHit = reply.getCachedResult();
       } catch (IOException e) {
@@ -212,6 +217,32 @@ class RemoteSpawnRunner implements SpawnRunner {
       }
     } finally {
       withMetadata.detach(previous);
+    }
+  }
+
+  private void maybeDownloadServerLogs(ExecuteResponse resp, ActionKey actionKey)
+      throws InterruptedException {
+    ActionResult result = resp.getResult();
+    if (resp.getServerLogsCount() > 0
+        && (result.getExitCode() != 0 || resp.getStatus().getCode() != Code.OK.value())) {
+      Path parent = logDir.getRelative(actionKey.getDigest().getHash());
+      Path logPath = null;
+      int logCount = 0;
+      for (Map.Entry<String, LogFile> e : resp.getServerLogsMap().entrySet()) {
+        if (e.getValue().getHumanReadable()) {
+          logPath = parent.getRelative(e.getKey());
+          logCount++;
+          try {
+            remoteCache.downloadFile(logPath, e.getValue().getDigest(), false, null);
+          } catch (IOException ex) {
+            reportOnce(Event.warn("Failed downloading server logs from the remote cache."));
+          }
+        }
+      }
+      if (logCount > 0 && verboseFailures) {
+        report(
+            Event.info("Server logs of failing action:\n   " + (logCount > 1 ? parent : logPath)));
+      }
     }
   }
 
@@ -242,16 +273,17 @@ class RemoteSpawnRunner implements SpawnRunner {
             && RemoteRetrierUtils.causedByExecTimeout((RetryException) cause))) {
       return execLocally(spawn, policy, inputMap, uploadLocalResults, remoteCache, actionKey);
     }
-    return handleError(cause, policy.getFileOutErr());
+    return handleError(cause, policy.getFileOutErr(), actionKey);
   }
 
-  private SpawnResult handleError(IOException exception, FileOutErr outErr)
+  private SpawnResult handleError(IOException exception, FileOutErr outErr, ActionKey actionKey)
       throws ExecException, InterruptedException, IOException {
     final Throwable cause = exception.getCause();
     if (cause instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) cause;
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
+        maybeDownloadServerLogs(resp, actionKey);
         if (resp.hasResult()) {
           // We try to download all (partial) results even on server error, for debuggability.
           remoteCache.download(resp.getResult(), execRoot, outErr);

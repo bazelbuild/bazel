@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -97,6 +98,18 @@ public final class RemoteModule extends BlazeModule {
     String buildRequestId = env.getBuildRequestId().toString();
     String commandId = env.getCommandId().toString();
     logger.info("Command: buildRequestId = " + buildRequestId + ", commandId = " + commandId);
+    Path logDir =
+        env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
+    try {
+      // Clean out old logs files.
+      if (logDir.exists()) {
+        FileSystemUtils.deleteTree(logDir);
+      }
+      logDir.createDirectory();
+    } catch (IOException e) {
+      env.getReporter()
+          .handle(Event.error("Could not create base directory for remote logs: " + logDir));
+    }
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     HashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
@@ -154,7 +167,8 @@ public final class RemoteModule extends BlazeModule {
         executor = null;
       }
 
-      actionContextProvider = new RemoteActionContextProvider(env, cache, executor, digestUtil);
+      actionContextProvider =
+          new RemoteActionContextProvider(env, cache, executor, digestUtil, logDir);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment().exit(new AbruptExitException(ExitCode.COMMAND_LINE_ERROR));
