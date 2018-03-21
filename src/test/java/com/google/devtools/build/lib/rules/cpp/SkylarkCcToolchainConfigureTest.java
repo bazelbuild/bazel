@@ -27,15 +27,6 @@ import org.junit.runners.JUnit4;
 public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
 
   @Test
-  public void testActionNames() throws Exception {
-    newTest()
-        .testStatement("COMPILE_ACTIONS", MutableList.copyOf(env, CcCommon.ALL_COMPILE_ACTIONS))
-        .testStatement("LINK_ACTIONS", MutableList.copyOf(env, CcCommon.ALL_LINK_ACTIONS))
-        .testStatement("ARCHIVE_ACTIONS", MutableList.copyOf(env, CcCommon.ALL_ARCHIVE_ACTIONS))
-        .testStatement("OTHER_ACTIONS", MutableList.copyOf(env, CcCommon.ALL_OTHER_ACTIONS));
-  }
-
-  @Test
   public void testSplitEscaped() throws Exception {
     newTest()
         .testStatement("split_escaped('a:b:c', ':')", MutableList.of(env, "a", "b", "c"))
@@ -56,135 +47,7 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .testStatement("split_escaped('a%%b', ':')", MutableList.of(env, "a%b"))
         .testStatement("split_escaped('a%:', ':')", MutableList.of(env, "a:"));
   }
-
-  @Test
-  public void testActionConfig() throws Exception {
-    newTest()
-        .testStatement(
-            "action_config('c++-compile', '/usr/bin/gcc')",
-            "\n"
-                + "  action_config {\n"
-                + "    config_name: 'c++-compile'\n"
-                + "    action_name: 'c++-compile'\n"
-                + "    tool {\n"
-                + "      tool_path: '/usr/bin/gcc'\n"
-                + "    }\n"
-                + "  }");
-  }
-
-  @Test
-  public void testFeature() throws Exception {
-    newTest()
-        .testStatement(
-            "feature("
-                + "'fully_static_link', "
-                + " [ "
-                + "    flag_set("
-                + "      ['c++-link-dynamic-library', 'c++-link-nodeps-dynamic-library'], "
-                + "      [flag_group([flag('-a'), flag('-b'), flag('-c')])])])",
-            "\n"
-                + "  feature {\n"
-                + "    name: 'fully_static_link'\n"
-                + "    enabled: true\n"
-                + "    flag_set {\n"
-                + "      action: 'c++-link-dynamic-library'\n"
-                + "      action: 'c++-link-nodeps-dynamic-library'\n"
-                + "      flag_group {\n"
-                + "        flag: '-a'\n"
-                + "        flag: '-b'\n"
-                + "        flag: '-c'\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }");
-  }
-
-  @Test
-  public void testFeatureThoroughly() throws Exception {
-    newTest()
-        .testStatement(
-            "feature("
-                + "'fully_static_link', "
-                + " [ "
-                + "   flag_set("
-                + "     ['c++-link-dynamic-library'], "
-                + "     [flag_group([flag('-a')])]),"
-                + "   flag_set("
-                + "     ['c++-link-dynamic-library'],"
-                + "     ["
-                + "        flag_group("
-                + "          [flag('-a')],"
-                + "          iterate_over='a'),"
-                + "        flag_group("
-                + "          [flag('-c')],"
-                + "          expand_if_all_available=['a','b'],"
-                + "          expand_if_none_available=['a'],"
-                + "          expand_if_true=['a','b'],"
-                + "          expand_if_false=['a'],"
-                + "          expand_if_equal=[['a','val']],"
-                + "        ),"
-                + "        flag_group("
-                + "          [flag('-c')],"
-                + "          iterate_over='a',"
-                + "          expand_if_all_available=['a','b'],"
-                + "          expand_if_none_available=['a'],"
-                + "          expand_if_true=['a','b'],"
-                + "          expand_if_false=['a'],"
-                + "          expand_if_equal=[['a','val']],"
-                + "        )"
-                + "      ]),"
-                + "    flag_set("
-                + "      ['c++-link-dynamic-library'], "
-                + "      [flag_group([flag_group([flag('-a')])])])"
-                + " ])",
-            "\n"
-                + "  feature {\n"
-                + "    name: 'fully_static_link'\n"
-                + "    enabled: true\n"
-                + "    flag_set {\n"
-                + "      action: 'c++-link-dynamic-library'\n"
-                + "      flag_group {\n"
-                + "        flag: '-a'\n"
-                + "      }\n"
-                + "    }\n"
-                + "    flag_set {\n"
-                + "      action: 'c++-link-dynamic-library'\n"
-                + "      flag_group {\n"
-                + "        iterate_over: 'a'\n"
-                + "        flag: '-a'\n"
-                + "      }\n"
-                + "      flag_group {\n"
-                + "        expand_if_all_available: 'a'\n"
-                + "        expand_if_all_available: 'b'\n"
-                + "        expand_if_none_available: 'a'\n"
-                + "        expand_if_true: 'a'\n"
-                + "        expand_if_true: 'b'\n"
-                + "        expand_if_false: 'a'\n"
-                + "        expand_if_equal { variable: 'a' value: 'val' }\n"
-                + "        flag: '-c'\n"
-                + "      }\n"
-                + "      flag_group {\n"
-                + "        expand_if_all_available: 'a'\n"
-                + "        expand_if_all_available: 'b'\n"
-                + "        expand_if_none_available: 'a'\n"
-                + "        expand_if_true: 'a'\n"
-                + "        expand_if_true: 'b'\n"
-                + "        expand_if_false: 'a'\n"
-                + "        expand_if_equal { variable: 'a' value: 'val' }\n"
-                + "        iterate_over: 'a'\n"
-                + "        flag: '-c'\n"
-                + "      }\n"
-                + "    }\n"
-                + "    flag_set {\n"
-                + "      action: 'c++-link-dynamic-library'\n"
-                + "      flag_group {\n"
-                + "      flag_group {\n"
-                + "        flag: '-a'\n"
-                + "      }\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }");
-  }
-
+  
   private ModalTestCase newTest(String... skylarkOptions) throws IOException {
     return new SkylarkTest(skylarkOptions)
         // A mock implementation of Label to be able to parse lib_cc_configure under default
@@ -193,9 +56,6 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .setUp("def Label(arg):\n  return 42")
         .setUp(
             ResourceLoader.readFromResources(
-                TestConstants.BAZEL_REPO_PATH + "tools/cpp/lib_cc_configure.bzl"))
-        .setUp(
-            ResourceLoader.readFromResources(
-                TestConstants.BAZEL_REPO_PATH + "tools/cpp/crosstool_utils.bzl"));
+                TestConstants.BAZEL_REPO_PATH + "tools/cpp/lib_cc_configure.bzl"));
   }
 }
