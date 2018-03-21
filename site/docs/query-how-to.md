@@ -217,7 +217,7 @@ bazel query 'kind("generated file", //foo:*)'
 #### What's the set of BUILD files needed to build `//foo`?
 
 ```sh
-bazel query 'buildfiles(deps(//foo))' --output location | cut -f1 -d:
+bazel query 'buildfiles(deps(//foo))' | cut -f1 -d:
 ```
 
 <a name="What_are_the_individual_tests_th"></a>
