@@ -19,6 +19,7 @@ import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.ByteString;
@@ -54,6 +55,11 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
   @Override
   public void serialize(SerializationContext context, NestedSet<T> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
+    if (!SerializationConstants.shouldSerializeNestedSet) {
+      // Don't perform NestedSet serialization in testing
+      return;
+    }
+
     // Topo sort the nested set to ensure digests are available for children at time of writing
     Collection<Object> topoSortedChildren = getTopologicallySortedChildren(obj);
     Map<Object, byte[]> childToDigest = new IdentityHashMap<>();
@@ -67,6 +73,11 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
   @Override
   public NestedSet<T> deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
+    if (!SerializationConstants.shouldSerializeNestedSet) {
+      // Don't perform NestedSet deserialization in testing
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
     Map<ByteString, Object> digestToChild = new HashMap<>();
     int nestedSetCount = codedIn.readInt32();
     Preconditions.checkState(
