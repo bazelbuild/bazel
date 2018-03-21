@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "tools/cpp/runfiles/runfiles.h"
+#include "tools/runfiles/runfiles.h"
 
 #ifdef COMPILER_MSVC
 #include <windows.h>
@@ -32,8 +32,6 @@
 #endif  // COMPILER_MSVC
 
 namespace bazel {
-namespace tools {
-namespace cpp {
 namespace runfiles {
 
 using std::function;
@@ -316,6 +314,4 @@ Runfiles* Runfiles::CreateDirectoryBased(const string& directory_path,
 }
 
 }  // namespace runfiles
-}  // namespace cpp
-}  // namespace tools
 }  // namespace bazel

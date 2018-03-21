@@ -16,13 +16,13 @@
 //
 // Usage:
 //
-//   #include "tools/cpp/runfiles/runfiles.h"
+//   #include "tools/runfiles/runfiles.h"
 //   ...
-//   using namespace bazel::tools::cpp::runfiles::Runfiles;
 //
 //   int main(int argc, char** argv) {
 //     std::string error;
-//     std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
+//     std::unique_ptr<bazel::runfiles::Runfiles> runfiles(
+//         bazel::runfiles::Runfiles::Create(argv[0], &error));
 //     if (runfiles == nullptr) {
 //       ...  // error handling
 //     }
@@ -39,18 +39,19 @@
 // If you want to explicitly create a manifest- or directory-based
 // implementation, you can do so as follows:
 //
-//   std::unique_ptr<Runfiles> runfiles1(
-//       Runfiles::CreateManifestBased(
+//   std::unique_ptr<bazel::runfiles::Runfiles> runfiles1(
+//       bazel::runfiles::Runfiles::CreateManifestBased(
 //           "path/to/foo.runfiles/MANIFEST", &error));
 //
-//   std::unique_ptr<Runfiles> runfiles2(
-//       Runfiles::CreateDirectoryBased(
+//   std::unique_ptr<bazel::runfiles::Runfiles> runfiles2(
+//       bazel::runfiles::Runfiles::CreateDirectoryBased(
 //           "path/to/foo.runfiles", &error));
 //
 // If you want to start child processes that also need runfiles, you need to set
 // the right environment variables for them:
 //
-//   std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
+//   std::unique_ptr<bazel::runfiles::Runfiles> runfiles(
+//       bazel::runfiles::Runfiles::Create(argv[0], &error));
 //
 //   for (const auto i : runfiles->EnvVars()) {
 //     setenv(i.first, i.second, 1);
@@ -69,8 +70,6 @@
 #include <vector>
 
 namespace bazel {
-namespace tools {
-namespace cpp {
 namespace runfiles {
 
 class Runfiles {
@@ -180,8 +179,6 @@ bool TestOnly_IsAbsolute(const std::string& path);
 
 }  // namespace testing
 }  // namespace runfiles
-}  // namespace cpp
-}  // namespace tools
 }  // namespace bazel
 
 #endif  // BAZEL_SRC_TOOLS_RUNFILES_RUNFILES_H_
