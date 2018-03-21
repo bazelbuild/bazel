@@ -210,7 +210,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * Download a file (that is not a directory). If the {@code content} is not given, the content is
    * fetched from the digest.
    */
-  protected void downloadFile(
+  public void downloadFile(
       Path path, Digest digest, boolean isExecutable, @Nullable ByteString content)
       throws IOException, InterruptedException {
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());

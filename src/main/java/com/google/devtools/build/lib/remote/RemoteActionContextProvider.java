@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -40,16 +41,19 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final AbstractRemoteActionCache cache;
   private final GrpcRemoteExecutor executor;
   private final DigestUtil digestUtil;
+  private final Path logDir;
 
   RemoteActionContextProvider(
       CommandEnvironment env,
       @Nullable AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      Path logDir) {
     this.env = env;
     this.executor = executor;
     this.cache = cache;
     this.digestUtil = digestUtil;
+    this.logDir = logDir;
   }
 
   @Override
@@ -84,7 +88,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               commandId,
               cache,
               executor,
-              digestUtil);
+              digestUtil,
+              logDir);
       return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }
