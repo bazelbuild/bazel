@@ -52,7 +52,6 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDisallowToplevelIfStatement();
   public abstract boolean incompatibleDisallowUncalledSetConstructor();
 
-  public abstract boolean incompatibleLoadArgumentIsLabel();
   public abstract boolean incompatibleNewActionsApi();
   public abstract boolean incompatibleShowAllPrintMessages();
 
@@ -87,7 +86,6 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowThreeArgVardef(false)
           .incompatibleDisallowToplevelIfStatement(true)
           .incompatibleDisallowUncalledSetConstructor(true)
-          .incompatibleLoadArgumentIsLabel(true)
           .incompatibleNewActionsApi(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
@@ -113,7 +111,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowThreeArgVardef(boolean value);
     public abstract Builder incompatibleDisallowToplevelIfStatement(boolean value);
     public abstract Builder incompatibleDisallowUncalledSetConstructor(boolean value);
-    public abstract Builder incompatibleLoadArgumentIsLabel(boolean value);
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
     public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
