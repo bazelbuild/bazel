@@ -132,17 +132,25 @@ public class BazelConfiguration extends Fragment {
 
   @Override
   public void setupActionEnvironment(Map<String, String> builder) {
+    // All entries in the builder that have a value of null inherit the value from the client
+    // environment, which is only known at execution time - we don't want to bake the client env
+    // into the configuration since any change to the configuration requires rerunning the full
+    // analysis phase.
     if (useStrictActionEnv) {
-      String path = pathOrDefault(os, null, getShellExecutable());
-      builder.put("PATH", path);
-    } else {
-      // TODO(ulfjack): Avoid using System.getenv; it's the wrong environment!
+      builder.put("PATH", pathOrDefault(os, null, getShellExecutable()));
+    } else if (os == OS.WINDOWS) {
+      // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
+      // inheriting PATH from the client environment. For now we use System.getenv even though
+      // that is incorrect. We should enable strict_action_env by default and then remove this
+      // code, but that change may break Windows users who are relying on the MSYS root being in
+      // the PATH.
       builder.put("PATH", pathOrDefault(os, System.getenv("PATH"), getShellExecutable()));
-
-      String ldLibraryPath = System.getenv("LD_LIBRARY_PATH");
-      if (ldLibraryPath != null) {
-        builder.put("LD_LIBRARY_PATH", ldLibraryPath);
-      }
+      builder.put("LD_LIBRARY_PATH", null);
+    } else {
+      // The previous implementation used System.getenv (which uses the server's environment), and
+      // fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
+      builder.put("PATH", null);
+      builder.put("LD_LIBRARY_PATH", null);
     }
   }
 
@@ -168,7 +176,7 @@ public class BazelConfiguration extends Fragment {
     // from the local machine. For now, this can be overridden with --action_env=PATH=<value>, so
     // at least there's a workaround.
     if (os != OS.WINDOWS) {
-      return path == null ? "/bin:/usr/bin" : path;
+      return "/bin:/usr/bin";
     }
 
     // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
@@ -187,10 +195,8 @@ public class BazelConfiguration extends Fragment {
         newPath += ";" + path;
       }
       return newPath;
-    } else if (path != null) {
-      return path;
     } else {
-      return "";
+      return null;
     }
   }
 }
