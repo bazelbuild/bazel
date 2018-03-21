@@ -718,4 +718,12 @@ public class CppCompileActionBuilder {
     this.inputsForInvalidation = Preconditions.checkNotNull(inputsForInvalidation);
     return this;
   }
+
+  public PathFragment getRealOutputFilePath() {
+    if (getTempOutputFile() != null) {
+      return getTempOutputFile();
+    } else {
+      return getOutputFile().getExecPath();
+    }
+  }
 }

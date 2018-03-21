@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -111,8 +112,13 @@ public final class CcCompilationHelper {
   public static final String UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME = "unfiltered_compile_flags";
 
   /**
-   * Name of the build variable for the path to the compilation output file in case of preprocessed
-   * source.
+   * Name of the build variable marking that we are generating assembly source (from --save_temps).
+   */
+  private static final String OUTPUT_ASSEMBLY_FILE_VARIABLE_NAME = "output_assembly_file";
+
+  /**
+   * Name of the build variable marking that we are generating preprocessed sources (from
+   * --save_temps).
    */
   public static final String OUTPUT_PREPROCESS_FILE_VARIABLE_NAME = "output_preprocess_file";
 
@@ -145,12 +151,6 @@ public final class CcCompilationHelper {
 
   /** Name of the build variable present when the output is compiled as position independent. */
   public static final String PIC_VARIABLE_NAME = "pic";
-
-  /**
-   * Name of the build variable for the path to the compilation output file in case of assembly
-   * source.
-   */
-  private static final String OUTPUT_ASSEMBLY_FILE_VARIABLE_NAME = "output_assembly_file";
 
   /** Name of the build variable for the dependency file path */
   private static final String DEPENDENCY_FILE_VARIABLE_NAME = "dependency_file";
@@ -1455,7 +1455,8 @@ public final class CcCompilationHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap());
+        builder.getCcCompilationInfo().getCppModuleMap(),
+        /* additionalBuildVariables= */ ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
     CppCompileActionTemplate actionTemplate =
@@ -1481,17 +1482,15 @@ public final class CcCompilationHelper {
       Artifact gcnoFile,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
-      CppModuleMap cppModuleMap) {
+      CppModuleMap cppModuleMap,
+      ImmutableMap<String, String> additionalBuildVariables) {
     CcToolchainFeatures.Variables.Builder buildVariables =
         new CcToolchainFeatures.Variables.Builder(ccToolchain.getBuildVariables());
 
     CcCompilationInfo builderCcCompilationInfo = builder.getCcCompilationInfo();
     Artifact sourceFile = builder.getSourceFile();
-    Artifact outputFile = builder.getOutputFile();
-    String realOutputFilePath;
 
     buildVariables.addStringVariable(SOURCE_FILE_VARIABLE_NAME, sourceFile.getExecPathString());
-    buildVariables.addStringVariable(OUTPUT_FILE_VARIABLE_NAME, outputFile.getExecPathString());
     buildVariables.addStringSequenceVariable(
         USER_COMPILE_FLAGS_VARIABLE_NAME,
         ImmutableList.<String>builder()
@@ -1511,24 +1510,20 @@ public final class CcCompilationHelper {
           getUnfilteredCompileFlagsSupplier(ccToolchain, features));
     }
 
-    if (builder.getTempOutputFile() != null) {
-      realOutputFilePath = builder.getTempOutputFile().getPathString();
-    } else {
-      realOutputFilePath = builder.getOutputFile().getExecPathString();
-    }
-
-    if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {
-      buildVariables.addStringVariable(OUTPUT_ASSEMBLY_FILE_VARIABLE_NAME, realOutputFilePath);
-    } else if (FileType.contains(
-        outputFile,
+    // TODO(hlopko): Remove once blaze with this is released and crosstools are updated.
+    if (!FileType.contains(
+        builder.getOutputFile(),
+        CppFileTypes.ASSEMBLER,
+        CppFileTypes.PIC_ASSEMBLER,
         CppFileTypes.PREPROCESSED_C,
         CppFileTypes.PREPROCESSED_CPP,
         CppFileTypes.PIC_PREPROCESSED_C,
         CppFileTypes.PIC_PREPROCESSED_CPP)) {
-      buildVariables.addStringVariable(OUTPUT_PREPROCESS_FILE_VARIABLE_NAME, realOutputFilePath);
-    } else {
-      buildVariables.addStringVariable(OUTPUT_OBJECT_FILE_VARIABLE_NAME, realOutputFilePath);
+      buildVariables.addStringVariable(
+          OUTPUT_OBJECT_FILE_VARIABLE_NAME, builder.getRealOutputFilePath().getSafePathString());
     }
+    buildVariables.addStringVariable(
+        OUTPUT_FILE_VARIABLE_NAME, builder.getRealOutputFilePath().getSafePathString());
 
     DotdFile dotdFile =
         isGenerateDotdFile(sourceFile) ? Preconditions.checkNotNull(builder.getDotdFile()) : null;
@@ -1622,6 +1617,7 @@ public final class CcCompilationHelper {
           LTO_INDEXING_BITCODE_FILE_VARIABLE_NAME, ltoIndexingFile.getExecPathString());
     }
 
+    buildVariables.addAllStringVariables(additionalBuildVariables);
     for (VariablesExtension extension : variablesExtensions) {
       extension.addVariables(buildVariables);
     }
@@ -1704,7 +1700,8 @@ public final class CcCompilationHelper {
         gcnoFile,
         dwoFile,
         /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap());
+        builder.getCcCompilationInfo().getCppModuleMap(),
+        /* additionalBuildVariables= */ ImmutableMap.of());
 
     builder.setGcnoFile(gcnoFile);
     builder.setDwoFile(dwoFile);
@@ -1753,7 +1750,8 @@ public final class CcCompilationHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap());
+        builder.getCcCompilationInfo().getCppModuleMap(),
+        /* additionalBuildVariables= */ ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(compileAction);
@@ -1863,7 +1861,8 @@ public final class CcCompilationHelper {
             gcnoFile,
             dwoFile,
             ltoIndexingFile,
-            cppModuleMap);
+            cppModuleMap,
+            /* additionalBuildVariables= */ ImmutableMap.of());
 
         result.addTemps(
             createTempsActions(
@@ -1931,7 +1930,8 @@ public final class CcCompilationHelper {
             gcnoFile,
             noPicDwoFile,
             ltoIndexingFile,
-            cppModuleMap);
+            cppModuleMap,
+            /* additionalBuildVariables= */ ImmutableMap.of());
 
         result.addTemps(
             createTempsActions(
@@ -2034,7 +2034,8 @@ public final class CcCompilationHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap());
+        builder.getCcCompilationInfo().getCppModuleMap(),
+        /* additionalBuildVariables= */ ImmutableMap.of());
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction action = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(action);
@@ -2149,7 +2150,10 @@ public final class CcCompilationHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap());
+        builder.getCcCompilationInfo().getCppModuleMap(),
+        ImmutableMap.of(
+            OUTPUT_PREPROCESS_FILE_VARIABLE_NAME,
+            dBuilder.getRealOutputFilePath().getSafePathString()));
     semantics.finalizeCompileActionBuilder(ruleContext, dBuilder);
     CppCompileAction dAction = dBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(dAction);
@@ -2167,7 +2171,10 @@ public final class CcCompilationHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap());
+        builder.getCcCompilationInfo().getCppModuleMap(),
+        ImmutableMap.of(
+            OUTPUT_ASSEMBLY_FILE_VARIABLE_NAME,
+            sdBuilder.getRealOutputFilePath().getSafePathString()));
     semantics.finalizeCompileActionBuilder(ruleContext, sdBuilder);
     CppCompileAction sdAction = sdBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(sdAction);
