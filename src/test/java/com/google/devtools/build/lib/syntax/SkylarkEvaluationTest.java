@@ -937,13 +937,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, in method with_params(int, bool) of 'Mock'",
+            "parameter 'named' has no default value, in method call "
+                + "with_params(int, bool) of 'Mock'",
             "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, in method with_params(int, bool, bool) "
+            "parameter 'named' has no default value, in method call with_params(int, bool, bool) "
                 + "of 'Mock'",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
@@ -962,14 +963,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "unexpected keyword 'n', in method with_params(int, bool, bool named, "
+            "unexpected keyword 'n', in method call with_params(int, bool, bool named, "
                 + "bool posOrNamed, int n) of 'Mock'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'nonNoneable' cannot be None, in method with_params(int, bool, bool, "
+            "parameter 'nonNoneable' cannot be None, in method call with_params(int, bool, bool, "
                 + "bool named, bool optionalNamed, NoneType nonNoneable) of 'Mock'",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
 
@@ -977,8 +978,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Cannot convert parameter 'multi' to type string or int or sequence of ints or"
-                + " NoneType, in method with_params(int, bool, bool named, bool multi) of 'Mock'",
+            "expected value of type 'string or int or sequence of ints or NoneType' for parameter"
+                + " 'multi', in method call with_params(int, bool, bool named, bool multi)"
+                + " of 'Mock'",
             "mock.with_params(1, True, named=True, multi=False)");
 
     // We do not enforce list item parameter type constraints.
