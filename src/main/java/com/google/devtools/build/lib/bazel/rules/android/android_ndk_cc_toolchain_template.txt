@@ -20,6 +20,9 @@ filegroup(
     name = "%toolchainName%-all_files",
     srcs = glob(["ndk/toolchains/%toolchainDirectory%/**"]) + glob([
         %toolchainFileGlobs%
-    ]),
+    ]) + [
+      ":%dynamicRuntimeLibs%",
+      ":%staticRuntimeLibs%",
+    ],
 )
 
