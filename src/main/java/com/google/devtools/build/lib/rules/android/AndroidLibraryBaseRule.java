@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidResourceSupportRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -84,6 +85,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
                 .copy("deps")
                 .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
                 .allowedFileTypes()
+                .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
                 .aspect(androidNeverlinkAspect))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports) -->
         The closure of all rules reached via <code>exports</code> attributes
@@ -94,7 +96,8 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         .add(
             attr("exports", LABEL_LIST)
                 .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
-                .allowedFileTypes(/*May not have files in exports!*/ )
+                .allowedFileTypes(/*May not have files in exports!*/)
+                .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
                 .aspect(androidNeverlinkAspect))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports_manifest) -->
         Whether to export manifest entries to <code>android_binary</code> targets

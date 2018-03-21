@@ -110,6 +110,11 @@ public interface AndroidSemantics {
   default void validateAndroidBinaryRuleContext(RuleContext ruleContext) throws RuleErrorException {
   }
 
+  /** A hook for checks of internal-only or external-only attributes of {@code android_library}. */
+  default void validateAndroidLibraryRuleContext(RuleContext ruleContext)
+      throws RuleErrorException {
+  }
+
   /** The artifact for the map that proguard will output. */
   Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException;
 
