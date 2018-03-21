@@ -274,6 +274,12 @@ public final class DocstringUtils {
         line = "";
         return false;
       }
+      if (startOfLineOffset == 0 && docstring.charAt(startOfLineOffset) == '\n') {
+        line = "";
+        endOfLineOffset += 1;
+        return true;
+      }
+
       // If not the first line, advance start past the newline character. In the case where there is
       // no more content, then the previous line was the second-to-last line and this last line is
       // empty.
@@ -361,8 +367,14 @@ public final class DocstringUtils {
       String summary = line;
       String nonStandardDeprecation = checkForNonStandardDeprecation(line);
       if (!nextLine()) {
+        if (summary.trim().isEmpty()) {
+          errors.add(new DocstringParseError("the docstring is empty", 1, ""));
+        }
         return new DocstringInfo(
             summary, Collections.emptyList(), "", nonStandardDeprecation, "", null);
+      }
+      if (summary.trim().isEmpty()) {
+        errors.add(new DocstringParseError("the docstring is empty", 1, ""));
       }
       if (!line.isEmpty()) {
         error("the one-line summary should be followed by a blank line");

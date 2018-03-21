@@ -29,6 +29,45 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DocstringUtilsTest {
   @Test
+  public void emptyDocstring() throws Exception {
+    List<DocstringParseError> errors = new ArrayList<>();
+    DocstringInfo info = DocstringUtils.parseDocstring("", 0, errors);
+    Truth.assertThat(info.summary).isEmpty();
+    Truth.assertThat(info.parameters).isEmpty();
+    Truth.assertThat(info.longDescription).isEmpty();
+    Truth.assertThat(errors.toString())
+      .contains("1: the docstring is empty");
+
+    errors = new ArrayList<>();
+    info = DocstringUtils.parseDocstring("\n", 0, errors);
+    Truth.assertThat(info.summary).isEmpty();
+    Truth.assertThat(info.parameters).isEmpty();
+    Truth.assertThat(info.longDescription).isEmpty();
+    Truth.assertThat(errors.toString())
+      .contains("1: the docstring is empty");
+  }
+
+  @Test
+  public void missingOneLineSummary() throws Exception {
+    List<DocstringParseError> errors = new ArrayList<>();
+    DocstringInfo info = DocstringUtils.parseDocstring("\n\n", 0, errors);
+    Truth.assertThat(info.summary).isEmpty();
+    Truth.assertThat(info.parameters).isEmpty();
+    Truth.assertThat(info.longDescription).isEmpty();
+    Truth.assertThat(errors.toString())
+      .contains("1: the one-line summary is missing");
+
+
+    errors = new ArrayList<>();
+    info = DocstringUtils.parseDocstring("\nfoo\n", 0, errors);
+    Truth.assertThat(info.summary).isEmpty();
+    Truth.assertThat(info.parameters).isEmpty();
+    Truth.assertThat(info.longDescription).isEqualTo("foo");
+    Truth.assertThat(errors.toString())
+      .contains("1: the one-line summary is missing");
+  }
+
+  @Test
   public void oneLineDocstring() throws Exception {
     List<DocstringParseError> errors = new ArrayList<>();
     DocstringInfo info = DocstringUtils.parseDocstring("summary", 0, errors);

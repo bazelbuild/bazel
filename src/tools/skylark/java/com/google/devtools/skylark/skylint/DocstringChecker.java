@@ -348,7 +348,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
       startColumn = 1;
     }
     Location start = new Location(startLine, startColumn);
-    Location end = new Location(startLine, Math.max(1, startColumn + error.line.length() - 1));
+    Location end = new Location(startLine, Math.max(startColumn, startColumn + error.line.length() - 1));
     return new Issue(
         BAD_DOCSTRING_FORMAT_CATEGORY,
         "bad docstring format: " + error.message,

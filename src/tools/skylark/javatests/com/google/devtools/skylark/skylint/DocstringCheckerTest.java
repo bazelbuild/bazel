@@ -59,6 +59,54 @@ public class DocstringCheckerTest {
   }
 
   @Test
+  public void reportEmptyDocString() throws Exception {
+    String errorMessage =
+      findIssues(
+                "\"\"\"\"\"\"",
+              "def function():",
+              "  \"\"\"\"\"\"",
+              "  print(1) # make sure the function is long enough",
+              "  print(2)",
+              "  print(3)",
+              "  print(4)",
+              "  print(5)",
+              "def function():",
+              "  \"\"\"",
+              "  \"\"\"",
+              "  print(1) # make sure the function is long enough",
+              "  print(2)",
+              "  print(3)",
+              "  print(4)",
+              "  print(5)",
+              "def function():",
+              "  \"\"\"",
+              "  ",
+              "  \"\"\"",
+              "  print(1) # make sure the function is long enough",
+              "  print(2)",
+              "  print(3)",
+              "  print(4)",
+              "  print(5)")
+          .toString();
+    Truth.assertThat(errorMessage)
+      .contains(
+          "1:4-1:4: bad docstring format: the docstring is empty "
+              + "[bad-docstring-format]");
+    Truth.assertThat(errorMessage)
+      .contains(
+          "3:6-3:6: bad docstring format: the docstring is empty "
+              + "[bad-docstring-format]");
+    Truth.assertThat(errorMessage)
+      .contains(
+        "10:6-10:6: bad docstring format: the docstring is empty "
+          + "[bad-docstring-format]");
+    Truth.assertThat(errorMessage)
+      .contains(
+        "18:6-18:6: bad docstring format: the docstring is empty "
+          + "[bad-docstring-format]");
+  }
+
+  @Test
   public void reportMissingRuleDoc() throws Exception {
     String errorMessage =
       findIssues(
