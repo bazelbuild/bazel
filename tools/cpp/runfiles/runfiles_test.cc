@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/tools/runfiles/runfiles.h"
+#include "tools/cpp/runfiles/runfiles.h"
 
 #ifdef COMPILER_MSVC
 #include <windows.h>
@@ -31,11 +31,13 @@
 #define LINE() T(__LINE__)
 
 namespace bazel {
+namespace tools {
+namespace cpp {
 namespace runfiles {
 namespace {
 
-using bazel::runfiles::testing::TestOnly_CreateRunfiles;
-using bazel::runfiles::testing::TestOnly_IsAbsolute;
+using bazel::tools::cpp::runfiles::testing::TestOnly_CreateRunfiles;
+using bazel::tools::cpp::runfiles::testing::TestOnly_IsAbsolute;
 using std::cerr;
 using std::endl;
 using std::function;
@@ -470,4 +472,6 @@ TEST_F(RunfilesTest, IsAbsolute) {
 
 }  // namespace
 }  // namespace runfiles
+}  // namespace cpp
+}  // namespace tools
 }  // namespace bazel
