@@ -67,14 +67,13 @@ public class BazelConfigurationTest {
   @Test
   public void pathOrDefaultOnLinux() {
     assertThat(pathOrDefault(OS.LINUX, null, null)).isEqualTo("/bin:/usr/bin");
-    assertThat(pathOrDefault(OS.LINUX, "/not/bin", null)).isEqualTo("/not/bin");
+    assertThat(pathOrDefault(OS.LINUX, "/not/bin", null)).isEqualTo("/bin:/usr/bin");
   }
 
   @Test
   public void pathOrDefaultOnWindows() {
-    assertThat(pathOrDefault(OS.WINDOWS, null, null)).isEqualTo("");
-    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", null))
-        .isEqualTo("C:/mypath");
+    assertThat(pathOrDefault(OS.WINDOWS, null, null)).isNull();
+    assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", null)).isNull();
     assertThat(pathOrDefault(OS.WINDOWS, "C:/mypath", PathFragment.create("D:/foo/shell")))
         .isEqualTo("D:\\foo;C:/mypath");
   }
