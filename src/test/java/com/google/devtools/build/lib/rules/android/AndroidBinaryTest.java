@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
@@ -4363,5 +4365,47 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     List<String> parsedResourceMergingArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "resource_files.zip"));
     assertThat(parsedResourceMergingArgs).contains("MERGE");
+  }
+
+  @Test
+  public void skylarkJavaInfoToAndroidBinaryAttributes() throws Exception {
+    scratch.file(
+        "java/r/android/extension.bzl",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
+        "  return [dep_params]",
+        "my_rule = rule(",
+        "    _impl,",
+        "    attrs = {",
+        "        'dep': attr.label(),",
+        "    },",
+        ")");
+    scratch.file(
+        "java/r/android/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "android_library(",
+        "    name = 'al_bottom_for_deps',",
+        "    srcs = ['java/A.java'],",
+        ")",
+        "my_rule(",
+        "    name = 'mya',",
+        "    dep = ':al_bottom_for_deps',",
+        ")",
+        "android_binary(",
+        "    name = 'foo_app',",
+        "    srcs = ['java/B.java'],",
+        "    deps = [':mya'],",
+        "    manifest = 'AndroidManifest.xml',",
+        // TODO(b/75051107): Remove the following line when fixed.
+        "    incremental_dexing = 0,",
+        ")");
+    // Test that all bottom jars are on the runtime classpath of the app.
+    ConfiguredTarget target = getConfiguredTarget("//java/r/android:foo_app");
+    Collection<Artifact> transitiveSrcJars =
+        OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP)
+            .toCollection();
+    assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars)).containsExactly(
+        "libal_bottom_for_deps-src.jar",
+        "libfoo_app-src.jar");
   }
 }
