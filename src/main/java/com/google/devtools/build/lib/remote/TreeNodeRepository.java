@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.TreeTraverser;
+import com.google.common.graph.Traverser;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -55,9 +55,12 @@ import javax.annotation.Nullable;
  * computing and caching Merkle hashes on all objects.
  */
 @ThreadSafe
-public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.TreeNode> {
+public final class TreeNodeRepository {
   // In this implementation, symlinks are NOT followed when expanding directory artifacts
   public static final Symlinks SYMLINK_POLICY = Symlinks.NOFOLLOW;
+
+  private final Traverser<TreeNode> traverser =
+      Traverser.forTree((TreeNode node) -> children(node));
 
   /**
    * A single node in a hierarchical directory structure. Leaves are the Artifacts, although we only
@@ -231,14 +234,13 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     return inputFileCache;
   }
 
-  @Override
   public Iterable<TreeNode> children(TreeNode node) {
     return Iterables.transform(node.getChildEntries(), TreeNode.ChildEntry::getChild);
   }
 
   /** Traverse the directory structure in order (pre-order tree traversal). */
   public Iterable<TreeNode> descendants(TreeNode node) {
-    return preOrderTraversal(node);
+    return traverser.depthFirstPreOrder(node);
   }
 
   /**
