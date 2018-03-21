@@ -32,15 +32,13 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
 
-/**
- * A configured target in the context of a Skyframe graph.
- */
+/** A non-rule configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
-@AutoCodec
+@AutoCodec(memoization = AutoCodec.Memoization.START_MEMOIZING)
 @VisibleForTesting
-public final class NonRuleConfiguredTargetValue
-    extends BasicActionLookupValue implements ConfiguredTargetValue {
+public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
+    implements ConfiguredTargetValue {
 
   // These variables are only non-final because they may be clear()ed to save memory.
   // configuredTarget is null only after it is cleared.
