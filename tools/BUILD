@@ -8,6 +8,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/android:srcs",
+        "//tools/bash:srcs",
         "//tools/buildstamp:srcs",
         "//tools/build_defs/apple:srcs",
         "//tools/build_defs/apple/test:srcs",
@@ -39,6 +40,7 @@ filegroup(
     name = "embedded_tools_srcs",
     srcs = glob(["**"]) + [
         "//tools/android:embedded_tools",
+        "//tools/bash:embedded_tools",
         "//tools/build_defs/apple:srcs",
         "//tools/build_defs/hash:srcs",
         "//tools/build_defs/pkg:srcs",
