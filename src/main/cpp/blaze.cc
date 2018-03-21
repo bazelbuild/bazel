@@ -57,6 +57,7 @@
 #include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/bazel_log_handler.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -459,8 +460,8 @@ static vector<string> GetArgumentArray(
   result.push_back("-Dfile.encoding=ISO-8859-1");
 
   if (globals->options->host_jvm_debug) {
-    fprintf(stderr,
-            "Running host JVM under debugger (listening on TCP port 5005).\n");
+    BAZEL_LOG(USER)
+        << "Running host JVM under debugger (listening on TCP port 5005).";
     // Start JVM so that it listens for a connection from a
     // JDWP-compliant debugger:
     result.push_back("-Xdebug");
@@ -718,10 +719,9 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
   // Wall clock time since process startup.
   globals->startup_time = GetMillisecondsSinceProcessStart();
 
-  if (VerboseLogging()) {
-    fprintf(stderr, "Starting %s in batch mode.\n",
-            globals->options->product_name.c_str());
-  }
+  BAZEL_LOG(INFO) << "Starting " << globals->options->product_name
+                  << " in batch mode.";
+
   string command = globals->option_processor->GetCommand();
   const vector<string> command_arguments =
       globals->option_processor->GetCommandArguments();
@@ -816,8 +816,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   if (server_pid > 0) {
     if (VerifyServerProcess(server_pid, globals->options->output_base)) {
       if (KillServerProcess(server_pid, globals->options->output_base)) {
-        fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
-                server_pid);
+        BAZEL_LOG(USER) << "Killed non-responsive server process (pid="
+                        << server_pid << ")";
         SetRestartReasonIfNotSet(SERVER_UNRESPONSIVE);
       } else {
         SetRestartReasonIfNotSet(SERVER_VANISHED);
@@ -833,9 +833,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   BlazeServerStartup *server_startup;
   server_pid = StartServer(workspace_layout, &server_startup);
 
-  fprintf(stderr, "Starting local %s server and connecting to it...",
-          globals->options->product_name.c_str());
-  fflush(stderr);
+  BAZEL_LOG(USER) << "Starting local " << globals->options->product_name
+                  << " server and connecting to it...";
 
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
@@ -852,6 +851,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
     }
 
     if (!globals->options->client_debug) {
+      // TODO(ccalvarin) Do we really need the dots? They're 10 years old, and
+      // there's something to be said about tradition, but in this case...
       fputc('.', stderr);
       fflush(stderr);
     }
@@ -859,13 +860,14 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
       globals->option_processor->PrintStartupOptionsProvenanceMessage();
-      fprintf(stderr, "\nServer crashed during startup. ");
       if (globals->jvm_log_file_append) {
         // Don't dump the log if we were appending - the user should know where
         // to find it, and who knows how much content they may have accumulated.
-        fprintf(stderr, "See '%s'\n", globals->jvm_log_file.c_str());
+        BAZEL_LOG(USER) << "\nServer crashed during startup. See "
+                        << globals->jvm_log_file;
       } else {
-        fprintf(stderr, "Now printing '%s':\n", globals->jvm_log_file.c_str());
+        BAZEL_LOG(USER) << "\nServer crashed during startup. Now printing "
+                        << globals->jvm_log_file;
         WriteFileToStderrOrDie(globals->jvm_log_file.c_str());
       }
       exit(blaze_exit_code::INTERNAL_ERROR);
@@ -924,8 +926,9 @@ static void ActuallyExtractData(const string &argv0,
          embedded_binaries.c_str());
   }
 
-  fprintf(stderr, "Extracting %s installation...\n",
-          globals->options->product_name.c_str());
+  BAZEL_LOG(USER) << "Extracting " << globals->options->product_name
+                  << " installation...";
+
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(argv0.c_str(), &processor));
   if (extractor.get() == NULL) {
@@ -1037,10 +1040,9 @@ static void ExtractData(const string &self_path) {
         // (in case we're running on Windows) so we need to wait for that to
         // finish and try renaming again.
         ++attempts;
-        fprintf(stderr,
-                "install base directory '%s' could not be renamed into place"
-                "after %d second(s), trying again\r",
-                tmp_install.c_str(), attempts);
+        BAZEL_LOG(USER) << "install base directory '" << tmp_install
+                        << "' could not be renamed into place after "
+                        << attempts << " second(s), trying again\r";
         std::this_thread::sleep_for(std::chrono::seconds(1));
       }
     }
@@ -1241,19 +1243,15 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
-      if (VerboseLogging()) {
-        fprintf(stderr, "Server's cwd moved or deleted (%s).\n",
-                server_cwd.c_str());
-      }
+      BAZEL_LOG(INFO) << "Server's cwd moved or deleted (" << server_cwd
+                      << ").";
       server->KillRunningServer();
     } else {
       break;
     }
   }
 
-  if (VerboseLogging()) {
-    fprintf(stderr, "Connected (server pid=%d).\n", globals->server_pid);
-  }
+  BAZEL_LOG(INFO) << "Connected (server pid=" << globals->server_pid << ").";
 
   // Wall clock time since process startup.
   globals->startup_time = GetMillisecondsSinceProcessStart();
@@ -1444,10 +1442,11 @@ int GetExitCodeForAbruptExit(const GlobalVariables &globals) {
 }
 
 int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
-         OptionProcessor *option_processor,
-         std::unique_ptr<blaze_util::LogHandler> log_handler) {
+         OptionProcessor *option_processor) {
   // Logging must be set first to assure no log statements are missed.
-  blaze_util::SetLogHandler(std::move(log_handler));
+  std::unique_ptr<blaze_util::BazelLogHandler> default_handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(default_handler));
 
   globals = new GlobalVariables(option_processor);
   blaze::SetupStdStreams();
@@ -1476,8 +1475,10 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
-  blaze::SetDebugLog(globals->options->client_debug);
-  debug_log("Debug logging active");
+  SetDebugLog(globals->options->client_debug);
+  // If client_debug was false, this is ignored, so it's accurate.
+  BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
+                     "statements to stderr";
 
   PrepareEnvironmentForJvm();
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
@@ -1537,13 +1538,13 @@ bool GrpcBlazeServer::TryConnect(command_server::CommandServer::Stub *client) {
   command_server::PingResponse response;
   request.set_cookie(request_cookie_);
 
-  debug_log("Trying to connect to server (timeout: %d secs)...",
-            connect_timeout_secs_);
+  BAZEL_LOG(INFO) << "Trying to connect to server (timeout: "
+                  << connect_timeout_secs_ << " secs)...";
   grpc::Status status = client->Ping(&context, request, &response);
 
   if (!status.ok() || response.cookie() != response_cookie_) {
-    debug_log("Connection to server failed: %s",
-              status.error_message().c_str());
+    BAZEL_LOG(INFO) << "Connection to server failed: "
+                    << status.error_message().c_str();
     return false;
   }
 
@@ -1692,8 +1693,8 @@ void GrpcBlazeServer::SendCancelMessage() {
   // There isn't a lot we can do if this request fails
   grpc::Status status = client_->Cancel(&context, request, &response);
   if (!status.ok()) {
-    fprintf(stderr, "\nCould not interrupt server (%s)\n\n",
-            status.error_message().c_str());
+    BAZEL_LOG(USER) << "\nCould not interrupt server ("
+                    << status.error_message().c_str() << ")\n";
   }
 }
 
@@ -1788,12 +1789,12 @@ unsigned int GrpcBlazeServer::Communicate() {
 
   while (reader->Read(&response)) {
     if (finished && !finished_warning_emitted) {
-      fprintf(stderr, "\nServer returned messages after reporting exit code\n");
+      BAZEL_LOG(USER) << "\nServer returned messages after reporting exit code";
       finished_warning_emitted = true;
     }
 
     if (response.cookie() != response_cookie_) {
-      fprintf(stderr, "\nServer response cookie invalid, exiting\n");
+      BAZEL_LOG(USER) << "\nServer response cookie invalid, exiting";
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
@@ -1824,7 +1825,8 @@ unsigned int GrpcBlazeServer::Communicate() {
 
     if (broken_pipe_name != nullptr && !pipe_broken) {
       pipe_broken = true;
-      fprintf(stderr, "\nCannot write to %s; exiting...\n\n", broken_pipe_name);
+      BAZEL_LOG(USER) << "\nCannot write to " << broken_pipe_name
+                      << "; exiting...\n";
       Cancel();
     }
 
@@ -1850,23 +1852,21 @@ unsigned int GrpcBlazeServer::Communicate() {
 
   grpc::Status status = reader->Finish();
   if (!status.ok()) {
-    fprintf(stderr,
-            "\nServer terminated abruptly "
-            "(error code: %d, error message: '%s', log file: '%s')\n\n",
-            status.error_code(), status.error_message().c_str(),
-            globals->jvm_log_file.c_str());
+    BAZEL_LOG(USER) << "\nServer terminated abruptly (error code: "
+                    << status.error_code() << ", error message: '"
+                    << status.error_message() << "', log file: '"
+                    << globals->jvm_log_file << "')\n";
     return GetExitCodeForAbruptExit(*globals);
   } else if (!finished) {
-    fprintf(stderr,
-            "\nServer finished RPC without an explicit exit code "
-            "(log file: '%s')\n\n",
-            globals->jvm_log_file.c_str());
+    BAZEL_LOG(USER)
+        << "\nServer finished RPC without an explicit exit code (log file: '"
+        << globals->jvm_log_file << "')\n";
     return GetExitCodeForAbruptExit(*globals);
   } else if (final_response.has_exec_request()) {
     const command_server::ExecRequest& request = final_response.exec_request();
     if (request.argv_size() < 1) {
-      fprintf(stderr,
-          "\nServer requested exec() but did not pass a binary to execute\n\n");
+      BAZEL_LOG(USER)
+          << "\nServer requested exec() but did not pass a binary to execute\n";
       return blaze_exit_code::INTERNAL_ERROR;
     }
 

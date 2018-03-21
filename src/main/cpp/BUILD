@@ -59,6 +59,7 @@ cc_library(
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:logging",
     ] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
@@ -104,6 +105,7 @@ cc_binary(
         ":startup_options",
         ":workspace_layout",
         "//src/main/cpp/util",
+        "//src/main/cpp/util:bazel_log_handler",
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",

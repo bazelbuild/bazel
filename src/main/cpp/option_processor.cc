@@ -462,7 +462,6 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
 
   // Pass the client environment to the server.
   for (const string& env_var : env) {
-    debug_log("--client_env=%s", env_var.c_str());
     result.push_back("--client_env=" + env_var);
   }
   result.push_back("--client_cwd=" + blaze::ConvertPath(cwd));

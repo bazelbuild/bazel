@@ -42,6 +42,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
 
@@ -165,21 +166,12 @@ const char** ConvertStringVectorToArgv(const vector<string>& args) {
   return argv;
 }
 
-void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
-  if (VerboseLogging()) {
-    string dbg;
-    for (const auto &s : args_vector) {
-      dbg.append(s);
-      dbg.append(" ");
-    }
-
-    string cwd = blaze_util::GetCwd();
-    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n", exe.c_str(),
-            cwd.c_str(), dbg.c_str());
-  }
+void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
+  BAZEL_LOG(INFO) << "Invoking binary " << exe << " in "
+                  << blaze_util::GetCwd();
 
   const char** argv = ConvertStringVectorToArgv(args_vector);
-  execv(exe.c_str(), const_cast<char **>(argv));
+  execv(exe.c_str(), const_cast<char**>(argv));
 }
 
 std::string ConvertPath(const std::string &path) { return path; }

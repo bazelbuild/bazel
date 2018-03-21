@@ -19,14 +19,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
-#include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/util/port.h"
+#include "src/main/cpp/util/strings.h"
 
 using blaze_util::die;
 
@@ -122,8 +124,6 @@ bool SearchNullaryOption(const vector<string>& args,
   return result;
 }
 
-bool VerboseLogging() { return !GetEnv("VERBOSE_BLAZE_CLIENT").empty(); }
-
 // Read the Jvm version from a file descriptor. The read fd
 // should contains a similar output as the java -version output.
 string ReadJvmVersion(const string& version_string) {
@@ -215,22 +215,17 @@ bool AwaitServerProcessTermination(int pid, const string& output_base,
   return true;
 }
 
-static bool is_debug_log_enabled = false;
-
-void SetDebugLog(bool enabled) { is_debug_log_enabled = enabled; }
-
-void debug_log(const char *format, ...) {
-  if (!is_debug_log_enabled) {
-    return;
+// For now, we don't have the client set up to log to a file. If --client_debug
+// is passed, however, all BAZEL_LOG statements will be output to stderr.
+// If/when we switch to logging these to a file, care will have to be taken to
+// either log to both stderr and the file in the case of --client_debug, or be
+// ok that these log lines will only go to one stream.
+void SetDebugLog(bool enabled) {
+  if (enabled) {
+    blaze_util::SetLoggingOutputStreamToStderr();
+  } else {
+    blaze_util::SetLoggingOutputStream(nullptr);
   }
-
-  fprintf(stderr, "CLIENT: ");
-  va_list arglist;
-  va_start(arglist, format);
-  vfprintf(stderr, format, arglist);
-  va_end(arglist);
-  fprintf(stderr, "%s", "\n");
-  fflush(stderr);
 }
 
 }  // namespace blaze
