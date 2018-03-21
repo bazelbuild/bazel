@@ -47,9 +47,9 @@ cc_library(
         ":ijar",
         "//src/test/cpp/util:__pkg__",
         "//src/tools/launcher:__subpackages__",
+        "//src/tools/runfiles:__pkg__",
         "//src/tools/singlejar:__pkg__",
         "//third_party/def_parser:__pkg__",
-        "//tools/cpp/runfiles:__pkg__",
     ],
     deps = [
         ":blaze_exit_code",
