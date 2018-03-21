@@ -428,35 +428,54 @@ Providers are only available during the analysis phase. Examples of usage:
 * [providers with depsets](https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl)
     This examples shows how a library and a binary rule can pass information.
 
-> *Note:*
-> Historically, Bazel also supported provider instances that are identified by strings and
-> accessed as fields on the `target` object instead of as keys. This style is deprecated
-> but still supported. Return legacy providers as follows:
->
+### Migrating from Legacy Providers
+
+Historically, Bazel providers were simple fields on the `Target` object. They
+were accessed using the dot operator, and they were created by putting the field
+in a struct returned by the rule's implementation function.
+
+*This style is deprecated and should not be used in new code;* see below for
+information that may help you migrate. The new provider mechanism avoids name
+clashes. It also supports data hiding, by requiring any code accessing a
+provider instance to retrieve it using the provider symbol.
+
+For the moment, legacy providers are still supported. A rule can return both
+legacy and modern providers as follows:
+
 ```python
-def rule_implementation(ctx):
+def _myrule_impl(ctx):
   ...
-  modern_provider = TransitiveDataInfo(value=5)
-  # Legacy style.
-  return struct(legacy_provider = struct(...),
-                another_legacy_provider = struct(...),
-                # The `providers` field contains provider instances that can be accessed
-                # the "modern" way.
-                providers = [modern_provider])
+  legacy_data = struct(x="foo", ...)
+  modern_data = MyInfo(y="bar", ...)
+  # When any legacy providers are returned, the top-level returned value is a struct.
+  return struct(
+      # One key = value entry for each legacy provider.
+      legacy_info = legacy_data,
+      ...
+      # All modern providers are put in a list passed to the special "providers" key.
+      providers = [modern_data, ...])
 ```
-> To access legacy providers, use the dot notation.
-> Note that the same target can define both modern and legacy providers:
->
-```python
-def dependent_rule_implementation(ctx):
-  ...
-  n = 0
-  for dep_target in ctx.attr.deps:
-    # n += dep_target.legacy_provider.value   # legacy style
-    n += dep_target[TransitiveDataInfo].value # modern style
-  ...
-```
-> **We recommend using modern providers for all future code.**
+
+If `dep` is the resulting `Target` object for an instance of this rule, the
+providers and their contents can be retrieved as `dep.legacy_info.x` and
+`dep[MyInfo].y`.
+
+In addition to `providers`, the returned struct can also take several other
+fields that have special meaning (and that do not create a corresponding legacy
+provider).
+
+* The fields `files`, `runfiles`, `data_runfiles`, `default_runfiles`, and
+  `executable` correspond to the same-named fields of
+  [`DefaultInfo`](lib/globals.html#DefaultInfo). It is not allowed to specify
+  any of these fields while also returning a `DefaultInfo` modern provider.
+
+* The field `output_groups` takes a struct value and corresponds to an
+  [`OutputGroupInfo`](lib/globals.html#OutputGroupInfo).
+
+* The field `instrumented_files` is for
+  [code coverage instrumentation](#code-coverage-instrumentation). It does not
+  yet have a modern provider equivalent. If you need it, you cannot yet migrate
+  away from legacy providers.
 
 ## Runfiles
 
