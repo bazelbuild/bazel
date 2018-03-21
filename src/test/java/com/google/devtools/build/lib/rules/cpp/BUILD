@@ -13,7 +13,10 @@ filegroup(
 java_test(
     name = "cpp-rules-tests",
     srcs = glob(["*.java"]) + ["proto/CcProtoLibraryTest.java"],
-    resources = ["//tools/cpp:lib_cc_configure"],
+    resources = [
+        "//tools/cpp:crosstool_utils",
+        "//tools/cpp:lib_cc_configure",
+    ],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
