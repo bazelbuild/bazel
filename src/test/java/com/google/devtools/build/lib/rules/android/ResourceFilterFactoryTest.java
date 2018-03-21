@@ -19,16 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.BooleanSubject;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.AddDynamicallyConfiguredResourceFilteringTransition;
-import com.google.devtools.build.lib.rules.android.ResourceFilterFactory.FilterBehavior;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,14 +74,14 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testNoopFilter(
         "en",
         "hdpi",
-        FilterBehavior.FILTER_IN_EXECUTION,
+        /* filterInAnalysis = */ false,
         ImmutableList.of(
             "values-en/foo.xml", "values/foo.xml", "values-hdpi/foo.png", "values-ldpi/foo.png"));
   }
 
   @Test
   public void testFilterEmpty() throws Exception {
-    testNoopFilter("", "", FilterBehavior.FILTER_IN_ANALYSIS, ImmutableList.<String>of());
+    testNoopFilter("", "", /* filterInAnalysis = */ true, ImmutableList.<String>of());
   }
 
   @Test
@@ -93,7 +89,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testNoopFilter(
         "en",
         "xhdpi,xxhdpi",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of("drawable/ic_clear.xml", "drawable-v21/ic_clear.xml"));
   }
 
@@ -105,7 +101,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testNoopFilter(
         "v4",
         "hdpi",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of("drawable-hdpi-v4/foo.png", "drawable-hdpi-v11/foo.png"));
   }
 
@@ -114,7 +110,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testFilter(
         "",
         "hdpi,ldpi",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         // If we add resources to the output list in density order, these resources will be
         // rearranged.
         ImmutableList.of(
@@ -133,7 +129,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testFilter(
         "en_US",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
@@ -146,7 +142,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testFilter(
         "en_US-ldrtl",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
@@ -159,7 +155,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testFilter(
         "mcc111-en_US",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
@@ -172,7 +168,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testFilter(
         "mcc111-mnc111-en_US",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of("values-en/foo.xml", "values-en-rUS/foo.xml"),
         ImmutableList.of("values-fr/foo.xml", "values-en-rCA/foo.xml"));
 
@@ -185,7 +181,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testFilter(
         "sr-Latn,sr-rLatn,sr_Latn,b+sr+Latn",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of(
             "values-sr/foo.xml",
             "values-b+sr+Latn/foo.xml",
@@ -203,7 +199,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testNoopFilter(
         "sr",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of(
             "values-sr/foo.xml",
             "values-b+sr+Latn/foo.xml",
@@ -220,7 +216,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testFilter(
         "es-419,es_419,b+es+419",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of("values-es/foo.xml", "values-b+es+419/foo.xml", "values-es-419/foo.xml"),
         // Spanish with another region specified should be filtered out.
         ImmutableList.of("values-es-rUS/foo.xml"));
@@ -234,7 +230,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testNoopFilter(
         "es",
         "",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of(
             "values-es/foo.xml",
             "values-b+es+419/foo.xml",
@@ -267,7 +263,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
     ResourceFilterFactory filter =
         new ResourceFilterFactory(
-            ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
+            ImmutableList.of("en"), ImmutableList.of(), /* filterInAnalysis = */ true);
 
     doFilter(filter, badResources);
     assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
@@ -284,7 +280,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     // target
     filter =
         new ResourceFilterFactory(
-            ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
+            ImmutableList.of("en"), ImmutableList.of(), /* filterInAnalysis = */ true);
     doFilter(filter, badResources);
     assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
     errorConsumer.assertNoAttributeWarnings(
@@ -296,32 +292,22 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     testNoopFilter(
         "en",
         "hdpi",
-        FilterBehavior.FILTER_IN_ANALYSIS,
+        /* filterInAnalysis = */ true,
         ImmutableList.of(
             "first-subdir/res/drawable-en-hdpi/foo.png",
             "second-subdir/res/drawable-en-hdpi/foo.png"));
   }
 
-  @Test
-  public void testFilterWithDynamicConfiguration() throws Exception {
-    testFilter(
-        "en",
-        "hdpi",
-        FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-        ImmutableList.of("drawable-en-hdpi/foo.png"),
-        ImmutableList.of("drawable-en-ldpi/foo.png", "drawable-fr-hdpi/foo.png"));
-  }
-
   private void testNoopFilter(
       String resourceConfigurationFilters,
       String densities,
-      FilterBehavior filterBehavior,
+      boolean filterInAnalysis,
       List<String> resources)
       throws Exception {
     testFilter(
         resourceConfigurationFilters,
         densities,
-        filterBehavior,
+        filterInAnalysis,
         resources,
         ImmutableList.<String>of());
   }
@@ -329,7 +315,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   private void testFilter(
       String resourceConfigurationFilters,
       String densities,
-      FilterBehavior filterBehavior,
+      boolean filterInAnalysis,
       List<String> resourcesToKeep,
       List<String> resourcesToDiscard)
       throws Exception {
@@ -346,7 +332,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     ImmutableList<Artifact> allArtifacts =
         ImmutableList.copyOf(Iterables.concat(expectedResources, unexpectedResources));
     ResourceFilterFactory resourceFilterFactory =
-        makeResourceFilter(resourceConfigurationFilters, densities, filterBehavior);
+        makeResourceFilter(resourceConfigurationFilters, densities, filterInAnalysis);
     ImmutableList<Artifact> filtered = doFilter(resourceFilterFactory, allArtifacts);
 
     assertThat(filtered).containsExactlyElementsIn(expectedResources).inOrder();
@@ -392,7 +378,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
                     .build());
 
     ResourceFilterFactory resourceFilterFactory =
-        makeResourceFilter("en", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
+        makeResourceFilter("en", "hdpi", /* filterInAnalysis = */ true);
     ResourceFilter filter =
         resourceFilterFactory.getResourceFilter(
             errorConsumer, resourceDependencies, localResources);
@@ -447,44 +433,37 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
   @Test
   public void testIsPrefilteringFilterInExecution() throws Exception {
-    assertIsPrefiltering(FilterBehavior.FILTER_IN_EXECUTION, false);
+    assertIsPrefiltering(/* filterInAnalysis = */ false, false);
   }
 
   @Test
   public void testIsPrefilteringFilterInAnalysis() throws Exception {
-    assertIsPrefiltering(FilterBehavior.FILTER_IN_ANALYSIS, true);
+    assertIsPrefiltering(/* filterInAnalysis = */ true, true);
   }
 
-  @Test
-  public void testIsPrefilteringFilterInAnalysisWithDynamicConfiguration() throws Exception {
-    assertIsPrefiltering(FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION, true);
-  }
-
-  private void assertIsPrefiltering(FilterBehavior behavior, boolean expectWhenNonEmpty)
+  private void assertIsPrefiltering(boolean filterInAnalysis, boolean expectWhenNonEmpty)
       throws Exception {
     // Empty filters should never prefilter
-    assertIsPrefiltering(false, false, behavior).isFalse();
+    assertIsPrefiltering(false, false, filterInAnalysis).isFalse();
 
     // Prefiltering behavior should be the same regardless of which setting is set
-    assertIsPrefiltering(true, false, behavior).isEqualTo(expectWhenNonEmpty);
-    assertIsPrefiltering(false, true, behavior).isEqualTo(expectWhenNonEmpty);
-    assertIsPrefiltering(true, true, behavior).isEqualTo(expectWhenNonEmpty);
+    assertIsPrefiltering(true, false, filterInAnalysis).isEqualTo(expectWhenNonEmpty);
+    assertIsPrefiltering(false, true, filterInAnalysis).isEqualTo(expectWhenNonEmpty);
+    assertIsPrefiltering(true, true, filterInAnalysis).isEqualTo(expectWhenNonEmpty);
   }
 
   private BooleanSubject assertIsPrefiltering(
-      boolean hasConfigurationFilters, boolean hasDensities, FilterBehavior behavior)
+      boolean hasConfigurationFilters, boolean hasDensities, boolean filterInAnalysis)
       throws Exception {
     return assertThat(
         makeResourceFilter(
-                hasConfigurationFilters ? "en" : "", hasDensities ? "hdpi" : "", behavior)
+                hasConfigurationFilters ? "en" : "", hasDensities ? "hdpi" : "", filterInAnalysis)
             .isPrefiltering());
   }
 
   @Test
   public void testGetOutputDirectorySuffixEmpty() throws Exception {
-    assertThat(
-            makeResourceFilter("", "", FilterBehavior.FILTER_IN_ANALYSIS)
-                .getOutputDirectorySuffix())
+    assertThat(makeResourceFilter("", "", /* filterInAnalysis = */ true).getOutputDirectorySuffix())
         .isNull();
   }
 
@@ -492,7 +471,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   public void testGetOutputDirectoryOnlyFilterConfigurations() throws Exception {
     String configurationFilters = "en,es-rUS,fr";
     assertThat(
-            makeResourceFilter(configurationFilters, "", FilterBehavior.FILTER_IN_ANALYSIS)
+            makeResourceFilter(configurationFilters, "", /* filterInAnalysis = */ true)
                 .getOutputDirectorySuffix())
         .isEqualTo(configurationFilters + "_");
   }
@@ -501,7 +480,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   public void testGetOutputDirectoryOnlyDensities() throws Exception {
     String densities = "hdpi,ldpi,xhdpi";
     assertThat(
-            makeResourceFilter("", densities, FilterBehavior.FILTER_IN_ANALYSIS)
+            makeResourceFilter("", densities, /* filterInAnalysis = */ true)
                 .getOutputDirectorySuffix())
         .isEqualTo("_" + densities);
   }
@@ -514,9 +493,9 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   public void testGetOutputDirectoryDensitiesAreDifferentFromDensityConfigurationFilters()
       throws Exception {
     ResourceFilterFactory configurationFilter =
-        makeResourceFilter("hdpi", "", FilterBehavior.FILTER_IN_ANALYSIS);
+        makeResourceFilter("hdpi", "", /* filterInAnalysis = */ true);
     ResourceFilterFactory densityFilter =
-        makeResourceFilter("", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
+        makeResourceFilter("", "hdpi", /* filterInAnalysis = */ true);
 
     assertThat(configurationFilter.getOutputDirectorySuffix())
         .isNotEqualTo(densityFilter.getOutputDirectorySuffix());
@@ -525,7 +504,7 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   @Test
   public void testGetOutputDirectory() throws Exception {
     assertThat(
-            makeResourceFilter("en,fr-rCA", "hdpi,ldpi", FilterBehavior.FILTER_IN_ANALYSIS)
+            makeResourceFilter("en,fr-rCA", "hdpi,ldpi", /* filterInAnalysis = */ true)
                 .getOutputDirectorySuffix())
         .isEqualTo("en,fr-rCA_hdpi,ldpi");
   }
@@ -537,38 +516,38 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   @Test
   public void testGetOutputDirectoryDifferentlyOrdered() throws Exception {
     ResourceFilterFactory first =
-        makeResourceFilter("en,fr", "hdpi,ldpi", FilterBehavior.FILTER_IN_ANALYSIS);
+        makeResourceFilter("en,fr", "hdpi,ldpi", /* filterInAnalysis = */ true);
     ResourceFilterFactory second =
-        makeResourceFilter("fr,en", "ldpi,hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
+        makeResourceFilter("fr,en", "ldpi,hdpi", /* filterInAnalysis = */ true);
     assertThat(first.getOutputDirectorySuffix()).isEqualTo(second.getOutputDirectorySuffix());
   }
 
   @Test
   public void testGetOutputDirectoryDuplicated() throws Exception {
     ResourceFilterFactory duplicated =
-        makeResourceFilter("en,en", "hdpi,hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
-    ResourceFilterFactory normal =
-        makeResourceFilter("en", "hdpi", FilterBehavior.FILTER_IN_ANALYSIS);
+        makeResourceFilter("en,en", "hdpi,hdpi", /* filterInAnalysis = */ true);
+    ResourceFilterFactory normal = makeResourceFilter("en", "hdpi", /* filterInAnalysis = */ true);
 
     assertThat(duplicated.getOutputDirectorySuffix()).isEqualTo(normal.getOutputDirectorySuffix());
   }
 
   private ResourceFilterFactory makeResourceFilter(
-      String resourceConfigurationFilters, String densities, FilterBehavior behavior)
-      throws Exception {
+      String resourceConfigurationFilters, String densities, boolean filterInAnalysis) {
     return makeResourceFilter(
-        ImmutableList.of(resourceConfigurationFilters), ImmutableList.of(densities), behavior);
+        resourceConfigurationFilters.isEmpty()
+            ? ImmutableList.of()
+            : ImmutableList.of(resourceConfigurationFilters),
+        densities.isEmpty() ? ImmutableList.of() : ImmutableList.of(densities),
+        filterInAnalysis);
   }
 
   private ResourceFilterFactory makeResourceFilter(
       ImmutableList<String> resourceConfigurationFilters,
       ImmutableList<String> densities,
-      FilterBehavior behavior)
-      throws Exception {
+      boolean filterInAnalysis) {
 
-    return ResourceFilterFactory.forBaseAndAttrs(
-        ResourceFilterFactory.empty(behavior),
-        getAttributeMap(resourceConfigurationFilters, densities));
+    return ResourceFilterFactory.from(
+        filterInAnalysis, getAttributeMap(resourceConfigurationFilters, densities));
   }
 
   private AttributeMap getAttributeMap(
@@ -600,150 +579,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
   @Test
   public void testWithAttrsFromAttrsNotSpecified() throws Exception {
     assertThat(
-            ResourceFilterFactory.forBaseAndAttrs(
-                    ResourceFilterFactory.empty(FilterBehavior.FILTER_IN_ANALYSIS),
-                    FakeAttributeMapper.empty())
+            ResourceFilterFactory.from(/* filterInAnalysis = */ true, FakeAttributeMapper.empty())
                 .hasFilters())
         .isFalse();
-  }
-
-  @Test
-  public void testGetTopLevelTransitionFilterInExecution() throws Exception {
-    assertThat(
-            getTopLevelTransition(
-                ImmutableList.of("en"),
-                ImmutableList.of("hdpi"),
-                FilterBehavior.FILTER_IN_EXECUTION,
-                true))
-        .isNull();
-  }
-
-  @Test
-  public void testGetTopLevelTransitionFilterInAnalysis() throws Exception {
-    assertThat(
-            getTopLevelTransition(
-                ImmutableList.of("en"),
-                ImmutableList.of("hdpi"),
-                FilterBehavior.FILTER_IN_ANALYSIS,
-                true))
-        .isNull();
-  }
-
-  @Test
-  public void testGetTopLevelTransitionNotBinary() throws Exception {
-    assertThat(
-            getTopLevelTransition(
-                ImmutableList.of("en"),
-                ImmutableList.of("hdpi"),
-                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-                false))
-        .isSameAs(
-            ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
-  }
-
-  @Test
-  public void testGetTopLevelTransitionNoFilters() throws Exception {
-    assertThat(
-            getTopLevelTransition(
-                ImmutableList.<String>of(),
-                ImmutableList.<String>of(),
-                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-                true))
-        .isSameAs(
-            ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION);
-  }
-
-  @Test
-  public void testGetTopLevelTransition() throws Exception {
-    ImmutableList<String> resourceConfigurationFilters = ImmutableList.of("en");
-    ImmutableList<String> densities = ImmutableList.of("hdpi");
-    PatchTransition transition =
-        getTopLevelTransition(
-            resourceConfigurationFilters,
-            densities,
-            FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION,
-            true);
-
-    assertThat(transition).isInstanceOf(AddDynamicallyConfiguredResourceFilteringTransition.class);
-
-    AddDynamicallyConfiguredResourceFilteringTransition addTransition =
-        (AddDynamicallyConfiguredResourceFilteringTransition) transition;
-    ResourceFilterFactory foundFilter =
-        ResourceFilterFactory.forBaseAndAttrs(
-            ResourceFilterFactory.empty(
-                FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
-            addTransition.getAttrs());
-
-    ResourceFilterFactory expectedFilter =
-        makeResourceFilter(
-            resourceConfigurationFilters,
-            densities,
-            FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION);
-    assertThat(foundFilter).isEqualTo(expectedFilter);
-  }
-
-  private PatchTransition getTopLevelTransition(
-      ImmutableList<String> resourceConfigurationFilters,
-      ImmutableList<String> densities,
-      FilterBehavior behavior,
-      boolean isBinary)
-      throws Exception {
-    AttributeMap attrs = getAttributeMap(resourceConfigurationFilters, densities);
-    return makeResourceFilter("", "", behavior)
-        .getTopLevelPatchTransition(isBinary ? "android_binary" : "android_library", attrs);
-  }
-
-  @Test
-  public void testRemoveDynamicConfigurationTransition() throws Exception {
-    assertPatchTransition(
-        makeResourceFilter(
-            "en", "ldpi", FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
-        ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION,
-        ResourceFilterFactory.empty(FilterBehavior.FILTER_IN_ANALYSIS));
-  }
-
-  @Test
-  public void testAddDynamicConfigurationTransitionDynamicConfiguration() throws Exception {
-    ImmutableList<String> resourceConfigurationFilters = ImmutableList.of("en", "es-rUS", "fr");
-    ImmutableList<String> densities = ImmutableList.of("ldpi", "hdpi");
-
-    AttributeMap attrs = getAttributeMap(resourceConfigurationFilters, densities);
-
-    assertPatchTransition(
-        ResourceFilterFactory.empty(FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION),
-        new ResourceFilterFactory.AddDynamicallyConfiguredResourceFilteringTransition(attrs),
-        makeResourceFilter(
-            resourceConfigurationFilters,
-            densities,
-            FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION));
-  }
-
-  private void assertPatchTransition(
-      ResourceFilterFactory oldResourceFilterFactory,
-      PatchTransition transition,
-      ResourceFilterFactory expectedNewResourceFilterFactory) {
-    AndroidConfiguration.Options oldAndroidOptions = getAndroidOptions(oldResourceFilterFactory);
-
-    BuildOptions oldOptions = BuildOptions.builder().add(oldAndroidOptions).build();
-    BuildOptions newOptions = transition.apply(oldOptions);
-
-    // The old options should not have been changed
-    assertThat(oldAndroidOptions.resourceFilterFactory).isSameAs(oldResourceFilterFactory);
-    assertThat(oldAndroidOptions).isEqualTo(getAndroidOptions(oldResourceFilterFactory));
-
-    // Besides the ResourceFilterFactory, the new options should be the same as the old ones
-    assertThat(newOptions.getOptions()).hasSize(1);
-    AndroidConfiguration.Options newAndroidOptions =
-        newOptions.get(AndroidConfiguration.Options.class);
-    assertThat(newAndroidOptions).isEqualTo(getAndroidOptions(expectedNewResourceFilterFactory));
-  }
-
-  private AndroidConfiguration.Options getAndroidOptions(
-      ResourceFilterFactory resourceFilterFactory) {
-    AndroidConfiguration.Options androidOptions =
-        (AndroidConfiguration.Options) new AndroidConfiguration.Options().getDefault();
-    androidOptions.resourceFilterFactory = resourceFilterFactory;
-
-    return androidOptions;
   }
 }
