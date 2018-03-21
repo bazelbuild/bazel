@@ -28,7 +28,6 @@ import static com.google.devtools.build.lib.util.FileTypeSet.ANY_FILE;
 import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -46,11 +44,9 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
@@ -288,25 +284,6 @@ public final class AndroidRuleClasses {
       printer.append("android_common.multi_cpu_configuration");
     }
   }
-
-  /**
-   * Turns off dynamic resource filtering for non-Android targets. This prevents unnecessary build
-   * graph bloat. For example, there's no point analyzing distinct cc_library targets for different
-   * resource filter configurations because cc_library semantics doesn't care about filters.
-   */
-  public static final RuleTransitionFactory REMOVE_DYNAMIC_RESOURCE_FILTERING =
-      new RuleTransitionFactory() {
-        /** Dependencies of these rule class types need to keep resource filtering info. */
-        private final ImmutableSet<String> keepFilterRuleClasses =
-            ImmutableSet.of("android_binary", "android_library");
-
-        @Override
-        public ConfigurationTransition buildTransitionFor(Rule depRule) {
-          return keepFilterRuleClasses.contains(depRule.getRuleClass())
-              ? null
-              : ResourceFilterFactory.REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
-        }
-      };
 
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
 

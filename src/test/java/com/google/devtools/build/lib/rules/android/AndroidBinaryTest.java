@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.common.eventbus.EventBus;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1227,8 +1226,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFilteredResourcesInvalidResourceDir() throws Exception {
     String badQualifierDir = "values-invalid-qualifier";
 
-    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_execution");
-
     checkError(
         "java/r/android",
         "r",
@@ -1238,37 +1235,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  resource_files = ['res/" + badQualifierDir + "/foo.xml'],",
         "  prefilter_resources = 1,",
         "  resource_configuration_filters = ['en'])");
-  }
-
-  @Test
-  public void testFilteredResourcesFilteringDisabled() throws Exception {
-    List<String> resources =
-        ImmutableList.of("res/values/foo.xml", "res/values-en/foo.xml", "res/values-fr/foo.xml");
-    String dir = "java/r/android";
-
-    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_execution");
-
-    ConfiguredTarget binary =
-        scratchConfiguredTarget(
-            dir,
-            "r",
-            "android_binary(name = 'r',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_configuration_filters = ['', 'en, es, '],",
-            "  densities = ['hdpi, , ', 'xhdpi'],",
-            "  resource_files = ['" + Joiner.on("', '").join(resources) + "'])");
-    ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
-
-    // Validate that the AndroidResourceProvider for this binary contains all values.
-    assertThat(resourceContentsPaths(dir, directResources)).containsExactlyElementsIn(resources);
-
-    // Validate that the input to resource processing contains all values.
-    assertThat(resourceInputPaths(dir, directResources)).containsAllIn(resources);
-
-    // Validate that the filters are correctly passed to the resource processing action
-    // This includes trimming whitespace and ignoring empty filters.
-    assertThat(resourceArguments(directResources)).contains("en,es");
-    assertThat(resourceArguments(directResources)).contains("hdpi,xhdpi");
   }
 
   /** Test that resources are not filtered in analysis under aapt2. */
@@ -1853,65 +1819,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     List<String> resourceProcessingArgs = resourceArguments(getResourceContainer(binary));
     assertThat(resourceProcessingArgs).contains("--throwOnResourceConflict");
-  }
-
-  @Test
-  public void testFilteredTransitiveResourcesDynamicConfiguration() throws Exception {
-    String enResource = "res/values-en/foo.xml";
-    String unqualifiedResource = "res/values/foo.xml";
-    String frResource = "res/values-fr/foo.xml";
-
-    String dir = "java/r/android";
-    scratch.file(
-        dir + "/BUILD",
-        "android_library(name = 'lib',",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = [",
-        "    '" + enResource + "',",
-        "    '" + frResource + "',",
-        "    '" + unqualifiedResource + "',",
-        "])",
-        "android_binary(name = 'en',",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_configuration_filters = ['en'],",
-        "  deps = [':lib'])");
-
-    useConfiguration(
-        "--experimental_android_resource_filtering_method",
-        "filter_in_analysis_with_dynamic_configuration");
-
-    ConfiguredTarget binary =
-        Iterables.getOnlyElement(
-            update(
-                    ImmutableList.of("//" + dir + ":en"),
-                    /* keepGoing= */ false,
-                    /* loadingPhaseThreads= */ 1,
-                    /* doAnalysis= */ true,
-                    new EventBus())
-                .getTargetsToBuild());
-
-    // Assert the resources were still filtered in analysis in the binary.
-    String expectedQualifiedResource =
-        binary.getLabel().toString().endsWith("en") ? enResource : frResource;
-
-    assertThat(resourceContentsPaths(dir, getResourceContainer(binary, /* transitive=*/ true)))
-        .containsExactly(expectedQualifiedResource, unqualifiedResource);
-
-    ConfiguredTarget library = getDirectPrerequisite(binary, "//" + dir + ":lib");
-
-    // Assert the resources were filtered in the library.
-    // This is only possible if the filters are correctly being passed using dynamic
-    // configuration.
-    assertThat(resourceContentsPaths(dir, getResourceContainer(library)))
-        .containsExactly(expectedQualifiedResource, unqualifiedResource);
-
-    // assert the correct prefix is used for library outputs
-    assertThat(
-            library
-                .getConfiguration()
-                .getFragment(AndroidConfiguration.class)
-                .getOutputDirectoryName())
-        .contains("en_");
   }
 
   /**

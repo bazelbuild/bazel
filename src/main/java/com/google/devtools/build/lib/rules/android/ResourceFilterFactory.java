@@ -29,22 +29,16 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /**
  * Filters resources based on their qualifiers.
@@ -56,57 +50,9 @@ import javax.annotation.Nullable;
  * and {@link #hashCode()} methods. Failure to do so isn't just bad practice; it could seriously
  * interfere with Bazel's caching performance.
  */
-@AutoCodec
 public class ResourceFilterFactory {
   public static final String RESOURCE_CONFIGURATION_FILTERS_NAME = "resource_configuration_filters";
   public static final String DENSITIES_NAME = "densities";
-
-  /**
-   * Locales used for pseudolocation.
-   *
-   * <p>These are special resources that can be used to test how apps handles special cases (such as
-   * particularly long text, accents, or left-to-right text). These resources are not provided like
-   * other resources; instead, when the appropriate filters are passed in, aapt generates them based
-   * on the default resources.
-   *
-   * <p>When these locales are specified in the configuration filters, even if we are filtering in
-   * analysis, we need to pass *all* configuration filters to aapt - the pseudolocalization filters
-   * themselves to trigger pseudolocalization, and the other filters to prevent aapt from filtering
-   * matching resources out.
-   */
-  @VisibleForTesting
-  static enum FilterBehavior {
-    /**
-     * Resources will be filtered in execution. This class will just pass the filtering parameters
-     * to the appropriate resource processing actions.
-     */
-    FILTER_IN_EXECUTION,
-
-    /**
-     * Resources will be filtered in analysis. In android_binary targets, all resources will be
-     * filtered by this class, and only resources that are accepted will be passed to resource
-     * processing actions. Resources may be filtered again in execution to handle some edge cases,
-     * including resources contained in Filesets, Pseudolocalized resource generation, and stricter
-     * filtering implementations within aapt.
-     */
-    FILTER_IN_ANALYSIS,
-
-    /**
-     * Resources will be filtered in each android target in analysis. Filter settings will be
-     * extracted from android_binary targets and passed to all their dependencies using dynamic
-     * configuration. Only resources that are accepted by filtering will be passed to resource
-     * processing actions or to reverse dependencies.
-     */
-    FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
-
-    private static final class Converter extends EnumConverter<FilterBehavior> {
-      Converter() {
-        super(FilterBehavior.class, "resource filter behavior");
-      }
-    }
-  }
-
-  static final FilterBehavior DEFAULT_BEHAVIOR = FilterBehavior.FILTER_IN_EXECUTION;
 
   /**
    * The value of the {@link #RESOURCE_CONFIGURATION_FILTERS_NAME} attribute, as a list of qualifier
@@ -120,22 +66,22 @@ public class ResourceFilterFactory {
   /** A builder for a set of strings representing resources that were filtered using this class. */
   private final ImmutableSet.Builder<String> filteredResources = ImmutableSet.builder();
 
-  private final FilterBehavior filterBehavior;
+  private final boolean filterInAnalysis;
 
   /**
    * Constructor.
    *
    * @param configFilters the resource configuration filters, as a list of strings.
    * @param densities the density filters, as a list of strings.
-   * @param filterBehavior the behavior of this filter.
+   * @param filterInAnalysis whether this filter should filter resources in analysis
    */
   ResourceFilterFactory(
       ImmutableList<String> configFilters,
       ImmutableList<String> densities,
-      FilterBehavior filterBehavior) {
+      boolean filterInAnalysis) {
     this.configFilters = configFilters;
     this.densities = densities;
-    this.filterBehavior = filterBehavior;
+    this.filterInAnalysis = filterInAnalysis;
   }
 
   private static boolean hasAttr(AttributeMap attrs, String attrName) {
@@ -145,10 +91,6 @@ public class ResourceFilterFactory {
 
     List<String> values = attrs.get(attrName, Type.STRING_LIST);
     return values != null && !values.isEmpty();
-  }
-
-  static boolean hasFilters(AttributeMap attrs) {
-    return hasAttr(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME) || hasAttr(attrs, DENSITIES_NAME);
   }
 
   /**
@@ -162,7 +104,7 @@ public class ResourceFilterFactory {
    */
   private static ImmutableList<String> extractFilters(AttributeMap attrs, String attrName) {
     if (!hasAttr(attrs, attrName)) {
-      return ImmutableList.<String>of();
+      return ImmutableList.of();
     }
 
     /*
@@ -204,47 +146,23 @@ public class ResourceFilterFactory {
       return empty();
     }
 
-    ResourceFilterFactory base;
-    if (AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2) {
-      // aapt2 must have access to all of the resources in execution, so don't filter in analysis.
-      base = empty(FilterBehavior.FILTER_IN_EXECUTION);
-    } else {
-      base = ruleContext.getFragment(AndroidConfiguration.class).getResourceFilterFactory();
-    }
+    // aapt2 must have access to all of the resources in execution, so don't filter in analysis.
+    boolean filterInAnalysis =
+        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) != AndroidAaptVersion.AAPT2;
 
-    return forBaseAndAttrs(base, ruleContext.attributes());
+    return from(filterInAnalysis, ruleContext.attributes());
   }
 
   @VisibleForTesting
-  static ResourceFilterFactory forBaseAndAttrs(ResourceFilterFactory base, AttributeMap attrs) {
-    return base.withAttrsFrom(attrs);
-  }
-
-  /**
-   * Creates a new {@link ResourceFilterFactory} based on this object's properties, overridden by
-   * any filters specified in the passed {@link AttributeMap}.
-   *
-   * <p>A new object will always be returned, as returning the same object across multiple rules (as
-   * would be done with {@link FilterBehavior#FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION}) causes
-   * problems.
-   */
-  ResourceFilterFactory withAttrsFrom(AttributeMap attrs) {
-    if (!hasFilters(attrs)) {
-      return this;
+  static ResourceFilterFactory from(boolean filterInAnalysis, AttributeMap attrs) {
+    if (!hasAttr(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME) && !hasAttr(attrs, DENSITIES_NAME)) {
+      return empty();
     }
 
     return new ResourceFilterFactory(
         extractFilters(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
         extractFilters(attrs, DENSITIES_NAME),
-        filterBehavior);
-  }
-
-  ResourceFilterFactory withoutDynamicConfiguration() {
-    if (!usesDynamicConfiguration()) {
-      return this;
-    }
-
-    return empty(FilterBehavior.FILTER_IN_ANALYSIS);
+        filterInAnalysis);
   }
 
   private ImmutableList<FolderConfiguration> getConfigurationFilters(
@@ -326,12 +244,12 @@ public class ResourceFilterFactory {
   /**
    * List of deprecated qualifiers that are not supported by {@link FolderConfiguration}.
    *
-   * For resources, we should warn if these qualifiers are encountered, since aapt supports the
+   * <p>For resources, we should warn if these qualifiers are encountered, since aapt supports the
    * fixed version (and aapt2 only supports that version).
    *
-   * For resource filters, however, aapt only supports this old version. Convert the qualifiers so
-   * that they can be parsed by FolderConfiguration, but do not warn (since they are, actually, what
-   * aapt expects) and save the original qualifier strings to be passed to aapt.
+   * <p>For resource filters, however, aapt only supports this old version. Convert the qualifiers
+   * so that they can be parsed by FolderConfiguration, but do not warn (since they are, actually,
+   * what aapt expects) and save the original qualifier strings to be passed to aapt.
    */
   private final List<DeprecatedQualifierHandler> deprecatedQualifierHandlers =
       ImmutableList.of(
@@ -383,14 +301,10 @@ public class ResourceFilterFactory {
     }
   }
 
-  static ResourceFilterFactory empty() {
-    return empty(DEFAULT_BEHAVIOR);
-  }
-
   @VisibleForTesting
-  static ResourceFilterFactory empty(FilterBehavior filterBehavior) {
+  static ResourceFilterFactory empty() {
     return new ResourceFilterFactory(
-        ImmutableList.<String>of(), ImmutableList.<String>of(), filterBehavior);
+        ImmutableList.of(), ImmutableList.of(), /* filterInAnalysis = */ false);
   }
 
   /**
@@ -402,8 +316,7 @@ public class ResourceFilterFactory {
   ResourceFilter getResourceFilter(
       RuleErrorConsumer ruleErrorConsumer,
       ResourceDependencies resourceDeps,
-      LocalResourceContainer localResources)
-      throws RuleErrorException {
+      LocalResourceContainer localResources) {
     if (!isPrefiltering()) {
       return ResourceFilter.empty();
     }
@@ -470,7 +383,7 @@ public class ResourceFilterFactory {
     private final Multimap<String, Artifact> nameAndConfigurationToBestArtifacts =
         HashMultimap.create();
 
-    public BestArtifactsForDensity(RuleErrorConsumer ruleErrorConsumer, Density density) {
+    BestArtifactsForDensity(RuleErrorConsumer ruleErrorConsumer, Density density) {
       this.ruleErrorConsumer = ruleErrorConsumer;
       desiredDensity = density;
     }
@@ -479,7 +392,7 @@ public class ResourceFilterFactory {
      * @param artifact if this artifact is a better match for this object's desired density than any
      *     other artifacts with the same name and non-density configuration, adds it to this object.
      */
-    public void maybeAddArtifact(Artifact artifact) {
+    void maybeAddArtifact(Artifact artifact) {
       FolderConfiguration config = getConfigForArtifact(ruleErrorConsumer, artifact);
 
       // We want to find a single best artifact for each combination of non-density qualifiers and
@@ -655,10 +568,6 @@ public class ResourceFilterFactory {
     return Joiner.on(',').join(configFilters);
   }
 
-  ImmutableList<String> getConfigFilters() {
-    return configFilters;
-  }
-
   /**
    * Returns if this object contains a non-empty density filter.
    *
@@ -678,15 +587,11 @@ public class ResourceFilterFactory {
   }
 
   boolean isPrefiltering() {
-    return hasFilters() && filterBehavior != FilterBehavior.FILTER_IN_EXECUTION;
+    return filterInAnalysis;
   }
 
   boolean hasFilters() {
     return hasConfigurationFilters() || hasDensities();
-  }
-
-  FilterBehavior getFilterBehavior() {
-    return filterBehavior;
   }
 
   public String getOutputDirectorySuffix() {
@@ -695,10 +600,6 @@ public class ResourceFilterFactory {
     }
 
     return getConfigurationFilterString() + "_" + getDensityString();
-  }
-
-  boolean usesDynamicConfiguration() {
-    return filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
   }
 
   /**
@@ -730,7 +631,7 @@ public class ResourceFilterFactory {
 
     ResourceFilterFactory other = (ResourceFilterFactory) object;
 
-    return filterBehavior == other.filterBehavior
+    return filterInAnalysis == other.filterInAnalysis
         && configFilters.equals(other.configFilters)
         && densities.equals(other.densities)
         && filteredResources.build().equals(other.filteredResources.build());
@@ -738,102 +639,6 @@ public class ResourceFilterFactory {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(filterBehavior, configFilters, densities, filteredResources.build());
-  }
-
-  /**
-   * Converts command line settings for the filter behavior into an empty {@link
-   * ResourceFilterFactory} object.
-   */
-  public static final class Converter
-      implements com.google.devtools.common.options.Converter<ResourceFilterFactory> {
-    private final FilterBehavior.Converter filterEnumConverter = new FilterBehavior.Converter();
-
-    @Override
-    public ResourceFilterFactory convert(String input) throws OptionsParsingException {
-
-      return empty(filterEnumConverter.convert(input));
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return filterEnumConverter.getTypeDescription();
-    }
-  }
-
-  // Transitions for dealing with dynamically configured resource filtering:
-
-  @Nullable
-  PatchTransition getTopLevelPatchTransition(String ruleClass, AttributeMap attrs) {
-    if (!usesDynamicConfiguration()) {
-      // We're not using dynamic configuration, so we don't need to make a transition
-      return null;
-    }
-
-    if (!ruleClass.equals("android_binary") || !hasFilters(attrs)) {
-      // This target doesn't specify any filtering settings, so dynamically configured resource
-      // filtering would be a waste of time.
-      // If the target's dependencies include android_binary targets, those dependencies might
-      // specify filtering settings, but we don't apply them dynamically since the chances of
-      // encountering differing settings (leading to splitting the build graph and poor overall
-      // performance) are high.
-      return REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION;
-    }
-
-    // Continue using dynamically configured resource filtering, and propagate this target's
-    // filtering settings.
-    return new AddDynamicallyConfiguredResourceFilteringTransition(attrs);
-  }
-
-  @AutoCodec
-  public static final PatchTransition REMOVE_DYNAMICALLY_CONFIGURED_RESOURCE_FILTERING_TRANSITION =
-      new RemoveDynamicallyConfiguredResourceFilteringTransition();
-
-  private static final class RemoveDynamicallyConfiguredResourceFilteringTransition
-      extends BaseDynamicallyConfiguredResourceFilteringTransition {
-    @Override
-    ResourceFilterFactory getNewResourceFilter(ResourceFilterFactory oldResourceFilterFactory) {
-      return oldResourceFilterFactory.withoutDynamicConfiguration();
-    }
-  }
-
-  // There is no codec for this class because AttributeMap can contain extremely heavyweight
-  // objects like Package.
-  @VisibleForTesting
-  static final class AddDynamicallyConfiguredResourceFilteringTransition
-      extends BaseDynamicallyConfiguredResourceFilteringTransition {
-    private final AttributeMap attrs;
-
-    AddDynamicallyConfiguredResourceFilteringTransition(AttributeMap attrs) {
-      this.attrs = attrs;
-    }
-
-    @Override
-    ResourceFilterFactory getNewResourceFilter(ResourceFilterFactory oldResourceFilterFactory) {
-      return oldResourceFilterFactory.withAttrsFrom(attrs);
-    }
-
-    @VisibleForTesting
-    AttributeMap getAttrs() {
-      return attrs;
-    }
-  }
-
-  private abstract static class BaseDynamicallyConfiguredResourceFilteringTransition
-      implements PatchTransition {
-    @Override
-    public BuildOptions apply(BuildOptions options) {
-      BuildOptions newOptions = options.clone();
-
-      AndroidConfiguration.Options androidOptions =
-          newOptions.get(AndroidConfiguration.Options.class);
-      androidOptions.resourceFilterFactory =
-          getNewResourceFilter(androidOptions.resourceFilterFactory);
-
-      return newOptions;
-    }
-
-    abstract ResourceFilterFactory getNewResourceFilter(
-        ResourceFilterFactory oldResourceFilterFactory);
+    return Objects.hashCode(filterInAnalysis, configFilters, densities, filteredResources.build());
   }
 }
