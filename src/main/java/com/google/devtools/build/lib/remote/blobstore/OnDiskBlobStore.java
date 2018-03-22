@@ -54,6 +54,11 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
 
   @Override
   public void put(String key, long length, InputStream in) throws IOException {
+    Path target = toPath(key);
+    if (target.exists()) {
+      return;
+    }
+
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
     Path temp = toPath(UUID.randomUUID().toString());
     try (OutputStream out = temp.getOutputStream()) {
@@ -61,8 +66,7 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
     }
     // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the case of machine
     // crashes (the OS may reorder the writes and the rename).
-    Path f = toPath(key);
-    temp.renameTo(f);
+    temp.renameTo(target);
   }
 
   @Override
