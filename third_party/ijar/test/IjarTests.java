@@ -292,4 +292,16 @@ public class IjarTests {
               LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
     }
   }
+
+  @Test
+  public void testEmptyWithTargetLabel() throws Exception {
+    try (JarFile jf = new JarFile("third_party/ijar/test/empty_with_target_label.jar")) {
+      Manifest manifest = jf.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//empty");
+      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
+          .isEqualTo(
+              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+    }
+  }
 }
