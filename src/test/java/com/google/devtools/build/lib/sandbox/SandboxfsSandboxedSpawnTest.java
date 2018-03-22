@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,42 +28,43 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SymlinkedSandboxedSpawn}. */
+/** Tests for {@link SandboxfsSandboxedSpawn}. */
 @RunWith(JUnit4.class)
-public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
+public class SandboxfsSandboxedSpawnTest extends SandboxTestCase {
   private Path workspaceDir;
-  private Path sandboxDir;
-  private Path execRoot;
-  private Path outputsDir;
+  private Path outerDir;
+  private SandboxfsProcess sandboxfs;
 
   @Before
   public final void setupTestDirs() throws IOException {
     workspaceDir = testRoot.getRelative("workspace");
     workspaceDir.createDirectory();
-    sandboxDir = testRoot.getRelative("sandbox");
-    sandboxDir.createDirectory();
-    execRoot = sandboxDir.getRelative("execroot");
-    execRoot.createDirectory();
-    outputsDir = testRoot.getRelative("outputs");
-    outputsDir.createDirectory();
-  }
+    outerDir = testRoot.getRelative("scratch");
+    outerDir.createDirectory();
+
+    Path mountPoint = testRoot.getRelative("sandbox");
+    mountPoint.createDirectory();
+    sandboxfs = new FakeSandboxfsProcess(
+        mountPoint.getFileSystem(), mountPoint.asFragment());
+    }
 
   @Test
-  public void createFileSystem() throws Exception {
+  public void testCreateFileSystem() throws Exception {
     Path helloTxt = workspaceDir.getRelative("hello.txt");
     FileSystemUtils.createEmptyFile(helloTxt);
 
-    SymlinkedSandboxedSpawn symlinkedExecRoot =
-        new SymlinkedSandboxedSpawn(
-            sandboxDir,
-            execRoot,
+    SandboxedSpawn spawn =
+        new SandboxfsSandboxedSpawn(
+            sandboxfs,
+            outerDir,
             ImmutableList.of("/bin/true"),
-            ImmutableMap.<String, String>of(),
+            ImmutableMap.of(),
             ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
             ImmutableSet.of(PathFragment.create("very/output.txt")),
-            ImmutableSet.of(execRoot.getRelative("wow/writable")));
+            ImmutableSet.of(PathFragment.create("wow/writable")));
 
-    symlinkedExecRoot.createFileSystem();
+    spawn.createFileSystem();
+    Path execRoot = spawn.getSandboxExecRoot();
 
     assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
     assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
@@ -72,56 +73,55 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
   }
 
   @Test
-  public void cleanFileSystem() throws Exception {
+  public void testDelete() throws Exception {
     Path helloTxt = workspaceDir.getRelative("hello.txt");
     FileSystemUtils.createEmptyFile(helloTxt);
 
-    SymlinkedSandboxedSpawn symlinkedExecRoot = new SymlinkedSandboxedSpawn(
-        sandboxDir,
-        execRoot,
+    SandboxedSpawn spawn = new SandboxfsSandboxedSpawn(
+        sandboxfs,
+        outerDir,
         ImmutableList.of("/bin/true"),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
         ImmutableSet.of(PathFragment.create("very/output.txt")),
-        ImmutableSet.of(execRoot.getRelative("wow/writable")));
-    symlinkedExecRoot.createFileSystem();
+        ImmutableSet.of(PathFragment.create("wow/writable")));
+    spawn.createFileSystem();
+    Path execRoot = spawn.getSandboxExecRoot();
 
     // Pretend to do some work inside the execRoot.
     execRoot.getRelative("tempdir").createDirectory();
     FileSystemUtils.createEmptyFile(execRoot.getRelative("very/output.txt"));
     FileSystemUtils.createEmptyFile(execRoot.getRelative("wow/writable/temp.txt"));
 
-    // Reuse the same execRoot.
-    symlinkedExecRoot.createFileSystem();
+    spawn.delete();
 
-    assertThat(execRoot.getRelative("such/input.txt").exists()).isTrue();
-    assertThat(execRoot.getRelative("tempdir").exists()).isFalse();
-    assertThat(execRoot.getRelative("very/output.txt").exists()).isFalse();
-    assertThat(execRoot.getRelative("wow/writable/temp.txt").exists()).isFalse();
+    assertThat(execRoot.exists()).isFalse();
   }
 
   @Test
-  public void copyOutputs() throws Exception {
+  public void testCopyOutputs() throws Exception {
     // These tests are very simple because we just rely on SandboxedSpawnTest.testMoveOutputs to
     // properly verify all corner cases.
-    Path outputFile = execRoot.getRelative("very/output.txt");
+    PathFragment outputFile = PathFragment.create("very/output.txt");
 
-    SymlinkedSandboxedSpawn symlinkedExecRoot =
-        new SymlinkedSandboxedSpawn(
-            sandboxDir,
-            execRoot,
+    SandboxedSpawn spawn =
+        new SandboxfsSandboxedSpawn(
+            sandboxfs,
+            outerDir,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             ImmutableMap.of(),
-            ImmutableSet.of(outputFile.relativeTo(execRoot)),
+            ImmutableSet.of(outputFile),
             ImmutableSet.of());
-    symlinkedExecRoot.createFileSystem();
+    spawn.createFileSystem();
+    Path execRoot = spawn.getSandboxExecRoot();
 
-    FileSystemUtils.createEmptyFile(outputFile);
+    FileSystemUtils.createEmptyFile(execRoot.getRelative(outputFile));
 
-    outputsDir.getRelative("very").createDirectory();
-    symlinkedExecRoot.copyOutputs(outputsDir);
+    Path outputsDir = testRoot.getRelative("outputs");
+    outputsDir.getRelative(outputFile.getParentDirectory()).createDirectoryAndParents();
+    spawn.copyOutputs(outputsDir);
 
-    assertThat(outputsDir.getRelative("very/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(outputsDir.getRelative(outputFile).isFile(Symlinks.NOFOLLOW)).isTrue();
   }
 }
