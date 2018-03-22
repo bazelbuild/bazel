@@ -490,32 +490,18 @@ public class CppOptions extends FragmentOptions {
     return enableLipoSettings() ? fdoOptimizeForBuild : null;
   }
 
-  @Option(
-    name = "autofdo_lipo_data",
-    defaultValue = "false",
-    category = "flags",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "If true then the directory name for non-LIPO targets will have a "
-            + "'-lipodata' suffix in AutoFDO mode."
-  )
-  /**
-   * Never read FDO/LIPO options directly. This is because {@link #lipoConfigurationState}
-   * determines whether these options are actually "active" for this configuration. Instead, use the
-   * equivalent getter method, which takes that into account.
-   */
-  public boolean autoFdoLipoDataForBuild;
-
   /**
    * Returns the --autofdo_lipo_data value for this configuration. This is false except for data
    * configurations under LIPO builds.
    */
   public boolean getAutoFdoLipoData() {
-    return enableLipoSettings()
-        ? autoFdoLipoDataForBuild
-        : lipoModeForBuild != LipoMode.OFF && fdoOptimizeForBuild != null && FdoSupport.isAutoFdo(
-            fdoOptimizeForBuild);
+    if (enableLipoSettings()) {
+      return false;
+    }
+
+    return lipoModeForBuild != LipoMode.OFF
+        && fdoOptimizeForBuild != null
+        && FdoSupport.isAutoFdo(fdoOptimizeForBuild);
   }
 
   @Option(
