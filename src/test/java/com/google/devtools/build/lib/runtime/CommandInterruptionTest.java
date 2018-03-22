@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -365,6 +367,14 @@ public final class CommandInterruptionTest {
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                     // Can't create a defaults package without the base options in there!
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
+                  }
+                })
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
+                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                        runtime.getRuleClassProvider().getConfigurationOptions());
                   }
                 })
             .build();

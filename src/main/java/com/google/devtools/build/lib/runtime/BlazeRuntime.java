@@ -354,6 +354,25 @@ public final class BlazeRuntime {
     return blazeModules;
   }
 
+  public BuildOptions getDefaultBuildOptions() {
+    BuildOptions options = null;
+    for (BlazeModule module : blazeModules) {
+      BuildOptions optionsFromModule = module.getDefaultBuildOptions(this);
+      if (optionsFromModule != null) {
+        if (options == null) {
+          options = optionsFromModule;
+        } else {
+          throw new IllegalArgumentException(
+              "Two or more blaze modules contained default build options.");
+        }
+      }
+    }
+    if (options == null) {
+      throw new IllegalArgumentException("No default build options specified in any Blaze module");
+    }
+    return options;
+  }
+
   @SuppressWarnings("unchecked")
   public <T extends BlazeModule> T getBlazeModule(Class<T> moduleClass) {
     for (BlazeModule module : blazeModules) {

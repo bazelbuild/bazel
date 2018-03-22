@@ -291,9 +291,13 @@ public final class BuildOptions implements Cloneable, Serializable {
     this.fragmentOptionsMap = fragmentOptionsMap;
   }
 
-  BuildOptions applyDiff(OptionsDiffForReconstruction optionsDiff) {
+  public BuildOptions applyDiff(OptionsDiffForReconstruction optionsDiff) {
     if (optionsDiff.isEmpty()) {
       return this;
+    }
+    maybeInitializeFingerprintAndHashCode();
+    if (!Arrays.equals(fingerprint, optionsDiff.baseFingerprint)) {
+      throw new IllegalArgumentException("Can not reconstruct BuildOptions with a different base.");
     }
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
@@ -342,6 +346,9 @@ public final class BuildOptions implements Cloneable, Serializable {
 
   /** Returns the difference between two BuildOptions in a {@link BuildOptions.OptionsDiff}. */
   public static OptionsDiff diff(BuildOptions first, BuildOptions second) {
+    if (first == null || second == null) {
+      throw new IllegalArgumentException("Cannot diff null BuildOptions");
+    }
     OptionsDiff diff = new OptionsDiff();
     if (first.equals(second)) {
       return diff;
@@ -390,25 +397,25 @@ public final class BuildOptions implements Cloneable, Serializable {
       BuildOptions first, BuildOptions second) {
     OptionsDiff diff = diff(first, second);
     if (diff.areSame()) {
-      return OptionsDiffForReconstruction.EMPTY;
+      return OptionsDiffForReconstruction.getEmpty(first.fingerprint);
     }
-    ImmutableMap.Builder<Class<? extends FragmentOptions>, ImmutableMap<String, Object>>
-        differingOptionsBuilder =
-            ImmutableMap.builderWithExpectedSize(diff.differingOptions.keySet().size());
+    HashMap<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
+        new HashMap<>(diff.differingOptions.keySet().size());
     for (Class<? extends FragmentOptions> clazz : diff.differingOptions.keySet()) {
       Collection<OptionDefinition> fields = diff.differingOptions.get(clazz);
-      ImmutableMap.Builder<String, Object> valuesMapBuilder =
-          ImmutableMap.builderWithExpectedSize(fields.size());
+      HashMap<String, Object> valueMap = new HashMap<>(fields.size());
       for (OptionDefinition optionDefinition : fields) {
-        valuesMapBuilder.put(
-            optionDefinition.getField().getName(), diff.second.get(optionDefinition));
+        Object secondValue = diff.second.get(optionDefinition);
+        valueMap.put(optionDefinition.getField().getName(), secondValue);
       }
-      differingOptionsBuilder.put(clazz, valuesMapBuilder.build());
+      differingOptions.put(clazz, valueMap);
     }
+    first.maybeInitializeFingerprintAndHashCode();
     return new OptionsDiffForReconstruction(
-        differingOptionsBuilder.build(),
+        differingOptions,
         ImmutableSet.copyOf(diff.extraFirstFragments),
-        ImmutableList.copyOf(diff.extraSecondFragments));
+        ImmutableList.copyOf(diff.extraSecondFragments),
+        first.fingerprint);
   }
 
   /**
@@ -492,35 +499,38 @@ public final class BuildOptions implements Cloneable, Serializable {
    * omitted, and the values of any fields that should be changed.
    */
   @AutoCodec
-  static class OptionsDiffForReconstruction {
-    @AutoCodec
-    static final OptionsDiffForReconstruction EMPTY =
-        new OptionsDiffForReconstruction(ImmutableMap.of(), ImmutableSet.of(), ImmutableList.of());
-
-    private final ImmutableMap<Class<? extends FragmentOptions>, ImmutableMap<String, Object>>
-        differingOptions;
+  public static class OptionsDiffForReconstruction {
+    private final Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions;
     private final ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses;
     private final ImmutableList<FragmentOptions> extraSecondFragments;
+    private final byte[] baseFingerprint;
 
     @AutoCodec.VisibleForSerialization
     OptionsDiffForReconstruction(
-        ImmutableMap<Class<? extends FragmentOptions>, ImmutableMap<String, Object>>
-            differingOptions,
+        Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions,
         ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses,
-        ImmutableList<FragmentOptions> extraSecondFragments) {
+        ImmutableList<FragmentOptions> extraSecondFragments,
+        byte[] baseFingerprint) {
       this.differingOptions = differingOptions;
       this.extraFirstFragmentClasses = extraFirstFragmentClasses;
       this.extraSecondFragments = extraSecondFragments;
+      this.baseFingerprint = baseFingerprint;
+    }
+
+    private static OptionsDiffForReconstruction getEmpty(byte[] baseFingerprint) {
+      return new OptionsDiffForReconstruction(
+          ImmutableMap.of(), ImmutableSet.of(), ImmutableList.of(), baseFingerprint);
     }
 
     @Nullable
-    private FragmentOptions transformOptions(FragmentOptions input) {
+    @VisibleForTesting
+    FragmentOptions transformOptions(FragmentOptions input) {
       Class<? extends FragmentOptions> clazz = input.getClass();
       if (extraFirstFragmentClasses.contains(clazz)) {
         return null;
       }
       Map<String, Object> changedOptions = differingOptions.get(clazz);
-      if (changedOptions.isEmpty()) {
+      if (changedOptions == null || changedOptions.isEmpty()) {
         return input;
       }
       FragmentOptions newOptions = input.clone();

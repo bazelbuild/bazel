@@ -1171,6 +1171,7 @@ public class BuildConfiguration {
   private final ActionEnvironment testEnv;
 
   private final BuildOptions buildOptions;
+  private final BuildOptions.OptionsDiffForReconstruction buildOptionsDiff;
   private final Options options;
 
   private final String mnemonic;
@@ -1323,12 +1324,12 @@ public class BuildConfiguration {
     return fragmentsInterner.intern(ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter));
   }
 
-  /**
-   * Constructs a new BuildConfiguration instance.
-   */
-  public BuildConfiguration(BlazeDirectories directories,
+  /** Constructs a new BuildConfiguration instance. */
+  public BuildConfiguration(
+      BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
+      BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
       String repositoryName) {
     this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
@@ -1337,6 +1338,7 @@ public class BuildConfiguration {
     this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
     this.repositoryName = repositoryName;
     this.buildOptions = buildOptions.clone();
+    this.buildOptionsDiff = buildOptionsDiff;
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
     this.separateGenfilesDirectory = options.separateGenfilesDirectory;
@@ -1419,7 +1421,9 @@ public class BuildConfiguration {
    * configuration is assumed to have).
    */
   public BuildConfiguration clone(
-      FragmentClassSet fragmentClasses, RuleClassProvider ruleClassProvider) {
+      FragmentClassSet fragmentClasses,
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions) {
 
     ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
     for (Fragment fragment : fragments.values()) {
@@ -1434,6 +1438,7 @@ public class BuildConfiguration {
             directories,
             fragmentsMap,
             options,
+            BuildOptions.diffForReconstruction(defaultBuildOptions, options),
             mainRepositoryName.strippedName());
     return newConfig;
   }
@@ -1960,6 +1965,10 @@ public class BuildConfiguration {
    */
   public BuildOptions getOptions() {
     return buildOptions;
+  }
+
+  public BuildOptions.OptionsDiffForReconstruction getBuildOptionsDiff() {
+    return buildOptionsDiff;
   }
 
   public String getCpu() {

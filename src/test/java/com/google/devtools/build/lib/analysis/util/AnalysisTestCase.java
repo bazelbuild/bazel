@@ -183,7 +183,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
         BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
+        DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider));
   }
 
   /**
@@ -196,6 +197,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, scratch.getFileSystem());
+    useConfiguration();
     skyframeExecutor =
         createSkyframeExecutor(pkgFactory, ruleClassProvider.getBuildInfoFactories());
 
@@ -220,7 +222,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
         pkgFactory.getRuleClassNames(), defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE));
     buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
-    useConfiguration();
+
   }
 
   protected AnalysisMock getAnalysisMock() {

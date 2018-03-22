@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
@@ -49,5 +50,11 @@ public class BazelRulesModule extends BlazeModule {
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addSkyFunction(FdoSupportValue.SKYFUNCTION, new FdoSupportFunction(directories));
+  }
+
+  @Override
+  public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
+    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+        blazeRuntime.getRuleClassProvider().getConfigurationOptions());
   }
 }

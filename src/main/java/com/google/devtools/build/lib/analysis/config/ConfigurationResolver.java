@@ -94,7 +94,6 @@ public final class ConfigurationResolver {
    * @param originalDeps the transition requests for each dep under this target's attributes
    * @param hostConfiguration the host configuration
    * @param ruleClassProvider provider for determining the right configuration fragments for deps
-   *
    * @return a mapping from each attribute in the source target to the {@link BuildConfiguration}s
    *     and {@link Label}s for the deps under that attribute. Returns null if not all Skyframe
    *     dependencies are available.
@@ -105,7 +104,8 @@ public final class ConfigurationResolver {
       TargetAndConfiguration ctgValue,
       OrderedSetMultimap<Attribute, Dependency> originalDeps,
       BuildConfiguration hostConfiguration,
-      RuleClassProvider ruleClassProvider)
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions)
       throws ConfiguredTargetFunction.DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
@@ -232,10 +232,16 @@ public final class ConfigurationResolver {
       // If we get here, we have to get the configuration from Skyframe.
       for (BuildOptions options : toOptions) {
         if (sameFragments) {
-          keysToEntries.put(BuildConfigurationValue.key(ctgFragments, options), depsEntry);
+          keysToEntries.put(
+              BuildConfigurationValue.key(
+                  ctgFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
+              depsEntry);
 
         } else {
-          keysToEntries.put(BuildConfigurationValue.key(depFragments, options), depsEntry);
+          keysToEntries.put(
+              BuildConfigurationValue.key(
+                  depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
+              depsEntry);
         }
       }
     }

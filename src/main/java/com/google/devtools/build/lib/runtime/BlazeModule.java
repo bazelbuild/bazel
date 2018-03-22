@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.clock.Clock;
@@ -213,6 +214,15 @@ public abstract class BlazeModule {
   }
 
   /**
+   * Returns an instance of BuildOptions to be used to create {@link
+   * BuildOptions.OptionsDiffForReconstruction} with. Only one installed Module should override
+   * this.
+   */
+  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
+    return null;
+  }
+
+  /**
    * Called when Bazel initializes the action execution subsystem. This is called once per build if
    * action execution is enabled. Modules can override this method to affect how execution is
    * performed.
@@ -221,8 +231,7 @@ public abstract class BlazeModule {
    * @param request the build request
    * @param builder the builder to add action context providers and consumers to
    */
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-  }
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {}
 
   /**
    * Called after each command.

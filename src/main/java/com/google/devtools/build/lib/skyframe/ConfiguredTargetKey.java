@@ -80,7 +80,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
         ? KeyAndHost.NULL_INSTANCE
         : new KeyAndHost(
             BuildConfigurationValue.key(
-                configuration.fragmentClasses(), configuration.getOptions()),
+                configuration.fragmentClasses(), configuration.getBuildOptionsDiff()),
             configuration.isHostConfiguration());
   }
 

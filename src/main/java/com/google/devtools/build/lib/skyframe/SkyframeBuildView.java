@@ -126,7 +126,8 @@ public final class SkyframeBuildView {
 
   public SkyframeBuildView(BlazeDirectories directories,
       SkyframeExecutor skyframeExecutor, ConfiguredRuleClassProvider ruleClassProvider) {
-    this.factory = new ConfiguredTargetFactory(ruleClassProvider);
+    this.factory =
+        new ConfiguredTargetFactory(ruleClassProvider, skyframeExecutor.getDefaultBuildOptions());
     this.artifactFactory =
         new ArtifactFactory(directories.getExecRoot(), directories.getRelativeOutputPath());
     this.skyframeExecutor = skyframeExecutor;
@@ -568,7 +569,8 @@ public final class SkyframeBuildView {
     // case. So further optimization is necessary to make that viable (proto_library in particular
     // contributes to much of the difference).
     BuildConfiguration trimmedConfig =
-        topLevelHostConfiguration.clone(fragmentClasses, ruleClassProvider);
+        topLevelHostConfiguration.clone(
+            fragmentClasses, ruleClassProvider, skyframeExecutor.getDefaultBuildOptions());
     hostConfigurationCache.put(fragmentClasses, trimmedConfig);
     return trimmedConfig;
   }

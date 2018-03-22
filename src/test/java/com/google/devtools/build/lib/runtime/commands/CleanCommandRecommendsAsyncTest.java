@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -96,6 +98,14 @@ public class CleanCommandRecommendsAsyncTest {
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
                     // The tools repository is needed for createGlobals
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
+                  }
+                })
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
+                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                        runtime.getRuleClassProvider().getConfigurationOptions());
                   }
                 })
             .build();

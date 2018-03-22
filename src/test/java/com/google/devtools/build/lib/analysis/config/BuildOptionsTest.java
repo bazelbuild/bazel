@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.common.options.OptionsParser;
 import org.junit.Test;
@@ -100,6 +102,52 @@ public class BuildOptionsTest {
     assertThat(diff.areSame()).isFalse();
     assertThat(diff.getExtraFirstFragmentClasses()).containsExactly(CppOptions.class);
     assertThat(diff.getExtraSecondFragmentClasses()).containsExactlyElementsIn(TEST_OPTIONS);
+  }
+
+  @Test
+  public void optionsDiff_nullOptionsThrow() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = null;
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> BuildOptions.diff(one, two));
+    assertThat(e).hasMessageThat().contains("Cannot diff null BuildOptions");
+  }
+
+  @Test
+  public void optionsDiff_nullSecondValue() throws Exception {
+    BuildOptions one = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=gcc");
+    BuildOptions two = BuildOptions.of(ImmutableList.of(CppOptions.class));
+    OptionsDiffForReconstruction diffForReconstruction =
+        BuildOptions.diffForReconstruction(one, two);
+    OptionsDiff diff = BuildOptions.diff(one, two);
+    assertThat(diff.areSame()).isFalse();
+    assertThat(diff.getSecond().values()).contains(null);
+    BuildOptions reconstructed = one.applyDiff(diffForReconstruction);
+    assertThat(reconstructed.get(CppOptions.class).cppCompiler).isNull();
+  }
+
+  @Test
+  public void optionsDiff_differentBaseThrowException() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
+    BuildOptions three = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=gcc");
+    OptionsDiffForReconstruction diffForReconstruction =
+        BuildOptions.diffForReconstruction(one, two);
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> three.applyDiff(diffForReconstruction));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Can not reconstruct BuildOptions with a different base");
+  }
+
+  @Test
+  public void optionsDiff_getEmptyAndApplyEmpty() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    OptionsDiffForReconstruction diffForReconstruction =
+        BuildOptions.diffForReconstruction(one, two);
+    BuildOptions reconstructed = one.applyDiff(diffForReconstruction);
+    assertThat(one).isEqualTo(reconstructed);
   }
 
   @Test

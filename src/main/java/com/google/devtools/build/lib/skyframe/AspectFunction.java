@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
@@ -97,6 +98,7 @@ public final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
   private final Supplier<Boolean> removeActionsAfterEvaluation;
+  private final BuildOptions defaultBuildOptions;
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link AspectValue} will
    * be needed for package root resolution later in the build. If not, they are not collected and
@@ -108,12 +110,14 @@ public final class AspectFunction implements SkyFunction {
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
       Supplier<Boolean> removeActionsAfterEvaluation,
-      boolean storeTransitivePackagesForPackageRootResolution) {
+      boolean storeTransitivePackagesForPackageRootResolution,
+      BuildOptions defaultBuildOptions) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
+    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   /**
@@ -382,7 +386,8 @@ public final class AspectFunction implements SkyFunction {
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
-                transitiveRootCauses);
+                transitiveRootCauses,
+                defaultBuildOptions);
       } catch (ConfiguredTargetFunctionException e) {
         throw new AspectCreationException(e.getMessage());
       }

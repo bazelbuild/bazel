@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -147,7 +148,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       PathFragment additionalBlacklistedPackagePrefixesFile,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
-      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
+      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      BuildOptions defaultBuildOptions) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -162,7 +164,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         additionalBlacklistedPackagePrefixesFile,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
-        actionOnIOExceptionReadingBuildFile);
+        actionOnIOExceptionReadingBuildFile,
+        defaultBuildOptions);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -181,7 +184,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       PathFragment additionalBlacklistedPackagePrefixesFile,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
-      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
+      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      BuildOptions defaultBuildOptions) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -198,7 +202,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             additionalBlacklistedPackagePrefixesFile,
             crossRepositoryLabelViolationStrategy,
             buildFilesByPriority,
-            actionOnIOExceptionReadingBuildFile);
+            actionOnIOExceptionReadingBuildFile,
+            defaultBuildOptions);
     skyframeExecutor.init();
     return skyframeExecutor;
   }

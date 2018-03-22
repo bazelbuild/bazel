@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -64,12 +65,15 @@ public class PostConfiguredTargetFunction implements SkyFunction {
 
   private final SkyframeExecutor.BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
+  private final BuildOptions defaultBuildOptions;
 
   public PostConfiguredTargetFunction(
       SkyframeExecutor.BuildViewProvider buildViewProvider,
-      RuleClassProvider ruleClassProvider) {
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions) {
     this.buildViewProvider = Preconditions.checkNotNull(buildViewProvider);
     this.ruleClassProvider = ruleClassProvider;
+    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   @Nullable
@@ -125,10 +129,12 @@ public class PostConfiguredTargetFunction implements SkyFunction {
               hostConfiguration,
               /*aspect=*/ null,
               configConditions,
-              /*toolchainLabels=*/ ImmutableSet.of());
+              /*toolchainLabels*/ ImmutableSet.of(),
+              defaultBuildOptions);
       if (ct.getConfiguration() != null) {
-        deps = ConfigurationResolver.resolveConfigurations(env, ctgValue, deps, hostConfiguration,
-            ruleClassProvider);
+        deps =
+            ConfigurationResolver.resolveConfigurations(
+                env, ctgValue, deps, hostConfiguration, ruleClassProvider, defaultBuildOptions);
       }
     } catch (EvalException | ConfiguredTargetFunction.DependencyEvaluationException
         | InvalidConfigurationException | InconsistentAspectOrderException e) {

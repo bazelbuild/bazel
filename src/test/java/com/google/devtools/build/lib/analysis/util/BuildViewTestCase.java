@@ -256,7 +256,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
             BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
+            BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
+            DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider));
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
@@ -476,7 +477,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     masterConfig = createConfigurations(actualArgs);
     targetConfig = getTargetConfiguration();
     targetConfigKey =
-        BuildConfigurationValue.key(targetConfig.fragmentClasses(), targetConfig.getOptions());
+        BuildConfigurationValue.key(
+            targetConfig.fragmentClasses(),
+            BuildOptions.diffForReconstruction(
+                skyframeExecutor.getDefaultBuildOptions(), targetConfig.getOptions()));
     configurationArgs = Arrays.asList(actualArgs);
     createBuildView();
   }

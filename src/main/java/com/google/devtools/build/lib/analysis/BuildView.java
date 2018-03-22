@@ -1062,7 +1062,9 @@ public class BuildView {
 
       @Override
       protected List<BuildConfiguration> getConfigurations(
-          FragmentClassSet fragments, Iterable<BuildOptions> buildOptions) {
+          FragmentClassSet fragments,
+          Iterable<BuildOptions> buildOptions,
+          BuildOptions defaultBuildOptions) {
         Preconditions.checkArgument(
             ct.getConfiguration().fragmentClasses().equals(fragments),
             "Mismatch: %s %s",
@@ -1091,7 +1093,8 @@ public class BuildView {
         getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
         toolchainContext == null
             ? ImmutableSet.of()
-            : toolchainContext.getResolvedToolchainLabels());
+            : toolchainContext.getResolvedToolchainLabels(),
+        skyframeExecutor.getDefaultBuildOptions());
   }
 
   /**

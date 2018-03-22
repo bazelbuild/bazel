@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -116,6 +117,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   private final RuleClassProvider ruleClassProvider;
   private final Semaphore cpuBoundSemaphore;
   private final Supplier<Boolean> removeActionsAfterEvaluation;
+  private final BuildOptions defaultBuildOptions;
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link
    * ConfiguredTargetValue} will be needed for package root resolution later in the build. If not,
@@ -128,13 +130,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       RuleClassProvider ruleClassProvider,
       Semaphore cpuBoundSemaphore,
       Supplier<Boolean> removeActionsAfterEvaluation,
-      boolean storeTransitivePackagesForPackageRootResolution) {
+      boolean storeTransitivePackagesForPackageRootResolution,
+      BuildOptions defaultBuildOptions) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
     this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
+    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   @Override
@@ -269,7 +273,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ruleClassProvider,
               view.getHostConfiguration(configuration),
               transitivePackagesForPackageRootResolution,
-              transitiveLoadingRootCauses);
+              transitiveLoadingRootCauses,
+              defaultBuildOptions);
       if (env.valuesMissing()) {
         return null;
       }
@@ -380,6 +385,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * @param hostConfiguration the host configuration. There's a noticeable performance hit from
    *     instantiating this on demand for every dependency that wants it, so it's best to compute
    *     the host configuration as early as possible and pass this reference to all consumers
+   * @param defaultBuildOptions the default build options provided by the server; these are used to
+   *     create diffs for {@link BuildConfigurationValue.Key}s to prevent storing the entire
+   *     BuildOptions object.
    */
   @Nullable
   static OrderedSetMultimap<Attribute, ConfiguredTargetAndData> computeDependencies(
@@ -392,7 +400,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
-      NestedSetBuilder<Label> transitiveLoadingRootCauses)
+      NestedSetBuilder<Label> transitiveLoadingRootCauses,
+      BuildOptions defaultBuildOptions)
       throws DependencyEvaluationException, ConfiguredTargetFunctionException,
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, configuration) pairs.
@@ -407,7 +416,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContext == null
                   ? ImmutableSet.of()
                   : toolchainContext.getResolvedToolchainLabels(),
-              transitiveLoadingRootCauses);
+              transitiveLoadingRootCauses,
+              defaultBuildOptions);
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Skylark attributes in the current rule.
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
@@ -423,8 +433,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
     if (ctgValue.getConfiguration() != null) {
-      depValueNames = ConfigurationResolver.resolveConfigurations(env, ctgValue, depValueNames,
-          hostConfiguration, ruleClassProvider);
+      depValueNames =
+          ConfigurationResolver.resolveConfigurations(
+              env,
+              ctgValue,
+              depValueNames,
+              hostConfiguration,
+              ruleClassProvider,
+              defaultBuildOptions);
       // It's important that we don't use "if (env.missingValues()) { return null }" here (or
       // in the following lines). See the comments in getDynamicConfigurations' Skyframe call
       // for explanation.
@@ -686,7 +702,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();
     BuildConfiguration ownerConfig =
-        ConfiguredTargetFactory.getArtifactOwnerConfiguration(env, configuration);
+        ConfiguredTargetFactory.getArtifactOwnerConfiguration(
+            env, configuration, defaultBuildOptions);
     if (env.valuesMissing()) {
       return null;
     }

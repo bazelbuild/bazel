@@ -65,7 +65,8 @@ public final class WorkspaceBuilder {
       SubscriberExceptionHandler eventBusExceptionHandler) throws AbruptExitException {
     // Set default values if none are set.
     if (skyframeExecutorFactory == null) {
-      skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
+      skyframeExecutorFactory =
+          new SequencedSkyframeExecutorFactory(runtime.getDefaultBuildOptions());
     }
 
     SkyframeExecutor skyframeExecutor =
