@@ -14,24 +14,19 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.Environment;
 
-/**
- * Test case for a SkylarkCallable method which specifies skylark-info parameters (for example
- * Environment) before other parameters.
- */
-public class SkylarkInfoWrongOrder {
+/** Test case which verifies a struct field method cannot specify useEnvironment. */
+public class StructFieldWithInvalidInfo {
 
   @SkylarkCallable(
-    name = "three_arg_method_missing_location",
+    name = "struct_field_method_with_info",
     doc = "",
-    useLocation = true,
+    structField = true,
     useEnvironment = true
   )
-  public String threeArgMethod(
-      Location location, Environment environment, String one, Integer two, String three) {
-    return "bar";
+  public String structFieldMethodWithInfo(Environment environment) {
+    return "dragon";
   }
 }

@@ -244,16 +244,19 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       doc = "",
       useLocation = true,
       useAst = true,
-      useEnvironment = true
+      useEnvironment = true,
+      useSkylarkSemantics = true
     )
     public String withExtraInterpreterParams(
-        Location location, FuncallExpression func, Environment env) {
+        Location location, FuncallExpression func, Environment env, SkylarkSemantics sem) {
       return "with_extra("
           + location.getStartLine()
           + ", "
           + func.getArguments().size()
           + ", "
           + env.isGlobal()
+          + ", "
+          + (sem != null)
           + ")";
     }
 
@@ -308,7 +311,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       },
       useAst = true,
       useLocation = true,
-      useEnvironment = true
+      useEnvironment = true,
+      useSkylarkSemantics = true
     )
     public String withParamsAndExtraInterpreterParams(
         Integer pos1,
@@ -321,7 +325,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         Object multi,
         Location location,
         FuncallExpression func,
-        Environment env) {
+        Environment env,
+        SkylarkSemantics sem) {
       return "with_params_and_extra("
           + pos1
           + ", "
@@ -342,6 +347,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
           + func.getArguments().size()
           + ", "
           + env.isGlobal()
+          + ", "
+          + (sem != null)
           + ")";
     }
 
@@ -1034,7 +1041,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.with_extra()")
-        .testLookup("v", "with_extra(1, 0, true)");
+        .testLookup("v", "with_extra(1, 0, true, true)");
   }
 
   @Test
@@ -1042,7 +1049,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("b = mock.with_params_and_extra(1, True, named=True)")
-        .testLookup("b", "with_params_and_extra(1, true, false, true, false, a, 1, 3, true)");
+        .testLookup("b", "with_params_and_extra(1, true, false, true, false, a, 1, 3, true, true)");
   }
 
   @Test

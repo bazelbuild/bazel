@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 
 /**
  * Test source file verifying various proper uses of SkylarkCallable.
@@ -31,6 +32,16 @@ public class GoldenCase {
     doc = "",
     structField = true)
   public String structFieldMethod() {
+    return "foo";
+  }
+
+  @SkylarkCallable(
+    name = "struct_field_method_with_info",
+    doc = "",
+    structField = true,
+    useSkylarkSemantics = true
+  )
+  public String structFieldMethodWithInfo(SkylarkSemantics semantics) {
     return "foo";
   }
 
@@ -51,9 +62,14 @@ public class GoldenCase {
     doc = "",
     useAst = true,
     useLocation = true,
-    useEnvironment = true
+    useEnvironment = true,
+    useSkylarkSemantics = true
   )
-  public Integer zeroArgMethod(Location location, FuncallExpression ast, Environment environment) {
+  public Integer zeroArgMethod(
+      Location location,
+      FuncallExpression ast,
+      Environment environment,
+      SkylarkSemantics semantics) {
     return 0;
   }
 
@@ -96,7 +112,8 @@ public class GoldenCase {
     },
     useAst = true,
     useLocation = true,
-    useEnvironment = true
+    useEnvironment = true,
+    useSkylarkSemantics = true
   )
   public String threeArgMethodWithParams(
       String one,
@@ -104,7 +121,8 @@ public class GoldenCase {
       String three,
       Location location,
       FuncallExpression ast,
-      Environment environment) {
+      Environment environment,
+      SkylarkSemantics skylarkSemantics) {
     return "baz";
   }
 }
