@@ -310,8 +310,7 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "local_darwin-no-dyn-linker"
-
+  toolchain_identifier: "darwin-no-dyn-linker"
   host_system_name: "local"
   target_system_name: "local"
   target_cpu: "darwin"
@@ -572,6 +571,7 @@ toolchain {
 }
 
 toolchain {
+   toolchain_identifier: "windows_msys64-no-dyn-linker"
    abi_version: "local"
    abi_libc_version: "local"
    builtin_sysroot: ""
@@ -581,7 +581,6 @@ toolchain {
    target_libc: "local"
    target_cpu: "x64_windows"
    target_system_name: "local"
-   toolchain_identifier: "local_windows_msys64-no-dyn-linker"
 
    tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
    tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
