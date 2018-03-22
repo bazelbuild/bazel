@@ -19,9 +19,9 @@
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "${CURRENT_DIR}/../sandboxing_test_utils.sh" \
+source "${CURRENT_DIR}/../../sandboxing_test_utils.sh" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
