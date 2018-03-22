@@ -85,7 +85,10 @@ public final class NestedSetVisitor<E> {
     }
 
     private boolean add(Object node) {
-      return seenNodes.add(node);
+      // Though it may look redundant, the contains call is much cheaper than the add and can
+      // greatly improve the performance and reduce the contention associated with checking
+      // seenNodes.
+      return !seenNodes.contains(node) && seenNodes.add(node);
     }
   }
 }
