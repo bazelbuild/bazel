@@ -55,11 +55,11 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
 
     @Override
     public BuildOptions apply(BuildOptions options) {
-      if (!options.contains(ConfigFeatureFlagConfiguration.Options.class)) {
+      if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options;
       }
       BuildOptions result = options.clone();
-      result.get(ConfigFeatureFlagConfiguration.Options.class).replaceFlagValues(flagValues);
+      result.get(ConfigFeatureFlagOptions.class).replaceFlagValues(flagValues);
       return result;
     }
 

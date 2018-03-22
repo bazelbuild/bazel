@@ -26,11 +26,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -42,60 +37,15 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fragment {
-  /** A converter used by the flag options which always returns an empty map, ignoring input. */
-  public static final class EmptyImmutableSortedMapConverter
-      implements Converter<ImmutableSortedMap<Label, String>> {
-    @Override
-    public ImmutableSortedMap<Label, String> convert(String input) {
-      return ImmutableSortedMap.<Label, String>of();
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "n/a (do not set this on the command line)";
-    }
-  }
-
-  /** The options fragment which defines {@link ConfigFeatureFlagConfiguration}. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
-  public static final class Options extends FragmentOptions {
-    /** The mapping from config_feature_flag rules to their values. */
-    @Option(
-      name = "config_feature_flag values (private)",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      converter = EmptyImmutableSortedMapConverter.class,
-      defaultValue = "{}"
-    )
-    public ImmutableSortedMap<Label, String> flagValues = ImmutableSortedMap.of();
-
-    /** Retrieves the set of flag-value pairs. */
-    public ImmutableSortedMap<Label, String> getFlagValues() {
-      return this.flagValues;
-    }
-
-    /**
-     * Replaces the set of flag-value pairs with the given mapping of flag-value pairs.
-     *
-     * <p>Flags not present in the new {@code flagValues} will return to being unset! To set flags
-     * while still retaining the values already set, call {@link #getFlagValues()} and build a map
-     * containing both the old values and the new ones.
-     */
-    public void replaceFlagValues(Map<Label, String> flagValues) {
-      this.flagValues = ImmutableSortedMap.copyOf(flagValues);
-    }
-  }
-
   /**
    * A configuration fragment loader able to create instances of {@link
-   * ConfigFeatureFlagConfiguration} from {@link ConfigFeatureFlagConfiguration.Options}.
+   * ConfigFeatureFlagConfiguration} from {@link ConfigFeatureFlagOptions}.
    */
   public static final class Loader implements ConfigurationFragmentFactory {
     @Override
     public BuildConfiguration.Fragment create(
         ConfigurationEnvironment env, BuildOptions buildOptions) {
-      return new ConfigFeatureFlagConfiguration(buildOptions.get(Options.class));
+      return new ConfigFeatureFlagConfiguration(buildOptions.get(ConfigFeatureFlagOptions.class));
     }
 
     @Override
@@ -105,15 +55,15 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(Options.class);
+      return ImmutableSet.<Class<? extends FragmentOptions>>of(ConfigFeatureFlagOptions.class);
     }
   }
 
   private final ImmutableSortedMap<Label, String> flagValues;
   @Nullable private final String flagHash;
 
-  /** Creates a new configuration fragment from the given {@link Options} fragment. */
-  public ConfigFeatureFlagConfiguration(Options options) {
+  /** Creates a new configuration fragment from the given {@link ConfigFeatureFlagOptions}. */
+  public ConfigFeatureFlagConfiguration(ConfigFeatureFlagOptions options) {
     this(options.getFlagValues());
   }
 
