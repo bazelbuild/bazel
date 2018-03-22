@@ -219,8 +219,11 @@ public class BuildConfiguration {
      *
      * <p>If multiple fragments specify a transition, they're composed together in a
      * deterministic but undocumented order (so don't write code expecting a specific order).
+     *
+     * <p>Deprecated. The only known use of this is LIPO, which is on its deathbed.
      */
     @Nullable
+    @Deprecated
     public PatchTransition topLevelConfigurationHook(Target toTarget) {
       return null;
     }
