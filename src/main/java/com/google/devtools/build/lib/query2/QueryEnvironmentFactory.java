@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
@@ -35,40 +34,6 @@ import javax.annotation.Nullable;
 /** A factory that creates instances of {@code AbstractBlazeQueryEnvironment<Target>}. */
 public class QueryEnvironmentFactory {
   /** Creates an appropriate {@link AbstractBlazeQueryEnvironment} based on the given options. */
-  public AbstractBlazeQueryEnvironment<Target> create(
-      TransitivePackageLoader transitivePackageLoader,
-      WalkableGraphFactory graphFactory,
-      PackageProvider packageProvider,
-      TargetPatternEvaluator targetPatternEvaluator,
-      boolean keepGoing,
-      boolean strictScope,
-      boolean orderedResults,
-      List<String> universeScope,
-      int loadingPhaseThreads,
-      Predicate<Label> labelFilter,
-      ExtendedEventHandler eventHandler,
-      Set<Setting> settings,
-      Iterable<QueryFunction> functions,
-      @Nullable PathPackageLocator packagePath,
-      boolean blockUniverseEvaluationErrors) {
-    return create(
-        transitivePackageLoader,
-        graphFactory,
-        packageProvider,
-        packageProvider,
-        targetPatternEvaluator,
-        keepGoing,
-        strictScope,
-        orderedResults,
-        universeScope,
-        loadingPhaseThreads,
-        labelFilter,
-        eventHandler,
-        settings,
-        functions,
-        packagePath,
-        blockUniverseEvaluationErrors);
-  }
 
   public AbstractBlazeQueryEnvironment<Target> create(
       TransitivePackageLoader transitivePackageLoader,

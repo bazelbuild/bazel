@@ -318,6 +318,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   /*transitivePackageLoader=*/ null,
                   /* graphFactory= */ null,
                   packageProvider,
+                  packageProvider,
                   evaluator,
                   /*keepGoing=*/ false,
                   ruleContext.attributes().get("strict", Type.BOOLEAN),
