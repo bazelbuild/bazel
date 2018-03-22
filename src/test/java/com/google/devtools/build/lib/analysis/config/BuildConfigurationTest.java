@@ -288,7 +288,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
                 ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter)
                     .add(CppConfiguration.class)
                     .build()),
-            analysisMock.createRuleClassProvider());
+            analysisMock.createRuleClassProvider(),
+            skyframeExecutor.getDefaultBuildOptions());
     BuildConfiguration hostConfig = createHost();
 
     assertThat(config.equalsOrIsSupersetOf(trimmedConfig)).isTrue();

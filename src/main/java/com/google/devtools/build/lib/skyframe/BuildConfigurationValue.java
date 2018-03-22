@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -44,7 +43,6 @@ import java.util.Set;
 @AutoCodec
 @ThreadSafe
 public class BuildConfigurationValue implements SkyValue {
-  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
   private final BuildConfiguration configuration;
 
@@ -60,40 +58,50 @@ public class BuildConfigurationValue implements SkyValue {
    * Returns the key for a requested configuration.
    *
    * @param fragments the fragments the configuration should contain
-   * @param buildOptions the build options the fragments should be built from
+   * @param optionsDiff the {@link BuildOptions.OptionsDiffForReconstruction} object the {@link
+   *     BuildOptions} should be rebuilt from
    */
   @ThreadSafe
   public static Key key(
-      Set<Class<? extends BuildConfiguration.Fragment>> fragments, BuildOptions buildOptions) {
+      Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+      BuildOptions.OptionsDiffForReconstruction optionsDiff) {
     return key(
         FragmentClassSet.of(
             ImmutableSortedSet.copyOf(BuildConfiguration.lexicalFragmentSorter, fragments)),
-        buildOptions);
+        optionsDiff);
   }
 
-  public static Key key(FragmentClassSet fragmentClassSet, BuildOptions buildOptions) {
-    return keyInterner.intern(new Key(fragmentClassSet, buildOptions));
+  public static Key key(
+      FragmentClassSet fragmentClassSet, BuildOptions.OptionsDiffForReconstruction optionsDiff) {
+    return Key.create(fragmentClassSet, optionsDiff);
   }
 
   /** {@link SkyKey} for {@link BuildConfigurationValue}. */
   @VisibleForSerialization
   public static final class Key implements SkyKey, Serializable {
+    private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
+
     private final FragmentClassSet fragments;
-    private final BuildOptions buildOptions;
+    private final BuildOptions.OptionsDiffForReconstruction optionsDiff;
     // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.
     private volatile int hashCode = -1;
 
-    private Key(FragmentClassSet fragments, BuildOptions buildOptions) {
+    private static Key create(
+        FragmentClassSet fragments, BuildOptions.OptionsDiffForReconstruction optionsDiff) {
+      return keyInterner.intern(new Key(fragments, optionsDiff));
+    }
+
+    Key(FragmentClassSet fragments, BuildOptions.OptionsDiffForReconstruction optionsDiff) {
       this.fragments = fragments;
-      this.buildOptions = Preconditions.checkNotNull(buildOptions);
+      this.optionsDiff = optionsDiff;
     }
 
     ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getFragments() {
       return fragments.fragmentClasses();
     }
 
-    BuildOptions getBuildOptions() {
-      return buildOptions;
+    BuildOptions.OptionsDiffForReconstruction getOptionsDiff() {
+      return optionsDiff;
     }
 
     @Override
@@ -110,14 +118,14 @@ public class BuildConfigurationValue implements SkyValue {
         return false;
       }
       Key otherConfig = (Key) o;
-      return buildOptions.equals(otherConfig.buildOptions)
+      return optionsDiff.equals(otherConfig.optionsDiff)
           && Objects.equals(fragments, otherConfig.fragments);
     }
 
     @Override
     public int hashCode() {
       if (hashCode == -1) {
-        hashCode = Objects.hash(fragments, buildOptions);
+        hashCode = Objects.hash(fragments, optionsDiff);
       }
       return hashCode;
     }
@@ -131,7 +139,7 @@ public class BuildConfigurationValue implements SkyValue {
       @Override
       public void serialize(SerializationContext context, Key obj, CodedOutputStream codedOut)
           throws SerializationException, IOException {
-        context.serialize(obj.buildOptions, codedOut);
+        context.serialize(obj.optionsDiff, codedOut);
         codedOut.writeInt32NoTag(obj.fragments.fragmentClasses().size());
         for (Class<? extends BuildConfiguration.Fragment> fragment :
             obj.fragments.fragmentClasses()) {
@@ -143,7 +151,7 @@ public class BuildConfigurationValue implements SkyValue {
       @SuppressWarnings("unchecked") // Class<? extends...> cast
       public Key deserialize(DeserializationContext context, CodedInputStream codedIn)
           throws SerializationException, IOException {
-        BuildOptions buildOptions = context.deserialize(codedIn);
+        BuildOptions.OptionsDiffForReconstruction optionsDiff = context.deserialize(codedIn);
         int fragmentsSize = codedIn.readInt32();
         ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
             ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
@@ -157,7 +165,7 @@ public class BuildConfigurationValue implements SkyValue {
                 "Couldn't deserialize BuildConfigurationValue$Key fragment class", e);
           }
         }
-        return key(fragmentsBuilder.build(), buildOptions);
+        return key(fragmentsBuilder.build(), optionsDiff);
       }
     }
   }

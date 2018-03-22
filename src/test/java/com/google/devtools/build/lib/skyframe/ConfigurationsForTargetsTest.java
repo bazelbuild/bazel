@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Supplier;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -93,9 +95,13 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
          SkyFunctionName.create("CONFIGURED_TARGET_FUNCTION_COMPUTE_DEPENDENCIES");
 
     private final LateBoundStateProvider stateProvider;
+    private final Supplier<BuildOptions> buildOptionsSupplier;
 
-    ComputeDependenciesFunction(LateBoundStateProvider lateBoundStateProvider) {
+    ComputeDependenciesFunction(
+        LateBoundStateProvider lateBoundStateProvider,
+        Supplier<BuildOptions> buildOptionsSupplier) {
       this.stateProvider = lateBoundStateProvider;
+      this.buildOptionsSupplier = buildOptionsSupplier;
     }
 
     /** Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair. */
@@ -141,7 +147,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig(),
                 NestedSetBuilder.<Package>stableOrder(),
-                NestedSetBuilder.<Label>stableOrder());
+                NestedSetBuilder.<Label>stableOrder(),
+                buildOptionsSupplier.get());
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;
@@ -183,9 +190,13 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   private static final class AnalysisMockWithComputeDepsFunction extends AnalysisMock.Delegate {
     private final LateBoundStateProvider stateProvider;
-    AnalysisMockWithComputeDepsFunction(LateBoundStateProvider stateProvider) {
+    private final Supplier<BuildOptions> defaultBuildOptions;
+
+    AnalysisMockWithComputeDepsFunction(
+        LateBoundStateProvider stateProvider, Supplier<BuildOptions> defaultBuildOptions) {
       super(AnalysisMock.get());
       this.stateProvider = stateProvider;
+      this.defaultBuildOptions = defaultBuildOptions;
     }
 
     @Override
@@ -195,14 +206,18 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
           .putAll(super.getSkyFunctions(directories))
           .put(
               ComputeDependenciesFunction.SKYFUNCTION_NAME,
-              new ComputeDependenciesFunction(stateProvider))
+              new ComputeDependenciesFunction(stateProvider, defaultBuildOptions))
           .build();
     }
   };
 
   @Override
   protected AnalysisMock getAnalysisMock() {
-    return new AnalysisMockWithComputeDepsFunction(new LateBoundStateProvider());
+    return new AnalysisMockWithComputeDepsFunction(
+        new LateBoundStateProvider(),
+        () -> {
+          return skyframeExecutor.getDefaultBuildOptions();
+        });
   }
 
   /**

@@ -558,12 +558,15 @@ java_test(
 java_library(
     name = "analysis_testutil",
     testonly = 1,
-    srcs = glob([
-        "analysis/LicensingTests.java",
-        "analysis/mock/BazelAnalysisMock.java",
-        "analysis/util/*.java",
-        "exec/util/*.java",
-    ]),
+    srcs = glob(
+        [
+            "analysis/LicensingTests.java",
+            "analysis/mock/BazelAnalysisMock.java",
+            "analysis/util/*.java",
+            "exec/util/*.java",
+        ],
+        exclude = ["analysis/util/DefaultBuildOptionsForTesting.java"],
+    ),
     resources = [
         "analysis/mock/MOCK_CROSSTOOL",
     ],
@@ -573,6 +576,7 @@ java_library(
     ],
     deps = [
         ":actions_testutil",
+        ":default_test_build_rules",
         ":foundations_testutil",
         ":guava_junit_truth",
         ":packages_testutil",
@@ -621,6 +625,16 @@ java_library(
         "//third_party:jsr305",
         "//third_party:mockito",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "default_test_build_rules",
+    testonly = 1,
+    srcs = ["analysis/util/DefaultBuildOptionsForTesting.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )
 
@@ -821,6 +835,7 @@ java_library(
         "packages/util/MOCK_OSX_CROSSTOOL",
     ],
     deps = [
+        ":default_test_build_rules",
         ":foundations_testutil",
         ":guava_junit_truth",
         ":testutil",
@@ -901,6 +916,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
+        ":default_test_build_rules",
         ":guava_junit_truth",
         ":packages_testutil",
         ":test_runner",

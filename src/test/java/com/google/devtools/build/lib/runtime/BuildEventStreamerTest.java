@@ -633,6 +633,9 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     BuildEventStreamer streamer =
         new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
+    BuildOptions defaultBuildOptions =
+        BuildOptions.of(
+            ImmutableList.<Class<? extends FragmentOptions>>of(BuildConfiguration.Options.class));
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
@@ -645,9 +648,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
                 "productName"),
             ImmutableMap
                 .<Class<? extends BuildConfiguration.Fragment>, BuildConfiguration.Fragment>of(),
-            BuildOptions.of(
-                ImmutableList.<Class<? extends FragmentOptions>>of(
-                    BuildConfiguration.Options.class)),
+            defaultBuildOptions,
+            BuildOptions.diffForReconstruction(defaultBuildOptions, defaultBuildOptions),
             "workspace");
     BuildEvent firstWithConfiguration =
         new GenericConfigurationEvent(testId("first"), configuration.toBuildEvent());

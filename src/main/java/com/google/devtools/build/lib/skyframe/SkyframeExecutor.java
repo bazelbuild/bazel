@@ -293,6 +293,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
+  private final BuildOptions defaultBuildOptions;
+
   private PerBuildSyscallCache perBuildSyscallCache;
   private int lastConcurrencyLevel = -1;
 
@@ -312,7 +314,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PathFragment additionalBlacklistedPackagePrefixesFile,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
-      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
+      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      BuildOptions defaultBuildOptions) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -338,6 +341,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.additionalBlacklistedPackagePrefixesFile = additionalBlacklistedPackagePrefixesFile;
 
     this.ruleClassProvider = pkgFactory.getRuleClassProvider();
+    this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeBuildView = new SkyframeBuildView(
         directories,
         this,
@@ -423,19 +427,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ruleClassProvider,
             cpuBoundSemaphore,
             removeActionsAfterEvaluation,
-            shouldStoreTransitivePackagesInLoadingAndAnalysis()));
+            shouldStoreTransitivePackagesInLoadingAndAnalysis(),
+            defaultBuildOptions));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
             new BuildViewProvider(),
             ruleClassProvider,
             removeActionsAfterEvaluation,
-            shouldStoreTransitivePackagesInLoadingAndAnalysis()));
+            shouldStoreTransitivePackagesInLoadingAndAnalysis(),
+            defaultBuildOptions));
     map.put(SkyFunctions.LOAD_SKYLARK_ASPECT, new ToplevelSkylarkAspectFunction());
-    map.put(SkyFunctions.POST_CONFIGURED_TARGET,
-        new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
-    map.put(SkyFunctions.BUILD_CONFIGURATION,
-        new BuildConfigurationFunction(directories, ruleClassProvider));
+    map.put(
+        SkyFunctions.POST_CONFIGURED_TARGET,
+        new PostConfiguredTargetFunction(
+            new BuildViewProvider(), ruleClassProvider, defaultBuildOptions));
+    map.put(
+        SkyFunctions.BUILD_CONFIGURATION,
+        new BuildConfigurationFunction(directories, ruleClassProvider, defaultBuildOptions));
     map.put(
         SkyFunctions.CONFIGURATION_FRAGMENT,
         new ConfigurationFragmentFunction(configurationFragments, ruleClassProvider, directories));
@@ -907,7 +916,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         requiredToolchains,
         config == null
             ? null
-            : BuildConfigurationValue.key(config.fragmentClasses(), config.getOptions()));
+            : BuildConfigurationValue.key(
+                config.fragmentClasses(),
+                BuildOptions.diffForReconstruction(defaultBuildOptions, config.getOptions())));
   }
 
   /**
@@ -1299,6 +1310,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
+  @VisibleForTesting
+  public BuildOptions getDefaultBuildOptions() {
+    return defaultBuildOptions;
+  }
+
   /**
    * Returns a map from {@link Dependency} inputs to the {@link ConfiguredTargetAndData}s
    * corresponding to those dependencies.
@@ -1457,7 +1473,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     final ImmutableList<SkyKey> configSkyKeys =
         optionsList
             .stream()
-            .map(elem -> BuildConfigurationValue.key(allFragments, elem))
+            .map(
+                elem ->
+                    BuildConfigurationValue.key(
+                        allFragments,
+                        BuildOptions.diffForReconstruction(defaultBuildOptions, elem)))
             .collect(ImmutableList.toImmutableList());
 
     // Skyframe-evaluate the configurations and throw errors if any.
@@ -1554,7 +1574,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (depFragments != null) {
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
-          configSkyKeys.add(BuildConfigurationValue.key(depFragments, toOptions));
+          configSkyKeys.add(
+              BuildConfigurationValue.key(
+                  depFragments,
+                  BuildOptions.diffForReconstruction(defaultBuildOptions, toOptions)));
         }
       }
     }
@@ -1569,7 +1592,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (depFragments != null) {
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
-          SkyKey configKey = BuildConfigurationValue.key(depFragments, toOptions);
+          SkyKey configKey =
+              BuildConfigurationValue.key(
+                  depFragments, BuildOptions.diffForReconstruction(defaultBuildOptions, toOptions));
           BuildConfigurationValue configValue =
               ((BuildConfigurationValue) configsResult.get(configKey));
           // configValue will be null here if there was an exception thrown during configuration
@@ -1640,7 +1665,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       FragmentClassSet fragments,
       BuildOptions options)
       throws InterruptedException {
-    SkyKey key = BuildConfigurationValue.key(fragments, options);
+    SkyKey key =
+        BuildConfigurationValue.key(
+            fragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options));
     BuildConfigurationValue result = (BuildConfigurationValue) buildDriver
         .evaluate(ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, eventHandler).get(key);
     return result.getConfiguration();
