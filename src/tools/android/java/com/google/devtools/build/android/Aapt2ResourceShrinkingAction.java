@@ -41,7 +41,6 @@ import java.util.function.Function;
  * Example Usage:
  *   java/com/google/build/android/ResourceShrinkerAction
  *       --aapt2 path to sdk/aapt2
- *       --annotationJar path to sdk/annotationJar
  *       --androidJar path to sdk/androidJar
  *       --shrunkJar path to proguard dead code removal jar
  *       --resources path to processed resources zip

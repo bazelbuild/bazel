@@ -60,7 +60,6 @@ import org.xml.sax.SAXException;
  * Example Usage:
  *   java/com/google/build/android/ResourceShrinkerAction
  *       --aapt path to sdk/aapt
- *       --annotationJar path to sdk/annotationJar
  *       --androidJar path to sdk/androidJar
  *       --shrunkJar path to proguard dead code removal jar
  *       --resources path to processed resources zip
