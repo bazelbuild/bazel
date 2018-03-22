@@ -18,12 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.time.Duration;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,9 +34,16 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link LinuxSandboxUtil}. */
 @RunWith(JUnit4.class)
 public final class LinuxSandboxUtilTest {
+  private FileSystem testFS;
+
+  @Before
+  public final void createFileSystem() {
+    testFS = new InMemoryFileSystem();
+  }
+
   @Test
   public void testLinuxSandboxCommandLineBuilder_fakeRootAndFakeUsernameAreExclusive() {
-    String linuxSandboxPath = "linux-sandbox";
+    Path linuxSandboxPath = testFS.getPath("/linux-sandbox");
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, flo");
 
     Exception e =
@@ -49,13 +59,13 @@ public final class LinuxSandboxUtilTest {
 
   @Test
   public void testLinuxSandboxCommandLineBuilder_BuildsWithoutOptionalArguments() {
-    String linuxSandboxPath = "linux-sandbox";
+    Path linuxSandboxPath = testFS.getPath("/linux-sandbox");
 
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, max");
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
-            .add(linuxSandboxPath)
+            .add(linuxSandboxPath.getPathString())
             .add("--")
             .addAll(commandArguments)
             .build();
@@ -68,17 +78,17 @@ public final class LinuxSandboxUtilTest {
 
   @Test
   public void testLinuxSandboxCommandLineBuilder_BuildsWithOptionalArguments() {
-    String linuxSandboxPath = "linux-sandbox";
+    Path linuxSandboxPath = testFS.getPath("/linux-sandbox");
 
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, tom");
 
     Duration timeout = Duration.ofSeconds(10);
     Duration killDelay = Duration.ofSeconds(2);
-    String statisticsPath = "stats.out";
+    Path statisticsPath = testFS.getPath("/stats.out");
 
-    String workingDirectory = "/all-work-and-no-play";
-    String stdoutPath = "stdout.txt";
-    String stderrPath = "stderr.txt";
+    Path workingDirectory = testFS.getPath("/all-work-and-no-play");
+    Path stdoutPath = testFS.getPath("/stdout.txt");
+    Path stderrPath = testFS.getPath("/stderr.txt");
 
     // These two flags are exclusive.
     boolean useFakeUsername = true;
@@ -106,9 +116,9 @@ public final class LinuxSandboxUtilTest {
     Path tmpfsDir1 = sandboxDir.getRelative("tmpfs1");
     Path tmpfsDir2 = sandboxDir.getRelative("tmpfs2");
 
-    ImmutableList<Path> writableFilesAndDirectories = ImmutableList.of(writableDir1, writableDir2);
+    ImmutableSet<Path> writableFilesAndDirectories = ImmutableSet.of(writableDir1, writableDir2);
 
-    ImmutableList<Path> tmpfsDirectories = ImmutableList.of(tmpfsDir1, tmpfsDir2);
+    ImmutableSet<Path> tmpfsDirectories = ImmutableSet.of(tmpfsDir1, tmpfsDir2);
 
     ImmutableSortedMap<Path, Path> bindMounts =
         ImmutableSortedMap.<Path, Path>naturalOrder()
@@ -119,12 +129,12 @@ public final class LinuxSandboxUtilTest {
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
-            .add(linuxSandboxPath)
-            .add("-W", workingDirectory)
+            .add(linuxSandboxPath.getPathString())
+            .add("-W", workingDirectory.getPathString())
             .add("-T", Long.toString(timeout.getSeconds()))
             .add("-t", Long.toString(killDelay.getSeconds()))
-            .add("-l", stdoutPath)
-            .add("-L", stderrPath)
+            .add("-l", stdoutPath.getPathString())
+            .add("-L", stderrPath.getPathString())
             .add("-w", writableDir1.getPathString())
             .add("-w", writableDir2.getPathString())
             .add("-e", tmpfsDir1.getPathString())
@@ -134,7 +144,7 @@ public final class LinuxSandboxUtilTest {
             .add("-m", bindMountTarget1.getPathString())
             .add("-M", bindMountSource2.getPathString())
             .add("-m", bindMountTarget2.getPathString())
-            .add("-S", statisticsPath)
+            .add("-S", statisticsPath.getPathString())
             .add("-H")
             .add("-N")
             .add("-U")

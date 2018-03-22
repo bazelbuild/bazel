@@ -192,7 +192,7 @@ public class SymlinkedSandboxedSpawn implements SandboxedSpawn {
   private static void createDirectoryAndParentsWithCache(Set<Path> cache, Path dir)
       throws IOException {
     if (cache.add(dir)) {
-      FileSystemUtils.createDirectoryAndParents(dir);
+      dir.createDirectoryAndParents();
     }
   }
 }
