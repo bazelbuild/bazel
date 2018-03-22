@@ -165,7 +165,7 @@ public class RemoteSpawnCacheTest {
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
             /*inputs=*/ ImmutableList.of(ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
+            /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -262,7 +262,7 @@ public class RemoteSpawnCacheTest {
             })
         .when(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
-    entry.store(result, outputFiles);
+    entry.store(result);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
   }
@@ -278,15 +278,15 @@ public class RemoteSpawnCacheTest {
         /*environment=*/ ImmutableMap.of(),
         ImmutableMap.of(ExecutionRequirements.NO_CACHE, ""),
         /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.<ActionInput>of(),
+        /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
         ResourceSet.ZERO);
     CacheHandle entry = cache.lookup(uncacheableSpawn, simplePolicy);
     verify(remoteCache, never())
         .getCachedActionResult(any(ActionKey.class));
     assertThat(entry.hasResult()).isFalse();
     SpawnResult result = new SpawnResult.Builder().setExitCode(0).setStatus(Status.SUCCESS).build();
+    entry.store(result);
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
-    entry.store(result, outputFiles);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
   }
@@ -301,7 +301,7 @@ public class RemoteSpawnCacheTest {
     SpawnResult result =
         new SpawnResult.Builder().setExitCode(1).setStatus(Status.NON_ZERO_EXIT).build();
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
-    entry.store(result, outputFiles);
+    entry.store(result);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
   }
@@ -317,7 +317,7 @@ public class RemoteSpawnCacheTest {
         .when(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
 
-    entry.store(result, outputFiles);
+    entry.store(result);
     verify(remoteCache)
         .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
 

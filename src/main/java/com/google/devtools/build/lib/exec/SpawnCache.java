@@ -50,7 +50,7 @@ public interface SpawnCache extends ActionContext {
     }
 
     @Override
-    public void store(SpawnResult result, Collection<Path> files)
+    public void store(SpawnResult result)
         throws InterruptedException, IOException {
       // Do nothing.
     }
@@ -81,7 +81,7 @@ public interface SpawnCache extends ActionContext {
       }
 
       @Override
-      public void store(SpawnResult result, Collection<Path> files)
+      public void store(SpawnResult result)
           throws InterruptedException, IOException {
         throw new IllegalStateException();
       }
@@ -148,8 +148,8 @@ public interface SpawnCache extends ActionContext {
      * <p>If the current thread is interrupted, then this method should return as quickly as
      * possible with an {@link InterruptedException}.
      */
-    void store(SpawnResult result, Collection<Path> files)
-        throws InterruptedException, IOException;
+    void store(SpawnResult result)
+        throws ExecException, InterruptedException, IOException;
   }
 
   /**

@@ -95,8 +95,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
           // Actual execution.
           spawnResult = spawnRunner.exec(spawn, policy);
           if (cacheHandle.willStore()) {
-            cacheHandle.store(
-                spawnResult, listExistingOutputFiles(spawn, actionExecutionContext.getExecRoot()));
+            cacheHandle.store(spawnResult);
           }
         }
       }
@@ -118,19 +117,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
     }
     return ImmutableList.of(spawnResult);
-  }
-
-  private List<Path> listExistingOutputFiles(Spawn spawn, Path execRoot) {
-    ArrayList<Path> outputFiles = new ArrayList<>();
-    for (ActionInput output : spawn.getOutputFiles()) {
-      Path outputPath = execRoot.getRelative(output.getExecPathString());
-      // TODO(ulfjack): Store the actual list of output files in SpawnResult and use that instead
-      // of statting the files here again.
-      if (outputPath.exists()) {
-        outputFiles.add(outputPath);
-      }
-    }
-    return outputFiles;
   }
 
   private final class SpawnExecutionPolicyImpl implements SpawnExecutionPolicy {
