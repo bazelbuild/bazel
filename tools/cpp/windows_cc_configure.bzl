@@ -190,15 +190,17 @@ def _find_vcvarsall_bat_script(repository_ctx, vc_path):
   return vcvarsall
 
 
-def _find_env_vars(repository_ctx, vc_path):
+def setup_vc_env_vars(repository_ctx, vc_path):
   """Get environment variables set by VCVARSALL.BAT. Doesn't %-escape the result!"""
   vcvarsall = _find_vcvarsall_bat_script(repository_ctx, vc_path)
+  if not vcvarsall:
+    return None
   repository_ctx.file("get_env.bat",
                       "@echo off\n" +
                       "call \"" + vcvarsall + "\" amd64 > NUL \n" +
-                      "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
+                      "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB%,WINDOWSSDKDIR=%WINDOWSSDKDIR% \n", True)
   env = _add_system_root(repository_ctx,
-                         {"PATH": "", "INCLUDE": "", "LIB": ""})
+                         {"PATH": "", "INCLUDE": "", "LIB": "", "WINDOWSSDKDIR": ""})
   envs = execute(repository_ctx, ["./get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
@@ -352,7 +354,7 @@ def configure_windows_toolchain(repository_ctx):
     })
     return
 
-  env = _find_env_vars(repository_ctx, vc_path)
+  env = setup_vc_env_vars(repository_ctx, vc_path)
   escaped_paths = escape_string(env["PATH"])
   escaped_include_paths = escape_string(env["INCLUDE"])
   escaped_lib_paths = escape_string(env["LIB"])
