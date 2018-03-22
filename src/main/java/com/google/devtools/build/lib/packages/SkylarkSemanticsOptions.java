@@ -157,17 +157,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowToplevelIfStatement;
 
   @Option(
-    name = "incompatible_disallow_uncalled_set_constructor",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set to true, it's not allowed to use `set()` even if that code is never executed."
-  )
-  public boolean incompatibleDisallowUncalledSetConstructor;
-
-  @Option(
       name = "incompatible_new_actions_api",
       defaultValue = "false",
       category = "incompatible changes",
@@ -239,7 +228,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowThreeArgVardef(incompatibleDisallowThreeArgVardef)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
-        .incompatibleDisallowUncalledSetConstructor(incompatibleDisallowUncalledSetConstructor)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
