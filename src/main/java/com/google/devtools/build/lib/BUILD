@@ -169,6 +169,7 @@ java_library(
             "util/JavaClock.java",
             "util/OS.java",
             "util/ProcessUtils.java",
+            "util/ResourceUsage.java",
             "util/SingleLineFormatter.java",
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",
@@ -181,6 +182,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:resource_usage",
         "//src/main/java/com/google/devtools/build/lib:string_util",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect",
@@ -214,6 +216,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "resource_usage",
+    srcs = [
+        "util/ResourceUsage.java",
+    ],
+    deps = [
+        "//third_party:guava",
     ],
 )
 
