@@ -1687,25 +1687,38 @@ public class MethodLibrary {
     name = "int",
     returnType = Integer.class,
     doc =
-        "Converts a value to int. "
-            + "If the argument is a string, it is converted using the given base and raises an "
-            + "error if the conversion fails. "
-            + "The base can be between 2 and 36 (inclusive) and defaults to 10. "
-            + "The value can be prefixed with 0b/0o/ox to represent values in base 2/8/16. "
-            + "If such a prefix is present, a base of 0 can be used to automatically determine the "
-            + "correct base: "
+        "Returns x as an int value."
+            + "<ul>"
+            + "<li>If <code>x</code> is already an int, it is returned as-is."
+            + "<li>If <code>x</code> is a boolean, a true value returns 1 and a false value "
+            + "    returns 0."
+            + "<li>If <code>x</code> is a string, it is interpreted using the <code>base</code> "
+            + "    argument (default 10). If <code>base</code> is non-zero, the string must be a "
+            + "    sequence of digits optionally preceded by a sign. The characters a-z (or "
+            + "    equivalently, A-Z) are used as digits for 10-35. The radix prefixes 0b/0o/0x "
+            + "    (or 0B/0O/0X) may optionally be supplied when <code>base</code> is 2/8/16 "
+            + "    respectively. If <code>base</code> is 0, the string is interpreted as an "
+            + "    integer literal, where the base to use is determined by which if any of these "
+            + "    prefixes is present. In the case where <code>base</code> is 0 and there is no "
+            + "    prefix, the digits must not begin with a 0, to avoid confusion with octal "
+            + "    numbers."
+            + "</ul>"
+            + "This method fails if the value is any other type, or if the value is a string not "
+            + "satisfying the above requirements."
             + "<pre class=\"language-python\">int(\"0xFF\", 0) == int(\"0xFF\", 16) == 255</pre>"
-            + "If the argument is a bool, it returns 0 (False) or 1 (True). "
-            + "If the argument is an int, it is simply returned."
             + "<pre class=\"language-python\">int(\"123\") == 123</pre>",
+            // TODO(bazel-team): Update documentation to remove mention about int("0123", 0) being
+            // disallowed once octal literals of form 0123 (without the 'o') are disallowed.
     parameters = {
       @Param(name = "x", type = Object.class, doc = "The string to convert."),
       @Param(
         name = "base",
         type = Object.class,
         defaultValue = "unbound",
-        doc = "The base to use to interpret a string value; defaults to 10. This parameter must "
-            + "not be supplied if the value is not a string."
+        doc =
+            "The base used to interpret a string value; defaults to 10. Must be between 2 and 36 "
+                + "(inclusive), or 0 to detect the base as if <code>x</code> were an integer "
+                + "literal. This parameter must not be supplied if the value is not a string."
       )
     },
     useLocation = true
@@ -1746,6 +1759,14 @@ public class MethodLibrary {
             // Nothing to strip. Infer base 10 if it was unknown (0).
             digits = string;
             if (base == 0) {
+              if (string.length() > 1 && string.startsWith("0")) {
+                // We don't infer the base when input starts with '0' (due
+                // to confusion between octal and decimal).
+                throw new EvalException(
+                    loc,
+                    Printer.format(
+                        "cannot infer base for int() when value begins with a 0: %r", string));
+              }
               base = 10;
             }
           } else {
