@@ -131,7 +131,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_remove_native_git_repository=" + rand.nextBoolean(),
         "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
-        "--incompatible_show_all_print_messages=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
   }
@@ -155,7 +154,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleRemoveNativeGitRepository(rand.nextBoolean())
         .incompatibleRemoveNativeHttpArchive(rand.nextBoolean())
-        .incompatibleShowAllPrintMessages(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .build();

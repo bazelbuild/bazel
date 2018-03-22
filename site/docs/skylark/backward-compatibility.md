@@ -39,7 +39,6 @@ guarded behind flags in the current release:
 *   [String is no longer iterable](#string-is-no-longer-iterable)
 *   [New actions API](#new-actions-api)
 *   [Glob tracking](#glob-tracking)
-*   [Print statements](#print-statements)
 
 
 ### Set constructor
@@ -193,19 +192,6 @@ When set, glob tracking is disabled. This is a legacy feature that we expect has
 no user-visible impact.
 
 *   Flag: `--incompatible_disable_glob_tracking`
-*   Default: `true`
-
-
-### Print statements
-
-`print` statements in Skylark code are supposed to be used for debugging only.
-Messages they yield used to be filtered out so that only messages from the same
-package as the top level target being built were shown by default (it was
-possible to override by providing, for example, `--output_filter=`). That made
-debugging hard. When the flag is set to true, all print messages are shown in
-the console without exceptions.
-
-*   Flag: `--incompatible_show_all_print_messages`
 *   Default: `true`
 
 <!-- Add new options here -->
