@@ -71,7 +71,6 @@ import org.xml.sax.SAXException;
  *   java/com/google/build/android/AndroidResourceProcessingAction\
  *      --sdkRoot path/to/sdk\
  *      --aapt path/to/sdk/aapt\
- *      --annotationJar path/to/sdk/annotationJar\
  *      --adb path/to/sdk/adb\
  *      --zipAlign path/to/sdk/zipAlign\
  *      --androidJar path/to/sdk/androidJar\

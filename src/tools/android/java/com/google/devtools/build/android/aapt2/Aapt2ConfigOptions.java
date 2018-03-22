@@ -63,17 +63,6 @@ public class Aapt2ConfigOptions extends OptionsBase {
   public Path androidJar;
 
   @Option(
-    name = "annotationJar",
-    defaultValue = "null",
-    converter = ExistingPathConverter.class,
-    category = "tool",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Path to the android jar for resource packaging and building apks."
-  )
-  public Path annotationJar;
-
-  @Option(
     name = "useAaptCruncher",
     defaultValue = "auto",
     category = "config",
