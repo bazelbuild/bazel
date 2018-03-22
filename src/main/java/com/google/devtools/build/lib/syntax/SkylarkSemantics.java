@@ -53,7 +53,6 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDisallowUncalledSetConstructor();
 
   public abstract boolean incompatibleNewActionsApi();
-  public abstract boolean incompatibleShowAllPrintMessages();
 
   public abstract boolean incompatibleRemoveNativeGitRepository();
 
@@ -89,7 +88,6 @@ public abstract class SkylarkSemantics {
           .incompatibleNewActionsApi(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
-          .incompatibleShowAllPrintMessages(true)
           .incompatibleStringIsNotIterable(false)
           .internalSkylarkFlagTestCanary(false)
           .build();
@@ -101,23 +99,16 @@ public abstract class SkylarkSemantics {
     // <== Add new options here in alphabetic order ==>
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
-
     public abstract Builder incompatibleDepsetUnion(boolean value);
-
     public abstract Builder incompatibleDisableGlobTracking(boolean value);
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
-
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
     public abstract Builder incompatibleDisallowThreeArgVardef(boolean value);
     public abstract Builder incompatibleDisallowToplevelIfStatement(boolean value);
     public abstract Builder incompatibleDisallowUncalledSetConstructor(boolean value);
     public abstract Builder incompatibleNewActionsApi(boolean value);
-
     public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
-
     public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
-
-    public abstract Builder incompatibleShowAllPrintMessages(boolean value);
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 

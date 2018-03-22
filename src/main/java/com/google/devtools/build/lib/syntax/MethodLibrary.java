@@ -2152,10 +2152,7 @@ public class MethodLibrary {
           if (env.getSemantics().internalSkylarkFlagTestCanary()) {
             msg += "<== skylark flag test ==>";
           }
-          env.handleEvent(
-              env.getSemantics().incompatibleShowAllPrintMessages()
-                  ? Event.debug(loc, msg)
-                  : Event.warn(loc, msg));
+          env.handleEvent(Event.debug(loc, msg));
           return Runtime.NONE;
         }
       };

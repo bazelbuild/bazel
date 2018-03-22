@@ -482,37 +482,8 @@ public class BuildViewTest extends BuildViewTestBase {
         "java_library(name = 'b', srcs = [':src'])");
     reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//java/a")));
 
-    useConfiguration("--incompatible_show_all_print_messages=true");
     update("//java/a:a");
     assertContainsEvent("DEBUG /workspace/java/b/rules.bzl:2:3: debug in b");
-  }
-
-  @Test
-  public void testOutputFilterWithWarning() throws Exception {
-    scratch.file(
-        "java/a/BUILD",
-        "java_library(name = 'a',",
-        "  srcs = ['A.java'],",
-        "  deps = ['//java/b'])");
-    scratch.file(
-        "java/b/rules.bzl",
-        "def _impl(ctx):",
-        "  print('debug in b')",
-        "  ctx.file_action(",
-        "    output = ctx.outputs.my_output,",
-        "    content = 'foo',",
-        "  )",
-        "gen = rule(implementation = _impl, outputs = {'my_output': 'B.java'})");
-    scratch.file(
-        "java/b/BUILD",
-        "load(':rules.bzl', 'gen')",
-        "gen(name='src')",
-        "java_library(name = 'b', srcs = [':src'])");
-    reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//java/a")));
-
-    useConfiguration("--incompatible_show_all_print_messages=false");
-    update("//java/a:a");
-    assertDoesNotContainEvent("rules.bzl:2:3: debug in b");
   }
 
   @Test

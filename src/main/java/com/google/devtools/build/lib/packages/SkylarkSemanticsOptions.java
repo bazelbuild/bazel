@@ -206,20 +206,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleRemoveNativeHttpArchive;
 
   @Option(
-    name = "incompatible_show_all_print_messages",
-    defaultValue = "true",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help =
-        "If set to true, the print function will generate DEBUG messages that aren't affected by "
-            + "the --output_filter option. Otherwise it will generate filterable WARNING "
-            + "messages."
-  )
-  public boolean incompatibleShowAllPrintMessages;
-
-  @Option(
     name = "incompatible_string_is_not_iterable",
     defaultValue = "false",
     category = "incompatible changes",
@@ -257,7 +243,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
-        .incompatibleShowAllPrintMessages(incompatibleShowAllPrintMessages)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .build();
