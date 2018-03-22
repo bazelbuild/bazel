@@ -99,8 +99,10 @@ public class ManifestMergerActionBuilder {
             .getRunfilesSupport()
             .getRunfilesArtifacts());
 
-    builder.addExecPath("--manifest", manifest);
-    inputs.add(manifest);
+    if (manifest != null) {
+      builder.addExecPath("--manifest", manifest);
+      inputs.add(manifest);
+    }
 
     if (mergeeManifests != null && !mergeeManifests.isEmpty()) {
       builder.add(

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -390,21 +389,8 @@ public abstract class ResourceContainer {
       if (hasCustomPackage(ruleContext)) {
         return ruleContext.attributes().get("custom_package", Type.STRING);
       }
-      Artifact rJavaSrcJar = getJavaSourceJar();
-      // TODO(bazel-team): JavaUtil.getJavaPackageName does not check to see if the path is valid.
-      // So we need to check for the JavaRoot.
-      if (JavaUtil.getJavaRoot(rJavaSrcJar.getExecPath()) == null) {
-        ruleContext.ruleError(
-            "The location of your BUILD file determines the Java package used for "
-                + "Android resource processing. A directory named \"java\" or \"javatests\" will "
-                + "be used as your Java source root and the path of your BUILD file relative to "
-                + "the Java source root will be used as the package for Android resource "
-                + "processing. The Java source root could not be determined for \""
-                + ruleContext.getPackageDirectory()
-                + "\". Move your BUILD file under a java or javatests directory, or set the "
-                + "'custom_package' attribute.");
-      }
-      return JavaUtil.getJavaPackageName(rJavaSrcJar.getExecPath());
+
+      return AndroidManifest.getJavaPackageFromPath(ruleContext, getJavaSourceJar().getExecPath());
     }
 
     private static boolean hasCustomPackage(RuleContext ruleContext) {
