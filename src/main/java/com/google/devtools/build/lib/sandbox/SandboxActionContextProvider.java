@@ -84,11 +84,11 @@ final class SandboxActionContextProvider extends ActionContextProvider {
 
     // This is the preferred sandboxing strategy on macOS.
     if (DarwinSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      // TODO(jmmv): Inject process into spawn runner.
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, productName, timeoutKillDelay));
+              new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, productName, timeoutKillDelay,
+                  process));
       contexts.add(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
