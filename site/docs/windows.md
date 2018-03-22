@@ -172,13 +172,10 @@ C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
 
 There's no setup necessary.
 
-On Windows, Bazel builds three output files for `java_binary` rules:
+On Windows, Bazel builds two output files for `java_binary` rules:
 
 *   a `.jar` file
-*   a shell script that can set up the environment for the JVM and run the
-    binary
-*   a `.cmd` file (a batch script) that can call Bash with the aforementioned
-    shell script.
+*   a `.exe` file that can set up the environment for the JVM and run the binary
 
 Try building a target from one of our [sample
 projects](https://github.com/bazelbuild/bazel/tree/master/examples):
@@ -186,7 +183,7 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 ```
 C:\projects\bazel> bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
 
-C:\projects\bazel> bazel-bin\examples\java-native\src\main\java\com\example\myproject\hello-world.cmd
+C:\projects\bazel> bazel-bin\examples\java-native\src\main\java\com\example\myproject\hello-world.exe
 ```
 
 ### Build Python
@@ -213,10 +210,10 @@ To build Python targets, you need:
 On Windows, Bazel builds two output files for `py_binary` rules:
 
 *   a self-extracting zip file
-*   a batch script that can execute the Python interpreter with the
+*   an executable file that can launch the Python interpreter with the
     self-extracting zip file as the argument
 
-You can either run the batch script (it has a `.cmd` extension) or you can run
+You can either run the executable file (it has a `.exe` extension) or you can run
 Python with the self-extracting zip file as the argument.
 
 Try building a target from one of our [sample
@@ -225,9 +222,9 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 ```
 C:\projects\bazel> bazel build //examples/py_native:bin
 
-C:\projects\bazel> bazel-bin\examples\py_native\bin.cmd
+C:\projects\bazel> bazel-bin\examples\py_native\bin.exe
 
-C:\projects\bazel> python bazel-bin\examples\py_native\bin
+C:\projects\bazel> python bazel-bin\examples\py_native\bin.zip
 ```
 
 If you are interested in details about how Bazel builds Python targets on
