@@ -967,6 +967,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("invalid literal for int() with base 10: \"1.5\"", "int('1.5')")
         .testIfErrorContains("invalid literal for int() with base 10: \"ab\"", "int('ab')")
         .testStatement("int(42)", 42)
+        .testStatement("int('016')", 16)
         .testStatement("int(-1)", -1)
         .testStatement("int(True)", 1)
         .testStatement("int(False)", 0)
@@ -982,12 +983,17 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("int('11', 36)", 37)
         .testStatement("int('az', 36)", 395)
         .testStatement("int('11', 10)", 11)
-        .testStatement("int('11', 0)", 11);
+        .testStatement("int('11', 0)", 11)
+        .testStatement("int('016', 8)", 14)
+        .testStatement("int('016', 16)", 22);
   }
 
   @Test
   public void testIntWithBase_InvalidBase() throws Exception {
     new BothModesTest()
+        .testIfErrorContains(
+            "cannot infer base for int() when value begins with a 0: \"016\"",
+            "int('016', 0)")
         .testIfExactError("invalid literal for int() with base 3: \"123\"", "int('123', 3)")
         .testIfExactError("invalid literal for int() with base 15: \"FF\"", "int('FF', 15)")
         .testIfExactError("int() base must be >= 2 and <= 36", "int('123', -1)")
