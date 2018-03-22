@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -1110,7 +1109,8 @@ public final class BlazeRuntime {
    * frozen at all for them. They just pay the cost of extra synchronization on every access.
    */
   private static void initSkylarkBuiltinsRegistry() {
-    SkylarkActionFactory.forceStaticInitialization();
+    // Currently no classes need to be initialized here. The hook's still here because it's
+    // possible it may be needed again in the future.
     com.google.devtools.build.lib.syntax.Runtime.getBuiltinRegistry().freeze();
   }
 
