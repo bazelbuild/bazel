@@ -46,10 +46,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -61,7 +59,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkMutable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -889,13 +886,10 @@ public class SkylarkActionFactory implements SkylarkValue {
     private String flagFormatString;
     private boolean useAlways;
 
-    @SkylarkSignature(
+    @SkylarkCallable(
       name = "add",
-      objectType = Args.class,
-      returnType = NoneType.class,
       doc = "Adds an argument to be dynamically expanded at evaluation time.",
       parameters = {
-        @Param(name = "self", type = Args.class, doc = "This args object."),
         @Param(
           name = "value",
           type = Object.class,
@@ -955,29 +949,24 @@ public class SkylarkActionFactory implements SkylarkValue {
       },
       useLocation = true
     )
-    public static final BuiltinFunction add =
-        new BuiltinFunction("add") {
-          @SuppressWarnings("unused")
-          public NoneType invoke(
-              Args self,
-              Object value,
-              Object format,
-              Object beforeEach,
-              Object joinWith,
-              Object mapFn,
-              Location loc)
-              throws EvalException {
-            if (self.isImmutable()) {
-              throw new EvalException(null, "cannot modify frozen value");
-            }
-            if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
-              self.addVectorArg(value, format, beforeEach, joinWith, mapFn, loc);
-            } else {
-              self.addScalarArg(value, format, beforeEach, joinWith, mapFn, loc);
-            }
-            return Runtime.NONE;
-          }
-        };
+    public NoneType addArgument(
+        Object value,
+        Object format,
+        Object beforeEach,
+        Object joinWith,
+        Object mapFn,
+        Location loc)
+        throws EvalException {
+      if (this.isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
+        addVectorArg(value, format, beforeEach, joinWith, mapFn, loc);
+      } else {
+        addScalarArg(value, format, beforeEach, joinWith, mapFn, loc);
+      }
+      return Runtime.NONE;
+    }
 
     private void addVectorArg(
         Object value, Object format, Object beforeEach, Object joinWith, Object mapFn, Location loc)
@@ -1135,38 +1124,18 @@ public class SkylarkActionFactory implements SkylarkValue {
     public void repr(SkylarkPrinter printer) {
       printer.append("context.args() object");
     }
-
-    static {
-      SkylarkSignatureProcessor.configureSkylarkFunctions(Args.class);
-    }
-
-    /** No-op method that can be called to ensure the above static initializer runs. */
-    public static void forceStaticInitialization() {
-    }
   }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "args",
     doc = "Returns an Args object that can be used to build memory-efficient command lines.",
-    objectType = SkylarkActionFactory.class,
-    returnType = Args.class,
-    parameters = {
-        @Param(
-            name = "self",
-            type = SkylarkActionFactory.class,
-            doc = "This 'actions' object."
-        )
-    },
     useEnvironment = true
   )
-  public static final BuiltinFunction args =
-      new BuiltinFunction("args") {
-        public Args invoke(SkylarkActionFactory self, Environment env) {
-          return new Args(env.mutability(),
-              env.getSemantics(),
-              self.ruleContext.getAnalysisEnvironment().getEventHandler());
-        }
-      };
+  public Args args(Environment env) {
+    return new Args(env.mutability(),
+        env.getSemantics(),
+        ruleContext.getAnalysisEnvironment().getEventHandler());
+  }
 
   @Override
   public boolean isImmutable() {
@@ -1181,17 +1150,5 @@ public class SkylarkActionFactory implements SkylarkValue {
 
   void nullify() {
     ruleContext = null;
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkActionFactory.class);
-  }
-
-  /**
-   * No-op method that can be called to ensure the above static initializer runs, as well as the
-   * initializer for nested classes.
-   */
-  public static void forceStaticInitialization() {
-    Args.forceStaticInitialization();
   }
 }
