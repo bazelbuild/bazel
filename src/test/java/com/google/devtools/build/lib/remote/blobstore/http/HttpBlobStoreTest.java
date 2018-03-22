@@ -32,6 +32,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
@@ -49,12 +50,15 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.timeout.ReadTimeoutException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.net.ConnectException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -80,6 +84,42 @@ public class HttpBlobStoreTest {
                   }
                 });
     return ((ServerSocketChannel) sb.bind("localhost", 0).sync().channel());
+  }
+
+  @Test(expected = ConnectException.class, timeout = 30000)
+  public void timeoutShouldWork_connect() throws Exception {
+    ServerSocketChannel server = startServer(new ChannelHandlerAdapter() {});
+    int serverPort = server.localAddress().getPort();
+    closeServerChannel(server);
+
+    Credentials credentials = newCredentials();
+    HttpBlobStore blobStore =
+        new HttpBlobStore(new URI("http://localhost:" + serverPort), 5, credentials);
+    blobStore.get("key", new ByteArrayOutputStream());
+    fail("Exception expected");
+  }
+
+  @Test(expected = ReadTimeoutException.class, timeout = 30000)
+  public void timeoutShouldWork_read() throws Exception {
+    ServerSocketChannel server = null;
+    try {
+      server = startServer(new SimpleChannelInboundHandler<FullHttpRequest>() {
+        @Override
+        protected void channelRead0(ChannelHandlerContext channelHandlerContext,
+            FullHttpRequest fullHttpRequest) {
+          // Don't respond and force a client timeout.
+        }
+      });
+      int serverPort = server.localAddress().getPort();
+
+      Credentials credentials = newCredentials();
+      HttpBlobStore blobStore =
+          new HttpBlobStore(new URI("http://localhost:" + serverPort), 5, credentials);
+      blobStore.get("key", new ByteArrayOutputStream());
+      fail("Exception expected");
+    } finally {
+      closeServerChannel(server);
+    }
   }
 
   @Test
