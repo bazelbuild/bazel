@@ -12,8 +12,12 @@ filegroup(
     srcs = [
         "BUILD",
         "LICENSE",
+        "java_compiler.jar",
+        "java_compiler-src.jar",
         "javac-9+181-r4173-1.jar",
         "javac-9+181-r4173-1.srcjar",
+        "jdk_compiler.jar",
+        "jdk_compiler-src.jar",
     ],
 )
 
@@ -25,4 +29,14 @@ java_import(
 filegroup(
     name = "javac_jar",
     srcs = ["javac-9+181-r4173-1.jar"],
+)
+
+filegroup(
+    name = "jdk_compiler_jar",
+    srcs = ["jdk_compiler.jar"],
+)
+
+filegroup(
+    name = "java_compiler_jar",
+    srcs = ["java_compiler.jar"],
 )
