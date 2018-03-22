@@ -289,6 +289,7 @@ public final class QueryCommand implements BlazeCommand {
             env.getPackageManager().newTransitiveLoader(),
             env.getSkyframeExecutor(),
             env.getPackageManager(),
+            env.getPackageManager(),
             env.newTargetPatternEvaluator(),
             keepGoing,
             /*strictScope=*/ true,
