@@ -36,33 +36,6 @@ import org.junit.runners.JUnit4;
 public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
-  public void testLegacyConstructorNotCalled() throws Exception {
-    env =
-        newEnvironmentWithSkylarkOptions("--incompatible_disallow_uncalled_set_constructor=false");
-    eval("s = set([1, 2]) if False else depset([3, 4])");
-    SkylarkNestedSet s = get("s");
-    assertThat(s.getSet(Object.class)).containsExactly(3, 4);
-
-    // Static check are only enabled in .bzl files
-    new SkylarkTest("--incompatible_disallow_uncalled_set_constructor=true")
-        .testIfErrorContains("The function 'set' has been removed in favor of 'depset'",
-            "s = set([1, 2]) if False else depset([3, 4])");
-    new BuildTest("--incompatible_disallow_uncalled_set_constructor=true")
-        .testEval("s = set([1, 2]) if False else depset([3, 4]); s.to_list()", "[3, 4]");
-  }
-
-  @Test
-  public void testLegacyConstructorCalled() throws Exception {
-    new BothModesTest("--incompatible_disallow_uncalled_set_constructor=false")
-        .testIfErrorContains("The function 'set' has been removed in favor of 'depset'",
-            "s = set([1, 2])");
-
-    new BothModesTest("--incompatible_disallow_uncalled_set_constructor=true")
-        .testIfErrorContains("The function 'set' has been removed in favor of 'depset'",
-            "s = set([1, 2])");
-  }
-
-  @Test
   public void testConstructor() throws Exception {
     eval("s = depset(order='default')");
     assertThat(lookup("s")).isInstanceOf(SkylarkNestedSet.class);

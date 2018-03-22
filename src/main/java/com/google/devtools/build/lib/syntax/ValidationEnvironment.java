@@ -68,12 +68,6 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     block.variables.addAll(builtinVariables);
     block.readOnlyVariables.addAll(builtinVariables);
     semantics = env.getSemantics();
-
-    // If the flag is set to false, it should be allowed to have `set`
-    // in non-executable parts of the code.
-    if (!env.getSemantics().incompatibleDisallowUncalledSetConstructor()) {
-      block.variables.add("set");
-    }
   }
 
   @Override

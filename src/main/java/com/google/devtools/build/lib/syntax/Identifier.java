@@ -96,13 +96,6 @@ public final class Identifier extends Expression {
     if (name.equals("$error$")) {
       return new EvalException(getLocation(), "contains syntax error(s)", true);
     }
-    if (name.equals("set")) {
-      //TODO(vladmos): Remove as soon as the flag is removed
-      return new EvalException(getLocation(),
-          "The function 'set' has been removed in favor of 'depset', please use the latter. "
-              + "You can temporarily refer to the old 'set' constructor from unexecuted code "
-              + "by using --incompatible_disallow_uncalled_set_constructor=false");
-    }
     String suggestion = SpellChecker.didYouMean(name, symbols);
     return new EvalException(getLocation(), "name '" + name + "' is not defined" + suggestion);
   }

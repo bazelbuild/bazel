@@ -41,23 +41,15 @@ public abstract class SkylarkSemantics {
   // <== Add new options here in alphabetic order ==>
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
   public abstract boolean incompatibleDepsetIsNotIterable();
-
   public abstract boolean incompatibleDepsetUnion();
-
   public abstract boolean incompatibleDisableGlobTracking();
   public abstract boolean incompatibleDisableObjcProviderResources();
-
   public abstract boolean incompatibleDisallowDictPlus();
   public abstract boolean incompatibleDisallowThreeArgVardef();
   public abstract boolean incompatibleDisallowToplevelIfStatement();
-  public abstract boolean incompatibleDisallowUncalledSetConstructor();
-
   public abstract boolean incompatibleNewActionsApi();
-
   public abstract boolean incompatibleRemoveNativeGitRepository();
-
   public abstract boolean incompatibleRemoveNativeHttpArchive();
-
   public abstract boolean incompatibleStringIsNotIterable();
   public abstract boolean internalSkylarkFlagTestCanary();
 
@@ -84,7 +76,6 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowThreeArgVardef(false)
           .incompatibleDisallowToplevelIfStatement(true)
-          .incompatibleDisallowUncalledSetConstructor(true)
           .incompatibleNewActionsApi(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
@@ -105,7 +96,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
     public abstract Builder incompatibleDisallowThreeArgVardef(boolean value);
     public abstract Builder incompatibleDisallowToplevelIfStatement(boolean value);
-    public abstract Builder incompatibleDisallowUncalledSetConstructor(boolean value);
     public abstract Builder incompatibleNewActionsApi(boolean value);
     public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
     public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);

@@ -30,7 +30,6 @@ To check if your code will be compatible with future releases you can:
 The following are the backward incompatible changes that are implemented and
 guarded behind flags in the current release:
 
-*   [Set constructor](#set-constructor)
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Top level `if` statements](#top-level-if-statements)
@@ -39,22 +38,6 @@ guarded behind flags in the current release:
 *   [String is no longer iterable](#string-is-no-longer-iterable)
 *   [New actions API](#new-actions-api)
 *   [Glob tracking](#glob-tracking)
-
-
-### Set constructor
-
-To maintain a clear distinction between the specialized [`depset`](depsets.md)
-data structure and Python's native `set` datatype (which does not currently
-exist in Skylark), the `set` constructor has been superseded by `depset`. It is
-no longer allowed to run code that calls the old `set` constructor.
-
-However, for a limited time, it will not be an error to reference the `set`
-constructor from code that is not executed (e.g. a function that is never
-called). Enable this flag to confirm that your code does not still refer to the
-old `set` constructor from unexecuted code.
-
-*   Flag: `--incompatible_disallow_uncalled_set_constructor`
-*   Default: `true`
 
 
 ### Dictionary concatenation
