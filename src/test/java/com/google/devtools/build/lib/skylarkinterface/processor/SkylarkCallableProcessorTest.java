@@ -133,4 +133,15 @@ public final class SkylarkCallableProcessorTest {
         .withErrorContaining(
             "Parameter 'a_parameter' has 'None' default value but is not noneable.");
   }
+
+  @Test
+  public void testParamTypeConflict() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ParamTypeConflict.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter 'a_parameter' has both 'type' and 'allowedTypes' specified."
+                + " Only one may be specified.");
+  }
 }
