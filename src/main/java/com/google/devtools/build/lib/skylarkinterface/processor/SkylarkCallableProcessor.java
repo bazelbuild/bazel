@@ -30,6 +30,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.MirroredTypeException;
 import javax.tools.Diagnostic;
 
 /**
@@ -48,6 +49,10 @@ import javax.tools.Diagnostic;
  *   The number of method parameters much match the number of annotation-declared parameters
  *   plus the number of interpreter-supplied parameters.
  * </li>
+ * <li>
+ *   Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes',
+ *   not both.
+ * </li>
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
@@ -55,7 +60,6 @@ import javax.tools.Diagnostic;
 @SupportedAnnotationTypes({"com.google.devtools.build.lib.skylarkinterface.SkylarkCallable"})
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class SkylarkCallableProcessor extends AbstractProcessor {
-
   private Messager messager;
 
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
@@ -104,6 +108,26 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
                 + "empty)",
                 parameter.name()));
       }
+      if ((parameter.allowedTypes().length > 0)
+          && (!"java.lang.Object".equals(paramTypeFieldCanonicalName(parameter)))) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format("Parameter '%s' has both 'type' and 'allowedTypes' specified. Only"
+                + " one may be specified.",
+            parameter.name()));
+      }
+    }
+  }
+
+  private String paramTypeFieldCanonicalName(Param param) {
+    try {
+      return param.type().toString();
+    } catch (MirroredTypeException exception) {
+      // This is a hack to obtain the actual canonical name of param.type(). Doing this ths
+      // "correct" way results in far less readable code.
+      // Since this processor is only for compile-time checks, this isn't efficiency we need
+      // to worry about.
+      return exception.getTypeMirror().toString();
     }
   }
 
