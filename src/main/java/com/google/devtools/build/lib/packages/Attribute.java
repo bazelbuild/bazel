@@ -361,6 +361,108 @@ public final class Attribute implements Comparable<Attribute> {
     return new Builder<>(name, type);
   }
 
+  /** A factory to generate {@link Attribute} instances. */
+  @AutoCodec
+  public static class ImmutableAttributeFactory {
+    private final Type<?> type;
+    private final ConfigurationTransition configTransition;
+    private final RuleClassNamePredicate allowedRuleClassesForLabels;
+    private final RuleClassNamePredicate allowedRuleClassesForLabelsWarning;
+    private final SplitTransitionProvider splitTransitionProvider;
+    private final FileTypeSet allowedFileTypesForLabels;
+    private final ValidityPredicate validityPredicate;
+    private final Object value;
+    private final AttributeValueSource valueSource;
+    private final boolean valueSet;
+    private final Predicate<AttributeMap> condition;
+    private final ImmutableSet<PropertyFlag> propertyFlags;
+    private final PredicateWithMessage<Object> allowedValues;
+    private final RequiredProviders requiredProviders;
+    private final ImmutableList<RuleAspect<?>> aspects;
+
+    @AutoCodec.VisibleForSerialization
+    ImmutableAttributeFactory(
+        Type<?> type,
+        ImmutableSet<PropertyFlag> propertyFlags,
+        Object value,
+        ConfigurationTransition configTransition,
+        RuleClassNamePredicate allowedRuleClassesForLabels,
+        RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
+        SplitTransitionProvider splitTransitionProvider,
+        FileTypeSet allowedFileTypesForLabels,
+        ValidityPredicate validityPredicate,
+        AttributeValueSource valueSource,
+        boolean valueSet,
+        Predicate<AttributeMap> condition,
+        PredicateWithMessage<Object> allowedValues,
+        RequiredProviders requiredProviders,
+        ImmutableList<RuleAspect<?>> aspects) {
+      this.type = type;
+      this.configTransition = configTransition;
+      this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
+      this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
+      this.splitTransitionProvider = splitTransitionProvider;
+      this.allowedFileTypesForLabels = allowedFileTypesForLabels;
+      this.validityPredicate = validityPredicate;
+      this.value = value;
+      this.valueSource = valueSource;
+      this.valueSet = valueSet;
+      this.condition = condition;
+      this.propertyFlags = propertyFlags;
+      this.allowedValues = allowedValues;
+      this.requiredProviders = requiredProviders;
+      this.aspects = aspects;
+    }
+
+    public AttributeValueSource getValueSource() {
+      return valueSource;
+    }
+
+    public boolean isValueSet() {
+      return valueSet;
+    }
+
+    public Attribute build(String name) {
+      Preconditions.checkState(!name.isEmpty(), "name has not been set");
+      if (valueSource == AttributeValueSource.LATE_BOUND) {
+        Preconditions.checkState(isLateBound(name));
+      }
+      // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
+      // remove all allowedFileTypes() calls without parameters.
+
+      // do not modify this.allowedFileTypesForLabels, instead create a copy.
+      FileTypeSet allowedFileTypesForLabels = this.allowedFileTypesForLabels;
+      if (type.getLabelClass() == LabelClass.DEPENDENCY) {
+        if (isPrivateAttribute(name) && allowedFileTypesForLabels == null) {
+          allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
+        }
+        Preconditions.checkNotNull(
+            allowedFileTypesForLabels, "allowedFileTypesForLabels not set for %s", name);
+      } else if (type.getLabelClass() == LabelClass.OUTPUT) {
+        // TODO(bazel-team): Set the default to no file type and make explicit calls instead.
+        if (allowedFileTypesForLabels == null) {
+          allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
+        }
+      }
+
+      return new Attribute(
+          name,
+          type,
+          propertyFlags,
+          value,
+          configTransition,
+          splitTransitionProvider,
+          allowedRuleClassesForLabels,
+          allowedRuleClassesForLabelsWarning,
+          allowedFileTypesForLabels,
+          validityPredicate,
+          condition,
+          allowedValues,
+          requiredProviders,
+          aspects);
+    }
+  }
+
   /**
    * A fluent builder for the {@code Attribute} instances.
    *
@@ -1026,44 +1128,8 @@ public final class Attribute implements Comparable<Attribute> {
       return setPropertyFlag(PropertyFlag.NONCONFIGURABLE, "nonconfigurable");
     }
 
-    /**
-     * Creates the attribute. Uses name, type, optionality, configuration type
-     * and the default value configured by the builder.
-     */
-    public Attribute build() {
-      return build(this.name);
-    }
-
-    /**
-     * Creates the attribute. Uses type, optionality, configuration type
-     * and the default value configured by the builder. Use the name
-     * passed as an argument. This function is used by Skylark where the
-     * name is provided only when we build. We don't want to modify the
-     * builder, as it is shared in a multithreaded environment.
-     */
-    public Attribute build(String name) {
-      Preconditions.checkState(!name.isEmpty(), "name has not been set");
-      if (valueSource == AttributeValueSource.LATE_BOUND) {
-        Preconditions.checkState(isLateBound(name));
-      }
-      // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
-      // remove all allowedFileTypes() calls without parameters.
-
-      // do not modify this.allowedFileTypesForLabels, instead create a copy.
-      FileTypeSet allowedFileTypesForLabels = this.allowedFileTypesForLabels;
-      if (type.getLabelClass() == LabelClass.DEPENDENCY) {
-        if (isPrivateAttribute(name) && allowedFileTypesForLabels == null) {
-          allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
-        }
-        Preconditions.checkNotNull(
-            allowedFileTypesForLabels, "allowedFileTypesForLabels not set for %s", name);
-      } else if (type.getLabelClass() == LabelClass.OUTPUT) {
-        // TODO(bazel-team): Set the default to no file type and make explicit calls instead.
-        if (allowedFileTypesForLabels == null) {
-          allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
-        }
-      }
-
+    /** Returns an {@link ImmutableAttributeFactory} that can be invoked to create attributes. */
+    public ImmutableAttributeFactory buildPartial() {
       Preconditions.checkState(
           !allowedRuleClassesForLabels.consideredOverlapping(allowedRuleClassesForLabelsWarning),
           "allowedRuleClasses %s and allowedRuleClassesWithWarning %s "
@@ -1071,21 +1137,40 @@ public final class Attribute implements Comparable<Attribute> {
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning);
 
-      return new Attribute(
-          name,
+      return new ImmutableAttributeFactory(
           type,
           Sets.immutableEnumSet(propertyFlags),
           valueSet ? value : type.getDefaultValue(),
           configTransition,
-          splitTransitionProvider,
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
+          splitTransitionProvider,
           allowedFileTypesForLabels,
           validityPredicate,
+          valueSource,
+          valueSet,
           condition,
           allowedValues,
           requiredProvidersBuilder.build(),
           ImmutableList.copyOf(aspects.values()));
+    }
+
+    /**
+     * Creates the attribute. Uses name, type, optionality, configuration type and the default value
+     * configured by the builder.
+     */
+    public Attribute build() {
+      return build(this.name);
+    }
+
+    /**
+     * Creates the attribute. Uses type, optionality, configuration type and the default value
+     * configured by the builder. Use the name passed as an argument. This function is used by
+     * Skylark where the name is provided only when we build. We don't want to modify the builder,
+     * as it is shared in a multithreaded environment.
+     */
+    public Attribute build(String name) {
+      return buildPartial().build(name);
     }
   }
 

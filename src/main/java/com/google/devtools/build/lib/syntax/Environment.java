@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Memoization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -526,6 +527,14 @@ public final class Environment implements Freezable {
           && bindings.equals(other.getBindings());
     }
 
+    private static boolean skylarkObjectsProbablyEqual(Object obj1, Object obj2) {
+      // TODO(b/76154791): check this more carefully.
+      return obj1.equals(obj2)
+          || (obj1 instanceof SkylarkValue
+              && obj2 instanceof SkylarkValue
+              && Printer.repr(obj1).equals(Printer.repr(obj2)));
+    }
+
     /**
      * Throws {@link IllegalStateException} if this {@link Extension} is not equal to {@code obj}.
      *
@@ -560,11 +569,35 @@ public final class Environment implements Freezable {
         if (value.equals(otherValue)) {
           continue;
         }
-        if (value instanceof SkylarkNestedSet
-            && otherValue instanceof SkylarkNestedSet
-            && (((SkylarkNestedSet) value)
-                .toCollection()
-                .equals(((SkylarkNestedSet) otherValue).toCollection()))) {
+        if (value instanceof SkylarkNestedSet) {
+          if (otherValue instanceof SkylarkNestedSet
+              && ((SkylarkNestedSet) value)
+                  .toCollection()
+                  .equals(((SkylarkNestedSet) otherValue).toCollection())) {
+            continue;
+          }
+        } else if (value instanceof SkylarkDict) {
+          if (otherValue instanceof SkylarkDict) {
+            @SuppressWarnings("unchecked")
+            SkylarkDict<Object, Object> thisDict = (SkylarkDict<Object, Object>) value;
+            @SuppressWarnings("unchecked")
+            SkylarkDict<Object, Object> otherDict = (SkylarkDict<Object, Object>) otherValue;
+            if (thisDict.size() == otherDict.size()
+                && thisDict.keySet().equals(otherDict.keySet())) {
+              boolean foundProblem = false;
+              for (Object key : thisDict.keySet()) {
+                if (!skylarkObjectsProbablyEqual(
+                    Preconditions.checkNotNull(thisDict.get(key), key),
+                    Preconditions.checkNotNull(otherDict.get(key), key))) {
+                  foundProblem = true;
+                }
+              }
+              if (!foundProblem) {
+                continue;
+              }
+            }
+          }
+        } else if (skylarkObjectsProbablyEqual(value, otherValue)) {
           continue;
         }
         badEntries.add(
