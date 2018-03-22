@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -45,7 +47,8 @@ import javax.annotation.concurrent.Immutable;
  * target configuration.
  */
 @Immutable
-public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT> {
+public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT>
+    implements SkylarkValue {
 
   private final Method method;
   private final String fragmentName;
@@ -98,6 +101,11 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
    */
   public String getFragmentFieldName() {
     return fragmentFieldName;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.format("<late-bound default>");
   }
 
   /**

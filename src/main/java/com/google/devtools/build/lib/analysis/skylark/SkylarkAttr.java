@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -473,15 +474,16 @@ public final class SkylarkAttr implements SkylarkValue {
     printer.append("<attr>");
   }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "int",
     doc = "Creates an attribute of type int.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = Integer.class,
+        allowedTypes = {
+          @ParamType(type = Integer.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         defaultValue = "0",
         doc = DEFAULT_DOC,
         named = true,
@@ -516,27 +518,24 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction integer =
-      new BuiltinFunction("int") {
-        public Descriptor invoke(
-            Integer defaultInt,
-            String doc,
-            Boolean mandatory,
-            SkylarkList<?> values,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          // TODO(bazel-team): Replace literal strings with constants.
-          env.checkLoadingOrWorkspacePhase("attr.int", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env, DEFAULT_ARG, defaultInt, MANDATORY_ARG, mandatory, VALUES_ARG, values),
-              Type.INTEGER,
-              ast,
-              env);
-        }
-      };
+  public Descriptor intAttribute(
+      Integer defaultInt,
+      String doc,
+      Boolean mandatory,
+      SkylarkList<?> values,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    // TODO(bazel-team): Replace literal strings with constants.
+    env.checkLoadingOrWorkspacePhase("attr.int", ast.getLocation());
+    return createAttrDescriptor(
+        "int",
+        EvalUtils.<String, Object>optionMap(
+            env, DEFAULT_ARG, defaultInt, MANDATORY_ARG, mandatory, VALUES_ARG, values),
+        Type.INTEGER,
+        ast,
+        env);
+  }
 
   @SkylarkSignature(
     name = "configuration_field",
@@ -581,15 +580,15 @@ public final class SkylarkAttr implements SkylarkValue {
         }
       };
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "string",
     doc = "Creates an attribute of type <a href=\"string.html\">string</a>.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = String.class,
+        allowedTypes = {
+          @ParamType(type = String.class),
+        },
         defaultValue = "''",
         doc = DEFAULT_DOC,
         named = true,
@@ -624,28 +623,25 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction string =
-      new BuiltinFunction("string") {
-        public Descriptor invoke(
-            String defaultString,
-            String doc,
-            Boolean mandatory,
-            SkylarkList<?> values,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.string", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env, DEFAULT_ARG, defaultString, MANDATORY_ARG, mandatory, VALUES_ARG, values),
-              Type.STRING,
-              ast,
-              env);
-        }
-      };
+  public Descriptor stringAttribute(
+      String defaultString,
+      String doc,
+      Boolean mandatory,
+      SkylarkList<?> values,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.string", ast.getLocation());
+    return createAttrDescriptor(
+        "string",
+        EvalUtils.<String, Object>optionMap(
+            env, DEFAULT_ARG, defaultString, MANDATORY_ARG, mandatory, VALUES_ARG, values),
+        Type.STRING,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "label",
     doc =
         "Creates an attribute of type <a href=\"Target.html\">Target</a> which is the target "
@@ -653,15 +649,14 @@ public final class SkylarkAttr implements SkylarkValue {
             + "It is the only way to specify a dependency to another target. "
             + "If you need a dependency that the user cannot overwrite, "
             + "<a href=\"../rules.$DOC_EXT#private-attributes\">make the attribute private</a>.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
         allowedTypes = {
           @ParamType(type = Label.class),
           @ParamType(type = String.class),
-          @ParamType(type = SkylarkLateBoundDefault.class)
+          @ParamType(type = SkylarkLateBoundDefault.class),
+          @ParamType(type = UserDefinedFunction.class)
         },
         callbackEnabled = true,
         noneable = true,
@@ -695,6 +690,7 @@ public final class SkylarkAttr implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
+        noneable = true,
         doc = ALLOW_FILES_DOC
       ),
       @Param(
@@ -702,6 +698,7 @@ public final class SkylarkAttr implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
+        noneable = true,
         doc =
             "This is similar to <code>allow_files</code>, with the restriction that the label must "
                 + "correspond to a single <a href=\"File.html\">File</a>. "
@@ -766,74 +763,73 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction label =
-      new BuiltinFunction("label") {
-        public Descriptor invoke(
-            Object defaultO,
-            String doc,
-            Boolean executable,
-            Object allowFiles,
-            Object allowSingleFile,
-            Boolean mandatory,
-            SkylarkList<?> providers,
-            Object allowRules,
-            Boolean singleFile,
-            Object cfg,
-            SkylarkList<?> aspects,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.label", ast.getLocation());
-          try {
-            ImmutableAttributeFactory attribute =
-                createAttributeFactory(
-                    BuildType.LABEL,
-                    EvalUtils.<String, Object>optionMap(
-                        env,
-                        DEFAULT_ARG,
-                        defaultO,
-                        EXECUTABLE_ARG,
-                        executable,
-                        ALLOW_FILES_ARG,
-                        allowFiles,
-                        ALLOW_SINGLE_FILE_ARG,
-                        allowSingleFile,
-                        MANDATORY_ARG,
-                        mandatory,
-                        PROVIDERS_ARG,
-                        providers,
-                        ALLOW_RULES_ARG,
-                        allowRules,
-                        SINGLE_FILE_ARG,
-                        singleFile,
-                        CONFIGURATION_ARG,
-                        cfg,
-                        ASPECTS_ARG,
-                        aspects),
-                    ast,
-                    env,
-                    "label");
-            return new Descriptor(getName(), attribute);
-          } catch (EvalException e) {
-            throw new EvalException(ast.getLocation(), e.getMessage(), e);
-          }
-        }
-      };
+  public Descriptor labelAttribute(
+      Object defaultO,
+      String doc,
+      Boolean executable,
+      Object allowFiles,
+      Object allowSingleFile,
+      Boolean mandatory,
+      SkylarkList<?> providers,
+      Object allowRules,
+      Boolean singleFile,
+      Object cfg,
+      SkylarkList<?> aspects,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.label", ast.getLocation());
+    try {
+      ImmutableAttributeFactory attribute =
+          createAttributeFactory(
+              BuildType.LABEL,
+              EvalUtils.<String, Object>optionMap(
+                  env,
+                  DEFAULT_ARG,
+                  defaultO,
+                  EXECUTABLE_ARG,
+                  executable,
+                  ALLOW_FILES_ARG,
+                  allowFiles,
+                  ALLOW_SINGLE_FILE_ARG,
+                  allowSingleFile,
+                  MANDATORY_ARG,
+                  mandatory,
+                  PROVIDERS_ARG,
+                  providers,
+                  ALLOW_RULES_ARG,
+                  allowRules,
+                  SINGLE_FILE_ARG,
+                  singleFile,
+                  CONFIGURATION_ARG,
+                  cfg,
+                  ASPECTS_ARG,
+                  aspects),
+              ast,
+              env,
+              "label");
+      return new Descriptor("label", attribute);
+    } catch (EvalException e) {
+      throw new EvalException(ast.getLocation(), e.getMessage(), e);
+    }
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "string_list",
     doc =
         "Creates an attribute which is a <a href=\"list.html\">list</a> of "
             + "<a href=\"string.html\">strings</a>.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = SkylarkList.class,
-        generic1 = String.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class, generic1 = String.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         defaultValue = "[]",
-        doc = DEFAULT_DOC
+        doc = DEFAULT_DOC,
+        named = true,
+        positional = false
       ),
       @Param(
         name = DOC_ARG,
@@ -847,66 +843,68 @@ public final class SkylarkAttr implements SkylarkValue {
         name = MANDATORY_ARG,
         type = Boolean.class,
         defaultValue = "False",
-        doc = MANDATORY_DOC
+        doc = MANDATORY_DOC,
+        named = true
       ),
       @Param(
         name = NON_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "False",
-        doc = NON_EMPTY_DOC
+        doc = NON_EMPTY_DOC,
+        named = true
       ),
       @Param(
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = ALLOW_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC,
+        named = true
       )
     },
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction stringList =
-      new BuiltinFunction("string_list") {
-        public Descriptor invoke(
-            SkylarkList<?> defaultList,
-            String doc,
-            Boolean mandatory,
-            Boolean nonEmpty,
-            Boolean allowEmpty,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.string_list", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty,
-                  ALLOW_EMPTY_ARG,
-                  allowEmpty),
-              Type.STRING_LIST,
-              ast,
-              env);
-        }
-      };
+  public Descriptor stringListAttribute(
+      SkylarkList<?> defaultList,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.string_list", ast.getLocation());
+    return createAttrDescriptor(
+        "string_list",
+        EvalUtils.<String, Object>optionMap(
+            env,
+            DEFAULT_ARG,
+            defaultList,
+            MANDATORY_ARG,
+            mandatory,
+            NON_EMPTY_ARG,
+            nonEmpty,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
+        Type.STRING_LIST,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "int_list",
     doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of ints.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = SkylarkList.class,
-        generic1 = Integer.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class, generic1 = Integer.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         defaultValue = "[]",
-        doc = DEFAULT_DOC
+        doc = DEFAULT_DOC,
+        named = true,
+        positional = false
       ),
       @Param(
         name = DOC_ARG,
@@ -920,67 +918,67 @@ public final class SkylarkAttr implements SkylarkValue {
         name = MANDATORY_ARG,
         type = Boolean.class,
         defaultValue = "False",
-        doc = MANDATORY_DOC
+        doc = MANDATORY_DOC,
+        named = true
       ),
       @Param(
         name = NON_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "False",
-        doc = NON_EMPTY_DOC
+        doc = NON_EMPTY_DOC,
+        named = true
       ),
       @Param(
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = ALLOW_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC,
+        named = true
       )
     },
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction intList =
-      new BuiltinFunction("int_list") {
-        public Descriptor invoke(
-            SkylarkList<?> defaultList,
-            String doc,
-            Boolean mandatory,
-            Boolean nonEmpty,
-            Boolean allowEmpty,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.int_list", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty,
-                  ALLOW_EMPTY_ARG,
-                  allowEmpty),
-              Type.INTEGER_LIST,
-              ast,
-              env);
-        }
-      };
+  public Descriptor intListAttribute(
+      SkylarkList<?> defaultList,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.int_list", ast.getLocation());
+    return createAttrDescriptor(
+        "int_list",
+        EvalUtils.<String, Object>optionMap(
+            env,
+            DEFAULT_ARG,
+            defaultList,
+            MANDATORY_ARG,
+            mandatory,
+            NON_EMPTY_ARG,
+            nonEmpty,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
+        Type.INTEGER_LIST,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "label_list",
     doc =
         "Creates an attribute which is a <a href=\"list.html\">list</a> of type "
             + "<a href=\"Target.html\">Target</a> which are specified by the labels in the list. "
             + "See <a href=\"attr.html#label\">label</a> for more information.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = SkylarkList.class,
-        generic1 = Label.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class, generic1 = Label.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         callbackEnabled = true,
         defaultValue = "[]",
         named = true,
@@ -1004,6 +1002,7 @@ public final class SkylarkAttr implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
+        noneable = true,
         doc = ALLOW_FILES_DOC
       ),
       @Param(
@@ -1053,7 +1052,8 @@ public final class SkylarkAttr implements SkylarkValue {
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = ALLOW_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC,
+        named = true
       ),
       @Param(
         name = CONFIGURATION_ARG,
@@ -1077,70 +1077,68 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction labelList =
-      new BuiltinFunction("label_list") {
-        public Descriptor invoke(
-            Object defaultList,
-            String doc,
-            Object allowFiles,
-            Object allowRules,
-            SkylarkList<?> providers,
-            SkylarkList<?> flags,
-            Boolean mandatory,
-            Boolean nonEmpty,
-            Boolean allowEmpty,
-            Object cfg,
-            SkylarkList<?> aspects,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.label_list", ast.getLocation());
-          SkylarkDict<String, Object> kwargs =
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  ALLOW_FILES_ARG,
-                  allowFiles,
-                  ALLOW_RULES_ARG,
-                  allowRules,
-                  PROVIDERS_ARG,
-                  providers,
-                  FLAGS_ARG,
-                  flags,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty,
-                  ALLOW_EMPTY_ARG,
-                  allowEmpty,
-                  CONFIGURATION_ARG,
-                  cfg,
-                  ASPECTS_ARG,
-                  aspects);
-          try {
-            ImmutableAttributeFactory attribute =
-                createAttributeFactory(BuildType.LABEL_LIST, kwargs, ast, env, "label_list");
-            return new Descriptor(getName(), attribute);
-          } catch (EvalException e) {
-            throw new EvalException(ast.getLocation(), e.getMessage(), e);
-          }
-        }
-      };
+  public Descriptor labelListAttribute(
+      Object defaultList,
+      String doc,
+      Object allowFiles,
+      Object allowRules,
+      SkylarkList<?> providers,
+      SkylarkList<?> flags,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      Object cfg,
+      SkylarkList<?> aspects,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.label_list", ast.getLocation());
+    SkylarkDict<String, Object> kwargs =
+        EvalUtils.<String, Object>optionMap(
+            env,
+            DEFAULT_ARG,
+            defaultList,
+            ALLOW_FILES_ARG,
+            allowFiles,
+            ALLOW_RULES_ARG,
+            allowRules,
+            PROVIDERS_ARG,
+            providers,
+            FLAGS_ARG,
+            flags,
+            MANDATORY_ARG,
+            mandatory,
+            NON_EMPTY_ARG,
+            nonEmpty,
+            ALLOW_EMPTY_ARG,
+            allowEmpty,
+            CONFIGURATION_ARG,
+            cfg,
+            ASPECTS_ARG,
+            aspects);
+    try {
+      ImmutableAttributeFactory attribute =
+          createAttributeFactory(BuildType.LABEL_LIST, kwargs, ast, env, "label_list");
+      return new Descriptor("label_list", attribute);
+    } catch (EvalException e) {
+      throw new EvalException(ast.getLocation(), e.getMessage(), e);
+    }
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "label_keyed_string_dict",
     doc =
         "Creates an attribute which is a <a href=\"dict.html\">dict</a>. Its keys are type "
             + "<a href=\"Target.html\">Target</a> and are specified by the label keys of the "
             + "input dict. Its values are <a href=\"string.html\">strings</a>. See "
             + "<a href=\"attr.html#label\">label</a> for more information.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = SkylarkDict.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkDict.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         callbackEnabled = true,
         defaultValue = "{}",
         named = true,
@@ -1165,6 +1163,7 @@ public final class SkylarkAttr implements SkylarkValue {
         defaultValue = "None",
         named = true,
         positional = false,
+        noneable = true,
         doc = ALLOW_FILES_DOC
       ),
       @Param(
@@ -1214,7 +1213,8 @@ public final class SkylarkAttr implements SkylarkValue {
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = ALLOW_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC,
+        named = true
       ),
       @Param(
         name = CONFIGURATION_ARG,
@@ -1238,67 +1238,65 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction labelKeyedStringDict =
-      new BuiltinFunction("label_keyed_string_dict") {
-        public Descriptor invoke(
-            Object defaultList,
-            String doc,
-            Object allowFiles,
-            Object allowRules,
-            SkylarkList<?> providers,
-            SkylarkList<?> flags,
-            Boolean mandatory,
-            Boolean nonEmpty,
-            Boolean allowEmpty,
-            Object cfg,
-            SkylarkList<?> aspects,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.label_keyed_string_dict", ast.getLocation());
-          SkylarkDict<String, Object> kwargs =
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  ALLOW_FILES_ARG,
-                  allowFiles,
-                  ALLOW_RULES_ARG,
-                  allowRules,
-                  PROVIDERS_ARG,
-                  providers,
-                  FLAGS_ARG,
-                  flags,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty,
-                  ALLOW_EMPTY_ARG,
-                  allowEmpty,
-                  CONFIGURATION_ARG,
-                  cfg,
-                  ASPECTS_ARG,
-                  aspects);
-          try {
-            ImmutableAttributeFactory attribute =
-                createAttributeFactory(
-                    BuildType.LABEL_KEYED_STRING_DICT, kwargs, ast, env, "label_keyed_string_dict");
-            return new Descriptor(this.getName(), attribute);
-          } catch (EvalException e) {
-            throw new EvalException(ast.getLocation(), e.getMessage(), e);
-          }
-        }
-      };
+  public Descriptor labelKeyedStringDictAttribute(
+      Object defaultList,
+      String doc,
+      Object allowFiles,
+      Object allowRules,
+      SkylarkList<?> providers,
+      SkylarkList<?> flags,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      Object cfg,
+      SkylarkList<?> aspects,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.label_keyed_string_dict", ast.getLocation());
+    SkylarkDict<String, Object> kwargs =
+        EvalUtils.<String, Object>optionMap(
+            env,
+            DEFAULT_ARG,
+            defaultList,
+            ALLOW_FILES_ARG,
+            allowFiles,
+            ALLOW_RULES_ARG,
+            allowRules,
+            PROVIDERS_ARG,
+            providers,
+            FLAGS_ARG,
+            flags,
+            MANDATORY_ARG,
+            mandatory,
+            NON_EMPTY_ARG,
+            nonEmpty,
+            ALLOW_EMPTY_ARG,
+            allowEmpty,
+            CONFIGURATION_ARG,
+            cfg,
+            ASPECTS_ARG,
+            aspects);
+    try {
+      ImmutableAttributeFactory attribute =
+          createAttributeFactory(
+              BuildType.LABEL_KEYED_STRING_DICT, kwargs, ast, env, "label_keyed_string_dict");
+      return new Descriptor("label_keyed_string_dict", attribute);
+    } catch (EvalException e) {
+      throw new EvalException(ast.getLocation(), e.getMessage(), e);
+    }
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "bool",
     doc = "Creates an attribute of type bool.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = Boolean.class,
+        allowedTypes = {
+          @ParamType(type = Boolean.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         defaultValue = "False",
         named = true,
         positional = false,
@@ -1324,34 +1322,31 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction bool =
-      new BuiltinFunction("bool") {
-        public Descriptor invoke(
-            Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.bool", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
-              Type.BOOLEAN,
-              ast,
-              env);
-        }
-      };
+  public Descriptor boolAttribute(
+      Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.bool", ast.getLocation());
+    return createAttrDescriptor(
+        "bool",
+        EvalUtils.<String, Object>optionMap(env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
+        Type.BOOLEAN,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "output",
     doc =
         "Creates an attribute of type output. "
             + "The user provides a file name (string) and the rule must create an action that "
             + "generates the file.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = Label.class,
+        allowedTypes = {
+          @ParamType(type = Label.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         noneable = true,
         defaultValue = "None",
         named = true,
@@ -1378,33 +1373,30 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction output =
-      new BuiltinFunction("output") {
-        public Descriptor invoke(
-            Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.output", ast.getLocation());
-          return createNonconfigurableAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
-              BuildType.OUTPUT,
-              ast,
-              env);
-        }
-      };
+  public Descriptor outputAttribute(
+      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.output", ast.getLocation());
+    return createNonconfigurableAttrDescriptor(
+        "output",
+        EvalUtils.<String, Object>optionMap(env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
+        BuildType.OUTPUT,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "output_list",
     doc =
         "Creates an attribute which is a <a href=\"list.html\">list</a> of outputs. "
             + "See <a href=\"attr.html#output\">output</a> for more information.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = SkylarkList.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class, generic1 = Label.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         generic1 = Label.class,
         defaultValue = "[]",
         named = true,
@@ -1439,53 +1431,52 @@ public final class SkylarkAttr implements SkylarkValue {
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = ALLOW_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC,
+        named = true
       )
     },
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction outputList =
-      new BuiltinFunction("output_list") {
-        public Descriptor invoke(
-            SkylarkList defaultList,
-            String doc,
-            Boolean mandatory,
-            Boolean nonEmpty,
-            Boolean allowEmpty,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.output_list", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty,
-                  ALLOW_EMPTY_ARG,
-                  allowEmpty),
-              BuildType.OUTPUT_LIST,
-              ast,
-              env);
-        }
-      };
+  public Descriptor outputListAttribute(
+      SkylarkList defaultList,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.output_list", ast.getLocation());
+    return createAttrDescriptor(
+        "output_list",
+        EvalUtils.<String, Object>optionMap(
+            env,
+            DEFAULT_ARG,
+            defaultList,
+            MANDATORY_ARG,
+            mandatory,
+            NON_EMPTY_ARG,
+            nonEmpty,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
+        BuildType.OUTPUT_LIST,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "string_dict",
     doc =
         "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
             + "<a href=\"string.html\">string</a> to <a href=\"string.html\">string</a>.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = SkylarkDict.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkDict.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         named = true,
         positional = false,
         defaultValue = "{}",
@@ -1519,54 +1510,53 @@ public final class SkylarkAttr implements SkylarkValue {
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = ALLOW_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC,
+        named = true
       )
     },
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction stringDict =
-      new BuiltinFunction("string_dict") {
-        public Descriptor invoke(
-            SkylarkDict<?, ?> defaultO,
-            String doc,
-            Boolean mandatory,
-            Boolean nonEmpty,
-            Boolean allowEmpty,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.string_dict", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultO,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty,
-                  ALLOW_EMPTY_ARG,
-                  allowEmpty),
-              Type.STRING_DICT,
-              ast,
-              env);
-        }
-      };
+  public Descriptor stringDictAttribute(
+      SkylarkDict<?, ?> defaultO,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.string_dict", ast.getLocation());
+    return createAttrDescriptor(
+        "string_dict",
+        EvalUtils.<String, Object>optionMap(
+            env,
+            DEFAULT_ARG,
+            defaultO,
+            MANDATORY_ARG,
+            mandatory,
+            NON_EMPTY_ARG,
+            nonEmpty,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
+        Type.STRING_DICT,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "string_list_dict",
     doc =
         "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
             + "<a href=\"string.html\">string</a> to <a href=\"list.html\">list</a> of "
             + "<a href=\"string.html\">string</a>.",
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       @Param(
         name = DEFAULT_ARG,
-        type = SkylarkDict.class,
+        allowedTypes = {
+          @ParamType(type = SkylarkDict.class),
+          @ParamType(type = UserDefinedFunction.class)
+        },
         defaultValue = "{}",
         named = true,
         positional = false,
@@ -1600,48 +1590,44 @@ public final class SkylarkAttr implements SkylarkValue {
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = ALLOW_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC,
+        named = true
       )
     },
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction stringListDict =
-      new BuiltinFunction("string_list_dict") {
-        public Descriptor invoke(
-            SkylarkDict<?, ?> defaultO,
-            String doc,
-            Boolean mandatory,
-            Boolean nonEmpty,
-            Boolean allowEmpty,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.string_list_dict", ast.getLocation());
-          return createAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultO,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty,
-                  ALLOW_EMPTY_ARG,
-                  allowEmpty),
-              Type.STRING_LIST_DICT,
-              ast,
-              env);
-        }
-      };
+  public Descriptor stringListDictAttribute(
+      SkylarkDict<?, ?> defaultO,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.string_list_dict", ast.getLocation());
+    return createAttrDescriptor(
+        "string_list_dict",
+        EvalUtils.<String, Object>optionMap(
+            env,
+            DEFAULT_ARG,
+            defaultO,
+            MANDATORY_ARG,
+            mandatory,
+            NON_EMPTY_ARG,
+            nonEmpty,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
+        Type.STRING_LIST_DICT,
+        ast,
+        env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "license",
     doc = "Creates an attribute of type license.",
     // TODO(bazel-team): Implement proper license support for Skylark.
-    objectType = SkylarkAttr.class,
-    returnType = Descriptor.class,
     parameters = {
       // TODO(bazel-team): ensure this is the correct default value
       @Param(
@@ -1672,21 +1658,17 @@ public final class SkylarkAttr implements SkylarkValue {
     useAst = true,
     useEnvironment = true
   )
-  private static BuiltinFunction license =
-      new BuiltinFunction("license") {
-        public Descriptor invoke(
-            Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
-            throws EvalException {
-          env.checkLoadingOrWorkspacePhase("attr.license", ast.getLocation());
-          return createNonconfigurableAttrDescriptor(
-              getName(),
-              EvalUtils.<String, Object>optionMap(
-                  env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
-              BuildType.LICENSE,
-              ast,
-              env);
-        }
-      };
+  public Descriptor licenseAttribute(
+      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
+      throws EvalException {
+    env.checkLoadingOrWorkspacePhase("attr.license", ast.getLocation());
+    return createNonconfigurableAttrDescriptor(
+        "license",
+        EvalUtils.<String, Object>optionMap(env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
+        BuildType.LICENSE,
+        ast,
+        env);
+  }
 
   /** A descriptor of an attribute defined in Skylark. */
   @SkylarkModule(
@@ -1711,7 +1693,7 @@ public final class SkylarkAttr implements SkylarkValue {
 
     public boolean hasDefault() {
       return attributeFactory.isValueSet();
-      }
+    }
 
     public AttributeValueSource getValueSource() {
       return attributeFactory.getValueSource();

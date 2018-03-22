@@ -2195,7 +2195,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
     assertThat(expected).hasMessageThat()
-        .contains("argument 'default' has type 'SkylarkLateBoundDefault', but should be 'int'");
+        .contains("expected value of type 'int or function' for parameter 'default', "
+            + "in method call int(SkylarkLateBoundDefault default)");
   }
 
   private void setupThrowFunction(BuiltinFunction func) throws Exception {
