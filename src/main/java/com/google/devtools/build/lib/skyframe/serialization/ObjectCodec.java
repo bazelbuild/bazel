@@ -82,7 +82,7 @@ public interface ObjectCodec<T> {
    * Returns the memoization strategy for this codec.
    *
    * <p>If set to {@link MemoizationStrategy#MEMOIZE_BEFORE}, then {@link
-   * DeserializationContext#makeInitialValue} must be called first in the {@link #deserialize}
+   * DeserializationContext#registerInitialValue} must be called first in the {@link #deserialize}
    * method, before delegating to any other codecs.
    *
    * <p>Implementations of this method should just return a constant, since the choice of strategy
@@ -109,7 +109,7 @@ public interface ObjectCodec<T> {
     /**
      * Indicates that the value is memoized before recursing to its children, so that it is
      * available to form cyclic references from its children. If this strategy is used, {@link
-     * DeserializationContext#makeInitialValue} must be called during the {@link #deserialize}
+     * DeserializationContext#registerInitialValue} must be called during the {@link #deserialize}
      * method.
      *
      * <p>This should be used for all types where it is feasible to provide an initial value. Any

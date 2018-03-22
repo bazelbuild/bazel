@@ -37,9 +37,9 @@ import javax.lang.model.type.TypeMirror;
 /** Static utilities for AutoCodec processors. */
 class AutoCodecUtil {
   // Synthesized classes will have `_AutoCodec` suffix added.
-  public static final String GENERATED_CLASS_NAME_SUFFIX = "AutoCodec";
+  private static final String GENERATED_CLASS_NAME_SUFFIX = "AutoCodec";
   static final Class<AutoCodec> ANNOTATION = AutoCodec.class;
-  static final String MUTABILITY_VARIABLE_NAME = "mutabilityForMemoizeAdditionalData";
+
   /**
    * Initializes a builder for a class of the appropriate type.
    *
@@ -84,7 +84,7 @@ class AutoCodecUtil {
             .addParameter(TypeName.get(env.getTypeUtils().erasure(encodedType.asType())), "input")
             .addParameter(CodedOutputStream.class, "codedOut");
     if (startMemoizing) {
-      builder.addStatement("context = context.newMemoizingContext()");
+      builder.addStatement("context = context.getMemoizingContext()");
     }
     return builder;
   }
@@ -107,14 +107,7 @@ class AutoCodecUtil {
             .addParameter(DeserializationContext.class, "context")
             .addParameter(CodedInputStream.class, "codedIn");
     if (startMemoizing) {
-      // We can't directly use the Mutability class here because there are @AutoCodec'ed classes
-      // that Mutability depends on. Those classes won't start memoization, of course, but the code
-      // generator doesn't know that.
-      builder.addStatement(
-          "com.google.devtools.build.lib.syntax.Mutability $L = "
-              + "com.google.devtools.build.lib.syntax.Mutability.create(\"deserialize skylark\")",
-          MUTABILITY_VARIABLE_NAME);
-      builder.addStatement("context = context.newMemoizingContext($L)", MUTABILITY_VARIABLE_NAME);
+      builder.addStatement("context = context.getMemoizingContext()");
     }
     return builder;
   }

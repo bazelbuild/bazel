@@ -73,14 +73,19 @@ public class SerializationContext {
    * Returns a {@link SerializationContext} that will memoize values it encounters (using reference
    * equality) in a new memoization table. The returned context should be used instead of the
    * original: memoization may only occur when using the returned context. Calls must be in pairs
-   * with {@link DeserializationContext#newMemoizingContext} in the corresponding deserialization
-   * code. Over-eagerly calling this method will reduce the effectiveness of memoization, since any
-   * previous memo state is inaccessible to the new context.
+   * with {@link DeserializationContext#getMemoizingContext} in the corresponding deserialization
+   * code.
+   *
+   * <p>This method is idempotent: calling it on an already memoizing context will return the same
+   * context.
    */
   @CheckReturnValue
-  public SerializationContext newMemoizingContext() {
+  public SerializationContext getMemoizingContext() {
     Preconditions.checkState(
         memoizationPermission == MemoizationPermission.ALLOWED, "memoization disabled");
+    if (serializer != null) {
+      return this;
+    }
     return new SerializationContext(
         this.registry, this.dependencies, memoizationPermission, new Memoizer.Serializer());
   }
