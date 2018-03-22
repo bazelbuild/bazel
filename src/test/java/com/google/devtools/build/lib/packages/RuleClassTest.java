@@ -866,6 +866,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     return new RuleClass(
         name,
         name,
+        RuleClassType.NORMAL,
         /*isSkylark=*/ skylarkExecutable,
         skylarkExecutable,
         /*skylarkTestable=*/ false,

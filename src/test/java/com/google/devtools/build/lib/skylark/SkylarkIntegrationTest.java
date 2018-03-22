@@ -158,7 +158,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertThat(ccTarget.getAttr("generator_location")).isEqualTo("");
   }
 
-
+  @Test
+  public void sanityCheckUserDefinedTestRule() throws Exception {
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _impl(ctx):",
+        "  output = ctx.outputs.out",
+        "  ctx.actions.write(output = output, content = 'hello')",
+        "",
+        "fake_test = rule(",
+        "  implementation = _impl,",
+        "  test=True,",
+        "  attrs = {'_xcode_config': attr.label(default = configuration_field(",
+        "  fragment = 'apple', name = \"xcode_config_label\"))},",
+        "  outputs = {\"out\": \"%{name}.txt\"})");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'fake_test')",
+        "fake_test(name = 'test_name')");
+    getConfiguredTarget("//test/skylark:fake_test");
+  }
 
   @Test
   public void testOutputGroups() throws Exception {

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTe
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -685,7 +686,12 @@ public class RuleClass {
           skylark && (type == RuleClassType.NORMAL || type == RuleClassType.TEST);
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
-          == (configuredTargetFactory == null && configuredTargetFunction == null));
+              == (configuredTargetFactory == null && configuredTargetFunction == null),
+          "Bad combo for %s: %s %s %s",
+          name,
+          type,
+          configuredTargetFactory,
+          configuredTargetFunction);
       if (!workspaceOnly) {
         Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
         Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
@@ -697,6 +703,7 @@ public class RuleClass {
       return new RuleClass(
           name,
           key,
+          type,
           skylark,
           skylarkExecutable,
           skylarkTestable,
@@ -1184,6 +1191,7 @@ public class RuleClass {
    */
   private final String targetKind;
 
+  private final RuleClassType type;
   private final boolean isSkylark;
   private final boolean skylarkExecutable;
   private final boolean skylarkTestable;
@@ -1305,6 +1313,7 @@ public class RuleClass {
   RuleClass(
       String name,
       String key,
+      RuleClassType type,
       boolean isSkylark,
       boolean skylarkExecutable,
       boolean skylarkTestable,
@@ -1333,6 +1342,7 @@ public class RuleClass {
       Attribute... attributes) {
     this.name = name;
     this.key = key;
+    this.type = type;
     this.isSkylark = isSkylark;
     this.targetKind = name + Rule.targetKindSuffix();
     this.skylarkExecutable = skylarkExecutable;
@@ -1430,6 +1440,11 @@ public class RuleClass {
    */
   public String getName() {
     return name;
+  }
+
+  /** Returns the type of rule that this RuleClass represents. Only for use during serialization. */
+  public RuleClassType getRuleClassType() {
+    return type;
   }
 
   /** Returns a unique key. Used for profiling purposes. */
