@@ -93,6 +93,36 @@ public class ManifestMergerActionTest {
     working.toFile().deleteOnExit();
   }
 
+  @Test
+  public void testMerge_GenerateDummyManifest() throws Exception {
+    final Path workingDir = Paths.get(System.getProperty("user.dir"));
+    assertThat(workingDir.toFile().exists()).isTrue();
+    assertThat(workingDir.toFile().isDirectory()).isTrue();
+
+    Files.createDirectories(working.resolve("output"));
+    Path mergedManifest = working.resolve("output/mergedManifest.xml");
+
+    ManifestMergerAction.main(
+        new String[] {
+            "--customPackage",
+            "foo.bar.baz",
+            "--mergeType",
+            "LIBRARY",
+            "--manifestOutput",
+            mergedManifest.toString()
+        });
+
+    assertThat(
+        Joiner.on(" ")
+            .join(Files.readAllLines(mergedManifest, UTF_8))
+            .replaceAll("\\s+", " ")
+            .trim())
+        .isEqualTo(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?> "
+                + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" "
+                + "package=\"foo.bar.baz\" />");
+  }
+
   @Test public void testMerge() throws Exception {
     final Path workingDir = Paths.get(System.getProperty("user.dir"));
     assertThat(workingDir.toFile().exists()).isTrue();
