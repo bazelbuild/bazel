@@ -14,10 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.devtools.build.lib.util.ResourceUsage;
+
 /**
  * Some static constants for deciding serialization behavior.
  */
 public class SerializationConstants {
+
+  /** Number of threads in deserialization pools. */
+  public static final int DESERIALIZATION_POOL_SIZE = 2 * ResourceUsage.getAvailableProcessors();
 
   /**
    * If true, we attempt to to serialize ConfiguredTargetValue in testing.

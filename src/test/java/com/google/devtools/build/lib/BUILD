@@ -224,6 +224,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
