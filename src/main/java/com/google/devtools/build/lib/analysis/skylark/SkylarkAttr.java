@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
+import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -171,12 +173,22 @@ public final class SkylarkAttr implements SkylarkValue {
     }
   }
 
-  private static Attribute.Builder<?> createAttribute(
+  private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type, SkylarkDict<String, Object> arguments, FuncallExpression ast, Environment env)
       throws EvalException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
-    return createAttribute(type, arguments, ast, env, "");
+    return createAttributeFactory(type, arguments, ast, env, "");
+  }
+
+  private static ImmutableAttributeFactory createAttributeFactory(
+      Type<?> type,
+      SkylarkDict<String, Object> arguments,
+      FuncallExpression ast,
+      Environment env,
+      String name)
+      throws EvalException {
+    return createAttribute(type, arguments, ast, env, name).buildPartial();
   }
 
   private static Attribute.Builder<?> createAttribute(
@@ -412,7 +424,7 @@ public final class SkylarkAttr implements SkylarkValue {
       Environment env)
       throws EvalException {
     try {
-      return new Descriptor(name, createAttribute(type, kwargs, ast, env));
+      return new Descriptor(name, createAttributeFactory(type, kwargs, ast, env));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -444,8 +456,13 @@ public final class SkylarkAttr implements SkylarkValue {
     String whyNotConfigurableReason =
         Preconditions.checkNotNull(maybeGetNonConfigurableReason(type), type);
     try {
+      // We use an empty name now so that we can set it later.
+      // This trick makes sense only in the context of Skylark (builtin rules should not use it).
       return new Descriptor(
-          name, createAttribute(type, kwargs, ast, env).nonconfigurable(whyNotConfigurableReason));
+          name,
+          createAttribute(type, kwargs, ast, env, "")
+              .nonconfigurable(whyNotConfigurableReason)
+              .buildPartial());
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -768,8 +785,8 @@ public final class SkylarkAttr implements SkylarkValue {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.label", ast.getLocation());
           try {
-            Attribute.Builder<?> attribute =
-                createAttribute(
+            ImmutableAttributeFactory attribute =
+                createAttributeFactory(
                     BuildType.LABEL,
                     EvalUtils.<String, Object>optionMap(
                         env,
@@ -1102,8 +1119,8 @@ public final class SkylarkAttr implements SkylarkValue {
                   ASPECTS_ARG,
                   aspects);
           try {
-            Attribute.Builder<?> attribute =
-                createAttribute(BuildType.LABEL_LIST, kwargs, ast, env, "label_list");
+            ImmutableAttributeFactory attribute =
+                createAttributeFactory(BuildType.LABEL_LIST, kwargs, ast, env, "label_list");
             return new Descriptor(getName(), attribute);
           } catch (EvalException e) {
             throw new EvalException(ast.getLocation(), e.getMessage(), e);
@@ -1263,8 +1280,8 @@ public final class SkylarkAttr implements SkylarkValue {
                   ASPECTS_ARG,
                   aspects);
           try {
-            Attribute.Builder<?> attribute =
-                createAttribute(
+            ImmutableAttributeFactory attribute =
+                createAttributeFactory(
                     BuildType.LABEL_KEYED_STRING_DICT, kwargs, ast, env, "label_keyed_string_dict");
             return new Descriptor(this.getName(), attribute);
           } catch (EvalException e) {
@@ -1681,39 +1698,27 @@ public final class SkylarkAttr implements SkylarkValue {
             + "<a href=\"globals.html#rule\">rule</a> or an "
             + "<a href=\"globals.html#aspect\">aspect</a>."
   )
+  @AutoCodec
   public static final class Descriptor implements SkylarkValue {
-    private final Attribute.Builder<?> attributeBuilder;
-
-    /**
-     * This lock guards {@code attributeBuilder} field.
-     *
-     * {@link Attribute.Builder} class is not thread-safe for concurrent modification.
-     */
-    private final Object lock = new Object();
-
+    private final ImmutableAttributeFactory attributeFactory;
     private final String name;
 
-    public Descriptor(String name, Attribute.Builder<?> attributeBuilder) {
-      this.attributeBuilder = attributeBuilder;
+    @AutoCodec.VisibleForSerialization
+    Descriptor(String name, ImmutableAttributeFactory attributeFactory) {
+      this.attributeFactory = Preconditions.checkNotNull(attributeFactory);
       this.name = name;
     }
 
     public boolean hasDefault() {
-      synchronized (lock) {
-        return attributeBuilder.isValueSet();
+      return attributeFactory.isValueSet();
       }
-    }
 
     public AttributeValueSource getValueSource() {
-      synchronized (lock) {
-        return attributeBuilder.getValueSource();
-      }
+      return attributeFactory.getValueSource();
     }
 
     public Attribute build(String name) {
-      synchronized (lock) {
-        return attributeBuilder.build(name);
-      }
+      return attributeFactory.build(name);
     }
 
     @Override
