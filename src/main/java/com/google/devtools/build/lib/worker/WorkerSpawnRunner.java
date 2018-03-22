@@ -314,7 +314,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
         recordingStream.readRemaining();
         throw new UserExecException(
             ErrorMessage.builder()
-                .message("Worker process returned an unparseable WorkResponse:")
+                .message(
+                    "Worker process returned an unparseable WorkResponse!\n\n"
+                        + "Did you try to print something to stdout? Workers aren't allowed to do "
+                        + "this, as it breaks the protocol between Bazel and the worker process.")
                 .logText(recordingStream.getRecordedDataAsString())
                 .exception(e)
                 .build()

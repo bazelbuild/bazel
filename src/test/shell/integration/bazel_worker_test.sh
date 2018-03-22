@@ -360,7 +360,8 @@ EOF
     && fail "expected build to fail" || true
 
   # Check that a helpful error message was printed.
-  expect_log "Worker process returned an unparseable WorkResponse:"
+  expect_log "Worker process returned an unparseable WorkResponse!"
+  expect_log "Did you try to print something to stdout"
   expect_log "I'm a poisoned worker and this is not a protobuf."
 }
 
