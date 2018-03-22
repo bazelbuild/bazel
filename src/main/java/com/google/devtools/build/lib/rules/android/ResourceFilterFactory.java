@@ -590,18 +590,6 @@ public class ResourceFilterFactory {
     return filterInAnalysis;
   }
 
-  boolean hasFilters() {
-    return hasConfigurationFilters() || hasDensities();
-  }
-
-  public String getOutputDirectorySuffix() {
-    if (!hasFilters()) {
-      return null;
-    }
-
-    return getConfigurationFilterString() + "_" + getDensityString();
-  }
-
   /**
    * Gets a list of resource names that should be ignored by resource processing if they don't
    * exist.

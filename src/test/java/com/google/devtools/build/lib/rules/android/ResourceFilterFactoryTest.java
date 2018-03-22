@@ -461,76 +461,6 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
             .isPrefiltering());
   }
 
-  @Test
-  public void testGetOutputDirectorySuffixEmpty() throws Exception {
-    assertThat(makeResourceFilter("", "", /* filterInAnalysis = */ true).getOutputDirectorySuffix())
-        .isNull();
-  }
-
-  @Test
-  public void testGetOutputDirectoryOnlyFilterConfigurations() throws Exception {
-    String configurationFilters = "en,es-rUS,fr";
-    assertThat(
-            makeResourceFilter(configurationFilters, "", /* filterInAnalysis = */ true)
-                .getOutputDirectorySuffix())
-        .isEqualTo(configurationFilters + "_");
-  }
-
-  @Test
-  public void testGetOutputDirectoryOnlyDensities() throws Exception {
-    String densities = "hdpi,ldpi,xhdpi";
-    assertThat(
-            makeResourceFilter("", densities, /* filterInAnalysis = */ true)
-                .getOutputDirectorySuffix())
-        .isEqualTo("_" + densities);
-  }
-
-  /**
-   * Only densities is a legal (if unhelpful) resource_configuration_filters settings. Ensure it
-   * produces a different output directory than a similar densities value.
-   */
-  @Test
-  public void testGetOutputDirectoryDensitiesAreDifferentFromDensityConfigurationFilters()
-      throws Exception {
-    ResourceFilterFactory configurationFilter =
-        makeResourceFilter("hdpi", "", /* filterInAnalysis = */ true);
-    ResourceFilterFactory densityFilter =
-        makeResourceFilter("", "hdpi", /* filterInAnalysis = */ true);
-
-    assertThat(configurationFilter.getOutputDirectorySuffix())
-        .isNotEqualTo(densityFilter.getOutputDirectorySuffix());
-  }
-
-  @Test
-  public void testGetOutputDirectory() throws Exception {
-    assertThat(
-            makeResourceFilter("en,fr-rCA", "hdpi,ldpi", /* filterInAnalysis = */ true)
-                .getOutputDirectorySuffix())
-        .isEqualTo("en,fr-rCA_hdpi,ldpi");
-  }
-
-  /**
-   * Asserts that identical but differently ordered arguments still produce the same output
-   * directory. If filters are identical, there's no reason to rebuild.
-   */
-  @Test
-  public void testGetOutputDirectoryDifferentlyOrdered() throws Exception {
-    ResourceFilterFactory first =
-        makeResourceFilter("en,fr", "hdpi,ldpi", /* filterInAnalysis = */ true);
-    ResourceFilterFactory second =
-        makeResourceFilter("fr,en", "ldpi,hdpi", /* filterInAnalysis = */ true);
-    assertThat(first.getOutputDirectorySuffix()).isEqualTo(second.getOutputDirectorySuffix());
-  }
-
-  @Test
-  public void testGetOutputDirectoryDuplicated() throws Exception {
-    ResourceFilterFactory duplicated =
-        makeResourceFilter("en,en", "hdpi,hdpi", /* filterInAnalysis = */ true);
-    ResourceFilterFactory normal = makeResourceFilter("en", "hdpi", /* filterInAnalysis = */ true);
-
-    assertThat(duplicated.getOutputDirectorySuffix()).isEqualTo(normal.getOutputDirectorySuffix());
-  }
-
   private ResourceFilterFactory makeResourceFilter(
       String resourceConfigurationFilters, String densities, boolean filterInAnalysis) {
     return makeResourceFilter(
@@ -574,13 +504,5 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     assertThat(resourceDeps.filter(filter)).isSameAs(resourceDeps);
 
     return localResourceContainer.filter(errorConsumer, filter).getResources();
-  }
-
-  @Test
-  public void testWithAttrsFromAttrsNotSpecified() throws Exception {
-    assertThat(
-            ResourceFilterFactory.from(/* filterInAnalysis = */ true, FakeAttributeMapper.empty())
-                .hasFilters())
-        .isFalse();
   }
 }
