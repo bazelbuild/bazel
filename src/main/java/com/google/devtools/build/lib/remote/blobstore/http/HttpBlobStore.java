@@ -38,6 +38,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.stream.ChunkedWriteHandler;
+import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.internal.PlatformDependent;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -126,7 +127,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
         new Bootstrap()
             .channel(NioSocketChannel.class)
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis)
-            .option(ChannelOption.SO_TIMEOUT, timeoutMillis)
             .group(eventLoop)
             .remoteAddress(uri.getHost(), uri.getPort());
     downloadChannels =
@@ -134,14 +134,20 @@ public final class HttpBlobStore implements SimpleBlobStore {
             clientBootstrap,
             new ChannelPoolHandler() {
               @Override
-              public void channelReleased(Channel ch) {}
+              public void channelReleased(Channel ch) {
+                ch.pipeline().remove("read-timeout-handler");
+              }
 
               @Override
-              public void channelAcquired(Channel ch) {}
+              public void channelAcquired(Channel ch) {
+                ch.pipeline()
+                    .addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
+              }
 
               @Override
               public void channelCreated(Channel ch) {
                 ChannelPipeline p = ch.pipeline();
+                p.addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
                 if (sslCtx != null) {
                   SSLEngine engine = sslCtx.newEngine(ch.alloc());
                   engine.setUseClientMode(true);
@@ -220,7 +226,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
           }
         };
     DownloadCommand download = new DownloadCommand(uri, casDownload, key, wrappedOut);
-    ;
+
     Channel ch = null;
     try {
       ch = acquireDownloadChannel();
