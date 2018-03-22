@@ -13,12 +13,14 @@
 // limitations under the License.
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +30,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.zip.CRC32;
@@ -54,47 +58,51 @@ public class DumpPlatformClassPath {
       System.exit(1);
     }
     String targetRelease = args[0];
+    Map<String, byte[]> entries = new HashMap<>();
+    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+    StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, UTF_8);
+    if (isJdk9OrLater()) {
+      // this configures the filemanager to use a JDK 8 bootclasspath
+      compiler.getTask(
+          null, fileManager, null, Arrays.asList("--release", targetRelease), null, null);
+      for (Path path : getLocationAsPaths(fileManager)) {
+        Files.walkFileTree(
+            path,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                  throws IOException {
+                if (file.getFileName().toString().endsWith(".sig")) {
+                  String outputPath = path.relativize(file).toString();
+                  outputPath =
+                      outputPath.substring(0, outputPath.length() - ".sig".length()) + ".class";
+                  entries.put(outputPath, Files.readAllBytes(file));
+                }
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      }
+    } else {
+      for (JavaFileObject fileObject :
+          fileManager.list(
+              StandardLocation.PLATFORM_CLASS_PATH,
+              "",
+              EnumSet.of(Kind.CLASS),
+              /* recurse= */ true)) {
+        String binaryName =
+            fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, fileObject);
+        entries.put(
+            binaryName.replace('.', '/') + ".class", toByteArray(fileObject.openInputStream()));
+      }
+    }
     try (OutputStream os = Files.newOutputStream(Paths.get(args[1]));
         BufferedOutputStream bos = new BufferedOutputStream(os, 65536);
         JarOutputStream jos = new JarOutputStream(bos)) {
-      JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-      StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, UTF_8);
-      if (isJdk9OrLater()) {
-        // this configures the filemanager to use a JDK 8 bootclasspath
-        compiler.getTask(
-            null, fileManager, null, Arrays.asList("--release", targetRelease), null, null);
-        for (Path path : getLocationAsPaths(fileManager)) {
-          Files.walkFileTree(
-              path,
-              new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                    throws IOException {
-                  if (file.getFileName().toString().endsWith(".sig")) {
-                    String outputPath = path.relativize(file).toString();
-                    outputPath =
-                        outputPath.substring(0, outputPath.length() - ".sig".length()) + ".class";
-                    addEntry(jos, outputPath, Files.readAllBytes(file));
-                  }
-                  return FileVisitResult.CONTINUE;
-                }
-              });
-        }
-      } else {
-        for (JavaFileObject fileObject :
-            fileManager.list(
-                StandardLocation.PLATFORM_CLASS_PATH,
-                "",
-                EnumSet.of(Kind.CLASS),
-                /* recurse= */ true)) {
-          String binaryName =
-              fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, fileObject);
-          addEntry(
-              jos,
-              binaryName.replace('.', '/') + ".class",
-              toByteArray(fileObject.openInputStream()));
-        }
-      }
+      entries
+          .entrySet()
+          .stream()
+          .sorted(comparing(Map.Entry::getKey))
+          .forEachOrdered(e -> addEntry(jos, e.getKey(), e.getValue()));
     }
   }
 
@@ -114,16 +122,20 @@ public class DumpPlatformClassPath {
   private static final long FIXED_TIMESTAMP =
       new GregorianCalendar(2010, 0, 1, 0, 0, 0).getTimeInMillis();
 
-  private static void addEntry(JarOutputStream jos, String name, byte[] bytes) throws IOException {
-    JarEntry je = new JarEntry(name);
-    je.setTime(FIXED_TIMESTAMP);
-    je.setMethod(ZipEntry.STORED);
-    je.setSize(bytes.length);
-    CRC32 crc = new CRC32();
-    crc.update(bytes);
-    je.setCrc(crc.getValue());
-    jos.putNextEntry(je);
-    jos.write(bytes);
+  private static void addEntry(JarOutputStream jos, String name, byte[] bytes) {
+    try {
+      JarEntry je = new JarEntry(name);
+      je.setTime(FIXED_TIMESTAMP);
+      je.setMethod(ZipEntry.STORED);
+      je.setSize(bytes.length);
+      CRC32 crc = new CRC32();
+      crc.update(bytes);
+      je.setCrc(crc.getValue());
+      jos.putNextEntry(je);
+      jos.write(bytes);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   private static byte[] toByteArray(InputStream is) throws IOException {
