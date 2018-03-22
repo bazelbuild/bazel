@@ -32,8 +32,7 @@ public final class ConfigRules implements RuleSet {
   public void init(Builder builder) {
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
-    builder.addConfig(ConfigFeatureFlagConfiguration.Options.class,
-        new ConfigFeatureFlagConfiguration.Loader());
+    builder.addConfig(ConfigFeatureFlagOptions.class, new ConfigFeatureFlagConfiguration.Loader());
 
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
     builder.addSkylarkAccessibleTopLevels("config_common", new ConfigSkylarkCommon());
