@@ -725,7 +725,6 @@ public class BuildConfiguration {
     )
     public boolean legacyExternalRunfiles;
 
-    @Deprecated
     @Option(
       name = "check_fileset_dependencies_recursively",
       defaultValue = "true",
@@ -740,14 +739,10 @@ public class BuildConfiguration {
     @Option(
       name = "experimental_skyframe_native_filesets",
       defaultValue = "true",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = { OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION },
-      metadataTags = { OptionMetadataTag.EXPERIMENTAL },
-      help =
-          "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
-              + " This offers improved performance in incremental builds of Filesets as well as"
-              + " correct incremental behavior."
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      deprecationWarning = "Skyframe-native filesets are now the default, and legacy "
+              + "implementation will be removed soon."
     )
     public boolean skyframeNativeFileset;
 
