@@ -49,4 +49,30 @@ public class DeprecatedApiCheckerTest {
 
     Truth.assertThat(findIssues("ctx.actions()")).isEmpty();
   }
+
+  @Test
+  public void testRuleImplReturnValue() {
+    Truth.assertThat(
+            findIssues("def _impl(ctx): return struct()", "x = rule(implementation=_impl)")
+                .toString())
+        .contains("1:17-1:31: Avoid using the legacy provider syntax.");
+
+    Truth.assertThat(
+            findIssues(
+                    "def _impl(ctx):",
+                    "  if True: return struct()",
+                    "  return",
+                    "x = rule(_impl, attrs = {})")
+                .toString())
+        .contains("2:12-2:26: Avoid using the legacy provider syntax.");
+
+    Truth.assertThat(
+            findIssues(
+                "def _impl(): return struct()",
+                "def _impl2(): return []",
+                "x = rule(",
+                "  implementation=_impl2,",
+                ")"))
+        .isEmpty();
+  }
 }

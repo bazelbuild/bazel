@@ -15,23 +15,38 @@
 package com.google.devtools.skylark.skylint;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.ReturnStatement;
+import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /** Checks for operations that are deprecated */
 public class DeprecatedApiChecker extends AstVisitorWithNameResolution {
   private static final String DEPRECATED_API = "deprecated-api";
+  private static final String RULE_IMPL_RETURN = "deprecated-rule-impl-return";
 
   private final List<Issue> issues = new ArrayList<>();
+
+  /** True if we are currently visiting a rule implementation. */
+  private boolean visitingRuleImplementation;
+
+  /** Set of functions that are used as rule implementation. */
+  private final Set<String> ruleImplSet = Sets.newHashSet();
 
   private DeprecatedApiChecker() {}
 
   public static List<Issue> check(BuildFileAST ast) {
     DeprecatedApiChecker checker = new DeprecatedApiChecker();
+    checker.inferRuleImpl(ast);
     checker.visit(ast);
     return checker.issues;
   }
@@ -53,6 +68,34 @@ public class DeprecatedApiChecker extends AstVisitorWithNameResolution {
     }
 
     return "";
+  }
+
+  private void inferRuleImpl(BuildFileAST ast) {
+    new SyntaxTreeVisitor() {
+
+      @Override
+      public void visit(FuncallExpression node) {
+        // Collect all 'x' that match this pattern:
+        //   rule(implementation=x, ...)
+        Expression fct = node.getFunction();
+        if (!(fct instanceof Identifier) || !((Identifier) fct).getName().equals("rule")) {
+          return;
+        }
+
+        boolean firstArg = true;
+        for (Argument.Passed arg : node.getArguments()) {
+          if (!"implementation".equals(arg.getName()) && (!firstArg || arg.isKeyword())) {
+            firstArg = false;
+            continue;
+          }
+          firstArg = false;
+          Expression val = arg.getValue();
+          if (val instanceof Identifier) {
+            ruleImplSet.add(((Identifier) val).getName());
+          }
+        }
+      }
+    }.visit(ast);
   }
 
   private static final ImmutableMap<String, String> deprecatedMethods =
@@ -93,5 +136,39 @@ public class DeprecatedApiChecker extends AstVisitorWithNameResolution {
   public void visit(DotExpression node) {
     super.visit(node);
     checkDeprecated(node);
+  }
+
+  @Override
+  public void visit(ReturnStatement node) {
+    super.visit(node);
+
+    // Check that rule implementation functions don't return a call to `struct`.
+    if (!visitingRuleImplementation) {
+      return;
+    }
+    Expression e = node.getReturnExpression();
+    if (e == null) {
+      return;
+    }
+    if (!(e instanceof FuncallExpression)) {
+      return;
+    }
+    String fctName = dottedExpressionToString(((FuncallExpression) e).getFunction());
+    if (fctName.equals("struct")) {
+      issues.add(
+          Issue.create(
+              RULE_IMPL_RETURN,
+              "Avoid using the legacy provider syntax. Instead of returning a `struct` from a rule "
+                  + "implementation function, return a list of providers: "
+                  + "https://docs.bazel.build/versions/master/skylark/rules.html"
+                  + "#migrating-from-legacy-providers",
+              node.getLocation()));
+    }
+  }
+
+  @Override
+  public void visit(FunctionDefStatement node) {
+    visitingRuleImplementation = ruleImplSet.contains(node.getIdentifier().getName());
+    super.visit(node);
   }
 }
