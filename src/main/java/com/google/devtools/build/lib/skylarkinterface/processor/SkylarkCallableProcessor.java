@@ -65,6 +65,8 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
+  private static final String SKYLARK_SEMANTICS =
+      "com.google.devtools.build.lib.syntax.SkylarkSemantics";
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -86,6 +88,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
 
       try {
+        verifyNotStructFieldWithInvalidExtraParams(methodElement, annotation);
         verifyParamSemantics(methodElement, annotation);
         verifyNumberOfParameters(methodElement, annotation);
         verifyExtraInterpreterParams(methodElement, annotation);
@@ -95,6 +98,19 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
 
     return true;
+  }
+
+  private void verifyNotStructFieldWithInvalidExtraParams(
+      ExecutableElement methodElement, SkylarkCallable annotation)
+      throws SkylarkCallableProcessorException {
+    if (annotation.structField()) {
+      if (annotation.useAst() || annotation.useEnvironment() || annotation.useAst()) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            "@SkylarkCallable-annotated methods with structField=true may not also specify "
+                + "useAst, useEnvironment, or useLocation");
+      }
+    }
   }
 
   private void verifyParamSemantics(ExecutableElement methodElement, SkylarkCallable annotation)
@@ -149,11 +165,14 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
     }
     if (annotation.structField()) {
-      if (methodSignatureParams.size() > 0) {
-        // TODO(cparsons): Allow structField methods to accept interpreter-supplied arguments.
+      if (methodSignatureParams.size() != numExtraInterpreterParams) {
         throw new SkylarkCallableProcessorException(
             methodElement,
-            "@SkylarkCallable annotated methods with structField=true must have zero arguments.");
+            String.format(
+                "@SkylarkCallable annotated methods with structField=true must have "
+                    + "0 user-supplied parameters. Expected %d extra interpreter parameters, "
+                    + "but found %d total parameters.",
+                numExtraInterpreterParams, methodSignatureParams.size()));
       }
     }
   }
@@ -199,6 +218,19 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
                 ENVIRONMENT,
                 methodSignatureParams.get(currentIndex).asType().toString()));
       }
+      currentIndex++;
+    }
+    if (annotation.useSkylarkSemantics()) {
+      if (!SKYLARK_SEMANTICS.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format(
+                "Expected parameter index %d to be the %s type, matching useSkylarkSemantics, "
+                    + "but was %s",
+                currentIndex,
+                SKYLARK_SEMANTICS,
+                methodSignatureParams.get(currentIndex).asType().toString()));
+      }
     }
   }
 
@@ -207,6 +239,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     numExtraInterpreterParams += annotation.useLocation() ? 1 : 0;
     numExtraInterpreterParams += annotation.useAst() ? 1 : 0;
     numExtraInterpreterParams += annotation.useEnvironment() ? 1 : 0;
+    numExtraInterpreterParams += annotation.useSkylarkSemantics() ? 1 : 0;
     return numExtraInterpreterParams;
   }
 

@@ -487,6 +487,7 @@ public final class FuncallExpression extends Expression {
     numExtraInterpreterParams += callable.useLocation() ? 1 : 0;
     numExtraInterpreterParams += callable.useAst() ? 1 : 0;
     numExtraInterpreterParams += callable.useEnvironment() ? 1 : 0;
+    numExtraInterpreterParams += callable.useSkylarkSemantics() ? 1 : 0;
 
     int mandatoryPositionals = callable.mandatoryPositionals();
     if (mandatoryPositionals < 0) {
@@ -584,6 +585,9 @@ public final class FuncallExpression extends Expression {
     }
     if (callable.useEnvironment()) {
       builder.add(environment);
+    }
+    if (callable.useSkylarkSemantics()) {
+      builder.add(environment.getSemantics());
     }
 
     return ArgumentListConversionResult.fromArgumentList(builder.build());
