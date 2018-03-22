@@ -83,11 +83,7 @@ public class DeserializationContextTest {
     DeserializationContext deserializationContext =
         new DeserializationContext(registry, ImmutableMap.of());
     when(codedInputStream.readSInt32()).thenReturn(0);
-    assertThat(
-            (Object)
-                deserializationContext
-                    .newMemoizingContext(new Object())
-                    .deserialize(codedInputStream))
+    assertThat((Object) deserializationContext.getMemoizingContext().deserialize(codedInputStream))
         .isEqualTo(null);
     Mockito.verify(codedInputStream).readSInt32();
     Mockito.verifyZeroInteractions(registry);
@@ -102,11 +98,7 @@ public class DeserializationContextTest {
     DeserializationContext deserializationContext =
         new DeserializationContext(registry, ImmutableMap.of());
     when(codedInputStream.readSInt32()).thenReturn(1);
-    assertThat(
-            (Object)
-                deserializationContext
-                    .newMemoizingContext(new Object())
-                    .deserialize(codedInputStream))
+    assertThat((Object) deserializationContext.getMemoizingContext().deserialize(codedInputStream))
         .isEqualTo(constant);
     Mockito.verify(codedInputStream).readSInt32();
     Mockito.verify(registry).maybeGetConstantByTag(1);
@@ -127,7 +119,7 @@ public class DeserializationContextTest {
     when(registry.getCodecDescriptorByTag(1)).thenReturn(codecDescriptor);
     CodedInputStream codedInputStream = Mockito.mock(CodedInputStream.class);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableMap.of()).newMemoizingContext(new Object());
+        new DeserializationContext(registry, ImmutableMap.of()).getMemoizingContext();
     when(codec.deserialize(deserializationContext, codedInputStream)).thenReturn(returned);
     when(codedInputStream.readSInt32()).thenReturn(1);
     assertThat((Object) deserializationContext.deserialize(codedInputStream)).isEqualTo(returned);

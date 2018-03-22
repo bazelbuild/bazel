@@ -72,6 +72,13 @@ public class TestUtils {
     return codec.deserialize(context, CodedInputStream.newInstance(bytes));
   }
 
+  public static <T> T roundTrip(T value, ObjectCodecRegistry registry)
+      throws IOException, SerializationException {
+    return new DeserializationContext(registry, ImmutableMap.of())
+        .deserialize(
+            toBytes(new SerializationContext(registry, ImmutableMap.of()), value).newCodedInput());
+  }
+
   public static <T> T roundTrip(T value, ImmutableMap<Class<?>, Object> dependencies)
       throws IOException, SerializationException {
     ObjectCodecRegistry.Builder builder = AutoRegistry.get().getBuilder();
@@ -111,7 +118,7 @@ public class TestUtils {
     ByteString.Output output = ByteString.newOutput();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
     new SerializationContext(registry, ImmutableMap.of())
-        .newMemoizingContext()
+        .getMemoizingContext()
         .serialize(original, codedOut);
     codedOut.flush();
     return output.toByteString();
@@ -120,20 +127,14 @@ public class TestUtils {
   public static Object fromBytesMemoized(ByteString bytes, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
     return new DeserializationContext(registry, ImmutableMap.of())
-        .newMemoizingContext(Mutability.create("deserialize skylark"))
+        .getMemoizingContext()
         .deserialize(bytes.newCodedInput());
   }
 
   public static <T> T roundTripMemoized(T original, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return roundTripMemoized(original, Mutability.create("deserialize skylark"), registry);
-  }
-
-  public static <T> T roundTripMemoized(
-      T original, @Nullable Mutability mutability, ObjectCodecRegistry registry)
-      throws IOException, SerializationException {
     return new DeserializationContext(registry, ImmutableMap.of())
-        .newMemoizingContext(mutability)
+        .getMemoizingContext()
         .deserialize(toBytesMemoized(original, registry).newCodedInput());
   }
 
@@ -145,7 +146,7 @@ public class TestUtils {
   public static <T> T roundTripMemoized(
       T original, @Nullable Mutability mutability, ObjectCodec<?>... codecs)
       throws IOException, SerializationException {
-    return roundTripMemoized(original, mutability, getBuilderWithAdditionalCodecs(codecs).build());
+    return roundTripMemoized(original, getBuilderWithAdditionalCodecs(codecs).build());
   }
 
   public static ObjectCodecRegistry.Builder getBuilderWithAdditionalCodecs(

@@ -24,7 +24,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -242,38 +241,6 @@ class Memoizer {
     private final Deque<Object> memoizedBeforeStackForSanityChecking = new ArrayDeque<>();
 
     /**
-     * Additional data is dynamically typed, and retrieved using a type token.
-     *
-     * <p>If we need to support multiple kinds of additional data in the future, this could become
-     * a mapping.
-     */
-    private final Object additionalData;
-
-    Deserializer(Object additionalData) {
-      Preconditions.checkNotNull(additionalData);
-      this.additionalData = additionalData;
-    }
-
-    /**
-     * If this {@code Deserializer} was constructed with (non-null) additional data, and if its type
-     * satisfies the given type token {@code klass}, returns that additional data.
-     *
-     * @throws NullPointerException if no additional data is present
-     * @throws IllegalArgumentException if the additional data is not an instance of {@code klass}
-     */
-    <T> T getAdditionalData(Class<T> klass) {
-      try {
-        return klass.cast(additionalData);
-      } catch (ClassCastException e) {
-        throw new IllegalArgumentException(String.format(
-            "Codec requires additional data of type %s, but the available additional data has type "
-            + "%s",
-            klass.getName(),
-            additionalData.getClass().getName()));
-      }
-    }
-
-    /**
      * Deserializes an object using the given codec and current memo table state.
      *
      * @throws SerializationException on a logical error during deserialization
@@ -357,15 +324,13 @@ class Memoizer {
       return safeCast(savedUnchecked, codec);
     }
 
-    <A, T> T makeInitialValue(Function<A, T> initialValueFunction, Class<A> klass) {
-      T initial = initialValueFunction.apply(getAdditionalData(klass));
+    <T> void registerInitialValue(T initialValue) {
       int tag =
           Preconditions.checkNotNull(
-              tagForMemoizedBefore, " Not called with memoize before: %s", initial);
+              tagForMemoizedBefore, " Not called with memoize before: %s", initialValue);
       tagForMemoizedBefore = null;
-      memo.memoize(tag, initial);
-      memoizedBeforeStackForSanityChecking.addLast(initial);
-      return initial;
+      memo.memoize(tag, initialValue);
+      memoizedBeforeStackForSanityChecking.addLast(initialValue);
     }
 
     // Corresponds to MemoBeforeContent in the abstract grammar.

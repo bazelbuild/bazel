@@ -62,7 +62,7 @@ public class SerializationTester {
   private final ImmutableList<Object> subjects;
   private final ImmutableMap.Builder<Class<?>, Object> dependenciesBuilder;
   private final ArrayList<ObjectCodec<?>> additionalCodecs = new ArrayList<>();
-  private Object additionalDeserializationData;
+  private boolean memoize;
 
   @SuppressWarnings("rawtypes")
   private VerificationFunction verificationFunction =
@@ -90,9 +90,8 @@ public class SerializationTester {
     return this;
   }
 
-  public SerializationTester setAdditionalDeserializationData(
-      Object additionalDeserializationData) {
-    this.additionalDeserializationData = additionalDeserializationData;
+  public SerializationTester makeMemoizing() {
+    this.memoize = true;
     return this;
   }
 
@@ -127,25 +126,23 @@ public class SerializationTester {
 
   private ByteString serialize(Object subject, ObjectCodecs codecs)
       throws SerializationException, IOException {
-    if (additionalDeserializationData == null) {
+    if (!memoize) {
       return codecs.serialize(subject);
     }
     ByteString.Output output = ByteString.newOutput();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
-    codecs.getSerializationContextForTesting().newMemoizingContext().serialize(subject, codedOut);
+    codecs.getSerializationContextForTesting().getMemoizingContext().serialize(subject, codedOut);
     codedOut.flush();
     return output.toByteString();
   }
 
   private Object deserialize(ByteString serialized, ObjectCodecs codecs)
       throws SerializationException, IOException {
-    if (additionalDeserializationData == null) {
+    if (!memoize) {
       return codecs.deserialize(serialized);
     }
     DeserializationContext context =
-        codecs
-            .getDeserializationContextForTesting()
-            .newMemoizingContext(additionalDeserializationData);
+        codecs.getDeserializationContextForTesting().getMemoizingContext();
     return context.deserialize(serialized.newCodedInput());
   }
 
