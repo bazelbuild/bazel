@@ -109,6 +109,14 @@ genrule(
     tools = ["//third_party/ijar"],
 )
 
+genrule(
+    name = "empty_with_target_label",
+    srcs = [":empty_zip.jar"],
+    outs = ["empty_with_target_label.jar"],
+    cmd = "$(location //third_party/ijar) $< $@ --target_label //empty",
+    tools = ["//third_party/ijar"],
+)
+
 java_library(
     name = "typeannotations2",
     srcs = glob(["typeannotations2/**/*.java"]),
@@ -187,6 +195,7 @@ java_test(
         "UseDeprecatedParts.java",
         "UseRestrictedAnnotation.java",
         "package-info.java",
+        ":empty_with_target_label",
         ":interface_ijar_testlib",
         ":interface_ijar_testlib_with_target_label",
         ":liblocal_and_anonymous_lib.jar",
@@ -234,6 +243,7 @@ java_binary(
         ("largest_regular", 65535),
         ("smallest_zip64", 65536),
         ("definitely_zip64", 70000),
+        ("empty_zip", 1),
     ]
 ]
 

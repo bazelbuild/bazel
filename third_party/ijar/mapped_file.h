@@ -62,6 +62,7 @@ class MappedOutputFile {
   const char* errmsg_;
   bool opened_;
   u1* buffer_;
+  u8 estimated_size_;
 
  public:
   MappedOutputFile(const char* name, u8 estimated_size);

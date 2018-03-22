@@ -36,13 +36,20 @@ bool StripClass(u1*& classdata_out, const u1* classdata_in, size_t in_length);
 const char* CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
 
+const char *MANIFEST_DIR_PATH = "META-INF/";
+const size_t MANIFEST_DIR_PATH_LENGTH = strlen(MANIFEST_DIR_PATH);
+const char *MANIFEST_PATH = "META-INF/MANIFEST.MF";
+const size_t MANIFEST_PATH_LENGTH = strlen(MANIFEST_PATH);
 const char *MANIFEST_HEADER =
-    "Manifest-Version: 1.0\n"
-    "Created-By: bazel\n";
+    "Manifest-Version: 1.0\r\n"
+    "Created-By: bazel\r\n";
+const size_t MANIFEST_HEADER_LENGTH = strlen(MANIFEST_HEADER);
 // These attributes are used by JavaBuilder, Turbine, and ijar.
 // They must all be kept in sync.
 const char *TARGET_LABEL_KEY = "Target-Label: ";
+const size_t TARGET_LABEL_KEY_LENGTH = strlen(TARGET_LABEL_KEY);
 const char *INJECTING_RULE_KIND_KEY = "Injecting-Rule-Kind: ";
+const size_t INJECTING_RULE_KIND_KEY_LENGTH = strlen(INJECTING_RULE_KIND_KEY);
 
 // ZipExtractorProcessor that select only .class file and use
 // StripClass to generate an interface class, storing as a new file
@@ -120,21 +127,48 @@ static size_t WriteStr(u1 *buf, const char *str) {
   return len;
 }
 
+// Computes the size of zip file content for the manifest created by
+// WriteManifest, including zip file format overhead.
+static size_t EstimateManifestOutputSize(const char *target_label,
+                                         const char *injecting_rule_kind) {
+  if (target_label == NULL) {
+    return 0;
+  }
+  // local headers
+  size_t length = 30 * 2 + MANIFEST_DIR_PATH_LENGTH + MANIFEST_PATH_LENGTH;
+  // central directory
+  length += 46 * 2 + MANIFEST_DIR_PATH_LENGTH + MANIFEST_PATH_LENGTH;
+  // zip64 EOCD entries
+  length += 56 * 2;
+
+  // manifest content
+  length += MANIFEST_HEADER_LENGTH;
+  // target label manifest entry, including newline
+  length += TARGET_LABEL_KEY_LENGTH + strlen(target_label) + 2;
+  if (injecting_rule_kind) {
+    // injecting rule kind manifest entry, including newline
+    length += INJECTING_RULE_KIND_KEY_LENGTH + strlen(injecting_rule_kind) + 2;
+  }
+  return length;
+}
+
 static void WriteManifest(ZipBuilder *out, const char *target_label,
                           const char *injecting_rule_kind) {
   if (target_label == NULL) {
     return;
   }
-  out->WriteEmptyFile("META-INF/");
-  u1 *start = out->NewFile("META-INF/MANIFEST.MF", 0);
+  out->WriteEmptyFile(MANIFEST_DIR_PATH);
+  u1 *start = out->NewFile(MANIFEST_PATH, 0);
   u1 *buf = start;
   buf += WriteStr(buf, MANIFEST_HEADER);
   buf += WriteStr(buf, TARGET_LABEL_KEY);
   buf += WriteStr(buf, target_label);
+  *buf++ = '\r';
   *buf++ = '\n';
   if (injecting_rule_kind) {
     buf += WriteStr(buf, INJECTING_RULE_KIND_KEY);
     buf += WriteStr(buf, injecting_rule_kind);
+    *buf++ = '\r';
     *buf++ = '\n';
   }
   size_t total_len = buf - start;
@@ -153,7 +187,9 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
             strerror(errno));
     abort();
   }
-  u8 output_length = in->CalculateOutputLength();
+  u8 output_length =
+      in->CalculateOutputLength() +
+      EstimateManifestOutputSize(target_label, injecting_rule_kind);
   std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length));
   if (out.get() == NULL) {
     fprintf(stderr, "Unable to open output file %s: %s\n", file_out,
