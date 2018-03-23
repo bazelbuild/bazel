@@ -92,7 +92,7 @@ public abstract class DependencyResolver {
    * @param configConditions resolver for config_setting labels
    * @param toolchainLabels required toolchain labels
    * @param defaultBuildOptions default build options provided to the server to use for creating
-   *     diffs during key construction
+   *     diffs during SkyKey construction
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
@@ -149,7 +149,7 @@ public abstract class DependencyResolver {
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded @return a
    *     mapping of each attribute in this rule or aspects to its dependent nodes
    * @param defaultBuildOptions default build options provided by the server to use for creating
-   *     diffs during key construction
+   *     diffs during SkyKey construction
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
@@ -368,7 +368,7 @@ public abstract class DependencyResolver {
    * @param ruleConfig the rule's configuration
    * @param hostConfig the equivalent host configuration
    * @param defaultBuildOptions default build options provided by the server to use for creating
-   *     diffs during key construction
+   *     diffs during SkyKey construction
    */
   private void resolveLateBoundAttributes(
       RuleResolver depResolver,
@@ -877,8 +877,11 @@ public abstract class DependencyResolver {
       throws InterruptedException;
 
   /**
-   * Returns the build configurations with the given options and fragments, in the same order as the
-   * input options.
+   * Returns the build configurations with the given fragments and {@link
+   * BuildOptions.OptionsDiffForReconstruction} resulting from calling {@link
+   * BuildOptions#diffForReconstruction} between the {@code defaultBuildOptions} and the provided
+   * {@code buildOptions}. Results will be returned in the order the {@code buildOptions} are
+   * provided.
    *
    * <p>Returns null if any configurations aren't ready to be returned at this moment. If
    * getConfigurations returns null once or more during a {@link #dependentNodeMap} call, the
