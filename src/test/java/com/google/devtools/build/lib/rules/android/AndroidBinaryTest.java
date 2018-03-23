@@ -3071,6 +3071,43 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testFeatureFlagsAttributeSetsSelectInBinaryAlias() throws Exception {
+    useConfiguration("--experimental_dynamic_configs=notrim");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag1@on',",
+        "  flag_values = {':flag1': 'on'},",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  srcs = select({",
+        "    ':flag1@on': ['Flag1On.java'],",
+        "    '//conditions:default': ['Flag1Off.java'],",
+        "  }),",
+        "  feature_flags = {",
+        "    'flag1': 'on',",
+        "  }",
+        ")",
+        "alias(",
+        "  name = 'alias',",
+        "  actual = ':foo',",
+        ")");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/foo:alias");
+    List<String> inputs =
+        prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(binary)));
+
+    assertThat(inputs).contains("java/com/foo/Flag1On.java");
+    assertThat(inputs).doesNotContain("java/com/foo/Flag1Off.java");
+  }
+
+  @Test
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
     useConfiguration("--experimental_dynamic_configs=on");
