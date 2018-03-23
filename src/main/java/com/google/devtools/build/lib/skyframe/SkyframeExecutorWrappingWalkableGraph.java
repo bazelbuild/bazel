@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 /** {@link WalkableGraph} backed by a {@link SkyframeExecutor}. */
 public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGraph {
 
-  public SkyframeExecutorWrappingWalkableGraph(MemoizingEvaluator evaluator) {
+  private SkyframeExecutorWrappingWalkableGraph(MemoizingEvaluator evaluator) {
     super(
         new QueryableGraph() {
           @Nullable
