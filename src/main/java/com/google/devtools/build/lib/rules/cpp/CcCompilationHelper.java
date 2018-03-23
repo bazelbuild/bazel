@@ -1130,6 +1130,30 @@ public final class CcCompilationHelper {
   }
 
   /**
+   * Return flags that were specified on the Blaze command line. Take the filetype of sourceFilename
+   * into account.
+   */
+  public static ImmutableList<String> getCoptsFromOptions(
+      CppConfiguration config, String sourceFilename) {
+    ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
+
+    flagsBuilder.addAll(config.getCopts());
+
+    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
+      flagsBuilder.addAll(config.getCOptions());
+    }
+
+    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
+        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
+        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
+      flagsBuilder.addAll(config.getCxxopts());
+    }
+
+    return flagsBuilder.build();
+  }
+
+  /**
    * Supplier that computes legacy_compile_flags lazily at the execution phase.
    *
    * <p>Dear friends of the lambda, this method exists to limit the scope of captured variables only
@@ -1143,15 +1167,13 @@ public final class CcCompilationHelper {
     return () -> {
       ImmutableList.Builder<String> legacyCompileFlags = ImmutableList.builder();
       legacyCompileFlags.addAll(
-          CppHelper.getCompilerOptions(cppConfiguration, toolchain, features));
-      if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
-        legacyCompileFlags.addAll(cppConfiguration.getCOptions());
-      }
+          CppHelper.getCrosstoolCompilerOptions(cppConfiguration, toolchain, features));
       if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
           || CppFileTypes.CPP_HEADER.matches(sourceFilename)
           || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
           || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
-        legacyCompileFlags.addAll(CppHelper.getCxxOptions(cppConfiguration, toolchain, features));
+        legacyCompileFlags.addAll(
+            CppHelper.getCrosstoolCxxOptions(cppConfiguration, toolchain, features));
       }
       return legacyCompileFlags.build();
     };
@@ -1522,16 +1544,18 @@ public final class CcCompilationHelper {
 
     CcCompilationInfo builderCcCompilationInfo = builder.getCcCompilationInfo();
     Artifact sourceFile = builder.getSourceFile();
+    String sourceFilename = sourceFile.getExecPathString();
 
     buildVariables.addStringVariable(SOURCE_FILE_VARIABLE_NAME, sourceFile.getExecPathString());
     buildVariables.addStringSequenceVariable(
         USER_COMPILE_FLAGS_VARIABLE_NAME,
         ImmutableList.<String>builder()
+            // Add after the copts that come from the target.
+            .addAll(getCoptsFromOptions(cppConfiguration, sourceFilename))
             .addAll(copts)
             .addAll(collectPerFileCopts(sourceFile, sourceLabel))
             .build());
 
-    String sourceFilename = sourceFile.getExecPathString();
     buildVariables.addLazyStringSequenceVariable(
         LEGACY_COMPILE_FLAGS_VARIABLE_NAME,
         getLegacyCompileFlagsSupplier(cppConfiguration, ccToolchain, sourceFilename, features));
