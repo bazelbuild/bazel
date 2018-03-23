@@ -65,7 +65,7 @@ cc_test(
     deps = [
         ":cc-runfiles",
         "//src/main/cpp/util:file",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

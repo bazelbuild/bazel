@@ -69,8 +69,8 @@ cc_test(
     deps = [
         ":combiners",
         ":input_jar",
-        "//third_party:gtest",
         "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -86,7 +86,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -102,7 +102,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -123,7 +123,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -139,7 +139,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -151,7 +151,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -166,7 +166,7 @@ cc_test(
         ":test_util",
         ":token_stream",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -204,7 +204,7 @@ cc_test(
         ":output_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -216,7 +216,7 @@ cc_test(
     deps = [
         ":test_util",
         ":token_stream",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -233,8 +233,8 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party:gtest",
         "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -245,7 +245,9 @@ cc_test(
         "zip_headers_test.cc",
         ":zip_headers",
     ],
-    deps = ["//third_party:gtest"],
+    deps = [
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_test(
@@ -256,8 +258,8 @@ cc_test(
     ],
     deps = [
         ":test_util",
-        "//third_party:gtest",
         "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -360,7 +362,7 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
-        "//third_party:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

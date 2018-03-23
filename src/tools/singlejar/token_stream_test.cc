@@ -18,7 +18,7 @@
 
 #include "src/tools/singlejar/test_util.h"
 #include "src/tools/singlejar/token_stream.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 

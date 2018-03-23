@@ -21,7 +21,7 @@
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
 #include "src/tools/singlejar/test_util.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 #if !defined(JAR_TOOL_PATH)
 #error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="

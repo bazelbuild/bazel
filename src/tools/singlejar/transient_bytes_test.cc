@@ -22,7 +22,7 @@
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/test_util.h"
 #include "src/tools/singlejar/transient_bytes.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace {
 const char kStoredJar[] = "stored.zip";

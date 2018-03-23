@@ -16,7 +16,7 @@
 
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/test_util.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 static const char kJar[] = "jar.jar";
 

@@ -22,7 +22,7 @@
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
 #include "src/tools/singlejar/test_util.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace {
 

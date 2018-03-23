@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace blaze_util {
 

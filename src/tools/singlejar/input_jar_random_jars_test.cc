@@ -20,7 +20,7 @@
 
 #include "src/tools/singlejar/input_jar.h"
 
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace {
 
