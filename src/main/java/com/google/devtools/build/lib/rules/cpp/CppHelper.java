@@ -993,17 +993,17 @@ public class CppHelper {
 
   /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
   public static SpecialArtifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact, boolean usePic) {
+      RuleContext ruleContext, Artifact sourceTreeArtifact, String outputName, boolean usePic) {
     PathFragment objectDir = getObjDirectory(ruleContext.getLabel(), usePic);
-    PathFragment rootRelativePath = sourceTreeArtifact.getRootRelativePath();
+
     return ruleContext.getTreeArtifact(
-        objectDir.getRelative(rootRelativePath), sourceTreeArtifact.getRoot());
+        objectDir.getRelative(outputName), sourceTreeArtifact.getRoot());
   }
 
   /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
   public static Artifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact) {
-    return getCompileOutputTreeArtifact(ruleContext, sourceTreeArtifact, false);
+      RuleContext ruleContext, Artifact sourceTreeArtifact, String outputName) {
+    return getCompileOutputTreeArtifact(ruleContext, sourceTreeArtifact, outputName, false);
   }
 
   static String getArtifactNameForCategory(

@@ -114,6 +114,7 @@ import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.NoProcessing;
+import com.google.devtools.build.lib.rules.cpp.ObjectFilePathHelper;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
@@ -272,19 +273,6 @@ public class CompilationSupport {
    */
   public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
       fromTemplates("%{name}_fully_linked.a");
-
-  private static ImmutableList<Artifact> getObjFiles(
-      CompilationArtifacts compilationArtifacts, IntermediateArtifacts intermediateArtifacts) {
-    ImmutableList.Builder<Artifact> result = new ImmutableList.Builder<>();
-    for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
-      result.add(intermediateArtifacts.objFile(sourceFile));
-    }
-    for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
-      result.add(intermediateArtifacts.objFile(nonArcSourceFile));
-    }
-    result.addAll(compilationArtifacts.getPrecompiledSrcs());
-    return result.build();
-  }
 
   private IncludeProcessing createIncludeProcessing(
       Iterable<Artifact> privateHdrs, ObjcProvider objcProvider, @Nullable Artifact pchHdr) {
@@ -859,6 +847,26 @@ public class CompilationSupport {
   }
 
   /**
+   * TODO(b/76143707): Remove this function after ObjectFilePathHelper is no longer used here.
+   *
+   * <p>Add constructed object files based on given sources.
+   */
+  private void addObjectFiles(
+      ImmutableList.Builder<Artifact> objectFilesBuilder,
+      Iterable<Artifact> sources,
+      boolean isArc) {
+    ObjectFilePathHelper objectFilePathHelper =
+        new ObjectFilePathHelper(
+            sources,
+            ruleContext.getFragment(CppConfiguration.class).shortenObjFilePath(),
+            isArc ? "arc" : "non_arc");
+    for (Artifact artifact : sources) {
+      objectFilesBuilder.add(
+          intermediateArtifacts.objFile(artifact, objectFilePathHelper.getOutputName(artifact)));
+    }
+  }
+
+  /**
    * Returns a provider that collects this target's instrumented sources as well as those of its
    * dependencies.
    *
@@ -870,9 +878,8 @@ public class CompilationSupport {
 
     if (common.getCompilationArtifacts().isPresent()) {
       CompilationArtifacts artifacts = common.getCompilationArtifacts().get();
-      for (Artifact artifact : Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
-        oFiles.add(intermediateArtifacts.objFile(artifact));
-      }
+      addObjectFiles(oFiles, artifacts.getSrcs(), true);
+      addObjectFiles(oFiles, artifacts.getNonArcSrcs(), false);
     }
 
     return InstrumentedFilesCollector.collect(
@@ -1011,9 +1018,6 @@ public class CompilationSupport {
     if (compilationArtifacts.getArchive().isPresent()) {
       Artifact objList = intermediateArtifacts.archiveObjList();
 
-      // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
-      registerObjFilelistAction(getObjFiles(compilationArtifacts, intermediateArtifacts), objList);
-
       extension.addVariableCategory(VariableCategory.ARCHIVE_VARIABLES);
 
       compilationInfo =
@@ -1027,6 +1031,9 @@ public class CompilationSupport {
               priorityHeaders,
               LinkTargetType.OBJC_ARCHIVE,
               objList);
+
+      // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
+      registerObjFilelistAction(compilationInfo.getFirst().getObjectFiles(false), objList);
     } else {
       compilationInfo =
           ccCompileAndLink(
@@ -1827,7 +1834,7 @@ public class CompilationSupport {
           headerThinningInfos.add(
               new ObjcHeaderThinningInfo(
                   sourceFile,
-                  intermediateArtifacts.headersListFile(sourceFile),
+                  intermediateArtifacts.headersListFile(objectFile),
                   action.getCompilerOptions()));
         }
       }

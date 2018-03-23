@@ -564,6 +564,62 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
+  private void setupPackagesForSourcesWithSameBaseNameTests() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.cc', 'subpkg/b.cc', 'subpkg/a.c', '//bar:srcs'],",
+        ")");
+    scratch.file("bar/BUILD", "filegroup(name = 'srcs', srcs = ['a.cpp'])");
+  }
+
+  @Test
+  public void testContainingSourcesWithSameBaseNameWithNewObjPath() throws Exception {
+    AnalysisMock.get().ccSupport().setup(mockToolsConfig);
+    useConfiguration("--cpu=k8", "--experimental_shortened_obj_file_path=true");
+    setupPackagesForSourcesWithSameBaseNameTests();
+    getConfiguredTarget("//foo:lib");
+
+    Artifact a0 = getBinArtifact("_objs/lib/0/a.pic.o", "//foo:lib");
+    Artifact a1 = getBinArtifact("_objs/lib/1/a.pic.o", "//foo:lib");
+    Artifact a2 = getBinArtifact("_objs/lib/2/a.pic.o", "//foo:lib");
+    Artifact b = getBinArtifact("_objs/lib/b.pic.o", "//foo:lib");
+
+    assertThat(getGeneratingAction(a0)).isNotNull();
+    assertThat(getGeneratingAction(a1)).isNotNull();
+    assertThat(getGeneratingAction(a2)).isNotNull();
+    assertThat(getGeneratingAction(b)).isNotNull();
+
+    assertThat(getGeneratingAction(a0).getInputs()).contains(getSourceArtifact("foo/a.cc"));
+    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/subpkg/a.c"));
+    assertThat(getGeneratingAction(a2).getInputs()).contains(getSourceArtifact("bar/a.cpp"));
+    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/subpkg/b.cc"));
+  }
+
+  @Test
+  public void testContainingSourcesWithSameBaseNameWithLegacyObjPath() throws Exception {
+    AnalysisMock.get().ccSupport().setup(mockToolsConfig);
+    useConfiguration("--cpu=k8", "--experimental_shortened_obj_file_path=false");
+    setupPackagesForSourcesWithSameBaseNameTests();
+    getConfiguredTarget("//foo:lib");
+
+    Artifact a0 = getBinArtifact("_objs/lib/foo/a.pic.o", "//foo:lib");
+    Artifact a1 = getBinArtifact("_objs/lib/foo/subpkg/a.pic.o", "//foo:lib");
+    Artifact a2 = getBinArtifact("_objs/lib/bar/a.pic.o", "//foo:lib");
+    Artifact b = getBinArtifact("_objs/lib/foo/subpkg/b.pic.o", "//foo:lib");
+
+    assertThat(getGeneratingAction(a0)).isNotNull();
+    assertThat(getGeneratingAction(a1)).isNotNull();
+    assertThat(getGeneratingAction(a2)).isNotNull();
+    assertThat(getGeneratingAction(b)).isNotNull();
+
+    assertThat(getGeneratingAction(a0).getInputs()).contains(getSourceArtifact("foo/a.cc"));
+    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/subpkg/a.c"));
+    assertThat(getGeneratingAction(a2).getInputs()).contains(getSourceArtifact("bar/a.cpp"));
+    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/subpkg/b.cc"));
+  }
+
   private void setupPackagesForModuleTests(boolean useHeaderModules) throws Exception {
     scratch.file("module/BUILD",
         "package(features = ['header_modules'])",

@@ -406,6 +406,22 @@ public class CppOptions extends FragmentOptions {
   public Label customMalloc;
 
   @Option(
+    name = "experimental_shortened_obj_file_path",
+    defaultValue = "false",
+    category = "semantics",
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+    help =
+        "When off, object files are generated at _objs/<target_name>/<source_package_path>/"
+            + "<source_base_name>.o, otherwise they are shortened to _objs/<target_name>/"
+            + "<source_base_name>.o. If there are multiple source files with the same base name, "
+            + "to avoid conflict, the object file path is _objs/<target_name>/<N>"
+            + "/<source_base_name>.o, where N = the source file's order among all source files "
+            + "with the same base name, N starts with 0."
+  )
+  public boolean shortenObjFilePath;
+
+  @Option(
     name = "legacy_whole_archive",
     defaultValue = "true",
     category = "semantics",

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
@@ -267,10 +266,9 @@ public final class IntermediateArtifacts {
         "lib%s%s.a", basename, archiveFileNameSuffix)));
   }
 
-  private Artifact inUniqueObjsDir(Artifact source, String extension) {
+  private Artifact inUniqueObjsDir(String outputName, String extension) {
     PathFragment uniqueDir = OBJS.getRelative(ruleContext.getLabel().getName());
-    PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
-    PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
+    PathFragment scopeRelativePath = uniqueDir.getRelative(outputName + extension);
     return scopedArtifact(scopeRelativePath);
   }
 
@@ -278,25 +276,17 @@ public final class IntermediateArtifacts {
    * The artifact for the .o file that should be generated when compiling the {@code source}
    * artifact.
    */
-  public Artifact objFile(Artifact source) {
+  public Artifact objFile(Artifact source, String outputName) {
     if (source.isTreeArtifact()) {
-      return CppHelper.getCompileOutputTreeArtifact(ruleContext, source);
+      return CppHelper.getCompileOutputTreeArtifact(ruleContext, source, outputName);
     } else {
-      return inUniqueObjsDir(source, ".o");
+      return inUniqueObjsDir(outputName, ".o");
     }
   }
 
   /** The artifact for the .headers file output by the header thinning action for this source. */
-  public Artifact headersListFile(Artifact source) {
-    return inUniqueObjsDir(source, ".headers_list");
-  }
-
-  /**
-   * The artifact for the .gcno file that should be generated when compiling the {@code source}
-   * artifact.
-   */
-  public Artifact gcnoFile(Artifact source) {
-     return inUniqueObjsDir(source, ".gcno");
+  public Artifact headersListFile(Artifact objectFile) {
+    return ruleContext.getRelatedArtifact(objectFile.getRootRelativePath(), ".headers_list");
   }
 
   /**
@@ -414,11 +404,6 @@ public final class IntermediateArtifacts {
    */
   public Artifact runnerScript() {
     return appendExtension("_runner.sh");
-  }
-
-  /** Dependency file that is generated when compiling the {@code source} artifact. */
-  public DotdFile dotdFile(Artifact source) {
-    return new DotdFile(inUniqueObjsDir(source, ".d"));
   }
 
   /**
