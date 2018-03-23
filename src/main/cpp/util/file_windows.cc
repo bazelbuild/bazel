@@ -23,6 +23,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
@@ -405,9 +406,8 @@ bool MsysRoot::Get(string* path) {
   } else {
     const char* value2 = getenv("BAZEL_SH");
     if (value2 == nullptr || value2[0] == '\0') {
-      PrintError(
-          "BAZEL_SH environment variable is not defined, cannot convert MSYS "
-          "paths to Windows paths");
+      BAZEL_LOG(ERROR) << "BAZEL_SH environment variable is not defined, "
+                          "cannot convert MSYS paths to Windows paths";
       return false;
     }
     result = value2;

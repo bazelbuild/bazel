@@ -141,6 +141,8 @@ http_archive(
     sha256 = "62797e7cd7cc959419710cd25b075b5f5b247da0e8214d47bf5af9b32128fb0d",
 )
 
+# We're pinning to a commit because this project does not have a recent release.
+# Nothing special about this commit, though.
 http_archive(
     name = "com_google_googletest",
     urls = [

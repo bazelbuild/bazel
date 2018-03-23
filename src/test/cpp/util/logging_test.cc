@@ -41,7 +41,71 @@ class LoggingTest : public ::testing::Test {
   }
 };
 
-TEST(LoggingTest, BazelLogHandlerDumpsToCerrAtFail) {
+TEST(LoggingTest, LogLevelNamesMatch) {
+  EXPECT_STREQ("INFO", LogLevelName(LOGLEVEL_INFO));
+  EXPECT_STREQ("USER", LogLevelName(LOGLEVEL_USER));
+  EXPECT_STREQ("WARNING", LogLevelName(LOGLEVEL_WARNING));
+  EXPECT_STREQ("ERROR", LogLevelName(LOGLEVEL_ERROR));
+  EXPECT_STREQ("FATAL", LogLevelName(LOGLEVEL_FATAL));
+}
+
+// Tests for when no log handler is set.
+
+TEST(LoggingTest, NoHandler_InfoLogsIgnored) {
+  testing::internal::CaptureStderr();
+  blaze_util::SetLogHandler(nullptr);
+
+  // Log something.
+  std::string teststring = "test that the log messages get ignored";
+  BAZEL_LOG(INFO) << teststring;
+
+  // Check that stderr does not receive the message.
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
+}
+
+TEST(LoggingTest, NoHandler_UserLogsPrinted) {
+  testing::internal::CaptureStderr();
+  blaze_util::SetLogHandler(nullptr);
+
+  // Log something.
+  std::string teststring = "test that the user log messages are not ignored";
+  BAZEL_LOG(USER) << teststring;
+
+  // Check that stderr receives the message.
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, HasSubstr(teststring));
+}
+
+TEST(LoggingTest, NoHandler_WarningsPrinted) {
+  testing::internal::CaptureStderr();
+  blaze_util::SetLogHandler(nullptr);
+
+  // Log something.
+  BAZEL_LOG(WARNING) << "test that warnings are printed";
+  std::string expectedString = "WARNING: test that warnings are printed";
+
+  // Check that stderr receives the message.
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, HasSubstr(expectedString));
+}
+
+TEST(LoggingTest, NoHandler_ErrorsPrinted) {
+  testing::internal::CaptureStderr();
+  blaze_util::SetLogHandler(nullptr);
+
+  // Log something.
+  BAZEL_LOG(ERROR) << "test that errors are printed";
+  std::string expectedError = "ERROR: test that errors are printed";
+
+  // Check that stderr receives the message.
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, HasSubstr(expectedError));
+}
+
+// Tests for the BazelLogHandler, with no call to SetLoggingOutputStream.
+
+TEST(LoggingTest, BazelLogHandler_DumpsToCerrAtDestruction) {
   // Set up logging and be prepared to capture stderr at destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
@@ -63,15 +127,10 @@ TEST(LoggingTest, BazelLogHandlerDumpsToCerrAtFail) {
   EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
-TEST(LoggingTest, LogLevelNamesMatch) {
-  EXPECT_STREQ("INFO", LogLevelName(LOGLEVEL_INFO));
-  EXPECT_STREQ("USER", LogLevelName(LOGLEVEL_USER));
-  EXPECT_STREQ("WARNING", LogLevelName(LOGLEVEL_WARNING));
-  EXPECT_STREQ("ERROR", LogLevelName(LOGLEVEL_ERROR));
-  EXPECT_STREQ("FATAL", LogLevelName(LOGLEVEL_FATAL));
-}
+// Tests for the BazelLogHandler, deactivated by
+// SetLoggingOutputStream(nullptr).
 
-TEST(LoggingTest, BazelLogDoesNotDumpToStderrIfOuputStreamSetToNull) {
+TEST(LoggingTest, BazelLogHandler_DoesNotDumpToStderrIfOuputStreamSetToNull) {
   // Set up logging and be prepared to capture stderr at destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
@@ -89,7 +148,67 @@ TEST(LoggingTest, BazelLogDoesNotDumpToStderrIfOuputStreamSetToNull) {
   EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
 }
 
-TEST(LoggingTest, DirectLogsToBufferStreamWorks) {
+TEST(LoggingTest, BazelLogHandler_DoesNotPrintInfoLogsIfOuputStreamSetToNull) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+  blaze_util::SetLoggingOutputStream(nullptr);
+
+  std::string teststring = "test that the log message is lost.";
+  BAZEL_LOG(INFO) << teststring;
+
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
+}
+
+TEST(LoggingTest, BazelLogHandler_PrintsUserLogsEvenIfOuputStreamSetToNull) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+  blaze_util::SetLoggingOutputStream(nullptr);
+
+  std::string teststring = "some user message";
+  BAZEL_LOG(USER) << teststring;
+
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, HasSubstr(teststring));
+}
+
+TEST(LoggingTest, BazelLogHandler_PrintsWarningsEvenIfOuputStreamSetToNull) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+  blaze_util::SetLoggingOutputStream(nullptr);
+
+  BAZEL_LOG(WARNING) << "this is a warning";
+
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, HasSubstr("WARNING: this is a warning"));
+}
+
+TEST(LoggingTest, BazelLogHandler_PrintsErrorsEvenIfOuputStreamSetToNull) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+  blaze_util::SetLoggingOutputStream(nullptr);
+
+  BAZEL_LOG(ERROR) << "this is an error, alert!";
+
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, HasSubstr("ERROR: this is an error, alert!\n"));
+}
+
+// Tests for the BazelLogHandler & SetLoggingOutputStream
+
+TEST(LoggingTest, BazelLogHandler_DirectingLogsToBufferStreamWorks) {
   // Set up logging and be prepared to capture stderr at destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
@@ -114,7 +233,7 @@ TEST(LoggingTest, DirectLogsToBufferStreamWorks) {
   EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
 }
 
-TEST(LoggingTest, BufferedLogsSentToSpecifiedStream) {
+TEST(LoggingTest, BazelLogHandler_BufferedLogsSentToSpecifiedStream) {
   // Set up logging and be prepared to capture stderr at destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
@@ -138,14 +257,87 @@ TEST(LoggingTest, BufferedLogsSentToSpecifiedStream) {
 
   // Check that the buffered logs were sent.
   std::string output(stringbuf_ptr->str());
-  EXPECT_THAT(output, HasSubstr(teststring));
+  EXPECT_THAT(output,
+              MatchesRegex(".bazel INFO.* test sending logs to the buffer "
+                           "before setting the output stream\n"));
 
   // Check that the output did not go to stderr.
   stderr_output = testing::internal::GetCapturedStderr();
   EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
 }
 
-TEST(LoggingTest, DirectLogsToCerrWorks) {
+TEST(LoggingTest, BazelLogHandler_WarningsSentToBufferStream) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+
+  // Ask that the logs get output to a string buffer (keep a ptr to it so we can
+  // check its contents)
+  std::unique_ptr<std::stringstream> stringbuf(new std::stringstream());
+  std::stringstream* stringbuf_ptr = stringbuf.get();
+  blaze_util::SetLoggingOutputStream(std::move(stringbuf));
+
+  std::string teststring = "test warning";
+  BAZEL_LOG(WARNING) << teststring;
+
+  // Check that output went to the buffer.
+  std::string output(stringbuf_ptr->str());
+  EXPECT_THAT(output, MatchesRegex(".bazel WARNING.* test warning\n"));
+
+  // Check that the output never went to stderr.
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
+}
+
+TEST(LoggingTest, BazelLogHandler_ErrorsSentToBufferStream) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+
+  // Ask that the logs get output to a string buffer (keep a ptr to it so we can
+  // check its contents)
+  std::unique_ptr<std::stringstream> stringbuf(new std::stringstream());
+  std::stringstream* stringbuf_ptr = stringbuf.get();
+  blaze_util::SetLoggingOutputStream(std::move(stringbuf));
+
+  std::string teststring = "test error";
+  BAZEL_LOG(ERROR) << teststring;
+
+  // Check that output went to the buffer.
+  std::string output(stringbuf_ptr->str());
+  EXPECT_THAT(output, MatchesRegex(".bazel ERROR.* test error\n"));
+
+  // Check that the output never went to stderr.
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
+}
+
+TEST(LoggingTest, BazelLogHandler_ImpossibleFile) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+
+  // Deliberately try to log to an impossible location, check that we error out.
+  std::unique_ptr<std::ofstream> bad_logfile_stream_(
+      new std::ofstream("/this/doesnt/exist.log", std::fstream::out));
+  blaze_util::SetLoggingOutputStream(std::move(bad_logfile_stream_));
+
+  // Cause the logs to be flushed, and capture them.
+  blaze_util::SetLogHandler(nullptr);
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output,
+              MatchesRegex(".bazel ERROR.* Provided stream failed.\n"));
+}
+
+// Tests for the BazelLogHandler & SetLoggingOutputStreamToStderr
+
+TEST(LoggingTest, BazelLogHandler_DirectingLogsToCerrWorks) {
   // Set up logging and be prepared to capture stderr at destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
@@ -165,7 +357,7 @@ TEST(LoggingTest, DirectLogsToCerrWorks) {
   EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
-TEST(LoggingTest, BufferedLogsGetDirectedToCerr) {
+TEST(LoggingTest, BazelLogHandler_BufferedLogsGetDirectedToCerr) {
   // Set up logging and be prepared to capture stderr at destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
@@ -185,22 +377,4 @@ TEST(LoggingTest, BufferedLogsGetDirectedToCerr) {
   EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
-TEST(LoggingTest, ImpossibleFile) {
-  // Set up logging and be prepared to capture stderr at destruction.
-  testing::internal::CaptureStderr();
-  std::unique_ptr<blaze_util::BazelLogHandler> handler(
-      new blaze_util::BazelLogHandler());
-  blaze_util::SetLogHandler(std::move(handler));
-
-  // Deliberately try to log to an impossible location, check that we error out.
-  std::unique_ptr<std::ofstream> bad_logfile_stream_(
-      new std::ofstream("/this/doesnt/exist.log", std::fstream::out));
-  blaze_util::SetLoggingOutputStream(std::move(bad_logfile_stream_));
-
-  // Cause the logs to be flushed, and capture them.
-  blaze_util::SetLogHandler(nullptr);
-  std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_THAT(stderr_output,
-              MatchesRegex(".bazel ERROR.* Provided stream failed.\n"));
-}
 }  // namespace blaze_util
