@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -44,12 +45,12 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Constructs actions to run the protocol compiler to generate sources from .proto files. */
@@ -531,8 +532,7 @@ public class ProtoCompileActionBuilder {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
     cmdLine.addAll(
-        VectorArg.of(transitiveProtoPathFlags)
-            .mapped(ProtoCompileActionBuilder::expandTransitiveProtoPathFlags));
+        VectorArg.of(transitiveProtoPathFlags).mapped(EXPAND_TRANSITIVE_PROTO_PATH_FLAGS));
 
     // A set to check if there are multiple invocations with the same name.
     HashSet<String> invocationNames = new HashSet<>();
@@ -589,16 +589,14 @@ public class ProtoCompileActionBuilder {
       CustomCommandLine.Builder commandLine,
       @Nullable NestedSet<Artifact> protosInDirectDependencies,
       NestedSet<Artifact> transitiveImports) {
-    commandLine.addAll(
-        VectorArg.of(transitiveImports)
-            .mapped(ProtoCompileActionBuilder::expandTransitiveImportArg));
+    commandLine.addAll(VectorArg.of(transitiveImports).mapped(EXPAND_TRANSITIVE_IMPORT_ARG));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(protosInDirectDependencies)
-                .mapped(ProtoCompileActionBuilder::expandToPathIgnoringRepository));
+                .mapped(EXPAND_TO_PATH_IGNORING_REPOSITORY));
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
         commandLine.add("--direct_dependencies=");
@@ -606,17 +604,19 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  private static void expandTransitiveProtoPathFlags(String flag, Consumer<String> args) {
-    args.accept("--proto_path=" + flag);
-  }
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<String> EXPAND_TRANSITIVE_PROTO_PATH_FLAGS =
+      (flag, args) -> args.accept("--proto_path=" + flag);
 
-  private static void expandTransitiveImportArg(Artifact artifact, Consumer<String> args) {
-    args.accept("-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString());
-  }
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<Artifact> EXPAND_TRANSITIVE_IMPORT_ARG =
+      (artifact, args) ->
+          args.accept(
+              "-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString());
 
-  private static void expandToPathIgnoringRepository(Artifact artifact, Consumer<String> args) {
-    args.accept(getPathIgnoringRepository(artifact));
-  }
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<Artifact> EXPAND_TO_PATH_IGNORING_REPOSITORY =
+      (artifact, args) -> args.accept(getPathIgnoringRepository(artifact));
 
   /**
    * Gets the artifact's path relative to the root, ignoring the external repository the artifact is
