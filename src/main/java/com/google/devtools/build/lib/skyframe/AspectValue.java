@@ -18,8 +18,11 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -37,11 +40,11 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.util.ArrayList;
 import javax.annotation.Nullable;
 
-/**
- * An aspect in the context of the Skyframe graph.
- */
+/** An aspect in the context of the Skyframe graph. */
+@AutoCodec
 public final class AspectValue extends BasicActionLookupValue {
 
   /**
@@ -431,6 +434,25 @@ public final class AspectValue extends BasicActionLookupValue {
   @Nullable private ConfiguredAspect configuredAspect;
   // May be null either after clearing or because transitive packages are not tracked.
   @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
+
+  @AutoCodec.Instantiator
+  @AutoCodec.VisibleForSerialization
+  AspectValue(
+      AspectKey key,
+      Aspect aspect,
+      Label label,
+      Location location,
+      ConfiguredAspect configuredAspect,
+      ArrayList<ActionAnalysisMetadata> actions,
+      ImmutableMap<Artifact, Integer> generatingActionIndex) {
+    super(actions, generatingActionIndex, /*removeActionsAfterEvaluation=*/ false);
+    this.label = Preconditions.checkNotNull(label, actions);
+    this.aspect = Preconditions.checkNotNull(aspect, label);
+    this.location = Preconditions.checkNotNull(location, label);
+    this.key = Preconditions.checkNotNull(key, label);
+    this.configuredAspect = Preconditions.checkNotNull(configuredAspect, label);
+    this.transitivePackagesForPackageRootResolution = null;
+  }
 
   public AspectValue(
       AspectKey key,
