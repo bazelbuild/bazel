@@ -84,8 +84,6 @@ public final class FuncallExpression extends Expression {
 
   private static final LoadingCache<Class<?>, Map<String, List<MethodDescriptor>>> methodCache =
       CacheBuilder.newBuilder()
-          .initialCapacity(10)
-          .maximumSize(100)
           .build(
               new CacheLoader<Class<?>, Map<String, List<MethodDescriptor>>>() {
 
@@ -118,8 +116,6 @@ public final class FuncallExpression extends Expression {
 
   private static final LoadingCache<Class<?>, Map<String, MethodDescriptor>> fieldCache =
       CacheBuilder.newBuilder()
-          .initialCapacity(10)
-          .maximumSize(100)
           .build(
               new CacheLoader<Class<?>, Map<String, MethodDescriptor>>() {
 
