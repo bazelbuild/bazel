@@ -18,7 +18,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.squareup.javapoet.TypeName;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
@@ -344,36 +342,6 @@ class Marshallers {
           context.builder.endControlFlow();
   }
 
-
-  private final Marshaller immutableSetMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesErased(type, ImmutableSet.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          addSerializationCodeForIterable(context);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          Context repeated =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(0),
-                  context.makeName("repeated"));
-          String builderName = context.makeName("builder");
-          context.builder.addStatement(
-              "$T<$T> $L = new $T<>()",
-              ImmutableSet.Builder.class,
-              repeated.getTypeName(),
-              builderName,
-              ImmutableSet.Builder.class);
-          writeIterableDeserializationLoopWithoutNullsAndBuild(context, repeated, builderName);
-        }
-      };
-
   private final Marshaller immutableSortedSetMarshaller =
       new Marshaller() {
         @Override
@@ -401,64 +369,6 @@ class Marshallers {
               ImmutableSortedSet.Builder.class,
               Comparator.class);
           writeIterableDeserializationLoopWithoutNullsAndBuild(context, repeated, builderName);
-        }
-      };
-
-  private final Marshaller mapMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesErased(type, Map.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          context.builder.addStatement("codedOut.writeInt32NoTag($L.size())", context.name);
-          String entryName = context.makeName("entry");
-          Context key =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(0), entryName + ".getKey()");
-          Context value =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(1), entryName + ".getValue()");
-          context.builder.beginControlFlow(
-              "for ($T<$T, $T> $L : $L.entrySet())",
-              Map.Entry.class,
-              key.getTypeName(),
-              value.getTypeName(),
-              entryName,
-              context.name);
-          writeSerializationCode(key);
-          writeSerializationCode(value);
-          context.builder.endControlFlow();
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          String builderName = context.makeName("builder");
-          Context key =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(0), context.makeName("key"));
-          Context value =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(1), context.makeName("value"));
-          context.builder.addStatement(
-              "$T<$T, $T> $L = new $T<>()",
-              LinkedHashMap.class,
-              key.getTypeName(),
-              value.getTypeName(),
-              builderName,
-              LinkedHashMap.class);
-          String lengthName = context.makeName("length");
-          context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-          String indexName = context.makeName("i");
-          context.builder.beginControlFlow(
-              "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-          writeDeserializationCode(key);
-          writeDeserializationCode(value);
-          context.builder.addStatement("$L.put($L, $L)", builderName, key.name, value.name);
-          context.builder.endControlFlow();
-          context.builder.addStatement("$L = $L", context.name, builderName);
         }
       };
 
@@ -552,9 +462,7 @@ class Marshallers {
       ImmutableList.of(
           charSequenceMarshaller,
           supplierMarshaller,
-          immutableSetMarshaller,
           immutableSortedSetMarshaller,
-          mapMarshaller,
           multimapMarshaller,
           contextMarshaller);
 
