@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -53,12 +52,9 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     ImmutableList.Builder<ActionContext> contexts = ImmutableList.builder();
 
     OptionsProvider options = cmdEnv.getOptions();
-    int timeoutKillDelaySeconds =
-        options.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds;
-    Optional<Duration> timeoutKillDelay = Optional.empty();
-    if (timeoutKillDelaySeconds >= 0) {
-      timeoutKillDelay = Optional.of(Duration.ofSeconds(timeoutKillDelaySeconds));
-    }
+    Duration timeoutKillDelay =
+        Duration.ofSeconds(
+            options.getOptions(LocalExecutionOptions.class).localSigkillGraceSeconds);
 
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.

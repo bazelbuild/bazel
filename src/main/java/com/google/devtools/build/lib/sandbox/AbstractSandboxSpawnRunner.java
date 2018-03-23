@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
@@ -91,7 +90,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       Path execRoot,
       Path tmpDir,
       Duration timeout,
-      Optional<String> statisticsPath)
+      Path statisticsPath)
       throws IOException, InterruptedException {
     try {
       sandbox.createFileSystem();
@@ -123,7 +122,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       Duration timeout,
       Path execRoot,
       Path tmpDir,
-      Optional<String> statisticsPath)
+      Path statisticsPath)
       throws IOException, InterruptedException {
     Command cmd = new Command(
         sandbox.getArguments().toArray(new String[0]),
@@ -192,19 +191,19 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
             .setWallTime(wallTime)
             .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "");
 
-    if (statisticsPath.isPresent()) {
-      Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
-          ExecutionStatistics.getResourceUsage(statisticsPath.get());
-      if (resourceUsage.isPresent()) {
-        spawnResultBuilder.setUserTime(resourceUsage.get().getUserExecutionTime());
-        spawnResultBuilder.setSystemTime(resourceUsage.get().getSystemExecutionTime());
-        spawnResultBuilder.setNumBlockOutputOperations(
-            resourceUsage.get().getBlockOutputOperations());
-        spawnResultBuilder.setNumBlockInputOperations(
-            resourceUsage.get().getBlockInputOperations());
-        spawnResultBuilder.setNumInvoluntaryContextSwitches(
-            resourceUsage.get().getInvoluntaryContextSwitches());
-      }
+    if (statisticsPath != null) {
+      ExecutionStatistics.getResourceUsage(statisticsPath)
+          .ifPresent(
+              resourceUsage -> {
+                spawnResultBuilder.setUserTime(resourceUsage.getUserExecutionTime());
+                spawnResultBuilder.setSystemTime(resourceUsage.getSystemExecutionTime());
+                spawnResultBuilder.setNumBlockOutputOperations(
+                    resourceUsage.getBlockOutputOperations());
+                spawnResultBuilder.setNumBlockInputOperations(
+                    resourceUsage.getBlockInputOperations());
+                spawnResultBuilder.setNumInvoluntaryContextSwitches(
+                    resourceUsage.getInvoluntaryContextSwitches());
+              });
     }
 
     return spawnResultBuilder.build();

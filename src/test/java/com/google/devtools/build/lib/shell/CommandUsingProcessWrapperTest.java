@@ -21,10 +21,13 @@ import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import java.io.File;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,6 +35,13 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link Command}s that are wrapped using the {@code process-wrapper}. */
 @RunWith(JUnit4.class)
 public final class CommandUsingProcessWrapperTest {
+  private FileSystem testFS;
+
+  @Before
+  public final void createFileSystem() throws Exception {
+    testFS = new UnixFileSystem();
+  }
+
   private String getProcessWrapperPath() {
     return BlazeTestUtils.runfilesDir() + "/" + TestConstants.PROCESS_WRAPPER_PATH;
   }
@@ -73,8 +83,8 @@ public final class CommandUsingProcessWrapperTest {
             Long.toString(userTimeToSpend.getSeconds()),
             Long.toString(systemTimeToSpend.getSeconds()));
 
-    File outputDir = TestUtils.makeTempDir();
-    String statisticsFilePath = outputDir.getAbsolutePath() + "/" + "stats.out";
+    Path outputDir = testFS.getPath(TestUtils.makeTempDir().getCanonicalPath());
+    Path statisticsFilePath = outputDir.getRelative("stats.out");
 
     List<String> fullCommandLine =
         ProcessWrapperUtil.commandLineBuilder(getProcessWrapperPath(), commandArguments)

@@ -212,8 +212,8 @@ public class RunCommand implements BlazeCommand  {
     // on that platform. Also we skip it when writing the command-line to a file instead
     // of executing it directly.
     if (OS.getCurrent() != OS.WINDOWS && runOptions.scriptPath == null) {
-      Preconditions.checkState(ProcessWrapperUtil.isSupported(env),
-          "process-wraper not found in embedded tools");
+      Preconditions.checkState(
+          ProcessWrapperUtil.isSupported(env), "process-wrapper not found in embedded tools");
       cmdLine.add(ProcessWrapperUtil.getProcessWrapper(env).getPathString());
     }
     List<String> prettyCmdLine = new ArrayList<>();

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Optional;
 
 /** Strategy that uses sandboxing to execute a process. */
 // TODO(ulfjack): This class only exists for this annotation. Find a better way to handle this!
@@ -46,14 +45,10 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param timeoutKillDelay an optional, additional grace period before killing timing out
-   *     commands. If not present, then no grace period is used and commands are killed instantly.
+   * @param timeoutKillDelay additional grace period before killing timing out commands
    */
   static LinuxSandboxedSpawnRunner create(
-      CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      Optional<Duration> timeoutKillDelay)
-      throws IOException {
+      CommandEnvironment cmdEnv, Path sandboxBase, Duration timeoutKillDelay) throws IOException {
     Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");
     FileSystemUtils.touchFile(inaccessibleHelperFile);
     inaccessibleHelperFile.setReadable(false);
