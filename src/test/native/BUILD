@@ -22,7 +22,7 @@ cc_test(
         "//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
             "//src/test/cpp/util:windows_test_util",
-            "//third_party:gtest",
+            "@com_google_googletest//:gtest_main",
         ],
         "//conditions:default": [],
     }),

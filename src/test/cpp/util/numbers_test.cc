@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/port.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace blaze_util {
 

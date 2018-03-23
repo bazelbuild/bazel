@@ -19,9 +19,18 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/bazel_log_handler.h"
 #include "src/main/cpp/util/logging.h"
-#include "gtest/gtest.h"
+#include "googlemock/include/gmock/gmock.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace blaze_util {
+using ::testing::HasSubstr;
+using ::testing::Not;
+// Note: gmock uses different regex syntax on different platforms. MatchesRegex
+// is still useful since the '.' wildcard can help match formatted log lines
+// like `[bazel INFO filename:134] message`
+// but should not be used for more fine grained testing.
+using ::testing::MatchesRegex;
+
 class LoggingTest : public ::testing::Test {
  protected:
   void SetUp() {
@@ -40,27 +49,23 @@ TEST(LoggingTest, BazelLogHandlerDumpsToCerrAtFail) {
   blaze_util::SetLogHandler(std::move(handler));
 
   // Log something.
-  std::string teststring = "test that the log messages get dumped to stderr";
+  std::string teststring = "test that log messages get dumped to stderr";
   BAZEL_LOG(INFO) << teststring;
 
   // Check that stderr isn't getting anything yet.
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) == std::string::npos)
-      << "stderr unexpectedly contains the log message, before log output was "
-         "set. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
   testing::internal::CaptureStderr();
 
   // Destruct the log handler and get the stderr remains.
   blaze_util::SetLogHandler(nullptr);
   stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) != std::string::npos)
-      << "stderr does not contain the expected message. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
 TEST(LoggingTest, LogLevelNamesMatch) {
   EXPECT_STREQ("INFO", LogLevelName(LOGLEVEL_INFO));
+  EXPECT_STREQ("USER", LogLevelName(LOGLEVEL_USER));
   EXPECT_STREQ("WARNING", LogLevelName(LOGLEVEL_WARNING));
   EXPECT_STREQ("ERROR", LogLevelName(LOGLEVEL_ERROR));
   EXPECT_STREQ("FATAL", LogLevelName(LOGLEVEL_FATAL));
@@ -74,17 +79,14 @@ TEST(LoggingTest, BazelLogDoesNotDumpToStderrIfOuputStreamSetToNull) {
   blaze_util::SetLogHandler(std::move(handler));
 
   // Log something.
-  std::string teststring = "test that the log message is lost.";
+  std::string teststring = "test that this log message is lost.";
   BAZEL_LOG(INFO) << teststring;
   blaze_util::SetLoggingOutputStream(nullptr);
 
   // Destruct the log handler and check if stderr got anything.
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) == std::string::npos)
-      << "stderr unexpectedly contains the log message, even though log output "
-         "was explicitly set to null. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
 }
 
 TEST(LoggingTest, DirectLogsToBufferStreamWorks) {
@@ -105,15 +107,11 @@ TEST(LoggingTest, DirectLogsToBufferStreamWorks) {
 
   // Check that output went to the buffer.
   std::string output(stringbuf_ptr->str());
-  EXPECT_TRUE(output.find(teststring) != std::string::npos)
-      << "log output is missing the log message, the output is: " << output;
+  EXPECT_THAT(output, HasSubstr(teststring));
 
   // Check that the output never went to stderr.
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) == std::string::npos)
-      << "stderr unexpectedly contains the log message that should have gone "
-         "to the specified string buffer. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
 }
 
 TEST(LoggingTest, BufferedLogsSentToSpecifiedStream) {
@@ -127,12 +125,9 @@ TEST(LoggingTest, BufferedLogsSentToSpecifiedStream) {
       "test sending logs to the buffer before setting the output stream";
   BAZEL_LOG(INFO) << teststring;
 
-  // Check that stderr isn't getting anything yet.
+  // Check that stderr isn't getting anything.
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) == std::string::npos)
-      << "stderr unexpectedly contains the log message, before log output was "
-         "set. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
   testing::internal::CaptureStderr();
 
   // Ask that the logs get output to a string buffer (keep a ptr to it so we can
@@ -143,15 +138,11 @@ TEST(LoggingTest, BufferedLogsSentToSpecifiedStream) {
 
   // Check that the buffered logs were sent.
   std::string output(stringbuf_ptr->str());
-  EXPECT_TRUE(output.find(teststring) != std::string::npos)
-      << "log output is missing the log message, the output is: " << output;
+  EXPECT_THAT(output, HasSubstr(teststring));
 
   // Check that the output did not go to stderr.
   stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) == std::string::npos)
-      << "stderr unexpectedly contains the log message that should have gone "
-         "to the specified string buffer. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
 }
 
 TEST(LoggingTest, DirectLogsToCerrWorks) {
@@ -171,9 +162,7 @@ TEST(LoggingTest, DirectLogsToCerrWorks) {
   // Cause the logs to be flushed, and capture them.
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) != std::string::npos)
-      << "stderr does not contain the expected log message. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
 TEST(LoggingTest, BufferedLogsGetDirectedToCerr) {
@@ -193,9 +182,7 @@ TEST(LoggingTest, BufferedLogsGetDirectedToCerr) {
   // Cause the logs to be flushed, and capture them.
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find(teststring) != std::string::npos)
-      << "stderr does not contain the expected log message. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
 TEST(LoggingTest, ImpossibleFile) {
@@ -213,9 +200,7 @@ TEST(LoggingTest, ImpossibleFile) {
   // Cause the logs to be flushed, and capture them.
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_TRUE(stderr_output.find("ERROR") != std::string::npos);
-  EXPECT_TRUE(stderr_output.find("Provided stream failed") != std::string::npos)
-      << "stderr does not contain the expected error. Stderr contained: "
-      << stderr_output;
+  EXPECT_THAT(stderr_output,
+              MatchesRegex(".bazel ERROR.* Provided stream failed.\n"));
 }
 }  // namespace blaze_util

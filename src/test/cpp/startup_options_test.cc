@@ -18,7 +18,7 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/workspace_layout.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
 

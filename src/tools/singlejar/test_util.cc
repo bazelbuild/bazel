@@ -24,7 +24,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/strings.h"
 
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 namespace singlejar_test_util {
 

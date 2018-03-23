@@ -20,7 +20,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/workspace_layout.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 #include "re2/re2.h"
 
 namespace blaze {

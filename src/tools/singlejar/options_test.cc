@@ -18,7 +18,7 @@
 #include "src/tools/singlejar/test_util.h"
 
 #include "src/main/cpp/util/port.h"
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 
 TEST(OptionsTest, Flags1) {
   const char *args[] = {"--exclude_build_data",
