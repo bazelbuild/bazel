@@ -82,6 +82,8 @@ public class ObjectCodecs {
 
   public Object deserialize(CodedInputStream codedIn, MemoizationPermission memoizationPermission)
       throws SerializationException {
+    // Allow access to buffer without copying (although this means buffer may be pinned in memory).
+    codedIn.enableAliasing(true);
     DeserializationContext context = deserializationContext;
     if (memoizationPermission == MemoizationPermission.DISABLED) {
       context = context.disableMemoization();
