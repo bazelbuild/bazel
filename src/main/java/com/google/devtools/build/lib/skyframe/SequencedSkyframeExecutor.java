@@ -165,7 +165,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
-        defaultBuildOptions);
+        defaultBuildOptions,
+        new PackageProgressReceiver());
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }

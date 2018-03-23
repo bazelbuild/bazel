@@ -39,6 +39,13 @@ import javax.annotation.Nullable;
  */
 public class ToplevelSkylarkAspectFunction implements SkyFunction {
 
+  @Nullable private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
+
+  ToplevelSkylarkAspectFunction(
+      @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
+    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
+  }
+
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -68,8 +75,9 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     SkylarkAspect skylarkAspect;
     Label extensionFileLabel = Iterables.getOnlyElement(labelLookupMap.values());
     try {
-      skylarkAspect = AspectFunction.loadSkylarkAspect(
-          env, extensionFileLabel, skylarkValueName);
+      skylarkAspect =
+          AspectFunction.loadSkylarkAspect(
+              env, extensionFileLabel, skylarkValueName, skylarkImportLookupFunctionForInlining);
       if (skylarkAspect == null) {
         return null;
       }
