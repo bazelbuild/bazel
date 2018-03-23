@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -1305,14 +1306,22 @@ public final class CcCompilationHelper {
   /** @return the non-pic header module artifact for the current target. */
   private Artifact getHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
-    PathFragment outputName = objectDir.getRelative(moduleMapArtifact.getRootRelativePath());
+    PathFragment outputName =
+        objectDir.getRelative(
+            cppConfiguration.shortenObjFilePath()
+                ? moduleMapArtifact.getRootRelativePath().getBaseName()
+                : moduleMapArtifact.getRootRelativePath().getPathString());
     return ruleContext.getRelatedArtifact(outputName, ".pcm");
   }
 
   /** @return the pic header module artifact for the current target. */
   private Artifact getPicHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
-    PathFragment outputName = objectDir.getRelative(moduleMapArtifact.getRootRelativePath());
+    PathFragment outputName =
+        objectDir.getRelative(
+            cppConfiguration.shortenObjFilePath()
+                ? moduleMapArtifact.getRootRelativePath().getBaseName()
+                : moduleMapArtifact.getRootRelativePath().getPathString());
     return ruleContext.getRelatedArtifact(outputName, ".pic.pcm");
   }
 
@@ -1346,11 +1355,25 @@ public final class CcCompilationHelper {
       }
     }
 
+    String outputNamePrefixDir = null;
+    // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
+    // Here we use it to distinguish arc and non-arc compilation.
+    if (purpose != null) {
+      outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
+    }
+
+    ObjectFilePathHelper objectFilePathHelper =
+        new ObjectFilePathHelper(
+            compilationUnitSources
+                .stream()
+                .map(source -> source.getSource())
+                .collect(Collectors.toList()),
+            cppConfiguration.shortenObjFilePath(),
+            outputNamePrefixDir);
+
     for (CppSource source : compilationUnitSources) {
       Artifact sourceArtifact = source.getSource();
       Label sourceLabel = source.getLabel();
-      String outputName =
-          FileSystemUtils.removeExtension(sourceArtifact.getRootRelativePath()).getPathString();
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
       builder
@@ -1361,6 +1384,8 @@ public final class CcCompilationHelper {
       boolean bitcodeOutput =
           featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
+
+      String outputName = objectFilePathHelper.getOutputName(sourceArtifact);
 
       if (!sourceArtifact.isTreeArtifact()) {
         switch (source.getType()) {
@@ -1401,6 +1426,7 @@ public final class CcCompilationHelper {
                 createCompileActionTemplate(
                     env,
                     source,
+                    outputName,
                     builder,
                     ImmutableList.of(
                         ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
@@ -1410,7 +1436,12 @@ public final class CcCompilationHelper {
           case SOURCE:
             Artifact objectFile =
                 createCompileActionTemplate(
-                    env, source, builder, ImmutableList.of(ArtifactCategory.OBJECT_FILE), false);
+                    env,
+                    source,
+                    outputName,
+                    builder,
+                    ImmutableList.of(ArtifactCategory.OBJECT_FILE),
+                    false);
             result.addObjectFile(objectFile);
 
             if (getGeneratePicActions()) {
@@ -1418,6 +1449,7 @@ public final class CcCompilationHelper {
                   createCompileActionTemplate(
                       env,
                       source,
+                      outputName,
                       builder,
                       ImmutableList.of(ArtifactCategory.PIC_OBJECT_FILE),
                       true);
@@ -1437,12 +1469,13 @@ public final class CcCompilationHelper {
   private Artifact createCompileActionTemplate(
       AnalysisEnvironment env,
       CppSource source,
+      String outputName,
       CppCompileActionBuilder builder,
       Iterable<ArtifactCategory> outputCategories,
       boolean usePic) {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     SpecialArtifact outputFiles =
-        CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact, usePic);
+        CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact, outputName, usePic);
     // TODO(rduan): Dotd file output is not supported yet.
     builder.setOutputs(outputFiles, /* dotdFile= */ null);
     setupCompileBuildVariables(
@@ -1659,7 +1692,10 @@ public final class CcCompilationHelper {
       // If we find one, support needs to be added here.
       return;
     }
-    String outputName = module.getRootRelativePath().getPathString();
+    String outputName =
+        cppConfiguration.shortenObjFilePath()
+            ? module.getRootRelativePath().getBaseName()
+            : module.getRootRelativePath().getPathString();
 
     // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
     boolean pic = module.getFilename().contains(".pic.");
@@ -1772,7 +1808,13 @@ public final class CcCompilationHelper {
     // - it creates a header module (.pcm file).
     return createSourceAction(
         Label.parseAbsoluteUnchecked(cppModuleMap.getName()),
-        FileSystemUtils.removeExtension(moduleMapArtifact.getRootRelativePath()).getPathString(),
+        // The header module(.pcm) is generated at most one file per target,
+        // so it's safe to remove module map's package path from its output name.
+        cppConfiguration.shortenObjFilePath()
+            ? FileSystemUtils.removeExtension(moduleMapArtifact.getRootRelativePath())
+                .getBaseName()
+            : FileSystemUtils.removeExtension(moduleMapArtifact.getRootRelativePath())
+                .getPathString(),
         result,
         env,
         moduleMapArtifact,

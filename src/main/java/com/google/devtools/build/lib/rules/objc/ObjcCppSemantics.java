@@ -104,7 +104,7 @@ public class ObjcCppSemantics implements CppSemantics {
       if (!sourceFile.isTreeArtifact()
           && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
         actionBuilder.addMandatoryInputs(
-            ImmutableList.of(intermediateArtifacts.headersListFile(sourceFile)));
+            ImmutableList.of(intermediateArtifacts.headersListFile(actionBuilder.getOutputFile())));
       }
     } else {
       // Header thinning feature will make all generated files mandatory inputs to the
