@@ -1039,17 +1039,16 @@ genrule(
 </p>
 
 <h3 id="rbuildfiles">Package definition files: rbuildfiles</h3>
-<pre>expr ::= rbuildfiles(<var>expr</var>)</pre>
+<pre>expr ::= rbuildfiles(<var>word</var>, ...)</pre>
 <b>Only available with <a href='#sky-query'>Sky Query</a></b><br/>
 <p>
-  The <code>rbuildfiles(<var>x</var>)</code> operator returns the set of "buildfiles" (BUILD and
-  .bzl files) that depend on <var>x</var>, where <var>x</var> is a list of path fragments for
-  buildfiles. For instance, if <code>//foo</code> is a package, then
-  <code>rbuildfiles(foo/BUILD)</code> will return the <code>//foo:BUILD</code> target. If the
-  <code>foo/BUILD</code> file has <code>load('//bar:file.bzl'...</code> in it, then
-  <code>rbuildfiles(bar/file.bzl)</code> will return the <code>//foo:BUILD</code> target and the
-  <code>//bar:file.bzl</code> target, as well as the targets for any other BUILD files and .bzl
-  files that load <code>//bar:file.bzl</code>
+  The <code>rbuildfiles</code> operator takes a comma-separated list of path fragments and returns
+  the set of BUILD files that transitively depend on these path fragments. For instance, if
+  <code>//foo</code> is a package, then <code>rbuildfiles(foo/BUILD)</code> will return the
+  <code>//foo:BUILD</code> target. If the <code>foo/BUILD</code> file has
+  <code>load('//bar:file.bzl'...</code> in it, then <code>rbuildfiles(bar/file.bzl)</code> will
+  return the <code>//foo:BUILD</code> target, as well as the targets for any other BUILD files that
+  load <code>//bar:file.bzl</code>
 </p>
 
 <p>
@@ -1062,14 +1061,14 @@ genrule(
 </p>
 
 <p>
-  The <code>rbuildfiles</code> operator is morally the inverse of the
+  The <code>rbuildfiles</code> operator is almost morally the inverse of the
   <a href='#buildfiles'><code>buildfiles</code></a> operator. However, this moral inversion
   holds more strongly in one direction: the outputs of <code>rbuildfiles</code> are just like the
-  inputs of <code>buildfiles</code>, since both are targets corresponding to packages and .bzl
-  files. In the other direction, the correspondence is weaker. The outputs of the
-  <code>buildfiles</code> operator are targets corresponding to all packages and .bzl files needed
-  by a given input. However, the inputs of the <code>rbuildfiles</code> operator are not those
-  targets, but rather the path fragments that correspond to those targets.
+  inputs of <code>buildfiles</code>; the former will only contain BUILD file targets in packages,
+  and the latter may contain such targets. In the other direction, the correspondence is weaker. The
+  outputs of the <code>buildfiles</code> operator are targets corresponding to all packages and .bzl
+  files needed by a given input. However, the inputs of the <code>rbuildfiles</code> operator are
+  not those targets, but rather the path fragments that correspond to those targets.
 </p>
 
 <h3 id="loadfiles">Package definition files: loadfiles</h3>
