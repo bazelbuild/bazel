@@ -1401,6 +1401,7 @@ public final class Attribute implements Comparable<Attribute> {
    * calling {@link #computePossibleValues}, which returns a {@link SkylarkComputedDefault} that
    * contains a lookup table.
    */
+  @AutoCodec
   public static final class SkylarkComputedDefaultTemplate {
     private final Type<?> type;
     private final SkylarkCallbackFunction callback;
