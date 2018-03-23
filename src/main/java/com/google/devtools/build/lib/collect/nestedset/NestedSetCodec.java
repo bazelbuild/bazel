@@ -177,7 +177,11 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     // will point at the same object in memory instead of duplicating them.  Unfortunately, we had
     // to do the work of deserializing the member that we will now throw away, in order to ensure
     // that the pointer in the codedIn buffer was incremented appropriately.
-    Object oldValue = digestToChild.putIfAbsent(digest, result);
+    Object oldValue =
+        digestToChild.putIfAbsent(
+            // Copy the ByteString to avoid keeping the full buffer from codedIn alive due to
+            // aliasing.
+            ByteString.copyFrom(digest.asReadOnlyByteBuffer()), result);
     return oldValue == null ? result : oldValue;
   }
 
