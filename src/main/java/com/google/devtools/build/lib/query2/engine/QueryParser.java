@@ -55,7 +55,7 @@ public final class QueryParser {
   /**
    * Scan and parse the specified query expression.
    */
-  static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
+  public static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
     HashMap<String, QueryFunction> functions = new HashMap<>();
     for (QueryFunction queryFunction : env.getFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);

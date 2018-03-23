@@ -1390,7 +1390,7 @@ public class BuildConfiguration {
     globalMakeEnvBuilder.put("GENDIR", getGenfilesDirectory().getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
-    checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
+    checksum = computeChecksum(buildOptions);
     hashCode = computeHashCode();
 
     ImmutableSet.Builder<String> reservedActionMnemonics = ImmutableSet.builder();
@@ -1399,6 +1399,10 @@ public class BuildConfiguration {
     }
     this.reservedActionMnemonics = reservedActionMnemonics.build();
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
+  }
+
+  public static String computeChecksum(BuildOptions buildOptions) {
+    return Fingerprint.md5Digest(buildOptions.computeCacheKey());
   }
 
   /**
