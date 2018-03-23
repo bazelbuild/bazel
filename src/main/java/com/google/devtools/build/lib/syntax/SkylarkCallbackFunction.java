@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A helper class for calling Skylark functions from Java.
- */
+/** A helper class for calling Skylark functions from Java. */
+@AutoCodec
 public class SkylarkCallbackFunction {
 
   private final BaseFunction callback;
