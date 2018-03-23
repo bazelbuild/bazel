@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.packages.Package;
 import javax.annotation.Nullable;
 
 /**
@@ -50,29 +49,6 @@ public interface MakeVariableSupplier {
     @Override
     public ImmutableMap<String, String> getAllMakeVariables() {
       return makeVariables;
-    }
-  }
-
-  /** {@link MakeVariableSupplier} that reads variables it supplies from a {@link Package} */
-  class PackageBackedMakeVariableSupplier implements MakeVariableSupplier {
-
-    private final String platform;
-    private final Package pkg;
-
-    public PackageBackedMakeVariableSupplier(Package pkg, String platform) {
-      this.pkg = pkg;
-      this.platform = platform;
-    }
-
-    @Nullable
-    @Override
-    public String getMakeVariable(String variableName) {
-      return pkg.lookupMakeVariable(variableName, platform);
-    }
-
-    @Override
-    public ImmutableMap<String, String> getAllMakeVariables() {
-      return pkg.getAllMakeVariables(platform);
     }
   }
 }

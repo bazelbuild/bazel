@@ -334,7 +334,6 @@ public final class PackageFactory {
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
 
   private final ThreadPoolExecutor threadPool;
-  private Map<String, String> platformSetRegexps;
 
   private int maxDirectoriesToEagerlyVisitInGlobbing;
 
@@ -348,7 +347,6 @@ public final class PackageFactory {
   public abstract static class BuilderForTesting {
     protected final String version = "test";
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
-    protected Map<String, String> platformSetRegexps = null;
     protected Function<RuleClass, AttributeContainer> attributeContainerFactory =
         AttributeContainer::new;
     protected boolean doChecksForTesting = true;
@@ -356,11 +354,6 @@ public final class PackageFactory {
     public BuilderForTesting setEnvironmentExtensions(
         Iterable<EnvironmentExtension> environmentExtensions) {
       this.environmentExtensions = environmentExtensions;
-      return this;
-    }
-
-    public BuilderForTesting setPlatformSetRegexps(Map<String, String> platformSetRegexps) {
-      this.platformSetRegexps = platformSetRegexps;
       return this;
     }
 
@@ -388,12 +381,10 @@ public final class PackageFactory {
    */
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
-      Map<String, String> platformSetRegexps,
       Function<RuleClass, AttributeContainer> attributeContainerFactory,
       Iterable<EnvironmentExtension> environmentExtensions,
       String version,
       Package.Builder.Helper packageBuilderHelper) {
-    this.platformSetRegexps = platformSetRegexps;
     this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
@@ -1343,10 +1334,6 @@ public final class PackageFactory {
       SkylarkSemantics skylarkSemantics,
       Globber globber)
       throws InterruptedException {
-    MakeEnvironment.Builder makeEnv = new MakeEnvironment.Builder();
-    if (platformSetRegexps != null) {
-      makeEnv.setPlatformSetRegexps(platformSetRegexps);
-    }
     try {
       // At this point the package is guaranteed to exist.  It may have parse or
       // evaluation errors, resulting in a diminished number of rules.
@@ -1361,7 +1348,6 @@ public final class PackageFactory {
           defaultVisibility,
           skylarkSemantics,
           false /* containsError */,
-          makeEnv,
           imports,
           skylarkFileDependencies);
     } catch (InterruptedException e) {
@@ -1529,10 +1515,10 @@ public final class PackageFactory {
     }
 
     /**
-     * Returns the MakeEnvironment Builder of this Package.
+     * Sets a Make variable.
      */
-    public MakeEnvironment.Builder getMakeEnvironment() {
-      return pkgBuilder.getMakeEnvironment();
+    public void setMakeVariable(String name, String value) {
+      pkgBuilder.setMakeVariable(name, value);
     }
 
     /**
@@ -1645,7 +1631,6 @@ public final class PackageFactory {
       RuleVisibility defaultVisibility,
       SkylarkSemantics skylarkSemantics,
       boolean containsError,
-      MakeEnvironment.Builder pkgMakeEnv,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies)
       throws InterruptedException {
@@ -1665,7 +1650,6 @@ public final class PackageFactory {
       SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       pkgBuilder.setFilename(buildFilePath)
-          .setMakeEnv(pkgMakeEnv)
           .setDefaultVisibility(defaultVisibility)
           // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
           // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
