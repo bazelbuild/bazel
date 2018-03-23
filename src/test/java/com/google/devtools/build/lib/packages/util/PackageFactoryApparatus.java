@@ -142,7 +142,6 @@ public class PackageFactoryApparatus {
             ImmutableList.<Postable>of(),
             ConstantRuleVisibility.PUBLIC,
             SkylarkSemantics.DEFAULT_SEMANTICS,
-            false,
             ImmutableMap.<String, Extension>of(),
             ImmutableList.<Label>of());
     Package result;

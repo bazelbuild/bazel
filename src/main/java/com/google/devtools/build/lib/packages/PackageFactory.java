@@ -1347,7 +1347,6 @@ public final class PackageFactory {
           astParseResult.allPosts,
           defaultVisibility,
           skylarkSemantics,
-          false /* containsError */,
           imports,
           skylarkFileDependencies);
     } catch (InterruptedException e) {
@@ -1630,7 +1629,6 @@ public final class PackageFactory {
       Iterable<Postable> pastPosts,
       RuleVisibility defaultVisibility,
       SkylarkSemantics skylarkSemantics,
-      boolean containsError,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies)
       throws InterruptedException {
@@ -1667,10 +1665,6 @@ public final class PackageFactory {
           new PackageContext(
               pkgBuilder, globber, eventHandler, ruleFactory.getAttributeContainerFactory());
       buildPkgEnv(pkgEnv, context, packageId);
-
-      if (containsError) {
-        pkgBuilder.setContainsErrors();
-      }
 
       if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {
         pkgBuilder.setContainsErrors();
