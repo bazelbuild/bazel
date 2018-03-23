@@ -96,7 +96,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private final Path execRoot;
   private final boolean allowNetwork;
-  private final String productName;
   private final Path processWrapper;
   private final Optional<Duration> timeoutKillDelay;
   private final @Nullable SandboxfsProcess sandboxfsProcess;
@@ -111,40 +110,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
-   * {@code sandbox-exec} binary. If a spawn exceeds its timeout, then it will be killed instantly.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   */
-  DarwinSandboxedSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase, String productName)
-      throws IOException {
-    this(cmdEnv, sandboxBase, productName, Optional.empty(), null);
-  }
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
-   * {@code sandbox-exec} binary. If a spawn exceeds its timeout, then it will be killed after the
-   * specified delay.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   * @param timeoutKillDelay an additional grace period before killing timing out commands
-   */
-  DarwinSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay)
-      throws IOException {
-    this(cmdEnv, sandboxBase, productName, Optional.of(timeoutKillDelay), null);
-  }
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
    * {@code sandbox-exec} binary.
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
    * @param timeoutKillDelay an optional, additional grace period before killing timing out
    *     commands. If not present, then no grace period is used and commands are killed instantly.
    * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
@@ -153,14 +122,12 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   DarwinSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      String productName,
       Optional<Duration> timeoutKillDelay,
       @Nullable SandboxfsProcess sandboxfsProcess)
       throws IOException {
     super(cmdEnv, sandboxBase);
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
-    this.productName = productName;
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.localEnvProvider =
