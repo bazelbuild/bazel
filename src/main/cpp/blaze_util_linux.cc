@@ -31,6 +31,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
@@ -38,7 +39,6 @@ namespace blaze {
 
 using blaze_util::die;
 using blaze_util::pdie;
-using blaze_util::PrintWarning;
 using std::string;
 using std::vector;
 
@@ -68,16 +68,15 @@ string GetOutputRoot() {
 void WarnFilesystemType(const string& output_base) {
   struct statfs buf = {};
   if (statfs(output_base.c_str(), &buf) < 0) {
-    PrintWarning("couldn't get file system type information for '%s': %s",
-                 output_base.c_str(), strerror(errno));
+    BAZEL_LOG(WARNING) << "couldn't get file system type information for '"
+                       << output_base << "': " << strerror(errno);
     return;
   }
 
   if (buf.f_type == NFS_SUPER_MAGIC) {
-    PrintWarning(
-        "Output base '%s' is on NFS. This may lead "
-        "to surprising failures and undetermined behavior.",
-        output_base.c_str());
+    BAZEL_LOG(WARNING) << "Output base '" << output_base
+                       << "' is on NFS. This may lead to surprising failures "
+                          "and undetermined behavior.";
   }
 }
 

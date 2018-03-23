@@ -752,11 +752,11 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
          posix_target.c_str(), posix_name.c_str(), posix_name.c_str());
     return false;
   }
-  wstring error(CreateJunction(name, target));
-  if (!error.empty()) {
-    blaze_util::PrintError("SymlinkDirectories(%s, %s): CreateJunction: %S",
-                           posix_target.c_str(), posix_name.c_str(),
-                           error.c_str());
+  wstring werror(CreateJunction(name, target));
+  if (!werror.empty()) {
+    string error(blaze_util::WstringToCstring(werror.c_str()).get());
+    BAZEL_LOG(ERROR) << "SymlinkDirectories(" << posix_target << ", "
+                     << posix_name << "): CreateJunction: " << error;
     return false;
   }
   return true;
@@ -1397,6 +1397,8 @@ void DetectBashOrDie() {
     // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
   } else {
+    // TODO(bazel-team) should this be printed to stderr? If so, it should use
+    // BAZEL_LOG(ERROR)
     printf(
         "Bazel on Windows requires bash.exe and other Unix tools, but we could "
         "not find them.\n"

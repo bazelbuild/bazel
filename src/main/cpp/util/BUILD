@@ -54,6 +54,7 @@ cc_library(
     deps = [
         ":blaze_exit_code",
         ":errors",
+        ":logging",
         ":strings",
     ] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
@@ -72,7 +73,11 @@ cc_library(
         ":ijar",
         "//src/main/cpp:__subpackages__",
     ],
-    deps = [":port"],
+    deps = [
+        ":logging",
+        ":port",
+        ":strings",
+    ],
 )
 
 cc_library(
@@ -93,6 +98,7 @@ cc_library(
     srcs = ["logging.cc"],
     hdrs = ["logging.h"],
     visibility = ["//visibility:public"],
+    deps = [":blaze_exit_code"],
 )
 
 cc_library(
@@ -101,6 +107,7 @@ cc_library(
     hdrs = ["bazel_log_handler.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":blaze_exit_code",
         ":file",
         ":logging",
     ],

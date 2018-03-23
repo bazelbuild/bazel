@@ -19,6 +19,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 
@@ -51,11 +52,13 @@ void BazelLogHandler::HandleMessage(LogLevel level, const std::string& filename,
   // Select the appropriate stream to log to.
   std::ostream* log_stream;
   if (logging_deactivated_) {
-    // Do nothing if the output stream was explicitly deactivated, unless the
-    // level is USER, in which case the message is meant to be user-visible
-    // regardless of logging settings.
+    // If the output stream was explicitly deactivated, never print INFO
+    // messages, but USER should always be printed, as should warnings and
+    // errors. Omit the debug-level file and line number information, though.
     if (level == LOGLEVEL_USER) {
       std::cerr << message << std::endl;
+    } else if (level > LOGLEVEL_USER) {
+      std::cerr << LogLevelName(level) << ": " << message << std::endl;
     }
     return;
   } else if (output_stream_ == nullptr) {
@@ -72,7 +75,8 @@ void BazelLogHandler::HandleMessage(LogLevel level, const std::string& filename,
   if (level == LOGLEVEL_FATAL) {
     std::cerr << "[bazel " << LogLevelName(level) << " " << filename << ":"
               << line << "] " << message << std::endl;
-    std::abort();
+    // TODO(b/32967056) pass correct exit code information.
+    std::exit(blaze_exit_code::INTERNAL_ERROR);
   }
 }
 

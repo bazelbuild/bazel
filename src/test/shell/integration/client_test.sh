@@ -42,103 +42,112 @@ function test_client_debug() {
 }
 
 function test_client_debug_change_does_not_restart_server() {
-  PID1=$(bazel --client_debug info server_pid)
-  PID2=$(bazel info server_pid)
-  if [[ $PID1 != $PID2 ]]; then
-    fail "Server restarted due to change in --client_debug"
-  fi
+  local server_pid1=$(bazel --client_debug info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel info server_pid 2>$TEST_log)
+  assert_equals "$server_pid1" "$server_pid2"
+  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+}
+
+function test_server_restart_due_to_startup_options() {
+  local server_pid1=$(bazel --write_command_log info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --nowrite_command_log info server_pid 2>$TEST_log)
+  assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
+  expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 function test_multiple_requests_same_server() {
-    local server_pid1=$(bazel info server_pid 2>$TEST_log)
-    local server_pid2=$(bazel info server_pid 2>$TEST_log)
-    assert_equals "$server_pid1" "$server_pid2"
+  local server_pid1=$(bazel info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel info server_pid 2>$TEST_log)
+  assert_equals "$server_pid1" "$server_pid2"
+  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 function test_shutdown() {
-    local server_pid1=$(bazel info server_pid 2>$TEST_log)
-    bazel shutdown >& $TEST_log || fail "Expected success"
-    local server_pid2=$(bazel info server_pid 2>$TEST_log)
-    assert_not_equals "$server_pid1" "$server_pid2"
+  local server_pid1=$(bazel info server_pid 2>$TEST_log)
+  bazel shutdown >& $TEST_log || fail "Expected success"
+  local server_pid2=$(bazel info server_pid 2>$TEST_log)
+  assert_not_equals "$server_pid1" "$server_pid2"
 }
 
 function test_exit_code() {
-    bazel query not_a_query >/dev/null &>$TEST_log &&
-        fail "bazel query: expected nonzero exit"
-    expect_log "'not_a_query'"
+  bazel query not_a_query >/dev/null &>$TEST_log &&
+      fail "bazel query: expected nonzero exit"
+  expect_log "'not_a_query'"
 }
 
 function test_output_base() {
-    out=$(bazel --output_base=$TEST_TMPDIR/output info output_base 2>$TEST_log)
-    assert_equals $TEST_TMPDIR/output "$out"
+  out=$(bazel --output_base=$TEST_TMPDIR/output info output_base 2>$TEST_log)
+  assert_equals $TEST_TMPDIR/output "$out"
 }
 
 function test_output_base_is_file() {
-    bazel --output_base=/dev/null &>$TEST_log && fail "Expected non-zero exit"
-    expect_log "Error: Output base directory '/dev/null' could not be created.*exists"
+  bazel --output_base=/dev/null &>$TEST_log && fail "Expected non-zero exit"
+  expect_log "Error: Output base directory '/dev/null' could not be created.*exists"
 }
 
 function test_cannot_create_output_base() {
-    bazel --output_base=/foo &>$TEST_log && fail "Expected non-zero exit"
-    expect_log "Error: Output base directory '/foo' could not be created"
+  bazel --output_base=/foo &>$TEST_log && fail "Expected non-zero exit"
+  expect_log "Error: Output base directory '/foo' could not be created"
 }
 
 function test_nonwritable_output_base() {
-    bazel --output_base=/ &>$TEST_log && fail "Expected non-zero exit"
-    expect_log "Output base directory '/' must be readable and writable."
+  bazel --output_base=/ &>$TEST_log && fail "Expected non-zero exit"
+  expect_log "Output base directory '/' must be readable and writable."
 }
 
 function test_no_arguments() {
-    bazel >&$TEST_log || fail "Expected zero exit"
-    expect_log "Usage: b\\(laze\\|azel\\)"
+  bazel >&$TEST_log || fail "Expected zero exit"
+  expect_log "Usage: b\\(laze\\|azel\\)"
 }
 
 
 function test_max_idle_secs() {
-    local server_pid1=$(bazel --max_idle_secs=1 info server_pid 2>$TEST_log)
-    sleep 5
-    local server_pid2=$(bazel info server_pid 2>$TEST_log)
-    assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
+  local server_pid1=$(bazel --max_idle_secs=1 info server_pid 2>$TEST_log)
+  sleep 5
+  local server_pid2=$(bazel info server_pid 2>$TEST_log)
+  assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
+  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 function test_dashdash_before_command() {
-    bazel -- info &>$TEST_log && "Expected failure"
-    exitcode=$?
-    assert_equals 2 $exitcode
-    expect_log "Unknown startup option: '--'."
+  bazel -- info &>$TEST_log && "Expected failure"
+  exitcode=$?
+  assert_equals 2 $exitcode
+  expect_log "Unknown startup option: '--'."
 }
 
 function test_dashdash_after_command() {
-    bazel info -- &>$TEST_log || fail "info -- failed"
+  bazel info -- &>$TEST_log || fail "info -- failed"
 }
 
 function test_nobatch() {
-    local pid1=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
-    local pid2=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
-    assert_equals "$pid1" "$pid2"
+  local pid1=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
+  local pid2=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
+  assert_equals "$pid1" "$pid2"
+  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 # Regression test for #1875189, "bazel client should pass through '--help' like
 # a command".
 function test_bazel_dash_dash_help_is_passed_through() {
-    bazel --help >&$TEST_log
-    expect_log "Usage: b\\(azel\\|laze\\) <command> <options> ..."
-    expect_not_log "Unknown startup option: '--help'."
+  bazel --help >&$TEST_log
+  expect_log "Usage: b\\(azel\\|laze\\) <command> <options> ..."
+  expect_not_log "Unknown startup option: '--help'."
 }
 
 function test_bazel_dash_help() {
-    bazel -help >&$TEST_log
-    expect_log "Usage: b\\(azel\\|laze\\) <command> <options> ..."
+  bazel -help >&$TEST_log
+  expect_log "Usage: b\\(azel\\|laze\\) <command> <options> ..."
 }
 
 function test_bazel_dash_h() {
-    bazel -h >&$TEST_log
-    expect_log "Usage: b\\(azel\\|laze\\) <command> <options> ..."
+  bazel -h >&$TEST_log
+  expect_log "Usage: b\\(azel\\|laze\\) <command> <options> ..."
 }
 
 function test_bazel_dash_s_is_not_parsed() {
-    bazel -s --help >&$TEST_log && fail "Expected failure"
-    expect_log "Unknown startup option: '-s'."
+  bazel -s --help >&$TEST_log && fail "Expected failure"
+  expect_log "Unknown startup option: '-s'."
 }
 
 function test_cmdline_not_written_in_batch_mode() {

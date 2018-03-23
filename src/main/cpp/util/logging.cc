@@ -20,6 +20,8 @@
 #include <iostream>
 #include <memory>
 
+#include "src/main/cpp/util/exit_code.h"
+
 namespace blaze_util {
 
 const char* LogLevelName(LogLevel level) {
@@ -65,17 +67,20 @@ void LogMessage::Finish() {
   std::string message(message_.str());
   if (log_handler_ != nullptr) {
     log_handler_->HandleMessage(level_, filename_, line_, message);
-  } else if (level_ == LOGLEVEL_USER) {
-    // Messages directed at the user should be printed even without a log
-    // handler.
-    std::cerr << message << std::endl;
-  } else if (level_ == LOGLEVEL_FATAL) {
-    // Expect the log_handler_ to handle FATAL calls, but we should still fail
-    // as expected even if no log_handler_ is defined. For ease of debugging,
-    // we also print out the error statement.
-    std::cerr << filename_ << ":" << line_ << " FATAL: " << message
-              << std::endl;
-    std::abort();
+  } else {
+    // If no custom handler was provided, never print INFO messages,
+    // but USER should always be printed, as should warnings and errors.
+    if (level_ == LOGLEVEL_USER) {
+      std::cerr << message << std::endl;
+    } else if (level_ > LOGLEVEL_USER) {
+      std::cerr << LogLevelName(level_) << ": " << message << std::endl;
+    }
+
+    if (level_ == LOGLEVEL_FATAL) {
+      // Exit for fatal calls after handling the message.
+      // TODO(b/32967056) pass correct exit code information.
+      std::exit(blaze_exit_code::INTERNAL_ERROR);
+    }
   }
 }
 
