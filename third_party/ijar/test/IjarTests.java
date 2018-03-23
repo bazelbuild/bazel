@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.bazel.BazelJavaCompiler;
@@ -283,6 +285,9 @@ public class IjarTests {
   public void testTargetLabel() throws Exception {
     try (JarFile jf =
         new JarFile("third_party/ijar/test/interface_ijar_testlib_with_target_label.jar")) {
+      ImmutableList<String> entries = jf.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(entries.get(0)).isEqualTo("META-INF/");
+      assertThat(entries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
       Manifest manifest = jf.getManifest();
       Attributes attributes = manifest.getMainAttributes();
       assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
