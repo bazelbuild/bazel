@@ -878,7 +878,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         implicitOutputsFunction,
         /*isConfigMatcher=*/ false,
         transitionFactory,
-        null,
         configuredTargetFactory,
         validityPredicate,
         preferredDependencyPredicate,

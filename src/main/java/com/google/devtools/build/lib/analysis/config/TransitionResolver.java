@@ -95,17 +95,6 @@ public final class TransitionResolver {
     // doesn't need special logic for combinations.
     ConfigurationTransition currentTransition = NoTransition.INSTANCE;
 
-    // Apply the parent rule's outgoing transition if it has one.
-    RuleTransitionFactory transitionFactory =
-        fromRule.getRuleClassObject().getOutgoingTransitionFactory();
-    if (transitionFactory != null) {
-      ConfigurationTransition transition =
-          transitionFactory.buildTransitionFor(toTarget.getAssociatedRule());
-      if (transition != null) {
-        currentTransition = composeTransitions(currentTransition, transition);
-      }
-    }
-
     // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses).
     // The "else" is a legacy restriction from static configurations.
     if (attribute.hasSplitConfigurationTransition()) {

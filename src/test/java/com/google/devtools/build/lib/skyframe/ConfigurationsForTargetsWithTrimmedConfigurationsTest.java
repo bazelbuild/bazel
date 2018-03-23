@@ -22,10 +22,8 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
@@ -35,7 +33,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -430,67 +427,5 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
             newSplitTransition("s"),
             newSplitTransition("t"))))
         .containsExactly("s1t1", "s1t2", "s2t1", "s2t2");
-  }
-
-  /** Sets {@link TestConfiguration.TestOptions#testFilter} to the rule class of the given rule. */
-  private static final RuleTransitionFactory RULE_BASED_TEST_FILTER =
-      rule ->
-          (PatchTransition)
-              buildOptions -> {
-                BuildOptions toOptions = buildOptions.clone();
-                toOptions.get(TestConfiguration.TestOptions.class).testFilter = rule.getRuleClass();
-                return toOptions;
-              };
-
-  private static final RuleDefinition RULE_WITH_OUTGOING_TRANSITION =
-      (MockRule)
-          () ->
-              MockRule.define(
-                  "change_deps",
-                  (builder, env) ->
-                      builder
-                          .add(MockRuleDefaults.DEPS_ATTRIBUTE)
-                          .requiresConfigurationFragments(TestConfiguration.class)
-                          .depsCfg(RULE_BASED_TEST_FILTER));
-
-  @Test
-  public void outgoingRuleTransition() throws Exception {
-    setRulesAvailableInTests(
-        RULE_WITH_OUTGOING_TRANSITION,
-        (MockRule)
-            () ->
-                MockRule.define(
-                    "foo_rule",
-                    (builder, env) ->
-                        builder.requiresConfigurationFragments(TestConfiguration.class)),
-        (MockRule)
-            () ->
-                MockRule.define(
-                    "bar_rule",
-                    (builder, env) ->
-                        builder.requiresConfigurationFragments(TestConfiguration.class)));
-    scratch.file("outgoing/BUILD",
-        "foo_rule(",
-        "    name = 'foolib')",
-        "bar_rule(",
-        "    name = 'barlib')",
-        "change_deps(",
-        "    name = 'bin',",
-        "    deps  = [':foolib', ':barlib'])");
-
-    List<ConfiguredTarget> deps = getConfiguredDeps("//outgoing:bin", "deps");
-    ImmutableMap<String, String> depLabelToTestFilterString =
-        ImmutableMap.of(
-            deps.get(0).getLabel().toString(),
-                deps.get(0).getConfiguration().getFragment(TestConfiguration.class).getTestFilter(),
-            deps.get(1).getLabel().toString(),
-                deps.get(1)
-                    .getConfiguration()
-                    .getFragment(TestConfiguration.class)
-                    .getTestFilter());
-
-    assertThat(depLabelToTestFilterString).containsExactly(
-        "//outgoing:foolib", "foo_rule",
-        "//outgoing:barlib", "bar_rule");
   }
 }

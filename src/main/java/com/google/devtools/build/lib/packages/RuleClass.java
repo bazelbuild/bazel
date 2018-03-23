@@ -587,7 +587,6 @@ public class RuleClass {
     private boolean isConfigMatcher = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private RuleTransitionFactory transitionFactory;
-    private RuleTransitionFactory outgoingTransitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
@@ -715,7 +714,6 @@ public class RuleClass {
           implicitOutputsFunction,
           isConfigMatcher,
           transitionFactory,
-          outgoingTransitionFactory,
           configuredTargetFactory,
           validityPredicate,
           preferredDependencyPredicate,
@@ -900,22 +898,6 @@ public class RuleClass {
           "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
       this.transitionFactory = transitionFactory;
-      return this;
-    }
-
-    /**
-     * Applies the given transition factory to all deps of this rule class.
-     *
-     * <p>This means that for each dep, the factory can examine the dep's {@link Rule} to
-     * determine the right transition for that dep.
-     */
-    public Builder depsCfg(RuleTransitionFactory outgoingTransitionFactory) {
-      Preconditions.checkState(type != RuleClassType.ABSTRACT,
-          "Setting not inherited property (configureDeps) of abstract rule class '%s'", name);
-      Preconditions.checkState(this.outgoingTransitionFactory == null,
-          "Property configureDeps has already been set");
-      Preconditions.checkNotNull(outgoingTransitionFactory);
-      this.outgoingTransitionFactory = outgoingTransitionFactory;
       return this;
     }
 
@@ -1229,11 +1211,6 @@ public class RuleClass {
    */
   private final RuleTransitionFactory transitionFactory;
 
-  /**
-   * A factory which will produce custom configuration transitions for each dep of this rule.
-   */
-  private final RuleTransitionFactory outgoingTransitionFactory;
-
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
 
@@ -1325,7 +1302,6 @@ public class RuleClass {
       ImplicitOutputsFunction implicitOutputsFunction,
       boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
-      RuleTransitionFactory outgoingRuleTransitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -1353,7 +1329,6 @@ public class RuleClass {
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.isConfigMatcher = isConfigMatcher;
     this.transitionFactory = transitionFactory;
-    this.outgoingTransitionFactory = outgoingRuleTransitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
     this.preferredDependencyPredicate = preferredDependencyPredicate;
@@ -1423,10 +1398,6 @@ public class RuleClass {
 
   public RuleTransitionFactory getTransitionFactory() {
     return transitionFactory;
-  }
-
-  public RuleTransitionFactory getOutgoingTransitionFactory() {
-    return outgoingTransitionFactory;
   }
 
   @SuppressWarnings("unchecked")
