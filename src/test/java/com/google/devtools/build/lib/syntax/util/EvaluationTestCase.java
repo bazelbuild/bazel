@@ -53,15 +53,7 @@ public class EvaluationTestCase {
 
   @Before
   public final void initialize() throws Exception {
-    beforeInitialization();
     env = newEnvironment();
-  }
-
-  protected void beforeInitialization() throws Exception {
-    // This method exists so that it can be overridden in MakeEnvironmentTest.
-    // The problem is that MakeEnvironmentTest's initialization code (setting up makeEnvBuilder)
-    // needs to run before initialize(), otherwise some tests fail with an NPE.
-    // Consequently, we need this hack to ensure the right order of methods.
   }
 
   /**

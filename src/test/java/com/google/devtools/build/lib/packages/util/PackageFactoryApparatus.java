@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
-import com.google.devtools.build.lib.packages.MakeEnvironment;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder;
@@ -58,7 +57,6 @@ public class PackageFactoryApparatus {
     factory =
         new PackageFactory(
             ruleClassProvider,
-            null,
             AttributeContainer::new,
             ImmutableList.copyOf(environmentExtensions),
             "test",
@@ -145,7 +143,6 @@ public class PackageFactoryApparatus {
             ConstantRuleVisibility.PUBLIC,
             SkylarkSemantics.DEFAULT_SEMANTICS,
             false,
-            new MakeEnvironment.Builder(),
             ImmutableMap.<String, Extension>of(),
             ImmutableList.<Label>of());
     Package result;

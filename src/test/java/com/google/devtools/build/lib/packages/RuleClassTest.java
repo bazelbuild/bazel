@@ -252,8 +252,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   private Package.Builder createDummyPackageBuilder() {
     return packageFactory.newPackageBuilder(
         PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
-        .setFilename(testBuildfilePath)
-        .setMakeEnv(new MakeEnvironment.Builder());
+        .setFilename(testBuildfilePath);
   }
 
   @Test

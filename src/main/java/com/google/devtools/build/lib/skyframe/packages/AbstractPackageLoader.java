@@ -360,7 +360,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PackageFactory pkgFactory =
         new PackageFactory(
             ruleClassProvider,
-            null,
             AttributeContainer::new,
             getEnvironmentExtensions(),
             getName(),

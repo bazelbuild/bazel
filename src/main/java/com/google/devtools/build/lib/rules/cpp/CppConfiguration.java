@@ -1319,11 +1319,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return toolchainPrefix + lipoSuffix;
   }
 
-  @Override
-  public String getPlatformName() {
-    return getToolchainIdentifier();
-  }
-
   /**
    * Returns true if we should share identical native libraries between different targets.
    */

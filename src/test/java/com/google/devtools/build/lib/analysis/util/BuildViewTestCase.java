@@ -234,8 +234,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
-            .setEnvironmentExtensions(getEnvironmentExtensions())
-            .setPlatformSetRegexps(getPlatformSetRegexps());
+            .setEnvironmentExtensions(getEnvironmentExtensions());
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
@@ -284,10 +283,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public void initializeMockClient() throws IOException {
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-  }
-
-  protected Map<String, String> getPlatformSetRegexps() {
-    return null;
   }
 
   protected AnalysisMock getAnalysisMock() {

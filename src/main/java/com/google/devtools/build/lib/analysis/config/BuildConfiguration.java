@@ -158,13 +158,6 @@ public class BuildConfiguration {
     }
 
     /**
-     * The platform name is a concatenation of fragment platform names.
-     */
-    public String getPlatformName() {
-      return "";
-    }
-
-    /**
      * Add items to the action environment.
      *
      * @param builder the map to add environment variables to
@@ -1170,7 +1163,6 @@ public class BuildConfiguration {
   private final Options options;
 
   private final String mnemonic;
-  private final String platformName;
 
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
@@ -1374,8 +1366,6 @@ public class BuildConfiguration {
         OutputDirectory.MIDDLEMAN.getRoot(
             RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
 
-    this.platformName = buildPlatformName();
-
     this.shellExecutable = computeShellExecutable();
 
     this.actionEnv = setupActionEnvironment();
@@ -1504,26 +1494,6 @@ public class BuildConfiguration {
     }
     nameParts.add(getCompilationMode() + platformSuffix);
     return Joiner.on('-').skipNulls().join(nameParts);
-  }
-
-  private String buildPlatformName() {
-    StringBuilder platformNameBuilder = new StringBuilder();
-    for (Fragment fragment : fragments.values()) {
-      platformNameBuilder.append(fragment.getPlatformName());
-    }
-    return platformNameBuilder.toString();
-  }
-
-  /**
-   * The platform string, suitable for use as a key into a MakeEnvironment.
-   *
-   * <p>Is only there for platform-dependent vardefs. Use
-   * {@link com.google.devtools.build.lib.rules.cpp.CcToolchainProvider#getToolchainIdentifier()
-   * instead.
-   */
-  @Deprecated
-  public String getPlatformName() {
-    return platformName;
   }
 
   /** Returns the output directory for this build configuration. */

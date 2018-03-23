@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -122,7 +123,7 @@ public class Package {
    * The "Make" environment of this package, containing package-local
    * definitions of "Make" variables.
    */
-  private MakeEnvironment makeEnv;
+  private ImmutableMap<String, String> makeEnv;
 
   /** The collection of all targets defined in this package, indexed by name. */
   protected ImmutableSortedKeyMap<String, Target> targets;
@@ -322,7 +323,7 @@ public class Package {
           "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);
     }
 
-    this.makeEnv = builder.makeEnv.build();
+    this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedKeyMap.copyOf(builder.targets);
     this.defaultVisibility = builder.defaultVisibility;
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
@@ -389,33 +390,10 @@ public class Package {
   }
 
   /**
-   * Returns the "Make" value from the package's make environment whose name
-   * is "varname", or null iff the variable is not defined in the environment.
-   */
-  public String lookupMakeVariable(String varname, String platform) {
-    return makeEnv.lookup(varname, platform);
-  }
-
-  /**
-   * Returns the make environment. This should only ever be used for serialization -- how the
-   * make variables are implemented is an implementation detail.
-   */
-  MakeEnvironment getMakeEnvironment() {
-    return makeEnv;
-  }
-
-  /**
    * Returns all make variables for a given platform.
    */
-  public ImmutableMap<String, String> getAllMakeVariables(String platform) {
-    ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
-    for (String var : makeEnv.getBindings().keySet()) {
-      String value = makeEnv.lookup(var, platform);
-      if (value != null) {
-        map.put(var, value);
-      }
-    }
-    return map.build();
+  public ImmutableMap<String, String> getMakeEnvironment() {
+    return makeEnv;
   }
 
   /**
@@ -708,7 +686,6 @@ public class Package {
     Builder b = new Builder(helper.createFreshPackage(
         Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
     b.setFilename(workspacePath);
-    b.setMakeEnv(new MakeEnvironment.Builder());
     return b;
   }
 
@@ -768,7 +745,9 @@ public class Package {
     private Path filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
-    private MakeEnvironment.Builder makeEnv = null;
+    // TreeMap so that the iteration order of variables is predictable. This is useful so that the
+    // serialized representation is deterministic.
+    private TreeMap<String, String> makeEnv = new TreeMap<>();
     private RuleVisibility defaultVisibility = ConstantRuleVisibility.PRIVATE;
     private boolean defaultVisibilitySet;
     private List<String> defaultCopts = null;
@@ -867,16 +846,9 @@ public class Package {
       return events;
     }
 
-    /**
-     * Sets this package's Make environment.
-     */
-    Builder setMakeEnv(MakeEnvironment.Builder makeEnv) {
-      this.makeEnv = makeEnv;
+    Builder setMakeVariable(String name, String value) {
+      this.makeEnv.put(name, value);
       return this;
-    }
-
-    MakeEnvironment.Builder getMakeEnvironment() {
-      return makeEnv;
     }
 
     /**

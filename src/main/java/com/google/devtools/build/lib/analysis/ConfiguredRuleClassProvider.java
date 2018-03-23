@@ -69,8 +69,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
-import javax.annotation.Nullable;
 
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
@@ -236,7 +234,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private ImmutableList.Builder<NativeProvider> nativeProviders = ImmutableList.builder();
     private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
         registeredSkylarkProviders = ImmutableBiMap.builder();
-    private Map<String, String> platformRegexps = new TreeMap<>();
 
     // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
     private String nativeLauncherLabel;
@@ -365,26 +362,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
-     * Do not use - this only exists for backwards compatibility! Platform regexps are part of a
-     * legacy mechanism - {@code vardef} - that is not exposed in Bazel.
-     *
-     * <p>{@code vardef} needs explicit support in the rule implementations, and cannot express
-     * conditional dependencies, only conditional attribute values. This mechanism will be
-     * supplanted by configuration dependent attributes, and its effect can usually also be achieved
-     * with select().
-     *
-     * <p>This is a map of platform names to regexps. When a name is used as the third argument to
-     * {@code vardef}, the corresponding regexp is used to match on the C++ abi, and the variable is
-     * only set to that value if the regexp matches. For example, the entry
-     * {@code "oldlinux": "i[34]86-libc[345]-linux"} might define a set of platforms representing
-     * certain older linux releases.
-     */
-    public Builder addPlatformRegexps(Map<String, String> platformRegexps) {
-      this.platformRegexps.putAll(Preconditions.checkNotNull(platformRegexps));
-      return this;
-    }
-
-    /**
      * Sets the C++ LIPO data transition, as defined in {@link
      * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
      *
@@ -507,11 +484,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public String getToolsRepository() {
       return toolsRepository;
-    }
-
-    @Nullable
-    public Map<String, String> getPlatformRegexps() {
-      return platformRegexps.isEmpty() ? null : ImmutableMap.copyOf(platformRegexps);
     }
   }
 

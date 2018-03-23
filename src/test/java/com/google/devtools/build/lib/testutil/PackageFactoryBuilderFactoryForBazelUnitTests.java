@@ -54,7 +54,6 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
               : Package.Builder.DefaultHelper.INSTANCE;
       return new PackageFactory(
           ruleClassProvider,
-          platformSetRegexps,
           attributeContainerFactory,
           environmentExtensions,
           version,

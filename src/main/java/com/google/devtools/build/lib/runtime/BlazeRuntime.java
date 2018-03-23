@@ -1293,7 +1293,6 @@ public final class BlazeRuntime {
       PackageFactory packageFactory =
           new PackageFactory(
               ruleClassProvider,
-              ruleClassBuilder.getPlatformRegexps(),
               serverBuilder.getAttributeContainerFactory(),
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
