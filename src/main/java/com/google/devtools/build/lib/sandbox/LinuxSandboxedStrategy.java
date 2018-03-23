@@ -42,46 +42,16 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
   }
 
   /**
-   * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool. If a spawn exceeds
-   * its timeout, then it will be killed instantly.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   */
-  static LinuxSandboxedSpawnRunner create(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName) throws IOException {
-    return create(cmdEnv, sandboxBase, productName, Optional.empty());
-  }
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool. If a spawn exceeds
-   * its timeout, then it will be killed after the specified delay.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   * @param timeoutKillDelay an additional grace period before killing timing out commands
-   */
-  static LinuxSandboxedSpawnRunner create(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay)
-      throws IOException {
-    return create(cmdEnv, sandboxBase, productName, Optional.of(timeoutKillDelay));
-  }
-
-  /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
    * @param timeoutKillDelay an optional, additional grace period before killing timing out
    *     commands. If not present, then no grace period is used and commands are killed instantly.
    */
   static LinuxSandboxedSpawnRunner create(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      String productName,
       Optional<Duration> timeoutKillDelay)
       throws IOException {
     Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");

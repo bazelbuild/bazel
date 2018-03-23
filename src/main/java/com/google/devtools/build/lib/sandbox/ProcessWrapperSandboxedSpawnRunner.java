@@ -42,33 +42,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   private final Optional<Duration> timeoutKillDelay;
 
   /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool. If a spawn exceeds
-   * its timeout, then it will be killed instantly.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   */
-  ProcessWrapperSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName) {
-    this(cmdEnv, sandboxBase, productName, Optional.empty());
-  }
-
-  /**
-   * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool. If a spawn exceeds
-   * its timeout, then it will be killed after the specified delay.
-   *
-   * @param cmdEnv the command environment to use
-   * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
-   * @param timeoutKillDelay an additional grace period before killing timing out commands
-   */
-  ProcessWrapperSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
-    this(cmdEnv, sandboxBase, productName, Optional.of(timeoutKillDelay));
-  }
-
-  /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool.
    *
    * @param cmdEnv the command environment to use

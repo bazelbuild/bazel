@@ -59,7 +59,6 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     if (timeoutKillDelaySeconds >= 0) {
       timeoutKillDelay = Optional.of(Duration.ofSeconds(timeoutKillDelaySeconds));
     }
-    String productName = cmdEnv.getRuntime().getProductName();
 
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
@@ -68,7 +67,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
           withFallback(
               cmdEnv,
               new ProcessWrapperSandboxedSpawnRunner(
-                  cmdEnv, sandboxBase, productName, timeoutKillDelay));
+                  cmdEnv, sandboxBase, cmdEnv.getRuntime().getProductName(), timeoutKillDelay));
       contexts.add(new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -78,7 +77,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, productName, timeoutKillDelay));
+              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay));
       contexts.add(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
@@ -87,8 +86,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, productName, timeoutKillDelay,
-                  process));
+              new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, timeoutKillDelay, process));
       contexts.add(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
