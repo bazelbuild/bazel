@@ -148,6 +148,10 @@ public class MethodLibrary {
     return ""; // All characters were stripped.
   }
 
+  private static String stringStrip(String self, String chars) {
+    return stringLStrip(stringRStrip(self, chars), chars);
+  }
+
   @SkylarkSignature(
     name = "lstrip",
     objectType = StringModule.class,
@@ -231,7 +235,7 @@ public class MethodLibrary {
       new BuiltinFunction("strip") {
         public String invoke(String self, Object charsOrNone) {
           String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
-          return stringLStrip(stringRStrip(self, chars), chars);
+          return stringStrip(self, chars);
         }
       };
 
@@ -1692,23 +1696,34 @@ public class MethodLibrary {
             + "<li>If <code>x</code> is already an int, it is returned as-is."
             + "<li>If <code>x</code> is a boolean, a true value returns 1 and a false value "
             + "    returns 0."
-            + "<li>If <code>x</code> is a string, it is interpreted using the <code>base</code> "
-            + "    argument (default 10). If <code>base</code> is non-zero, the string must be a "
-            + "    sequence of digits optionally preceded by a sign. The characters a-z (or "
-            + "    equivalently, A-Z) are used as digits for 10-35. The radix prefixes 0b/0o/0x "
-            + "    (or 0B/0O/0X) may optionally be supplied when <code>base</code> is 2/8/16 "
-            + "    respectively. If <code>base</code> is 0, the string is interpreted as an "
-            + "    integer literal, where the base to use is determined by which if any of these "
-            + "    prefixes is present. In the case where <code>base</code> is 0 and there is no "
-            + "    prefix, the digits must not begin with a 0, to avoid confusion with octal "
-            + "    numbers."
+            + "<li>If <code>x</code> is a string, it must have the format "
+            + "    <code>&lt;sign&gt;&lt;prefix&gt;&lt;digits&gt;</code>. "
+            + "    <code>&lt;sign&gt;</code> is either <code>\"+\"</code>, <code>\"-\"</code>, or "
+            + "    empty (interpreted as positive). <code>&lt;digits&gt;</code> are a sequence of "
+            + "    digits from 0 up to <code>base</code> - 1, where the letters a-z (or "
+            + "    equivalently, A-Z) are used as digits for 10-35. In the case where "
+            + "    <code>base</code> is 2/8/16, <code>&lt;prefix&gt;</code> is optional and may be "
+            + "    0b/0o/0x (or equivalently, 0B/0O/0X) respectively; if the <code>base</code> is "
+            + "    any other value besides these bases or the special value 0, the prefix must be "
+            + "    empty. In the case where <code>base</code> is 0, the string is interpreted as "
+            + "    an integer literal, in the sense that one of the bases 2/8/10/16 is chosen "
+            + "    depending on which prefix if any is used. If <code>base</code> is 0, no prefix "
+            + "    is used, and there is more than one digit, the leading digit cannot be 0; this "
+            + "    is to avoid confusion between octal and decimal. The magnitude of the number "
+            + "    represented by the string must be within the allowed range for the int type."
             + "</ul>"
-            + "This method fails if the value is any other type, or if the value is a string not "
-            + "satisfying the above requirements."
-            + "<pre class=\"language-python\">int(\"0xFF\", 0) == int(\"0xFF\", 16) == 255</pre>"
-            + "<pre class=\"language-python\">int(\"123\") == 123</pre>",
-            // TODO(bazel-team): Update documentation to remove mention about int("0123", 0) being
-            // disallowed once octal literals of form 0123 (without the 'o') are disallowed.
+            + "This function fails if <code>x</code> is any other type, or if the value is a "
+            + "string not satisfying the above format. Unlike Python's <code>int()</code> "
+            + "function, this function does not allow zero arguments, and does not allow "
+            + "extraneous whitespace for string arguments."
+            + "<p>Examples:"
+            + "<pre class=\"language-python\">"
+            + "int(\"123\") == 123\n"
+            + "int(\"  -123  \") == -123\n"
+            + "int(\"FF\", 16) == 255\n"
+            + "int(\"10\", 0) == 10\n"
+            + "int(\"0x10\", 0) == 16"
+            + "</pre>",
     parameters = {
       @Param(name = "x", type = Object.class, doc = "The string to convert."),
       @Param(
@@ -1753,10 +1768,26 @@ public class MethodLibrary {
         }
 
         private int fromString(String string, Location loc, int base) throws EvalException {
+          String stringForErrors = string;
+
+          boolean isNegative = false;
+          if (string.isEmpty()) {
+            throw new EvalException(
+                loc,
+                Printer.format("string argument to int() cannot be empty"));
+          }
+          char c = string.charAt(0);
+          if (c == '+') {
+            string = string.substring(1);
+          } else if (c == '-') {
+            string = string.substring(1);
+            isNegative = true;
+          }
+
           String prefix = getIntegerPrefix(string);
           String digits;
           if (prefix == null) {
-            // Nothing to strip. Infer base 10 if it was unknown (0).
+            // Nothing to strip. Infer base 10 if autodetection was requested (base == 0).
             digits = string;
             if (base == 0) {
               if (string.length() > 1 && string.startsWith("0")) {
@@ -1765,19 +1796,23 @@ public class MethodLibrary {
                 throw new EvalException(
                     loc,
                     Printer.format(
-                        "cannot infer base for int() when value begins with a 0: %r", string));
+                        "cannot infer base for int() when value begins with a 0: %r",
+                        stringForErrors));
               }
               base = 10;
             }
           } else {
-            // Strip prefix. Infer base from prefix if unknown (0), or else verify its consistency.
+            // Strip prefix. Infer base from prefix if unknown (base == 0), or else verify its
+            // consistency.
             digits = string.substring(prefix.length());
             int expectedBase = intPrefixes.get(prefix);
             if (base == 0) {
               base = expectedBase;
             } else if (base != expectedBase) {
               throw new EvalException(
-                  loc, Printer.format("invalid literal for int() with base %d: %r", base, string));
+                  loc,
+                  Printer.format(
+                      "invalid literal for int() with base %d: %r", base, stringForErrors));
             }
           }
 
@@ -1785,10 +1820,15 @@ public class MethodLibrary {
             throw new EvalException(loc, "int() base must be >= 2 and <= 36");
           }
           try {
-            return Integer.parseInt(digits, base);
-          } catch (NumberFormatException e) {
+            // Negate by prepending a negative symbol, rather than by using arithmetic on the
+            // result, to handle the edge case of -2^31 correctly.
+            String parseable = isNegative ? "-" + digits : digits;
+            return Integer.parseInt(parseable, base);
+          } catch (NumberFormatException | ArithmeticException e) {
             throw new EvalException(
-                loc, Printer.format("invalid literal for int() with base %d: %r", base, string));
+                loc,
+                Printer.format(
+                    "invalid literal for int() with base %d: %r", base, stringForErrors));
           }
         }
 

@@ -960,24 +960,54 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testInt() throws Exception {
+  public void testIntNonstring() throws Exception {
     new BothModesTest()
-        .testStatement("int('1')", 1)
-        .testStatement("int('-1234')", -1234)
-        .testIfErrorContains("invalid literal for int() with base 10: \"1.5\"", "int('1.5')")
-        .testIfErrorContains("invalid literal for int() with base 10: \"ab\"", "int('ab')")
+        .testStatement("int(0)", 0)
         .testStatement("int(42)", 42)
-        .testStatement("int('016')", 16)
         .testStatement("int(-1)", -1)
+        .testStatement("int(2147483647)", 2147483647)
+        // TODO(bazel-team): -2147483648 is not actually a valid int literal even though it's a
+        // valid int value, hence the -1 expression.
+        .testStatement("int(-2147483647 - 1)", -2147483648)
         .testStatement("int(True)", 1)
         .testStatement("int(False)", 0)
-        .testIfErrorContains("None is not of type string or int or bool", "int(None)");
+        .testIfErrorContains("None is not of type string or int or bool", "int(None)")
+        // This case is allowed in Python but not Skylark.
+        .testIfErrorContains("insufficient arguments received", "int()");
   }
 
   @Test
-  public void testIntWithBase() throws Exception {
+  public void testIntStringNoBase_Simple() throws Exception {
+    // Includes same numbers as integer test cases above.
+    new BothModesTest()
+        .testStatement("int('0')", 0)
+        .testStatement("int('42')", 42)
+        .testStatement("int('-1')", -1)
+        .testStatement("int('2147483647')", 2147483647)
+        .testStatement("int('-2147483648')", -2147483648)
+        // Leading zero allowed when not using base = 0.
+        .testStatement("int('016')", 16);
+  }
+
+  @Test
+  public void testIntStringNoBase_BadStrings() throws Exception {
+    new BothModesTest()
+        .testIfErrorContains("invalid base-10 integer constant: 2147483648", "int(2147483648)")
+        // .testIfErrorContains("invalid base-10 integer constant: -2147483649", "int(-2147483649)")
+        .testIfErrorContains("cannot be empty", "int('')")
+        // Surrounding whitespace is not allowed.
+        .testIfErrorContains("invalid literal for int() with base 10: \"  42  \"", "int('  42  ')")
+        .testIfErrorContains("invalid literal for int() with base 10: \"-\"", "int('-')")
+        .testIfErrorContains("invalid literal for int() with base 10: \"0x\"", "int('0x')")
+        .testIfErrorContains("invalid literal for int() with base 10: \"1.5\"", "int('1.5')")
+        .testIfErrorContains("invalid literal for int() with base 10: \"ab\"", "int('ab')");
+  }
+
+  @Test
+  public void testIntStringWithBase() throws Exception {
     new BothModesTest()
         .testStatement("int('11', 2)", 3)
+        .testStatement("int('-11', 2)", -3)
         .testStatement("int('11', 9)", 10)
         .testStatement("int('AF', 16)", 175)
         .testStatement("int('11', 36)", 37)
@@ -989,7 +1019,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testIntWithBase_InvalidBase() throws Exception {
+  public void testIntStringWithBase_InvalidBase() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
             "cannot infer base for int() when value begins with a 0: \"016\"",
@@ -1002,9 +1032,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testIntWithBase_Prefix() throws Exception {
+  public void testIntStringWithBase_Prefix() throws Exception {
     new BothModesTest()
         .testStatement("int('0b11', 0)", 3)
+        .testStatement("int('-0b11', 0)", -3)
         .testStatement("int('0B11', 2)", 3)
         .testStatement("int('0o11', 0)", 9)
         .testStatement("int('0O11', 8)", 9)
@@ -1014,7 +1045,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testIntWithBase_NoString() throws Exception {
+  public void testIntNonstringWithBase() throws Exception {
     new BothModesTest()
         .testIfExactError("int() can't convert non-string with explicit base", "int(True, 2)")
         .testIfExactError("int() can't convert non-string with explicit base", "int(1, 2)")
