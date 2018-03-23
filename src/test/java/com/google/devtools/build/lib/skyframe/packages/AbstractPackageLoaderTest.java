@@ -37,7 +37,7 @@ import org.junit.Test;
 
 /** Abstract base class of a unit test for a {@link AbstractPackageLoader} implementation. */
 public abstract class AbstractPackageLoaderTest {
-  private Path workspaceDir;
+  protected Path workspaceDir;
   protected StoredEventHandler handler;
   protected FileSystem fs;
   private Reporter reporter;
