@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.CqueryBuildTool;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -45,7 +45,7 @@ import java.util.Set;
   name = "cquery",
   builds = true,
   inherits = {BuildCommand.class},
-  options = {CommonQueryOptions.class},
+  options = {CqueryOptions.class},
   usesConfigurationOptions = true,
   shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
   allowResidue = true,
@@ -92,7 +92,7 @@ public final class CqueryCommand implements BlazeCommand {
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
-    List<String> topLevelTargets = options.getOptions(CommonQueryOptions.class).universeScope;
+    List<String> topLevelTargets = options.getOptions(CqueryOptions.class).universeScope;
     Set<String> targetPatternSet = new LinkedHashSet<>();
     if (topLevelTargets.isEmpty()) {
       expr.collectTargetPatterns(targetPatternSet);

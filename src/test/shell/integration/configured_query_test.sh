@@ -112,6 +112,27 @@ function test_host_config_output() {
  assert_contains "//pine:plugin (HOST)" output
 }
 
+function test_transitions_lite() {
+ write_java_library_build
+
+ bazel cquery "deps(//pine:my_java)" --transitions=lite \
+   > output 2>"$TEST_log" || fail "Excepted success"
+
+ assert_contains "//pine:my_java" output
+ assert_contains "plugins#//pine:plugin#HostTransition" output
+}
+
+
+function test_transitions_full() {
+ write_java_library_build
+
+ bazel cquery "deps(//pine:my_java)" --transitions=full \
+   > output 2>"$TEST_log" || fail "Excepted success"
+
+ assert_contains "//pine:my_java" output
+ assert_contains "plugins#//pine:plugin#HostTransition" output
+}
+
 function write_java_library_build() {
   rm -rf pine
   mkdir -p pine

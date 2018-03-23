@@ -106,7 +106,7 @@ class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
     throw new UnsupportedOperationException();
   }
 
-  private Target getTargetFromConfiguredTarget(ConfiguredTarget configuredTarget) {
+  public Target getTargetFromConfiguredTarget(ConfiguredTarget configuredTarget) {
     Target target = null;
     try {
       target =

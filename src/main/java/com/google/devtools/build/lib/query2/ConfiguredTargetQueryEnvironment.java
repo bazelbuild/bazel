@@ -148,6 +148,7 @@ public class ConfiguredTargetQueryEnvironment
     this.parserPrefix = parserPrefix;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
+    this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get());
   }
 
   private void beforeEvaluateQuery() throws InterruptedException, QueryException {
@@ -160,7 +161,6 @@ public class ConfiguredTargetQueryEnvironment
             eventHandler,
             FilteringPolicies.NO_FILTER,
             MultisetSemaphore.unbounded());
-    accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get());
     checkSettings(settings);
   }
 
@@ -173,6 +173,10 @@ public class ConfiguredTargetQueryEnvironment
 
   private static ImmutableList<QueryFunction> getCqueryFunctions() {
     return ImmutableList.of(new ConfigFunction());
+  }
+
+  public BuildConfiguration getHostConfiguration() {
+    return hostConfiguration;
   }
 
   /**

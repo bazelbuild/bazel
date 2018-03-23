@@ -21,14 +21,16 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.TransitionsOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.output.CqueryOptions;
+import com.google.devtools.build.lib.query2.output.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -109,7 +111,6 @@ public class CqueryBuildTool extends BuildTool {
         }
       }
     }
-
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
     ImmutableList<QueryFunction> extraFunctions =
@@ -117,6 +118,7 @@ public class CqueryBuildTool extends BuildTool {
             .addAll(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS)
             .addAll(env.getRuntime().getQueryFunctions())
             .build();
+    CqueryOptions cqueryOptions = request.getOptions(CqueryOptions.class);
     ConfiguredTargetQueryEnvironment configuredTargetQueryEnvironment =
         new ConfiguredTargetQueryEnvironment(
             request.getKeepGoing(),
@@ -127,11 +129,17 @@ public class CqueryBuildTool extends BuildTool {
             env.newTargetPatternEvaluator().getOffset(),
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
-            request.getOptions(CommonQueryOptions.class).toSettings());
-    QueryEvalResult result =
-        configuredTargetQueryEnvironment.evaluateQuery(
-            queryExpression,
-            new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
+            cqueryOptions.toSettings());
+    CqueryOptions.Transitions transitions = cqueryOptions.transitions;
+    ThreadSafeOutputFormatterCallback<ConfiguredTarget> callback =
+        !transitions.equals(Transitions.NONE)
+            ? new TransitionsOutputFormatterCallback(
+                configuredTargetQueryEnvironment.getAccessor(),
+                transitions,
+                env.getReporter().getOutErr().getOutputStream(),
+                env.getSkyframeExecutor(),
+                hostConfiguration)
+            : new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
               @Override
               public void processOutput(Iterable<ConfiguredTarget> partialResult)
                   throws IOException, InterruptedException {
@@ -147,7 +155,11 @@ public class CqueryBuildTool extends BuildTool {
                   env.getReporter().getOutErr().printOutLn(output.toString());
                 }
               }
-            });
+            };
+    QueryEvalResult result =
+        configuredTargetQueryEnvironment.evaluateQuery(
+            queryExpression,
+            callback);
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
