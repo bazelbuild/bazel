@@ -198,12 +198,13 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
   }
   processor.SetZipBuilder(out.get());
 
+  WriteManifest(out.get(), target_label, injecting_rule_kind);
+
   // Process all files in the zip
   if (in->ProcessAll() < 0) {
     fprintf(stderr, "%s\n", in->GetError());
     abort();
   }
-  WriteManifest(out.get(), target_label, injecting_rule_kind);
 
   // Add dummy file, since javac doesn't like truly empty jars.
   if (out->GetNumberFiles() == 0) {
