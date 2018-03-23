@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A {@link TransitiveInfoProvider} that supplies runfiles for Java dependencies.
- */
+/** A {@link TransitiveInfoProvider} that supplies runfiles for Java dependencies. */
+@AutoCodec
 @Immutable
 public final class JavaRunfilesProvider implements TransitiveInfoProvider {
   private final Runfiles runfiles;
