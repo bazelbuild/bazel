@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -203,7 +203,7 @@ public final class RemoteWorker {
         .getMulticastConfig()
         .setEnabled(false);
     HazelcastInstance instance = Hazelcast.newHazelcastInstance(config);
-    return new ConcurrentMapBlobStore(instance.<String, byte[]>getMap("cache"));
+    return new ConcurrentMapBlobStore(instance.getMap("cache"));
   }
 
   public static void main(String[] args) throws Exception {
@@ -315,10 +315,10 @@ public final class RemoteWorker {
     CommandResult cmdResult = null;
     Command cmd =
         new Command(
-            LinuxSandboxUtil.commandLineBuilder(
-                    sandboxPath.getPathString(), ImmutableList.of("true"))
-                .buildAsArray(),
-            ImmutableMap.<String, String>of(),
+            LinuxSandboxUtil.commandLineBuilder(sandboxPath, ImmutableList.of("true"))
+                .build()
+                .toArray(new String[0]),
+            ImmutableMap.of(),
             sandboxPath.getParentDirectory().getPathFile());
     try {
       cmdResult = cmd.execute();

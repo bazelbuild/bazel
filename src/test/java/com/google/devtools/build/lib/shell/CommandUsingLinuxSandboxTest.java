@@ -18,15 +18,18 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
-import java.io.File;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,12 +37,21 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link Command}s that are run using the {@code linux-sandbox}. */
 @RunWith(JUnit4.class)
 public final class CommandUsingLinuxSandboxTest {
-  private String getLinuxSandboxPath() {
-    return BlazeTestUtils.runfilesDir() + "/" + TestConstants.LINUX_SANDBOX_PATH;
+  private FileSystem testFS;
+  private Path runfilesDir;
+
+  @Before
+  public final void createFileSystem() throws Exception {
+    testFS = new UnixFileSystem();
+    runfilesDir = testFS.getPath(BlazeTestUtils.runfilesDir());
   }
 
-  private String getCpuTimeSpenderPath() {
-    return BlazeTestUtils.runfilesDir() + "/" + TestConstants.CPU_TIME_SPENDER_PATH;
+  private Path getLinuxSandboxPath() {
+    return runfilesDir.getRelative(TestConstants.LINUX_SANDBOX_PATH);
+  }
+
+  private Path getCpuTimeSpenderPath() {
+    return runfilesDir.getRelative(TestConstants.CPU_TIME_SPENDER_PATH);
   }
 
   @Test
@@ -76,12 +88,12 @@ public final class CommandUsingLinuxSandboxTest {
       throws IOException, CommandException {
     ImmutableList<String> commandArguments =
         ImmutableList.of(
-            getCpuTimeSpenderPath(),
+            getCpuTimeSpenderPath().getPathString(),
             Long.toString(userTimeToSpend.getSeconds()),
             Long.toString(systemTimeToSpend.getSeconds()));
 
-    File outputDir = TestUtils.makeTempDir();
-    String statisticsFilePath = outputDir.getAbsolutePath() + "/" + "stats.out";
+    Path outputDir = testFS.getPath(TestUtils.makeTempDir().getCanonicalPath());
+    Path statisticsFilePath = outputDir.getRelative("stats.out");
 
     List<String> fullCommandLine =
         LinuxSandboxUtil.commandLineBuilder(getLinuxSandboxPath(), commandArguments)

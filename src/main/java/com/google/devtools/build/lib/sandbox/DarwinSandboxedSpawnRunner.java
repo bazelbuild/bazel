@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -97,7 +96,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path processWrapper;
-  private final Optional<Duration> timeoutKillDelay;
+  private final Duration timeoutKillDelay;
   private final @Nullable SandboxfsProcess sandboxfsProcess;
 
   /**
@@ -114,15 +113,14 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param timeoutKillDelay an optional, additional grace period before killing timing out
-   *     commands. If not present, then no grace period is used and commands are killed instantly.
+   * @param timeoutKillDelay additional grace period before killing timing out commands
    * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
    *     which case the runner uses a symlinked sandbox
    */
   DarwinSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      Optional<Duration> timeoutKillDelay,
+      Duration timeoutKillDelay,
       @Nullable SandboxfsProcess sandboxfsProcess)
       throws IOException {
     super(cmdEnv, sandboxBase);
@@ -224,16 +222,14 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
             .setTimeout(timeout);
 
-    if (timeoutKillDelay.isPresent()) {
-      processWrapperCommandLineBuilder.setKillDelay(timeoutKillDelay.get());
-    }
+    processWrapperCommandLineBuilder.setKillDelay(timeoutKillDelay);
 
-    final Optional<String> statisticsPath;
+    final Path statisticsPath;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
-      processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath.get());
+      statisticsPath = sandboxPath.getRelative("stats.out");
+      processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath);
     } else {
-      statisticsPath = Optional.empty();
+      statisticsPath = null;
     }
 
     ImmutableList<String> commandLine =
@@ -300,7 +296,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
       boolean allowNetwork,
-      Optional<String> statisticsPath)
+      Path statisticsPath)
       throws IOException {
     try (PrintWriter out =
         new PrintWriter(
@@ -325,8 +321,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       for (Path path : writableDirs) {
         out.println("    (subpath \"" + path.getPathString() + "\")");
       }
-      if (statisticsPath.isPresent()) {
-        out.println("    (literal \"" + statisticsPath.get() + "\")");
+      if (statisticsPath != null) {
+        out.println("    (literal \"" + statisticsPath.getPathString() + "\")");
       }
       out.println(")");
 

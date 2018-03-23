@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.runtime;
+package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 
 /** Utility functions for the {@code linux-sandbox} embedded tool. */
 public final class LinuxSandboxUtil {
@@ -44,7 +46,7 @@ public final class LinuxSandboxUtil {
 
   /** Returns a new command line builder for the {@code linux-sandbox} tool. */
   public static CommandLineBuilder commandLineBuilder(
-      String linuxSandboxPath, Collection<String> commandArguments) {
+      Path linuxSandboxPath, List<String> commandArguments) {
     return new CommandLineBuilder()
         .setLinuxSandboxPath(linuxSandboxPath)
         .setCommandArguments(commandArguments);
@@ -55,43 +57,42 @@ public final class LinuxSandboxUtil {
    * linux-sandbox} tool.
    */
   public static class CommandLineBuilder {
-    // TODO(b/62588075): Reconsider using Path/PathFragment instead of Strings for file paths.
-    private Optional<String> linuxSandboxPath = Optional.empty();
-    private Optional<String> workingDirectory = Optional.empty();
-    private Optional<Duration> timeout = Optional.empty();
-    private Optional<Duration> killDelay = Optional.empty();
-    private Optional<String> stdoutPath = Optional.empty();
-    private Optional<String> stderrPath = Optional.empty();
-    private Optional<Iterable<Path>> writableFilesAndDirectories = Optional.empty();
-    private Optional<Iterable<Path>> tmpfsDirectories = Optional.empty();
-    private Optional<Map<Path, Path>> bindMounts = Optional.empty();
-    private Optional<String> statisticsPath = Optional.empty();
+    private Path linuxSandboxPath;
+    private Path workingDirectory;
+    private Duration timeout;
+    private Duration killDelay;
+    private Path stdoutPath;
+    private Path stderrPath;
+    private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
+    private Set<Path> tmpfsDirectories = ImmutableSet.of();
+    private Map<Path, Path> bindMounts = ImmutableMap.of();
+    private Path statisticsPath;
     private boolean useFakeHostname = false;
     private boolean createNetworkNamespace = false;
     private boolean useFakeRoot = false;
     private boolean useFakeUsername = false;
     private boolean useDebugMode = false;
-    private Optional<Collection<String>> commandArguments = Optional.empty();
+    private List<String> commandArguments = ImmutableList.of();
 
     private CommandLineBuilder() {
       // Prevent external construction via "new".
     }
 
     /** Sets the path of the {@code linux-sandbox} tool. */
-    public CommandLineBuilder setLinuxSandboxPath(String linuxSandboxPath) {
-      this.linuxSandboxPath = Optional.of(linuxSandboxPath);
+    public CommandLineBuilder setLinuxSandboxPath(Path linuxSandboxPath) {
+      this.linuxSandboxPath = linuxSandboxPath;
       return this;
     }
 
     /** Sets the working directory to use, if any. */
-    public CommandLineBuilder setWorkingDirectory(String workingDirectory) {
-      this.workingDirectory = Optional.of(workingDirectory);
+    public CommandLineBuilder setWorkingDirectory(Path workingDirectory) {
+      this.workingDirectory = workingDirectory;
       return this;
     }
 
     /** Sets the timeout for the command run using the {@code linux-sandbox} tool. */
     public CommandLineBuilder setTimeout(Duration timeout) {
-      this.timeout = Optional.of(timeout);
+      this.timeout = timeout;
       return this;
     }
 
@@ -100,32 +101,32 @@ public final class LinuxSandboxUtil {
      * timeout.
      */
     public CommandLineBuilder setKillDelay(Duration killDelay) {
-      this.killDelay = Optional.of(killDelay);
+      this.killDelay = killDelay;
       return this;
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
-    public CommandLineBuilder setStdoutPath(String stdoutPath) {
-      this.stdoutPath = Optional.of(stdoutPath);
+    public CommandLineBuilder setStdoutPath(Path stdoutPath) {
+      this.stdoutPath = stdoutPath;
       return this;
     }
 
     /** Sets the path to use for redirecting stderr, if any. */
-    public CommandLineBuilder setStderrPath(String stderrPath) {
-      this.stderrPath = Optional.of(stderrPath);
+    public CommandLineBuilder setStderrPath(Path stderrPath) {
+      this.stderrPath = stderrPath;
       return this;
     }
 
     /** Sets the files or directories to make writable for the sandboxed process, if any. */
     public CommandLineBuilder setWritableFilesAndDirectories(
-        Iterable<Path> writableFilesAndDirectories) {
-      this.writableFilesAndDirectories = Optional.of(writableFilesAndDirectories);
+        Set<Path> writableFilesAndDirectories) {
+      this.writableFilesAndDirectories = writableFilesAndDirectories;
       return this;
     }
 
     /** Sets the directories where to mount an empty tmpfs, if any. */
-    public CommandLineBuilder setTmpfsDirectories(Iterable<Path> tmpfsDirectories) {
-      this.tmpfsDirectories = Optional.of(tmpfsDirectories);
+    public CommandLineBuilder setTmpfsDirectories(Set<Path> tmpfsDirectories) {
+      this.tmpfsDirectories = tmpfsDirectories;
       return this;
     }
 
@@ -134,13 +135,13 @@ public final class LinuxSandboxUtil {
      * if any.
      */
     public CommandLineBuilder setBindMounts(Map<Path, Path> bindMounts) {
-      this.bindMounts = Optional.of(bindMounts);
+      this.bindMounts = bindMounts;
       return this;
     }
 
     /** Sets the path for writing execution statistics (e.g. resource usage). */
-    public CommandLineBuilder setStatisticsPath(String statisticsPath) {
-      this.statisticsPath = Optional.of(statisticsPath);
+    public CommandLineBuilder setStatisticsPath(Path statisticsPath) {
+      this.statisticsPath = statisticsPath;
       return this;
     }
 
@@ -175,61 +176,55 @@ public final class LinuxSandboxUtil {
     }
 
     /** Sets the command (and its arguments) to run using the {@code linux-sandbox} tool. */
-    public CommandLineBuilder setCommandArguments(Collection<String> commandArguments) {
-      this.commandArguments = Optional.of(commandArguments);
+    public CommandLineBuilder setCommandArguments(List<String> commandArguments) {
+      this.commandArguments = commandArguments;
       return this;
     }
 
     /**
      * Builds the command line to invoke a specific command using the {@code linux-sandbox} tool.
      */
-    public List<String> build() {
-      Preconditions.checkState(this.linuxSandboxPath.isPresent(), "linuxSandboxPath is required");
-      Preconditions.checkState(this.commandArguments.isPresent(), "commandArguments are required");
+    public ImmutableList<String> build() {
+      Preconditions.checkNotNull(this.linuxSandboxPath, "linuxSandboxPath is required");
+      Preconditions.checkState(!this.commandArguments.isEmpty(), "commandArguments are required");
       Preconditions.checkState(
           !(this.useFakeUsername && this.useFakeRoot),
           "useFakeUsername and useFakeRoot are exclusive");
 
-      ImmutableList.Builder<String> commandLineBuilder = ImmutableList.<String>builder();
+      ImmutableList.Builder<String> commandLineBuilder = ImmutableList.builder();
 
-      commandLineBuilder.add(linuxSandboxPath.get());
-      if (workingDirectory.isPresent()) {
-        commandLineBuilder.add("-W", workingDirectory.get());
+      commandLineBuilder.add(linuxSandboxPath.getPathString());
+      if (workingDirectory != null) {
+        commandLineBuilder.add("-W", workingDirectory.getPathString());
       }
-      if (timeout.isPresent()) {
-        commandLineBuilder.add("-T", Long.toString(timeout.get().getSeconds()));
+      if (timeout != null) {
+        commandLineBuilder.add("-T", Long.toString(timeout.getSeconds()));
       }
-      if (killDelay.isPresent()) {
-        commandLineBuilder.add("-t", Long.toString(killDelay.get().getSeconds()));
+      if (killDelay != null) {
+        commandLineBuilder.add("-t", Long.toString(killDelay.getSeconds()));
       }
-      if (stdoutPath.isPresent()) {
-        commandLineBuilder.add("-l", stdoutPath.get());
+      if (stdoutPath != null) {
+        commandLineBuilder.add("-l", stdoutPath.getPathString());
       }
-      if (stderrPath.isPresent()) {
-        commandLineBuilder.add("-L", stderrPath.get());
+      if (stderrPath != null) {
+        commandLineBuilder.add("-L", stderrPath.getPathString());
       }
-      if (writableFilesAndDirectories.isPresent()) {
-        for (Path writablePath : writableFilesAndDirectories.get()) {
-          commandLineBuilder.add("-w", writablePath.getPathString());
+      for (Path writablePath : writableFilesAndDirectories) {
+        commandLineBuilder.add("-w", writablePath.getPathString());
+      }
+      for (Path tmpfsPath : tmpfsDirectories) {
+        commandLineBuilder.add("-e", tmpfsPath.getPathString());
+      }
+      for (Path bindMountTarget : bindMounts.keySet()) {
+        Path bindMountSource = bindMounts.get(bindMountTarget);
+        commandLineBuilder.add("-M", bindMountSource.getPathString());
+        // The file is mounted in a custom location inside the sandbox.
+        if (!bindMountSource.equals(bindMountTarget)) {
+          commandLineBuilder.add("-m", bindMountTarget.getPathString());
         }
       }
-      if (tmpfsDirectories.isPresent()) {
-        for (Path tmpfsPath : tmpfsDirectories.get()) {
-          commandLineBuilder.add("-e", tmpfsPath.getPathString());
-        }
-      }
-      if (bindMounts.isPresent()) {
-        for (Path bindMountTarget : bindMounts.get().keySet()) {
-          Path bindMountSource = bindMounts.get().get(bindMountTarget);
-          commandLineBuilder.add("-M", bindMountSource.getPathString());
-          // The file is mounted in a custom location inside the sandbox.
-          if (!bindMountSource.equals(bindMountTarget)) {
-            commandLineBuilder.add("-m", bindMountTarget.getPathString());
-          }
-        }
-      }
-      if (statisticsPath.isPresent()) {
-        commandLineBuilder.add("-S", statisticsPath.get());
+      if (statisticsPath != null) {
+        commandLineBuilder.add("-S", statisticsPath.getPathString());
       }
       if (useFakeHostname) {
         commandLineBuilder.add("-H");
@@ -247,18 +242,9 @@ public final class LinuxSandboxUtil {
         commandLineBuilder.add("-D");
       }
       commandLineBuilder.add("--");
-      commandLineBuilder.addAll(commandArguments.get());
+      commandLineBuilder.addAll(commandArguments);
 
       return commandLineBuilder.build();
-    }
-
-    /**
-     * Builds the command line to invoke a specific command using the {@code linux-sandbox} tool.
-     *
-     * @return the command line as an array of strings
-     */
-    public String[] buildAsArray() {
-      return build().toArray(new String[0]);
     }
   }
 }

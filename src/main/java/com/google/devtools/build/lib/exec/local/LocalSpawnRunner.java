@@ -48,7 +48,6 @@ import java.time.Duration;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -249,7 +248,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       setState(State.LOCAL_ACTION_RUNNING);
 
       Path tmpDir = createActionTemp(execRoot);
-      Optional<String> statisticsPath = Optional.empty();
+      Path statisticsPath = null;
       try {
         Command cmd;
         OutputStream stdOut;
@@ -274,8 +273,8 @@ public class LocalSpawnRunner implements SpawnRunner {
                   .setTimeout(policy.getTimeout())
                   .setKillDelay(Duration.ofSeconds(localExecutionOptions.localSigkillGraceSeconds));
           if (localExecutionOptions.collectLocalExecutionStatistics) {
-            statisticsPath = Optional.of(tmpDir.getRelative("stats.out").getPathString());
-            commandLineBuilder.setStatisticsPath(statisticsPath.get());
+            statisticsPath = tmpDir.getRelative("stats.out");
+            commandLineBuilder.setStatisticsPath(statisticsPath);
           }
           List<String> cmdLine = commandLineBuilder.build();
           cmd =
@@ -343,19 +342,19 @@ public class LocalSpawnRunner implements SpawnRunner {
                 .setExitCode(exitCode)
                 .setExecutorHostname(hostName)
                 .setWallTime(wallTime);
-        if (statisticsPath.isPresent()) {
-          Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
-              ExecutionStatistics.getResourceUsage(statisticsPath.get());
-          if (resourceUsage.isPresent()) {
-            spawnResultBuilder.setUserTime(resourceUsage.get().getUserExecutionTime());
-            spawnResultBuilder.setSystemTime(resourceUsage.get().getSystemExecutionTime());
-            spawnResultBuilder.setNumBlockOutputOperations(
-                resourceUsage.get().getBlockOutputOperations());
-            spawnResultBuilder.setNumBlockInputOperations(
-                resourceUsage.get().getBlockInputOperations());
-            spawnResultBuilder.setNumInvoluntaryContextSwitches(
-                resourceUsage.get().getInvoluntaryContextSwitches());
-          }
+        if (statisticsPath != null) {
+          ExecutionStatistics.getResourceUsage(statisticsPath)
+              .ifPresent(
+                  resourceUsage -> {
+                    spawnResultBuilder.setUserTime(resourceUsage.getUserExecutionTime());
+                    spawnResultBuilder.setSystemTime(resourceUsage.getSystemExecutionTime());
+                    spawnResultBuilder.setNumBlockOutputOperations(
+                        resourceUsage.getBlockOutputOperations());
+                    spawnResultBuilder.setNumBlockInputOperations(
+                        resourceUsage.getBlockInputOperations());
+                    spawnResultBuilder.setNumInvoluntaryContextSwitches(
+                        resourceUsage.getInvoluntaryContextSwitches());
+                  });
         }
         return spawnResultBuilder.build();
       } finally {
@@ -378,8 +377,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
     }
 
-    private String getPathOrDevNull(Path path) {
-      return path == null ? "/dev/null" : path.getPathString();
+    private Path getPathOrDevNull(Path path) {
+      return path == null ? execRoot.getRelative("/dev/null") : path;
     }
 
     private boolean wasTimeout(Duration timeout, Duration wallTime) {

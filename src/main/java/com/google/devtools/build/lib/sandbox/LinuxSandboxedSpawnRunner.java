@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.LinuxSandboxUtil;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -40,10 +39,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.SortedMap;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
@@ -57,10 +53,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
 
-    List<String> linuxSandboxArgv =
+    ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxUtil.commandLineBuilder(
-                LinuxSandboxUtil.getLinuxSandbox(cmdEnv).getPathString(),
-                ImmutableList.of("/bin/true"))
+                LinuxSandboxUtil.getLinuxSandbox(cmdEnv), ImmutableList.of("/bin/true"))
             .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
@@ -84,7 +79,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path inaccessibleHelperFile;
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
-  private final Optional<Duration> timeoutKillDelay;
+  private final Duration timeoutKillDelay;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -93,15 +88,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param sandboxBase path to the sandbox base directory
    * @param inaccessibleHelperFile path to a file that is (already) inaccessible
    * @param inaccessibleHelperDir path to a directory that is (already) inaccessible
-   * @param timeoutKillDelay an optional, additional grace period before killing timing out
-   *     commands. If not present, then no grace period is used and commands are killed instantly.
+   * @param timeoutKillDelay an additional grace period before killing timing out commands
    */
   LinuxSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
-      Optional<Duration> timeoutKillDelay) {
+      Duration timeoutKillDelay) {
     super(cmdEnv, sandboxBase);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
@@ -128,12 +122,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
+    ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     Duration timeout = policy.getTimeout();
 
     LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
-        LinuxSandboxUtil.commandLineBuilder(linuxSandbox.getPathString(), spawn.getArguments())
+        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, spawn.getArguments())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(getTmpfsPaths())
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
@@ -144,19 +138,17 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (!timeout.isZero()) {
       commandLineBuilder.setTimeout(timeout);
     }
-    if (timeoutKillDelay.isPresent()) {
-      commandLineBuilder.setKillDelay(timeoutKillDelay.get());
-    }
+    commandLineBuilder.setKillDelay(timeoutKillDelay);
     if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT)) {
       commandLineBuilder.setUseFakeRoot(true);
     } else if (getSandboxOptions().sandboxFakeUsername) {
       commandLineBuilder.setUseFakeUsername(true);
     }
 
-    Optional<String> statisticsPath = Optional.empty();
+    Path statisticsPath = null;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
-      commandLineBuilder.setStatisticsPath(statisticsPath.get());
+      statisticsPath = sandboxPath.getRelative("stats.out");
+      commandLineBuilder.setStatisticsPath(statisticsPath);
     }
 
     SandboxedSpawn sandbox =

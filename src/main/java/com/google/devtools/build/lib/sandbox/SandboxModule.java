@@ -104,7 +104,6 @@ public final class SandboxModule extends BlazeModule {
     ActionContextProvider provider;
     try {
       sandboxBase.createDirectoryAndParents();
-
       if (options.useSandboxfs) {
         Path mountPoint = sandboxBase.getRelative("sandboxfs");
         mountPoint.createDirectory();

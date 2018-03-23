@@ -17,11 +17,14 @@ package com.google.devtools.build.lib.shell;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.time.Duration;
 import java.util.Optional;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,24 +32,31 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ExecutionStatistics}. */
 @RunWith(JUnit4.class)
 public final class ExecutionStatisticsTest {
-  private String createExecutionStatisticsProtoFile(
+  private FileSystem testFS;
+  private Path workingDir;
+
+  @Before
+  public final void createFileSystem() throws Exception {
+    testFS = new UnixFileSystem();
+    workingDir = testFS.getPath(TestUtils.makeTempDir().getCanonicalPath());
+  }
+
+  private Path createExecutionStatisticsProtoFile(
       com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto)
       throws Exception {
-    byte[] protoBytes = executionStatisticsProto.toByteArray();
-    File encodedProtoFile = File.createTempFile("encoded_action_execution_proto", "");
-    String protoFilename = encodedProtoFile.getPath();
+    Path encodedProtoFile = workingDir.getRelative("encoded_action_execution_proto");
     try (BufferedOutputStream bufferedOutputStream =
-        new BufferedOutputStream(new FileOutputStream(encodedProtoFile))) {
-      bufferedOutputStream.write(protoBytes);
+        new BufferedOutputStream(encodedProtoFile.getOutputStream())) {
+      executionStatisticsProto.writeTo(bufferedOutputStream);
     }
-    return protoFilename;
+    return encodedProtoFile;
   }
 
   @Test
   public void testNoResourceUsage_whenNoResourceUsageProto() throws Exception {
     com.google.devtools.build.lib.shell.Protos.ExecutionStatistics executionStatisticsProto =
         com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.getDefaultInstance();
-    String protoFilename = createExecutionStatisticsProtoFile(executionStatisticsProto);
+    Path protoFilename = createExecutionStatisticsProtoFile(executionStatisticsProto);
 
     Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
         ExecutionStatistics.getResourceUsage(protoFilename);
@@ -98,7 +108,7 @@ public final class ExecutionStatisticsTest {
         com.google.devtools.build.lib.shell.Protos.ExecutionStatistics.newBuilder()
             .setResourceUsage(resourceUsageProto)
             .build();
-    String protoFilename = createExecutionStatisticsProtoFile(executionStatisticsProto);
+    Path protoFilename = createExecutionStatisticsProtoFile(executionStatisticsProto);
 
     Optional<ExecutionStatistics.ResourceUsage> maybeResourceUsage =
         ExecutionStatistics.getResourceUsage(protoFilename);

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 
 /** Strategy that uses sandboxing to execute a process. */
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -39,7 +38,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   private final Path execRoot;
   private final Path processWrapper;
   private final LocalEnvProvider localEnvProvider;
-  private final Optional<Duration> timeoutKillDelay;
+  private final Duration timeoutKillDelay;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool.
@@ -47,14 +46,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param productName the product name to use
-   * @param timeoutKillDelay an optional, additional grace period before killing timing out
-   *     commands. If not present, then no grace period is used and commands are killed instantly.
+   * @param timeoutKillDelay additional grace period before killing timing out commands
    */
   ProcessWrapperSandboxedSpawnRunner(
-      CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      String productName,
-      Optional<Duration> timeoutKillDelay) {
+      CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
     super(cmdEnv, sandboxBase);
     this.execRoot = cmdEnv.getExecRoot();
     this.timeoutKillDelay = timeoutKillDelay;
@@ -84,14 +79,12 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
         ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
             .setTimeout(timeout);
 
-    if (timeoutKillDelay.isPresent()) {
-      commandLineBuilder.setKillDelay(timeoutKillDelay.get());
-    }
+    commandLineBuilder.setKillDelay(timeoutKillDelay);
 
-    Optional<String> statisticsPath = Optional.empty();
+    Path statisticsPath = null;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = Optional.of(sandboxPath.getRelative("stats.out").getPathString());
-      commandLineBuilder.setStatisticsPath(statisticsPath.get());
+      statisticsPath = sandboxPath.getRelative("stats.out");
+      commandLineBuilder.setStatisticsPath(statisticsPath);
     }
 
     SandboxedSpawn sandbox =
