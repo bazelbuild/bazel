@@ -61,8 +61,7 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
         }
       };
 
-  // This is synchronized because some Skylark internals aren't thread safe.
-  private synchronized void sanityCheckBazelPackageLoader(
+  private void sanityCheckBazelPackageLoader(
       Package pkg,
       RuleClassProvider ruleClassProvider,
       SkylarkSemantics skylarkSemantics) {
