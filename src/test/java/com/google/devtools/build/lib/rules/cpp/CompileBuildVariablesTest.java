@@ -81,6 +81,25 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPresenceOfConfigurationCompileFlags() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    useConfiguration("--copt=-foo");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-bar'],)");
+    scratch.file("x/bin.cc");
+
+    Variables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> userCopts =
+        Variables.toStringList(variables, CcCompilationHelper.USER_COMPILE_FLAGS_VARIABLE_NAME);
+    assertThat(userCopts).containsAllIn(ImmutableList.<String>of("-foo", "-bar")).inOrder();
+
+    ImmutableList<String> legacyCopts =
+        Variables.toStringList(variables, CcCompilationHelper.LEGACY_COMPILE_FLAGS_VARIABLE_NAME);
+    assertThat(legacyCopts).doesNotContain("-foo");
+  }
+
+  @Test
   public void testPresenceOfUserCompileFlags() throws Exception {
     AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
     useConfiguration();
