@@ -221,7 +221,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final Cache<PackageIdentifier, AstParseResult> astCache = newAstCache();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
-  private final PackageProgressReceiver packageProgress = new PackageProgressReceiver();
+  @Nullable private final PackageProgressReceiver packageProgress;
 
   protected SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -315,7 +315,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      BuildOptions defaultBuildOptions) {
+      BuildOptions defaultBuildOptions,
+      @Nullable PackageProgressReceiver packageProgress) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -353,12 +354,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.removeActionsAfterEvaluation.set(false);
+    this.packageProgress = packageProgress;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
       PackageFactory pkgFactory) {
     ConfiguredRuleClassProvider ruleClassProvider =
         (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
+    SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining =
+        getSkylarkImportLookupFunctionForInlining(ruleClassProvider, pkgFactory);
     // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
     // ConfiguredTargetFunction that may have a large temporary memory blow-up.
     Semaphore cpuBoundSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
@@ -406,15 +410,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
-        newPackageFunction(
+        new PackageFunction(
             pkgFactory,
             packageManager,
             showLoadingProgress,
             packageFunctionCache,
             astCache,
             numPackagesLoaded,
-            ruleClassProvider,
-            packageProgress));
+            skylarkImportLookupFunctionForInlining,
+            packageProgress,
+            actionOnIOExceptionReadingBuildFile,
+            IncrementalityIntent.INCREMENTAL));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
@@ -435,9 +441,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             new BuildViewProvider(),
             ruleClassProvider,
             removeActionsAfterEvaluation,
+            skylarkImportLookupFunctionForInlining,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             defaultBuildOptions));
-    map.put(SkyFunctions.LOAD_SKYLARK_ASPECT, new ToplevelSkylarkAspectFunction());
+    map.put(
+        SkyFunctions.LOAD_SKYLARK_ASPECT,
+        new ToplevelSkylarkAspectFunction(skylarkImportLookupFunctionForInlining));
     map.put(
         SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(
@@ -491,26 +500,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return new GlobFunction(/*alwaysUseDirListing=*/false);
   }
 
-  protected PackageFunction newPackageFunction(
-      PackageFactory pkgFactory,
-      PackageManager packageManager,
-      AtomicBoolean showLoadingProgress,
-      Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache,
-      Cache<PackageIdentifier, AstParseResult> astCache,
-      AtomicInteger numPackagesLoaded,
-      RuleClassProvider ruleClassProvider,
-      PackageProgressReceiver packageProgress) {
-    return new PackageFunction(
-        pkgFactory,
-        packageManager,
-        showLoadingProgress,
-        packageFunctionCache,
-        astCache,
-        numPackagesLoaded,
-        null,
-        packageProgress,
-        actionOnIOExceptionReadingBuildFile,
-        IncrementalityIntent.INCREMENTAL);
+  @Nullable
+  protected SkylarkImportLookupFunction getSkylarkImportLookupFunctionForInlining(
+      RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
+    return null;
   }
 
   protected SkyFunction newSkylarkImportLookupFunction(
@@ -1083,7 +1076,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     packageFunctionCache.invalidateAll();
     astCache.invalidateAll();
     numPackagesLoaded.set(0);
-    packageProgress.reset();
+    if (packageProgress != null) {
+      packageProgress.reset();
+    }
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter.set(createCyclesReporter());
