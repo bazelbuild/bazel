@@ -42,10 +42,13 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.TargetProviderForQueryEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.BufferedOutputStream;
@@ -283,12 +286,19 @@ public final class QueryCommand implements BlazeCommand {
   public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(CommandEnvironment env,
       boolean keepGoing, boolean orderedResults, List<String> universeScope,
       int loadingPhaseThreads, Set<Setting> settings) {
+
+    WalkableGraph walkableGraph =
+        SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+
+    TargetProviderForQueryEnvironment targetProviderForQueryEnvironment =
+        new TargetProviderForQueryEnvironment(walkableGraph, env.getPackageManager());
+
     return env.getRuntime()
         .getQueryEnvironmentFactory()
         .create(
             env.getPackageManager().newTransitiveLoader(),
             env.getSkyframeExecutor(),
-            env.getPackageManager(),
+            targetProviderForQueryEnvironment,
             env.getPackageManager(),
             env.newTargetPatternEvaluator(),
             keepGoing,
