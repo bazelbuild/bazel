@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.dexer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import com.android.dx.command.dexer.DxContext;
@@ -145,6 +146,25 @@ public class DexFileSplitterTest {
     assertThat(dexEntries(outputArchives.get(0)))
         .containsAllIn(expectedMainDexEntries());
     assertExpectedEntries(outputArchives, expectedEntries);
+  }
+
+  @Test
+  public void testMainDexList_containsForbidden() throws Exception {
+    Path dexArchive = buildDexArchive();
+    Path mainDexFile = Files.createTempFile("main_dex_list", ".txt");
+    Files.write(mainDexFile, ImmutableList.of("com/google/Ok.class", "j$/my/Bad.class"), UTF_8);
+    try {
+      runDexSplitter(
+          256 * 256,
+          /*inclusionFilterJar=*/ null,
+          "invalid_main_dex_list",
+          mainDexFile,
+          /*minimalMainDex=*/ false,
+          dexArchive);
+      fail("IllegalArgumentException expected");
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().contains("j$");
+    }
   }
 
   @Test
