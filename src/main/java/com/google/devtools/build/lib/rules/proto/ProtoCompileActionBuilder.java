@@ -166,28 +166,33 @@ public class ProtoCompileActionBuilder {
   }
 
   /** Static class to avoid keeping a reference to this builder after build() is called. */
-  private static class LazyLangPluginFlag extends LazyString {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class LazyLangPluginFlag extends LazyString {
     private final String langPrefix;
-    private final Supplier<String> langPluginParameter1;
+    private final Supplier<String> langPluginParameter;
 
-    LazyLangPluginFlag(String langPrefix, Supplier<String> langPluginParameter1) {
+    @AutoCodec.VisibleForSerialization
+    LazyLangPluginFlag(String langPrefix, Supplier<String> langPluginParameter) {
       this.langPrefix = langPrefix;
-      this.langPluginParameter1 = langPluginParameter1;
+      this.langPluginParameter = langPluginParameter;
     }
 
     @Override
     public String toString() {
-      return String.format("--%s_out=%s", langPrefix, langPluginParameter1.get());
+      return String.format("--%s_out=%s", langPrefix, langPluginParameter.get());
     }
   }
 
-  private static class LazyCommandLineExpansion extends LazyString {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class LazyCommandLineExpansion extends LazyString {
     // E.g., --java_out=%s
     private final String template;
     private final Map<String, ? extends CharSequence> variableValues;
 
-    private LazyCommandLineExpansion(
-        String template, Map<String, ? extends CharSequence> variableValues) {
+    @AutoCodec.VisibleForSerialization
+    LazyCommandLineExpansion(String template, Map<String, ? extends CharSequence> variableValues) {
       this.template = template;
       this.variableValues = variableValues;
     }
