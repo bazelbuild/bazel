@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /** An aspect in the context of the Skyframe graph. */
-@AutoCodec
+@AutoCodec(memoization = AutoCodec.Memoization.START_MEMOIZING)
 public final class AspectValue extends BasicActionLookupValue {
 
   /**
