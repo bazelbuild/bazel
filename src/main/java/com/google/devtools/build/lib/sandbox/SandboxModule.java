@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -126,11 +124,7 @@ public final class SandboxModule extends BlazeModule {
         provider = SandboxActionContextProvider.create(cmdEnv, sandboxBase, null);
       }
     } catch (IOException e) {
-      env.getBlazeModuleEnvironment().exit(
-          new AbruptExitException(
-              "Failed to initialize sandbox: " + e,
-              ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
-      return;
+      throw new ExecutorInitException("Failed to initialize sandbox", e);
     }
     builder.addActionContextProvider(provider);
     builder.addActionContextConsumer(new SandboxActionContextConsumer(cmdEnv));
