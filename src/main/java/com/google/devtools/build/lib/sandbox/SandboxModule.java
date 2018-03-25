@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -67,14 +68,16 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /** Computes the path to the sandbox base tree for the given running command. */
-  private static Path computeSandboxBase(SandboxOptions options, CommandEnvironment env) {
+  private static Path computeSandboxBase(SandboxOptions options, CommandEnvironment env)
+      throws IOException {
     if (options.sandboxBase.isEmpty()) {
       return env.getOutputBase().getRelative("sandbox");
     } else {
       String dirName = String.format("%s-sandbox.%s", env.getRuntime().getProductName(),
           Fingerprint.md5Digest(env.getOutputBase().toString()));
       FileSystem fileSystem = env.getRuntime().getFileSystem();
-      return fileSystem.getPath(options.sandboxBase).getRelative(dirName);
+      Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
+      return resolvedSandboxBase.getRelative(dirName);
     }
   }
 
@@ -92,14 +95,20 @@ public final class SandboxModule extends BlazeModule {
 
   @Override
   public void executorInit(
-      CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder) {
+      CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder)
+      throws ExecutorInitException {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     checkNotNull(options, "We were told to initialize the executor but the SandboxOptions are "
         + "not present; were they registered for all build commands?");
 
-    sandboxBase = computeSandboxBase(options, env);
+    try {
+      sandboxBase = computeSandboxBase(options, env);
+    } catch (IOException e) {
+      throw new ExecutorInitException("--experimental_sandbox_base points to an invalid directory",
+          e);
+    }
 
     ActionContextProvider provider;
     try {
