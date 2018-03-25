@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -27,7 +28,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import java.util.function.Consumer;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Utility for generating a call to the one-version binary. */
 public final class OneVersionCheckActionBuilder {
@@ -112,12 +113,13 @@ public final class OneVersionCheckActionBuilder {
   }
 
   static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
-    return VectorArg.of(jarsToCheck).mapped(OneVersionCheckActionBuilder::expandToJarAndTarget);
+    return VectorArg.of(jarsToCheck).mapped(EXPAND_TO_JAR_AND_TARGET);
   }
 
-  private static void expandToJarAndTarget(Artifact jar, Consumer<String> args) {
-    args.accept(jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar));
-  }
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final CommandLineItem.MapFn<Artifact> EXPAND_TO_JAR_AND_TARGET =
+      (jar, args) ->
+          args.accept(jar.getExecPathString() + "," + getArtifactOwnerGeneralizedLabel(jar));
 
   private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
     Label label = checkNotNull(artifact.getArtifactOwner(), artifact).getLabel();
