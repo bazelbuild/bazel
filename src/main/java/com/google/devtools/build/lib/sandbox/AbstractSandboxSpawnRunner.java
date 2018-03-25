@@ -209,17 +209,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   /**
-   * Returns a temporary directory that should be used as the sandbox directory for a single action.
-   */
-  protected Path getSandboxRoot() throws IOException {
-    return sandboxBase.getRelative(
-        java.nio.file.Files.createTempDirectory(
-                java.nio.file.Paths.get(sandboxBase.getPathString()), "")
-            .getFileName()
-            .toString());
-  }
-
-  /**
    * Gets the list of directories that the spawn will assume to be writable.
    *
    * @throws IOException because we might resolve symlinks, which throws {@link IOException}.

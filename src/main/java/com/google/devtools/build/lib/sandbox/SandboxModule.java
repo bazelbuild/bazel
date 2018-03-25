@@ -110,6 +110,13 @@ public final class SandboxModule extends BlazeModule {
 
     ActionContextProvider provider;
     try {
+      // Ensure that each build starts with a clean sandbox base directory. Otherwise using the `id`
+      // that is provided by SpawnExecutionPolicy#getId to compute a base directory for a sandbox
+      // might result in an already existing directory.
+      if (sandboxBase.exists()) {
+        FileSystemUtils.deleteTree(sandboxBase);
+      }
+
       sandboxBase.createDirectoryAndParents();
       if (options.useSandboxfs) {
         Path mountPoint = sandboxBase.getRelative("sandboxfs");

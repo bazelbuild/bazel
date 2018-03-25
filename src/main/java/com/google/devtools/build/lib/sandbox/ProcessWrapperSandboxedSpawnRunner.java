@@ -35,8 +35,9 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     return OS.isPosixCompatible() && ProcessWrapperUtil.isSupported(cmdEnv);
   }
 
-  private final Path execRoot;
   private final Path processWrapper;
+  private final Path execRoot;
+  private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
 
@@ -51,21 +52,28 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   ProcessWrapperSandboxedSpawnRunner(
       CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
     super(cmdEnv, sandboxBase);
-    this.execRoot = cmdEnv.getExecRoot();
-    this.timeoutKillDelay = timeoutKillDelay;
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider =
         OS.getCurrent() == OS.DARWIN
             ? new XcodeLocalEnvProvider(productName, cmdEnv.getClientEnv())
             : new PosixLocalEnvProvider(cmdEnv.getClientEnv());
+    this.sandboxBase = sandboxBase;
+    this.timeoutKillDelay = timeoutKillDelay;
   }
 
   @Override
   protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
       throws ExecException, IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = getSandboxRoot();
+    Path sandboxPath = sandboxBase.getRelative(Integer.toString(policy.getId()));
+    sandboxPath.createDirectory();
+
+    // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
+    // the normal execroot does.
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    sandboxExecRoot.getParentDirectory().createDirectory();
+    sandboxExecRoot.createDirectory();
 
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
