@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -782,44 +783,48 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * An exception indicating that there was a problem during the construction of
-   * a ConfiguredTargetValue.
+   * An exception indicating that there was a problem during the construction of a
+   * ConfiguredTargetValue.
    */
+  @AutoCodec
   public static final class ConfiguredValueCreationException extends Exception {
     private final NestedSet<Label> loadingRootCauses;
     // TODO(ulfjack): Collect all analysis root causes, not just the first one.
     @Nullable private final Label analysisRootCause;
     @Nullable private final BuildEventId configuration;
 
-    public ConfiguredValueCreationException(
+    private ConfiguredValueCreationException(
         String message, Label currentTarget, BuildConfiguration configuration) {
+      this(
+          message,
+          Preconditions.checkNotNull(currentTarget),
+          NestedSetBuilder.<Label>emptySet(Order.STABLE_ORDER),
+          configuration == null ? null : configuration.getEventId());
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    ConfiguredValueCreationException(
+        String message,
+        Label analysisRootCause,
+        NestedSet<Label> loadingRootCauses,
+        BuildEventId configuration) {
       super(message);
-      this.loadingRootCauses = NestedSetBuilder.<Label>emptySet(Order.STABLE_ORDER);
-      this.analysisRootCause = Preconditions.checkNotNull(currentTarget);
-      if (configuration != null) {
-        this.configuration = configuration.getEventId();
-      } else {
-        this.configuration = null;
-      }
+      this.loadingRootCauses = loadingRootCauses;
+      this.analysisRootCause = analysisRootCause;
+      this.configuration = configuration;
     }
 
-    public ConfiguredValueCreationException(String message, Label currentTarget) {
-      this(message, currentTarget, null);
+    private ConfiguredValueCreationException(String message, Label currentTarget) {
+      this(message, currentTarget, /*configuration=*/ null);
     }
 
-    public ConfiguredValueCreationException(String message, NestedSet<Label> rootCauses) {
-      super(message);
-      this.loadingRootCauses = rootCauses;
-      this.analysisRootCause = null;
-      this.configuration = null;
+    private ConfiguredValueCreationException(String message, NestedSet<Label> rootCauses) {
+      this(message, /*analysisRootCause=*/ null, rootCauses, /*configuration=*/ null);
     }
 
-    public ConfiguredValueCreationException(NestedSet<Label> rootCauses) {
+    private ConfiguredValueCreationException(NestedSet<Label> rootCauses) {
       this("Loading failed", rootCauses);
-    }
-
-    public ConfiguredValueCreationException(String message) {
-      this(message, NestedSetBuilder.<Label>emptySet(Order.STABLE_ORDER));
     }
 
     public NestedSet<Label> getRootCauses() {
