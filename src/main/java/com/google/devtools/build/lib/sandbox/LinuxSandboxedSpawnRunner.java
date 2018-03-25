@@ -115,12 +115,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
-    // name unique (like we have to with standalone execution strategy).
-    Path tmpDir = sandboxExecRoot.getRelative("tmp");
-
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
@@ -161,7 +157,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             outputs,
             writableDirs);
 
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
   }
 
   @Override

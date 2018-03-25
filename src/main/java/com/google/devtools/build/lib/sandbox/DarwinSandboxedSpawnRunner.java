@@ -198,16 +198,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    // Each sandboxed action runs in its own directory so we don't need to make the temp directory's
-    // name unique (like we have to with standalone execution strategy).
-    //
-    // Note that, for sandboxfs-based executions, this temp directory lives outside of the sandboxfs
-    // instance. This is perfectly fine (because sandbox-exec controls accesses to this directory)
-    // and is actually desirable for performance reasons.
-    Path tmpDir = sandboxPath.getRelative("tmp");
-
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     final HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);
@@ -288,7 +280,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             }
           };
     }
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
   }
 
   private void writeConfig(

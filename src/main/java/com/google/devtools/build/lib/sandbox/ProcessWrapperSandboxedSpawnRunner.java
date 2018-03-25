@@ -67,12 +67,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
-    // name unique (like we have to with standalone execution strategy).
-    Path tmpDir = sandboxExecRoot.getRelative("tmp");
-
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     Duration timeout = policy.getTimeout();
     ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
@@ -97,7 +93,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             SandboxHelpers.getOutputFiles(spawn),
             getWritableDirs(sandboxExecRoot, environment));
 
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
   }
 
   @Override

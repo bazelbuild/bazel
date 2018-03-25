@@ -88,7 +88,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       SandboxedSpawn sandbox,
       SpawnExecutionPolicy policy,
       Path execRoot,
-      Path tmpDir,
       Duration timeout,
       Path statisticsPath)
       throws IOException, InterruptedException {
@@ -98,7 +97,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       policy.prefetchInputs();
 
       SpawnResult result =
-          run(originalSpawn, sandbox, outErr, timeout, execRoot, tmpDir, statisticsPath);
+          run(originalSpawn, sandbox, outErr, timeout, execRoot, statisticsPath);
 
       policy.lockOutputFiles();
       try {
@@ -121,7 +120,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       OutErr outErr,
       Duration timeout,
       Path execRoot,
-      Path tmpDir,
       Path statisticsPath)
       throws IOException, InterruptedException {
     Command cmd = new Command(
@@ -145,9 +143,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     long startTime = System.currentTimeMillis();
     CommandResult commandResult;
     try {
-      if (!tmpDir.exists() && !tmpDir.createDirectory()) {
-        throw new IOException(String.format("Could not create temp directory '%s'", tmpDir));
-      }
       commandResult = cmd.execute(outErr.getOutputStream(), outErr.getErrorStream());
       if (Thread.currentThread().isInterrupted()) {
         throw new InterruptedException();
