@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -124,7 +123,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Duration timeoutKillDelay,
       @Nullable SandboxfsProcess sandboxfsProcess)
       throws IOException {
-    super(cmdEnv, sandboxBase);
+    super(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
@@ -195,7 +194,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
-      throws ExecException, IOException, InterruptedException {
+      throws IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = sandboxBase.getRelative(Integer.toString(policy.getId()));
     sandboxPath.createDirectory();

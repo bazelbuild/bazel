@@ -97,7 +97,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay) {
-    super(cmdEnv, sandboxBase);
+    super(cmdEnv);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
@@ -137,12 +137,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
-            .setUseDebugMode(getSandboxOptions().sandboxDebug);
+            .setUseDebugMode(getSandboxOptions().sandboxDebug)
+            .setKillDelay(timeoutKillDelay);
 
     if (!timeout.isZero()) {
       commandLineBuilder.setTimeout(timeout);
     }
-    commandLineBuilder.setKillDelay(timeoutKillDelay);
+
     if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT)) {
       commandLineBuilder.setUseFakeRoot(true);
     } else if (getSandboxOptions().sandboxFakeUsername) {

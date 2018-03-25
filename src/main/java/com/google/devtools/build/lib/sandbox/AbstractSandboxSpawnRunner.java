@@ -50,13 +50,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final String SANDBOX_DEBUG_SUGGESTION =
       "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
 
-  private final Path sandboxBase;
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
 
-  public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase) {
-    this.sandboxBase = sandboxBase;
+  public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
     this.inaccessiblePaths =

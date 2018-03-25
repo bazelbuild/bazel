@@ -51,7 +51,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    */
   ProcessWrapperSandboxedSpawnRunner(
       CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
-    super(cmdEnv, sandboxBase);
+    super(cmdEnv);
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider =
