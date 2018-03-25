@@ -54,17 +54,14 @@ class Worker {
 
     final Worker self = this;
     this.shutdownHook =
-        new Thread() {
-          @Override
-          public void run() {
-            try {
-              self.shutdownHook = null;
-              self.destroy();
-            } catch (IOException e) {
-              // We can't do anything here.
-            }
+        new Thread(() -> {
+          try {
+            self.shutdownHook = null;
+            self.destroy();
+          } catch (IOException e) {
+            // We can't do anything here.
           }
-        };
+        });
     Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
@@ -80,7 +77,6 @@ class Worker {
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
     processBuilder.setEnv(workerKey.getEnv());
-
     this.process = processBuilder.start();
   }
 
@@ -138,12 +134,7 @@ class Worker {
   boolean isAlive() {
     // This is horrible, but Process.isAlive() is only available from Java 8 on and this is the
     // best we can do prior to that.
-    try {
-      process.exitValue();
-      return false;
-    } catch (IllegalThreadStateException e) {
-      return true;
-    }
+    return !process.finished();
   }
 
   InputStream getInputStream() {
