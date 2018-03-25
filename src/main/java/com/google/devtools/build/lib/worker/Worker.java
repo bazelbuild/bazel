@@ -24,6 +24,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 
 /**
@@ -145,9 +147,14 @@ class Worker {
     return process.getOutputStream();
   }
 
-  public void prepareExecution(WorkerKey key) throws IOException {}
+  public void prepareExecution(Map<PathFragment, Path> inputFiles, Set<PathFragment> outputFiles,
+      Set<PathFragment> workerFiles) throws IOException {
+    if (process == null) {
+      createProcess();
+    }
+  }
 
-  public void finishExecution(WorkerKey key) throws IOException {}
+  public void finishExecution(Path execRoot) throws IOException {}
 
   public Path getLogFile() {
     return logFile;

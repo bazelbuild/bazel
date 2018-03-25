@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -49,8 +48,6 @@ public class WorkerFactoryTest {
             "dummy",
             HashCode.fromInt(0),
             ImmutableSortedMap.of(),
-            ImmutableMap.of(),
-            ImmutableSet.of(),
             true);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
