@@ -46,13 +46,33 @@ public class ConfiguredTargetAndData {
             + " ConfiguredTarget's label %s is not equal to Target's label %s",
         configuredTarget.getLabel(),
         target.getLabel());
-    Preconditions.checkState(
-        configuration == configuredTarget.getConfiguration(),
-        "Configurations don't match: %s %s (%s %s)",
-        configuration,
-        configuredTarget.getConfiguration(),
-        configuredTarget,
-        target);
+    BuildConfiguration innerConfiguration = configuredTarget.getConfiguration();
+    if (configuration != innerConfiguration) {
+      // We can't always assert that configurations are equal, because fragments, which are used in
+      // the equality check, don't implement .equals(), so two configurations constructed from the
+      // same options may end up unequal.
+      Preconditions.checkState(
+          configuration.checksum().equals(innerConfiguration.checksum()),
+          "Configuration checksums don't match: %s %s (%s %s)",
+          configuration.checksum(),
+          innerConfiguration.checksum(),
+          configuredTarget,
+          target);
+      Preconditions.checkState(
+          configuration.getOptions().equals(innerConfiguration.getOptions()),
+          "Configuration options don't match: %s %s (%s %s)",
+          configuration.getOptions(),
+          innerConfiguration.getOptions(),
+          configuredTarget,
+          target);
+      Preconditions.checkState(
+          configuration.fragmentClasses().equals(innerConfiguration.fragmentClasses()),
+          "Configuration classes don't match: %s %s (%s %s)",
+          configuration.fragmentClasses(),
+          innerConfiguration.fragmentClasses(),
+          configuredTarget,
+          target);
+    }
   }
 
   /**
