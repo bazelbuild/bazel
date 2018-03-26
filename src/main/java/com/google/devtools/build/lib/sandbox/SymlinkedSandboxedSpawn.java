@@ -15,14 +15,13 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -75,36 +74,8 @@ public class SymlinkedSandboxedSpawn implements SandboxedSpawn {
 
   @Override
   public void createFileSystem() throws IOException {
-    Set<Path> createdDirs = new HashSet<>();
-    cleanFileSystem(inputs.keySet());
-    createDirectoryAndParentsWithCache(createdDirs, sandboxExecRoot);
-    createParentDirectoriesForInputs(createdDirs, inputs.keySet());
+    createDirectories();
     createInputs(inputs);
-    createWritableDirectories(createdDirs, writableDirs);
-    createDirectoriesForOutputs(createdDirs, outputs);
-  }
-
-  private void cleanFileSystem(Set<PathFragment> allowedFiles) throws IOException {
-    if (sandboxExecRoot.exists(Symlinks.NOFOLLOW)) {
-      deleteExceptAllowedFiles(sandboxExecRoot, allowedFiles);
-    }
-  }
-
-  private void deleteExceptAllowedFiles(Path root, Set<PathFragment> allowedFiles)
-      throws IOException {
-    for (Path p : root.getDirectoryEntries()) {
-      FileStatus stat = p.stat(Symlinks.NOFOLLOW);
-      if (!stat.isDirectory()) {
-        if (!allowedFiles.contains(p.relativeTo(sandboxExecRoot))) {
-          p.delete();
-        }
-      } else {
-        deleteExceptAllowedFiles(p, allowedFiles);
-        if (p.readdir(Symlinks.NOFOLLOW).isEmpty()) {
-          p.delete();
-        }
-      }
-    }
   }
 
   /**
@@ -119,53 +90,38 @@ public class SymlinkedSandboxedSpawn implements SandboxedSpawn {
    * directories, too, because we'll get an IOException with EEXIST if inputs happen to be nested
    * once we start creating the symlinks for all inputs.
    */
-  private void createParentDirectoriesForInputs(Set<Path> createdDirs, Set<PathFragment> inputs)
-      throws IOException {
-    for (PathFragment inputPath : inputs) {
-      Path dir = sandboxExecRoot.getRelative(inputPath).getParentDirectory();
-      Preconditions.checkArgument(
-          dir.startsWith(sandboxExecRoot), "Bad relative path: '%s'", inputPath);
-      createDirectoryAndParentsWithCache(createdDirs, dir);
+  private void createDirectories() throws IOException {
+    LinkedHashSet<Path> dirsToCreate = new LinkedHashSet<>();
+
+    for (PathFragment path : Iterables.concat(inputs.keySet(), outputs)) {
+      Preconditions.checkArgument(!path.isAbsolute());
+      Preconditions.checkArgument(!path.containsUplevelReferences());
+      for (int i = 0; i < path.segmentCount(); i++) {
+        dirsToCreate.add(sandboxExecRoot.getRelative(path.subFragment(0, i)));
+      }
+    }
+
+    for (Path path : dirsToCreate) {
+      path.createDirectory();
+    }
+
+    for (Path dir : writableDirs) {
+      if (dir.startsWith(sandboxExecRoot)) {
+        dir.createDirectoryAndParents();
+      }
     }
   }
 
-  private void createInputs(Map<PathFragment, Path> inputs) throws IOException {
+  protected void createInputs(Map<PathFragment, Path> inputs) throws IOException {
     // All input files are relative to the execroot.
     for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
       Path key = sandboxExecRoot.getRelative(entry.getKey());
-      FileStatus keyStat = key.statNullable(Symlinks.NOFOLLOW);
-      if (keyStat != null) {
-        if (keyStat.isSymbolicLink()
-            && entry.getValue() != null
-            && key.readSymbolicLink().equals(entry.getValue().asFragment())) {
-          continue;
-        }
-        key.delete();
-      }
       // A null value means that we're supposed to create an empty file as the input.
       if (entry.getValue() != null) {
         key.createSymbolicLink(entry.getValue());
       } else {
         FileSystemUtils.createEmptyFile(key);
       }
-    }
-  }
-
-  private void createWritableDirectories(Set<Path> createdDirs, Set<Path> writableDirs)
-      throws IOException {
-    for (Path writablePath : writableDirs) {
-      if (writablePath.startsWith(sandboxExecRoot)) {
-        createDirectoryAndParentsWithCache(createdDirs, writablePath);
-      }
-    }
-  }
-
-  /** Prepare the output directories in the sandbox. */
-  private void createDirectoriesForOutputs(Set<Path> createdDirs, Collection<PathFragment> outputs)
-      throws IOException {
-    for (PathFragment output : outputs) {
-      createDirectoryAndParentsWithCache(
-          createdDirs, sandboxExecRoot.getRelative(output.getParentDirectory()));
     }
   }
 
@@ -186,13 +142,6 @@ public class SymlinkedSandboxedSpawn implements SandboxedSpawn {
       // but on other OS this might not always work. The SandboxModule will try to delete them
       // again when the build is all done, at which point it hopefully works, so let's just go
       // on here.
-    }
-  }
-
-  private static void createDirectoryAndParentsWithCache(Set<Path> cache, Path dir)
-      throws IOException {
-    if (cache.add(dir)) {
-      dir.createDirectoryAndParents();
     }
   }
 }

@@ -65,8 +65,6 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
     } else {
       worker = new Worker(key, workerId, key.getExecRoot(), logFile);
     }
-    worker.prepareExecution(key);
-    worker.createProcess();
     if (workerOptions.workerVerbose) {
       reporter.handle(
           Event.info(

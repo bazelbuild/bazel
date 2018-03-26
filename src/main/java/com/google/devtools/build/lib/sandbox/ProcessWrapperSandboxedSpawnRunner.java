@@ -35,8 +35,9 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     return OS.isPosixCompatible() && ProcessWrapperUtil.isSupported(cmdEnv);
   }
 
-  private final Path execRoot;
   private final Path processWrapper;
+  private final Path execRoot;
+  private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
 
@@ -50,29 +51,32 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    */
   ProcessWrapperSandboxedSpawnRunner(
       CommandEnvironment cmdEnv, Path sandboxBase, String productName, Duration timeoutKillDelay) {
-    super(cmdEnv, sandboxBase);
-    this.execRoot = cmdEnv.getExecRoot();
-    this.timeoutKillDelay = timeoutKillDelay;
+    super(cmdEnv);
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider =
         OS.getCurrent() == OS.DARWIN
             ? new XcodeLocalEnvProvider(productName, cmdEnv.getClientEnv())
             : new PosixLocalEnvProvider(cmdEnv.getClientEnv());
+    this.sandboxBase = sandboxBase;
+    this.timeoutKillDelay = timeoutKillDelay;
   }
 
   @Override
   protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionPolicy policy)
       throws ExecException, IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = getSandboxRoot();
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    Path sandboxPath = sandboxBase.getRelative(Integer.toString(policy.getId()));
+    sandboxPath.createDirectory();
 
-    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
-    // name unique (like we have to with standalone execution strategy).
-    Path tmpDir = sandboxExecRoot.getRelative("tmp");
+    // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
+    // the normal execroot does.
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    sandboxExecRoot.getParentDirectory().createDirectory();
+    sandboxExecRoot.createDirectory();
 
     Map<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     Duration timeout = policy.getTimeout();
     ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
@@ -97,7 +101,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             SandboxHelpers.getOutputFiles(spawn),
             getWritableDirs(sandboxExecRoot, environment));
 
-    return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
+    return runSpawn(spawn, sandbox, policy, execRoot, timeout, statisticsPath);
   }
 
   @Override
