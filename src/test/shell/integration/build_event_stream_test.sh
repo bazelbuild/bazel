@@ -485,6 +485,27 @@ function test_target_complete() {
   expect_log 'tag2'
 }
 
+function test_test_target_complete() {
+    bazel test --build_event_text_file="${TEST_log}" pkg:true \
+          || tail "expected success"
+    expect_log_once '^completed'
+
+    cp "${TEST_log}" complete_event
+    ed complete_event <<'EOF'
+1
+/^complete
+1,.-1d
+/^}
++1,$d
+w
+q
+EOF
+    grep -q 'output_group' complete_event \
+        || fail "expected reference to output in complete event"
+
+    expect_log 'name: *"pkg/true.sh"'
+}
+
 function test_extra_action() {
   # verify that normal successful actions are not reported, but extra actions
   # are

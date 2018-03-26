@@ -187,11 +187,12 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       if (target == null) {
         return null;
       }
+      ArtifactsToBuild artifactsToBuild =
+          TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext);
       if (((TargetCompletionKey) skyKey.argument()).willTest()) {
-        return TargetCompleteEvent.successfulBuildSchedulingTest(target, actualTarget);
+        return TargetCompleteEvent.successfulBuildSchedulingTest(
+            target, actualTarget, artifactsToBuild.getAllArtifactsByOutputGroup());
       } else {
-        ArtifactsToBuild artifactsToBuild =
-            TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext);
         return TargetCompleteEvent.successfulBuild(
             target, actualTarget, artifactsToBuild.getAllArtifactsByOutputGroup());
       }
