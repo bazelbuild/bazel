@@ -116,7 +116,9 @@ public class TransitionsOutputFormatterCallback
         ct -> partialResultMap.put(ct.getLabel(), accessor.getTargetFromConfiguredTarget(ct)));
     for (ConfiguredTarget configuredTarget : partialResult) {
       Target target = partialResultMap.get(configuredTarget.getLabel());
-      BuildConfiguration config = configuredTarget.getConfiguration();
+      BuildConfiguration config =
+          skyframeExecutor.getConfiguration(
+              NullEventHandler.INSTANCE, configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
               + configuredTarget.getLabel()
@@ -280,7 +282,7 @@ public class TransitionsOutputFormatterCallback
         Iterable<BuildOptions> buildOptions,
         BuildOptions defaultOptions) {
       Preconditions.checkArgument(
-          ct.getConfiguration().fragmentClasses().equals(fragments),
+          ct.getConfigurationKey().getFragments().equals(fragments.fragmentClasses()),
           "Mismatch: %s %s",
           ct,
           fragments);
