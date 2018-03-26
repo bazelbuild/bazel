@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.MessageLite;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.NotSerializableException;
@@ -27,6 +28,10 @@ import java.nio.ByteBuffer;
 /** Naive ObjectCodec using Java native Serialization. Not performant, but a good fallback */
 class JavaSerializableCodec implements ObjectCodec<Object> {
 
+  private boolean isBlacklistedForJavaSerialization(Class<?> clazz) {
+    return MessageLite.class.isAssignableFrom(clazz);
+  }
+
   @Override
   public Class<Object> getEncodedClass() {
     return Object.class;
@@ -35,6 +40,10 @@ class JavaSerializableCodec implements ObjectCodec<Object> {
   @Override
   public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
+    if (isBlacklistedForJavaSerialization(obj.getClass())) {
+      throw new SerializationException(
+          "Java serialization is not permitted for class " + obj.getClass());
+    }
     ByteString.Output out = ByteString.newOutput();
     ObjectOutputStream objOut = new ObjectOutputStream(out);
     try {
