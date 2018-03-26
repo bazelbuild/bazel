@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
@@ -81,14 +82,14 @@ public final class SpawnActionContextMaps {
   }
 
   /**
-   * Returns the appropriate {@link ActionContext} to execute an action with the given {@code
-   * mnemonic} and {@link Spawn}.
+   * Returns the appropriate {@link ActionContext} to execute the given {@link Spawn} with.
    *
    * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
    * using the given {@link Reporter}.
    */
-  public SpawnActionContext getSpawnActionContext(String mnemonic, Spawn spawn, Reporter reporter) {
-    if (!spawnStrategyRegexList.isEmpty() && spawn != null && spawn.getResourceOwner() != null) {
+  public SpawnActionContext getSpawnActionContext(Spawn spawn, Reporter reporter) {
+    Preconditions.checkNotNull(spawn);
+    if (!spawnStrategyRegexList.isEmpty() && spawn.getResourceOwner() != null) {
       String description = spawn.getResourceOwner().getProgressMessage();
       if (description != null) {
         for (RegexFilterSpawnActionContext entry : spawnStrategyRegexList) {
@@ -100,7 +101,7 @@ public final class SpawnActionContextMaps {
         }
       }
     }
-    SpawnActionContext context = spawnStrategyMnemonicMap.get(mnemonic);
+    SpawnActionContext context = spawnStrategyMnemonicMap.get(spawn.getMnemonic());
     if (context != null) {
       return context;
     }

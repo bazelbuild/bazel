@@ -171,14 +171,14 @@ public class StandaloneSpawnStrategyTest {
   @Test
   public void testBinTrueExecutesFine() throws Exception {
     Spawn spawn = createSpawn(getTrueCommand());
-    executor.getSpawnActionContext(spawn.getMnemonic(), spawn).exec(spawn, createContext());
+    executor.getSpawnActionContext(spawn).exec(spawn, createContext());
 
     assertThat(out()).isEmpty();
     assertThat(err()).isEmpty();
   }
 
   private List<SpawnResult> run(Spawn spawn) throws Exception {
-    return executor.getSpawnActionContext(spawn.getMnemonic(), spawn).exec(spawn, createContext());
+    return executor.getSpawnActionContext(spawn).exec(spawn, createContext());
   }
 
   private ActionExecutionContext createContext() {

@@ -128,7 +128,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .build();
     when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
-    when(actionExecutionContext.getSpawnActionContext(any(), any())).thenReturn(spawnActionContext);
+    when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
@@ -208,7 +208,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                 expectedSpawnResult,
                 /*forciblyRunRemotely=*/ false,
                 /*catastrophe=*/ false));
-    when(actionExecutionContext.getSpawnActionContext(any(), any())).thenReturn(spawnActionContext);
+    when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =
@@ -285,7 +285,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     SpawnResult expectedSpawnResult = new SpawnResult.Builder().setStatus(Status.SUCCESS).build();
     when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
-    when(actionExecutionContext.getSpawnActionContext(any(), any())).thenReturn(spawnActionContext);
+    when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);
 
     // actual StandaloneTestStrategy execution
     List<SpawnResult> spawnResults =

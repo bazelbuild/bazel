@@ -71,7 +71,7 @@ public class SpawnActionContextMapsTest {
   public void duplicateMnemonics_lastOneWins() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1").put("Spawn1", "ac2");
     SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
-    SpawnActionContext result = maps.getSpawnActionContext("Spawn1", null, reporter);
+    SpawnActionContext result = maps.getSpawnActionContext(mockSpawn("Spawn1", null), reporter);
     assertThat(result).isInstanceOf(AC2.class);
   }
 
@@ -82,7 +82,7 @@ public class SpawnActionContextMapsTest {
     SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
 
     SpawnActionContext result =
-        maps.getSpawnActionContext("", mockSpawn("Doing something with foo/bar/baz"), reporter);
+        maps.getSpawnActionContext(mockSpawn(null, "Doing something with foo/bar/baz"), reporter);
 
     assertThat(result).isInstanceOf(AC1.class);
   }
@@ -95,7 +95,7 @@ public class SpawnActionContextMapsTest {
 
     SpawnActionContext result =
         maps.getSpawnActionContext(
-            "Spawn1", mockSpawn("Doing something with foo/bar/baz"), reporter);
+            mockSpawn("Spawn1", "Doing something with foo/bar/baz"), reporter);
 
     assertThat(result).isInstanceOf(AC2.class);
   }
@@ -107,11 +107,12 @@ public class SpawnActionContextMapsTest {
     builder.strategyByContextMap().put(AC1.class, "");
   }
 
-  private Spawn mockSpawn(String message) {
+  private Spawn mockSpawn(String mnemonic, String message) {
     Spawn mockSpawn = Mockito.mock(Spawn.class);
     ActionExecutionMetadata mockOwner = Mockito.mock(ActionExecutionMetadata.class);
     when(mockOwner.getProgressMessage()).thenReturn(message);
     when(mockSpawn.getResourceOwner()).thenReturn(mockOwner);
+    when(mockSpawn.getMnemonic()).thenReturn(mnemonic);
     return mockSpawn;
   }
 

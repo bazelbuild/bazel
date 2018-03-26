@@ -124,7 +124,7 @@ public final class SymlinkTreeHelper {
               shellEnvironment,
               inputManifestArtifact);
       return actionExecutionContext
-          .getSpawnActionContext(owner.getMnemonic(), spawn)
+          .getSpawnActionContext(spawn)
           .exec(spawn, actionExecutionContext);
     } else {
       // Pretend we created the runfiles tree by copying the manifest

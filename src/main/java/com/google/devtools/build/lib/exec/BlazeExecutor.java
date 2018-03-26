@@ -190,8 +190,8 @@ public final class BlazeExecutor implements Executor {
    * set, then it returns the default strategy for spawn actions.
    */
   @Override
-  public SpawnActionContext getSpawnActionContext(String mnemonic, Spawn spawn) {
-    return spawnActionContextMaps.getSpawnActionContext(mnemonic, spawn, reporter);
+  public SpawnActionContext getSpawnActionContext(Spawn spawn) {
+    return spawnActionContextMaps.getSpawnActionContext(spawn, reporter);
   }
 
   /** Returns true iff the --verbose_failures option was enabled. */
