@@ -1719,10 +1719,12 @@ public class MethodLibrary {
             + "<p>Examples:"
             + "<pre class=\"language-python\">"
             + "int(\"123\") == 123\n"
-            + "int(\"  -123  \") == -123\n"
+            + "int(\"-123\") == -123\n"
+            + "int(\"+123\") == 123\n"
             + "int(\"FF\", 16) == 255\n"
+            + "int(\"0xFF\", 16) == 255\n"
             + "int(\"10\", 0) == 10\n"
-            + "int(\"0x10\", 0) == 16"
+            + "int(\"-0x10\", 0) == -16"
             + "</pre>",
     parameters = {
       @Param(name = "x", type = Object.class, doc = "The string to convert."),

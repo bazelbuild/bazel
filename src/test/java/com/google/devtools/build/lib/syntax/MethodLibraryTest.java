@@ -986,7 +986,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("int('2147483647')", 2147483647)
         .testStatement("int('-2147483648')", -2147483648)
         // Leading zero allowed when not using base = 0.
-        .testStatement("int('016')", 16);
+        .testStatement("int('016')", 16)
+        // Leading plus sign allowed for strings.
+        .testStatement("int('+42')", 42);
   }
 
   @Test
@@ -1036,6 +1038,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testStatement("int('0b11', 0)", 3)
         .testStatement("int('-0b11', 0)", -3)
+        .testStatement("int('+0b11', 0)", 3)
         .testStatement("int('0B11', 2)", 3)
         .testStatement("int('0o11', 0)", 9)
         .testStatement("int('0O11', 8)", 9)
