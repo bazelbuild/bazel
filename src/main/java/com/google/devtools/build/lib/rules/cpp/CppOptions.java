@@ -989,7 +989,7 @@ public class CppOptions extends FragmentOptions {
       }
     }
 
-    return ImmutableMap.of("CROSSTOOL", crosstoolLabels, "COVERAGE", ImmutableSet.<Label>of());
+    return ImmutableMap.of("CROSSTOOL", crosstoolLabels);
   }
 
   /**
