@@ -249,7 +249,7 @@ else:
 The Skylark integer type represents integers.  Its [type](#type) is `"int"`.
 
 Integers may be positive or negative. The precision is implementation-dependent.
-It is a dynamic error if a result is outside that the supported range.
+It is a dynamic error if a result is outside the supported range.
 Integers are totally ordered; comparisons follow mathematical
 tradition.
 
@@ -2327,12 +2327,15 @@ implies `hash(x) == hash(y)`.
 
 `int(x[, base])` interprets its argument as an integer.
 
-If x is an `int`, the result is x.
-If x is a `bool`, the result is 0 for `False` or 1 for `True`.
+If `x` is an `int`, the result is `x`.
+If `x` is a `bool`, the result is 0 for `False` or 1 for `True`.
 
-If x is a string, it is interpreted as an integer using the base argument
-(default is `10`). If base is `0`, x is interpreted like an integer literal, the
-base being inferred from an optional base prefix (for example `0o` or `0x`).
+If `x` is a string, it is interpreted as a sequence of digits in the specified
+base, decimal by default. If `base` is zero, `x` is interpreted like an integer
+literal, the base being inferred from an optional base marker such as `0b`,
+`0o`, or `0x` preceding the first digit. These markers may also be used if
+`base` is the corresponding base. Irrespective of base, the string may start
+with an optional `+` or `-` sign indicating the sign of the result.
 
 ```python
 int("21")          # 21
