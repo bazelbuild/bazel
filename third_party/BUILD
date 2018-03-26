@@ -591,23 +591,6 @@ java_import(
     jars = ["xz/xz-1.5.jar"],
 )
 
-cc_library(
-    name = "gtest",
-    srcs = [
-        "gtest/gtest-all.cc",
-        "gtest/gtest_main.cc",
-    ],
-    hdrs = [
-        "gtest/gtest.h",
-    ],
-    data = [
-        "//tools:test_sharding_compliant",
-    ],
-    includes = ["."],
-    # gtest detects pthread, and the linker fails without it.
-    linkopts = ["-lpthread"],
-)
-
 # To be used by the skylark example.
 filegroup(
     name = "junit4-jars",
