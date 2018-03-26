@@ -158,7 +158,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         depKeysAsSet = depKeys.toSet();
         evaluatorContext
             .getGraph()
-            .prefetchBatch(
+            .getBatchAsync(
                 requestor,
                 Reason.PREFETCH,
                 Iterables.filter(oldDeps, Predicates.not(Predicates.in(depKeysAsSet))));

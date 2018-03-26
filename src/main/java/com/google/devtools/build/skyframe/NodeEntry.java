@@ -356,7 +356,8 @@ public interface NodeEntry extends ThinNodeEntry {
 
   /**
    * Adds the temporary direct deps given in {@code helper} and returns the set of unique deps
-   * added.
+   * added. It is the users responsibility to ensure that there are no elements in common between
+   * helper and the already existing temporary direct deps.
    */
   @ThreadSafe
   Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper);
