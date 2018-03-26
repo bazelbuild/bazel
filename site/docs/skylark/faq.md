@@ -76,7 +76,7 @@ runfile to actions and executables that need it during the execution phase.
 For rules and rule attributes, you can pass a docstring literal (possibly
 triple-quoted) to the `doc` parameter of `rule` or `attr.*()`. For helper
 functions and macros, use a triple-quoted docstring literal following the format
-given [here](skylint.md#docstings). Rule implementation functions generally do
+given [here](skylint.md#docstrings). Rule implementation functions generally do
 not need their own docstring.
 
 Using string literals in the expected places makes it easier for automated
