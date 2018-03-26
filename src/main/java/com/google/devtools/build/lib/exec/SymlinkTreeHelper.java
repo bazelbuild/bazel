@@ -116,16 +116,16 @@ public final class SymlinkTreeHelper {
     Preconditions.checkState(
         actionExecutionContext.getInputPath(inputManifestArtifact).equals(inputManifest));
     if (enableRunfiles) {
+      Spawn spawn =
+          createSpawn(
+              owner,
+              actionExecutionContext.getExecRoot(),
+              binTools,
+              shellEnvironment,
+              inputManifestArtifact);
       return actionExecutionContext
-          .getSpawnActionContext(owner.getMnemonic())
-          .exec(
-              createSpawn(
-                  owner,
-                  actionExecutionContext.getExecRoot(),
-                  binTools,
-                  shellEnvironment,
-                  inputManifestArtifact),
-              actionExecutionContext);
+          .getSpawnActionContext(owner.getMnemonic(), spawn)
+          .exec(spawn, actionExecutionContext);
     } else {
       // Pretend we created the runfiles tree by copying the manifest
       try {

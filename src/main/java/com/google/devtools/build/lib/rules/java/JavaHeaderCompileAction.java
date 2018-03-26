@@ -140,9 +140,10 @@ public class JavaHeaderCompileAction extends SpawnAction {
   @Override
   protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    SpawnActionContext context = getContext(actionExecutionContext);
+    Spawn spawn = getDirectSpawn();
+    SpawnActionContext context = getContext(actionExecutionContext, spawn);
     try {
-      return context.exec(getDirectSpawn(), actionExecutionContext);
+      return context.exec(spawn, actionExecutionContext);
     } catch (ExecException e) {
       // if the direct input spawn failed, try again with transitive inputs to produce better
       // better messages
