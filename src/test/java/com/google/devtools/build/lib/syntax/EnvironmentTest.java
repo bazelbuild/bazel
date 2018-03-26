@@ -348,9 +348,9 @@ public class EnvironmentTest extends EvaluationTestCase {
     assertCheckStateFailsWithMessage(
         new Extension(ImmutableMap.of("x", 1, "y", "foo", "z", true), "abc"),
         new Extension(ImmutableMap.of("x", 2.0, "y", "foo", "z", false), "abc"),
-        "bindings are unequal: x: this one has 1 (class java.lang.Integer), but given one has 2.0 "
-            + "(class java.lang.Double); z: this one has True (class java.lang.Boolean), but given "
-            + "one has False (class java.lang.Boolean)");
+        "bindings are unequal: x: this one has 1 (class java.lang.Integer, 1), but given one has "
+            + "2.0 (class java.lang.Double, 2.0); z: this one has True (class java.lang.Boolean, "
+            + "true), but given one has False (class java.lang.Boolean, false)");
   }
 
   @Test
