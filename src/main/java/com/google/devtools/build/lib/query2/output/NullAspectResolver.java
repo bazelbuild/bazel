@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.util.Set;
 
 /**
@@ -37,8 +36,7 @@ public class NullAspectResolver implements AspectResolver {
   }
 
   @Override
-  public Set<Label> computeBuildFileDependencies(
-      Package pkg, BuildFileDependencyMode mode) throws InterruptedException {
-    return ImmutableSet.copyOf(mode.getDependencies(pkg));
+  public Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException {
+    return ImmutableSet.copyOf(pkg.getSkylarkFileDependencies());
   }
 }

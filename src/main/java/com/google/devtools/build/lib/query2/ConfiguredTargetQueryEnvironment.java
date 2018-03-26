@@ -591,7 +591,6 @@ public class ConfiguredTargetQueryEnvironment
       QueryExpression caller,
       ThreadSafeMutableSet<ConfiguredTarget> nodes,
       boolean buildFiles,
-      boolean subincludes,
       boolean loads)
       throws QueryException, InterruptedException {
     throw new QueryException("buildfiles() doesn't make sense for the configured target graph");

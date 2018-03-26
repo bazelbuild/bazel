@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
@@ -191,7 +190,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("source-file");
       InputFile inputFile = (InputFile) target;
       if (inputFile.getName().equals("BUILD")) {
-        addSubincludedFilesToElement(doc, elem, inputFile);
         addSkylarkFilesToElement(doc, elem, inputFile);
         addFeaturesToElement(doc, elem, inputFile);
         elem.setAttribute("package_contains_errors",
@@ -254,22 +252,10 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
   }
 
-  private void addSubincludedFilesToElement(Document doc, Element parent, InputFile inputFile)
-      throws InterruptedException {
-    Iterable<Label> dependencies = aspectResolver.computeBuildFileDependencies(
-            inputFile.getPackage(), BuildFileDependencyMode.SUBINCLUDE);
-
-    for (Label subinclude : dependencies) {
-      Element elem = doc.createElement("subinclude");
-      elem.setAttribute("name", subinclude.toString());
-      parent.appendChild(elem);
-    }
-  }
-
   private void addSkylarkFilesToElement(Document doc, Element parent, InputFile inputFile)
       throws InterruptedException {
-    Iterable<Label> dependencies = aspectResolver.computeBuildFileDependencies(
-        inputFile.getPackage(), BuildFileDependencyMode.SKYLARK);
+    Iterable<Label> dependencies =
+        aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
     for (Label skylarkFileDep : dependencies) {
       Element elem = doc.createElement("load");

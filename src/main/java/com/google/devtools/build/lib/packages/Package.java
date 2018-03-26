@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -167,11 +165,6 @@ public class Package {
    * first error, the build may proceed.
    */
   private boolean containsErrors;
-
-  /**
-   * The set of labels subincluded by this package.
-   */
-  private Set<Label> subincludes;
 
   /**
    * The list of transitive closure of the Skylark file dependencies.
@@ -334,7 +327,6 @@ public class Package {
     }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
-    this.subincludes = builder.subincludes.keySet();
     this.skylarkFileDependencies = builder.skylarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
@@ -343,13 +335,6 @@ public class Package {
     this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
-  }
-
-  /**
-   * Returns the list of subincluded labels on which the validity of this package depends.
-   */
-  public Set<Label> getSubincludeLabels() {
-    return subincludes;
   }
 
   /**
@@ -764,7 +749,6 @@ public class Package {
     protected Map<String, Target> targets = new HashMap<>();
     protected Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
-    protected Map<Label, Path> subincludes = null;
     protected ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
 
     protected List<String> registeredExecutionPlatforms = new ArrayList<>();
@@ -1064,32 +1048,6 @@ public class Package {
           implicitOutputsFunction);
     }
 
-    /**
-     * Called by the parser when a "mocksubinclude" is encountered, to record the
-     * mappings from labels to absolute paths upon which that the validity of
-     * this package depends.
-     */
-    void addSubinclude(Label label, Path resolvedPath) {
-      if (subincludes == null) {
-        // This is a TreeMap because the order needs to be deterministic.
-        subincludes = Maps.newTreeMap();
-      }
-
-      Path oldResolvedPath = subincludes.put(label, resolvedPath);
-      if (oldResolvedPath != null && !oldResolvedPath.equals(resolvedPath)){
-        // The same label should have been resolved to the same path
-        throw new IllegalStateException("Ambiguous subinclude path");
-      }
-    }
-
-    public Set<Label> getSubincludeLabels() {
-      return subincludes == null ? Sets.<Label>newHashSet() : subincludes.keySet();
-    }
-
-    public Map<Label, Path> getSubincludes() {
-      return subincludes == null ? Maps.<Label, Path>newHashMap() : subincludes;
-    }
-
     @Nullable
     public Target getTarget(String name) {
       return targets.get(name);
@@ -1301,10 +1259,6 @@ public class Package {
       if (ioException != null) {
         throw new NoSuchPackageException(getPackageIdentifier(), ioExceptionMessage, ioException);
       }
-      // Freeze subincludes.
-      subincludes = (subincludes == null)
-          ? Collections.<Label, Path>emptyMap()
-          : Collections.unmodifiableMap(subincludes);
 
       // We create the original BUILD InputFile when the package filename is set; however, the
       // visibility may be overridden with an exports_files directive, so we need to obtain the
