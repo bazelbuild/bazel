@@ -141,10 +141,12 @@ public class CqueryBuildTool extends BuildTool {
                 hostConfiguration)
             : new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
               @Override
-              public void processOutput(Iterable<ConfiguredTarget> partialResult)
-                  throws IOException, InterruptedException {
+              public void processOutput(Iterable<ConfiguredTarget> partialResult) {
                 for (ConfiguredTarget configuredTarget : partialResult) {
-                  BuildConfiguration config = configuredTarget.getConfiguration();
+                  BuildConfiguration config =
+                      env.getSkyframeExecutor()
+                          .getConfiguration(
+                              env.getReporter(), configuredTarget.getConfigurationKey());
                   StringBuilder output =
                       new StringBuilder()
                           .append(

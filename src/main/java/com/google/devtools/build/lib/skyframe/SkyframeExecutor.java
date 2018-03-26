@@ -1289,6 +1289,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return buildDriver.evaluate(patternSkyKeys, keepGoing, numThreads, eventHandler);
   }
 
+  @VisibleForTesting
+  public BuildOptions getDefaultBuildOptions() {
+    return defaultBuildOptions;
+  }
+
   /**
    * Returns the {@link ConfiguredTargetAndData}s corresponding to the given keys.
    *
@@ -1305,9 +1310,38 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
-  @VisibleForTesting
-  public BuildOptions getDefaultBuildOptions() {
-    return defaultBuildOptions;
+  /**
+   * Returns the {@link ConfiguredTargetAndData}s corresponding to the given keys.
+   *
+   * <p>For use for legacy support and tests calling through {@code BuildView} only.
+   *
+   * <p>If a requested configured target is in error, the corresponding value is omitted from the
+   * returned list.
+   */
+  @ThreadSafety.ThreadSafe
+  public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
+      ExtendedEventHandler eventHandler,
+      BuildConfigurationValue.Key originalConfig,
+      Iterable<Dependency> keys) {
+    return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
+  }
+
+  /**
+   * Returns a map from {@link Dependency} inputs to the {@link ConfiguredTargetAndData}s
+   * corresponding to those dependencies.
+   *
+   * <p>For use for legacy support and tests calling through {@code BuildView} only.
+   *
+   * <p>If a requested configured target is in error, the corresponding value is omitted from the
+   * returned list.
+   */
+  @ThreadSafety.ThreadSafe
+  public ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
+      ExtendedEventHandler eventHandler,
+      BuildConfigurationValue.Key originalConfig,
+      Iterable<Dependency> keys) {
+    return getConfiguredTargetMapForTesting(
+        eventHandler, getConfiguration(eventHandler, originalConfig), keys);
   }
 
   /**
@@ -1436,14 +1470,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns the configuration corresponding to the given set of build options.
+   * Returns the configuration corresponding to the given set of build options. Should not be used
+   * in a world with trimmed configurations.
    *
    * @throws InvalidConfigurationException if the build options produces an invalid configuration
    */
-  public BuildConfiguration getConfiguration(ExtendedEventHandler eventHandler,
-      BuildOptions options, boolean keepGoing) throws InvalidConfigurationException {
+  @Deprecated
+  public BuildConfiguration getConfiguration(
+      ExtendedEventHandler eventHandler, BuildOptions options, boolean keepGoing)
+      throws InvalidConfigurationException {
     return Iterables.getOnlyElement(
         getConfigurations(eventHandler, ImmutableList.of(options), keepGoing));
+  }
+
+  @VisibleForTesting
+  public BuildConfiguration getConfiguration(
+      ExtendedEventHandler eventHandler, BuildConfigurationValue.Key configurationKey) {
+    if (configurationKey == null) {
+      return null;
+    }
+    return ((BuildConfigurationValue)
+            evaluateSkyKeys(eventHandler, ImmutableList.of(configurationKey)).get(configurationKey))
+        .getConfiguration();
   }
 
   /**
@@ -1691,9 +1739,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
   }
 
-  @VisibleForTesting
   @Nullable
-  public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
+  private ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,

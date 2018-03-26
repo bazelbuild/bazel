@@ -367,14 +367,15 @@ public class ExecutionTool {
     // deleted instead.
     Set<BuildConfiguration> targetConfigurations =
         request.getBuildOptions().useTopLevelTargetsForSymlinks()
-        ? analysisResult
-            .getTargetsToBuild()
-            .stream()
-            .map(ConfiguredTarget::getConfiguration)
-            .filter(configuration -> configuration != null)
-            .distinct()
-            .collect(toImmutableSet())
-        : ImmutableSet.copyOf(configurations.getTargetConfigurations());
+            ? analysisResult
+                .getTargetsToBuild()
+                .stream()
+                .map(ConfiguredTarget::getConfigurationKey)
+                .filter(configuration -> configuration != null)
+                .distinct()
+                .map((key) -> env.getSkyframeExecutor().getConfiguration(env.getReporter(), key))
+                .collect(toImmutableSet())
+            : ImmutableSet.copyOf(configurations.getTargetConfigurations());
     String productName = runtime.getProductName();
     String workspaceName = env.getWorkspaceName();
     OutputDirectoryLinksUtils.createOutputDirectoryLinks(

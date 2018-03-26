@@ -89,7 +89,7 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public String toString() {
-    return "ConfiguredTarget(" + getLabel() + ", " + getConfiguration() + ")";
+    return "ConfiguredTarget(" + getLabel() + ", " + getConfigurationChecksum() + ")";
   }
 
   @Override

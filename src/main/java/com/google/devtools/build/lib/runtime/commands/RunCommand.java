@@ -397,7 +397,9 @@ public class RunCommand implements BlazeCommand  {
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
-    BuildConfiguration configuration = targetToRun.getConfiguration();
+    BuildConfiguration configuration =
+        env.getSkyframeExecutor()
+            .getConfiguration(env.getReporter(), targetToRun.getConfigurationKey());
     if (configuration == null) {
       // The target may be an input file, which doesn't have a configuration. In that case, we
       // choose any target configuration.
@@ -529,9 +531,11 @@ public class RunCommand implements BlazeCommand  {
     Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
+    BuildConfiguration configuration =
+        env.getSkyframeExecutor().getConfiguration(env.getReporter(), target.getConfigurationKey());
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
-    if (target.getConfiguration().runfilesEnabled()) {
+    if (configuration.runfilesEnabled()) {
       workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getSuffix());
     }
 
@@ -547,8 +551,8 @@ public class RunCommand implements BlazeCommand  {
         manifest.getPath(),
         runfilesSupport.getRunfilesDirectory(),
         false);
-    helper.createSymlinksUsingCommand(env.getExecRoot(), target.getConfiguration(),
-        env.getBlazeWorkspace().getBinTools());
+    helper.createSymlinksUsingCommand(
+        env.getExecRoot(), configuration, env.getBlazeWorkspace().getBinTools());
     return workingDir;
   }
 
