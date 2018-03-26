@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.io.Files;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -76,12 +75,20 @@ interface SandboxedSpawn {
     for (PathFragment output : outputs) {
       Path source = sourceRoot.getRelative(output);
       Path target = targetRoot.getRelative(output);
-      if (source.isFile() || source.isSymbolicLink()) {
-        // Ensure the target directory exists in the target. The directories for the action outputs
-        // have already been created, but the spawn outputs may be different from the overall action
-        // outputs. This is the case for test actions.
-        target.getParentDirectory().createDirectoryAndParents();
-        Files.move(source.getPathFile(), target.getPathFile());
+
+      // Ensure the target directory exists in the target. The directories for the action outputs
+      // have already been created, but the spawn outputs may be different from the overall action
+      // outputs. This is the case for test actions.
+      target.getParentDirectory().createDirectoryAndParents();
+
+      if (source.isSymbolicLink()) {
+        try {
+          source.renameTo(target);
+        } catch (IOException e) {
+          target.createSymbolicLink(source.readSymbolicLink());
+        }
+      } else if (source.isFile()) {
+        FileSystemUtils.moveFile(source, target);
       } else if (source.isDirectory()) {
         try {
           source.renameTo(target);
