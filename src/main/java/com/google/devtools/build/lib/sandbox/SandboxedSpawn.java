@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -76,26 +78,32 @@ interface SandboxedSpawn {
       Path source = sourceRoot.getRelative(output);
       Path target = targetRoot.getRelative(output);
 
-      // Ensure the target directory exists in the target. The directories for the action outputs
-      // have already been created, but the spawn outputs may be different from the overall action
-      // outputs. This is the case for test actions.
-      target.getParentDirectory().createDirectoryAndParents();
-
-      if (source.isSymbolicLink()) {
-        try {
-          source.renameTo(target);
-        } catch (IOException e) {
-          target.createSymbolicLink(source.readSymbolicLink());
+      FileStatus stat = source.statNullable(Symlinks.NOFOLLOW);
+      if (stat != null) {
+        // Ensure the target directory exists in the target. The directories for the action outputs
+        // have already been created, but the spawn outputs may be different from the overall action
+        // outputs. This is the case for test actions.
+        Path parentDir = target.getParentDirectory();
+        if (parentDir != null) {
+          parentDir.createDirectoryAndParents();
         }
-      } else if (source.isFile()) {
-        FileSystemUtils.moveFile(source, target);
-      } else if (source.isDirectory()) {
-        try {
-          source.renameTo(target);
-        } catch (IOException e) {
-          // Failed to move directory directly, thus move it recursively.
-          target.createDirectory();
-          FileSystemUtils.moveTreesBelow(source, target);
+
+        if (stat.isSymbolicLink()) {
+          try {
+            source.renameTo(target);
+          } catch (IOException e) {
+            target.createSymbolicLink(source.readSymbolicLink());
+          }
+        } else if (stat.isFile()) {
+          FileSystemUtils.moveFile(source, target);
+        } else if (stat.isDirectory()) {
+          try {
+            source.renameTo(target);
+          } catch (IOException e) {
+            // Failed to move directory directly, thus move it recursively.
+            target.createDirectory();
+            FileSystemUtils.moveTreesBelow(source, target);
+          }
         }
       }
     }
