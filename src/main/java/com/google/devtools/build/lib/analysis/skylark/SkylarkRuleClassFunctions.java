@@ -152,20 +152,7 @@ public class SkylarkRuleClassFunctions {
             attr("timeout", STRING)
                 .taggable()
                 .nonconfigurable("used in loading phase rule validation logic")
-                .value(
-                    new Attribute.ComputedDefault() {
-                      @Override
-                      public Object getDefault(AttributeMap rule) {
-                        TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                        if (size != null) {
-                          String timeout = size.getDefaultTimeout().toString();
-                          if (timeout != null) {
-                            return timeout;
-                          }
-                        }
-                        return "illegal";
-                      }
-                    }))
+                .value(timeoutAttribute))
         .add(
             attr("flaky", BOOLEAN)
                 .value(false)
@@ -186,14 +173,16 @@ public class SkylarkRuleClassFunctions {
                 .value(
                     ImmutableList.of(
                         labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))
-        .add(attr("$test_setup_script", LABEL)
-            .cfg(HostTransition.INSTANCE)
-            .singleArtifact()
-            .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_setup")))
-        .add(attr("$collect_coverage_script", LABEL)
-            .cfg(HostTransition.INSTANCE)
-            .singleArtifact()
-            .value(labelCache.getUnchecked(toolsRepository + "//tools/test:collect_coverage")))
+        .add(
+            attr("$test_setup_script", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_setup")))
+        .add(
+            attr("$collect_coverage_script", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:collect_coverage")))
         // Input files for test actions collecting code coverage
         .add(
             attr("$coverage_support", LABEL)
@@ -205,11 +194,25 @@ public class SkylarkRuleClassFunctions {
                 .cfg(HostTransition.INSTANCE)
                 .value(labelCache.getUnchecked("//tools/defaults:coverage_report_generator"))
                 .singleArtifact())
-        .add(attr(":run_under", LABEL)
-            .cfg(lipoDataTransition)
-            .value(RUN_UNDER))
+        .add(attr(":run_under", LABEL).cfg(lipoDataTransition).value(RUN_UNDER))
         .build();
   }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Attribute.ComputedDefault timeoutAttribute =
+      new Attribute.ComputedDefault() {
+        @Override
+        public Object getDefault(AttributeMap rule) {
+          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+          if (size != null) {
+            String timeout = size.getDefaultTimeout().toString();
+            if (timeout != null) {
+              return timeout;
+            }
+          }
+          return "illegal";
+        }
+      };
 
   @SkylarkSignature(
     name = "struct",

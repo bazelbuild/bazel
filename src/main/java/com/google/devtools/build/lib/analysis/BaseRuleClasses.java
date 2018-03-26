@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -48,7 +49,8 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Rule class definitions used by (almost) every rule.
  */
 public class BaseRuleClasses {
-  private static final Attribute.ComputedDefault testonlyDefault =
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Attribute.ComputedDefault testonlyDefault =
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
@@ -56,7 +58,8 @@ public class BaseRuleClasses {
         }
       };
 
-  private static final Attribute.ComputedDefault deprecationDefault =
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Attribute.ComputedDefault deprecationDefault =
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
@@ -73,7 +76,7 @@ public class BaseRuleClasses {
    * they only run on the target configuration and should not operate on action_listeners and
    * extra_actions themselves (to avoid cycles).
    */
-  @VisibleForTesting
+  @AutoCodec @VisibleForTesting
   static final LabelListLateBoundDefault<?> ACTION_LISTENER =
       LabelListLateBoundDefault.fromTargetConfiguration(
           BuildConfiguration.class,
@@ -81,6 +84,7 @@ public class BaseRuleClasses {
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
+  @AutoCodec
   public static final LabelLateBoundDefault<?> RUN_UNDER =
       LabelLateBoundDefault.fromTargetConfiguration(
           BuildConfiguration.class,

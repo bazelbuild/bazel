@@ -40,8 +40,19 @@ class JavaSerializableCodec implements ObjectCodec<Object> {
     try {
       objOut.writeObject(obj);
     } catch (NotSerializableException e) {
+      Class<?> clazz = obj.getClass();
+      Class<?> parentClass = null;
+      if (clazz.isAnonymousClass() || clazz.isSynthetic()) {
+        parentClass = clazz.getSuperclass();
+      }
       throw new SerializationException.NoCodecException(
-          "Object " + obj + " of type " + obj.getClass() + " not serializable", e);
+          "Object "
+              + obj
+              + " of type "
+              + obj.getClass()
+              + (parentClass == null ? "" : " (parent " + parentClass + ")")
+              + " not serializable",
+          e);
     } catch (NotSerializableRuntimeException e) {
       // Values that inherit from Serializable but actually aren't serializable.
       throw new SerializationException.NoCodecException(
