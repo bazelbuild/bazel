@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -38,6 +39,21 @@ interface EvaluableGraph extends QueryableGraph, DeletableGraph {
    */
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) throws InterruptedException;
+
+  /**
+   * Like {@link QueryableGraph#getBatchAsync}, except it creates a new node for each key not
+   * already present in the graph. Thus, the returned map will have an entry for each key in {@code
+   * keys}.
+   *
+   * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
+   *     being requested.
+   * @param reason the reason the nodes are being requested.
+   */
+  @CanIgnoreReturnValue
+  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> createIfAbsentBatchAsync(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    return InterruptibleSupplier.Memoize.of(() -> createIfAbsentBatch(requestor, reason, keys));
+  }
 
   /**
    * Optional optimization: graph may use internal knowledge to filter out keys in {@code deps} that
