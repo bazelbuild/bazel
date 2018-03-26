@@ -183,9 +183,9 @@ public class ActionExecutionContext implements Closeable {
     return executor.getContext(type);
   }
 
-  /** Returns the action context implementation for spawn actions with a given mnemonic. */
-  public SpawnActionContext getSpawnActionContext(String mnemonic, Spawn spawn) {
-    return executor.getSpawnActionContext(mnemonic, spawn);
+  /** Returns the action context implementation for a given spawn action. */
+  public SpawnActionContext getSpawnActionContext(Spawn spawn) {
+    return executor.getSpawnActionContext(spawn);
   }
 
   /**

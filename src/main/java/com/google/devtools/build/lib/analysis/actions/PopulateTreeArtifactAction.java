@@ -235,7 +235,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
 
   private SpawnActionContext getContext(
       Spawn spawn, ActionExecutionContext actionExecutionContext) {
-    return actionExecutionContext.getSpawnActionContext(getMnemonic(), spawn);
+    return actionExecutionContext.getSpawnActionContext(spawn);
   }
 
   /**

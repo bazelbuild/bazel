@@ -317,7 +317,7 @@ public final class CppLinkAction extends AbstractAction
                 estimateResourceConsumptionLocal());
         return ActionResult.create(
             actionExecutionContext
-                .getSpawnActionContext(getMnemonic(), spawn)
+                .getSpawnActionContext(spawn)
                 .exec(spawn, actionExecutionContext));
       } catch (ExecException e) {
         throw e.toActionExecutionException(

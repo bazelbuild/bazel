@@ -84,7 +84,7 @@ public final class DummyExecutor implements Executor {
   }
 
   @Override
-  public SpawnActionContext getSpawnActionContext(String mnemonic, Spawn spawn) {
+  public SpawnActionContext getSpawnActionContext(Spawn spawn) {
     throw new UnsupportedOperationException();
   }
 

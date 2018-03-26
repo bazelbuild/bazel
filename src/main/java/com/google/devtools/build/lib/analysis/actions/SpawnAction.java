@@ -451,7 +451,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   protected SpawnActionContext getContext(
       ActionExecutionContext actionExecutionContext, Spawn spawn) {
-    return actionExecutionContext.getSpawnActionContext(getMnemonic(), spawn);
+    return actionExecutionContext.getSpawnActionContext(spawn);
   }
 
   /**
