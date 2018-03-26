@@ -425,9 +425,12 @@ public class RunCommand implements BlazeCommand  {
           runfilesDir, commandLineArgs);
     }
 
-    Map<String, String> runEnvironment;
-    Path workingDir;
+    Map<String, String> runEnvironment = new TreeMap<>();
     List<String> cmdLine = new ArrayList<>();
+    Path workingDir;
+
+    runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
+    runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
 
     if (targetToRun.getProvider(TestProvider.class) != null) {
       // This is a test. Provide it with a reasonable approximation of the actual test environment
@@ -451,12 +454,12 @@ public class RunCommand implements BlazeCommand  {
       PathFragment relativeTmpDir = tmpDirRoot.relativeTo(env.getExecRoot());
       Duration timeout = executionOptions.testTimeout.get(
           testAction.getTestProperties().getTimeout());
-      runEnvironment = StandaloneTestStrategy.DEFAULT_LOCAL_POLICY.computeTestEnvironment(
+      runEnvironment.putAll(StandaloneTestStrategy.DEFAULT_LOCAL_POLICY.computeTestEnvironment(
           testAction,
           env.getClientEnv(),
           timeout,
           settings.getRunfilesDir().relativeTo(env.getExecRoot()),
-          relativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction)));
+          relativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
       workingDir = env.getExecRoot();
       try {
         cmdLine.addAll(TestStrategy.getArgs(testAction));
@@ -466,9 +469,6 @@ public class RunCommand implements BlazeCommand  {
         return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       }
     } else {
-      runEnvironment = new TreeMap<>();
-      runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
-      runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
       workingDir = runfilesDir;
       List<String> prettyCmdLine = new ArrayList<>();
       List<String> args = computeArgs(env, targetToRun, commandLineArgs);
