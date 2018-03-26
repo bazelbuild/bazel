@@ -99,7 +99,7 @@ cc_test(
     deps = select({
         "//src/conditions:windows": [
             ":windows_test_util",
-            "//third_party:gtest",
+            "@com_google_googletest//:gtest_main",
         ],
         "//conditions:default": [],
     }),

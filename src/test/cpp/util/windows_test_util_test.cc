@@ -15,7 +15,7 @@
 
 #include <string>
 
-#include "gtest/gtest.h"
+#include "googletest/include/gtest/gtest.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
 #if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
