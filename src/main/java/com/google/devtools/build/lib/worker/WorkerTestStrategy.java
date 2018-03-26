@@ -144,10 +144,9 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
               action.getMnemonic(),
               workerFilesCombinedHash,
               workerFiles,
-              ImmutableMap.<PathFragment, Path>of(),
-              ImmutableSet.<PathFragment>of(),
               /*mustBeSandboxed=*/ false);
       worker = workerPool.borrowObject(key);
+      worker.prepareExecution(ImmutableMap.of(), ImmutableSet.of(), workerFiles.keySet());
 
       WorkRequest request = WorkRequest.getDefaultInstance();
       request.writeDelimitedTo(worker.getOutputStream());
@@ -176,7 +175,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         throw e;
       }
 
-      worker.finishExecution(key);
+      worker.finishExecution(execRoot);
 
       if (response == null) {
         throw new UserExecException(

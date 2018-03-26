@@ -33,6 +33,6 @@ final class DarwinSandboxedStrategy extends AbstractSpawnStrategy {
 
   @Override
   public String toString() {
-    return "sandboxed";
+    return "darwin-sandbox";
   }
 }

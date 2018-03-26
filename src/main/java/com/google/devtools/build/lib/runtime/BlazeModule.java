@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -231,7 +232,8 @@ public abstract class BlazeModule {
    * @param request the build request
    * @param builder the builder to add action context providers and consumers to
    */
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {}
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
+      throws ExecutorInitException {}
 
   /**
    * Called after each command.
