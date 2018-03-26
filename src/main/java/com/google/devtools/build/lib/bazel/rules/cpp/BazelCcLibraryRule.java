@@ -43,12 +43,10 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         provided by some service.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
-            attr("alwayslink", BOOLEAN)
-                .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+            attr("alwayslink", BOOLEAN))
         .override(
             attr("linkstatic", BOOLEAN)
-                .value(false)
-                .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+                .value(false))
         .build();
   }
 
