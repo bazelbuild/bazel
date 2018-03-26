@@ -114,9 +114,8 @@ public final class TargetCompleteEvent
 
   /** Construct a successful target completion event for a target that will be tested. */
   public static TargetCompleteEvent successfulBuildSchedulingTest(
-      ConfiguredTarget ct, Target target) {
-    return new TargetCompleteEvent(
-        ct, target, null, ImmutableList.<ArtifactsInOutputGroup>of(), true);
+      ConfiguredTarget ct, Target target, NestedSet<ArtifactsInOutputGroup> outputs) {
+    return new TargetCompleteEvent(ct, target, null, outputs, true);
   }
 
   /**
