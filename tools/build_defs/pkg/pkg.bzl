@@ -55,10 +55,10 @@ def _pkg_tar_impl(ctx):
   args += ["--tar=" + f.path for f in ctx.files.deps]
   args += ["--link=%s:%s" % (k, ctx.attr.symlinks[k])
            for k in ctx.attr.symlinks]
-  arg_file = ctx.new_file(ctx.label.name + ".args")
-  ctx.file_action(arg_file, "\n".join(args))
+  arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
+  ctx.actions.write(arg_file, "\n".join(args))
 
-  ctx.action(
+  ctx.actions.run_shell(
       command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
       inputs = file_inputs + ctx.files.deps + [arg_file, build_tar],
       outputs = [ctx.outputs.out],
