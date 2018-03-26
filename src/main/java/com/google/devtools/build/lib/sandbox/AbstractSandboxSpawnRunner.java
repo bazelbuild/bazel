@@ -50,13 +50,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final String SANDBOX_DEBUG_SUGGESTION =
       "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
 
-  private final Path sandboxBase;
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
 
-  public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase) {
-    this.sandboxBase = sandboxBase;
+  public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
     this.inaccessiblePaths =
@@ -88,7 +86,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       SandboxedSpawn sandbox,
       SpawnExecutionPolicy policy,
       Path execRoot,
-      Path tmpDir,
       Duration timeout,
       Path statisticsPath)
       throws IOException, InterruptedException {
@@ -97,8 +94,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       OutErr outErr = policy.getFileOutErr();
       policy.prefetchInputs();
 
-      SpawnResult result =
-          run(originalSpawn, sandbox, outErr, timeout, execRoot, tmpDir, statisticsPath);
+      SpawnResult result = run(originalSpawn, sandbox, outErr, timeout, execRoot, statisticsPath);
 
       policy.lockOutputFiles();
       try {
@@ -121,7 +117,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       OutErr outErr,
       Duration timeout,
       Path execRoot,
-      Path tmpDir,
       Path statisticsPath)
       throws IOException, InterruptedException {
     Command cmd = new Command(
@@ -145,9 +140,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     long startTime = System.currentTimeMillis();
     CommandResult commandResult;
     try {
-      if (!tmpDir.exists() && !tmpDir.createDirectory()) {
-        throw new IOException(String.format("Could not create temp directory '%s'", tmpDir));
-      }
       commandResult = cmd.execute(outErr.getOutputStream(), outErr.getErrorStream());
       if (Thread.currentThread().isInterrupted()) {
         throw new InterruptedException();
@@ -211,17 +203,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   private boolean wasTimeout(Duration timeout, Duration wallTime) {
     return !timeout.isZero() && wallTime.compareTo(timeout) > 0;
-  }
-
-  /**
-   * Returns a temporary directory that should be used as the sandbox directory for a single action.
-   */
-  protected Path getSandboxRoot() throws IOException {
-    return sandboxBase.getRelative(
-        java.nio.file.Files.createTempDirectory(
-                java.nio.file.Paths.get(sandboxBase.getPathString()), "")
-            .getFileName()
-            .toString());
   }
 
   /**

@@ -14,17 +14,18 @@
 
 package com.google.devtools.build.lib.worker;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.sandbox.SymlinkedSandboxedSpawn;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
 
 /** A {@link Worker} that runs inside a sandboxed execution root. */
 final class SandboxedWorker extends Worker {
   private final Path workDir;
+  private WorkerExecRoot workerExecRoot;
 
   SandboxedWorker(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
     super(workerKey, workerId, workDir, logFile);
@@ -38,35 +39,23 @@ final class SandboxedWorker extends Worker {
   }
 
   @Override
-  public void prepareExecution(WorkerKey key) throws IOException {
-    // Note: the key passed in here may be different from the key passed to the constructor for
-    // subsequent invocations of the same worker.
-    // TODO(ulfjack): Remove WorkerKey.getInputFiles and WorkerKey.getOutputFiles; they are only
-    // used to pass information to this method and the method below. Instead, don't pass the
-    // WorkerKey to this method but only the input and output files.
-    new SymlinkedSandboxedSpawn(
-            workDir,
-            workDir,
-            ImmutableList.of("/does_not_exist"),
-            ImmutableMap.of(),
-            key.getInputFiles(),
-            key.getOutputFiles(),
-            ImmutableSet.of())
-        .createFileSystem();
+  public void prepareExecution(
+      Map<PathFragment, Path> inputFiles,
+      Set<PathFragment> outputFiles,
+      Set<PathFragment> workerFiles)
+      throws IOException {
+    Preconditions.checkState(workerExecRoot == null);
+    this.workerExecRoot = new WorkerExecRoot(workDir, inputFiles, outputFiles, workerFiles);
+    workerExecRoot.createFileSystem();
+
+    super.prepareExecution(inputFiles, outputFiles, workerFiles);
   }
 
   @Override
-  public void finishExecution(WorkerKey key) throws IOException {
-    // Note: the key passed in here may be different from the key passed to the constructor for
-    // subsequent invocations of the same worker.
-    new SymlinkedSandboxedSpawn(
-            workDir,
-            workDir,
-            ImmutableList.of("/does_not_exist"),
-            ImmutableMap.of(),
-            key.getInputFiles(),
-            key.getOutputFiles(),
-            ImmutableSet.of())
-        .copyOutputs(key.getExecRoot());
+  public void finishExecution(Path execRoot) throws IOException {
+    super.finishExecution(execRoot);
+
+    workerExecRoot.copyOutputs(execRoot);
+    workerExecRoot = null;
   }
 }
