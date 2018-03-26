@@ -136,7 +136,6 @@ class RemoteSpawnRunner implements SpawnRunner {
     Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
     Action action =
         buildAction(
-            execRoot,
             spawn.getOutputFiles(),
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
@@ -318,7 +317,6 @@ class RemoteSpawnRunner implements SpawnRunner {
   }
 
   static Action buildAction(
-      Path execRoot,
       Collection<? extends ActionInput> outputs,
       Digest command,
       Digest inputRoot,
