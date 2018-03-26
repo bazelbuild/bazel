@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
@@ -38,11 +39,12 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * The definition of an aspect (see {@link Aspect} for moreinformation.)
+ * The definition of an aspect (see {@link Aspect} for more information).
  *
  * <p>Contains enough information to build up the configured target graph except for the actual way
- * to build the Skyframe node (that is the territory of
- * {@link com.google.devtools.build.lib.view AspectFactory}). In particular:
+ * to build the Skyframe node (that is the territory of {@link com.google.devtools.build.lib.view
+ * AspectFactory}). In particular:
+ *
  * <ul>
  *   <li>The condition that must be fulfilled for an aspect to be able to operate on a configured
  *       target
@@ -54,6 +56,7 @@ import javax.annotation.Nullable;
  * <p>The way to build the Skyframe node is not here because this data needs to be accessible from
  * the {@code .packages} package and that one requires references to the {@code .view} package.
  */
+@AutoCodec
 @Immutable
 public final class AspectDefinition {
   private final AspectClass aspectClass;
@@ -78,11 +81,12 @@ public final class AspectDefinition {
     return advertisedProviders;
   }
 
-  private AspectDefinition(
+  @AutoCodec.VisibleForSerialization
+  AspectDefinition(
       AspectClass aspectClass,
       AdvertisedProviderSet advertisedProviders,
       RequiredProviders requiredProviders,
-      RequiredProviders requiredAspectProviders,
+      RequiredProviders requiredProvidersForAspects,
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<Label> requiredToolchains,
       @Nullable ImmutableSet<String> restrictToAttributes,
@@ -91,7 +95,7 @@ public final class AspectDefinition {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
-    this.requiredProvidersForAspects = requiredAspectProviders;
+    this.requiredProvidersForAspects = requiredProvidersForAspects;
 
     this.attributes = attributes;
     this.requiredToolchains = requiredToolchains;
