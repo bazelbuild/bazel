@@ -38,7 +38,7 @@ public class CommandFailureUtils {
     void describeCommandBeginIsolate(StringBuilder message);
     void describeCommandEndIsolate(StringBuilder message);
     void describeCommandCwd(String cwd, StringBuilder message);
-    void describeCommandEnvPrefix(StringBuilder message);
+    void describeCommandEnvPrefix(StringBuilder message, boolean isolated);
     void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry);
     void describeCommandElement(StringBuilder message, String commandElement);
     void describeCommandExec(StringBuilder message);
@@ -62,8 +62,10 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandEnvPrefix(StringBuilder message) {
-      message.append("env - \\\n  ");
+    public void describeCommandEnvPrefix(StringBuilder message, boolean isolated) {
+      message.append(isolated
+          ? "env - \\\n  "
+          : "env \\\n  ");
     }
 
     @Override
@@ -103,7 +105,7 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandEnvPrefix(StringBuilder message) { }
+    public void describeCommandEnvPrefix(StringBuilder message, boolean isolated) { }
 
     @Override
     public void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry) {
@@ -182,7 +184,8 @@ public class CommandFailureUtils {
        * (in ProcessEnvironment.StringEnvironment.toEnvironmentBlock()).
        */
       if (environment != null) {
-        describeCommandImpl.describeCommandEnvPrefix(message);
+        describeCommandImpl.describeCommandEnvPrefix(
+            message, form != CommandDescriptionForm.COMPLETE_UNISOLATED);
         // A map can never have two keys with the same value, so we only need to compare the keys.
         Comparator<Map.Entry<String, String>> mapEntryComparator = comparingByKey();
         for (Map.Entry<String, String> entry :
