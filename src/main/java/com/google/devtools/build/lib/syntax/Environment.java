@@ -602,12 +602,14 @@ public final class Environment implements Freezable {
         }
         badEntries.add(
             String.format(
-                "%s: this one has %s (class %s), but given one has %s (class %s)",
+                "%s: this one has %s (class %s, %s), but given one has %s (class %s, %s)",
                 name,
                 Printer.repr(value),
                 value.getClass().getName(),
+                value,
                 Printer.repr(otherValue),
-                otherValue.getClass().getName()));
+                otherValue.getClass().getName(),
+                otherValue));
       }
       if (!badEntries.isEmpty()) {
         throw new IllegalStateException(
