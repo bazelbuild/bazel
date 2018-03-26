@@ -491,7 +491,12 @@ public class RunCommand implements BlazeCommand  {
         .setWorkingDirectory(
             ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
 
-    for (String arg : cmdLine) {
+    ImmutableList<String> shellCmdLine = ImmutableList.<String>of(
+        configuration.getShellExecutable().getPathString(),
+        "-c",
+        ShellEscaper.escapeJoinAll(cmdLine));
+
+    for (String arg : shellCmdLine) {
       execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
     }
 
