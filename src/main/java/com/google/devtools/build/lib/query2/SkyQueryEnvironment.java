@@ -731,7 +731,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpression caller,
       ThreadSafeMutableSet<Target> nodes,
       boolean buildFiles,
-      boolean subincludes,
       boolean loads)
       throws QueryException {
     ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
@@ -750,32 +749,29 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
 
         List<Label> extensions = new ArrayList<>();
-        if (subincludes) {
-          extensions.addAll(pkg.getSubincludeLabels());
-        }
         if (loads) {
           extensions.addAll(pkg.getSkylarkFileDependencies());
         }
 
-        for (Label subinclude : extensions) {
+        for (Label extension : extensions) {
 
-          Target subincludeTarget = getSubincludeTarget(subinclude, pkg);
-          addIfUniqueLabel(subincludeTarget, seenLabels, dependentFiles);
+          Target loadTarget = getLoadTarget(extension, pkg);
+          addIfUniqueLabel(loadTarget, seenLabels, dependentFiles);
 
-          // Also add the BUILD file of the subinclude.
+          // Also add the BUILD file of the extension.
           if (buildFiles) {
-            Path buildFileForSubinclude = null;
+            Path buildFileForLoad = null;
             try {
-              buildFileForSubinclude =
-                  pkgPath.getPackageBuildFile(subincludeTarget.getLabel().getPackageIdentifier());
+              buildFileForLoad =
+                  pkgPath.getPackageBuildFile(loadTarget.getLabel().getPackageIdentifier());
             } catch (NoSuchPackageException e) {
               throw new QueryException(
-                  subincludeTarget.getLabel().getPackageIdentifier() + " does not exist in graph");
+                  loadTarget.getLabel().getPackageIdentifier() + " does not exist in graph");
             }
             Label buildFileLabel =
                 Label.createUnvalidated(
-                    subincludeTarget.getLabel().getPackageIdentifier(),
-                    buildFileForSubinclude.getBaseName());
+                    loadTarget.getLabel().getPackageIdentifier(),
+                    buildFileForLoad.getBaseName());
 
             addIfUniqueLabel(new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
           }
@@ -791,7 +787,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
-  private Target getSubincludeTarget(Label label, Package pkg) {
+  private Target getLoadTarget(Label label, Package pkg) {
     return new FakeLoadTarget(label, pkg);
   }
 

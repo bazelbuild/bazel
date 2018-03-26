@@ -58,7 +58,7 @@ public class BuildFilesFunction implements QueryFunction {
             Iterables.addAll(result, partialResult);
             callback.process(uniquifier.unique(
                 env.getBuildFiles(
-                    expression, result, /* BUILD */ true, /* subinclude */ true, /* load */ true)));
+                    expression, result, /* BUILD */ true, /* load */ true)));
           }
         });
   }

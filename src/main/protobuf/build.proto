@@ -399,10 +399,10 @@ message SourceFile {
   // machine-parseable form.
   optional Location DEPRECATED_parseable_location = 7;
 
-  // Labels of files that are transitively subincluded in this BUILD file. This
-  // is present only when the SourceFile represents a BUILD file that
-  // subincludes other files. The subincluded file can be either a Python
-  // preprocessed build extension or a Skylark file.
+  // Labels of .bzl (Skylark) files that are transitively loaded in this BUILD
+  // file. This is present only when the SourceFile represents a BUILD file that
+  // loaded .bzl files.
+  // TODO(bazel-team): Rename this field.
   repeated string subinclude = 3;
 
   // Labels of package groups that are mentioned in the visibility declaration

@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
@@ -60,11 +59,9 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -298,18 +295,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (inputFile.getName().equals("BUILD")) {
-        Set<Label> subincludeLabels = new LinkedHashSet<>();
-        subincludeLabels.addAll(aspectResolver == null
-            ? inputFile.getPackage().getSubincludeLabels()
-            : aspectResolver.computeBuildFileDependencies(
-                inputFile.getPackage(), BuildFileDependencyMode.SUBINCLUDE));
-        subincludeLabels.addAll(aspectResolver == null
+        Iterable<Label> skylarkLoadLabels = aspectResolver == null
             ? inputFile.getPackage().getSkylarkFileDependencies()
-            : aspectResolver.computeBuildFileDependencies(
-                inputFile.getPackage(), BuildFileDependencyMode.SKYLARK));
+            : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
-        for (Label skylarkFileDep : subincludeLabels) {
-          input.addSubinclude(skylarkFileDep.toString());
+        for (Label skylarkLoadLabel : skylarkLoadLabels) {
+          input.addSubinclude(skylarkLoadLabel.toString());
         }
 
         for (String feature : inputFile.getPackage().getFeatures()) {

@@ -591,51 +591,6 @@ public final class PackageFactory {
   }
 
   /**
-   * Returns a function value implementing the "mocksubinclude" function, emitted by the
-   * PythonPreprocessor. We annotate the package with additional dependencies. (A 'real' subinclude
-   * will never be seen by the parser, because the presence of "subinclude" triggers preprocessing.)
-   */
-  // TODO(b/35913039): Remove this and all references to 'mocksubinclude'.
-  @SkylarkSignature(
-    name = "mocksubinclude",
-    returnType = Runtime.NoneType.class,
-    doc = "implement the mocksubinclude function emitted by the PythonPreprocessor.",
-    parameters = {
-      @Param(name = "label", type = Object.class, doc = "a label designator."),
-      @Param(name = "path", type = String.class, doc = "a path.")
-    },
-    documented = false,
-    useLocation = true
-  )
-  private static final BuiltinFunction.Factory newMockSubincludeFunction =
-      new BuiltinFunction.Factory("mocksubinclude") {
-        public BuiltinFunction create(final PackageContext context) {
-          return new BuiltinFunction("mocksubinclude", this) {
-            public Runtime.NoneType invoke(Object labelO, String pathString, Location loc)
-                throws ConversionException {
-              Label label =
-                  BuildType.LABEL.convert(
-                      labelO, "'mocksubinclude' argument", context.pkgBuilder.getBuildFileLabel());
-              Path path =
-                  pathString.isEmpty()
-                      ? null
-                      : context.pkgBuilder.getFilename().getRelative(pathString);
-              // A subinclude within a package counts as a file declaration.
-              if (label.getPackageIdentifier().equals(context.pkgBuilder.getPackageIdentifier())) {
-                if (loc == null) {
-                  loc = Location.fromFile(context.pkgBuilder.getFilename());
-                }
-                context.pkgBuilder.createInputFileMaybe(label, loc);
-              }
-
-              context.pkgBuilder.addSubinclude(label, path);
-              return Runtime.NONE;
-            }
-          };
-        }
-      };
-
-  /**
    * Returns a function value implementing "environment_group" in the specified package context.
    * Syntax is as follows:
    *
@@ -1573,7 +1528,6 @@ public final class PackageFactory {
         .setup("distribs", newDistribsFunction.apply(context))
         .setup("glob", newGlobFunction.apply(context))
         .setup("licenses", newLicensesFunction.apply(context))
-        .setup("mocksubinclude", newMockSubincludeFunction.apply(context))
         .setup("exports_files", newExportsFilesFunction.apply())
         .setup("package_group", newPackageGroupFunction.apply())
         .setup("package", newPackageFunction(packageArguments))
