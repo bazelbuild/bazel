@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -96,7 +97,8 @@ public class BuildConfigurationValue implements SkyValue {
       this.optionsDiff = optionsDiff;
     }
 
-    ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getFragments() {
+    @VisibleForTesting
+    public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getFragments() {
       return fragments.fragmentClasses();
     }
 

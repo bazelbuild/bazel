@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStati
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
@@ -613,7 +614,10 @@ public class BuildView {
     }
 
     Set<ConfiguredTarget> targetsToSkip =
-        new TopLevelConstraintSemantics(skyframeExecutor.getPackageManager(), eventHandler)
+        new TopLevelConstraintSemantics(
+                skyframeExecutor.getPackageManager(),
+                input -> skyframeExecutor.getConfiguration(eventHandler, input),
+                eventHandler)
             .checkTargetEnvironmentRestrictions(skyframeAnalysisResult.getConfiguredTargets());
 
     AnalysisResult result =
@@ -975,7 +979,7 @@ public class BuildView {
           throws EvalException, InvalidConfigurationException, InterruptedException,
               InconsistentAspectOrderException {
     return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-        eventHandler, ct, ct.getConfiguration(), configurations);
+        eventHandler, ct, ct.getConfigurationKey(), configurations);
   }
 
   @VisibleForTesting
@@ -987,14 +991,17 @@ public class BuildView {
           throws EvalException, InvalidConfigurationException, InterruptedException,
               InconsistentAspectOrderException {
     return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-        eventHandler, ct.getConfiguredTarget(), ct.getConfiguration(), configurations);
+        eventHandler,
+        ct.getConfiguredTarget(),
+        ct.getConfiguredTarget().getConfigurationKey(),
+        configurations);
   }
 
   private Collection<ConfiguredTargetAndData>
       getConfiguredTargetAndDataDirectPrerequisitesForTesting(
           ExtendedEventHandler eventHandler,
           ConfiguredTarget ct,
-          BuildConfiguration configuration,
+          BuildConfigurationValue.Key configuration,
           BuildConfigurationCollection configurations)
           throws EvalException, InvalidConfigurationException, InterruptedException,
               InconsistentAspectOrderException {
@@ -1066,7 +1073,7 @@ public class BuildView {
           Iterable<BuildOptions> buildOptions,
           BuildOptions defaultBuildOptions) {
         Preconditions.checkArgument(
-            ct.getConfiguration().fragmentClasses().equals(fragments),
+            fragments.fragmentClasses().equals(ct.getConfigurationKey().getFragments()),
             "Mismatch: %s %s",
             ct,
             fragments);
@@ -1085,7 +1092,9 @@ public class BuildView {
     }
 
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
-    TargetAndConfiguration ctgNode = new TargetAndConfiguration(target, ct.getConfiguration());
+    TargetAndConfiguration ctgNode =
+        new TargetAndConfiguration(
+            target, skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey()));
     return dependencyResolver.dependentNodeMap(
         ctgNode,
         configurations.getHostConfiguration(),
@@ -1135,7 +1144,7 @@ public class BuildView {
 
     ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts =
         skyframeExecutor.getConfiguredTargetMapForTesting(
-            eventHandler, target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()));
+            eventHandler, target.getConfigurationKey(), ImmutableSet.copyOf(depNodeNames.values()));
 
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {

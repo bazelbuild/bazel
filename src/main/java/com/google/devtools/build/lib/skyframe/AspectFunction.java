@@ -291,16 +291,37 @@ public final class AspectFunction implements SkyFunction {
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
 
     ConfiguredTargetAndData associatedConfiguredTargetAndData;
-    Package targetPkg =
-        ((PackageValue)
-                env.getValue(PackageValue.key(associatedTarget.getLabel().getPackageIdentifier())))
-            .getPackage();
+    Package targetPkg;
+    BuildConfiguration configuration = null;
+    PackageValue.Key packageKey =
+        PackageValue.key(associatedTarget.getLabel().getPackageIdentifier());
+    if (associatedTarget.getConfigurationKey() == null) {
+      PackageValue val = ((PackageValue) env.getValue(packageKey));
+      if (val == null) {
+        // Unexpected in Bazel logic, but Skyframe makes no guarantees that this package is
+        // actually present.
+        return null;
+      }
+      targetPkg = val.getPackage();
+    } else {
+      Map<SkyKey, SkyValue> result =
+          env.getValues(ImmutableSet.of(packageKey, associatedTarget.getConfigurationKey()));
+      if (env.valuesMissing()) {
+        // Unexpected in Bazel logic, but Skyframe makes no guarantees that this package and
+        // configuration are actually present.
+        return null;
+      }
+      targetPkg = ((PackageValue) result.get(packageKey)).getPackage();
+      configuration =
+          ((BuildConfigurationValue) result.get(associatedTarget.getConfigurationKey()))
+              .getConfiguration();
+    }
     try {
       associatedConfiguredTargetAndData =
           new ConfiguredTargetAndData(
               associatedTarget,
               targetPkg.getTarget(associatedTarget.getLabel().getName()),
-              associatedTarget.getConfiguration());
+              configuration);
     } catch (NoSuchTargetException e) {
       throw new IllegalStateException("Name already verified", e);
     }

@@ -432,8 +432,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         .compare(getSortKey(this.status), getSortKey(that.status))
         .compare(this.getLabel(), that.getLabel())
         .compare(
-            this.getTarget().getConfiguration().checksum(),
-            that.getTarget().getConfiguration().checksum())
+            this.getTarget().getConfigurationChecksum(),
+            that.getTarget().getConfigurationChecksum())
         .result();
   }
 
@@ -459,7 +459,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.testSummary(
-        AliasProvider.getDependencyLabel(target), target.getConfiguration().getEventId());
+        AliasProvider.getDependencyLabel(target),
+        BuildEventId.configurationId(target.getConfigurationChecksum()));
   }
 
   @Override
@@ -471,7 +472,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   public Collection<BuildEventId> postedAfter() {
     return ImmutableList.of(
         BuildEventId.targetCompleted(
-            AliasProvider.getDependencyLabel(target), target.getConfiguration().getEventId()));
+            AliasProvider.getDependencyLabel(target),
+            BuildEventId.configurationId(target.getConfigurationChecksum())));
   }
 
   @Override

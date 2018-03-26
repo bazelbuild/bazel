@@ -34,10 +34,12 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -51,17 +53,21 @@ import javax.annotation.Nullable;
  */
 public class TopLevelConstraintSemantics {
   private final PackageManager packageManager;
+  private final Function<Key, BuildConfiguration> configurationProvider;
   private final ExtendedEventHandler eventHandler;
 
   /**
    * Constructor with helper classes for loading targets.
    *
-  * @param packageManager object for retrieving loaded targets
-  * @param eventHandler the build's event handler
-  */
-  public TopLevelConstraintSemantics(PackageManager packageManager,
+   * @param packageManager object for retrieving loaded targets
+   * @param eventHandler the build's event handler
+   */
+  public TopLevelConstraintSemantics(
+      PackageManager packageManager,
+      Function<Key, BuildConfiguration> configurationProvider,
       ExtendedEventHandler eventHandler) {
     this.packageManager = packageManager;
+    this.configurationProvider = configurationProvider;
     this.eventHandler = eventHandler;
   }
 
@@ -84,7 +90,7 @@ public class TopLevelConstraintSemantics {
    *     environment declared through {@link BuildConfiguration.Options#targetEnvironments}
    */
   public Set<ConfiguredTarget> checkTargetEnvironmentRestrictions(
-      Iterable<ConfiguredTarget> topLevelTargets)
+      ImmutableList<ConfiguredTarget> topLevelTargets)
       throws ViewCreationFailedException, InterruptedException {
     ImmutableSet.Builder<ConfiguredTarget> badTargets = ImmutableSet.builder();
     // Maps targets that are missing *explicitly* required environments to the set of environments
@@ -93,7 +99,7 @@ public class TopLevelConstraintSemantics {
     // continues while skipping them.
     Multimap<ConfiguredTarget, Label> exceptionInducingTargets = ArrayListMultimap.create();
     for (ConfiguredTarget topLevelTarget : topLevelTargets) {
-      BuildConfiguration config = topLevelTarget.getConfiguration();
+      BuildConfiguration config = configurationProvider.apply(topLevelTarget.getConfigurationKey());
       Target target = null;
       try {
         target = packageManager.getTarget(eventHandler, topLevelTarget.getLabel());

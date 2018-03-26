@@ -54,7 +54,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
   public InputFileConfiguredTarget(
       TargetContext targetContext, InputFile inputFile, Artifact artifact) {
     this(inputFile.getLabel(), targetContext.getVisibility(), artifact, makeLicenses(inputFile));
-    Preconditions.checkArgument(getConfiguration() == null, getLabel());
+    Preconditions.checkArgument(getConfigurationKey() == null, getLabel());
     Preconditions.checkArgument(targetContext.getTarget() == inputFile, getLabel());
   }
 

@@ -43,13 +43,19 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     this.configurationKey = configurationKey;
   }
 
+  /** Use {@link #of(ConfiguredTarget, BuildConfiguration)} instead of this. */
+  @Deprecated
   public static ConfiguredTargetKey of(ConfiguredTarget configuredTarget) {
+    return of(configuredTarget, configuredTarget.getConfiguration());
+  }
+
+  public static ConfiguredTargetKey of(
+      ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
     AliasProvider aliasProvider = configuredTarget.getProvider(AliasProvider.class);
     Label label =
         aliasProvider != null ? aliasProvider.getAliasChain().get(0) : configuredTarget.getLabel();
-    return of(label, configuredTarget.getConfiguration());
+    return of(label, buildConfiguration);
   }
-
   /**
    * Caches so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
    * not {@code O(edges between configured targets)}.
