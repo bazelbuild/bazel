@@ -67,9 +67,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for SkylarkRuleImplementationFunctions.
- */
+/** Tests for skylark functions relating to rule implemenetation. */
 @RunWith(JUnit4.class)
 public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Rule public ExpectedException thrown = ExpectedException.none();
@@ -717,8 +715,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRunfilesBadSetGenericType() throws Exception {
     checkErrorContains(
-        "expected depset of Files or NoneType for 'transitive_files' while calling runfiles "
-            + "but got depset of ints instead: depset([1, 2, 3])",
+        "expected value of type 'depset of Files or NoneType' for parameter 'transitive_files', "
+            + "in method call runfiles(depset transitive_files) of 'ctx'",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 
@@ -833,7 +831,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "unexpected keyword 'bad_keyword' in call to runfiles(self: ctx, ",
+        "unexpected keyword 'bad_keyword', in method call runfiles(string bad_keyword) of 'ctx'",
         "ruleContext.runfiles(bad_keyword = '')");
   }
 
