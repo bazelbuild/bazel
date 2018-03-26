@@ -348,7 +348,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     long startTime = actionExecutionContext.getClock().currentTimeMillis();
     SpawnActionContext spawnActionContext =
-        actionExecutionContext.getSpawnActionContext(action.getMnemonic());
+        actionExecutionContext.getSpawnActionContext(action.getMnemonic(), spawn);
     List<SpawnResult> spawnResults = ImmutableList.of();
     try {
       try {

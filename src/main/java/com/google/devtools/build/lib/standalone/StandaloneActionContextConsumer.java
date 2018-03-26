@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.standalone;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.exec.ActionContextConsumer;
+import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 
 /**
  * {@link ActionContextConsumer} that requests the action contexts necessary for standalone
@@ -28,17 +25,13 @@ import com.google.devtools.build.lib.exec.ActionContextConsumer;
 public class StandaloneActionContextConsumer implements ActionContextConsumer {
 
   @Override
-  public ImmutableMap<String, String> getSpawnActionContexts() {
+  public void populate(SpawnActionContextMaps.Builder builder) {
     // This makes the "sandboxed" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.
-    return ImmutableMap.of("", "standalone");
-  }
+    builder.strategyByMnemonicMap().put("", "standalone");
 
-  @Override
-  public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
     // This makes the "standalone" strategy available via --spawn_strategy=standalone, but it is not
     // necessarily the default.
-    return ImmutableMultimap.<Class<? extends ActionContext>, String>of(
-        SpawnActionContext.class, "standalone");
+    builder.strategyByContextMap().put(SpawnActionContext.class, "standalone");
   }
 }

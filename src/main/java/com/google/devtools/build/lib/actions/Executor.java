@@ -87,8 +87,6 @@ public interface Executor {
    */
   <T extends ActionContext> T getContext(Class<? extends T> type);
 
-  /**
-   * Returns the action context implementation for spawn actions with a given mnemonic.
-   */
-  SpawnActionContext getSpawnActionContext(String mnemonic);
+  /** Returns the action context implementation for spawn actions with a given mnemonic. */
+  SpawnActionContext getSpawnActionContext(String mnemonic, Spawn spawn);
 }
