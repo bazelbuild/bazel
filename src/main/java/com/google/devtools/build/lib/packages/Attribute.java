@@ -287,10 +287,12 @@ public final class Attribute implements Comparable<Attribute> {
    * Implementation of {@link SplitTransitionProvider} that returns a single {@link SplitTransition}
    * regardless of the originating rule.
    */
-  private static class BasicSplitTransitionProvider implements SplitTransitionProvider {
-
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class BasicSplitTransitionProvider implements SplitTransitionProvider {
     private final SplitTransition splitTransition;
 
+    @AutoCodec.VisibleForSerialization
     BasicSplitTransitionProvider(SplitTransition splitTransition) {
       this.splitTransition = splitTransition;
     }
@@ -1599,10 +1601,10 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
-  private static class SimpleLateBoundDefault<FragmentT, ValueT>
+  @AutoCodec.VisibleForSerialization
+  static class SimpleLateBoundDefault<FragmentT, ValueT>
       extends LateBoundDefault<FragmentT, ValueT> {
-
-    private final Resolver<FragmentT, ValueT> resolver;
+    @AutoCodec.VisibleForSerialization protected final Resolver<FragmentT, ValueT> resolver;
 
     private SimpleLateBoundDefault(boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
@@ -1745,9 +1747,11 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /** A {@link LateBoundDefault} for a {@link Label}. */
+  @AutoCodec
   public static class LabelLateBoundDefault<FragmentT>
       extends SimpleLateBoundDefault<FragmentT, Label> {
-    private LabelLateBoundDefault(
+    @AutoCodec.VisibleForSerialization
+    LabelLateBoundDefault(
         boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
         Label defaultValue,
@@ -1830,9 +1834,11 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /** A {@link LateBoundDefault} for a {@link List} of {@link Label} objects. */
+  @AutoCodec
   public static class LabelListLateBoundDefault<FragmentT>
       extends SimpleLateBoundDefault<FragmentT, List<Label>> {
-    private LabelListLateBoundDefault(
+    @AutoCodec.VisibleForSerialization
+    LabelListLateBoundDefault(
         boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
         Resolver<FragmentT, List<Label>> resolver) {
