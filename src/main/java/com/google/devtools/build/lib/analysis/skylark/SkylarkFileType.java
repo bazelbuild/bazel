@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.skylark;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -34,13 +33,11 @@ import java.util.List;
       "Deprecated. File type for file filtering. Can be used to filter collections of labels "
           + "for certain file types."
 )
-@AutoCodec
 public class SkylarkFileType {
 
   private final FileType fileType;
 
-  @AutoCodec.VisibleForSerialization
-  SkylarkFileType(FileType fileType) {
+  private SkylarkFileType(FileType fileType) {
     this.fileType = fileType;
   }
 

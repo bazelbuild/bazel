@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -40,12 +39,9 @@ import java.util.List;
  *   )
  * </pre>
  */
-@SkylarkModule(
-  name = "select",
-  doc = "A selector between configuration-dependent entities.",
-  documented = false
-)
-@AutoCodec
+@SkylarkModule(name = "select",
+    doc = "A selector between configuration-dependent entities.",
+    documented = false)
 public final class SelectorList implements SkylarkValue {
   // TODO(build-team): Selectors are currently split between .packages and .syntax . They should
   // really all be in .packages, but then we'd need to figure out a way how to extend binary
@@ -53,8 +49,7 @@ public final class SelectorList implements SkylarkValue {
   private final Class<?> type;
   private final List<Object> elements;
 
-  @AutoCodec.VisibleForSerialization
-  SelectorList(Class<?> type, List<Object> elements) {
+  private SelectorList(Class<?> type, List<Object> elements) {
     this.type = type;
     this.elements = elements;
   }
