@@ -26,6 +26,16 @@ class CrosstoolConfigProtoCodecRegisterer implements CodecRegisterer<MessageLite
         new MessageLiteCodec(CrosstoolConfig.CrosstoolRelease::newBuilder),
         new MessageLiteCodec(CrosstoolConfig.CToolchain::newBuilder),
         new MessageLiteCodec(CrosstoolConfig.CToolchain.OptionalFlag::newBuilder),
-        new MessageLiteCodec(CrosstoolConfig.CToolchain.Tool::newBuilder));
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.FlagGroup::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.VariableWithValue::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.EnvEntry::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.FeatureSet::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.WithFeatureSet::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.FlagSet::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.EnvSet::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.Feature::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.Tool::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.ArtifactNamePattern::newBuilder),
+        new MessageLiteCodec(CrosstoolConfig.CToolchain.ActionConfig::newBuilder));
   }
 }
