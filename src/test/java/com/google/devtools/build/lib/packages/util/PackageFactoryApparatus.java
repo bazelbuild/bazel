@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 
 /**
@@ -76,12 +78,15 @@ public class PackageFactoryApparatus {
     return createEmptyLocator();
   }
 
-  /**
-   * Parses and evaluates {@code buildFile} and returns the resulting {@link Package} instance.
-   */
+  /** Parses and evaluates {@code buildFile} and returns the resulting {@link Package} instance. */
   public Package createPackage(String packageName, Path buildFile) throws Exception {
-    return createPackage(PackageIdentifier.createInMainRepo(packageName), buildFile,
-        eventHandler);
+    return createPackage(PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler);
+  }
+
+  public Package createPackage(String packageName, Path buildFile, String skylarkOption)
+      throws Exception {
+    return createPackage(
+        PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler, skylarkOption);
   }
 
   /**
@@ -89,19 +94,39 @@ public class PackageFactoryApparatus {
    * resulting {@link Package} instance.
    */
   public Package createPackage(
-      PackageIdentifier packageIdentifier, Path buildFile, ExtendedEventHandler reporter)
+      PackageIdentifier packageIdentifier,
+      Path buildFile,
+      ExtendedEventHandler reporter,
+      String skylarkOption)
       throws Exception {
+
+    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    parser.parse(
+        skylarkOption == null
+            ? ImmutableList.<String>of()
+            : ImmutableList.<String>of(skylarkOption));
+    SkylarkSemantics semantics =
+        parser.getOptions(SkylarkSemanticsOptions.class).toSkylarkSemantics();
+
     try {
+      Package externalPkg =
+          factory
+              .newExternalPackageBuilder(
+                  buildFile.getRelative(Label.WORKSPACE_FILE_NAME), "TESTING")
+              .build();
       Package pkg =
           factory.createPackageForTesting(
-              packageIdentifier,
-              buildFile,
-              getPackageLocator(),
-              reporter);
+              packageIdentifier, externalPkg, buildFile, getPackageLocator(), reporter, semantics);
       return pkg;
     } catch (InterruptedException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  public Package createPackage(
+      PackageIdentifier packageIdentifier, Path buildFile, ExtendedEventHandler reporter)
+      throws Exception {
+    return createPackage(packageIdentifier, buildFile, reporter, null);
   }
 
   /**

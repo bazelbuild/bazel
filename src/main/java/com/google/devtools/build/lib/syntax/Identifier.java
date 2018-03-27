@@ -96,6 +96,26 @@ public final class Identifier extends Expression {
     if (name.equals("$error$")) {
       return new EvalException(getLocation(), "contains syntax error(s)", true);
     }
+
+    if (name.equals("PACKAGE_NAME")) {
+      return new EvalException(
+          getLocation(),
+          "The value 'PACKAGE_NAME' has been removed in favor of 'package_name()', "
+              + "please use the latter ("
+              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#package_name). "
+              + "You can temporarily allow the old name "
+              + "by using --incompatiblePackageNameIsAFunction=false");
+    }
+    if (name.equals("REPOSITORY_NAME")) {
+      return new EvalException(
+          getLocation(),
+          "The value 'REPOSITORY_NAME' has been removed in favor of 'repository_name()', "
+              + "please use the latter ("
+              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name)."
+              + " You can temporarily allow the old name "
+              + "by using --incompatiblePackageNameIsAFunction=false");
+    }
+
     String suggestion = SpellChecker.didYouMean(name, symbols);
     return new EvalException(getLocation(), "name '" + name + "' is not defined" + suggestion);
   }
