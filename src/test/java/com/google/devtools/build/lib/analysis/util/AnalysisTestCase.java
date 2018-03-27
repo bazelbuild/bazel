@@ -455,6 +455,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         reporter, parsedLabel, configuration);
   }
 
+  protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
+    return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
+  }
+
   /**
    * Returns the corresponding configured target, if it exists. Note that this will only return
    * anything useful after a call to update() with the same label. The label passed in must
