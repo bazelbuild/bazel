@@ -491,7 +491,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void forceRebuild() {
-    Preconditions.checkState(getTemporaryDirectDeps().numElements() == signaledDeps, this);
+    Preconditions.checkState(getNumTemporaryDirectDeps() == signaledDeps, this);
     getDirtyBuildingState().forceChanged();
   }
 
@@ -560,6 +560,10 @@ public class InMemoryNodeEntry implements NodeEntry {
     return (GroupedList<SkyKey>) directDeps;
   }
 
+  private synchronized int getNumTemporaryDirectDeps() {
+    return directDeps == null ? 0 : getTemporaryDirectDeps().numElements();
+  }
+
   @Override
   public synchronized boolean noDepsLastBuild() {
     return getDirtyBuildingState().noDepsLastBuild();
@@ -592,7 +596,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized boolean isReady() {
     Preconditions.checkState(!isDone(), "can't be ready if done: %s", this);
-    return isReady(getTemporaryDirectDeps().numElements());
+    return isReady(getNumTemporaryDirectDeps());
   }
 
   /** Returns whether all known children of this node have signaled that they are done. */
