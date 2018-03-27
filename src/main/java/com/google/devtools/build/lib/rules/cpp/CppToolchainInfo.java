@@ -96,7 +96,6 @@ public final class CppToolchainInfo {
   private final ImmutableList<String> crosstoolCompilerFlags;
   private final ImmutableList<String> crosstoolCxxFlags;
   private final ImmutableList<OptionalFlag> crosstoolOptionalCompilerFlags;
-  private final ImmutableList<OptionalFlag> crosstoolOptionalCxxFlags;
 
   private final ImmutableListMultimap<CompilationMode, String> cFlagsByCompilationMode;
   private final ImmutableListMultimap<CompilationMode, String> cxxFlagsByCompilationMode;
@@ -184,8 +183,8 @@ public final class CppToolchainInfo {
           toolchain.getHostSystemName(),
           new FlagList(
               ImmutableList.copyOf(toolchain.getDynamicLibraryLinkerFlagList()),
-              FlagList.convertOptionalOptions(toolchain.getOptionalDynamicLibraryLinkerFlagList()),
-              ImmutableList.<String>of()),
+              ImmutableList.of(),
+              ImmutableList.of()),
           ImmutableList.copyOf(toolchain.getLinkerFlagList()),
           linkOptionsFromLinkingModeBuilder.build(),
           computeLinkOptionsFromLipoMode(toolchain),
@@ -208,21 +207,18 @@ public final class CppToolchainInfo {
           ImmutableList.copyOf(toolchain.getCompilerFlagList()),
           ImmutableList.copyOf(toolchain.getCxxFlagList()),
           ImmutableList.copyOf(toolchain.getOptionalCompilerFlagList()),
-          ImmutableList.copyOf(toolchain.getOptionalCxxFlagList()),
           cFlagsBuilder.build(),
           cxxFlagsBuilder.build(),
           lipoCFlagsBuilder.build(),
           lipoCxxFlagsBuilder.build(),
           new FlagList(
               ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
-              FlagList.convertOptionalOptions(toolchain.getOptionalUnfilteredCxxFlagList()),
-              ImmutableList.<String>of()),
+              ImmutableList.of(),
+              ImmutableList.of()),
           toolchain.getSupportsFission(),
           toolchain.getSupportsStartEndLib(),
           toolchain.getSupportsEmbeddedRuntimes(),
-          haveDynamicMode
-              || !toolchain.getDynamicLibraryLinkerFlagList().isEmpty()
-              || !toolchain.getOptionalDynamicLibraryLinkerFlagList().isEmpty(),
+          haveDynamicMode || !toolchain.getDynamicLibraryLinkerFlagList().isEmpty(),
           toolchain.getSupportsInterfaceSharedObjects(),
           toolchain.getSupportsGoldLinker(),
           toolchain.getNeedsPic());
@@ -265,7 +261,6 @@ public final class CppToolchainInfo {
       ImmutableList<String> crosstoolCompilerFlags,
       ImmutableList<String> crosstoolCxxFlags,
       ImmutableList<OptionalFlag> crosstoolOptionalCompilerFlags,
-      ImmutableList<OptionalFlag> crosstoolOptionalCxxFlags,
       ImmutableListMultimap<CompilationMode, String> cFlagsByCompilationMode,
       ImmutableListMultimap<CompilationMode, String> cxxFlagsByCompilationMode,
       ImmutableListMultimap<LipoMode, String> lipoCFlags,
@@ -311,7 +306,6 @@ public final class CppToolchainInfo {
     this.crosstoolCompilerFlags = crosstoolCompilerFlags;
     this.crosstoolCxxFlags = crosstoolCxxFlags;
     this.crosstoolOptionalCompilerFlags = crosstoolOptionalCompilerFlags;
-    this.crosstoolOptionalCxxFlags = crosstoolOptionalCxxFlags;
     this.cFlagsByCompilationMode = cFlagsByCompilationMode;
     this.cxxFlagsByCompilationMode = cxxFlagsByCompilationMode;
     this.lipoCFlags = lipoCFlags;
@@ -622,13 +616,6 @@ public final class CppToolchainInfo {
   }
 
   /**
-   * Returns optional flags for linking.
-   */
-  public List<OptionalFlag> getOptionalLinkerFlags() {
-    return toolchain.getOptionalLinkerFlagList();
-  }
-
-  /**
    * Returns the run time sysroot, which is where the dynamic linker and system libraries are found
    * at runtime. This is usually an absolute path. If the toolchain compiler does not support
    * sysroots, then this method returns <code>null</code>.
@@ -752,13 +739,10 @@ public final class CppToolchainInfo {
   }
 
   /** Returns optional compiler flags from this toolchain. */
+  @Deprecated
+  // TODO(b/76449614): Remove all traces of optional flag crosstool fields when g3 is migrated.
   public ImmutableList<OptionalFlag> getOptionalCompilerFlags() {
     return crosstoolOptionalCompilerFlags;
-  }
-
-  /** Returns optional compiler flags for C++ from this toolchain. */
-  public ImmutableList<OptionalFlag> getOptionalCxxFlags() {
-    return crosstoolOptionalCxxFlags;
   }
 
   /** Returns unfiltered compiler options for C++ from this toolchain. */

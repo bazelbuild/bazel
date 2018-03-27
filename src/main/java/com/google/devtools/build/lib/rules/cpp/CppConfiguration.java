@@ -282,33 +282,33 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             ImmutableList.copyOf(cppOptions.coptList)),
         new FlagList(
             cxxOptsBuilder.build(),
-            FlagList.convertOptionalOptions(toolchain.getOptionalCxxFlagList()),
+            ImmutableList.of(),
             ImmutableList.copyOf(cppOptions.cxxoptList)),
         new FlagList(
             ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
-            FlagList.convertOptionalOptions(toolchain.getOptionalUnfilteredCxxFlagList()),
-            ImmutableList.<String>of()),
+            ImmutableList.of(),
+            ImmutableList.of()),
         ImmutableList.copyOf(cppOptions.conlyoptList),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.FULLY_STATIC),
-            FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-            ImmutableList.<String>of()),
+            ImmutableList.of(),
+            ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC),
-            FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-            ImmutableList.<String>of()),
+            ImmutableList.of(),
+            ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC_LIBRARIES),
-            FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-            ImmutableList.<String>of()),
+            ImmutableList.of(),
+            ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.DYNAMIC),
-            FlagList.convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-            ImmutableList.<String>of()),
+            ImmutableList.of(),
+            ImmutableList.of()),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
         linkoptsBuilder.build(),

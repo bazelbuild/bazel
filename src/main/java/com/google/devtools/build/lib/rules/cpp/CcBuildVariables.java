@@ -63,7 +63,7 @@ public class CcBuildVariables {
     USER_COMPILE_FLAGS("user_compile_flags"),
     /**
      * Variable for all flags coming from legacy crosstool fields, such as compiler_flag,
-     * optional_compiler_flag, cxx_flag, optional_cxx_flag.
+     * optional_compiler_flag, cxx_flag.
      */
     LEGACY_COMPILE_FLAGS("legacy_compile_flags"),
     /** Variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */

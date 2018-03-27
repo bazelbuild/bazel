@@ -298,10 +298,7 @@ public class CppHelper {
             .addAll(toolchain.getLipoCxxFlags().get(config.getLipoMode()));
 
     FlagList cxxFlags =
-        new FlagList(
-            cxxOptsBuilder.build(),
-            FlagList.convertOptionalOptions(toolchain.getOptionalCxxFlags()),
-            ImmutableList.of());
+        new FlagList(cxxOptsBuilder.build(), ImmutableList.of(), ImmutableList.of());
 
     return cxxFlags.evaluate(features);
   }
