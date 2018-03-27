@@ -57,6 +57,15 @@ public final class CqueryCommand implements BlazeCommand {
   @Override
   public void editOptions(OptionsParser optionsParser) {
     try {
+      if (!optionsParser
+          .getOptions(CqueryOptions.class)
+          .transitions
+          .equals(CqueryOptions.Transitions.NONE)) {
+        optionsParser.parse(
+            PriorityCategory.COMPUTED_DEFAULT,
+            "Option required by setting the --transitions flag",
+            ImmutableList.of("--output=transitions"));
+      }
       optionsParser.parse(
           PriorityCategory.COMPUTED_DEFAULT,
           "Options required by cquery",
