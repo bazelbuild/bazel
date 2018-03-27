@@ -111,8 +111,7 @@ public class ConfiguredTargetQueryEnvironment
   private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
       skyKey -> (ConfiguredTargetKey) skyKey.argument();
   private static final ImmutableList<TargetPatternKey> ALL_PATTERNS;
-  private static final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey>
-      CONFIGURED_TARGET_KEY_EXTRACTOR = ConfiguredTargetKey::of;
+  private final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> configuredTargetKeyExtractor;
 
   /** Common query functions and cquery specific functions. */
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
@@ -151,6 +150,19 @@ public class ConfiguredTargetQueryEnvironment
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get());
+    this.configuredTargetKeyExtractor =
+        element -> {
+          try {
+            return ConfiguredTargetKey.of(
+                element,
+                element.getConfigurationKey() == null
+                    ? null
+                    : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
+                        .getConfiguration());
+          } catch (InterruptedException e) {
+            throw new IllegalStateException("Interruption unexpected in configured query");
+          }
+        };
   }
 
   private void beforeEvaluateQuery() throws InterruptedException, QueryException {
@@ -556,7 +568,8 @@ public class ConfiguredTargetQueryEnvironment
   @Override
   public ImmutableList<ConfiguredTarget> getNodesOnPath(ConfiguredTarget from, ConfiguredTarget to)
       throws InterruptedException {
-    return SkyQueryUtils.getNodesOnPath(from, to, this::getFwdDeps, ConfiguredTargetKey::of);
+    return SkyQueryUtils.getNodesOnPath(
+        from, to, this::getFwdDeps, configuredTargetKeyExtractor::extractKey);
   }
 
   @Override
@@ -581,26 +594,26 @@ public class ConfiguredTargetQueryEnvironment
   @Override
   public ThreadSafeMutableSet<ConfiguredTarget> createThreadSafeMutableSet() {
     return new ThreadSafeMutableKeyExtractorBackedSetImpl<>(
-        CONFIGURED_TARGET_KEY_EXTRACTOR,
+        configuredTargetKeyExtractor,
         ConfiguredTarget.class,
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
   @Override
   public <V> MutableMap<ConfiguredTarget, V> createMutableMap() {
-    return new MutableKeyExtractorBackedMapImpl<>(CONFIGURED_TARGET_KEY_EXTRACTOR);
+    return new MutableKeyExtractorBackedMapImpl<>(configuredTargetKeyExtractor);
   }
 
   @Override
   public Uniquifier<ConfiguredTarget> createUniquifier() {
     return new UniquifierImpl<>(
-        CONFIGURED_TARGET_KEY_EXTRACTOR, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
+        configuredTargetKeyExtractor, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
   @Override
   public MinDepthUniquifier<ConfiguredTarget> createMinDepthUniquifier() {
     return new MinDepthUniquifierImpl<>(
-        CONFIGURED_TARGET_KEY_EXTRACTOR, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
+        configuredTargetKeyExtractor, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
   @Override
