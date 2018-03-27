@@ -1331,7 +1331,13 @@ public final class PackageFactory {
       throws NoSuchPackageException, InterruptedException {
     Package externalPkg = newExternalPackageBuilder(
         buildFile.getRelative(Label.WORKSPACE_FILE_NAME), "TESTING").build();
-    return createPackageForTesting(packageId, externalPkg, buildFile, locator, eventHandler);
+    return createPackageForTesting(
+        packageId,
+        externalPkg,
+        buildFile,
+        locator,
+        eventHandler,
+        SkylarkSemantics.DEFAULT_SEMANTICS);
   }
 
   /**
@@ -1344,7 +1350,8 @@ public final class PackageFactory {
       Package externalPkg,
       Path buildFile,
       CachingPackageLocator locator,
-      ExtendedEventHandler eventHandler)
+      ExtendedEventHandler eventHandler,
+      SkylarkSemantics semantics)
       throws NoSuchPackageException, InterruptedException {
     String error =
         LabelValidator.validatePackageName(packageId.getPackageFragment().getPathString());
@@ -1372,7 +1379,7 @@ public final class PackageFactory {
                 /*imports=*/ ImmutableMap.<String, Extension>of(),
                 /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
                 /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
-                SkylarkSemantics.DEFAULT_SEMANTICS,
+                semantics,
                 globber)
             .build();
     for (Postable post : result.getPosts()) {
@@ -1544,8 +1551,10 @@ public final class PackageFactory {
     }
 
     pkgEnv.setupDynamic(PKG_CONTEXT, context);
-    pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.getPackageFragment().getPathString());
-    pkgEnv.setupDynamic(Runtime.REPOSITORY_NAME, packageId.getRepository().toString());
+    if (!pkgEnv.getSemantics().incompatiblePackageNameIsAFunction()) {
+      pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.getPackageFragment().getPathString());
+      pkgEnv.setupDynamic(Runtime.REPOSITORY_NAME, packageId.getRepository().toString());
+    }
   }
 
   /**

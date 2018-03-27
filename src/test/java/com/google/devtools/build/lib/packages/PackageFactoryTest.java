@@ -247,6 +247,14 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testPackageConstantIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
+    packages.createPackage("pina", buildFile, "--incompatible_package_name_is_a_function=true");
+    events.assertContainsError("The value 'PACKAGE_NAME' has been removed");
+  }
+
+  @Test
   public void testPackageNameFunction() throws Exception {
     Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=package_name() + '-colada')");
 
@@ -269,6 +277,20 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             PackageIdentifier.create("@a", PathFragment.create("b")), buildFile, events.reporter());
     Rule c = pkg.getRule("c");
     assertThat(AggregatingAttributeMapper.of(c).get("cmd", Type.STRING)).isEqualTo("@a b");
+  }
+
+  @Test
+  public void testPackageConstantInExternalRepositoryIsForbidden() throws Exception {
+    events.setFailFast(false);
+    Path buildFile =
+        scratch.file(
+            "/external/a/b/BUILD", "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME)");
+    packages.createPackage(
+        PackageIdentifier.create("@a", PathFragment.create("b")),
+        buildFile,
+        events.reporter(),
+        "--incompatible_package_name_is_a_function=true");
+    events.assertContainsError("The value 'REPOSITORY_NAME' has been removed");
   }
 
   @Test
