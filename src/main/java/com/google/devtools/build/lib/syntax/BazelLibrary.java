@@ -172,6 +172,23 @@ public class BazelLibrary {
   }
 
   @SkylarkSignature(
+    name = "is_empty",
+    objectType = SkylarkNestedSet.class,
+    returnType = Boolean.class,
+    doc = "Returns if a depset is empty without traversing it in O(1) time",
+    parameters = {@Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset.")},
+    useLocation = false,
+    useEnvironment = false
+  )
+  private static final BuiltinFunction isEmpty =
+      new BuiltinFunction("is_empty") {
+        @SuppressWarnings("unused")
+        public Boolean invoke(SkylarkNestedSet input) throws EvalException {
+          return input.isEmpty();
+        }
+      };
+
+  @SkylarkSignature(
     name = "union",
     objectType = SkylarkNestedSet.class,
     returnType = SkylarkNestedSet.class,
