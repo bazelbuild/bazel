@@ -343,19 +343,6 @@ toolchain {
     }
   }
   feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
-    }
-  }
-  feature {
     name: "runtime_root_flags"
     flag_set {
       action: "c++-link-executable"
@@ -1714,7 +1701,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -1738,7 +1724,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -1761,7 +1746,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -1779,7 +1763,6 @@ toolchain {
       tool_path: "mac/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -2117,19 +2100,6 @@ toolchain {
     }
   }
   feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
-    }
-  }
-  feature {
     name: "runtime_root_flags"
     flag_set {
       action: "c++-link-executable"
@@ -3488,7 +3458,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -3512,7 +3481,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -3535,7 +3503,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -3553,7 +3520,6 @@ toolchain {
       tool_path: "mac/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -3886,19 +3852,6 @@ toolchain {
     }
   }
   feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
-    }
-  }
-  feature {
     name: "runtime_root_flags"
     flag_set {
       action: "c++-link-executable"
@@ -5257,7 +5210,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -5281,7 +5233,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -5304,7 +5255,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -5322,7 +5272,6 @@ toolchain {
       tool_path: "mac/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -5655,19 +5604,6 @@ toolchain {
     }
   }
   feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
-    }
-  }
-  feature {
     name: "runtime_root_flags"
     flag_set {
       action: "c++-link-executable"
@@ -7026,7 +6962,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -7050,7 +6985,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -7073,7 +7007,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -7091,7 +7024,6 @@ toolchain {
       tool_path: "mac/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -7425,19 +7357,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -8805,7 +8724,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -8829,7 +8747,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -8852,7 +8769,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -8870,7 +8786,6 @@ toolchain {
       tool_path: "iossim/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -9204,19 +9119,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -10586,7 +10488,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -10610,7 +10511,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -10633,7 +10533,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -10651,7 +10550,6 @@ toolchain {
       tool_path: "watchsim/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -10986,19 +10884,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -12397,7 +12282,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -12421,7 +12305,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -12444,7 +12327,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -12462,7 +12344,6 @@ toolchain {
       tool_path: "tvsim/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -12796,19 +12677,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -14176,7 +14044,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -14200,7 +14067,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -14223,7 +14089,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -14241,7 +14106,6 @@ toolchain {
       tool_path: "iossim/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -14575,19 +14439,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -15975,7 +15826,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -15999,7 +15849,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -16022,7 +15871,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -16040,7 +15888,6 @@ toolchain {
       tool_path: "ios/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -16374,19 +16221,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -17776,7 +17610,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -17800,7 +17633,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -17823,7 +17655,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -17841,7 +17672,6 @@ toolchain {
       tool_path: "watchos/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -18176,19 +18006,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -19607,7 +19424,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -19631,7 +19447,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -19654,7 +19469,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -19672,7 +19486,6 @@ toolchain {
       tool_path: "tvos/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
@@ -20006,19 +19819,6 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-    }
-  }
-  feature {
-    name: "global_whole_archive_open"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-static-library"
-      flag_group {
-        flag: "-Wl,-all_load"
-      }
-      expand_if_all_available: "global_whole_archive"
     }
   }
   feature {
@@ -21406,7 +21206,6 @@ toolchain {
     implies: "symbol_counts"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "force_pic_flags"
@@ -21430,7 +21229,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -21453,7 +21251,6 @@ toolchain {
     implies: "shared_flag"
     implies: "linkstamps"
     implies: "output_execpath_flags"
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "input_param_flags"
     implies: "legacy_link_flags"
@@ -21471,7 +21268,6 @@ toolchain {
       tool_path: "ios/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
-    implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
     implies: "archiver_flags"
     implies: "input_param_flags"
