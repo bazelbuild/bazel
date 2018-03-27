@@ -19,6 +19,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -513,26 +515,83 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
         stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
         stubMethod.visitEnd();
-        return null;
+        return null; // don't visit the visited interface's default method
       } else if (shouldStubAsBridgeDefaultMethod(access, name, desc)) {
         recordIfInstanceMethod(access, name, desc);
+        MethodVisitor stubMethod =
+            DefaultMethodClassFixer.this.visitMethod(access, name, desc, (String) null, exceptions);
         // If we're visiting a bootclasspath interface then we most likely don't have the code.
         // That means we can't just copy the method bodies as we're trying to do below.
-        checkState(!isBootclasspathInterface,
-            "TODO stub core interface %s bridge methods in %s", stubbedInterfaceName, internalName);
-        // For bridges we just copy their bodies instead of going through the companion class.
-        // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
-        // interface methods are correctly handled.
-        return new InterfaceDesugaring.InterfaceInvocationRewriter(
-            DefaultMethodClassFixer.this.visitMethod(access, name, desc, (String) null, exceptions),
-            stubbedInterfaceName,
-            bootclasspath,
-            targetLoader,
-            depsCollector,
-            internalName);
+        if (isBootclasspathInterface) {
+          // Synthesize a "bridge" method that calls the true implementation
+          Method bridged = findBridgedMethod(name, desc);
+          checkState(bridged != null,
+              "TODO: Can't stub core interface bridge method %s.%s %s in %s",
+              stubbedInterfaceName, name, desc, internalName);
+
+          int slot = 0;
+          stubMethod.visitVarInsn(Opcodes.ALOAD, slot++); // load the receiver
+          Type neededType = Type.getType(bridged);
+          for (Type arg : neededType.getArgumentTypes()) {
+            // TODO(b/73586397): insert downcasts if necessary
+            stubMethod.visitVarInsn(arg.getOpcode(Opcodes.ILOAD), slot);
+            slot += arg.getSize();
+          }
+          // Just call the bridged method directly on the visited class using invokevirtual
+          stubMethod.visitMethodInsn(
+              Opcodes.INVOKEVIRTUAL,
+              internalName,
+              name,
+              neededType.getDescriptor(),
+              /*itf=*/ false);
+          stubMethod.visitInsn(neededType.getReturnType().getOpcode(Opcodes.IRETURN));
+
+          stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
+          stubMethod.visitEnd();
+          return null;  // don't visit the visited interface's bridge method
+        } else {
+          // For bridges we just copy their bodies instead of going through the companion class.
+          // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
+          // interface methods are correctly handled.
+          return new InterfaceDesugaring.InterfaceInvocationRewriter(
+              stubMethod,
+              stubbedInterfaceName,
+              bootclasspath,
+              targetLoader,
+              depsCollector,
+              internalName);
+        }
       } else {
         return null; // not a default or bridge method or the class already defines this method.
       }
+    }
+
+    /**
+     * Returns a non-bridge interface method with given name that a method with the given descriptor
+     * can bridge to, if any such method can be found.
+     */
+    @Nullable
+    private Method findBridgedMethod(String name, String desc) {
+      Type[] paramTypes = Type.getArgumentTypes(desc);
+      Class<?> itf = loadFromInternal(stubbedInterfaceName);
+      checkArgument(itf.isInterface(), "Should be an interface: %s", stubbedInterfaceName);
+      Method result = null;
+      for (Method m : itf.getDeclaredMethods()) {
+        if (m.isBridge()) {
+          continue;
+        }
+        if (!m.getName().equals(name)) {
+          continue;
+        }
+        // For now, only support specialized return types (which don't require casts)
+        // TODO(b/73586397): Make this work for other kinds of bridges in core library interfaces
+        if (Arrays.equals(paramTypes, Type.getArgumentTypes(m))) {
+          checkState(result == null,
+              "Found multiple bridge target %s and %s for descriptor %s", result, m, desc);
+          return result = m;
+        }
+      }
+      return result;
     }
   }
 
