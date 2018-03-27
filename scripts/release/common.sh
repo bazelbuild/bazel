@@ -29,6 +29,16 @@ set -eu
 # To follow tracks and to support how CI systems fetch the refs, we
 # store two commit notes: the release name and the candidate number.
 
+# Get the short hash of a commit
+function __git_commit_hash() {
+  git rev-parse "${1}"
+}
+
+# Get the subject (first line of the commit message) of a commit
+function __git_commit_subject() {
+  git show -s --pretty=format:%s "$@"
+}
+
 # Returns the branch name of the current git repository
 function git_get_branch() {
   git symbolic-ref --short HEAD
@@ -47,16 +57,6 @@ function get_release_candidate() {
 # Extract the release name from the git notes
 function get_release_name() {
   git notes --ref=release show "$@" 2>/dev/null || true
-}
-
-# Get the short hash of a commit
-function git_commit_hash() {
-  git rev-parse "${1}"
-}
-
-# Get the subject (first line of the commit message) of a commit
-function git_commit_subject() {
-  git show -s --pretty=format:%s "$@"
 }
 
 # Get the list of commit hashes between two revisions
@@ -110,8 +110,8 @@ function wrap_text() {
 #    + CHERRY_PICK1: commit message summary of the CHERRY_PICK1. This
 #                    message will be wrapped into 70 columns.
 #    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
-function create_revision_information() {
-  echo "Baseline: $(git_commit_hash "${1}")"
+function __create_revision_information() {
+  echo "Baseline: $(__git_commit_hash "${1}")"
   local first=1
   shift
   while [ -n "${1-}" ]; do
@@ -119,8 +119,8 @@ function create_revision_information() {
       echo -e "\nCherry picks:"
       first=0
     fi
-    local hash="$(git_commit_hash "${1}")"
-    local subject="$(git_commit_subject $hash)"
+    local hash="$(__git_commit_hash "${1}")"
+    local subject="$(__git_commit_subject $hash)"
     local lines=$(echo "$subject" | wrap_text 65)  # 5 leading spaces.
     echo "   + $hash:"
     echo "$lines" | sed 's/^/     /'
@@ -128,35 +128,11 @@ function create_revision_information() {
   done
 }
 
-# Get the master commit
-# Some machine might not have a "master" branch, use "origin/master" in that case
-function get_master_ref() {
-  git rev-parse --verify master 2>/dev/null || git rev-parse --verify origin/master
-}
-
 # Get the baseline of master.
-# Args: $1: release branch, default to HEAD
+# Args: $1: release branch (or HEAD)
+# TODO(philwo) this gives the wrong baseline when HEAD == release == master.
 function get_release_baseline() {
-  git merge-base $(get_master_ref) "${1:-HEAD}"
-}
-
-# Returns the list of (commit hash, patch-id) from $1..$2
-# Args:
-#   $1: the first commit in the list (excluded)
-#   $2: the last commit in the list
-function get_patch_ids() {
-  git_log_hash "$1" "$2" | xargs git show | git patch-id
-}
-
-# Returns the original commit a commit was cherry-picked from master
-# Args:
-#   $1: the commit to find
-#   $2: the baseline from which to look for (up to master)
-#   $3: master ref (optional, default master)
-#   $4: The list of master changes as returned by get_patch_ids (optional)
-function get_cherrypick_origin() {
-  local master=${3:-$(get_master_ref)}
-  local master_changes="${4-$(get_patch_ids "${2}" "${master}")}"
+  git merge-base master "$1"
 }
 
 # Get the list of cherry-picks since master
@@ -165,12 +141,11 @@ function get_cherrypick_origin() {
 #   $2: baseline change, default to $(get_release_baseline $1)
 function get_cherrypicks() {
   local branch="${1:-HEAD}"
-  local master=$(get_master_ref)
   local baseline="${2:-$(get_release_baseline "${branch}")}"
   # List of changes since the baseline on the release branch
   local changes="$(git_log_hash "${baseline}" "${branch}" --reverse)"
   # List of changes since the baseline on the master branch, and their patch-id
-  local master_changes="$(git_log_hash "${baseline}" "${master}" | xargs git show | git patch-id)"
+  local master_changes="$(git_log_hash "${baseline}" master | xargs git show | git patch-id)"
   # Now for each changes on the release branch
   for i in ${changes}; do
     local hash=$(git notes --ref=cherrypick show "$i" 2>/dev/null || true)
@@ -213,7 +188,7 @@ function generate_release_message() {
   if [ -n "${delimiter}" ]; then
     echo "${delimiter}"
   fi
-  create_revision_information $baseline $cherrypicks
+  __create_revision_information $baseline $cherrypicks
   if [ -n "${delimiter}" ]; then
     echo "${delimiter}"
   fi
@@ -234,41 +209,5 @@ function get_full_release_notes() {
   else
     # Full release, returns the commit message
     git_commit_msg "$@"
-  fi
-}
-
-# Merge three release notes using branch $1 as a base
-# Args:
-#   $1 the branch name to use to play on
-#   $2 the new generated release notes
-#   $3 the last generated release notes
-#   $4 the last edited release notes
-function merge_release_notes() {
-  local branch_name="$1"
-  local relnotes="$2"
-  local last_relnotes="$3"
-  local last_savedrelnotes="$4"
-  if [ "${last_relnotes}" == "${last_savedrelnotes}" ]; then
-    echo "${relnotes}"
-  else
-    # Merge the three release notes, use git merge for it
-    git checkout -q -b "${branch_name}-merge-notes-1"
-    echo "${last_relnotes}" >.relnotes
-    git add .relnotes
-    git commit -q -m "last_relnotes" --allow-empty
-    echo "${last_savedrelnotes}" >.relnotes
-    git add .relnotes
-    git commit -q -m "last_savedrelnotes" --allow-empty
-    git checkout -q -b "${branch_name}-merge-notes-2" HEAD~
-    echo "${relnotes}" >.relnotes
-    git add .relnotes
-    git commit -q -m "relnotes" --allow-empty
-    git merge -q --no-commit "${branch_name}-merge-notes-1" &>/dev/null || true
-    cat .relnotes
-
-    # Clean-up
-    git merge --abort || true &>/dev/null
-    git checkout -q "${branch_name}"
-    git branch -D ${branch_name}-merge-notes-{1,2} >/dev/null
   fi
 }
