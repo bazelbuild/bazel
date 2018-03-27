@@ -33,15 +33,16 @@ public final class SkylarkModules {
   private SkylarkModules() { }
 
   /**
-   * The list of built in Skylark modules. Documentation is generated automatically for all these
-   * modules. They are also registered with the {@link Environment}.
+   * The list of built in Skylark modules.
+   * Documentation is generated automatically for all these modules.
+   * They are also registered with the {@link Environment}.
    */
-  public static final ImmutableList<Class<?>> MODULES =
-      ImmutableList.of(
-          SkylarkAttr.class,
-          SkylarkCommandLine.class,
-          SkylarkNativeModule.class,
-          SkylarkRuleClassFunctions.class);
+  public static final ImmutableList<Class<?>> MODULES = ImmutableList.of(
+      SkylarkAttr.class,
+      SkylarkCommandLine.class,
+      SkylarkNativeModule.class,
+      SkylarkRuleClassFunctions.class,
+      SkylarkRuleImplementationFunctions.class);
 
   /** Global bindings for all Skylark modules */
   private static final Map<List<Class<?>>, GlobalFrame> cache = new HashMap<>();
