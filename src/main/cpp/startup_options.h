@@ -250,11 +250,6 @@ class StartupOptions {
   // If true, Blaze will listen to OS-level file change notifications.
   bool watchfs;
 
-  // Temporary experimental flag that permits configurable attribute syntax
-  // in BUILD files. This will be removed when configurable attributes is
-  // a more stable feature.
-  bool allow_configurable_attributes;
-
   // Temporary flag for enabling EventBus exceptions to be fatal.
   bool fatal_event_bus_exceptions;
 

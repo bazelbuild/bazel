@@ -508,9 +508,6 @@ static vector<string> GetArgumentArray(
     result.push_back("--server_jvm_out=" + globals->options->server_jvm_out);
   }
 
-  if (globals->options->allow_configurable_attributes) {
-    result.push_back("--allow_configurable_attributes");
-  }
   if (globals->options->deep_execroot) {
     result.push_back("--deep_execroot");
   } else {
