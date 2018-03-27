@@ -522,6 +522,23 @@ EOF
   expect_log "Remote connection/protocol failed"
 }
 
+function test_refuse_symlink_output() {
+    cat > BUILD <<'EOF'
+genrule(
+    name = 'make-link',
+    outs = ['l', 't'],
+    cmd = 'touch $(location t) && ln -s t $(location l)',
+)
+EOF
+
+    bazel build \
+          --genrule_strategy=remote \
+          --remote_executor=localhost:${worker_port} \
+          //:make-link >& TEST_log \
+          && fail "should have failed"# || true
+    expect_log "/l is a symbolic link"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -140,7 +139,7 @@ public class AbstractSpawnStrategyTest {
 
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
-    verify(entry).store(eq(spawnResult), any(Collection.class));
+    verify(entry).store(eq(spawnResult));
   }
 
   @SuppressWarnings("unchecked")
@@ -167,6 +166,6 @@ public class AbstractSpawnStrategyTest {
     }
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
-    verify(entry).store(eq(result), any(Collection.class));
+    verify(entry).store(eq(result));
   }
 }
