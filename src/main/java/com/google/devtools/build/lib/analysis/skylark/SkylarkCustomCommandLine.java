@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -44,7 +43,6 @@ import javax.annotation.Nullable;
 @AutoCodec
 class SkylarkCustomCommandLine extends CommandLine {
   private final SkylarkSemantics skylarkSemantics;
-  private final EventHandler eventHandler;
   private final ImmutableList<Object> arguments;
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
@@ -132,8 +130,7 @@ class SkylarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        SkylarkSemantics skylarkSemantics,
-        EventHandler eventHandler)
+        SkylarkSemantics skylarkSemantics)
         throws CommandLineExpansionException {
       final List<Object> mutatedValues;
       final int count;
@@ -151,7 +148,7 @@ class SkylarkCustomCommandLine extends CommandLine {
       final Location location = hasLocation ? (Location) arguments.get(argi++) : null;
       if (hasMapFn) {
         BaseFunction mapFn = (BaseFunction) arguments.get(argi++);
-        Object result = applyMapFn(mapFn, mutatedValues, location, skylarkSemantics, eventHandler);
+        Object result = applyMapFn(mapFn, mutatedValues, location, skylarkSemantics);
         if (!(result instanceof List)) {
           throw new CommandLineExpansionException(
               errorMessage(
@@ -314,14 +311,13 @@ class SkylarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
-        SkylarkSemantics skylarkSemantics,
-        EventHandler eventHandler)
+        SkylarkSemantics skylarkSemantics)
         throws CommandLineExpansionException {
       Object object = arguments.get(argi++);
       final Location location = hasLocation ? (Location) arguments.get(argi++) : null;
       if (hasMapFn) {
         BaseFunction mapFn = (BaseFunction) arguments.get(argi++);
-        object = applyMapFn(mapFn, object, location, skylarkSemantics, eventHandler);
+        object = applyMapFn(mapFn, object, location, skylarkSemantics);
       }
       object = CommandLineItem.expandToCommandLine(object);
       if (hasFormat) {
@@ -382,11 +378,9 @@ class SkylarkCustomCommandLine extends CommandLine {
   static class Builder {
     private final SkylarkSemantics skylarkSemantics;
     private final ImmutableList.Builder<Object> arguments = ImmutableList.builder();
-    private final EventHandler eventHandler;
 
-    public Builder(SkylarkSemantics skylarkSemantics, EventHandler eventHandler) {
+    public Builder(SkylarkSemantics skylarkSemantics) {
       this.skylarkSemantics = skylarkSemantics;
-      this.eventHandler = eventHandler;
     }
 
     void add(Object object) {
@@ -402,24 +396,15 @@ class SkylarkCustomCommandLine extends CommandLine {
     }
 
     SkylarkCustomCommandLine build() {
-      return new SkylarkCustomCommandLine(skylarkSemantics, eventHandler, arguments.build());
+      return new SkylarkCustomCommandLine(skylarkSemantics, arguments.build());
     }
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
   SkylarkCustomCommandLine(SkylarkSemantics skylarkSemantics, ImmutableList<Object> arguments) {
-    // TODO(b/76233103): fix this.
-    this(skylarkSemantics, NullEventHandler.INSTANCE, arguments);
-  }
-
-  private SkylarkCustomCommandLine(
-      SkylarkSemantics skylarkSemantics,
-      EventHandler eventHandler,
-      ImmutableList<Object> arguments) {
-    this.skylarkSemantics = skylarkSemantics;
-    this.eventHandler = eventHandler;
     this.arguments = arguments;
+    this.skylarkSemantics = skylarkSemantics;
   }
 
   @Override
@@ -428,9 +413,9 @@ class SkylarkCustomCommandLine extends CommandLine {
     for (int argi = 0; argi < arguments.size(); ) {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
-        argi = ((VectorArg) arg).eval(arguments, argi, result, skylarkSemantics, eventHandler);
+        argi = ((VectorArg) arg).eval(arguments, argi, result, skylarkSemantics);
       } else if (arg instanceof ScalarArg) {
-        argi = ((ScalarArg) arg).eval(arguments, argi, result, skylarkSemantics, eventHandler);
+        argi = ((ScalarArg) arg).eval(arguments, argi, result, skylarkSemantics);
       } else {
         result.add(CommandLineItem.expandToCommandLine(arg));
       }
@@ -461,18 +446,14 @@ class SkylarkCustomCommandLine extends CommandLine {
   }
 
   private static Object applyMapFn(
-      BaseFunction mapFn,
-      Object arg,
-      Location location,
-      SkylarkSemantics skylarkSemantics,
-      EventHandler eventHandler)
+      BaseFunction mapFn, Object arg, Location location, SkylarkSemantics skylarkSemantics)
       throws CommandLineExpansionException {
     ImmutableList<Object> args = ImmutableList.of(arg);
     try (Mutability mutability = Mutability.create("map_fn")) {
       Environment env =
           Environment.builder(mutability)
               .setSemantics(skylarkSemantics)
-              .setEventHandler(eventHandler)
+              .setEventHandler(NullEventHandler.INSTANCE)
               .build();
       return mapFn.call(args, ImmutableMap.of(), null, env);
     } catch (EvalException e) {
