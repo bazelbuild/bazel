@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.cpp.CcBuildVariables.StripBuildVariables;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -966,9 +967,9 @@ public class CppHelper {
     Variables variables =
         new Variables.Builder(toolchain.getBuildVariables())
             .addStringVariable(
-                CcCompilationHelper.OUTPUT_FILE_VARIABLE_NAME, output.getExecPathString())
+                StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
             .addStringSequenceVariable(
-                CcCommon.STRIPOPTS_VARIABLE_NAME, cppConfiguration.getStripOpts())
+                StripBuildVariables.STRIPOPTS.getVariableName(), cppConfiguration.getStripOpts())
             .addStringVariable(CcCommon.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
             .build();
     ImmutableList<String> commandLine =
