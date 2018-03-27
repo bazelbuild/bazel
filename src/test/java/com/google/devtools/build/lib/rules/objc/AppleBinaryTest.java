@@ -108,8 +108,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//a:b");
 
-    PathFragment aPath = a.getConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPath();
-    PathFragment bPath = b.getConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPath();
+    PathFragment aPath = getConfiguration(a).getOutputDirectory(RepositoryName.MAIN).getExecPath();
+    PathFragment bPath = getConfiguration(b).getOutputDirectory(RepositoryName.MAIN).getExecPath();
 
     assertThat(aPath.getPathString()).doesNotMatch("-min[0-9]");
     assertThat(bPath.getPathString()).contains("-min7.0-");

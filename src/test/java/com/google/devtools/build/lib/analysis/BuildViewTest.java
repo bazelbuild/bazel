@@ -343,7 +343,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_binary(name = 'binary', srcs = ['binary.sh'])");
     ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
     BuildConfiguration.Options options =
-        ct.getConfiguration().getOptions().get(BuildConfiguration.Options.class);
+        getConfiguration(ct).getOptions().get(BuildConfiguration.Options.class);
     assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1");
   }
 
@@ -357,7 +357,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_binary(name = 'binary', srcs = ['binary.sh'])");
     ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
     BuildConfiguration.Options options =
-        ct.getConfiguration().getOptions().get(BuildConfiguration.Options.class);
+        getConfiguration(ct).getOptions().get(BuildConfiguration.Options.class);
     assertThat(options.hostCpu).isEqualTo("$CONFIG HOOK 1$CONFIG HOOK 2");
   }
 
@@ -1240,7 +1240,7 @@ public class BuildViewTest extends BuildViewTestBase {
     useConfiguration("--experimental_dynamic_configs=on");
     AnalysisResult res = update("//foo:x");
     ConfiguredTarget topLevelTarget = Iterables.getOnlyElement(res.getTargetsToBuild());
-    assertThat(topLevelTarget.getConfiguration().getFragmentsMap().keySet())
+    assertThat(getConfiguration(topLevelTarget).getFragmentsMap().keySet())
         .containsExactly(ruleClassProvider.getUniversalFragment());
   }
 

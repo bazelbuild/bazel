@@ -95,8 +95,8 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     ConfiguredTarget dep = Iterables.getOnlyElement(
         SkyframeExecutorTestUtils.getExistingConfiguredTargets(
             skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
-    assertThat(dep.getConfiguration()).isNotEqualTo(getTargetConfiguration());
-    assertThat(LateBoundSplitUtil.getOptions(dep.getConfiguration()).fooFlag).isEqualTo("PATCHED!");
+    assertThat(getConfiguration(dep)).isNotEqualTo(getTargetConfiguration());
+    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEqualTo("PATCHED!");
   }
 
   @Test
@@ -117,10 +117,10 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     ConfiguredTarget dep = Iterables.getOnlyElement(
         SkyframeExecutorTestUtils.getExistingConfiguredTargets(
             skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
-    assertThat(dep.getConfiguration()).isEqualTo(getHostConfiguration());
+    assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
     // This is technically redundant, but slightly stronger in sanity checking that the host
     // configuration doesn't happen to match what the patch would have done.
-    assertThat(LateBoundSplitUtil.getOptions(dep.getConfiguration()).fooFlag).isEmpty();
+    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
   }
 
   @Test
@@ -136,9 +136,9 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep"));
     assertThat(deps).hasSize(2);
     assertThat(
-        ImmutableList.of(
-            LateBoundSplitUtil.getOptions(Iterables.get(deps, 0).getConfiguration()).fooFlag,
-            LateBoundSplitUtil.getOptions(Iterables.get(deps, 1).getConfiguration()).fooFlag))
+            ImmutableList.of(
+                LateBoundSplitUtil.getOptions(getConfiguration(Iterables.get(deps, 0))).fooFlag,
+                LateBoundSplitUtil.getOptions(getConfiguration(Iterables.get(deps, 1))).fooFlag))
         .containsExactly("one", "two");
   }
 
@@ -160,9 +160,9 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     ConfiguredTarget dep = Iterables.getOnlyElement(
         SkyframeExecutorTestUtils.getExistingConfiguredTargets(
             skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
-    assertThat(dep.getConfiguration()).isEqualTo(getHostConfiguration());
+    assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
     // This is technically redundant, but slightly stronger in sanity checking that the host
     // configuration doesn't happen to match what the split would have done.
-    assertThat(LateBoundSplitUtil.getOptions(dep.getConfiguration()).fooFlag).isEmpty();
+    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
   }
 }

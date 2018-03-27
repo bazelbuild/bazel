@@ -105,8 +105,7 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
         getConfiguredTargetAndData("//foo:host_src3.cc", getHostConfiguration());
     TransitiveInfoCollection hostGeneratedFileConsumer3 =
         ((OutputFileConfiguredTarget) hostSrc3.getConfiguredTarget()).getGeneratingRule();
-    assertThat(hostSrc3.getConfiguration())
-        .isEqualTo(hostGeneratedFileConsumer3.getConfiguration());
+    assertThat(hostSrc3.getConfiguration()).isEqualTo(getConfiguration(hostGeneratedFileConsumer3));
     // TODO(gregce): enable below for Bazel tests, which for some reason realize the same instance
 //    assertThat(hostSrc3.getConfiguration())
 //        .isNotSameAs(hostGeneratedFileConsumer3.getConfiguration());
