@@ -83,7 +83,6 @@ StartupOptions::StartupOptions(const string &product_name,
       oom_more_eagerly_threshold(100),
       write_command_log(true),
       watchfs(false),
-      allow_configurable_attributes(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
       connect_timeout_secs(30),
@@ -122,7 +121,6 @@ StartupOptions::StartupOptions(const string &product_name,
   // IMPORTANT: Before modifying the statements below please contact a Bazel
   // core team member that knows the internal procedure for adding/deprecating
   // startup flags.
-  RegisterNullaryStartupFlag("allow_configurable_attributes");
   RegisterNullaryStartupFlag("batch");
   RegisterNullaryStartupFlag("batch_cpu_scheduling");
   RegisterNullaryStartupFlag("block_for_lock");
@@ -268,12 +266,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nobatch_cpu_scheduling")) {
     batch_cpu_scheduling = false;
     option_sources["batch_cpu_scheduling"] = rcfile;
-  } else if (GetNullaryOption(arg, "--allow_configurable_attributes")) {
-    allow_configurable_attributes = true;
-    option_sources["allow_configurable_attributes"] = rcfile;
-  } else if (GetNullaryOption(arg, "--noallow_configurable_attributes")) {
-    allow_configurable_attributes = false;
-    option_sources["allow_configurable_attributes"] = rcfile;
   } else if (GetNullaryOption(arg, "--fatal_event_bus_exceptions")) {
     fatal_event_bus_exceptions = true;
     option_sources["fatal_event_bus_exceptions"] = rcfile;

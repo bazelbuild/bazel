@@ -126,7 +126,6 @@ TEST_F(StartupOptionsTest, ValidStartupFlagsTest) {
   // IMPORTANT: Before modifying this test, please contact a Bazel core team
   // member that knows the Google-internal procedure for adding/deprecating
   // startup flags.
-  SuccessfulIsNullaryTest("allow_configurable_attributes");
   SuccessfulIsNullaryTest("batch");
   SuccessfulIsNullaryTest("batch_cpu_scheduling");
   SuccessfulIsNullaryTest("block_for_lock");
