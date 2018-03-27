@@ -476,7 +476,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
             getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
-            ConfiguredTargetKey.of(owner));
+            ConfiguredTargetKey.of(
+                owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
   }
 
   protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {

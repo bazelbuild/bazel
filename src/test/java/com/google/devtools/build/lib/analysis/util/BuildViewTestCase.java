@@ -1124,7 +1124,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.of(owner));
+        ConfiguredTargetKey.of(
+            owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
   }
 
   /**
@@ -1200,8 +1201,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * just be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ConfiguredTargetKey configKey = ConfiguredTargetKey.of(owner);
-    return getGenfilesArtifact(packageRelativePath, configKey, owner.getConfiguration());
+    BuildConfiguration configuration =
+        skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey());
+    ConfiguredTargetKey configKey = ConfiguredTargetKey.of(owner, configuration);
+    return getGenfilesArtifact(packageRelativePath, configKey, configuration);
   }
 
   /**
@@ -1283,7 +1286,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.of(owner));
+        ConfiguredTargetKey.of(
+            owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
   }
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {
