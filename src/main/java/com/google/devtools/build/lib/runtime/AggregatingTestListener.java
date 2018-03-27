@@ -222,7 +222,7 @@ public class AggregatingTestListener {
   @AllowConcurrentEvents
   public void targetComplete(TargetCompleteEvent event) {
     if (event.failed()) {
-      targetFailure(ConfiguredTargetKey.of(event.getTarget()));
+      targetFailure(asKey(event.getTarget()));
     }
   }
 
@@ -263,6 +263,9 @@ public class AggregatingTestListener {
 
   private ConfiguredTargetKey asKey(ConfiguredTarget target) {
     return ConfiguredTargetKey.of(
-        AliasProvider.getDependencyLabel(target), target.getConfiguration());
+        // A test is never in the host configuration.
+        AliasProvider.getDependencyLabel(target),
+        target.getConfigurationKey(),
+        /*isHostConfiguration=*/ false);
   }
 }
