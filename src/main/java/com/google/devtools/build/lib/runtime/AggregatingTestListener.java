@@ -100,9 +100,11 @@ public class AggregatingTestListener {
 
         // And create an empty summary suitable for incremental analysis.
         // Also has the nice side effect of mapping labels to RuleConfiguredTargets.
-        TestSummary.Builder summary = TestSummary.newBuilder()
-            .setTarget(target)
-            .setStatus(BlazeTestStatus.NO_STATUS);
+        TestSummary.Builder summary =
+            TestSummary.newBuilder()
+                .setTarget(target)
+                .setConfiguration(event.getConfigurationForTarget(target))
+                .setStatus(BlazeTestStatus.NO_STATUS);
         TestSummary.Builder oldSummary = summaries.put(asKey(target), summary);
         Preconditions.checkState(
             oldSummary == null, "target: %s, summaries: %s %s", target, oldSummary, summary);

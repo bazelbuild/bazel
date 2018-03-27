@@ -177,6 +177,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -1494,6 +1495,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         .getConfiguration();
   }
 
+  public Map<BuildConfigurationValue.Key, BuildConfiguration> getConfigurations(
+      ExtendedEventHandler eventHandler, ImmutableSet<BuildConfigurationValue.Key> keys) {
+    EvaluationResult<SkyValue> evaluationResult = evaluateSkyKeys(eventHandler, keys);
+    return keys.stream()
+        .collect(
+            Collectors.toMap(
+                java.util.function.Function.identity(),
+                (key) -> ((BuildConfigurationValue) evaluationResult.get(key)).getConfiguration()));
+  }
   /**
    * Returns the configurations corresponding to the given sets of build options. Output order is
    * the same as input order.
@@ -1665,7 +1675,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * first evaluation error.
    */
   private EvaluationResult<SkyValue> evaluateSkyKeys(
-      final ExtendedEventHandler eventHandler, final Iterable<SkyKey> skyKeys) {
+      final ExtendedEventHandler eventHandler, final Iterable<? extends SkyKey> skyKeys) {
     return evaluateSkyKeys(eventHandler, skyKeys, false);
   }
 
@@ -1675,7 +1685,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   EvaluationResult<SkyValue> evaluateSkyKeys(
       final ExtendedEventHandler eventHandler,
-      final Iterable<SkyKey> skyKeys,
+      final Iterable<? extends SkyKey> skyKeys,
       final boolean keepGoing) {
     EvaluationResult<SkyValue> result;
     try {

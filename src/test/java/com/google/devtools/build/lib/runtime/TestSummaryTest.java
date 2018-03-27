@@ -71,6 +71,7 @@ public class TestSummaryTest {
   private TestSummary.Builder getTemplateBuilder() {
     return TestSummary.newBuilder()
         .setTarget(stubTarget)
+        .setConfiguration(stubTarget.getConfiguration())
         .setStatus(BlazeTestStatus.PASSED)
         .setNumCached(NOT_CACHED)
         .setActionRan(true)
