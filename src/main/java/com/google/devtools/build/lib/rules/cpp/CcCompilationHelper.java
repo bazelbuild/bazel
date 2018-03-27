@@ -20,8 +20,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -47,17 +47,16 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcBuildVariables.CompileBuildVariables;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -89,95 +88,8 @@ public final class CcCompilationHelper {
           + "hidden_header_tokens"
           + OutputGroupInfo.INTERNAL_SUFFIX;
 
-  private static final String PIC_CONFIGURATION_ERROR =
+  public static final String PIC_CONFIGURATION_ERROR =
       "PIC compilation is requested but the toolchain does not support it";
-  /** Name of the build variable for the path to the source file being compiled. */
-  public static final String SOURCE_FILE_VARIABLE_NAME = "source_file";
-
-  /** Name of the build variable for the path to the compilation output file. */
-  public static final String OUTPUT_FILE_VARIABLE_NAME = "output_file";
-
-  /**
-   * Build variable for all flags coming from copt rule attribute, and from --copt, --cxxopt, or
-   * --conlyopt options.
-   */
-  public static final String USER_COMPILE_FLAGS_VARIABLE_NAME = "user_compile_flags";
-
-  /**
-   * Build variable for all flags coming from legacy crosstool fields, such as compiler_flag,
-   * optional_compiler_flag, cxx_flag, optional_cxx_flag.
-   */
-  public static final String LEGACY_COMPILE_FLAGS_VARIABLE_NAME = "legacy_compile_flags";
-
-  /** Build variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
-  public static final String UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME = "unfiltered_compile_flags";
-
-  /**
-   * Name of the build variable marking that we are generating assembly source (from --save_temps).
-   */
-  private static final String OUTPUT_ASSEMBLY_FILE_VARIABLE_NAME = "output_assembly_file";
-
-  /**
-   * Name of the build variable marking that we are generating preprocessed sources (from
-   * --save_temps).
-   */
-  public static final String OUTPUT_PREPROCESS_FILE_VARIABLE_NAME = "output_preprocess_file";
-
-  /** Name of the build variable for the path to the output file when output is an object file. */
-  public static final String OUTPUT_OBJECT_FILE_VARIABLE_NAME = "output_object_file";
-
-  /**
-   * Name of the build variable for the collection of include paths.
-   *
-   * @see CcCompilationInfo#getIncludeDirs().
-   */
-  public static final String INCLUDE_PATHS_VARIABLE_NAME = "include_paths";
-
-  /**
-   * Name of the build variable for the collection of quote include paths.
-   *
-   * @see CcCompilationInfo#getIncludeDirs().
-   */
-  public static final String QUOTE_INCLUDE_PATHS_VARIABLE_NAME = "quote_include_paths";
-
-  /**
-   * Name of the build variable for the collection of system include paths.
-   *
-   * @see CcCompilationInfo#getIncludeDirs().
-   */
-  public static final String SYSTEM_INCLUDE_PATHS_VARIABLE_NAME = "system_include_paths";
-
-  /** Name of the build variable for the collection of macros defined for preprocessor. */
-  public static final String PREPROCESSOR_DEFINES_VARIABLE_NAME = "preprocessor_defines";
-
-  /** Name of the build variable present when the output is compiled as position independent. */
-  public static final String PIC_VARIABLE_NAME = "pic";
-
-  /** Name of the build variable for the dependency file path */
-  private static final String DEPENDENCY_FILE_VARIABLE_NAME = "dependency_file";
-
-  /** Name of the build variable for the module file name. */
-  private static final String MODULE_NAME_VARIABLE_NAME = "module_name";
-
-  /** Name of the build variable for the module map file name. */
-  private static final String MODULE_MAP_FILE_VARIABLE_NAME = "module_map_file";
-
-  /** Name of the build variable for the dependent module map file name. */
-  private static final String DEPENDENT_MODULE_MAP_FILES_VARIABLE_NAME =
-      "dependent_module_map_files";
-
-  /** Name of the build variable for the collection of module files. */
-  private static final String MODULE_FILES_VARIABLE_NAME = "module_files";
-
-  /** Name of the build variable for the gcov coverage file path. */
-  private static final String GCOV_GCNO_FILE_VARIABLE_NAME = "gcov_gcno_file";
-
-  /** Name of the build variable for the per object debug info file. */
-  private static final String PER_OBJECT_DEBUG_INFO_FILE_VARIABLE_NAME =
-      "per_object_debug_info_file";
-
-  /** Name of the build variable for the LTO indexing bitcode file. */
-  private static final String LTO_INDEXING_BITCODE_FILE_VARIABLE_NAME = "lto_indexing_bitcode_file";
 
   /**
    * A group of source file types and action names for builds controlled by CcCompilationHelper.
@@ -1129,67 +1041,6 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /**
-   * Return flags that were specified on the Blaze command line. Take the filetype of sourceFilename
-   * into account.
-   */
-  public static ImmutableList<String> getCoptsFromOptions(
-      CppConfiguration config, String sourceFilename) {
-    ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
-
-    flagsBuilder.addAll(config.getCopts());
-
-    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
-      flagsBuilder.addAll(config.getCOptions());
-    }
-
-    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
-        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
-        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
-        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
-      flagsBuilder.addAll(config.getCxxopts());
-    }
-
-    return flagsBuilder.build();
-  }
-
-  /**
-   * Supplier that computes legacy_compile_flags lazily at the execution phase.
-   *
-   * <p>Dear friends of the lambda, this method exists to limit the scope of captured variables only
-   * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
-   */
-  public static Supplier<ImmutableList<String>> getLegacyCompileFlagsSupplier(
-      CppConfiguration cppConfiguration,
-      CcToolchainProvider toolchain,
-      String sourceFilename,
-      ImmutableSet<String> features) {
-    return () -> {
-      ImmutableList.Builder<String> legacyCompileFlags = ImmutableList.builder();
-      legacyCompileFlags.addAll(
-          CppHelper.getCrosstoolCompilerOptions(cppConfiguration, toolchain, features));
-      if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
-          || CppFileTypes.CPP_HEADER.matches(sourceFilename)
-          || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
-          || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
-        legacyCompileFlags.addAll(
-            CppHelper.getCrosstoolCxxOptions(cppConfiguration, toolchain, features));
-      }
-      return legacyCompileFlags.build();
-    };
-  }
-
-  /**
-   * Supplier that computes unfiltered_compile_flags lazily at the execution phase.
-   *
-   * <p>Dear friends of the lambda, this method exists to limit the scope of captured variables only
-   * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
-   */
-  public static Supplier<ImmutableList<String>> getUnfilteredCompileFlagsSupplier(
-      CcToolchainProvider ccToolchain, ImmutableSet<String> features) {
-    return () -> ccToolchain.getUnfilteredCompilerOptions(features);
-  }
-
   private UmbrellaHeaderAction createUmbrellaHeaderAction(
       Artifact umbrellaHeader, PublicHeaders publicHeaders) {
     return new UmbrellaHeaderAction(
@@ -1500,18 +1351,19 @@ public final class CcCompilationHelper {
         CppHelper.getCompileOutputTreeArtifact(ruleContext, sourceArtifact, outputName, usePic);
     // TODO(rduan): Dotd file output is not supported yet.
     builder.setOutputs(outputFiles, /* dotdFile= */ null);
-    setupCompileBuildVariables(
-        builder,
-        source.getLabel(),
-        usePic,
-        /* ccRelativeName= */ null,
-        /* outputName= */ null,
-        /* autoFdoImportPath= */ null,
-        /* gcnoFile= */ null,
-        /* dwoFile= */ null,
-        /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap(),
-        /* additionalBuildVariables= */ ImmutableMap.of());
+    builder.setVariables(
+        setupCompileBuildVariables(
+            builder,
+            /* sourceLabel= */ null,
+            /* outputName= */ null,
+            usePic,
+            /* ccRelativeName= */ null,
+            /* autoFdoImportPath= */ null,
+            ccCompilationInfo.getCppModuleMap(),
+            /* gcnoFile= */ null,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            /* additionalBuildVariables= */ ImmutableMap.of()));
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
     CppCompileActionTemplate actionTemplate =
@@ -1527,160 +1379,90 @@ public final class CcCompilationHelper {
     return outputFiles;
   }
 
-  private void setupCompileBuildVariables(
+  /**
+   * Return flags that were specified on the Blaze command line. Take the filetype of sourceFilename
+   * into account.
+   */
+  public static ImmutableList<String> getCoptsFromOptions(
+      CppConfiguration config, String sourceFilename) {
+    ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
+
+    flagsBuilder.addAll(config.getCopts());
+
+    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
+      flagsBuilder.addAll(config.getCOptions());
+    }
+
+    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
+        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
+        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
+      flagsBuilder.addAll(config.getCxxopts());
+    }
+
+    return flagsBuilder.build();
+  }
+
+  private Variables setupCompileBuildVariables(
       CppCompileActionBuilder builder,
       Label sourceLabel,
+      String outputName,
       boolean usePic,
       PathFragment ccRelativeName,
-      String outputName,
       PathFragment autoFdoImportPath,
+      CppModuleMap cppModuleMap,
       Artifact gcnoFile,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
-      CppModuleMap cppModuleMap,
       ImmutableMap<String, String> additionalBuildVariables) {
-    CcToolchainFeatures.Variables.Builder buildVariables =
-        new CcToolchainFeatures.Variables.Builder(ccToolchain.getBuildVariables());
-
-    CcCompilationInfo builderCcCompilationInfo = builder.getCcCompilationInfo();
     Artifact sourceFile = builder.getSourceFile();
-    String sourceFilename = sourceFile.getExecPathString();
-
-    buildVariables.addStringVariable(SOURCE_FILE_VARIABLE_NAME, sourceFile.getExecPathString());
-    buildVariables.addStringSequenceVariable(
-        USER_COMPILE_FLAGS_VARIABLE_NAME,
-        ImmutableList.<String>builder()
-            // Add after the copts that come from the target.
-            .addAll(getCoptsFromOptions(cppConfiguration, sourceFilename))
-            .addAll(copts)
-            .addAll(collectPerFileCopts(sourceFile, sourceLabel))
-            .build());
-
-    buildVariables.addLazyStringSequenceVariable(
-        LEGACY_COMPILE_FLAGS_VARIABLE_NAME,
-        getLegacyCompileFlagsSupplier(cppConfiguration, ccToolchain, sourceFilename, features));
-
-    if (!CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
-        && !CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
-      buildVariables.addLazyStringSequenceVariable(
-          UNFILTERED_COMPILE_FLAGS_VARIABLE_NAME,
-          getUnfilteredCompileFlagsSupplier(ccToolchain, features));
+    Builder<String> userCompileFlags = ImmutableList.builder();
+    userCompileFlags.addAll(getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()));
+    userCompileFlags.addAll(copts);
+    if (sourceFile != null && sourceLabel != null) {
+      userCompileFlags.addAll(collectPerFileCopts(sourceFile, sourceLabel));
     }
-
-    // TODO(hlopko): Remove once blaze with this is released and crosstools are updated.
-    if (!FileType.contains(
-        builder.getOutputFile(),
-        CppFileTypes.ASSEMBLER,
-        CppFileTypes.PIC_ASSEMBLER,
-        CppFileTypes.PREPROCESSED_C,
-        CppFileTypes.PREPROCESSED_CPP,
-        CppFileTypes.PIC_PREPROCESSED_C,
-        CppFileTypes.PIC_PREPROCESSED_CPP)) {
-      buildVariables.addStringVariable(
-          OUTPUT_OBJECT_FILE_VARIABLE_NAME, builder.getRealOutputFilePath().getSafePathString());
+    String dotdFileExecPath = null;
+    if (isGenerateDotdFile(builder.getSourceFile())) {
+      Preconditions.checkNotNull(builder.getDotdFile());
+      dotdFileExecPath = builder.getDotdFile().getSafeExecPath().getPathString();
     }
-    buildVariables.addStringVariable(
-        OUTPUT_FILE_VARIABLE_NAME, builder.getRealOutputFilePath().getSafePathString());
-
-    DotdFile dotdFile =
-        isGenerateDotdFile(sourceFile) ? Preconditions.checkNotNull(builder.getDotdFile()) : null;
-    // Set dependency_file to enable <object>.d file generation.
-    if (dotdFile != null) {
-      buildVariables.addStringVariable(
-          DEPENDENCY_FILE_VARIABLE_NAME, dotdFile.getSafeExecPath().getPathString());
-    }
-
-    if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
-      // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
-      // in any case, but don't crash.
-      buildVariables.addStringVariable(MODULE_NAME_VARIABLE_NAME, cppModuleMap.getName());
-      buildVariables.addStringVariable(
-          MODULE_MAP_FILE_VARIABLE_NAME, cppModuleMap.getArtifact().getExecPathString());
-      StringSequenceBuilder sequence = new StringSequenceBuilder();
-      for (Artifact artifact : builderCcCompilationInfo.getDirectModuleMaps()) {
-        sequence.addValue(artifact.getExecPathString());
-      }
-      buildVariables.addCustomBuiltVariable(DEPENDENT_MODULE_MAP_FILES_VARIABLE_NAME, sequence);
-    }
-    if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
-      // Module inputs will be set later when the action is executed.
-      buildVariables.addStringSequenceVariable(MODULE_FILES_VARIABLE_NAME, ImmutableSet.of());
-    }
-    if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
-      buildVariables.addStringSequenceVariable(
-          INCLUDE_PATHS_VARIABLE_NAME,
-          getSafePathStrings(builderCcCompilationInfo.getIncludeDirs()));
-      buildVariables.addStringSequenceVariable(
-          QUOTE_INCLUDE_PATHS_VARIABLE_NAME,
-          getSafePathStrings(builderCcCompilationInfo.getQuoteIncludeDirs()));
-      buildVariables.addStringSequenceVariable(
-          SYSTEM_INCLUDE_PATHS_VARIABLE_NAME,
-          getSafePathStrings(builderCcCompilationInfo.getSystemIncludeDirs()));
-    }
-
-    if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESSOR_DEFINES)) {
-      String fdoBuildStamp = CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport());
-      ImmutableList<String> defines;
-      if (fdoBuildStamp != null) {
-        // Stamp FDO builds with FDO subtype string
-        defines =
-            ImmutableList.<String>builder()
-                .addAll(builderCcCompilationInfo.getDefines())
-                .add(
-                    CppConfiguration.FDO_STAMP_MACRO
-                        + "=\""
-                        + CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport())
-                        + "\"")
-                .build();
-      } else {
-        defines = builderCcCompilationInfo.getDefines();
-      }
-
-      buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES_VARIABLE_NAME, defines);
-    }
-
-    if (usePic) {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
-        ruleContext.ruleError(PIC_CONFIGURATION_ERROR);
-      }
-      buildVariables.addStringVariable(PIC_VARIABLE_NAME, "");
-    }
-
+    ImmutableMap.Builder<String, String> allAdditionalBuildVariables = ImmutableMap.builder();
+    allAdditionalBuildVariables.putAll(additionalBuildVariables);
     if (ccRelativeName != null) {
-      fdoSupport
-          .getFdoSupport()
-          .configureCompilation(
-              builder,
-              buildVariables,
-              ruleContext,
-              ccRelativeName,
-              autoFdoImportPath,
-              PathFragment.create(outputName),
-              usePic,
-              featureConfiguration,
-              fdoSupport);
+      allAdditionalBuildVariables.putAll(
+          fdoSupport
+              .getFdoSupport()
+              .configureCompilation(
+                  builder,
+                  ruleContext,
+                  ccRelativeName,
+                  autoFdoImportPath,
+                  PathFragment.create(outputName),
+                  usePic,
+                  featureConfiguration,
+                  fdoSupport));
     }
-    if (gcnoFile != null) {
-      buildVariables.addStringVariable(GCOV_GCNO_FILE_VARIABLE_NAME, gcnoFile.getExecPathString());
-    }
-
-    if (dwoFile != null) {
-      buildVariables.addStringVariable(
-          PER_OBJECT_DEBUG_INFO_FILE_VARIABLE_NAME, dwoFile.getExecPathString());
-    }
-
-    if (ltoIndexingFile != null) {
-      buildVariables.addStringVariable(
-          LTO_INDEXING_BITCODE_FILE_VARIABLE_NAME, ltoIndexingFile.getExecPathString());
-    }
-
-    buildVariables.addAllStringVariables(additionalBuildVariables);
-    for (VariablesExtension extension : variablesExtensions) {
-      extension.addVariables(buildVariables);
-    }
-
-    CcToolchainFeatures.Variables variables = buildVariables.build();
-    builder.setVariables(variables);
+    return CcBuildVariables.setupCompileBuildVariables(
+        ruleContext,
+        featureConfiguration,
+        ccToolchain,
+        sourceFile,
+        builder.getOutputFile(),
+        gcnoFile,
+        dwoFile,
+        ltoIndexingFile,
+        ccCompilationInfo,
+        ImmutableList.of(),
+        userCompileFlags.build(),
+        cppModuleMap,
+        usePic,
+        builder.getRealOutputFilePath(),
+        CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
+        dotdFileExecPath,
+        ImmutableList.copyOf(variablesExtensions),
+        allAdditionalBuildVariables.build(),
+        features);
   }
 
   /**
@@ -1750,18 +1532,19 @@ public final class CcCompilationHelper {
             && CppFileTypes.LTO_SOURCE.matches(module.getFilename());
     Preconditions.checkState(!bitcodeOutput);
 
-    setupCompileBuildVariables(
-        builder,
-        sourceLabel,
-        /* usePic= */ pic,
-        ccRelativeName,
-        outputName,
-        module.getExecPath(),
-        gcnoFile,
-        dwoFile,
-        /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap(),
-        /* additionalBuildVariables= */ ImmutableMap.of());
+    builder.setVariables(
+        setupCompileBuildVariables(
+            builder,
+            sourceLabel,
+            outputName,
+            /* usePic= */ pic,
+            ccRelativeName,
+            module.getExecPath(),
+            ccCompilationInfo.getCppModuleMap(),
+            gcnoFile,
+            dwoFile,
+            /* ltoIndexingFile= */ null,
+            /* additionalBuildVariables= */ ImmutableMap.of()));
 
     builder.setGcnoFile(gcnoFile);
     builder.setDwoFile(dwoFile);
@@ -1800,18 +1583,19 @@ public final class CcCompilationHelper {
         .setOutputs(ruleContext, ArtifactCategory.PROCESSED_HEADER, outputNameBase, generateDotd)
         // If we generate pic actions, we prefer the header actions to use the pic artifacts.
         .setPicMode(getGeneratePicActions());
-    setupCompileBuildVariables(
-        builder,
-        sourceLabel,
-        this.getGeneratePicActions(),
-        /* ccRelativeName= */ null,
-        /* outputName= */ null,
-        /* autoFdoImportPath= */ null,
-        /* gcnoFile= */ null,
-        /* dwoFile= */ null,
-        /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap(),
-        /* additionalBuildVariables= */ ImmutableMap.of());
+    builder.setVariables(
+        setupCompileBuildVariables(
+            builder,
+            sourceLabel,
+            /* outputName= */ null,
+            this.getGeneratePicActions(),
+            /* ccRelativeName= */ null,
+            /* autoFdoImportPath= */ null,
+            ccCompilationInfo.getCppModuleMap(),
+            /* gcnoFile= */ null,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            /* additionalBuildVariables= */ ImmutableMap.of()));
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(compileAction);
@@ -1917,18 +1701,19 @@ public final class CcCompilationHelper {
         Artifact ltoIndexingFile =
             bitcodeOutput ? getLtoIndexingFile(picBuilder.getOutputFile()) : null;
 
-        setupCompileBuildVariables(
-            picBuilder,
-            sourceLabel,
-            /* usePic= */ true,
-            ccRelativeName,
-            outputName,
-            sourceArtifact.getExecPath(),
-            gcnoFile,
-            dwoFile,
-            ltoIndexingFile,
-            cppModuleMap,
-            /* additionalBuildVariables= */ ImmutableMap.of());
+        picBuilder.setVariables(
+            setupCompileBuildVariables(
+                picBuilder,
+                sourceLabel,
+                outputName,
+                /* usePic= */ true,
+                ccRelativeName,
+                sourceArtifact.getExecPath(),
+                ccCompilationInfo.getCppModuleMap(),
+                gcnoFile,
+                dwoFile,
+                ltoIndexingFile,
+                /* additionalBuildVariables= */ ImmutableMap.of()));
 
         result.addTemps(
             createTempsActions(
@@ -1986,18 +1771,19 @@ public final class CcCompilationHelper {
         Artifact ltoIndexingFile =
             bitcodeOutput ? getLtoIndexingFile(builder.getOutputFile()) : null;
 
-        setupCompileBuildVariables(
-            builder,
-            sourceLabel,
-            /* usePic= */ false,
-            ccRelativeName,
-            outputName,
-            sourceArtifact.getExecPath(),
-            gcnoFile,
-            noPicDwoFile,
-            ltoIndexingFile,
-            cppModuleMap,
-            /* additionalBuildVariables= */ ImmutableMap.of());
+        builder.setVariables(
+            setupCompileBuildVariables(
+                builder,
+                sourceLabel,
+                outputName,
+                /* usePic= */ false,
+                ccRelativeName,
+                sourceArtifact.getExecPath(),
+                cppModuleMap,
+                gcnoFile,
+                noPicDwoFile,
+                ltoIndexingFile,
+                /* additionalBuildVariables= */ ImmutableMap.of()));
 
         result.addTemps(
             createTempsActions(
@@ -2090,18 +1876,19 @@ public final class CcCompilationHelper {
         .setOutputs(ruleContext, outputCategory, outputNameBase, generateDotd)
         .setTempOutputFile(PathFragment.create(tempOutputName));
 
-    setupCompileBuildVariables(
-        builder,
-        sourceLabel,
-        usePic,
-        ccRelativeName,
-        outputName,
-        execPath,
-        /* gcnoFile= */ null,
-        /* dwoFile= */ null,
-        /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap(),
-        /* additionalBuildVariables= */ ImmutableMap.of());
+    builder.setVariables(
+        setupCompileBuildVariables(
+            builder,
+            sourceLabel,
+            outputName,
+            usePic,
+            ccRelativeName,
+            execPath,
+            ccCompilationInfo.getCppModuleMap(),
+            /* gcnoFile= */ null,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            /* additionalBuildVariables= */ ImmutableMap.of()));
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction action = builder.buildOrThrowRuleError(ruleContext);
     env.registerAction(action);
@@ -2159,15 +1946,6 @@ public final class CcCompilationHelper {
         .collect(ImmutableList.toImmutableList());
   }
 
-  /** Get the safe path strings for a list of paths to use in the build variables. */
-  private ImmutableSet<String> getSafePathStrings(Collection<PathFragment> paths) {
-    ImmutableSet.Builder<String> result = ImmutableSet.builder();
-    for (PathFragment path : paths) {
-      result.add(path.getSafePathString());
-    }
-    return result.build();
-  }
-
   private Artifact getDwoFile(Artifact outputFile) {
     return ruleContext.getRelatedArtifact(outputFile.getRootRelativePath(), ".dwo");
   }
@@ -2206,20 +1984,21 @@ public final class CcCompilationHelper {
 
     CppCompileActionBuilder dBuilder = new CppCompileActionBuilder(builder);
     dBuilder.setOutputs(ruleContext, category, outputArtifactNameBase, generateDotd);
-    setupCompileBuildVariables(
-        dBuilder,
-        sourceLabel,
-        usePic,
-        ccRelativeName,
-        outputName,
-        source.getExecPath(),
-        /* gcnoFile= */ null,
-        /* dwoFile= */ null,
-        /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap(),
-        ImmutableMap.of(
-            OUTPUT_PREPROCESS_FILE_VARIABLE_NAME,
-            dBuilder.getRealOutputFilePath().getSafePathString()));
+    dBuilder.setVariables(
+        setupCompileBuildVariables(
+            dBuilder,
+            sourceLabel,
+            outputName,
+            usePic,
+            ccRelativeName,
+            source.getExecPath(),
+            ccCompilationInfo.getCppModuleMap(),
+            /* gcnoFile= */ null,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            ImmutableMap.of(
+                CompileBuildVariables.OUTPUT_PREPROCESS_FILE.getVariableName(),
+                dBuilder.getRealOutputFilePath().getSafePathString())));
     semantics.finalizeCompileActionBuilder(ruleContext, dBuilder);
     CppCompileAction dAction = dBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(dAction);
@@ -2227,20 +2006,21 @@ public final class CcCompilationHelper {
     CppCompileActionBuilder sdBuilder = new CppCompileActionBuilder(builder);
     sdBuilder.setOutputs(
         ruleContext, ArtifactCategory.GENERATED_ASSEMBLY, outputArtifactNameBase, generateDotd);
-    setupCompileBuildVariables(
-        sdBuilder,
-        sourceLabel,
-        usePic,
-        ccRelativeName,
-        outputName,
-        source.getExecPath(),
-        /* gcnoFile= */ null,
-        /* dwoFile= */ null,
-        /* ltoIndexingFile= */ null,
-        builder.getCcCompilationInfo().getCppModuleMap(),
-        ImmutableMap.of(
-            OUTPUT_ASSEMBLY_FILE_VARIABLE_NAME,
-            sdBuilder.getRealOutputFilePath().getSafePathString()));
+    sdBuilder.setVariables(
+        setupCompileBuildVariables(
+            sdBuilder,
+            sourceLabel,
+            outputName,
+            usePic,
+            ccRelativeName,
+            source.getExecPath(),
+            ccCompilationInfo.getCppModuleMap(),
+            /* gcnoFile= */ null,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            ImmutableMap.of(
+                CompileBuildVariables.OUTPUT_ASSEMBLY_FILE.getVariableName(),
+                sdBuilder.getRealOutputFilePath().getSafePathString())));
     semantics.finalizeCompileActionBuilder(ruleContext, sdBuilder);
     CppCompileAction sdAction = sdBuilder.buildOrThrowRuleError(ruleContext);
     ruleContext.registerAction(sdAction);

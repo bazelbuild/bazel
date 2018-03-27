@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.rules.cpp.CcBuildVariables.CompileBuildVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -594,9 +595,8 @@ public class FdoSupport {
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
   @ThreadSafe
-  public void configureCompilation(
+  public ImmutableMap<String, String> configureCompilation(
       CppCompileActionBuilder builder,
-      CcToolchainFeatures.Variables.Builder buildVariables,
       RuleContext ruleContext,
       PathFragment sourceName,
       PathFragment sourceExecPath,
@@ -607,11 +607,14 @@ public class FdoSupport {
 
     // FDO is disabled -> do nothing.
     if ((fdoInstrument == null) && (fdoRoot == null)) {
-      return;
+      return ImmutableMap.of();
     }
 
+    ImmutableMap.Builder<String, String> variablesBuilder = ImmutableMap.builder();
+
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
+      variablesBuilder.put(
+          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
     }
 
     // Optimization phase
@@ -619,7 +622,7 @@ public class FdoSupport {
       AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
       // Declare dependency on contents of zip file.
       if (env.getSkyframeEnv().valuesMissing()) {
-        return;
+        return ImmutableMap.of();
       }
       Iterable<Artifact> auxiliaryInputs =
           getAuxiliaryInputs(
@@ -627,19 +630,24 @@ public class FdoSupport {
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
-          buildVariables.addStringVariable(
-              "fdo_profile_path", getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
+          variablesBuilder.put(
+              CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+              getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
           if (fdoMode == FdoMode.LLVM_FDO) {
-            buildVariables.addStringVariable(
-                "fdo_profile_path", fdoSupportProvider.getProfileArtifact().getExecPathString());
+            variablesBuilder.put(
+                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+                fdoSupportProvider.getProfileArtifact().getExecPathString());
           } else {
-            buildVariables.addStringVariable("fdo_profile_path", fdoRootExecPath.getPathString());
+            variablesBuilder.put(
+                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+                fdoRootExecPath.getPathString());
           }
         }
       }
     }
+    return variablesBuilder.build();
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
