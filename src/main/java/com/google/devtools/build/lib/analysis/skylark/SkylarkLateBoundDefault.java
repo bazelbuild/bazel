@@ -71,6 +71,9 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
    */
   private static Label getDefaultLabel(
       SkylarkConfigurationField annotation, String toolsRepository) {
+    if (annotation.defaultLabel().isEmpty()) {
+      return null;
+    }
     Label defaultLabel = annotation.defaultInToolRepository()
         ? Label.parseAbsoluteUnchecked(toolsRepository + annotation.defaultLabel())
         : Label.parseAbsoluteUnchecked(annotation.defaultLabel());

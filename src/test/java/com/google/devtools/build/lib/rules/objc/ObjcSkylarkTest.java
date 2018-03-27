@@ -25,11 +25,9 @@ import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -263,6 +261,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   cpu = ctx.fragments.apple.ios_cpu()",
         "   platform = ctx.fragments.apple.ios_cpu_platform()",
         "   xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]",
+        "   dead_code_report = ctx.attr._dead_code_report",
         "   env = apple_common.target_apple_env(xcode_config, platform)",
         "   xcode_version = xcode_config.xcode_version()",
         "   sdk_version = xcode_config.sdk_version_for_platform(platform)",
@@ -278,14 +277,19 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "      single_arch_platform=str(single_arch_platform),",
         "      single_arch_cpu=str(single_arch_cpu),",
         "      platform_type=str(platform_type),",
-        "      bitcode_mode=str(bitcode_mode)",
+        "      bitcode_mode=str(bitcode_mode),",
+        "      dead_code_report=str(dead_code_report),",
         "   )",
         "swift_binary = rule(",
         "    implementation = swift_binary_impl,",
         "    fragments = ['apple'],",
-        "    attrs = { '_xcode_config': ",
-        "        attr.label(default = configuration_field(",
-        "            fragment = 'apple', name = 'xcode_config_label')),",
+        "    attrs = {",
+        "        '_xcode_config': attr.label(",
+        "            default = configuration_field(",
+        "                fragment = 'apple', name = 'xcode_config_label')),",
+        "        '_dead_code_report': attr.label(",
+        "            default = configuration_field(",
+        "                fragment = 'j2objc', name = 'dead_code_report')),",
         "    },",
         ")");
 
@@ -317,8 +321,85 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(skylarkTarget.get("single_arch_cpu")).isEqualTo("i386");
     assertThat(skylarkTarget.get("platform_type")).isEqualTo("ios");
     assertThat(skylarkTarget.get("bitcode_mode")).isEqualTo("none");
+    assertThat(skylarkTarget.get("dead_code_report")).isEqualTo("None");
   }
-  
+
+  @Test
+  public void testDefaultJ2objcDeadCodeReport() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def swift_binary_impl(ctx):",
+        "   dead_code_report = ctx.attr._dead_code_report",
+        "   return struct(",
+        "      dead_code_report=str(dead_code_report),",
+        "   )",
+        "swift_binary = rule(",
+        "    implementation = swift_binary_impl,",
+        "    fragments = ['j2objc'],",
+        "    attrs = {",
+        "        '_dead_code_report': attr.label(",
+        "            default = configuration_field(",
+        "                fragment = 'j2objc', name = 'dead_code_report')),",
+        "    },",
+        ")");
+
+    scratch.file("examples/apple_skylark/a.m");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
+        "swift_binary(",
+        "   name='my_target',",
+        ")");
+
+    useConfiguration();
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    assertThat(skylarkTarget.get("dead_code_report")).isEqualTo("None");
+  }
+
+  @Test
+  public void testCustomJ2objcDeadCodeReport() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def dead_code_report_impl(ctx):",
+        "   return struct(foo='bar')",
+        "def swift_binary_impl(ctx):",
+        "   dead_code_report = ctx.attr._dead_code_report.foo",
+        "   return struct(",
+        "      dead_code_report=dead_code_report,",
+        "   )",
+        "dead_code_report = rule(",
+        "    implementation = dead_code_report_impl,",
+        ")",
+        "swift_binary = rule(",
+        "    implementation = swift_binary_impl,",
+        "    fragments = ['j2objc'],",
+        "    attrs = {",
+        "        '_dead_code_report': attr.label(",
+        "            default = configuration_field(",
+        "                fragment = 'j2objc', name = 'dead_code_report')),",
+        "    },",
+        ")");
+
+    scratch.file("examples/apple_skylark/a.m");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'dead_code_report', 'swift_binary')",
+        "swift_binary(",
+        "   name='my_target',",
+        ")",
+        "dead_code_report(name='dead_code_report')");
+
+    useConfiguration("--j2objc_dead_code_report=//examples/apple_skylark:dead_code_report");
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    assertThat(skylarkTarget.get("dead_code_report")).isEqualTo("bar");
+  }
+
   @Test
   public void testSkylarkCanAccessApplePlatformNames() throws Exception {
     scratch.file("examples/rule/BUILD");
@@ -527,41 +608,6 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(iosSimulatorVersion).isEqualTo("8.4");
     assertThat(signingCertificateName).isEqualTo("'Apple Developer'");
     assertThat(generateDsym).isTrue();
-  }
-
-  @Test
-  public void testSkylarkCanAccessJ2objcConfiguration() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/objc_rules.bzl",
-        "def test_rule_impl(ctx):",
-        "   dead_code_report = ctx.fragments.j2objc.dead_code_report",
-        "   return struct(",
-        "      dead_code_report=dead_code_report,",
-        "   )",
-        "test_rule = rule(",
-        "    implementation = test_rule_impl,",
-        "    fragments = ['j2objc']",
-        ")");
-
-    scratch.file(
-        "examples/objc_skylark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:objc_rules.bzl', 'test_rule')",
-        "test_rule(",
-        "   name='my_target',",
-        ")");
-
-    useConfiguration();
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
-    assertThat(skylarkTarget.get("dead_code_report")).isEqualTo(Runtime.NONE);
-
-    useConfiguration("--j2objc_dead_code_report=//foo:bar");
-    skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
-
-    @SuppressWarnings("unchecked")
-    Label label = (Label) skylarkTarget.get("dead_code_report");
-    assertThat(label.getCanonicalForm()).isEqualTo("//foo:bar");
   }
 
   @Test
