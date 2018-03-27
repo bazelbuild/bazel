@@ -131,9 +131,9 @@ MappedOutputFile::~MappedOutputFile() {
   delete impl_;
 }
 
-int MappedOutputFile::Close(u8 size) {
+int MappedOutputFile::Close(int size) {
   if (size > estimated_size_) {
-    snprintf(errmsg, MAX_ERROR, "size %lld > estimated size %lld", size,
+    snprintf(errmsg, MAX_ERROR, "size %d > estimated size %lld", size,
              estimated_size_);
     errmsg_ = errmsg;
     return -1;

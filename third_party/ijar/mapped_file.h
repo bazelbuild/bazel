@@ -76,7 +76,7 @@ class MappedOutputFile {
 
   // The mapped contents of the file.
   u1* Buffer() const { return buffer_; }
-  int Close(u8 size);
+  int Close(int size);
 };
 
 }  // namespace devtools_ijar
