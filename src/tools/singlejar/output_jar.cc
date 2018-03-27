@@ -344,6 +344,13 @@ bool OutputJar::AddJar(int jar_path_index) {
       ExtraHandler(jar_entry, &input_jar_aux_label);
     }
 
+    if (options_->check_desugar_deps &&
+        begins_with(file_name, file_name_length, "j$/")) {
+      diag_errx(1, "%s:%d: desugar_jdk_libs file %.*s unexpectedly found in %s",
+                __FILE__, __LINE__, file_name_length, file_name,
+                input_jar_path.c_str());
+    }
+
     // Install a new entry unless it is already present. All the plain (non-dir)
     // entries that require a combiner have been already installed, so the call
     // will add either a directory entry whose handler will ignore subsequent
