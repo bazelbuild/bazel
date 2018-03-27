@@ -383,18 +383,14 @@ message CToolchain {
   repeated OptionalFlag optional_compiler_flag = 35;
   // Additional compiler flags for C++ compilation.
   repeated string cxx_flag = 14;
-  repeated OptionalFlag optional_cxx_flag = 36;
   // Additional unfiltered compiler flags for C/C++/Asm compilation.
   // These are not subject to nocopt filtering in cc_* rules.
   // Note: These flags are *not* applied to objc/objc++ compiles.
   repeated string unfiltered_cxx_flag = 25;
-  repeated OptionalFlag optional_unfiltered_cxx_flag = 37;
   // Linker flags.
   repeated string linker_flag = 15;
-  repeated OptionalFlag optional_linker_flag = 38;
   // Additional linker flags when linking dynamic libraries.
   repeated string dynamic_library_linker_flag = 27;
-  repeated OptionalFlag optional_dynamic_library_linker_flag = 39;
   // Additional test-only linker flags.
   repeated string test_only_linker_flag = 49;
   // Objcopy flags for embedding files into binaries.
