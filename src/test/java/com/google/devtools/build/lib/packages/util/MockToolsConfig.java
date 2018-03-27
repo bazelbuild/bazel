@@ -98,6 +98,16 @@ public final class MockToolsConfig {
     return create(relativePath, lines);
   }
 
+  public Path append(String relativePath, String... lines) throws IOException {
+    Path path = rootDirectory.getRelative(relativePath);
+    if (!path.exists()) {
+      return create(relativePath, lines);
+    }
+
+    FileSystemUtils.appendIsoLatin1(path, lines);
+    return path;
+  }
+
   /**
    * Links a tool into the workspace by creating a symbolic link to a real file. The target location
    * in the workspace uses the same relative path as the given path to the tool in the runfiles

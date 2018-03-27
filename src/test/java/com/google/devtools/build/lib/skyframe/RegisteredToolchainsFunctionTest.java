@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,8 +42,15 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasEntryThat(toolchainsKey).isNotNull();
 
     RegisteredToolchainsValue value = result.get(toolchainsKey);
-    // We have two registered toolchains, and a default toolchain for C++.
-    assertThat(value.registeredToolchains()).hasSize(3);
+
+    // Check that the number of toolchains created for this test is correct.
+    assertThat(
+            value
+                .registeredToolchains()
+                .stream()
+                .filter(toolchain -> toolchain.toolchainType().equals(testToolchainType))
+                .collect(Collectors.toList()))
+        .hasSize(2);
 
     assertThat(
             value

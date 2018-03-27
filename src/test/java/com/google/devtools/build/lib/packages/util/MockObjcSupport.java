@@ -244,6 +244,7 @@ public final class MockObjcSupport {
       Builder<String> crosstoolBuild =
           ImmutableList.<String>builder()
               .add(
+                  "package(default_visibility=['//visibility:public'])",
                   "exports_files(glob(['**']))",
                   "cc_toolchain_suite(",
                   "    name = 'crosstool',",
@@ -303,7 +304,20 @@ public final class MockObjcSupport {
             "    static_runtime_libs = [':empty'],",
             "    strip_files = ':empty',",
             "    supports_param_files = 0,",
+            ")",
+            "toolchain(name = 'cc-toolchain-" + arch + "',",
+            "    exec_compatible_with = [],",
+            "    target_compatible_with = [],",
+            "    toolchain = ':cc-compiler-" + arch + "',",
+            "    toolchain_type = '"
+                + TestConstants.TOOLS_REPOSITORY
+                + "//tools/cpp:toolchain_type'",
             ")");
+
+        // Add the newly-created toolchain to the WORKSPACE.
+        config.append(
+            "WORKSPACE",
+            "register_toolchains('//" + DEFAULT_OSX_CROSSTOOL_DIR + ":cc-toolchain-" + arch + "')");
       }
 
       config.create(DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",

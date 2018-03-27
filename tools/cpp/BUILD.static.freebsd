@@ -1,4 +1,4 @@
-# Copyright 2016 The Bazel Authors. All rights reserved.
+# Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This becomes the BUILD file for @local_config_cc// under non-FreeBSD unixes.
+# This becomes the BUILD file for @local_config_cc// under FreeBSD.
 
 package(default_visibility = ["//visibility:public"])
-
-licenses(["notice"])  # Apache 2.0
 
 cc_library(
     name = "malloc",
@@ -31,57 +29,44 @@ filegroup(
     srcs = [],
 )
 
-filegroup(
-    name = "cc_wrapper",
-    srcs = ["cc_wrapper.sh"],
-)
-
-filegroup(
-    name = "compiler_deps",
-    srcs = glob(["extra_tools/**"]) + ["%{cc_compiler_deps}"],
-)
-
-# This is the entry point for --crosstool_top.  Toolchains are found
-# by lopping off the name of --crosstool_top and searching for
-# the "${CPU}" entry in the toolchains attribute.
+# Hardcoded toolchain, legacy behaviour.
 cc_toolchain_suite(
     name = "toolchain",
     toolchains = {
-        "%{name}|%{compiler}": ":cc-compiler-%{name}",
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
+        "freebsd|compiler": ":cc-compiler-freebsd",
         "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
 )
 
 cc_toolchain(
-    name = "cc-compiler-%{name}",
-    all_files = ":compiler_deps",
-    compiler_files = ":compiler_deps",
-    cpu = "%{name}",
+    name = "cc-compiler-freebsd",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "local",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
-    linker_files = ":compiler_deps",
+    linker_files = ":empty",
     objcopy_files = ":empty",
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
-    supports_param_files = %{supports_param_files},
+    supports_param_files = 0,
 )
 
 toolchain(
-    name = "cc-toolchain-%{name}",
+    name = "cc-toolchain-freebsd",
     exec_compatible_with = [
-        # This toolchain will only work with the local autoconfigured platforms.
-        "@bazel_tools//platforms:autoconfigured",
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:freebsd",
     ],
     target_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:freebsd",
     ],
-    toolchain = ":cc-compiler-%{name}",
+    toolchain = ":cc-compiler-freebsd",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
-# Android tooling requires a default toolchain for the armeabi-v7a cpu.
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     all_files = ":empty",
@@ -93,24 +78,22 @@ cc_toolchain(
     objcopy_files = ":empty",
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
-    supports_param_files = 1,
+    supports_param_files = 0,
 )
 
 toolchain(
     name = "cc-toolchain-armeabi-v7a",
     exec_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+        "@bazel_tools//platforms:arm",
     ],
     target_compatible_with = [
         "@bazel_tools//platforms:arm",
         "@bazel_tools//platforms:android",
     ],
-    toolchain = ":cc-compiler-armabi-v7a",
+    toolchain = ":cc-compiler-armeabi-v7a",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
-# ios crosstool configuration requires a default toolchain for the
-# ios_x86_64 cpu.
 cc_toolchain(
     name = "cc-compiler-ios_x86_64",
     all_files = ":empty",
@@ -122,13 +105,14 @@ cc_toolchain(
     objcopy_files = ":empty",
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
-    supports_param_files = 1,
+    supports_param_files = 0,
 )
 
 toolchain(
     name = "cc-toolchain-ios_x86_64",
     exec_compatible_with = [
-        # TODO(katre): add autodiscovered constraints for host CPU and OS.
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:osx",
     ],
     target_compatible_with = [
         "@bazel_tools//platforms:x86_64",
@@ -136,4 +120,9 @@ toolchain(
     ],
     toolchain = ":cc-compiler-ios_x86_64",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+filegroup(
+    name = "link_dynamic_library",
+    srcs = ["link_dynamic_library.sh"],
 )

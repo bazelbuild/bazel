@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -110,21 +109,6 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             .stream()
             .anyMatch(artifact -> artifact.getExecPathString().endsWith("piii"));
     assertThat(isPiii).isTrue();
-  }
-
-  @Test
-  public void testToolchainSelectionWithoutPlatforms() throws Exception {
-    useConfiguration("--experimental_platforms=//mock_platform:mock-piii-platform");
-    ConfiguredTarget target =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
-            .setList("srcs", "a.cc")
-            .write();
-    ResolvedToolchainProviders providers =
-        (ResolvedToolchainProviders)
-            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
-    ToolchainInfo toolchain =
-        providers.getForToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE));
-    assertThat(toolchain.getFieldNames()).isEmpty();
   }
 
   @Test
