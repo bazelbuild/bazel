@@ -358,7 +358,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean isLipoCollector = cppConfiguration.isLipoContextCollector();
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = CppHelper.usePic(ruleContext, toolchain, false);
+    boolean usePic = CppHelper.usePicForDynamicLibraries(ruleContext, toolchain);
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(
             isLipoCollector, processHeadersInDependencies, usePic));

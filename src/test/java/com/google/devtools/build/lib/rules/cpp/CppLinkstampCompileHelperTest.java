@@ -204,9 +204,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     Artifact executable = getExecutable(target);
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
-    boolean usePic =
-        CppHelper.usePicObjectsForBinaries(
-            target.getConfiguration().getFragment(CppConfiguration.class), toolchain);
+    boolean usePic = CppHelper.usePicForBinaries(getRuleContext(target), toolchain);
 
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
 

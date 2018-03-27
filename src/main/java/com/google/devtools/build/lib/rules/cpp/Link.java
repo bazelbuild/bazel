@@ -60,11 +60,10 @@ public abstract class Link {
       CppFileTypes.ALWAYS_LINK_LIBRARY,
       CppFileTypes.ALWAYS_LINK_PIC_LIBRARY);
 
-
   /** The set of object files */
-  public static final FileTypeSet OBJECT_FILETYPES = FileTypeSet.of(
-      CppFileTypes.OBJECT_FILE,
-      CppFileTypes.PIC_OBJECT_FILE);
+  public static final FileTypeSet OBJECT_FILETYPES =
+      FileTypeSet.of(
+          CppFileTypes.OBJECT_FILE, CppFileTypes.PIC_OBJECT_FILE, CppFileTypes.CLIF_OUTPUT_PROTO);
 
   /**
    * Prefix that is prepended to command line entries that refer to the output

@@ -719,9 +719,8 @@ public final class CcLinkingHelper {
       return result.build();
     }
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-    boolean usePicForBinaries = CppHelper.usePic(ruleContext, ccToolchain, /* forBinary= */ true);
-    boolean usePicForSharedLibs =
-        CppHelper.usePic(ruleContext, ccToolchain, /* forBinary= */ false);
+    boolean usePicForBinaries = CppHelper.usePicForBinaries(ruleContext, ccToolchain);
+    boolean usePicForDynamicLibs = CppHelper.usePicForDynamicLibraries(ruleContext, ccToolchain);
 
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier =
@@ -735,14 +734,14 @@ public final class CcLinkingHelper {
           result,
           env,
           usePicForBinaries,
-          usePicForSharedLibs,
+          usePicForDynamicLibs,
           libraryIdentifier,
           ccOutputs,
           nonCodeLinkerInputs);
     }
 
     if (shouldCreateDynamicLibrary) {
-      createDynamicLibrary(result, env, usePicForSharedLibs, libraryIdentifier, ccOutputs);
+      createDynamicLibrary(result, env, usePicForDynamicLibs, libraryIdentifier, ccOutputs);
     }
 
     return result.build();
@@ -752,14 +751,14 @@ public final class CcLinkingHelper {
       CcLinkingOutputs.Builder result,
       AnalysisEnvironment env,
       boolean usePicForBinaries,
-      boolean usePicForSharedLibs,
+      boolean usePicForDynamicLibs,
       String libraryIdentifier,
       CcCompilationOutputs ccOutputs,
       Iterable<Artifact> nonCodeLinkerInputs)
       throws RuleErrorException, InterruptedException {
     // Create static library (.a). The linkType only reflects whether the library is alwayslink or
     // not. The PIC-ness is determined by whether we need to use PIC or not. There are three cases
-    // for (usePicForSharedLibs usePicForBinaries):
+    // for (usePicForDynamicLibs usePicForBinaries):
     //
     // (1) (false false) -> no pic code
     // (2) (true false)  -> shared libraries as pic, but not binaries
@@ -798,7 +797,7 @@ public final class CcLinkingHelper {
       // static libraries. In that case, the first static library contains the non-PIC code, and
       // this
       // one contains the PIC code, so the names match the content.
-      if (usePicForSharedLibs) {
+      if (usePicForDynamicLibs) {
         LinkTargetType picLinkType =
             (linkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY)
                 ? LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY
@@ -827,7 +826,7 @@ public final class CcLinkingHelper {
   private void createDynamicLibrary(
       CcLinkingOutputs.Builder result,
       AnalysisEnvironment env,
-      boolean usePicForSharedLibs,
+      boolean usePicForDynamicLibs,
       String libraryIdentifier,
       CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
@@ -872,7 +871,7 @@ public final class CcLinkingHelper {
     CppLinkActionBuilder dynamicLinkActionBuilder =
         newLinkActionBuilder(soImpl)
             .setInterfaceOutput(soInterface)
-            .addObjectFiles(ccOutputs.getObjectFiles(usePicForSharedLibs))
+            .addObjectFiles(ccOutputs.getObjectFiles(usePicForDynamicLibs))
             .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
@@ -922,7 +921,7 @@ public final class CcLinkingHelper {
     if (!ccOutputs.getLtoBitcodeFiles().isEmpty()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       dynamicLinkActionBuilder.setLtoIndexing(true);
-      dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePicForSharedLibs);
+      dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePicForDynamicLibs);
       CppLinkAction indexAction = dynamicLinkActionBuilder.build();
       if (indexAction != null) {
         env.registerAction(indexAction);

@@ -257,7 +257,7 @@ public class CcBuildVariables {
 
     if (usePic) {
       if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
-        ruleContext.ruleError(CcCompilationHelper.PIC_CONFIGURATION_ERROR);
+        ruleContext.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
       }
       buildVariables.addStringVariable(CompileBuildVariables.PIC.getVariableName(), "");
     }

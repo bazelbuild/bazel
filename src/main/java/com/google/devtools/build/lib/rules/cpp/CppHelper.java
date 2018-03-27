@@ -757,36 +757,28 @@ public class CppHelper {
    * "Provide a way to turn off -fPIC for targets that can't be built that way").
    *
    * @param ruleContext the context of the rule to check
-   * @param forBinary true if compiling for a binary, false if for a shared library
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  public static boolean usePic(
-      RuleContext ruleContext, CcToolchainProvider toolchain, boolean forBinary) {
-    if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
-      return false;
-    }
-    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    return forBinary ? usePicObjectsForBinaries(config, toolchain) : needsPic(config, toolchain);
+  public static boolean usePicForDynamicLibraries(
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
+    return ruleContext.getFragment(CppConfiguration.class).forcePic()
+        || toolchain.toolchainNeedsPic();
   }
 
   /** Returns whether binaries must be compiled with position independent code. */
-  public static boolean usePicForBinaries(CppConfiguration config, CcToolchainProvider toolchain) {
-    return toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT;
-  }
-
-  /** Returns true iff we should use ".pic.o" files when linking executables. */
-  public static boolean usePicObjectsForBinaries(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.forcePic() || usePicForBinaries(config, toolchain);
+  public static boolean usePicForBinaries(RuleContext ruleContext, CcToolchainProvider toolchain) {
+    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
+    if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
+      return false;
+    }
+    return config.forcePic()
+        || (toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT);
   }
 
   /**
    * Returns true if shared libraries must be compiled with position independent code for the build
    * implied by the given config and toolchain.
    */
-  public static boolean needsPic(CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.forcePic() || toolchain.toolchainNeedsPic();
-  }
 
   /**
    * Returns the LIPO context provider for configured target,
