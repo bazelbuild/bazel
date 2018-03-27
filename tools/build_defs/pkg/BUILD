@@ -174,6 +174,26 @@ pkg_tar(
     },
 )
 
+pkg_tar(
+    name = "test-tar-empty_files",
+    build_tar = ":build_tar",
+    empty_files = [
+        "/a",
+        "/b",
+    ],
+    mode = "0o777",
+)
+
+pkg_tar(
+    name = "test-tar-empty_dirs",
+    build_tar = ":build_tar",
+    empty_dirs = [
+        "/tmp",
+        "/pmt",
+    ],
+    mode = "0o777",
+)
+
 pkg_deb(
     name = "test-deb",
     conffiles = [
@@ -205,6 +225,8 @@ sh_test(
         ":test-deb.deb",
         ":test-tar-.tar",
         ":test-tar-bz2.tar.bz2",
+        ":test-tar-empty_dirs.tar",
+        ":test-tar-empty_files.tar",
         ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
         ":test-tar-inclusion-.tar",
