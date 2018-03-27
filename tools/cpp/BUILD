@@ -1,6 +1,51 @@
+# Copyright 2018 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
+
+# The toolchain type used to distinguish cc toolchains.
+cc_toolchain_type(name = "toolchain_type")
+
+# It is frequently necessary to constrain platforms based on the cc compiler type.
+constraint_setting(name = "cc_compiler")
+
+constraint_value(
+    name = "clang",
+    constraint_setting = ":cc_compiler",
+)
+
+constraint_value(
+    name = "gcc",
+    constraint_setting = ":cc_compiler",
+)
+
+constraint_value(
+    name = "msvc",
+    constraint_setting = ":cc_compiler",
+)
+
+constraint_value(
+    name = "mingw",
+    constraint_setting = ":cc_compiler",
+)
+
+constraint_value(
+    name = "msys",
+    constraint_setting = ":cc_compiler",
+)
 
 # TODO(lberki): Remove this once cc_toolchain_alias is in a Bazel release
 cc_toolchain_alias(name = "current_cc_toolchain")
@@ -67,6 +112,18 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
+toolchain(
+    name = "cc-toolchain-local",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:autoconfigured",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:autoconfigured",
+    ],
+    toolchain = ":cc-compiler-local",
+    toolchain_type = ":toolchain_type",
+)
+
 cc_toolchain(
     name = "cc-compiler-ppc",
     all_files = ":empty",
@@ -79,6 +136,18 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+)
+
+toolchain(
+    name = "cc-toolchain-ppc",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:ppc",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:ppc",
+    ],
+    toolchain = ":cc-compiler-ppc",
+    toolchain_type = ":toolchain_type",
 )
 
 cc_toolchain(
@@ -95,6 +164,18 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
+toolchain(
+    name = "cc-toolchain-armeabi-v7a",
+    exec_compatible_with = [
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:arm",
+        "@bazel_tools//platforms:android",
+    ],
+    toolchain = ":cc-compiler-armeabi-v7a",
+    toolchain_type = ":toolchain_type",
+)
+
 cc_toolchain(
     name = "cc-compiler-k8",
     all_files = ":empty",
@@ -107,6 +188,20 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+)
+
+toolchain(
+    name = "cc-toolchain-k8",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:linux",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:linux",
+    ],
+    toolchain = ":cc-compiler-k8",
+    toolchain_type = ":toolchain_type",
 )
 
 cc_toolchain(
@@ -123,6 +218,20 @@ cc_toolchain(
     supports_param_files = 0,
 )
 
+toolchain(
+    name = "cc-toolchain-darwin",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:osx",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:osx",
+    ],
+    toolchain = ":cc-compiler-darwin",
+    toolchain_type = ":toolchain_type",
+)
+
 cc_toolchain(
     name = "cc-compiler-freebsd",
     all_files = ":empty",
@@ -135,6 +244,20 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+)
+
+toolchain(
+    name = "cc-toolchain-freebsd",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:freebsd",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:freebsd",
+    ],
+    toolchain = ":cc-compiler-freebsd",
+    toolchain_type = ":toolchain_type",
 )
 
 cc_toolchain(
@@ -151,6 +274,20 @@ cc_toolchain(
     supports_param_files = 0,
 )
 
+toolchain(
+    name = "cc-toolchain-x64_windows",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
+    ],
+    toolchain = ":cc-compiler-x64_windows",
+    toolchain_type = ":toolchain_type",
+)
+
 cc_toolchain(
     name = "cc-compiler-x64_windows_msvc",
     all_files = ":every-file-x64_windows",
@@ -165,6 +302,21 @@ cc_toolchain(
     supports_param_files = 1,
 )
 
+toolchain(
+    name = "cc-toolchain-x64_windows_msvc",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
+        ":msvc",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
+    ],
+    toolchain = ":cc-compiler-x64_windows_msvc",
+    toolchain_type = ":toolchain_type",
+)
+
 cc_toolchain(
     name = "cc-compiler-ios_x86_64",
     all_files = ":empty",
@@ -177,6 +329,18 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+)
+
+toolchain(
+    name = "cc-toolchain-ios_x86_64",
+    exec_compatible_with = [
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:ios",
+    ],
+    toolchain = ":cc-compiler-ios_x86_64",
+    toolchain_type = ":toolchain_type",
 )
 
 filegroup(
@@ -228,18 +392,3 @@ filegroup(
     name = "crosstool_lib",
     srcs = ["crosstool_lib.bzl"],
 )
-
-cc_toolchain_type(name = "toolchain_type")
-
-# A dummy toolchain is necessary to satisfy toolchain resolution until platforms
-# are used in c++ by default.
-# TODO(b/64754003): Remove once platforms are used in c++ by default.
-toolchain(
-    name = "dummy_cc_toolchain",
-    toolchain = "dummy_cc_toolchain_impl",
-    toolchain_type = ":toolchain_type",
-)
-
-load(":dummy_toolchain.bzl", "dummy_toolchain")
-
-dummy_toolchain(name = "dummy_cc_toolchain_impl")
