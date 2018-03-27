@@ -166,12 +166,6 @@ filegroup(
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],
 )
 
-java_import(
-    name = "langtools-neverlink",
-    jars = [":langtools"],
-    neverlink = 1,
-)
-
 alias(
     name = "jre",
     actual = "@local_jdk//:jre",
