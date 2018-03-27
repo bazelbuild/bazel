@@ -125,6 +125,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         new SpawnResult.Builder()
             .setStatus(Status.SUCCESS)
             .setWallTime(Duration.ofMillis(10))
+            .setRunnerName("test")
             .build();
     when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
@@ -200,7 +201,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     when(actionExecutionContext.getFileOutErr()).thenReturn(outErr);
 
     SpawnResult expectedSpawnResult =
-        new SpawnResult.Builder().setStatus(Status.NON_ZERO_EXIT).setExitCode(1).build();
+        new SpawnResult.Builder()
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setExitCode(1)
+            .setRunnerName("test")
+            .build();
     when(spawnActionContext.exec(any(), any()))
         .thenThrow(
             new SpawnExecException(
@@ -283,7 +288,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     FileOutErr outErr = new FileOutErr(outPath, errPath);
     when(actionExecutionContext.getFileOutErr()).thenReturn(outErr);
 
-    SpawnResult expectedSpawnResult = new SpawnResult.Builder().setStatus(Status.SUCCESS).build();
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
     when(spawnActionContext.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
     when(actionExecutionContext.getSpawnActionContext(any())).thenReturn(spawnActionContext);
 

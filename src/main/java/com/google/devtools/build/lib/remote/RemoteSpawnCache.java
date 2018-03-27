@@ -129,6 +129,7 @@ final class RemoteSpawnCache implements SpawnCache {
                 .setStatus(Status.SUCCESS)
                 .setExitCode(result.getExitCode())
                 .setCacheHit(true)
+                .setRunnerName("remote cache hit")
                 .build();
         return SpawnCache.success(spawnResult);
       }

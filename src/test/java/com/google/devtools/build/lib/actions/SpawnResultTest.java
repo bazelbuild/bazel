@@ -33,6 +33,7 @@ public final class SpawnResultTest {
             .setStatus(SpawnResult.Status.TIMEOUT)
             .setWallTime(Duration.ofSeconds(5))
             .setExitCode(1)
+            .setRunnerName("test")
             .build();
     assertThat(r.getDetailMessage("", "", false, false))
         .contains("(failed due to timeout after 5.00 seconds.)");
@@ -41,7 +42,11 @@ public final class SpawnResultTest {
   @Test
   public void getTimeoutMessageNoTime() {
     SpawnResult r =
-        new SpawnResult.Builder().setStatus(SpawnResult.Status.TIMEOUT).setExitCode(1).build();
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.TIMEOUT)
+            .setExitCode(1)
+            .setRunnerName("test")
+            .build();
     assertThat(r.getDetailMessage("", "", false, false))
         .contains("(failed due to timeout.)");
   }
