@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -33,8 +32,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 // TODO(bazel-team): This should really be named DerivedArtifacts as it contains methods for
 // final as well as intermediate artifacts.
 public final class IntermediateArtifacts {
-  private static final PathFragment OBJS = PathFragment.create("_objs");
-
   static final String LINKMAP_SUFFIX = ".linkmap";
 
   /**
@@ -264,24 +261,6 @@ public final class IntermediateArtifacts {
     String basename = PathFragment.create(ruleContext.getLabel().getName()).getBaseName();
     return scopedArtifact(PathFragment.create(String.format(
         "lib%s%s.a", basename, archiveFileNameSuffix)));
-  }
-
-  private Artifact inUniqueObjsDir(String outputName, String extension) {
-    PathFragment uniqueDir = OBJS.getRelative(ruleContext.getLabel().getName());
-    PathFragment scopeRelativePath = uniqueDir.getRelative(outputName + extension);
-    return scopedArtifact(scopeRelativePath);
-  }
-
-  /**
-   * The artifact for the .o file that should be generated when compiling the {@code source}
-   * artifact.
-   */
-  public Artifact objFile(Artifact source, String outputName) {
-    if (source.isTreeArtifact()) {
-      return CppHelper.getCompileOutputTreeArtifact(ruleContext, source, outputName);
-    } else {
-      return inUniqueObjsDir(outputName, ".o");
-    }
   }
 
   /** The artifact for the .headers file output by the header thinning action for this source. */

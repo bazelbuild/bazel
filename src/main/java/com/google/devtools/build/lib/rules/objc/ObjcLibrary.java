@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
@@ -68,6 +68,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
+    RuleConfiguredTargetBuilder targetBuilder =
+        ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
+
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder()
@@ -76,7 +79,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             .build();
 
     compilationSupport
-        .registerCompileAndArchiveActions(common)
+        .registerCompileAndArchiveActions(common, targetBuilder)
         .registerFullyLinkAction(
             common.getObjcProvider(),
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
@@ -98,14 +101,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
                     .toCollection())
             .build();
 
-    return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
+    return targetBuilder
         .addNativeDeclaredProvider(common.getObjcProvider())
         .addNativeDeclaredProvider(ccCompilationInfo)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
-        .addProvider(
-            InstrumentedFilesProvider.class,
-            compilationSupport.getInstrumentedFilesProvider(common))
         .addNativeDeclaredProvider(new CcLinkParamsInfo(new ObjcLibraryCcLinkParamsStore(common)))
         .addOutputGroups(outputGroupCollector)
         .build();
