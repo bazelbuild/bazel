@@ -140,7 +140,7 @@ public class AbstractSpawnStrategyTest {
 
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
-    verify(entry).store(eq(spawnResult), any(Collection.class));
+    verify(entry).store(eq(spawnResult));
   }
 
   @SuppressWarnings("unchecked")
@@ -167,6 +167,6 @@ public class AbstractSpawnStrategyTest {
     }
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionPolicy.class));
-    verify(entry).store(eq(result), any(Collection.class));
+    verify(entry).store(eq(result));
   }
 }
