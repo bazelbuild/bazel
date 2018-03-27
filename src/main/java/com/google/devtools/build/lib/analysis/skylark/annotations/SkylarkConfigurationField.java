@@ -47,7 +47,7 @@ public @interface SkylarkConfigurationField {
    * <p>If the default label is under the tools repository, omit the tools repository prefix
    * from this default, but set {@link #defaultInToolRepository} to true.</p>
    */
-  String defaultLabel();
+  String defaultLabel() default "";
 
   /**
    * Whether the default label as defined in {@link #defaultLabel} should be prefixed with
