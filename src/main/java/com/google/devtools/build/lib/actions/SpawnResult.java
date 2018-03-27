@@ -360,6 +360,7 @@ public interface SpawnResult {
     private String failureMessage = "";
 
     public SpawnResult build() {
+      Preconditions.checkArgument(!runnerName.isEmpty());
       if (status == Status.SUCCESS) {
         Preconditions.checkArgument(exitCode == 0);
       }

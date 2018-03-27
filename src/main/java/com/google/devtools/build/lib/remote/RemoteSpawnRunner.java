@@ -169,6 +169,7 @@ class RemoteSpawnRunner implements SpawnRunner {
           try {
             return downloadRemoteResults(cachedResult, policy.getFileOutErr())
                 .setCacheHit(true)
+                .setRunnerName("remote cache hit")
                 .build();
           } catch (CacheNotFoundException e) {
             // No cache hit, so we fall through to local or remote execution.
@@ -210,7 +211,7 @@ class RemoteSpawnRunner implements SpawnRunner {
 
       try {
         return downloadRemoteResults(result, policy.getFileOutErr())
-            .setRunnerName(remoteCacheHit ? "" : getName())
+            .setRunnerName(remoteCacheHit ? "remote cache hit" : getName())
             .setCacheHit(remoteCacheHit)
             .build();
       } catch (IOException e) {

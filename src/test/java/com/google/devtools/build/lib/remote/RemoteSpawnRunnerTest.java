@@ -359,7 +359,12 @@ public class RemoteSpawnRunnerTest {
             any(FileOutErr.class),
             eq(true));
 
-    SpawnResult res = new SpawnResult.Builder().setStatus(Status.SUCCESS).setExitCode(0).build();
+    SpawnResult res =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("test")
+            .build();
     when(localRunner.exec(eq(spawn), eq(policy))).thenReturn(res);
 
     assertThat(runner.exec(spawn, policy)).isEqualTo(res);

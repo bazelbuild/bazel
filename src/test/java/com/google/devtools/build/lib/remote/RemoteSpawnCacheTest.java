@@ -248,7 +248,12 @@ public class RemoteSpawnCacheTest {
   public void cacheMiss() throws Exception {
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
-    SpawnResult result = new SpawnResult.Builder().setExitCode(0).setStatus(Status.SUCCESS).build();
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     Mockito.doAnswer(
             new Answer<Void>() {
@@ -285,7 +290,12 @@ public class RemoteSpawnCacheTest {
     verify(remoteCache, never())
         .getCachedActionResult(any(ActionKey.class));
     assertThat(entry.hasResult()).isFalse();
-    SpawnResult result = new SpawnResult.Builder().setExitCode(0).setStatus(Status.SUCCESS).build();
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
     entry.store(result);
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     verify(remoteCache)
@@ -300,7 +310,11 @@ public class RemoteSpawnCacheTest {
     verify(remoteCache).getCachedActionResult(any(ActionKey.class));
     assertThat(entry.hasResult()).isFalse();
     SpawnResult result =
-        new SpawnResult.Builder().setExitCode(1).setStatus(Status.NON_ZERO_EXIT).build();
+        new SpawnResult.Builder()
+            .setExitCode(1)
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setRunnerName("test")
+            .build();
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     entry.store(result);
     verify(remoteCache)
@@ -311,7 +325,12 @@ public class RemoteSpawnCacheTest {
   public void printWarningIfUploadFails() throws Exception {
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
-    SpawnResult result = new SpawnResult.Builder().setExitCode(0).setStatus(Status.SUCCESS).build();
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
 
     doThrow(new IOException("cache down"))
