@@ -11,6 +11,10 @@ filegroup(
 java_library(
     name = "autocodec",
     exported_plugins = [":autocodec-plugin"],
+    javacopts = select({
+        "//:jdk9": ["--add-modules=jdk.unsupported"],
+        "//conditions:default": [],
+    }),
     exports = [
         ":autocodec-annotation",
         # Generated classes have the following dependencies.
