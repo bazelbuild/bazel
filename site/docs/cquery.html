@@ -238,6 +238,30 @@ cc_library(
   targets also in the host configuration.
 </p>
 
+<h2 id='output-formats'>Output Formats</h2>
+
+<p> By default, cquery outputs results in a dependency-ordered list of label and configuration pairs.
+There are other options for exposing the results as well. </p>
+
+<h3> Transitions </h3>
+
+<p>
+  Configuration <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">transitions</a>
+  are used to build targets underneath the top level targets in different configurations than the top
+  level targets. For example, a target might impose a transition to the host transition on all
+  dependencies in its <code>tools</code> attribute. These are known as attribute transitions.
+  Rules can also impose transitions on their own configurations, known as rule class transitions.
+  This output format outputs information about these transitions such as what type they are and the
+  effect they have on build options.
+</p>
+
+<p>This output format is triggered by the <code>--transitions</code> flag which by default is set to
+  <code>NONE</code>. It can be set to <code>FULL</code> or <code>LITE</code> mode. <code>FULL</code>
+  mode outputs information about rule class transitions and attribute transitions including a detailed
+  diff of the options before and after the transition. <code>LITE</code> mode outputs the same information
+  without the options diff.
+</p>
+
 <h2 id='known-issues'>Known Issues</h2>
 
 <ul>
