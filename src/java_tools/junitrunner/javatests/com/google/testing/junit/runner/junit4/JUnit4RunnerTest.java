@@ -16,6 +16,7 @@ package com.google.testing.junit.runner.junit4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyListOf;
@@ -490,7 +491,8 @@ public class JUnit4RunnerTest {
 
     @Test
     public void testThatAlwaysFails() {
-      assertThat("Test \u65E5本.").isEqualTo("Test Japan.");
+      // Use JUnit asserts instead of Truth, since Truth's message format is subject to change.
+      assertEquals("Test Japan.", "Test \u65E5本.");
     }
   }
 
