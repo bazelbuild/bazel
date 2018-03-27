@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -297,38 +298,19 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    dynamic_runtime_libs = [':empty'],",
         "    static_runtime_libs = [':empty'])");
 
-    useConfiguration("--cpu=piii");
+    assertThat(usePicForBinariesWithConfiguration("--cpu=piii")).isFalse();
+    assertThat(usePicForBinariesWithConfiguration("--cpu=piii", "-c", "opt")).isFalse();
+    assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isTrue();
+    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
+  }
+
+  private boolean usePicForBinariesWithConfiguration(String... configuration) throws Exception {
+    useConfiguration(configuration);
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.usePicForBinaries(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
-
-    useConfiguration("--cpu=piii", "-c", "opt");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.usePicForBinaries(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
-
-    useConfiguration("--cpu=k8");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.usePicForBinaries(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
-        .isTrue();
-
-    useConfiguration("--cpu=k8", "-c", "opt");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.usePicForBinaries(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
-        .isFalse();
+    RuleContext ruleContext = getRuleContext(target);
+    return CppHelper.usePicForBinaries(ruleContext, toolchainProvider);
   }
 
   @Test

@@ -77,6 +77,9 @@ public final class CcCommon {
   /** Name of the build variable for the path to the input file being processed. */
   public static final String INPUT_FILE_VARIABLE_NAME = "input_file";
 
+  public static final String PIC_CONFIGURATION_ERROR =
+      "PIC compilation is requested but the toolchain does not support it";
+
   private static final String NO_COPTS_ATTRIBUTE = "nocopts";
 
   /**
@@ -788,10 +791,10 @@ public final class CcCommon {
     allRequestedFeaturesBuilder.addAll(DEFAULT_ACTION_CONFIGS);
 
     try {
-      FeatureConfiguration configuration =
+      FeatureConfiguration featureConfiguration =
           toolchain.getFeatures().getFeatureConfiguration(allRequestedFeaturesBuilder.build());
       for (String feature : unsupportedFeatures) {
-        if (configuration.isEnabled(feature)) {
+        if (featureConfiguration.isEnabled(feature)) {
           ruleContext.ruleError(
               "The C++ toolchain '"
                   + ruleContext
@@ -803,7 +806,11 @@ public final class CcCommon {
                   + "This is most likely a misconfiguration in the C++ toolchain.");
         }
       }
-      return configuration;
+      if ((cppConfiguration.forcePic() || toolchain.toolchainNeedsPic())
+          && !featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
+        ruleContext.ruleError(PIC_CONFIGURATION_ERROR);
+      }
+      return featureConfiguration;
     } catch (CollidingProvidesException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
