@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
@@ -240,7 +241,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Collection<Path> files,
       FileOutErr outErr,
       boolean uploadAction)
-      throws IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     upload(execRoot, files, outErr, result);
     if (!uploadAction) {
@@ -266,8 +267,8 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   void upload(Path execRoot, Collection<Path> files, FileOutErr outErr, ActionResult.Builder result)
-      throws IOException, InterruptedException {
-    UploadManifest manifest = new UploadManifest(result, execRoot);
+      throws ExecException, IOException, InterruptedException {
+    UploadManifest manifest = new UploadManifest(digestUtil, result, execRoot);
     manifest.addFiles(files);
 
     List<Chunker> filesToUpload = new ArrayList<>();
