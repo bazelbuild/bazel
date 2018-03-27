@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.runner.testbed;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import junit.framework.TestCase;
 
 /**
@@ -24,6 +22,7 @@ import junit.framework.TestCase;
  */
 public class InternationalCharsTest extends TestCase {
   public void testThatAlwaysFails() {
-    assertThat("Test \u65E5本.").isEqualTo("Test Japan.");
+    // Use JUnit asserts instead of Truth, since Truth's message format is subject to change.
+    assertEquals("Test Japan.", "Test \u65E5本.");
   }
 }
