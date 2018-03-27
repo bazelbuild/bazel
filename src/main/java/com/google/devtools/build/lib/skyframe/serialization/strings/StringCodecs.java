@@ -14,28 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
-import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import java.util.Collections;
-import java.util.logging.Logger;
 
 /** Utility for accessing (potentially platform-specific) {@link String} {@link ObjectCodec}s. */
 public final class StringCodecs {
 
-  private static final Logger logger = Logger.getLogger(StringCodecs.class.getName());
-
-  private static final StringCodec stringCodec;
-  private static final ObjectCodec<String> asciiOptimized;
-
-  static {
-    stringCodec = new StringCodec();
-    if (FastStringCodec.isAvailable()) {
-      asciiOptimized = new FastStringCodec();
-    } else {
-      logger.warning("Optimized string deserialization unavailable");
-      asciiOptimized = stringCodec;
-    }
-  }
+  private static final StringCodec stringCodec = new StringCodec();
 
   private StringCodecs() {}
 
@@ -44,7 +28,7 @@ public final class StringCodecs {
    * if the expected optimizations are applied.
    */
   public static boolean supportsOptimizedAscii() {
-    return asciiOptimized instanceof FastStringCodec;
+    return false;
   }
 
   /**
@@ -54,9 +38,13 @@ public final class StringCodecs {
    *
    * <p>Note that when optimized, this instance can still serialize/deserialize UTF-8 data, but with
    *  potentially worse performance than {@link #simple()}.
+   *
+   * <p>Currently this is the same as {@link #simple()}, it remains to avoid a time-consuming
+   * cleanup and in case we want to revive an optimized version in the near future.
    */
+  // TODO(bazel-core): Determine if we need to revive ascii-optimized.
   public static ObjectCodec<String> asciiOptimized() {
-    return asciiOptimized;
+    return simple();
   }
 
   /**
@@ -65,35 +53,5 @@ public final class StringCodecs {
    */
   public static ObjectCodec<String> simple() {
     return stringCodec;
-  }
-
-  /**
-   * Registers a codec for {@link String}.
-   *
-   * <p>Needed to resolve ambiguity between {@link StringCodec} and {@link FastStringCodec}.
-   */
-  static class StringCodecRegisterer implements CodecRegisterer<StringCodec> {
-    @Override
-    public Iterable<? extends ObjectCodec<?>> getCodecsToRegister() {
-      if (!supportsOptimizedAscii()) {
-        return Collections.singletonList(simple());
-      }
-      return Collections.emptyList();
-    }
-  }
-
-  /**
-   * Registers a codec for {@link String}.
-   *
-   * <p>Needed to resolve ambiguity between {@link StringCodec} and {@link FastStringCodec}.
-   */
-  static class FastStringCodecRegisterer implements CodecRegisterer<FastStringCodec> {
-    @Override
-    public Iterable<? extends ObjectCodec<?>> getCodecsToRegister() {
-      if (supportsOptimizedAscii()) {
-        return Collections.singletonList(asciiOptimized());
-      }
-      return Collections.emptyList();
-    }
   }
 }
