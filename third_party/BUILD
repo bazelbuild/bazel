@@ -25,7 +25,6 @@ filegroup(
         "//third_party/javascript/bootstrap:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
-        "//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
@@ -386,7 +385,7 @@ filegroup(
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
         "//third_party/checker_framework_dataflow:bootstrap",
-        "//third_party/jformatstring:bootstrap",
+        "//third_party/jformatstring",
     ],
 )
 
