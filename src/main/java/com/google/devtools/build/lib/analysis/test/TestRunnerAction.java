@@ -35,10 +35,12 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -229,6 +231,55 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       outputs.add(getCoverageData());
     }
     return outputs;
+  }
+
+  /**
+   * Returns the list of mappings from file name constants to output files. This method checks the
+   * file system for existence of these output files, so it must only be used after test execution.
+   */
+  // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
+  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(Path execRoot) {
+    ImmutableList.Builder<Pair<String, Path>> builder = ImmutableList.builder();
+    if (getTestLog().getPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, getTestLog().getPath()));
+    }
+    if (getCoverageData() != null && getCoverageData().getPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, getCoverageData().getPath()));
+    }
+    if (execRoot != null) {
+      ResolvedPaths resolvedPaths = resolve(execRoot);
+      if (resolvedPaths.getXmlOutputPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
+      }
+      if (resolvedPaths.getSplitLogsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath()));
+      }
+      if (resolvedPaths.getTestWarningsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_WARNINGS,
+              resolvedPaths.getTestWarningsPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
+            resolvedPaths.getUndeclaredOutputsZipPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
+            resolvedPaths.getUndeclaredOutputsManifestPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsAnnotationsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
+            resolvedPaths.getUndeclaredOutputsAnnotationsPath()));
+      }
+      if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNUSED_RUNFILES_LOG,
+            resolvedPaths.getUnusedRunfilesLogPath()));
+      }
+      if (resolvedPaths.getInfrastructureFailureFile().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
+            resolvedPaths.getInfrastructureFailureFile()));
+      }
+    }
+    return builder.build();
   }
 
   @Override
