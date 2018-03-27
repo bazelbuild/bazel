@@ -57,6 +57,8 @@ public class ConfiguredTargetAndData {
         target.getLabel());
     BuildConfiguration innerConfiguration = configuredTarget.getConfiguration();
     if (configuration != innerConfiguration) {
+      Preconditions.checkNotNull(configuration, configuredTarget);
+      Preconditions.checkNotNull(innerConfiguration, configuredTarget);
       // We can't always assert that configurations are equal, because fragments, which are used in
       // the equality check, don't implement .equals(), so two configurations constructed from the
       // same options may end up unequal.

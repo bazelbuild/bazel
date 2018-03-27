@@ -48,7 +48,11 @@ public class TestCompletionValue implements SkyValue {
         targets,
         ct ->
             TestCompletionKey.create(
-                ConfiguredTargetKey.of(ct), topLevelArtifactContext, exclusiveTesting));
+                // Tests are never in host configuration.
+                ConfiguredTargetKey.of(
+                    ct, ct.getConfigurationKey(), /*isHostConfiguration=*/ false),
+                topLevelArtifactContext,
+                exclusiveTesting));
   }
 
   @AutoCodec

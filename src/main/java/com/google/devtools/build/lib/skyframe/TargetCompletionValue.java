@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -52,13 +51,13 @@ public class TargetCompletionValue implements SkyValue {
       final Set<ConfiguredTarget> targetsToTest) {
     return Iterables.transform(
         targets,
-        new Function<ConfiguredTarget, SkyKey>() {
-          @Override
-          public SkyKey apply(ConfiguredTarget ct) {
-            return TargetCompletionKey.create(
-                ConfiguredTargetKey.of(ct), ctx, targetsToTest.contains(ct));
-          }
-        });
+        ct ->
+            TargetCompletionKey.create(
+                // Can't build top-level targets in host configuration.
+                ConfiguredTargetKey.of(
+                    ct, ct.getConfigurationKey(), /*isHostConfiguration=*/ false),
+                ctx,
+                targetsToTest.contains(ct)));
   }
 
   /** {@link SkyKey} for {@link TargetCompletionValue}. */
