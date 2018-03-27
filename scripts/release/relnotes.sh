@@ -18,6 +18,9 @@ set -eu
 
 # Generate the release notes from the git history.
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source ${SCRIPT_DIR}/common.sh
+
 # It uses the RELNOTES tag in the history to knows the important changes to
 # report:
 #   RELNOTES: indicates a change important the user.
@@ -34,7 +37,7 @@ RELNOTES_DESC=("Incompatible changes" "New features" "Important changes")
 #    BASELINE is the hash of the baseline commit of the latest release
 #    CHERRYPICKS is the list of hash of cherry-picked commits of the latest release
 #  return 1 if there is no initial release
-function get_last_release() {
+function __get_last_release() {
   local changelog=$1
   [ -f "$changelog" ] || return 1  # No changelog = initial release
   local BASELINE_LINE=$(grep -m 1 -n '^Baseline: ' "$changelog") || return 1
@@ -56,7 +59,7 @@ function get_last_release() {
 # Now get the list of commit with a RELNOTES since latest release baseline ($1)
 # discarding cherry_picks ($2..) and rollbacks. The returned list of commits is
 # from the oldest to the newest
-function get_release_notes_commits() {
+function __get_release_notes_commits() {
   local baseline=$1
   shift
   local cherry_picks="$@"
@@ -76,7 +79,7 @@ function get_release_notes_commits() {
 #   RELNOTES_INC for incompatible changes
 #   RELNOTES_NEW for new features changes
 #   RELNOTES for other changes
-function extract_release_note() {
+function __extract_release_note() {
   local find_relnote_awk_script="
     BEGIN { in_relnote = 0 }
     /^$/ { in_relnote = 0 }
@@ -96,19 +99,19 @@ function extract_release_note() {
 
 # Build release notes arrays from a list of commits ($@) and return the release
 # note in an array of array.
-function generate_release_notes() {
+function __generate_release_notes() {
   for i in "${RELNOTES_TYPES[@]}"; do
     eval "RELNOTES_${i}=()"
   done
   for commit in $@; do
-    extract_release_note "${commit}"
+    __extract_release_note "${commit}"
   done
 }
 
 # Returns the list of release notes in arguments into a list of points in
 # a markdown list. The release notes are wrapped to 70 characters so it
 # displays nicely in a git history.
-function format_release_notes() {
+function __format_release_notes() {
   local i
   for (( i=1; $i <= $#; i=$i+1 )); do
     local relnote="${!i}"
@@ -120,11 +123,11 @@ function format_release_notes() {
 
 # Create the release notes since commit $1 ($2...${[#]} are the cherry-picks,
 # so the commits to ignore.
-function release_notes() {
+function __release_notes() {
   local i
-  local commits=$(get_release_notes_commits $@)
+  local commits=$(__get_release_notes_commits $@)
   local length="${#RELNOTES_TYPES[@]}"
-  generate_release_notes "$commits"
+  __generate_release_notes "$commits"
   for (( i=0; $i < $length; i=$i+1 )); do
     local relnotes_title="${RELNOTES_DESC[$i]}"
     local relnotes_type=${RELNOTES_TYPES[$i]}
@@ -133,7 +136,7 @@ function release_notes() {
     if (( "${nb_relnotes}" > 0 )); then
       echo "${relnotes_title}:"
       echo
-      format_release_notes "${!relnotes}"
+      __format_release_notes "${!relnotes}"
       echo
     fi
   done
@@ -142,8 +145,8 @@ function release_notes() {
 # A wrapper around all the previous function, using the CHANGELOG.md
 # file in $1 to compute the last release commit hash.
 function create_release_notes() {
-  local last_release=$(get_last_release "$1") || \
+  local last_release=$(__get_last_release "$1") || \
       { echo "Initial release."; return 0; }
   [ -n "${last_release}" ] || { echo "Initial release."; return 0; }
-  release_notes ${last_release}
+  __release_notes ${last_release}
 }
