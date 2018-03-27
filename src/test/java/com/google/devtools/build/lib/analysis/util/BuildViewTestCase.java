@@ -1123,7 +1123,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
+        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
         ConfiguredTargetKey.of(
             owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
   }
@@ -1159,13 +1159,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters parameters) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
+        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
         (AspectValue.AspectKey)
             AspectValue.createAspectKey(
                     owner.getLabel(),
-                    owner.getConfiguration(),
+                    getConfiguration(owner),
                     new AspectDescriptor(creatingAspectFactory, parameters),
-                    owner.getConfiguration())
+                    getConfiguration(owner))
                 .argument());
   }
 
@@ -1229,15 +1229,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        owner
-            .getConfiguration()
+        getConfiguration(owner)
             .getGenfilesDirectory(owner.getLabel().getPackageIdentifier().getRepository()),
         (AspectValue.AspectKey)
             AspectValue.createAspectKey(
                     owner.getLabel(),
-                    owner.getConfiguration(),
+                    getConfiguration(owner),
                     new AspectDescriptor(creatingAspectFactory, params),
-                    owner.getConfiguration())
+                    getConfiguration(owner))
                 .argument());
   }
 
@@ -1602,7 +1601,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private BuildConfiguration getConfiguration(String label) {
     BuildConfiguration config;
     try {
-      config = getConfiguredTarget(label).getConfiguration();
+      config = getConfiguration(getConfiguredTarget(label));
       config = view.getConfigurationForTesting(getTarget(label), config, reporter);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
@@ -2022,7 +2021,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getImplicitOutputArtifact(
       ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
     return getImplicitOutputArtifact(
-        target, target.getConfiguration(), target.getConfiguration(), outputFunction);
+        target, getConfiguration(target), getConfiguration(target), outputFunction);
   }
 
   protected final Artifact getImplicitOutputArtifact(
@@ -2045,7 +2044,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       root = configuration.getGenfilesDirectory(repository);
     }
-    ArtifactOwner owner = ConfiguredTargetKey.of(target.getLabel(), target.getConfiguration());
+    ArtifactOwner owner = ConfiguredTargetKey.of(target.getLabel(), getConfiguration(target));
 
     RawAttributeMapper attr = RawAttributeMapper.of(associatedRule);
 

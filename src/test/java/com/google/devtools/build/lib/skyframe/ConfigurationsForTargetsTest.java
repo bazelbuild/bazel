@@ -294,7 +294,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "a/BUILD",
         "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
     ConfiguredTarget genIn = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "srcs"));
-    assertThat(genIn.getConfiguration()).isNull();
+    assertThat(getConfiguration(genIn)).isNull();
   }
 
   @Test
@@ -307,7 +307,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:binary", "deps");
     assertThat(deps).hasSize(2);
     for (ConfiguredTarget dep : deps) {
-      assertThat(getTargetConfiguration().equalsOrIsSupersetOf(dep.getConfiguration())).isTrue();
+      assertThat(getTargetConfiguration().equalsOrIsSupersetOf(getConfiguration(dep))).isTrue();
     }
   }
 
@@ -318,7 +318,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "cc_binary(name = 'host_tool', srcs = ['host_tool.cc'])",
         "genrule(name = 'gen', srcs = [], cmd = '', outs = ['gen.out'], tools = [':host_tool'])");
     ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
-    assertThat(toolDep.getConfiguration().isHostConfiguration()).isTrue();
+    assertThat(getConfiguration(toolDep).isHostConfiguration()).isTrue();
   }
 
   @Test
@@ -338,15 +338,14 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     ConfiguredTarget dep1 = deps.get(0);
     ConfiguredTarget dep2 = deps.get(1);
     assertThat(
-        ImmutableList.<String>of(
-            dep1.getConfiguration().getCpu(),
-            dep2.getConfiguration().getCpu()))
+            ImmutableList.<String>of(
+                getConfiguration(dep1).getCpu(), getConfiguration(dep2).getCpu()))
         .containsExactly("armeabi-v7a", "k8");
     // We don't care what order split deps are listed, but it must be deterministic.
     assertThat(
-        ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
-            Dependency.withConfiguration(dep1.getLabel(), dep1.getConfiguration()),
-            Dependency.withConfiguration(dep2.getLabel(), dep2.getConfiguration())))
+            ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
+                Dependency.withConfiguration(dep1.getLabel(), getConfiguration(dep1)),
+                Dependency.withConfiguration(dep2.getLabel(), getConfiguration(dep2))))
         .isLessThan(0);
   }
 }

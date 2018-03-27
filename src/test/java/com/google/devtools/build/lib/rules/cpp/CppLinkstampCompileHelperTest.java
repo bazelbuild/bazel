@@ -63,7 +63,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
         arguments,
-        target.getConfiguration().getFragment(CppConfiguration.class).toString(),
+        getConfiguration(target).getFragment(CppConfiguration.class).toString(),
         target.getLabel().getCanonicalForm(),
         executable.getFilename());
   }
@@ -119,7 +119,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
         arguments,
-        target.getConfiguration().getFragment(CppConfiguration.class).toString(),
+        getConfiguration(target).getFragment(CppConfiguration.class).toString(),
         target.getLabel().getCanonicalForm(),
         executable.getFilename());
   }

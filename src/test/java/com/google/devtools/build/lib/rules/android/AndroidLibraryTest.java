@@ -1590,8 +1590,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget genruleTarget = getConfiguredTarget("//java/srclessdeps:some_genrule");
     ConfiguredTarget target = getDirectPrerequisite(genruleTarget, "//java/srclessdeps:foo");
     assertThat(
-            target
-                .getConfiguration()
+            getConfiguration(target)
                 .getFragment(AndroidConfiguration.class)
                 .allowSrcsLessAndroidLibraryDeps())
         .isTrue();

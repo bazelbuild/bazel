@@ -179,7 +179,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")",
         "rule_class_transition(name='rule_class')");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:attribute", "without_transition");
-    BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
+    BuildConfiguration ruleclass = getConfiguration(Iterables.getOnlyElement(deps));
     assertThat(ruleclass.getCpu()).isEqualTo("SET BY PATCH");
   }
 
@@ -194,7 +194,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")",
         "rule_class_transition(name='rule_class')");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:attribute", "with_host_cpu_transition");
-    BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
+    BuildConfiguration ruleclass = getConfiguration(Iterables.getOnlyElement(deps));
     assertThat(ruleclass.getCpu()).isEqualTo("SET BY PATCH");
     assertThat(ruleclass.getHostCpu()).isEqualTo("SET BY SPLIT");
   }
@@ -210,7 +210,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")",
         "rule_class_transition(name='rule_class')");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:attribute", "with_cpu_transition");
-    BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
+    BuildConfiguration ruleclass = getConfiguration(Iterables.getOnlyElement(deps));
     assertThat(ruleclass.getCpu()).isEqualTo("SET BY PATCH");
   }
 
@@ -226,7 +226,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")",
         "rule_class_transition(name='rule_class')");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:empty", "with_empty_transition");
-    BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
+    BuildConfiguration ruleclass = getConfiguration(Iterables.getOnlyElement(deps));
     assertThat(ruleclass.getCpu()).isEqualTo("SET BY PATCH");
   }
 
@@ -240,7 +240,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")");
     ConfiguredTarget target =
         Iterables.getOnlyElement(update("//a:rule_class").getTargetsToBuild());
-    assertThat(target.getConfiguration().getCpu()).isEqualTo("SET BY PATCH");
+    assertThat(getConfiguration(target).getCpu()).isEqualTo("SET BY PATCH");
   }
 
   @Test
@@ -255,7 +255,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         "simple(name='sim')");
     ConfiguredTarget target =
         Iterables.getOnlyElement(update("//a:sim").getTargetsToBuild());
-    assertThat(target.getConfiguration().getCpu()).isNotEqualTo("SET BY PATCH");
+    assertThat(getConfiguration(target).getCpu()).isNotEqualTo("SET BY PATCH");
   }
 
   @Test
@@ -275,7 +275,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         "   sets_test_filter_to='funkiest',",
         ")");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:top", "without_transition");
-    BuildConfiguration config = Iterables.getOnlyElement(deps).getConfiguration();
+    BuildConfiguration config = getConfiguration(Iterables.getOnlyElement(deps));
     assertThat(config.getFragment(TestConfiguration.class).getTestFilter())
         .isEqualTo("SET BY PATCH FACTORY: funkiest");
   }
@@ -296,7 +296,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         "   sets_test_filter_to='',",
         ")");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:top", "without_transition");
-    BuildConfiguration config = Iterables.getOnlyElement(deps).getConfiguration();
+    BuildConfiguration config = getConfiguration(Iterables.getOnlyElement(deps));
     assertThat(config.getFragment(TestConfiguration.class).getTestFilter())
         .isEqualTo("SET ON COMMAND LINE: original and best");
   }
@@ -313,7 +313,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         "   sets_test_filter_to='Maximum Dance',",
         ")");
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a:factory").getTargetsToBuild());
-    assertThat(target.getConfiguration().getFragment(TestConfiguration.class).getTestFilter())
+    assertThat(getConfiguration(target).getFragment(TestConfiguration.class).getTestFilter())
         .isEqualTo("SET BY PATCH FACTORY: Maximum Dance");
   }
 
@@ -333,7 +333,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         reporter,
         Label.parseAbsoluteUnchecked("@//a:factory"),
         getTargetConfiguration());
-    assertThat(target.getConfiguration().getFragment(TestConfiguration.class).getTestFilter())
+    assertThat(getConfiguration(target).getFragment(TestConfiguration.class).getTestFilter())
         .isEqualTo("SET ON COMMAND LINE: original and best");
   }
 

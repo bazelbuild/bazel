@@ -108,7 +108,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useInterfaceSharedObjects(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     useConfiguration("--interface_shared_objects");
@@ -116,7 +116,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useInterfaceSharedObjects(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     getAnalysisMock()
@@ -132,7 +132,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useInterfaceSharedObjects(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isTrue();
 
     useConfiguration("--nointerface_shared_objects");
@@ -140,7 +140,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useInterfaceSharedObjects(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
   }
 
@@ -180,7 +180,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     // Mode-specific settings.
@@ -189,7 +189,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isTrue();
 
     useConfiguration("-c", "dbg", "--fission=opt");
@@ -197,7 +197,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     useConfiguration("-c", "dbg", "--fission=opt,dbg");
@@ -205,7 +205,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isTrue();
 
     useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
@@ -213,7 +213,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     useConfiguration("-c", "fastbuild", "--fission=opt,dbg");
@@ -221,7 +221,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     // Universally enabled
@@ -230,7 +230,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isTrue();
 
     useConfiguration("-c", "opt", "--fission=yes");
@@ -238,7 +238,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isTrue();
 
     useConfiguration("-c", "fastbuild", "--fission=yes");
@@ -246,7 +246,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isTrue();
 
     // Universally disabled
@@ -255,7 +255,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     useConfiguration("-c", "opt", "--fission=no");
@@ -263,7 +263,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
 
     useConfiguration("-c", "fastbuild", "--fission=no");
@@ -271,7 +271,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.useFission(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isFalse();
   }
 
@@ -374,7 +374,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.getDynamicMode(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isEqualTo(DynamicMode.OFF);
 
     useConfiguration("--lipo=off", "--lipo_context=//foo");
@@ -382,7 +382,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
             CppHelper.getDynamicMode(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isEqualTo(DynamicMode.DEFAULT);
   }
 
@@ -417,7 +417,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(
             CppHelper.getDynamicMode(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isEqualTo(DynamicMode.DEFAULT);
 
     // Test "off"
@@ -427,7 +427,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(
             CppHelper.getDynamicMode(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isEqualTo(DynamicMode.OFF);
 
     // Test "fully"
@@ -437,7 +437,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(
             CppHelper.getDynamicMode(
-                target.getConfiguration().getFragment(CppConfiguration.class), toolchainProvider))
+                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
         .isEqualTo(DynamicMode.FULLY);
 
     // Check an invalid value for disable_dynamic.
@@ -510,7 +510,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertDoesNotContainSublist(
         CppHelper.getCompilerOptions(
-            lib.getConfiguration().getFragment(CppConfiguration.class),
+            getConfiguration(lib).getFragment(CppConfiguration.class),
             toolchain,
             Collections.emptyList()),
         "--param",
@@ -537,13 +537,13 @@ public class CcToolchainTest extends BuildViewTestCase {
     String defaultSettingFalse = "crosstool_default_false";
     List<String> copts =
         CppHelper.getCompilerOptions(
-            lib.getConfiguration().getFragment(CppConfiguration.class),
+            getConfiguration(lib).getFragment(CppConfiguration.class),
             toolchain,
             Collections.emptyList());
     assertThat(copts).doesNotContain("-DDEFAULT_FALSE");
     copts =
         CppHelper.getCompilerOptions(
-            lib.getConfiguration().getFragment(CppConfiguration.class),
+            getConfiguration(lib).getFragment(CppConfiguration.class),
             toolchain,
             ImmutableList.of(defaultSettingFalse));
     assertThat(copts).contains("-DDEFAULT_FALSE");
@@ -554,7 +554,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     copts =
         CppHelper.getCompilerOptions(
-            lib.getConfiguration().getFragment(CppConfiguration.class),
+            getConfiguration(lib).getFragment(CppConfiguration.class),
             toolchain,
             ImmutableList.of(defaultSettingFalse));
     assertThat(copts).contains("-DDEFAULT_FALSE");
@@ -574,7 +574,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     List<String> expected = new ArrayList<>();
     expected.addAll(
         CppHelper.getCompilerOptions(
-            lib.getConfiguration().getFragment(CppConfiguration.class),
+            getConfiguration(lib).getFragment(CppConfiguration.class),
             toolchain,
             Collections.emptyList()));
     expected.add("-Dfoo");
@@ -585,7 +585,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     assertThat(
             ImmutableList.copyOf(
                 CppHelper.getCompilerOptions(
-                    lib.getConfiguration().getFragment(CppConfiguration.class),
+                    getConfiguration(lib).getFragment(CppConfiguration.class),
                     toolchain,
                     Collections.emptyList())))
         .isEqualTo(ImmutableList.copyOf(expected));

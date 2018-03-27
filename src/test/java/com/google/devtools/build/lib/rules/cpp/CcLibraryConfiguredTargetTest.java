@@ -998,7 +998,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir = target.getConfiguration().getGenfilesFragment().toString();
+    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
