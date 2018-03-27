@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -113,8 +112,6 @@ public class BlazeCommandUtils {
    * @param topic the name of the help topic; used in %{command} expansion.
    * @param help the text template of the help message. Certain %{x} variables will be expanded. A
    *     prefix of "resource:" means use the .jar resource of that name.
-   * @param categoryDescriptions a mapping from option category names to descriptions, passed to
-   *     {@link OptionsParser#describeOptionsWithDeprecatedCategories}.
    * @param helpVerbosity a tri-state verbosity option selecting between just names, names and
    *     syntax, and full description.
    * @param productName the product name
@@ -124,29 +121,8 @@ public class BlazeCommandUtils {
       String help,
       Class<? extends BlazeCommand> commandClass,
       Collection<Class<? extends OptionsBase>> options,
-      Map<String, String> categoryDescriptions,
       OptionsParser.HelpVerbosity helpVerbosity,
       String productName) {
-    return expandHelpTopic(
-        topic,
-        help,
-        commandClass,
-        options,
-        categoryDescriptions,
-        helpVerbosity,
-        productName,
-        false);
-  }
-
-  public static final String expandHelpTopic(
-      String topic,
-      String help,
-      Class<? extends BlazeCommand> commandClass,
-      Collection<Class<? extends OptionsBase>> options,
-      Map<String, String> categoryDescriptions,
-      OptionsParser.HelpVerbosity helpVerbosity,
-      String productName,
-      boolean useNewCategoryEnum) {
     OptionsParser parser = OptionsParser.newOptionsParser(options);
 
     String template;
@@ -171,15 +147,9 @@ public class BlazeCommandUtils {
     }
 
     String optionStr;
-    if (useNewCategoryEnum) {
       optionStr =
           parser.describeOptions(productName, helpVerbosity).replace("%{product}", productName);
-    } else {
-      optionStr =
-          parser
-              .describeOptionsWithDeprecatedCategories(categoryDescriptions, helpVerbosity)
-              .replace("%{product}", productName);
-    }
+
     return template
             .replace("%{product}", productName)
             .replace("%{command}", topic)
@@ -194,28 +164,22 @@ public class BlazeCommandUtils {
   /**
    * The help page for this command.
    *
-   * @param categoryDescriptions a mapping from option category names to descriptions, passed to
-   *     {@link OptionsParser#describeOptionsWithDeprecatedCategories}.
    * @param verbosity a tri-state verbosity option selecting between just names, names and syntax,
    *     and full description.
    */
   public static String getUsage(
       Class<? extends BlazeCommand> commandClass,
-      Map<String, String> categoryDescriptions,
       OptionsParser.HelpVerbosity verbosity,
       Iterable<BlazeModule> blazeModules,
       ConfiguredRuleClassProvider ruleClassProvider,
-      String productName,
-      boolean useNewCategoryEnum) {
+      String productName) {
     Command commandAnnotation = commandClass.getAnnotation(Command.class);
     return BlazeCommandUtils.expandHelpTopic(
         commandAnnotation.name(),
         commandAnnotation.help(),
         commandClass,
         BlazeCommandUtils.getOptions(commandClass, blazeModules, ruleClassProvider),
-        categoryDescriptions,
         verbosity,
-        productName,
-        useNewCategoryEnum);
+        productName);
   }
 }

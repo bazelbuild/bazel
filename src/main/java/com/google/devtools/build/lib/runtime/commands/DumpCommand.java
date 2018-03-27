@@ -209,17 +209,19 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.skylarkMemory != null
             || (dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF);
     if (!anyOutput) {
-      Map<String, String> categories = new HashMap<>();
-      categories.put("verbosity", "Options that control what internal state is dumped");
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
       optionList.add(DumpOptions.class);
 
-      env.getReporter().getOutErr().printErrLn(BlazeCommandUtils.expandHelpTopic(
-          getClass().getAnnotation(Command.class).name(),
-          getClass().getAnnotation(Command.class).help(),
-          getClass(),
-          optionList, categories, OptionsParser.HelpVerbosity.LONG,
-          runtime.getProductName()));
+      env.getReporter()
+          .getOutErr()
+          .printErrLn(
+              BlazeCommandUtils.expandHelpTopic(
+                  getClass().getAnnotation(Command.class).name(),
+                  getClass().getAnnotation(Command.class).help(),
+                  getClass(),
+                  optionList,
+                  OptionsParser.HelpVerbosity.LONG,
+                  runtime.getProductName()));
       return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
     }
     PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());
