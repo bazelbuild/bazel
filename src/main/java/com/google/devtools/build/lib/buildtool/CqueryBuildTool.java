@@ -15,22 +15,19 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.ConfiguredTargetQueryEnvironment;
-import com.google.devtools.build.lib.query2.TransitionsOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.CqueryThreadsafeCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
-import com.google.devtools.build.lib.query2.output.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -130,38 +127,27 @@ public class CqueryBuildTool extends BuildTool {
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
             cqueryOptions.toSettings());
-    CqueryOptions.Transitions transitions = cqueryOptions.transitions;
-    ThreadSafeOutputFormatterCallback<ConfiguredTarget> callback =
-        !transitions.equals(Transitions.NONE)
-            ? new TransitionsOutputFormatterCallback(
-                configuredTargetQueryEnvironment.getAccessor(),
-                transitions,
-                env.getReporter().getOutErr().getOutputStream(),
-                env.getSkyframeExecutor(),
-                hostConfiguration)
-            : new ThreadSafeOutputFormatterCallback<ConfiguredTarget>() {
-              @Override
-              public void processOutput(Iterable<ConfiguredTarget> partialResult) {
-                for (ConfiguredTarget configuredTarget : partialResult) {
-                  BuildConfiguration config =
-                      env.getSkyframeExecutor()
-                          .getConfiguration(
-                              env.getReporter(), configuredTarget.getConfigurationKey());
-                  StringBuilder output =
-                      new StringBuilder()
-                          .append(
-                              ConfiguredTargetQueryEnvironment.getCorrectLabel(configuredTarget))
-                          .append(" (")
-                          .append(config != null && config.isHostConfiguration() ? "HOST" : config)
-                          .append(")");
-                  env.getReporter().getOutErr().printOutLn(output.toString());
-                }
-              }
-            };
+    Iterable<CqueryThreadsafeCallback> callbacks =
+        ConfiguredTargetQueryEnvironment.getDefaultOutputFormatters(
+            configuredTargetQueryEnvironment.getAccessor(),
+            cqueryOptions,
+            env.getReporter().getOutErr().getOutputStream(),
+            env.getSkyframeExecutor(),
+            hostConfiguration);
+    CqueryThreadsafeCallback callback =
+        CqueryThreadsafeCallback.getCallback(cqueryOptions.outputFormat, callbacks);
+    if (callback == null) {
+      env.getReporter()
+          .handle(
+              Event.error(
+                  String.format(
+                      "Invalid output format '%s'. Valid values are: %s",
+                      cqueryOptions.outputFormat,
+                      CqueryThreadsafeCallback.callbackNames(callbacks))));
+      return;
+    }
     QueryEvalResult result =
-        configuredTargetQueryEnvironment.evaluateQuery(
-            queryExpression,
-            callback);
+        configuredTargetQueryEnvironment.evaluateQuery(queryExpression, callback);
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
