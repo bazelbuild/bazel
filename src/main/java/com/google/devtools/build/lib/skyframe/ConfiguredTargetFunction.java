@@ -651,7 +651,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   new ConfiguredTargetAndData(
                       depValue.getConfiguredTarget(),
                       pkgValue.getPackage().getTarget(depLabel.getName()),
-                      depValue.getConfiguredTarget().getConfiguration()));
+                      dep.getConfiguration()));
             } catch (NoSuchTargetException e) {
               throw new IllegalStateException("Target already verified for " + dep, e);
             }
