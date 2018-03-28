@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -364,6 +365,7 @@ public final class ObjcProvider extends NativeInfo {
     HAS_WATCH2_EXTENSION,
   }
 
+  private final SkylarkSemantics semantics;
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
   // Items which should not be propagated to dependents.
@@ -832,10 +834,12 @@ public final class ObjcProvider extends NativeInfo {
   public static final NativeProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
+      SkylarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
     super(SKYLARK_CONSTRUCTOR);
+    this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);
@@ -848,6 +852,10 @@ public final class ObjcProvider extends NativeInfo {
   public <E> NestedSet<E> get(Key<E> key) {
     Preconditions.checkNotNull(key);
     NestedSetBuilder<E> builder = new NestedSetBuilder<>(key.order);
+    if (semantics.incompatibleDisableObjcProviderResources()
+        && ObjcProvider.isDeprecatedResourceKey(key)) {
+      return builder.build();
+    }
     if (strictDependencyItems.containsKey(key)) {
       builder.addTransitive((NestedSet<E>) strictDependencyItems.get(key));
     }
@@ -959,7 +967,7 @@ public final class ObjcProvider extends NativeInfo {
         avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
       }
     }
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder(semantics);
     for (Key<?> key : getValuedKeys()) {
       if (key == CC_LIBRARY) {
         addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
@@ -1075,9 +1083,14 @@ public final class ObjcProvider extends NativeInfo {
    * several transitive dependencies.
    */
   public static final class Builder {
+    private final SkylarkSemantics skylarkSemantics;
     private final Map<Key<?>, NestedSetBuilder<?>> items = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> nonPropagatedItems = new HashMap<>();
     private final Map<Key<?>, NestedSetBuilder<?>> strictDependencyItems = new HashMap<>();
+
+    public Builder(SkylarkSemantics semantics) {
+      this.skylarkSemantics = semantics;
+    }
 
     private static void maybeAddEmptyBuilder(Map<Key<?>, NestedSetBuilder<?>> set, Key<?> key) {
       set.computeIfAbsent(key, k -> new NestedSetBuilder<>(k.order));
@@ -1328,7 +1341,8 @@ public final class ObjcProvider extends NativeInfo {
         strictDependencyBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
 
-      return new ObjcProvider(propagatedBuilder.build(), nonPropagatedBuilder.build(),
+      return new ObjcProvider(skylarkSemantics,
+          propagatedBuilder.build(), nonPropagatedBuilder.build(),
           strictDependencyBuilder.build());
     }
   }

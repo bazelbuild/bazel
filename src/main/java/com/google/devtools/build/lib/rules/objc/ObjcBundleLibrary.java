@@ -81,9 +81,10 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    ObjcProvider nestedBundleProvider = new ObjcProvider.Builder()
-        .add(NESTED_BUNDLE, bundling)
-        .build();
+    ObjcProvider nestedBundleProvider =
+        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics())
+            .add(NESTED_BUNDLE, bundling)
+            .build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(nestedBundleProvider)
@@ -119,7 +120,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private ObjcCommon common(RuleContext ruleContext) {
+  private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
     return new ObjcCommon.Builder(ruleContext)
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDepObjcProviders(

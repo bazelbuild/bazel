@@ -377,7 +377,7 @@ public class AppleSkylarkCommon {
             Environment environment) {
           boolean disableObjcResourceKeys =
               environment.getSemantics().incompatibleDisableObjcProviderResources();
-          ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder();
+          ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(environment.getSemantics());
           if (usesSwift) {
             resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
           }
