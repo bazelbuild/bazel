@@ -126,12 +126,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    */
   private final boolean storeTransitivePackagesForPackageRootResolution;
 
+  private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
+
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
       Semaphore cpuBoundSemaphore,
       Supplier<Boolean> removeActionsAfterEvaluation,
       boolean storeTransitivePackagesForPackageRootResolution,
+      boolean shouldUnblockCpuWorkWhenFetchingDeps,
       BuildOptions defaultBuildOptions) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
@@ -139,12 +142,20 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
+    this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.defaultBuildOptions = defaultBuildOptions;
   }
 
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws ConfiguredTargetFunctionException,
       InterruptedException {
+    if (shouldUnblockCpuWorkWhenFetchingDeps) {
+      env =
+          new StateInformingSkyFunctionEnvironment(
+              env,
+              /*preFetch=*/ cpuBoundSemaphore::release,
+              /*postFetch=*/ cpuBoundSemaphore::acquire);
+    }
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
