@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1360,7 +1359,7 @@ public class BuildConfiguration {
     globalMakeEnvBuilder.put("GENDIR", getGenfilesDirectory().getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
-    checksum = computeChecksum(buildOptions);
+    checksum = buildOptions.computeChecksum();
     hashCode = computeHashCode();
 
     ImmutableSet.Builder<String> reservedActionMnemonics = ImmutableSet.builder();
@@ -1369,10 +1368,6 @@ public class BuildConfiguration {
     }
     this.reservedActionMnemonics = reservedActionMnemonics.build();
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
-  }
-
-  public static String computeChecksum(BuildOptions buildOptions) {
-    return Fingerprint.md5Digest(buildOptions.computeCacheKey());
   }
 
   /**
