@@ -55,32 +55,21 @@ public class ConfiguredTargetAndData {
             + " ConfiguredTarget's label %s is not equal to Target's label %s",
         configuredTarget.getLabel(),
         target.getLabel());
-    BuildConfiguration innerConfiguration = configuredTarget.getConfiguration();
-    if (configuration != innerConfiguration) {
-      Preconditions.checkNotNull(configuration, configuredTarget);
-      Preconditions.checkNotNull(innerConfiguration, configuredTarget);
-      // We can't always assert that configurations are equal, because fragments, which are used in
-      // the equality check, don't implement .equals(), so two configurations constructed from the
-      // same options may end up unequal.
+    BuildConfigurationValue.Key innerConfigurationKey = configuredTarget.getConfigurationKey();
+    if (configuration == null) {
       Preconditions.checkState(
-          configuration.checksum().equals(innerConfiguration.checksum()),
-          "Configuration checksums don't match: %s %s (%s %s)",
-          configuration.checksum(),
-          innerConfiguration.checksum(),
+          innerConfigurationKey == null,
+          "Non-null configuration key for %s but configuration is null (%s)",
           configuredTarget,
           target);
+    } else {
+      BuildConfigurationValue.Key configurationKey = BuildConfigurationValue.key(configuration);
       Preconditions.checkState(
-          configuration.getOptions().equals(innerConfiguration.getOptions()),
-          "Configuration options don't match: %s %s (%s %s)",
-          configuration.getOptions(),
-          innerConfiguration.getOptions(),
-          configuredTarget,
-          target);
-      Preconditions.checkState(
-          configuration.fragmentClasses().equals(innerConfiguration.fragmentClasses()),
-          "Configuration classes don't match: %s %s (%s %s)",
-          configuration.fragmentClasses(),
-          innerConfiguration.fragmentClasses(),
+          innerConfigurationKey.equals(configurationKey),
+          "Configurations don't match: %s %s %s (%s %s)",
+          configurationKey,
+          innerConfigurationKey,
+          configuration,
           configuredTarget,
           target);
     }

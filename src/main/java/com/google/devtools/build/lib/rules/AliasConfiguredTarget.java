@@ -21,12 +21,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObject {
   private final Label label;
-  private final BuildConfiguration configuration;
+  private final BuildConfigurationValue.Key configurationKey;
   private final ConfiguredTarget actual;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       overrides;
@@ -56,7 +56,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides) {
     this(
         ruleContext.getLabel(),
-        Preconditions.checkNotNull(ruleContext.getConfiguration()),
+        Preconditions.checkNotNull(ruleContext.getConfigurationKey()),
         Preconditions.checkNotNull(actual),
         Preconditions.checkNotNull(overrides));
   }
@@ -65,11 +65,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   @VisibleForSerialization
   AliasConfiguredTarget(
       Label label,
-      BuildConfiguration configuration,
+      BuildConfigurationValue.Key configurationKey,
       ConfiguredTarget actual,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides) {
     this.label = label;
-    this.configuration = configuration;
+    this.configurationKey = configurationKey;
     this.actual = actual;
     this.overrides = overrides;
   }
@@ -110,11 +110,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
-  public BuildConfiguration getConfiguration() {
-    // This does not return actual.getConfiguration() because actual might be an input file, in
-    // which case its configuration is null and we don't want to have rules that have a null
-    // configuration.
-    return configuration;
+  public BuildConfigurationValue.Key getConfigurationKey() {
+    // This does not return actual.getConfigurationKey() because actual might be an input file, in
+    // which case its configurationKey is null and we don't want to have rules that have a null
+    // configurationKey.
+    return configurationKey;
   }
 
   /* ClassObject methods */

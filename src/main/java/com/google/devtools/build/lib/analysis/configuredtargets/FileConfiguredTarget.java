@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -47,10 +47,10 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
 
   FileConfiguredTarget(
       Label label,
-      BuildConfiguration configuration,
+      BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact) {
-    super(label, configuration, visibility);
+    super(label, configurationKey, visibility);
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
     this.artifact = artifact;
     FileProvider fileProvider = new FileProvider(filesToBuild);
