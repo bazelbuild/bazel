@@ -46,10 +46,10 @@ public final class SimpleBlobStoreFactory {
     }
   }
 
-  public static SimpleBlobStore createLocalDisk(RemoteOptions options, Path workingDirectory)
+  public static SimpleBlobStore createBuildCache(RemoteOptions options, Path workingDirectory)
       throws IOException {
     return new OnDiskBlobStore(
-        workingDirectory.getRelative(checkNotNull(options.experimentalLocalDiskCachePath)));
+        workingDirectory.getRelative(checkNotNull(options.buildCache)));
   }
 
   public static SimpleBlobStore create(
@@ -58,8 +58,8 @@ public final class SimpleBlobStoreFactory {
     if (isRestUrlOptions(options)) {
       return createRest(options, creds);
     }
-    if (workingDirectory != null && isLocalDiskCache(options)) {
-      return createLocalDisk(options, workingDirectory);
+    if (workingDirectory != null && isBuildCache(options)) {
+      return createBuildCache(options, workingDirectory);
     }
     throw new IllegalArgumentException(
         "Unrecognized concurrent map RemoteOptions: must specify "
@@ -67,11 +67,11 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isRestUrlOptions(options) || isLocalDiskCache(options);
+    return isRestUrlOptions(options) || isBuildCache(options);
   }
 
-  public static boolean isLocalDiskCache(RemoteOptions options) {
-    return options.experimentalLocalDiskCache;
+  public static boolean isBuildCache(RemoteOptions options) {
+    return options.buildCache != null;
   }
 
   private static boolean isRestUrlOptions(RemoteOptions options) {

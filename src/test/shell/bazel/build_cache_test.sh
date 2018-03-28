@@ -27,7 +27,7 @@ function test_local_action_cache() {
   local execution_file="${TEST_TMPDIR}/run.log"
   local input_file="foo.in"
   local output_file="bazel-genfiles/foo.txt"
-  local flags="--experimental_local_disk_cache_path=$cache --experimental_local_disk_cache"
+  local flags="--build_cache=$cache"
 
   rm -rf $cache
   mkdir $cache
