@@ -102,7 +102,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleIntermediateArtifacts.combinedArchitectureArchive());
 
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    ObjcProvider.Builder objcProviderBuilder =
+        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
 
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT,
@@ -209,7 +210,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       List<ConfiguredTargetAndData> propagatedConfigredTargetAndTargetDeps,
-      Optional<ObjcProvider> protosObjcProvider) {
+      Optional<ObjcProvider> protosObjcProvider) throws InterruptedException {
 
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder().build();
 

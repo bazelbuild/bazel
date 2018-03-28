@@ -47,7 +47,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
   public static final ImmutableList<String> J2OBJC_SUPPORTED_RULES =
       ImmutableList.of("java_import", "java_library", "proto_library");
 
-  private ObjcCommon common(RuleContext ruleContext) {
+  private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
     return new ObjcCommon.Builder(ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
@@ -75,7 +75,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     Iterable<ObjcProvider> jreDeps =
         ruleContext.getPrerequisites("jre_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
     ObjcProvider.Builder objcProviderBuilder =
-        new ObjcProvider.Builder()
+        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics())
             .addTransitiveAndPropagate(jreDeps)
             .addTransitiveAndPropagate(
                 ruleContext.getPrerequisites(

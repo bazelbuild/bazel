@@ -787,7 +787,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
    */
   static ObjcCommon common(RuleContext ruleContext, Iterable<Artifact> transpiledSources,
       Iterable<Artifact> transpiledHeaders, Iterable<PathFragment> headerSearchPaths,
-      Iterable<Attribute> dependentAttributes) {
+      Iterable<Attribute> dependentAttributes) throws InterruptedException {
     ObjcCommon.Builder builder = new ObjcCommon.Builder(ruleContext);
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import org.junit.Test;
@@ -41,6 +42,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ObjcSkylarkTest extends ObjcRuleTestCase {
+  private static ObjcProvider.Builder objcProviderBuilder() {
+    return new ObjcProvider.Builder(SkylarkSemantics.DEFAULT_SEMANTICS);
+  }
+
   @Test
   public void testSkylarkRuleCanDependOnNativeAppleRule() throws Exception {
     scratch.file("examples/rule/BUILD");
@@ -855,9 +860,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     ObjcProvider skylarkProvider = skylarkTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
     ObjcProvider skylarkProviderDirectDepender =
-        new ObjcProvider.Builder().addTransitiveAndPropagate(skylarkProvider).build();
-    ObjcProvider skylarkProviderIndirectDepender = 
-        new ObjcProvider.Builder().addTransitiveAndPropagate(skylarkProviderDirectDepender).build();
+        objcProviderBuilder().addTransitiveAndPropagate(skylarkProvider).build();
+    ObjcProvider skylarkProviderIndirectDepender =
+        objcProviderBuilder().addTransitiveAndPropagate(skylarkProviderDirectDepender).build();
 
     assertThat(skylarkProvider.get(ObjcProvider.INCLUDE))
         .containsExactly(PathFragment.create("path1"), PathFragment.create("path2"));
@@ -1347,7 +1352,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testDisableObjcProviderResources() throws Exception {
+  public void testDisableObjcProviderResourcesWrite() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1378,7 +1383,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testEnabledObjcProviderResources() throws Exception {
+  public void testEnabledObjcProviderResourcesWrite() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1404,6 +1409,77 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     ObjcProvider objcProvider = binaryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
 
     assertThat(objcProvider.get(ObjcProvider.XIB)).isNotNull();
+  }
+
+  @Test
+  public void testDisableObjcProviderResourcesRead() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   dep = ctx.attr.deps[0]",
+        "   objc_provider = dep[apple_common.Objc]",
+        "   return struct(strings=str(objc_provider.strings))",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {",
+        "      'deps': attr.label_list(providers = ['objc'])})");
+
+    scratch.file("examples/apple_skylark/foo.strings");
+    scratch.file("examples/apple_skylark/bar.a");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "   name='my_target',",
+        "   deps=[':bundle_lib'],",
+        ")",
+        "objc_import(",
+        "   name='bundle_lib',",
+        "   archives = ['bar.a'],",
+        "   strings=['foo.strings'],",
+        ")");
+
+    setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=true");
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    assertThat(skylarkTarget.get("strings")).isEqualTo("depset([])");
+  }
+
+  @Test
+  public void testEnabledObjcProviderResourcesRead() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   dep = ctx.attr.deps[0]",
+        "   objc_provider = dep[apple_common.Objc]",
+        "   return struct(strings=str(objc_provider.strings))",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {",
+        "      'deps': attr.label_list(providers = ['objc'])})");
+
+    scratch.file("examples/apple_skylark/foo.strings");
+    scratch.file("examples/apple_skylark/bar.a");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "   name='my_target',",
+        "   deps=[':bundle_lib'],",
+        ")",
+        "objc_import(",
+        "   name='bundle_lib',",
+        "   archives = ['bar.a'],",
+        "   strings=['foo.strings'],",
+        ")");
+
+    setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=false");
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    assertThat(skylarkTarget.get("strings"))
+        .isEqualTo("depset([<source file examples/apple_skylark/foo.strings>])");
   }
 
   private void checkSkylarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {

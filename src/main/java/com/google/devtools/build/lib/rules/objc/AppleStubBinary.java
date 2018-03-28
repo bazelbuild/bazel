@@ -126,7 +126,8 @@ public class AppleStubBinary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
 
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    ObjcProvider.Builder objcProviderBuilder =
+        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
     for (ObjcProvider depProvider : configurationToDepsMap.values()) {
       objcProviderBuilder.addTransitiveAndPropagate(depProvider);
     }
