@@ -15,7 +15,7 @@
 """Bazel rules for creating Java toolchains."""
 
 JDK8_JVM_OPTS = [
-    "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
+    "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
 ]
 
 JDK9_JVM_OPTS = [
@@ -29,9 +29,9 @@ JDK9_JVM_OPTS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
-    # TODO(cushon): override the javac in the JDK.
-    # "--patch-module=java.compiler=$(location //third_party/java/jdk/langtools/blaze:java_compiler_jar)",
-    # "--patch-module=jdk.compiler=$(location //third_party/java/jdk/langtools/blaze:jdk_compiler_jar)",
+    # override the javac in the JDK.
+    "--patch-module=java.compiler=$(location @bazel_tools//third_party/java/jdk/langtools:java_compiler_jar)",
+    "--patch-module=jdk.compiler=$(location @bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar)",
 ]
 
 DEFAULT_COMPATIBLE_JAVACOPTS = {
@@ -64,7 +64,11 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
   "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
   "ijar": ["@bazel_tools//tools/jdk:ijar"],
   "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
-  "javac": ["//third_party/java/jdk/langtools:javac_jar"],
+  "javac": ["@bazel_tools//third_party/java/jdk/langtools:javac_jar"],
+  "tools": [
+      "@bazel_tools//third_party/java/jdk/langtools:java_compiler_jar",
+      "@bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar",
+  ],
   "javac_supports_workers": 1,
   "jvm_opts": JDK8_JVM_OPTS,
   "misc": DEFAULT_JAVACOPTS,
