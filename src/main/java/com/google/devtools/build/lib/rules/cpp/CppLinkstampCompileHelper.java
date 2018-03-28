@@ -156,7 +156,7 @@ public class CppLinkstampCompileHelper {
                     codeCoverageEnabled))
             .build();
 
-    return CcBuildVariables.setupCompileBuildVariables(
+    return CompileBuildVariables.setupVariables(
         ruleContext,
         featureConfiguration,
         ccToolchainProvider,
