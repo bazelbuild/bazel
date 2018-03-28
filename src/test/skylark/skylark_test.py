@@ -34,6 +34,7 @@ class SkylarkTest(unittest.TestCase):
 
   CHUNK_SEP = "---"
   ERR_SEP = "###"
+  seen_error = False
 
   def chunks(self, path):
     code = []
@@ -61,21 +62,18 @@ class SkylarkTest(unittest.TestCase):
 
   def check_output(self, output, expected):
     if expected and not output:
-      raise Exception("Expected error:", expected)
+      self.seen_error = True
+      print("Expected error:", expected)
 
     if output and not expected:
-      raise Exception("Unexpected error:", output)
+      self.seen_error = True
+      print("Unexpected error:", output)
 
     for exp in expected:
-      if not re.search(exp, output):
-        raise Exception("Error `{}` not found, got: {}".format(exp, output))
-
-  TESTS = [
-      "int.sky",
-      "equality.sky",
-      "and_or_not.sky",
-      "min_max.sky",
-  ]
+      # Try both substring and regex matching.
+      if exp not in output and not re.search(exp, output):
+        self.seen_error = True
+        print("Error `{}` not found, got: `{}`".format(exp, output))
 
   PRELUDE = """
 def assert_eq(x, y):
@@ -100,6 +98,8 @@ def assert_(cond, msg="assertion failed"):
       output = self.evaluate(tmp.name).decode("utf-8")
       os.unlink(tmp.name)
       self.check_output(output, expected)
+    if self.seen_error:
+      raise Exception("Test failed")
 
 
 if __name__ == "__main__":

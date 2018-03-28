@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -206,51 +205,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testReversedWithInvalidTypes() throws Exception {
-    new BothModesTest()
-        .testIfExactError("type 'NoneType' is not iterable", "reversed(None)")
-        .testIfExactError("type 'int' is not iterable", "reversed(1)")
-        .testIfExactError(
-            "Argument to reversed() must be a sequence, not a dictionary.", "reversed({1: 3})");
-    new SkylarkTest()
-        .testIfExactError(
-            "Argument to reversed() must be a sequence, not a depset.", "reversed(depset([1]))");
-  }
-
-  @Test
-  public void testReversedWithLists() throws Exception {
-    new BothModesTest()
-        .testEval("reversed([])", "[]")
-        .testEval("reversed([1])", "[1]")
-        .testEval("reversed([1, 2, 3, 4, 5])", "[5, 4, 3, 2, 1]")
-        .testEval("reversed([[1, 2], 3, 4, [5]])", "[[5], 4, 3, [1, 2]]")
-        .testEval("reversed([1, 1, 1, 1, 2])", "[2, 1, 1, 1, 1]");
-  }
-
-  @Test
-  public void testReversedNoSideEffects() throws Exception {
-    new SkylarkTest()
-        .testEval(
-            "def foo():\n"
-                + "  x = ['a', 'b']\n"
-                + "  y = reversed(x)\n"
-                + "  y += ['c']\n"
-                + "  return x\n"
-                + "foo()",
-            "['a', 'b']");
-  }
-
-  @Test
-  public void testEquivalenceOfReversedAndSlice() throws Exception {
-    String[] data = new String[] {"[]", "[1]", "[1, 2, 3]"};
-    for (String toBeReversed : data) {
-      new BothModesTest()
-          .testEval(
-              String.format("reversed(%s)", toBeReversed), String.format("%s[::-1]", toBeReversed));
-    }
-  }
-
-  @Test
   public void testListSort() throws Exception {
     new BothModesTest()
         .testEval("sorted([0,1,2,3])", "[0, 1, 2, 3]")
@@ -283,12 +237,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("key \"0\" not found in dictionary", "{}['0']")
         .testIfErrorContains("key 0 not found in dictionary", "{'0': 1, 2: 3, 4: 5}[0]");
-  }
-
-  @Test
-  public void testListAccessBadIndex() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains("indices must be integers, not string", "[[1], [2]]['a']");
   }
 
   @Test
@@ -475,34 +423,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListIndex() throws Exception {
-    new BothModesTest()
-        .testStatement("['a', 'b', 'c', 'd'][0]", "a")
-        .testStatement("['a', 'b', 'c', 'd'][1]", "b")
-        .testStatement("['a', 'b', 'c', 'd'][-1]", "d")
-        .testStatement("['a', 'b', 'c', 'd'][-2]", "c")
-        .testStatement("[0, 1, 2][-3]", 0)
-        .testStatement("[0, 1, 2][-2]", 1)
-        .testStatement("[0, 1, 2][-1]", 2)
-        .testStatement("[0, 1, 2][0]", 0);
-  }
-
-  @Test
-  public void testListIndexOutOfRange() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains(
-            "index out of range (index is 3, but sequence has 3 elements)", "[0, 1, 2][3]")
-        .testIfErrorContains(
-            "index out of range (index is -4, but sequence has 3 elements)", "[0, 1, 2][-4]")
-        .testIfErrorContains(
-            "index out of range (index is -2, but sequence has 1 elements)", "[0][-2]")
-        .testIfErrorContains(
-            "index out of range (index is 1, but sequence has 1 elements)", "[0][1]")
-        .testIfErrorContains(
-            "index out of range (index is 1, but sequence has 0 elements)", "[][1]");
-  }
-
-  @Test
   public void testHash() throws Exception {
     // We specify the same string hashing algorithm as String.hashCode().
     new SkylarkTest()
@@ -551,80 +471,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "argument 'list' has type 'string', but should be 'sequence'\n"
                 + "in call to builtin function enumerate(list)",
             "enumerate('a')");
-  }
-
-  @Test
-  public void testPyListAppend() throws Exception {
-    new BuildTest()
-        .setUp("FOO = ['a', 'b']", "FOO.insert(0, 'c')")
-        .testLookup("FOO", MutableList.of(env, "c", "a", "b"))
-        .setUp("FOO.insert(1, 'd')")
-        .testLookup("FOO", MutableList.of(env, "c", "d", "a", "b"))
-        .setUp("FOO.insert(4, 'e')")
-        .testLookup("FOO", MutableList.of(env, "c", "d", "a", "b", "e"))
-        .setUp("FOO.insert(-10, 'f')")
-        .testLookup("FOO", MutableList.of(env, "f", "c", "d", "a", "b", "e"))
-        .setUp("FOO.insert(10, 'g')")
-        .testLookup("FOO", MutableList.of(env, "f", "c", "d", "a", "b", "e", "g"))
-        .testIfErrorContains("type 'tuple' has no method insert(int)", "(1, 2).insert(3)");
-  }
-
-  @Test
-  public void testPyListInsert() throws Exception {
-    new BuildTest()
-        .setUp("FOO = ['a', 'b']", "FOO.append('c')")
-        .testLookup("FOO", MutableList.of(env, "a", "b", "c"))
-        .testIfErrorContains("type 'tuple' has no method append(int)", "(1, 2).append(3)");
-  }
-
-  @Test
-  public void testPyListExtend() throws Exception {
-    new BuildTest()
-        .setUp("FOO = ['a', 'b']", "FOO.extend(['c', 'd'])", "FOO.extend(('e', 'f'))")
-        .testLookup("FOO", MutableList.of(env, "a", "b", "c", "d", "e", "f"))
-        .testIfErrorContains("type 'tuple' has no method extend(list)", "(1, 2).extend([3, 4])")
-        .testIfErrorContains(
-            "argument 'items' has type 'int', but should be 'sequence'\n"
-                + "in call to builtin method list.extend(items)",
-            "[1, 2].extend(3)");
-  }
-
-  @Test
-  public void testListRemove() throws Exception {
-    new BothModesTest()
-        .setUp("foo = ['a', 'b', 'c', 'b']", "foo.remove('b')")
-        .testLookup("foo", MutableList.of(env, "a", "c", "b"))
-        .setUp("foo.remove('c')")
-        .testLookup("foo", MutableList.of(env, "a", "b"))
-        .setUp("foo.remove('a')")
-        .testLookup("foo", MutableList.of(env, "b"))
-        .setUp("foo.remove('b')")
-        .testLookup("foo", MutableList.of(env))
-        .testIfErrorContains("item 3 not found in list", "[1, 2].remove(3)");
-
-    new BothModesTest()
-        .testIfErrorContains("type 'tuple' has no method remove(int)", "(1, 2).remove(3)");
-  }
-
-  @Test
-  public void testListPop() throws Exception {
-    new BothModesTest()
-        .setUp("li = [2, 3, 4]; ret = li.pop()")
-        .testLookup("li", MutableList.of(env, 2, 3))
-        .testLookup("ret", 4);
-    new BothModesTest()
-        .setUp("li = [2, 3, 4]; ret = li.pop(-2)")
-        .testLookup("li", MutableList.of(env, 2, 4))
-        .testLookup("ret", 3);
-    new BothModesTest()
-        .setUp("li = [2, 3, 4]; ret = li.pop(1)")
-        .testLookup("li", MutableList.of(env, 2, 4))
-        .testLookup("ret", 3);
-    new BothModesTest()
-        .testIfErrorContains(
-            "index out of range (index is 3, but sequence has 2 elements)", "[1, 2].pop(3)");
-
-    new BothModesTest().testIfErrorContains("type 'tuple' has no method pop()", "(1, 2).pop()");
   }
 
   @Test
@@ -683,103 +529,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(False)", "False")
         .testStatement("str(None)", "None")
         .testStatement("str(str)", "<built-in function str>");
-  }
-
-  @Test
-  public void testIntNonstring() throws Exception {
-    new BothModesTest()
-        .testStatement("int(0)", 0)
-        .testStatement("int(42)", 42)
-        .testStatement("int(-1)", -1)
-        .testStatement("int(2147483647)", 2147483647)
-        // TODO(bazel-team): -2147483648 is not actually a valid int literal even though it's a
-        // valid int value, hence the -1 expression.
-        .testStatement("int(-2147483647 - 1)", -2147483648)
-        .testStatement("int(True)", 1)
-        .testStatement("int(False)", 0)
-        .testIfErrorContains("None is not of type string or int or bool", "int(None)")
-        // This case is allowed in Python but not Skylark.
-        .testIfErrorContains("insufficient arguments received", "int()");
-  }
-
-  @Test
-  public void testIntStringNoBase_Simple() throws Exception {
-    // Includes same numbers as integer test cases above.
-    new BothModesTest()
-        .testStatement("int('0')", 0)
-        .testStatement("int('42')", 42)
-        .testStatement("int('-1')", -1)
-        .testStatement("int('2147483647')", 2147483647)
-        .testStatement("int('-2147483648')", -2147483648)
-        // Leading zero allowed when not using base = 0.
-        .testStatement("int('016')", 16)
-        // Leading plus sign allowed for strings.
-        .testStatement("int('+42')", 42);
-  }
-
-  @Test
-  public void testIntStringNoBase_BadStrings() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains("invalid base-10 integer constant: 2147483648", "int(2147483648)")
-        // .testIfErrorContains("invalid base-10 integer constant: -2147483649", "int(-2147483649)")
-        .testIfErrorContains("cannot be empty", "int('')")
-        // Surrounding whitespace is not allowed.
-        .testIfErrorContains("invalid literal for int() with base 10: \"  42  \"", "int('  42  ')")
-        .testIfErrorContains("invalid literal for int() with base 10: \"-\"", "int('-')")
-        .testIfErrorContains("invalid literal for int() with base 10: \"0x\"", "int('0x')")
-        .testIfErrorContains("invalid literal for int() with base 10: \"1.5\"", "int('1.5')")
-        .testIfErrorContains("invalid literal for int() with base 10: \"ab\"", "int('ab')");
-  }
-
-  @Test
-  public void testIntStringWithBase() throws Exception {
-    new BothModesTest()
-        .testStatement("int('11', 2)", 3)
-        .testStatement("int('-11', 2)", -3)
-        .testStatement("int('11', 9)", 10)
-        .testStatement("int('AF', 16)", 175)
-        .testStatement("int('11', 36)", 37)
-        .testStatement("int('az', 36)", 395)
-        .testStatement("int('11', 10)", 11)
-        .testStatement("int('11', 0)", 11)
-        .testStatement("int('016', 8)", 14)
-        .testStatement("int('016', 16)", 22);
-  }
-
-  @Test
-  public void testIntStringWithBase_InvalidBase() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains(
-            "cannot infer base for int() when value begins with a 0: \"016\"",
-            "int('016', 0)")
-        .testIfExactError("invalid literal for int() with base 3: \"123\"", "int('123', 3)")
-        .testIfExactError("invalid literal for int() with base 15: \"FF\"", "int('FF', 15)")
-        .testIfExactError("int() base must be >= 2 and <= 36", "int('123', -1)")
-        .testIfExactError("int() base must be >= 2 and <= 36", "int('123', 1)")
-        .testIfExactError("int() base must be >= 2 and <= 36", "int('123', 37)");
-  }
-
-  @Test
-  public void testIntStringWithBase_Prefix() throws Exception {
-    new BothModesTest()
-        .testStatement("int('0b11', 0)", 3)
-        .testStatement("int('-0b11', 0)", -3)
-        .testStatement("int('+0b11', 0)", 3)
-        .testStatement("int('0B11', 2)", 3)
-        .testStatement("int('0o11', 0)", 9)
-        .testStatement("int('0O11', 8)", 9)
-        .testStatement("int('0XFF', 0)", 255)
-        .testStatement("int('0xFF', 16)", 255)
-        .testIfExactError("invalid literal for int() with base 8: \"0xFF\"", "int('0xFF', 8)");
-  }
-
-  @Test
-  public void testIntNonstringWithBase() throws Exception {
-    new BothModesTest()
-        .testIfExactError("int() can't convert non-string with explicit base", "int(True, 2)")
-        .testIfExactError("int() can't convert non-string with explicit base", "int(1, 2)")
-        .testIfExactError("int() can't convert non-string with explicit base", "int(True, 10)")
-    ;
   }
 
   @Test
