@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -56,18 +57,20 @@ public class BazelPrerequisiteValidator
       if (!context.getConfiguration().checkVisibility()) {
         errorMessage =
             String.format(
-                "Target '%s' violates visibility of target "
+                "Target '%s' violates visibility of "
                     + "%s. Continuing because --nocheck_visibility is active",
-                rule.getLabel(), AliasProvider.printLabelWithAliasChain(prerequisite));
+                rule.getLabel(), AliasProvider.describeTargetWithAliases(prerequisite,
+                    TargetMode.WITHOUT_KIND));
         context.ruleWarning(errorMessage);
       } else {
         // Oddly enough, we use reportError rather than ruleError here.
         errorMessage =
             String.format(
-                "Target %s is not visible from target '%s'. Check "
+                "%s is not visible from target '%s'. Check "
                     + "the visibility declaration of the former target if you think "
                     + "the dependency is legitimate",
-                AliasProvider.printLabelWithAliasChain(prerequisite), rule.getLabel());
+                AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND),
+                rule.getLabel());
         context.reportError(rule.getLocation(), errorMessage);
       }
       // We can always post the visibility error as, regardless of the value of keep going,
@@ -91,8 +94,8 @@ public class BazelPrerequisiteValidator
                 + rule.getRuleClass()
                 + " rule "
                 + rule.getLabel()
-                + ": package group "
-                + AliasProvider.printLabelWithAliasChain(prerequisite)
+                + ": "
+                + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND)
                 + " is misplaced here "
                 + "(they are only allowed in the visibility attribute)");
       }
@@ -116,8 +119,8 @@ public class BazelPrerequisiteValidator
       String message =
           "non-test target '"
               + rule.getLabel()
-              + "' depends on testonly target "
-              + AliasProvider.printLabelWithAliasChain(prerequisite)
+              + "' depends on testonly "
+              + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
               + " and doesn't have testonly attribute set";
       if (thisPackage.startsWith("experimental/")) {
         context.ruleWarning(message);

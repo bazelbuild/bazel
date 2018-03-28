@@ -1353,7 +1353,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "'" + packageName + ":gvalid' does not produce any " + descriptionPlural,
         "'" + packageName + ":gmix' does not produce any " + descriptionPlural);
     assertSrcsValidity(ruleType, packageName + ":invalid", true,
-        "file '" + packageName + ":a.foo' is misplaced here " + descriptionPluralFile,
+        "source file '" + packageName + ":a.foo' is misplaced here " + descriptionPluralFile,
         "'" + packageName + ":ginvalid' does not produce any " + descriptionPlural);
     assertSrcsValidity(ruleType, packageName + ":mix", true,
         "'" + packageName + ":a.foo' does not produce any " + descriptionPlural);
@@ -1736,7 +1736,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected String getErrorMsgMisplacedFiles(String attrName, String ruleType, String ruleName,
       String fileName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": file '"
+    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": source file '"
         + fileName + "' is misplaced here";
   }
 

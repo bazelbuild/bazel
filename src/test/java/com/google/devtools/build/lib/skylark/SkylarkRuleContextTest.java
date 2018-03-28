@@ -1077,7 +1077,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     invalidatePackages();
     getConfiguredTarget("//:r");
     assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
-        + "file '//:myfile.cpp' is misplaced here (expected no files)");
+        + "source file '//:myfile.cpp' is misplaced here (expected no files)");
   }
 
   @Test

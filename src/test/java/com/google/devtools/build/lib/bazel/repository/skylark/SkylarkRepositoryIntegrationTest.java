@@ -432,7 +432,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     invalidatePackages();
     getConfiguredTarget("//:x");
     assertContainsEvent(
-        "Target '//external:zlib' is not visible from target '//:x'. "
+        "target '//external:zlib' is not visible from target '//:x'. "
             + "Check the visibility declaration of the former target if you think the "
             + "dependency is legitimate");
   }
