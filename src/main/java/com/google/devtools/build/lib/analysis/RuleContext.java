@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -1679,26 +1680,25 @@ public final class RuleContext extends TargetContext
     }
 
     private String badPrerequisiteMessage(
-        String targetKind, ConfiguredTargetAndData prerequisite, String reason, boolean isWarning) {
-      String msgPrefix = targetKind != null ? targetKind + " " : "";
+        ConfiguredTargetAndData prerequisite, String reason, boolean isWarning) {
+      String targetKind = prerequisite.getTarget().getTargetKind();
       String msgReason = reason != null ? " (" + reason + ")" : "";
       if (isWarning) {
         return String.format(
-            "%s%s is unexpected here%s; continuing anyway",
-            msgPrefix, AliasProvider.printLabelWithAliasChain(prerequisite),
+            "%s is unexpected here%s; continuing anyway",
+            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND),
             msgReason);
       }
-      return String.format("%s%s is misplaced here%s",
-          msgPrefix, AliasProvider.printLabelWithAliasChain(prerequisite), msgReason);
+      return String.format("%s is misplaced here%s",
+          AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND), msgReason);
     }
 
     private void reportBadPrerequisite(
         Attribute attribute,
-        String targetKind,
         ConfiguredTargetAndData prerequisite,
         String reason,
         boolean isWarning) {
-      String message = badPrerequisiteMessage(targetKind, prerequisite, reason, isWarning);
+      String message = badPrerequisiteMessage(prerequisite, reason, isWarning);
       if (isWarning) {
         attributeWarning(attribute.getName(), message);
       } else {
@@ -1716,8 +1716,7 @@ public final class RuleContext extends TargetContext
 
         String reason = attribute.getValidityPredicate().checkValid(rule, prerequisiteRule);
         if (reason != null) {
-          reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(),
-              prerequisite, reason, false);
+          reportBadPrerequisite(attribute, prerequisite, reason, false);
         }
       }
 
@@ -1742,7 +1741,7 @@ public final class RuleContext extends TargetContext
               }
             } else {
               // The file exists but has a bad extension
-              reportBadPrerequisite(attribute, "file", prerequisite,
+              reportBadPrerequisite(attribute, prerequisite,
                   "expected " + attribute.getAllowedFileTypesPredicate(), false);
             }
           }
@@ -1880,7 +1879,6 @@ public final class RuleContext extends TargetContext
         // but maybe prerequisite provides required providers? do not reject yet.
         unfulfilledRequirements.add(
             badPrerequisiteMessage(
-                prerequisite.getTarget().getTargetKind(),
                 prerequisite,
                 "expected " + attribute.getAllowedRuleClassesPredicate(),
                 false));
@@ -1901,7 +1899,6 @@ public final class RuleContext extends TargetContext
         Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassesPredicate();
         reportBadPrerequisite(
             attribute,
-            prerequisite.getTarget().getTargetKind(),
             prerequisite,
             allowedRuleClasses == Predicates.<RuleClass>alwaysTrue()
                 ? null

@@ -163,11 +163,11 @@ EOF
   echo "local_repository(name='r', path='$REMOTE')" > WORKSPACE
   bazel build @r//v:rv >& $TEST_log || fail "Build failed"
   bazel build @r//a:ra >& $TEST_log && fail "Build succeeded"
-  expect_log "Target '@r//:fg' is not visible"
+  expect_log "target '@r//:fg' is not visible"
   bazel build //a:ma >& $TEST_log && fail "Build succeeded"
-  expect_log "Target '@r//:fg' is not visible"
+  expect_log "target '@r//:fg' is not visible"
   bazel build //v:mv >& $TEST_log && fail "Build succeeded"
-  expect_log "Target '@r//:fg' is not visible"
+  expect_log "target '@r//:fg' is not visible"
 
 }
 
@@ -235,7 +235,7 @@ EOF
 
   bazel build @r//:fg || fail "Build failed"
   bazel build //:fg >& $TEST_log && fail "Build succeeded"
-  expect_log "Target '@r//r:fg1' is not visible"
+  expect_log "target '@r//r:fg1' is not visible"
 
 }
 
