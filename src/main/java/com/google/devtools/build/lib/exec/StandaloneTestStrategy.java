@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData.Builder;
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -360,7 +362,16 @@ public class StandaloneTestStrategy extends TestStrategy {
             .addFailedLogs(testLogPath.getPathString());
         spawnResults = ImmutableList.of(e.getSpawnResult());
       } finally {
-        long duration = actionExecutionContext.getClock().currentTimeMillis() - startTime;
+        long endTime = actionExecutionContext.getClock().currentTimeMillis();
+        long duration = endTime - startTime;
+        // If execution fails with an exception other SpawnExecException, there is no result here.
+        if (!spawnResults.isEmpty()) {
+          // The SpawnResult of a remotely cached or remotely executed action may not have walltime
+          // set. We fall back to the time measured here for backwards compatibility.
+          SpawnResult primaryResult = Iterables.getOnlyElement(spawnResults);
+          duration = primaryResult.getWallTime().orElse(Duration.ofMillis(duration)).toMillis();
+        }
+
         builder.setStartTimeMillisEpoch(startTime);
         builder.addTestTimes(duration);
         builder.addTestProcessTimes(duration);
