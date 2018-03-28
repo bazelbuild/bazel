@@ -47,7 +47,6 @@ public class TestConfiguration extends Fragment {
       name = "test_filter",
       allowMultiple = false,
       defaultValue = "null",
-      category = "testing",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -59,7 +58,6 @@ public class TestConfiguration extends Fragment {
     @Option(
       name = "cache_test_results",
       defaultValue = "auto",
-      category = "testing",
       abbrev = 't', // it's useful to toggle this on/off quickly
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -78,7 +76,6 @@ public class TestConfiguration extends Fragment {
     @Option(
       name = "test_result_expiration",
       defaultValue = "-1", // No expiration by defualt.
-      category = "testing",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "This option is deprecated and has no effect."
@@ -89,7 +86,6 @@ public class TestConfiguration extends Fragment {
       name = "test_arg",
       allowMultiple = true,
       defaultValue = "",
-      category = "testing",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -103,7 +99,6 @@ public class TestConfiguration extends Fragment {
     @Option(
       name = "test_sharding_strategy",
       defaultValue = "explicit",
-      category = "testing",
       converter = TestActionBuilder.ShardingStrategyConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -121,7 +116,6 @@ public class TestConfiguration extends Fragment {
       name = "runs_per_test",
       allowMultiple = true,
       defaultValue = "1",
-      category = "testing",
       converter = RunsPerTestConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},

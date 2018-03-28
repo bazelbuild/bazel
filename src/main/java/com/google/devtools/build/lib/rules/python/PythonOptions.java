@@ -45,7 +45,6 @@ public class PythonOptions extends FragmentOptions {
   @Option(
     name = "force_python",
     defaultValue = "null",
-    category = "version",
     converter = PythonVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
@@ -56,7 +55,6 @@ public class PythonOptions extends FragmentOptions {
   @Option(
     name = "host_force_python",
     defaultValue = "null",
-    category = "version",
     converter = PythonVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},

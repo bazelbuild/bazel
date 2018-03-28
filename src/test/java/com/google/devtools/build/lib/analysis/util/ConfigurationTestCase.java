@@ -79,7 +79,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "",
-      category = "semantics",
       help = "Additional target CPUs."
     )
     public List<String> multiCpus;

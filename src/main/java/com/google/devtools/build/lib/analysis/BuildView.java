@@ -175,7 +175,6 @@ public class BuildView {
           "analysis_warnings_as_errors is now a no-op and will be removed in"
               + " an upcoming Blaze release",
       defaultValue = "false",
-      category = "strategy",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       help = "Treat visible analysis warnings as errors."
@@ -185,7 +184,6 @@ public class BuildView {
     @Option(
       name = "discard_analysis_cache",
       defaultValue = "false",
-      category = "strategy",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -197,7 +195,6 @@ public class BuildView {
     @Option(
       name = "experimental_extra_action_filter",
       defaultValue = "",
-      category = "experimental",
       converter = RegexFilter.RegexFilterConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -208,7 +205,6 @@ public class BuildView {
     @Option(
       name = "experimental_extra_action_top_level_only",
       defaultValue = "false",
-      category = "experimental",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Only schedules extra_actions for top level targets."
@@ -231,7 +227,6 @@ public class BuildView {
     @Option(
       name = "experimental_interleave_loading_and_analysis",
       defaultValue = "true",
-      category = "experimental",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "No-op."

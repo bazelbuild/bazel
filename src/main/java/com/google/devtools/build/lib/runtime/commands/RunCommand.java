@@ -110,9 +110,8 @@ public class RunCommand implements BlazeCommand  {
   public static class RunOptions extends OptionsBase {
     @Option(
       name = "direct_run",
-      category = "run",
       defaultValue = "false",
-      documentationCategory =  OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If set, the 'run' command will execute the binary to be executed in the terminal "
           + "where the command was called. Otherwise, it'll be executed as a child of the server "
@@ -123,7 +122,6 @@ public class RunCommand implements BlazeCommand  {
 
     @Option(
       name = "script_path",
-      category = "run",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.EXECUTION},

@@ -24,7 +24,6 @@ public class KeepGoingOption extends OptionsBase {
     name = "keep_going",
     abbrev = 'k',
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
     help =

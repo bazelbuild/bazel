@@ -35,7 +35,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     converter = Converters.CommaSeparatedOptionListConverter.class,
     allowMultiple = true,
     defaultValue = "",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional options to pass to the J2ObjC tool."
@@ -68,7 +67,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "explicit_jre_deps",
     defaultValue = "true",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "This flag is a noop and will be removed."
@@ -78,7 +76,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "experimental_j2objc_header_map",
     defaultValue = "true",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."

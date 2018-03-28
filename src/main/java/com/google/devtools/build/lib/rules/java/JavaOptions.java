@@ -78,7 +78,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "javabase",
     defaultValue = "@bazel_tools//tools/jdk:jdk",
-    category = "version",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -92,7 +91,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "java_toolchain",
     defaultValue = "@bazel_tools//tools/jdk:toolchain",
-    category = "version",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -103,7 +101,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "host_java_toolchain",
     defaultValue = "@bazel_tools//tools/jdk:toolchain",
-    category = "version",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -115,7 +112,6 @@ public class JavaOptions extends FragmentOptions {
     name = "host_javabase",
     defaultValue = "@bazel_tools//tools/jdk:host_jdk",
     converter = LabelConverter.class,
-    category = "version",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -128,7 +124,6 @@ public class JavaOptions extends FragmentOptions {
     name = "javacopt",
     allowMultiple = true,
     defaultValue = "",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional options to pass to javac."
@@ -139,7 +134,6 @@ public class JavaOptions extends FragmentOptions {
     name = "jvmopt",
     allowMultiple = true,
     defaultValue = "",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -151,7 +145,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "use_ijars",
     defaultValue = "true",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -174,7 +167,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "java_header_compilation",
     defaultValue = "true",
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Compile ijars directly from source.",
@@ -196,7 +188,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "java_deps",
     defaultValue = "true",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Generate dependency information (for now, compile-time classpath) per Java target."
@@ -208,7 +199,6 @@ public class JavaOptions extends FragmentOptions {
     allowMultiple = false,
     defaultValue = "javabuilder",
     converter = JavaClasspathModeConverter.class,
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Enables reduced classpaths for Java compilations.",
@@ -219,7 +209,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "java_debug",
     defaultValue = "null",
-    category = "testing",
     expansion = {
       "--test_arg=--wrapper_script_flag=--debug",
       "--test_output=streamed",
@@ -241,7 +230,6 @@ public class JavaOptions extends FragmentOptions {
     allowMultiple = false,
     defaultValue = "default",
     converter = StrictDepsConverter.class,
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
     effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
@@ -266,7 +254,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "explicit_java_test_deps",
     defaultValue = "false",
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -354,7 +341,6 @@ public class JavaOptions extends FragmentOptions {
     name = "host_java_launcher",
     defaultValue = "null",
     converter = LabelConverter.class,
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The Java launcher used by tools that are executed during a build."
@@ -365,7 +351,6 @@ public class JavaOptions extends FragmentOptions {
     name = "java_launcher",
     defaultValue = "null",
     converter = LabelConverter.class,
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -377,7 +362,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "proguard_top",
     defaultValue = "null",
-    category = "version",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -418,7 +402,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "translations",
     defaultValue = "auto",
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -429,7 +412,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "message_translations",
     defaultValue = "",
-    category = "semantics",
     allowMultiple = true,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -441,7 +423,6 @@ public class JavaOptions extends FragmentOptions {
     name = "check_constraint",
     allowMultiple = true,
     defaultValue = "",
-    category = "checking",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Check the listed constraint."
@@ -544,7 +525,6 @@ public class JavaOptions extends FragmentOptions {
   @Option(
     name = "jplPropagateCcLinkParamsStore",
     defaultValue = "false",
-    category = "rollout",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -561,7 +541,6 @@ public class JavaOptions extends FragmentOptions {
     converter = LabelListConverter.class,
     allowMultiple = true,
     defaultValue = "",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Plugins to use in the build. Currently works with java_plugin."

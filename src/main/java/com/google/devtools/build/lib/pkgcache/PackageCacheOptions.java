@@ -61,7 +61,6 @@ public class PackageCacheOptions extends OptionsBase {
   @Option(
     name = "package_path",
     defaultValue = "%workspace%",
-    category = "package loading",
     converter = Converters.ColonSeparatedOptionListConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -76,7 +75,6 @@ public class PackageCacheOptions extends OptionsBase {
   @Option(
     name = "show_package_location",
     defaultValue = "false",
-    category = "verbosity",
     deprecationWarning = "This flag is no longer supported and will go away soon.",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -89,7 +87,6 @@ public class PackageCacheOptions extends OptionsBase {
   @Option(
     name = "show_loading_progress",
     defaultValue = "true",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, causes Blaze to print \"Loading package:\" messages."
@@ -99,7 +96,6 @@ public class PackageCacheOptions extends OptionsBase {
   @Option(
     name = "deleted_packages",
     defaultValue = "",
-    category = "package loading",
     converter = CommaSeparatedPackageNameListConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},

@@ -78,7 +78,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "packages",
       defaultValue = "false",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump package cache content."
@@ -88,7 +87,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "action_cache",
       defaultValue = "false",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump action cache content."
@@ -98,7 +96,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "action_graph",
       defaultValue = "null",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump action graph to the specified path."
@@ -109,7 +106,6 @@ public class DumpCommand implements BlazeCommand {
       name = "action_graph:targets",
       converter = CommaSeparatedOptionListConverter.class,
       defaultValue = "...",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
@@ -121,7 +117,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "action_graph:include_cmdline",
       defaultValue = "false",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
@@ -133,7 +128,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "rule_classes",
       defaultValue = "false",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump rule classes."
@@ -143,7 +137,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "rules",
       defaultValue = "false",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump rules, including counts and memory usage (if memory is tracked)."
@@ -153,7 +146,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "skylark_memory",
       defaultValue = "null",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
@@ -165,7 +157,6 @@ public class DumpCommand implements BlazeCommand {
     @Option(
       name = "skyframe",
       defaultValue = "off",
-      category = "verbosity",
       converter = SkyframeDumpEnumConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},

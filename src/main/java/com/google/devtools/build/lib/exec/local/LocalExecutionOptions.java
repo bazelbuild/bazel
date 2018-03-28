@@ -28,7 +28,6 @@ public class LocalExecutionOptions extends OptionsBase {
   @Option(
     name = "local_termination_grace_seconds",
     oldName = "local_sigkill_grace_seconds",
-    category = "remote execution",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     defaultValue = "15",

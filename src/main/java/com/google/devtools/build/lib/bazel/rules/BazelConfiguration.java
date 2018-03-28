@@ -44,7 +44,6 @@ public class BazelConfiguration extends Fragment {
     @Option(
       name = "experimental_strict_action_env",
       defaultValue = "false",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -59,7 +58,6 @@ public class BazelConfiguration extends Fragment {
       name = "shell_executable",
       converter = PathFragmentConverter.class,
       defaultValue = "null",
-      category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =

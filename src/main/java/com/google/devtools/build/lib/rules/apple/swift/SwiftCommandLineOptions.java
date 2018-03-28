@@ -28,7 +28,6 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     name = "swiftcopt",
     allowMultiple = true,
     defaultValue = "",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Additional options to pass to Swift compilation."
@@ -38,7 +37,6 @@ public class SwiftCommandLineOptions extends FragmentOptions {
   @Option(
     name = "swift_whole_module_optimization",
     defaultValue = "false",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
     help = "Whether to enable Whole Module Optimization"

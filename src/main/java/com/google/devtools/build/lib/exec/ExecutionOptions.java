@@ -54,7 +54,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "verbose_failures",
     defaultValue = "false",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If a command fails, print out the full command line."
@@ -65,7 +64,6 @@ public class ExecutionOptions extends OptionsBase {
     name = "subcommands",
     abbrev = 's',
     defaultValue = "false",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Display the subcommands executed during a build."
@@ -75,7 +73,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "check_up_to_date",
     defaultValue = "false",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -88,7 +85,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "check_tests_up_to_date",
     defaultValue = "false",
-    category = "testing",
     implicitRequirements = {"--check_up_to_date"},
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -103,7 +99,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_strategy",
     defaultValue = "",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Specifies which strategy to use when running tests."
@@ -113,7 +108,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_keep_going",
     defaultValue = "true",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -125,7 +119,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "runs_per_test_detects_flakes",
     defaultValue = "false",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -138,7 +131,6 @@ public class ExecutionOptions extends OptionsBase {
     name = "flaky_test_attempts",
     allowMultiple = true,
     defaultValue = "default",
-    category = "testing",
     converter = TestAttemptsConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -156,7 +148,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_tmpdir",
     defaultValue = "null",
-    category = "testing",
     converter = OptionsUtils.PathFragmentConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -167,7 +158,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_output",
     defaultValue = "summary",
-    category = "testing",
     converter = TestStrategy.TestOutputFormat.Converter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -183,7 +173,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_summary",
     defaultValue = "short",
-    category = "testing",
     converter = TestStrategy.TestSummaryFormat.Converter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -198,7 +187,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "test_timeout",
     defaultValue = "-1",
-    category = "testing",
     converter = TestTimeout.TestTimeoutConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -214,7 +202,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "resource_autosense",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "This flag has no effect, and is deprecated"
@@ -224,7 +211,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "ram_utilization_factor",
     defaultValue = "67",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -243,7 +229,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "local_resources",
     defaultValue = "null",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -260,7 +245,6 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
     name = "local_test_jobs",
     defaultValue = "0",
-    category = "testing",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =

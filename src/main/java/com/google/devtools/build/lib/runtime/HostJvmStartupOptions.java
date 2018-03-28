@@ -32,7 +32,6 @@ public class HostJvmStartupOptions extends OptionsBase {
   @Option(
     name = "host_javabase",
     defaultValue = "", // NOTE: purely decorative! See BlazeServerStartupOptions.
-    category = "host jvm startup",
     valueHelp = "<jvm path>",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -43,7 +42,6 @@ public class HostJvmStartupOptions extends OptionsBase {
   @Option(
     name = "host_jvm_args",
     defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-    category = "host jvm startup",
     allowMultiple = true,
     valueHelp = "<jvm_arg>",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -55,7 +53,6 @@ public class HostJvmStartupOptions extends OptionsBase {
   @Option(
     name = "host_jvm_profile",
     defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-    category = "host jvm startup",
     valueHelp = "<profiler_name>",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
@@ -69,7 +66,6 @@ public class HostJvmStartupOptions extends OptionsBase {
   @Option(
     name = "host_jvm_debug",
     defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-    category = "host jvm startup",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =

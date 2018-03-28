@@ -68,7 +68,6 @@ public class InfoCommand implements BlazeCommand {
     @Option(
       name = "show_make_env",
       defaultValue = "false",
-      category = "misc",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       help = "Include the \"Make\" environment in the output."
