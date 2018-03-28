@@ -746,14 +746,15 @@ public class JavaCommon {
     javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
   }
 
-  /**
-   * Processes the sources of this target, adding them as messages or proper
-   * sources.
-   */
+  /** Processes the sources of this target, adding them as messages or proper sources. */
   private void processSrcs(JavaTargetAttributes.Builder attributes) {
-    for (MessageBundleProvider srcItem : ruleContext.getPrerequisites(
-        "srcs", Mode.TARGET, MessageBundleProvider.class)) {
-      attributes.addMessages(srcItem.getMessages());
+    List<? extends TransitiveInfoCollection> srcs =
+        ruleContext.getPrerequisites("srcs", Mode.TARGET);
+    for (TransitiveInfoCollection src : srcs) {
+      ImmutableList<Artifact> messages = MessageBundleInfo.getMessages(src);
+      if (messages != null) {
+        attributes.addMessages(messages);
+      }
     }
   }
 
