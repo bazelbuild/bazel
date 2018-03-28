@@ -964,7 +964,7 @@ java_library(
         "rules/java/JavaTargetAttributes.java",
         "rules/java/JavaToolchainProvider.java",
         "rules/java/JavaUtil.java",
-        "rules/java/MessageBundleProvider.java",
+        "rules/java/MessageBundleInfo.java",
         "rules/java/NativeLibraryNestedSetBuilder.java",
         "rules/java/OneVersionCheckActionBuilder.java",
         "rules/java/ProtoJavaApiInfoAspectProvider.java",
