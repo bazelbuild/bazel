@@ -386,6 +386,7 @@ filegroup(
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
         "//third_party/checker_framework_dataflow:bootstrap",
+        "//third_party/checker_framework_javacutil:bootstrap",
         "//third_party/jformatstring:bootstrap",
     ],
 )
