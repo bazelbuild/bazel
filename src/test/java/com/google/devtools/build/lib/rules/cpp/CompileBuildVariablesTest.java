@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.cpp.CcBuildVariables.CompileBuildVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import org.junit.Test;
 import org.junit.runner.RunWith;
