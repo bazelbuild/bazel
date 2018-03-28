@@ -15,17 +15,17 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.OutputStream;
 
-/**
- * Default Output callback for cquery. Prints a label and configuration pair per
- * result.
- */
+/** Default Output callback for cquery. Prints a label and configuration pair per result. */
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
 
-  LabelAndConfigurationOutputFormatterCallback(CqueryOptions options, OutputStream out) {
-    super(options, out);
+  LabelAndConfigurationOutputFormatterCallback(
+      CqueryOptions options, OutputStream out, SkyframeExecutor skyframeExecutor) {
+    super(options, out, skyframeExecutor);
   }
 
   @Override
@@ -36,7 +36,9 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   @Override
   public void processOutput(Iterable<ConfiguredTarget> partialResult) {
     for (ConfiguredTarget configuredTarget : partialResult) {
-      BuildConfiguration config = configuredTarget.getConfiguration();
+      BuildConfiguration config =
+          skyframeExecutor.getConfiguration(
+              NullEventHandler.INSTANCE, configuredTarget.getConfigurationKey());
       StringBuilder output =
           new StringBuilder()
               .append(configuredTarget.getLabel())

@@ -128,7 +128,7 @@ public class CqueryBuildTool extends BuildTool {
             () -> walkableGraph,
             cqueryOptions.toSettings());
     Iterable<CqueryThreadsafeCallback> callbacks =
-        ConfiguredTargetQueryEnvironment.getDefaultOutputFormatters(
+        configuredTargetQueryEnvironment.getDefaultOutputFormatters(
             configuredTargetQueryEnvironment.getAccessor(),
             cqueryOptions,
             env.getReporter().getOutErr().getOutputStream(),
