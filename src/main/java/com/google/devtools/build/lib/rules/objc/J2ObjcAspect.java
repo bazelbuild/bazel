@@ -630,11 +630,15 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addAll(outputClassMappingFiles)
             .build();
 
+    String genfilesPath =
+        getProtoOutputRoot(ruleContext)
+            .getPathString();
+
     String langPluginParameter =
         String.format(
             "%s:%s",
             Joiner.on(',').join(J2OBJC_PLUGIN_PARAMS),
-            ruleContext.getConfiguration().getGenfilesFragment().getPathString());
+            genfilesPath);
 
     SupportData supportData = base.getProvider(ProtoSupportDataProvider.class).getSupportData();
 
@@ -745,10 +749,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private static J2ObjcSource protoJ2ObjcSource(
       RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
     PathFragment objcFileRootExecPath =
-        ruleContext
-            .getConfiguration()
-            .getGenfilesDirectory(ruleContext.getRule().getRepository())
-            .getExecPath();
+        getProtoOutputRoot(ruleContext);
+
     Iterable<PathFragment> headerSearchPaths =
         J2ObjcLibrary.j2objcSourceHeaderSearchPaths(
             ruleContext, objcFileRootExecPath, protoSources);
@@ -760,6 +762,18 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         objcFileRootExecPath,
         SourceType.PROTO,
         headerSearchPaths);
+  }
+
+  private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
+    return ruleContext
+        .getConfiguration()
+        .getGenfilesFragment()
+        .getRelative(
+            ruleContext
+                .getLabel()
+                .getPackageIdentifier()
+                .getRepository()
+                .getPathUnderExecRoot());
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {
