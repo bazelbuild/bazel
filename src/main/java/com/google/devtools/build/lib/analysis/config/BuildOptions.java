@@ -199,6 +199,10 @@ public final class BuildOptions implements Cloneable, Serializable {
     return keyBuilder.toString();
   }
 
+  public String computeChecksum() {
+    return Fingerprint.md5Digest(computeCacheKey());
+  }
+
   /**
    * String representation of build options.
    */
@@ -417,7 +421,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       BuildOptions first, BuildOptions second) {
     OptionsDiff diff = diff(first, second);
     if (diff.areSame()) {
-      return OptionsDiffForReconstruction.getEmpty(first.fingerprint);
+      return OptionsDiffForReconstruction.getEmpty(first.fingerprint, second.computeChecksum());
     }
     HashMap<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
         new HashMap<>(diff.differingOptions.keySet().size());
@@ -445,7 +449,8 @@ public final class BuildOptions implements Cloneable, Serializable {
         differingOptions,
         ImmutableSet.copyOf(diff.extraFirstFragments),
         ImmutableList.copyOf(diff.extraSecondFragments),
-        first.fingerprint);
+        first.fingerprint,
+        second.computeChecksum());
   }
 
   /**
@@ -543,22 +548,25 @@ public final class BuildOptions implements Cloneable, Serializable {
     private final ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses;
     private final ImmutableList<FragmentOptions> extraSecondFragments;
     private final byte[] baseFingerprint;
+    private final String checksum;
 
     @AutoCodec.VisibleForSerialization
     OptionsDiffForReconstruction(
         Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions,
         ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses,
         ImmutableList<FragmentOptions> extraSecondFragments,
-        byte[] baseFingerprint) {
+        byte[] baseFingerprint,
+        String checksum) {
       this.differingOptions = differingOptions;
       this.extraFirstFragmentClasses = extraFirstFragmentClasses;
       this.extraSecondFragments = extraSecondFragments;
       this.baseFingerprint = baseFingerprint;
+      this.checksum = checksum;
     }
 
-    private static OptionsDiffForReconstruction getEmpty(byte[] baseFingerprint) {
+    private static OptionsDiffForReconstruction getEmpty(byte[] baseFingerprint, String checksum) {
       return new OptionsDiffForReconstruction(
-          ImmutableMap.of(), ImmutableSet.of(), ImmutableList.of(), baseFingerprint);
+          ImmutableMap.of(), ImmutableSet.of(), ImmutableList.of(), baseFingerprint, checksum);
     }
 
     @Nullable
@@ -581,6 +589,10 @@ public final class BuildOptions implements Cloneable, Serializable {
         }
       }
       return newOptions;
+    }
+
+    public String getChecksum() {
+      return checksum;
     }
 
     private boolean isEmpty() {
