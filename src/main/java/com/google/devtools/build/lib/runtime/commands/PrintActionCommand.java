@@ -90,7 +90,6 @@ public final class PrintActionCommand implements BlazeCommand {
       name = "print_action_mnemonics",
       allowMultiple = true,
       defaultValue = "",
-      category = "print_action",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

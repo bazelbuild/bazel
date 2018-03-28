@@ -40,7 +40,6 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "all_incompatible_changes",
     defaultValue = "null",
-    category = "misc",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -54,7 +53,6 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "config",
     defaultValue = "",
-    category = "misc",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     allowMultiple = true,
@@ -71,7 +69,6 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "logging",
     defaultValue = "3", // Level.INFO
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     converter = Converters.LogLevelConverter.class,
@@ -93,7 +90,6 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "announce_rc",
     defaultValue = "false",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Whether to announce rc options."
@@ -112,7 +108,6 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "allow_undefined_configs",
     defaultValue = "true",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
     help = "Do not throw an error when the config is not defined."
@@ -201,7 +196,6 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "profile",
     defaultValue = "null",
-    category = "misc",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     converter = OptionsUtils.PathFragmentConverter.class,
@@ -293,7 +287,6 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "tool_tag",
     defaultValue = "",
-    category = "misc",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     help = "A tool name to attribute this Blaze invocation to."

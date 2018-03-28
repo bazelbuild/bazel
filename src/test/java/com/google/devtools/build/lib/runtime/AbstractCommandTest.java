@@ -42,7 +42,6 @@ public class AbstractCommandTest {
   public static class FooOptions extends OptionsBase {
     @Option(
       name = "foo",
-      category = "one",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "0"
@@ -53,7 +52,6 @@ public class AbstractCommandTest {
   public static class BarOptions extends OptionsBase {
     @Option(
       name = "bar",
-      category = "two",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "42"
@@ -62,7 +60,6 @@ public class AbstractCommandTest {
 
     @Option(
       name = "baz",
-      category = "one",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "oops"

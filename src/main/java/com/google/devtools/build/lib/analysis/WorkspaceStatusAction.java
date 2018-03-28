@@ -60,7 +60,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     @Option(
       name = "embed_label",
       defaultValue = "",
-      category = "misc",
       valueHelp = "<string>",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -71,7 +70,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     @Option(
       name = "workspace_status_command",
       defaultValue = "",
-      category = "misc",
       converter = OptionsUtils.PathFragmentConverter.class,
       valueHelp = "<path>",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

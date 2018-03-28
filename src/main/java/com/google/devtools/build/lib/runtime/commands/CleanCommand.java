@@ -60,7 +60,6 @@ public final class CleanCommand implements BlazeCommand {
     @Option(
       name = "expunge",
       defaultValue = "false",
-      category = "clean",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
@@ -73,7 +72,6 @@ public final class CleanCommand implements BlazeCommand {
     @Option(
       name = "expunge_async",
       defaultValue = "null",
-      category = "clean",
       expansion = {"--expunge", "--async"},
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
@@ -89,7 +87,6 @@ public final class CleanCommand implements BlazeCommand {
     @Option(
       name = "async",
       defaultValue = "false",
-      category = "clean",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =

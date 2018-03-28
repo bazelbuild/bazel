@@ -30,7 +30,6 @@ public class AuthAndTLSOptions extends OptionsBase {
     name = "google_default_credentials",
     oldName = "auth_enabled",
     defaultValue = "false",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -44,7 +43,6 @@ public class AuthAndTLSOptions extends OptionsBase {
     oldName = "auth_scope",
     defaultValue = "https://www.googleapis.com/auth/cloud-platform",
     converter = CommaSeparatedOptionListConverter.class,
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "A comma-separated list of Google Cloud authentication scopes."
@@ -55,7 +53,6 @@ public class AuthAndTLSOptions extends OptionsBase {
     name = "google_credentials",
     oldName = "auth_credentials",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -67,7 +64,6 @@ public class AuthAndTLSOptions extends OptionsBase {
   @Option(
     name = "tls_enabled",
     defaultValue = "false",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -79,7 +75,6 @@ public class AuthAndTLSOptions extends OptionsBase {
   @Option(
     name = "tls_certificate",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Specify the TLS client certificate to use."
@@ -89,7 +84,6 @@ public class AuthAndTLSOptions extends OptionsBase {
   @Option(
     name = "tls_authority_override",
     defaultValue = "null",
-    category = "remote",
     metadataTags = {OptionMetadataTag.HIDDEN},
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},

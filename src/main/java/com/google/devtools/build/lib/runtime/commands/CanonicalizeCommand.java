@@ -55,7 +55,6 @@ public final class CanonicalizeCommand implements BlazeCommand {
     @Option(
       name = "for_command",
       defaultValue = "build",
-      category = "misc",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       help = "The command for which the options should be canonicalized."

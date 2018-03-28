@@ -48,7 +48,6 @@ public class BuildRequestOptions extends OptionsBase {
     name = "jobs",
     abbrev = 'j',
     defaultValue = "auto",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
     effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
     converter = JobsConverter.class,
@@ -66,7 +65,6 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
     name = "progress_report_interval",
     defaultValue = "0",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     converter = ProgressReportIntervalConverter.class,
@@ -79,7 +77,6 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
     name = "explain",
     defaultValue = "null",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     converter = OptionsUtils.PathFragmentConverter.class,
@@ -92,7 +89,6 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
     name = "verbose_explanations",
     defaultValue = "false",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
@@ -105,7 +101,6 @@ public class BuildRequestOptions extends OptionsBase {
     name = "output_filter",
     converter = Converters.RegexPatternConverter.class,
     defaultValue = "null",
-    category = "flags",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Only shows warnings for rules with a name matching the provided regular expression."
@@ -216,7 +211,6 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
     name = "build",
     defaultValue = "true",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
     effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
     help =
@@ -245,7 +239,6 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
     name = "show_result",
     defaultValue = "1",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
@@ -275,7 +268,6 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
     name = "announce",
     defaultValue = "false",
-    category = "verbosity",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Deprecated. No-op.",
@@ -286,7 +278,6 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
     name = "symlink_prefix",
     defaultValue = "null",
-    category = "misc",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
@@ -301,7 +292,6 @@ public class BuildRequestOptions extends OptionsBase {
     converter = Converters.CommaSeparatedOptionListConverter.class,
     allowMultiple = true,
     defaultValue = "",
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     metadataTags = {OptionMetadataTag.EXPERIMENTAL},

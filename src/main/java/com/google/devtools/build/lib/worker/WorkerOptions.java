@@ -31,7 +31,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
     name = "experimental_persistent_javac",
     defaultValue = "null",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Enable the experimental persistent Java compiler.",
@@ -48,7 +47,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
     name = "worker_max_instances",
     defaultValue = "4",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -60,7 +58,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
     name = "worker_quit_after_build",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, all workers quit after a build is done."
@@ -70,7 +67,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
     name = "worker_verbose",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
@@ -81,7 +77,6 @@ public class WorkerOptions extends OptionsBase {
     name = "worker_extra_flag",
     converter = Converters.AssignmentConverter.class,
     defaultValue = "",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -94,7 +89,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
     name = "worker_sandboxing",
     defaultValue = "false",
-    category = "strategy",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, workers will be executed in a sandboxed environment."

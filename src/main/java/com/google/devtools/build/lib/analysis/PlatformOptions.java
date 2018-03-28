@@ -48,7 +48,6 @@ public class PlatformOptions extends FragmentOptions {
     name = "host_platform_remote_properties_override",
     oldName = "experimental_remote_platform_override",
     defaultValue = "null",
-    category = "remote",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -140,7 +139,6 @@ public class PlatformOptions extends FragmentOptions {
     name = "enabled_toolchain_types",
     defaultValue = "",
     converter = LabelListConverter.class,
-    category = "semantics",
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
     help = "Signals that the given rule categories use platform-based toolchain resolution"

@@ -30,7 +30,6 @@ public class LoadingOptions extends OptionsBase {
   @Option(
     name = "build_tests_only",
     defaultValue = "false",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -43,7 +42,6 @@ public class LoadingOptions extends OptionsBase {
   @Option(
     name = "compile_one_dependency",
     defaultValue = "false",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -60,7 +58,6 @@ public class LoadingOptions extends OptionsBase {
     name = "build_tag_filters",
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -76,7 +73,6 @@ public class LoadingOptions extends OptionsBase {
     name = "test_tag_filters",
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -91,7 +87,6 @@ public class LoadingOptions extends OptionsBase {
     name = "test_size_filters",
     converter = TestSize.TestSizeFilterConverter.class,
     defaultValue = "",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -106,7 +101,6 @@ public class LoadingOptions extends OptionsBase {
     name = "test_timeout_filters",
     converter = TestTimeout.TestTimeoutFilterConverter.class,
     defaultValue = "",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -122,7 +116,6 @@ public class LoadingOptions extends OptionsBase {
     name = "test_lang_filters",
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
@@ -138,7 +131,6 @@ public class LoadingOptions extends OptionsBase {
   @Option(
     name = "build_manual_tests",
     defaultValue = "false",
-    category = "what",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
