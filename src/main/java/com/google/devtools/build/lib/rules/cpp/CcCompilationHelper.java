@@ -64,6 +64,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -1175,6 +1177,51 @@ public final class CcCompilationHelper {
   }
 
   /**
+   * Calculate the output names for object file paths from a set of source files.
+   *
+   * <p>The object file path is constructed in the following format:
+   *    <bazel-bin>/<target_package_path>/_objs/<target_name>/<output_name>.<obj_extension>
+   * When there's no two source files having the same basename:
+   *   <output_name> = <prefixDir>/<source_file_base_name>
+   * otherwise:
+   *   <output_name> = <prefixDir>/N/<source_file_base_name>,
+   *   N = the file’s order among the source files with the same basename, starts with 0
+   *
+   * <p>Examples: 1. Output names for ["lib1/foo.cc", "lib2/bar.cc"] are ["foo", "bar"]
+   *              2. Output names for ["foo.cc", "bar.cc", "foo.cpp", "lib/foo.cc"]
+   *                 are ["0/foo", "bar", "1/foo", "2/foo"]
+   */
+  private ImmutableMap<Artifact, String> calculateOutputNameMap(
+      Iterable<Artifact> sourceArtifacts, String prefixDir) {
+    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
+
+    HashMap<String, Integer> count = new LinkedHashMap<>();
+    HashMap<String, Integer> number = new LinkedHashMap<>();
+    for (Artifact source : sourceArtifacts) {
+      String outputName =
+          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
+      count.put(outputName, count.getOrDefault(outputName, 0) + 1);
+    }
+
+    for (Artifact source : sourceArtifacts) {
+      String outputName =
+          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
+      if (count.getOrDefault(outputName, 0) > 1) {
+        int num = number.getOrDefault(outputName, 0);
+        number.put(outputName, num + 1);
+        outputName = num + "/" + outputName;
+      }
+      // If prefixDir is set, prepend it to the outputName
+      if (prefixDir != null) {
+        outputName = prefixDir + "/" + outputName;
+      }
+      builder.put(source, outputName);
+    }
+
+    return builder.build();
+  }
+
+  /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
    * file. It takes into account LIPO, fake-ness, coverage, and PIC, in addition to using the
    * settings specified on the current object. This method should only be called once.
@@ -1204,21 +1251,21 @@ public final class CcCompilationHelper {
       }
     }
 
-    String outputNamePrefixDir = null;
-    // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
-    // Here we use it to distinguish arc and non-arc compilation.
-    if (purpose != null) {
-      outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
+    ImmutableMap<Artifact, String> outputNameMap = null;
+    if (cppConfiguration.shortenObjFilePath()) {
+      String outputNamePrefixDir = null;
+      // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
+      // Here we use it to distinguish arc and non-arc compilation.
+      if (purpose != null) {
+        outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
+      }
+      outputNameMap = calculateOutputNameMap(
+          compilationUnitSources
+          .stream()
+          .map(source -> source.getSource())
+          .collect(Collectors.toList()),
+          outputNamePrefixDir);
     }
-
-    ObjectFilePathHelper objectFilePathHelper =
-        new ObjectFilePathHelper(
-            compilationUnitSources
-                .stream()
-                .map(source -> source.getSource())
-                .collect(Collectors.toList()),
-            cppConfiguration.shortenObjFilePath(),
-            outputNamePrefixDir);
 
     for (CppSource source : compilationUnitSources) {
       Artifact sourceArtifact = source.getSource();
@@ -1234,7 +1281,9 @@ public final class CcCompilationHelper {
           featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
 
-      String outputName = objectFilePathHelper.getOutputName(sourceArtifact);
+      String outputName = cppConfiguration.shortenObjFilePath()
+          ? outputNameMap.get(sourceArtifact)
+          : FileSystemUtils.removeExtension(sourceArtifact.getRootRelativePath()).getPathString();
 
       if (!sourceArtifact.isTreeArtifact()) {
         switch (source.getType()) {
