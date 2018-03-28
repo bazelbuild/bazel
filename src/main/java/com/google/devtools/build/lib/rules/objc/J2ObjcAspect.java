@@ -278,9 +278,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 common.getObjcProvider(),
                 EXTRA_COMPILE_ARGS,
                 ImmutableList.<PathFragment>of(),
-                ccToolchain,  
-                fdoSupport,
-                /* targetBuilder= */ null)
+                ccToolchain,
+                fdoSupport)
             .registerFullyLinkAction(
                 common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB),
