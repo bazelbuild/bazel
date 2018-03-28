@@ -52,13 +52,13 @@ fi
 
 # Perform a rebuild.
 if [ "$REBUILD" == 1 ]; then
-  echo -e "\e[31mBuilding dev version of bazel...\e[0m"
+  echo -e "\033[31mBuilding dev version of bazel...\033[0m"
   (
     cd "$BAZEL_DIR"
     result=0
     ${BAZEL_BINARY} build //src:bazel || result=$?
     if [[ $result != 0 ]]; then
-      echo -e "\e[31mError building dev version of bazel.\e[0m"
+      echo -e "\033[31mError building dev version of bazel.\033[0m"
       exit $result
     fi
   )
