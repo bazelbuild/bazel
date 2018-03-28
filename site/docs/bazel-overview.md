@@ -28,9 +28,9 @@ Bazel offers the following advantages:
     speed up your builds, you can set up your project to build in a  highly
     parallel and incremental fashion.
 
-*   **Bazel is multi-platform.** Bazel can build binaries and deployable
-    packages for multiple platforms, including desktop, server, and mobile,
-    from the same project.
+*   **Bazel is multi-platform.** Bazel runs on Linux, macOS, and Windows. Bazel
+    can build binaries and deployable packages for multiple platforms, including
+    desktop, server, and mobile, from the same project.
 
 *   **Bazel scales.** Bazel maintains agility while handling builds with 100k+
     source files. It works with multiple repositories and user bases in the tens
@@ -38,17 +38,6 @@ Bazel offers the following advantages:
 
 *   **Bazel is extensible.** You can extend Bazel to support your language of
     choice.
-
-
-# What does Bazel support?
-
-Bazel supports the following:
-
-*  **Programming languages**: Java, C++, Objective-C, Python, JavaScript, Go
-
-*  **Operating systems**: Linux, macOS, Windows
-
-*  **Target platforms**: Linux, macOS, Windows, Android, iOS, Google App Engine
 
 
 # How do I use Bazel?
