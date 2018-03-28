@@ -21,15 +21,25 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyValue;
 
 /**
  * A value that represents an AST file lookup result. There are two subclasses: one for the case
  * where the file is found, and another for the case where the file is missing (but there are no
  * other errors).
  */
-public abstract class ASTFileLookupValue implements SkyValue {
+// In practice, if a ASTFileLookupValue is re-computed (i.e. not changed pruned), then it will
+// almost certainly be unequal to the previous value. This is because of (i) the change-pruning
+// semantics of the PackageLookupValue dep and the FileValue dep; consider the latter: if the
+// FileValue for the bzl file has changed, then the contents of the bzl file probably changed and
+// (ii) we don't currently have skylark-semantic-equality in BuildFileAST, so two BuildFileAST
+// instances representing two different contents of a bzl file will be different.
+// TODO(bazel-team): Consider doing better here. As a pre-req, we would need
+// skylark-semantic-equality in BuildFileAST, rather than equality naively based on the contents of
+// the bzl file. For a concrete example, the contents of comment lines do not currently impact
+// skylark semantics.
+public abstract class ASTFileLookupValue implements NotComparableSkyValue {
   public abstract boolean lookupSuccessful();
   public abstract BuildFileAST getAST();
   public abstract String getErrorMsg();
