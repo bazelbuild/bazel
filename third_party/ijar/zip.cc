@@ -147,13 +147,6 @@ class InputZipFile : public ZipExtractor {
   const u1 *file_name_;
   const u1 *extra_field_;
 
-  // Administration of memory reserved for decompressed data. We use the same
-  // buffer for each file to avoid some malloc()/free() calls and free the
-  // memory only in the dtor. C-style memory management is used so that we
-  // can call realloc.
-  u1 *uncompressed_data_;
-  size_t uncompressed_data_allocated_;
-
   // Copy of the last filename entry - Null-terminated.
   char filename[PATH_MAX];
   // The external file attribute field
@@ -599,7 +592,7 @@ struct EndOfCentralDirectoryRecord {
 
 // Checks for a zip64 end of central directory record. If a valid zip64 EOCD is
 // found, updates the original EOCD record and returns true.
-bool MaybeReadZip64CentralDirectory(const u1 *bytes, size_t in_length,
+bool MaybeReadZip64CentralDirectory(const u1 *bytes, size_t /*in_length*/,
                                     const u1 *current,
                                     const u1 **end_of_central_dir,
                                     EndOfCentralDirectoryRecord *cd) {

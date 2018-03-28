@@ -113,9 +113,11 @@ void *Concatenator::OutputEntry(bool compress) {
 
 NullCombiner::~NullCombiner() {}
 
-bool NullCombiner::Merge(const CDH *cdh, const LH *lh) { return true; }
+bool NullCombiner::Merge(const CDH * /*cdh*/, const LH * /*lh*/) {
+  return true;
+}
 
-void *NullCombiner::OutputEntry(bool compress) { return nullptr; }
+void *NullCombiner::OutputEntry(bool /*compress*/) { return nullptr; }
 
 XmlCombiner::~XmlCombiner() {}
 
@@ -171,6 +173,6 @@ void *XmlCombiner::OutputEntry(bool compress) {
 
 PropertyCombiner::~PropertyCombiner() {}
 
-bool PropertyCombiner::Merge(const CDH *cdh, const LH *lh) {
+bool PropertyCombiner::Merge(const CDH * /*cdh*/, const LH * /*lh*/) {
   return false;  // This should not be called.
 }

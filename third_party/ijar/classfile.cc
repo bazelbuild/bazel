@@ -815,10 +815,8 @@ struct TypeAnnotation {
   };
 
   struct EmptyInfo : TargetInfo {
-    void Write(u1 *&p) {}
-    static EmptyInfo *Read(const u1 *&p) {
-      return new EmptyInfo;
-    }
+    void Write(u1 *& /*p*/) {}
+    static EmptyInfo *Read(const u1 *& /*p*/) { return new EmptyInfo; }
   };
 
   struct MethodFormalParameterInfo : TargetInfo {
@@ -1021,8 +1019,8 @@ struct SignatureAttribute : Attribute {
 // We preserve Deprecated attributes because they are required by the
 // compiler to generate warning messages.
 struct DeprecatedAttribute : Attribute {
-
-  static DeprecatedAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static DeprecatedAttribute *Read(const u1 *& /*p*/,
+                                   Constant *attribute_name) {
     DeprecatedAttribute *attr = new DeprecatedAttribute;
     attr->attribute_name_ = attribute_name;
     return attr;
@@ -1126,8 +1124,8 @@ struct ParameterAnnotationsAttribute : Attribute {
 // See sec.4.7.20 of Java 8 JVM spec. Includes RuntimeVisibleTypeAnnotations
 // and RuntimeInvisibleTypeAnnotations.
 struct TypeAnnotationsAttribute : Attribute {
-  static TypeAnnotationsAttribute* Read(const u1 *&p, Constant *attribute_name,
-                                        u4 attribute_length) {
+  static TypeAnnotationsAttribute *Read(const u1 *&p, Constant *attribute_name,
+                                        u4 /*attribute_length*/) {
     auto attr = new TypeAnnotationsAttribute;
     attr->attribute_name_ = attribute_name;
     u2 num_annotations = get_u2be(p);
@@ -1160,7 +1158,7 @@ struct TypeAnnotationsAttribute : Attribute {
 // See JVMS §4.7.24
 struct MethodParametersAttribute : Attribute {
   static MethodParametersAttribute *Read(const u1 *&p, Constant *attribute_name,
-                                         u4 attribute_length) {
+                                         u4 /*attribute_length*/) {
     auto attr = new MethodParametersAttribute;
     attr->attribute_name_ = attribute_name;
     u1 parameters_count = get_u1(p);
