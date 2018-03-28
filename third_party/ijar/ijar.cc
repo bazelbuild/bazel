@@ -76,7 +76,7 @@ class JarStripperProcessor : public ZipExtractorProcessor {
   }
 };
 
-bool JarStripperProcessor::Accept(const char* filename, const u4 attr) {
+bool JarStripperProcessor::Accept(const char *filename, const u4 /*attr*/) {
   const size_t filename_len = strlen(filename);
   if (filename_len < CLASS_EXTENSION_LENGTH ||
       strcmp(filename + filename_len - CLASS_EXTENSION_LENGTH,
@@ -96,8 +96,8 @@ static bool IsModuleInfo(const char* filename) {
   return strcmp(slash, "module-info.class") == 0;
 }
 
-void JarStripperProcessor::Process(const char* filename, const u4 attr,
-                                   const u1* data, const size_t size) {
+void JarStripperProcessor::Process(const char *filename, const u4 /*attr*/,
+                                   const u1 *data, const size_t size) {
   if (verbose) {
     fprintf(stderr, "INFO: StripClass: %s\n", filename);
   }
