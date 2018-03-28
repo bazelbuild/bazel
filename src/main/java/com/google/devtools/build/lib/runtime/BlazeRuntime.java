@@ -397,6 +397,10 @@ public final class BlazeRuntime {
     return projectFileProvider;
   }
 
+  public Path getOutputBase() {
+    return getWorkspace().getDirectories().getOutputBase();
+  }
+
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of
    * each command.

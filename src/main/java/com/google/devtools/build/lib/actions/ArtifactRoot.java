@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -27,6 +29,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -54,7 +59,6 @@ import java.util.Objects;
           + "together into a single directory tree to form the execution environment."
 )
 @Immutable
-@AutoCodec
 public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, SkylarkValue {
   // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.
@@ -98,8 +102,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return new ArtifactRoot(Root.fromPath(root), execPath, RootType.Middleman);
   }
 
-  @VisibleForSerialization
-  enum RootType {
+  private enum RootType {
     Source,
     Output,
     Middleman
@@ -109,7 +112,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   private final PathFragment execPath;
   private final RootType rootType;
 
-  @AutoCodec.Instantiator
   ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
     this.root = Preconditions.checkNotNull(root);
     this.execPath = execPath;
@@ -173,5 +175,50 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
+  }
+
+  /** Custom codec that replaces output base with local output base on deserialization. */
+  private static class ArtifactRootCodec implements ObjectCodec<ArtifactRoot> {
+    @Override
+    public Class<ArtifactRoot> getEncodedClass() {
+      return ArtifactRoot.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ArtifactRoot input, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(input.rootType, codedOut);
+      switch (input.rootType) {
+        case Source:
+          context.serialize(input.root, codedOut);
+          break;
+        case Output: // fall-through, same behavior as Middleman
+        case Middleman:
+          Path outputBase = context.getDependency(OutputBaseSupplier.class).get();
+          context.serialize(input.root.asPath().relativeTo(outputBase), codedOut);
+          break;
+      }
+      context.serialize(input.execPath, codedOut);
+    }
+
+    @Override
+    public ArtifactRoot deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      ArtifactRoot.RootType rootType = context.deserialize(codedIn);
+      Root root = null;
+      switch (rootType) {
+        case Source:
+          root = context.deserialize(codedIn);
+          break;
+        case Output: // fall-through, same behavior as Middleman
+        case Middleman:
+          Path outputBase = context.getDependency(OutputBaseSupplier.class).get();
+          PathFragment relativeRoot = context.deserialize(codedIn);
+          root = Root.fromPath(outputBase.getRelative(relativeRoot));
+          break;
+      }
+      return new ArtifactRoot(root, context.deserialize(codedIn), rootType);
+    }
   }
 }

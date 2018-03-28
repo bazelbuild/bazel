@@ -2034,6 +2034,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return pkgFactory.getPackageBuilderHelperForTesting();
   }
 
+  @VisibleForTesting
+  public Path getOutputBaseForTesting() {
+    return directories.getOutputBase();
+  }
+
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
    */
