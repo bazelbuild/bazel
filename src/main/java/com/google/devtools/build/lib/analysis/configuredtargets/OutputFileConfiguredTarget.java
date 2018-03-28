@@ -21,13 +21,13 @@ import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -46,7 +46,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
       TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
     this(
         targetContext.getLabel(),
-        targetContext.getConfiguration(),
+        targetContext.getConfigurationKey(),
         targetContext.getVisibility(),
         outputArtifact,
         generatingRule);
@@ -57,11 +57,11 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   @VisibleForSerialization
   OutputFileConfiguredTarget(
       Label label,
-      BuildConfiguration configuration,
+      BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
       TransitiveInfoCollection generatingRule) {
-    super(label, configuration, visibility, artifact);
+    super(label, configurationKey, visibility, artifact);
     this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 

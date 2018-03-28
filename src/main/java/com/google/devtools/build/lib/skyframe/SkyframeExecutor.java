@@ -905,14 +905,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     SkyFunctionEnvironmentForTesting env =
         new SkyFunctionEnvironmentForTesting(buildDriver, eventHandler, this);
     return ToolchainUtil.createToolchainContext(
-        env,
-        "",
-        requiredToolchains,
-        config == null
-            ? null
-            : BuildConfigurationValue.key(
-                config.fragmentClasses(),
-                BuildOptions.diffForReconstruction(defaultBuildOptions, config.getOptions())));
+        env, "", requiredToolchains, config == null ? null : BuildConfigurationValue.key(config));
   }
 
   /**

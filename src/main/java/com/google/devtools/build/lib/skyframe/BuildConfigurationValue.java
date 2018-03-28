@@ -76,6 +76,10 @@ public class BuildConfigurationValue implements SkyValue {
     return Key.create(fragmentClassSet, optionsDiff);
   }
 
+  public static Key key(BuildConfiguration buildConfiguration) {
+    return key(buildConfiguration.fragmentClasses(), buildConfiguration.getBuildOptionsDiff());
+  }
+
   /** {@link SkyKey} for {@link BuildConfigurationValue}. */
   public static final class Key implements SkyKey, Serializable {
     private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();

@@ -20,12 +20,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -54,7 +54,7 @@ public final class FilesetOutputConfiguredTarget extends OutputFileConfiguredTar
       @Nullable ImmutableList<FilesetTraversalParams> traversals) {
     this(
         targetContext.getLabel(),
-        targetContext.getConfiguration(),
+        targetContext.getConfigurationKey(),
         targetContext.getVisibility(),
         generatingRule,
         outputArtifact,
@@ -70,12 +70,12 @@ public final class FilesetOutputConfiguredTarget extends OutputFileConfiguredTar
   @AutoCodec.Instantiator
   FilesetOutputConfiguredTarget(
       Label label,
-      BuildConfiguration configuration,
+      BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoCollection generatingRule,
       Artifact artifact,
       @Nullable ImmutableList<FilesetTraversalParams> traversals) {
-    super(label, configuration, visibility, artifact, generatingRule);
+    super(label, configurationKey, visibility, artifact, generatingRule);
     FilesetProvider provider = generatingRule.getProvider(FilesetProvider.class);
     Preconditions.checkArgument(provider != null);
     filesetInputManifest = provider.getFilesetInputManifest();

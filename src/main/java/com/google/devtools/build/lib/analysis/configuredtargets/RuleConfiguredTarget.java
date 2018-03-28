@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
@@ -97,7 +97,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @VisibleForSerialization
   RuleConfiguredTarget(
       Label label,
-      BuildConfiguration configuration,
+      BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -105,7 +105,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       String ruleClassString,
       List<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex) {
-    super(label, configuration, visibility);
+    super(label, configurationKey, visibility);
 
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
@@ -138,7 +138,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       ImmutableMap<Artifact, Integer> generatingActionIndex) {
     this(
         ruleContext.getLabel(),
-        ruleContext.getConfiguration(),
+        ruleContext.getConfigurationKey(),
         ruleContext.getVisibility(),
         providers,
         ruleContext.getConfigConditions(),

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Set;
@@ -94,6 +95,10 @@ public class TargetContext {
   @Nullable
   public BuildConfiguration getConfiguration() {
     return configuration;
+  }
+
+  public BuildConfigurationValue.Key getConfigurationKey() {
+    return BuildConfigurationValue.key(configuration);
   }
 
   public NestedSet<PackageGroupContents> getVisibility() {

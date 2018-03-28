@@ -97,11 +97,6 @@ public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProvi
    */
   Label getLabel();
 
-  /** Deprecated! Use {@link #getConfigurationKey} instead. */
-  @Deprecated
-  @Nullable
-  BuildConfiguration getConfiguration();
-
   /**
    * Returns the {@link BuildConfigurationValue.Key} naming the {@link BuildConfiguration} for which
    * this transitive info collection is defined. Configuration is defined for all configured targets
@@ -109,13 +104,7 @@ public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProvi
    * for which it is always <b>null</b>.
    */
   @Nullable
-  default BuildConfigurationValue.Key getConfigurationKey() {
-    BuildConfiguration configuration = getConfiguration();
-    return configuration == null
-        ? null
-        : BuildConfigurationValue.key(
-            configuration.fragmentClasses(), configuration.getBuildOptionsDiff());
-  }
+  BuildConfigurationValue.Key getConfigurationKey();
 
   /**
    * Checks whether this {@link TransitiveInfoCollection} satisfies given {@link RequiredProviders}.
