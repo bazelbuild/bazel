@@ -121,8 +121,8 @@ a directory when the tarball is extracted. For example the Apple Build Rules are
 <pre>
 http_archive(
     name = "build_bazel_rules_apple",
-    strip_prefix = "rules_apple-0.1.0",
-    urls = ["https://github.com/bazelbuild/rules_apple/archive/0.1.0.tar.gz"],
+    strip_prefix = "rules_apple-0.4.0",
+    urls = ["https://github.com/bazelbuild/rules_apple/archive/0.4.0.tar.gz"],
 )
 </pre>
 
