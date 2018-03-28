@@ -33,10 +33,8 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
         "examples/rule/apple_rules.bzl",
         "def swift_binary_impl(ctx):",
         "   copts = ctx.fragments.swift.copts()",
-        "   wmo = ctx.fragments.swift.enable_whole_module_optimization()",
         "   return struct(",
         "      copts=copts,",
-        "      wmo=wmo,",
         "   )",
         "swift_binary = rule(",
         "   implementation = swift_binary_impl,",
@@ -52,13 +50,12 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
         "   name='my_target',",
         ")");
 
-    useConfiguration("--swiftcopt=foo", "--swiftcopt=bar", "--swift_whole_module_optimization");
+    useConfiguration("--swiftcopt=foo", "--swiftcopt=bar");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/swift_skylark:my_target");
 
     @SuppressWarnings("unchecked")
     List<String> copts = (List<String>) skylarkTarget.get("copts");
 
     assertThat(copts).containsAllOf("foo", "bar");
-    assertThat((Boolean) skylarkTarget.get("wmo")).isTrue();
   }
 }
