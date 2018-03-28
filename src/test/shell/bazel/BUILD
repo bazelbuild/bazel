@@ -94,6 +94,13 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_embedded_skylark_test",
+    size = "medium",
+    srcs = ["bazel_embedded_skylark_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_random_characters_test",
     size = "large",
     srcs = ["bazel_random_characters_test.sh"],
