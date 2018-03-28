@@ -206,182 +206,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testPyStringJoin() throws Exception {
-    new BothModesTest().testStatement("'-'.join(['a', 'b', 'c'])", "a-b-c");
-  }
-
-  @Test
-  public void testPyStringGlobalJoin() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains("name 'join' is not defined", "join(' ', ['a', 'b', 'c'])")
-        .testStatement("' '.join(['a', 'b', 'c'])", "a b c");
-  }
-
-  @Test
-  public void testPyStringJoinCompr() throws Exception {
-    new BothModesTest()
-        .testStatement("''.join([(x + '*') for x in ['a', 'b', 'c']])", "a*b*c*")
-        .testStatement(
-            "''.join([(y + '*' + z + '|') " + "for y in ['a', 'b', 'c'] for z in ['d', 'e']])",
-            "a*d|a*e|b*d|b*e|c*d|c*e|");
-  }
-
-  @Test
-  public void testPyStringLower() throws Exception {
-    new BothModesTest().testStatement("'Blah Blah'.lower()", "blah blah");
-  }
-
-  @Test
-  public void testPyStringUpper() throws Exception {
-    new BothModesTest()
-        .testStatement("'ein bier'.upper()", "EIN BIER")
-        .testStatement("''.upper()", "");
-  }
-
-  @Test
-  public void testPyStringReplace() throws Exception {
-    new BothModesTest()
-        .testStatement("'banana'.replace('a', 'e')", "benene")
-        .testStatement("'banana'.replace('a', '$()')", "b$()n$()n$()")
-        .testStatement("'banana'.replace('a', '$')", "b$n$n$")
-        .testStatement("'banana'.replace('a', '\\\\')", "b\\n\\n\\")
-        .testStatement("'b$()n$()n$()'.replace('$()', '$($())')", "b$($())n$($())n$($())")
-        .testStatement("'b\\\\n\\\\n\\\\'.replace('\\\\', '$()')", "b$()n$()n$()");
-  }
-
-  @Test
-  public void testPyStringReplace2() throws Exception {
-    new BothModesTest().testStatement("'banana'.replace('a', 'e', 2)", "benena");
-  }
-
-  @Test
-  public void testPyStringTitle() throws Exception {
-    new BothModesTest()
-        .testStatement("'this is a very simple test'.title()", "This Is A Very Simple Test");
-    new BothModesTest()
-        .testStatement("'Do We Keep Capital Letters?'.title()", "Do We Keep Capital Letters?");
-    new BothModesTest()
-        .testStatement(
-            "'this isn\\'t just an ol\\' apostrophe test'.title()",
-            "This Isn'T Just An Ol' Apostrophe Test");
-    new BothModesTest()
-        .testStatement(
-            "'Let us test crazy characters: _bla.exe//foo:bla(test$class)'.title()",
-            "Let Us Test Crazy Characters: _Bla.Exe//Foo:Bla(Test$Class)");
-    new BothModesTest().testStatement("'any germans here? äöü'.title()", "Any Germans Here? Äöü");
-    new BothModesTest()
-        .testStatement(
-            "'WE HAve tO lOWERCASE soMEthING heRE, AI?'.title()",
-            "We Have To Lowercase Something Here, Ai?");
-    new BothModesTest()
-        .testStatement("'wh4t ab0ut s0me numb3rs'.title()", "Wh4T Ab0Ut S0Me Numb3Rs");
-  }
-
-  @Test
-  public void testCapitalize() throws Exception {
-    new BothModesTest()
-        .testStatement("'hello world'.capitalize()", "Hello world")
-        .testStatement("'HELLO WORLD'.capitalize()", "Hello world")
-        .testStatement("''.capitalize()", "")
-        .testStatement("'12 lower UPPER 34'.capitalize()", "12 lower upper 34");
-  }
-
-  @Test
-  public void testPyStringRfind() throws Exception {
-    new BothModesTest()
-        .testStatement("'banana'.rfind('na')", 4)
-        .testStatement("'banana'.rfind('na', 3, 1)", -1)
-        .testStatement("'aaaa'.rfind('a', 1, 1)", -1)
-        .testStatement("'aaaa'.rfind('a', 1, 50)", 3)
-        .testStatement("'aaaa'.rfind('aaaaa')", -1)
-        .testStatement("'abababa'.rfind('ab', 1)", 4)
-        .testStatement("'abababa'.rfind('ab', 0)", 4)
-        .testStatement("'abababa'.rfind('ab', -1)", -1)
-        .testStatement("'abababa'.rfind('ab', -2)", -1)
-        .testStatement("'abababa'.rfind('ab', -3)", 4)
-        .testStatement("'abababa'.rfind('ab', 0, 1)", -1)
-        .testStatement("'abababa'.rfind('ab', 0, 2)", 0)
-        .testStatement("'abababa'.rfind('ab', -1000)", 4)
-        .testStatement("'abababa'.rfind('ab', 1000)", -1)
-        .testStatement("''.rfind('a', 1)", -1);
-  }
-
-  @Test
-  public void testPyStringFind() throws Exception {
-    new BothModesTest()
-        .testStatement("'banana'.find('na')", 2)
-        .testStatement("'banana'.find('na', 3, 1)", -1)
-        .testStatement("'aaaa'.find('a', 1, 1)", -1)
-        .testStatement("'aaaa'.find('a', 1, 50)", 1)
-        .testStatement("'aaaa'.find('aaaaa')", -1)
-        .testStatement("'abababa'.find('ab', 1)", 2)
-        .testStatement("'abababa'.find('ab', 0)", 0)
-        .testStatement("'abababa'.find('ab', -1)", -1)
-        .testStatement("'abababa'.find('ab', -2)", -1)
-        .testStatement("'abababa'.find('ab', -3)", 4)
-        .testStatement("'abababa'.find('ab', 0, 1)", -1)
-        .testStatement("'abababa'.find('ab', 0, 2)", 0)
-        .testStatement("'abababa'.find('ab', -1000)", 0)
-        .testStatement("'abababa'.find('ab', 1000)", -1)
-        .testStatement("''.find('a', 1)", -1);
-  }
-
-  @Test
-  public void testPyStringIndex() throws Exception {
-    new BothModesTest()
-        .testStatement("'banana'.index('na')", 2)
-        .testStatement("'abababa'.index('ab', 1)", 2)
-        .testIfErrorContains("substring \"foo\" not found in \"banana\"", "'banana'.index('foo')");
-  }
-
-  @Test
-  public void testPyStringRIndex() throws Exception {
-    new BothModesTest()
-        .testStatement("'banana'.rindex('na')", 4)
-        .testStatement("'abababa'.rindex('ab', 1)", 4)
-        .testIfErrorContains("substring \"foo\" not found in \"banana\"", "'banana'.rindex('foo')");
-  }
-
-  @Test
-  public void testPyStringEndswith() throws Exception {
-    new BothModesTest()
-        .testStatement("'Apricot'.endswith('cot')", true)
-        .testStatement("'a'.endswith('')", true)
-        .testStatement("''.endswith('')", true)
-        .testStatement("'Apricot'.endswith('co')", false)
-        .testStatement("'Apricot'.endswith('co', -1)", false)
-        .testStatement("'abcd'.endswith('c', -2, -1)", true)
-        .testStatement("'abcd'.endswith('c', 1, 8)", false)
-        .testStatement("'abcd'.endswith('d', 1, 8)", true);
-  }
-
-  @Test
-  public void testPyStringStartswith() throws Exception {
-    new BothModesTest()
-        .testStatement("'Apricot'.startswith('Apr')", true)
-        .testStatement("'Apricot'.startswith('A')", true)
-        .testStatement("'Apricot'.startswith('')", true)
-        .testStatement("'Apricot'.startswith('z')", false)
-        .testStatement("''.startswith('')", true)
-        .testStatement("''.startswith('a')", false);
-  }
-
-  @Test
-  public void testPySubstring() throws Exception {
-    new BothModesTest()
-        .testStatement("'012345678'[0:-1]", "01234567")
-        .testStatement("'012345678'[2:4]", "23")
-        .testStatement("'012345678'[-5:-3]", "45")
-        .testStatement("'012345678'[2:2]", "")
-        .testStatement("'012345678'[2:]", "2345678")
-        .testStatement("'012345678'[:3]", "012")
-        .testStatement("'012345678'[-1:]", "8")
-        .testStatement("'012345678'[:]", "012345678")
-        .testStatement("'012345678'[-1:2]", "")
-        .testStatement("'012345678'[4:2]", "");
-  }
-
-  @Test
   public void testReversedWithInvalidTypes() throws Exception {
     new BothModesTest()
         .testIfExactError("type 'NoneType' is not iterable", "reversed(None)")
@@ -401,16 +225,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("reversed([1, 2, 3, 4, 5])", "[5, 4, 3, 2, 1]")
         .testEval("reversed([[1, 2], 3, 4, [5]])", "[[5], 4, 3, [1, 2]]")
         .testEval("reversed([1, 1, 1, 1, 2])", "[2, 1, 1, 1, 1]");
-  }
-
-  @Test
-  public void testReversedWithStrings() throws Exception {
-    new BothModesTest()
-        .testEval("reversed('')", "[]")
-        .testEval("reversed('a')", "['a']")
-        .testEval("reversed('abc')", "['c', 'b', 'a']")
-        .testEval("reversed('__test  ')", "[' ', ' ', 't', 's', 'e', 't', '_', '_']")
-        .testEval("reversed('bbb')", "['b', 'b', 'b']");
   }
 
   @Test
@@ -488,94 +302,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDictionaryVariableAccess() throws Exception {
     new BothModesTest().setUp("d = {'a' : 1}", "a = d['a']\n").testLookup("a", 1);
-  }
-
-  @Test
-  public void testStringIndexing() throws Exception {
-    new BothModesTest()
-        .testStatement("'somestring'[0]", "s")
-        .testStatement("'somestring'[1]", "o")
-        .testStatement("'somestring'[4]", "s")
-        .testStatement("'somestring'[9]", "g")
-        .testStatement("'somestring'[-1]", "g")
-        .testStatement("'somestring'[-2]", "n")
-        .testStatement("'somestring'[-10]", "s");
-  }
-
-  @Test
-  public void testStringIndexingOutOfRange() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains("index out of range", "'abcdef'[10]")
-        .testIfErrorContains("index out of range", "'abcdef'[-11]")
-        .testIfErrorContains("index out of range", "'abcdef'[42]");
-  }
-
-  @Test
-  public void testStringSlice() throws Exception {
-    new BothModesTest()
-        .testStatement("'0123'[0:-1]", "012")
-        .testStatement("'012345'[2:4]", "23")
-        .testStatement("'012345'[-2:-1]", "4")
-        .testStatement("''[1:2]", "")
-        .testStatement("'012'[1:0]", "")
-        .testStatement("'0123'[-10:10]", "0123");
-  }
-
-  @Test
-  public void testStringSlice_WrongType() throws Exception {
-    new BothModesTest()
-        .testIfExactError("slice start must be an integer, not 'a'", "'123'['a'::]")
-        .testIfExactError("slice end must be an integer, not 'b'", "'123'[:'b':]");
-  }
-
-  @Test
-  public void testStringSliceStep() throws Exception {
-    new BothModesTest()
-        .testStatement("'01234'[::1]", "01234")
-        .testStatement("'01234'[1::1]", "1234")
-        .testStatement("'01234'[:2:1]", "01")
-        .testStatement("'01234'[1:3:1]", "12")
-        .testStatement("'01234'[-4:-2:1]", "12")
-        .testStatement("'01234'[-10:10:1]", "01234")
-        .testStatement("'01234'[::42]", "0");
-  }
-
-  @Test
-  public void testStringSliceStep_EmptyString() throws Exception {
-    new BothModesTest().testStatement("''[::1]", "").testStatement("''[::-1]", "");
-  }
-
-  @Test
-  public void testStringSliceStep_SkipValues() throws Exception {
-    new BothModesTest()
-        .testStatement("'0123456'[::3]", "036")
-        .testStatement("'01234567'[1:7:3]", "14");
-  }
-
-  @Test
-  public void testStringSliceStep_Negative() throws Exception {
-    new BothModesTest()
-        .testStatement("'01234'[::-1]", "43210")
-        .testStatement("'01234'[4::-1]", "43210")
-        .testStatement("'01234'[:0:-1]", "4321")
-        .testStatement("'01234'[3:1:-1]", "32")
-        .testStatement("'01234'[::-2]", "420")
-        .testStatement("'01234'[::-10]", "4");
-  }
-
-  @Test
-  public void testStringSliceStep_WrongOrder() throws Exception {
-    new BothModesTest().testStatement("'123'[3:1:1]", "").testStatement("'123'[1:3:-1]", "");
-  }
-
-  @Test
-  public void testStringSliceStep_InvalidStep() throws Exception {
-    String msg = "slice step cannot be zero";
-    new BothModesTest()
-        .testIfExactError(msg, "'123'[::0]")
-        .testIfExactError(msg, "'123'[1::0]")
-        .testIfExactError(msg, "'123'[:3:0]")
-        .testIfExactError(msg, "'123'[1:3:0]");
   }
 
   @Test
@@ -1085,28 +811,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testCountFunction() throws Exception {
-    new BothModesTest()
-        .testStatement("'abc'.count('')", 4)
-        .testStatement("'abc'.count('a')", 1)
-        .testStatement("'abc'.count('b')", 1)
-        .testStatement("'abc'.count('c')", 1)
-        .testStatement("'abbc'.count('b')", 2)
-        .testStatement("'aba'.count('a')", 2)
-        .testStatement("'aaa'.count('aa')", 1)
-        .testStatement("'aaaa'.count('aa')", 2)
-        .testStatement("'abc'.count('a', 0)", 1)
-        .testStatement("'abc'.count('a', 1)", 0)
-        .testStatement("'abc'.count('c', 0, 3)", 1)
-        .testStatement("'abc'.count('c', 0, 2)", 0)
-        .testStatement("'abc'.count('a', -1)", 0)
-        .testStatement("'abc'.count('c', -1)", 1)
-        .testStatement("'abc'.count('c', 0, 5)", 1)
-        .testStatement("'abc'.count('c', 0, -1)", 0)
-        .testStatement("'abc'.count('a', 0, -1)", 1);
-  }
-
-  @Test
   public void testZipFunction() throws Exception {
     new BothModesTest()
         .testStatement("str(zip())", "[]")
@@ -1119,17 +823,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("type 'int' is not iterable", "zip(123)")
         .testIfErrorContains("type 'int' is not iterable", "zip([1], 1)")
         .testStatement("str(zip([1], depset([2])))", "[(1, 2)]");
-  }
-
-  @Test
-  public void testIsAlphaFunction() throws Exception {
-    new BothModesTest()
-        .testStatement("''.isalpha()", false)
-        .testStatement("'abz'.isalpha()", true)
-        .testStatement("'a1'.isalpha()", false)
-        .testStatement("'a '.isalpha()", false)
-        .testStatement("'A'.isalpha()", true)
-        .testStatement("'AbZ'.isalpha()", true);
   }
 
   /**
