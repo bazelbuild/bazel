@@ -157,21 +157,7 @@ public final class MockObjcSupport {
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/header_scanner");
     createCrosstoolPackage(config, partialToolchainLines);
-    setupIosSimDevice(config);
     setupObjcProto(config);
-  }
-
-  /**
-   * Sets up mock IOS simulated device support.
-   */
-  public static void setupIosSimDevice(MockToolsConfig config) throws IOException {
-    config.create(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/sim_devices/BUILD",
-        "ios_device(",
-        "  name = 'default',",
-        "  ios_version = '9.8',",
-        "  type = 'iChimpanzee',",
-        ")");
   }
 
   /** Sets up the support for building protocol buffers for ObjC. */

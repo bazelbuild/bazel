@@ -80,7 +80,6 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
         "    name = 'transpile',",
         "    deps = ['test'])");
     MockObjcSupport.setup(mockToolsConfig);
-    MockObjcSupport.setupIosSimDevice(mockToolsConfig);
     MockJ2ObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
 

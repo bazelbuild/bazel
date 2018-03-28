@@ -293,18 +293,6 @@ public class AppleSkylarkCommon {
   }
 
   @SkylarkCallable(
-    name = IosDeviceProvider.SKYLARK_NAME,
-    doc =
-        "<b>Deprecated. Use the new Skylark testing rules instead.</b> Returns the provider "
-            + "constructor for IosDeviceProvider. Use this as a key to access the attributes "
-            + "exposed by ios_device.",
-    structField = true
-  )
-  public Provider getIosDeviceProviderConstructor() {
-    return IosDeviceProvider.SKYLARK_CONSTRUCTOR;
-  }
-
-  @SkylarkCallable(
       name = "apple_host_system_env",
       doc =
           "Returns a <a href='dict.html'>dict</a> of environment variables that should be set "
