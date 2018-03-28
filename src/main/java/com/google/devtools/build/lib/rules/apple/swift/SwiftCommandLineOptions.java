@@ -33,13 +33,4 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     help = "Additional options to pass to Swift compilation."
   )
   public List<String> copts;
-
-  @Option(
-    name = "swift_whole_module_optimization",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Whether to enable Whole Module Optimization"
-  )
-  public boolean enableWholeModuleOptimization;
 }

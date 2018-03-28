@@ -40,27 +40,15 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 @Immutable
 public class SwiftConfiguration extends BuildConfiguration.Fragment {
-  private final boolean enableWholeModuleOptimization;
   private final ImmutableList<String> copts;
 
   public SwiftConfiguration(SwiftCommandLineOptions options) {
-    this(options.enableWholeModuleOptimization, ImmutableList.copyOf(options.copts));
+    this(ImmutableList.copyOf(options.copts));
   }
 
   @AutoCodec.Instantiator
-  SwiftConfiguration(boolean enableWholeModuleOptimization, ImmutableList<String> copts) {
-    this.enableWholeModuleOptimization = enableWholeModuleOptimization;
+  SwiftConfiguration(ImmutableList<String> copts) {
     this.copts = copts;
-  }
-
-  /** Returns whether to enable Whole Module Optimization. */
-  @SkylarkCallable(
-    name = "enable_whole_module_optimization",
-    doc = "<code>True</code> if <em>whole module optimization</em> should be enabled when "
-        + "compiling Swift code; otherwise, <code>False</code>."
-  )
-  public boolean enableWholeModuleOptimization() {
-    return enableWholeModuleOptimization;
   }
 
   /** Returns a list of options to use for compiling Swift. */
