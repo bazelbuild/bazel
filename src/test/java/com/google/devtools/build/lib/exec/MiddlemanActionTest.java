@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.actions.OutputBaseSupplier;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -142,6 +143,7 @@ public class MiddlemanActionTest extends BuildViewTestCase {
   public void testCodec() throws Exception {
     new SerializationTester(getGeneratingAction(middle))
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(OutputBaseSupplier.class, () -> outputBase)
         .setVerificationFunction(MiddlemanActionTest::verifyEquivalent)
         .runTests();
   }

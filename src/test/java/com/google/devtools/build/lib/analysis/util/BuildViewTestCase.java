@@ -1999,8 +1999,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Artifact inputManifest = Iterables.getOnlyElement(symlinkTreeAction.getInputs());
     SourceManifestAction inputManifestAction =
         (SourceManifestAction) getGeneratingAction(inputManifest);
-        // Ask the manifest to write itself to a byte array so that we can
-    // read its contents.
+    // Ask the manifest to write itself to a byte array so that we can read its contents.
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
     inputManifestAction.writeOutputFile(stream, reporter);
     String contents = stream.toString();
@@ -2052,5 +2051,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     return view.getArtifactFactory()
         .getDerivedArtifact(target.getLabel().getPackageFragment().getRelative(path), root, owner);
+  }
+
+  public Path getExecRoot() {
+    return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
   }
 }

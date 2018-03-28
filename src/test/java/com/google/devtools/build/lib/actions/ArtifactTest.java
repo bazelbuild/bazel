@@ -346,6 +346,7 @@ public class ArtifactTest {
                 PathFragment.create("src/c"),
                 new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"))))
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(OutputBaseSupplier.class, () -> scratch.getFileSystem().getPath("/"))
         .runTests();
   }
 
