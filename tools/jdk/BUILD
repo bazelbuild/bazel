@@ -8,6 +8,7 @@ load(
     "default_java_toolchain",
     "JDK8_JVM_OPTS",
     "JDK9_JVM_OPTS",
+    "DEFAULT_JAVACOPTS",
 )
 
 # Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
@@ -213,12 +214,36 @@ genrule(
 
 default_java_toolchain(
     name = "toolchain_jdk8",
+    bootclasspath = [":bootclasspath"],
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "-source",
+            "7",
+            "-target",
+            "7",
+        ],
+    },
+    extclasspath = [":extclasspath"],
     jvm_opts = JDK8_JVM_OPTS,
+    source_version = "8",
+    target_version = "8",
 )
 
 default_java_toolchain(
     name = "toolchain_jdk9",
+    compatible_javacopts = {
+        # Restrict protos to Java 7 so that they are compatible with Android.
+        "proto": [
+            "--release",
+            "7",
+        ],
+    },
     jvm_opts = JDK9_JVM_OPTS,
+    misc = DEFAULT_JAVACOPTS + [
+        "--release",
+        "9",
+    ],
 )
 
 alias(

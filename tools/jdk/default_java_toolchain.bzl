@@ -34,16 +34,6 @@ JDK9_JVM_OPTS = [
     "--patch-module=jdk.compiler=$(location @bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar)",
 ]
 
-DEFAULT_COMPATIBLE_JAVACOPTS = {
-  # Restrict protos to Java 7 so that they are compatible with Android.
-  "proto": [
-    "-source",
-    "7",
-    "-target",
-    "7",
-  ],
-}
-
 DEFAULT_JAVACOPTS = [
   "-XDskipDuplicateBridges=true",
   "-g",
@@ -51,13 +41,6 @@ DEFAULT_JAVACOPTS = [
 ]
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
-  # javac -extdirs is implemented by appending the contents to the platform
-  # class path after -bootclasspath. For convenience, we currently have a
-  # single jar that contains the contents of both the bootclasspath and
-  # extdirs.
-  "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath.jar"],
-  "extclasspath": [],
-  "compatible_javacopts": DEFAULT_COMPATIBLE_JAVACOPTS,
   "encoding": "UTF-8",
   "forcibly_disable_header_compilation": 0,
   "genclass": ["@bazel_tools//tools/jdk:genclass"],
@@ -73,8 +56,6 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
   "jvm_opts": JDK8_JVM_OPTS,
   "misc": DEFAULT_JAVACOPTS,
   "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
-  "source_version": "8",
-  "target_version": "8",
 }
 
 def default_java_toolchain(name, **kwargs):
