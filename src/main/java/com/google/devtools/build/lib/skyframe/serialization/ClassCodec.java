@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -29,17 +31,40 @@ class ClassCodec implements ObjectCodec<Class<?>> {
   @Override
   public void serialize(SerializationContext context, Class<?> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    context.serialize(obj.getName(), codedOut);
+    codedOut.writeBoolNoTag(obj.isPrimitive());
+    if (obj.isPrimitive()) {
+      codedOut.writeInt32NoTag(Preconditions.checkNotNull(PRIMITIVE_CLASS_INDEX_MAP.get(obj), obj));
+    } else {
+      context.serialize(obj.getName(), codedOut);
+    }
   }
 
   @Override
   public Class<?> deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    String className = context.deserialize(codedIn);
-    try {
-      return Class.forName(className);
-    } catch (ClassNotFoundException e) {
-      throw new SerializationException("Couldn't find class for " + className, e);
+    boolean isPrimitive = codedIn.readBool();
+    if (isPrimitive) {
+      return PRIMITIVE_CLASS_INDEX_MAP.inverse().get(codedIn.readInt32());
+    } else {
+      String className = context.deserialize(codedIn);
+      try {
+        return Class.forName(className);
+      } catch (ClassNotFoundException e) {
+        throw new SerializationException("Couldn't find class for " + className, e);
+      }
     }
   }
+
+  private static final ImmutableBiMap<Class<?>, Integer> PRIMITIVE_CLASS_INDEX_MAP =
+      ImmutableBiMap.<Class<?>, Integer>builder()
+          .put(byte.class, 1)
+          .put(short.class, 2)
+          .put(int.class, 3)
+          .put(long.class, 4)
+          .put(char.class, 5)
+          .put(float.class, 6)
+          .put(double.class, 7)
+          .put(boolean.class, 8)
+          .put(void.class, 9)
+          .build();
 }

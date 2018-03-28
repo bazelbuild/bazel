@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Attribute.AbstractLabelLateBoundDe
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -47,6 +48,7 @@ import javax.annotation.concurrent.Immutable;
  * target configuration.
  */
 @Immutable
+@AutoCodec
 public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT>
     implements SkylarkValue {
 
@@ -82,13 +84,26 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
 
   private SkylarkLateBoundDefault(SkylarkConfigurationField annotation,
       Class<FragmentT> fragmentClass, String fragmentName, Method method, String toolsRepository) {
-    super(false /* don't use host configuration */,
+    this(
+        getDefaultLabel(annotation, toolsRepository),
         fragmentClass,
-        getDefaultLabel(annotation, toolsRepository));
+        method,
+        fragmentName,
+        annotation.name());
+  }
 
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  SkylarkLateBoundDefault(
+      Label defaultVal,
+      Class<FragmentT> fragmentClass,
+      Method method,
+      String fragmentName,
+      String fragmentFieldName) {
+    super(/*useHostConfiguration=*/ false, fragmentClass, defaultVal);
     this.method = method;
     this.fragmentName = fragmentName;
-    this.fragmentFieldName = annotation.name();
+    this.fragmentFieldName = fragmentFieldName;
   }
 
   /**
@@ -109,6 +124,12 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.format("<late-bound default>");
+  }
+
+  /** For use by @AutoCodec since the {@link #defaultValue} field is hard for it to process. */
+  @AutoCodec.VisibleForSerialization
+  Label getDefaultVal() {
+    return getDefault();
   }
 
   /**
