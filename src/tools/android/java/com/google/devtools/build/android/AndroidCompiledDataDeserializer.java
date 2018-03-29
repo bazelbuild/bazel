@@ -13,8 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static java.util.stream.Collectors.toList;
+
 import android.aapt.pb.internal.ResourcesInternal.CompiledFile;
 import com.android.SdkConstants;
+import com.android.aapt.ConfigurationOuterClass.Configuration;
+import com.android.aapt.ConfigurationOuterClass.Configuration.KeysHidden;
+import com.android.aapt.ConfigurationOuterClass.Configuration.NavHidden;
+import com.android.aapt.ConfigurationOuterClass.Configuration.Orientation;
+import com.android.aapt.ConfigurationOuterClass.Configuration.ScreenLayoutLong;
+import com.android.aapt.ConfigurationOuterClass.Configuration.ScreenLayoutSize;
+import com.android.aapt.ConfigurationOuterClass.Configuration.Touchscreen;
+import com.android.aapt.ConfigurationOuterClass.Configuration.UiModeNight;
+import com.android.aapt.ConfigurationOuterClass.Configuration.UiModeType;
 import com.android.aapt.Resources;
 import com.android.aapt.Resources.ConfigValue;
 import com.android.aapt.Resources.Package;
@@ -22,9 +33,47 @@ import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Type;
 import com.android.aapt.Resources.Value;
 import com.android.aapt.Resources.Visibility.Level;
+import com.android.ide.common.resources.configuration.CountryCodeQualifier;
+import com.android.ide.common.resources.configuration.DensityQualifier;
+import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.configuration.KeyboardStateQualifier;
+import com.android.ide.common.resources.configuration.LayoutDirectionQualifier;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
+import com.android.ide.common.resources.configuration.NavigationMethodQualifier;
+import com.android.ide.common.resources.configuration.NavigationStateQualifier;
+import com.android.ide.common.resources.configuration.NetworkCodeQualifier;
+import com.android.ide.common.resources.configuration.NightModeQualifier;
+import com.android.ide.common.resources.configuration.ResourceQualifier;
+import com.android.ide.common.resources.configuration.ScreenDimensionQualifier;
+import com.android.ide.common.resources.configuration.ScreenHeightQualifier;
+import com.android.ide.common.resources.configuration.ScreenOrientationQualifier;
+import com.android.ide.common.resources.configuration.ScreenRatioQualifier;
+import com.android.ide.common.resources.configuration.ScreenRoundQualifier;
+import com.android.ide.common.resources.configuration.ScreenSizeQualifier;
+import com.android.ide.common.resources.configuration.ScreenWidthQualifier;
+import com.android.ide.common.resources.configuration.SmallestScreenWidthQualifier;
+import com.android.ide.common.resources.configuration.TextInputMethodQualifier;
+import com.android.ide.common.resources.configuration.TouchScreenQualifier;
+import com.android.ide.common.resources.configuration.UiModeQualifier;
+import com.android.ide.common.resources.configuration.VersionQualifier;
+import com.android.resources.Density;
+import com.android.resources.Keyboard;
+import com.android.resources.KeyboardState;
+import com.android.resources.LayoutDirection;
+import com.android.resources.Navigation;
+import com.android.resources.NavigationState;
+import com.android.resources.NightMode;
 import com.android.resources.ResourceType;
+import com.android.resources.ScreenOrientation;
+import com.android.resources.ScreenRatio;
+import com.android.resources.ScreenRound;
+import com.android.resources.ScreenSize;
+import com.android.resources.TouchScreen;
+import com.android.resources.UiMode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
@@ -42,10 +91,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
@@ -57,6 +108,117 @@ import java.util.zip.ZipFile;
 public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer {
   private static final Logger logger =
       Logger.getLogger(AndroidCompiledDataDeserializer.class.getName());
+
+  static final ImmutableMap<Configuration.LayoutDirection, LayoutDirection> LAYOUT_DIRECTION_MAP =
+      ImmutableMap.of(
+          Configuration.LayoutDirection.LAYOUT_DIRECTION_LTR,
+          LayoutDirection.LTR,
+          Configuration.LayoutDirection.LAYOUT_DIRECTION_RTL,
+          LayoutDirection.RTL);
+
+  static final ImmutableMap<Configuration.ScreenLayoutSize, ScreenSize> LAYOUT_SIZE_MAP =
+      ImmutableMap.of(
+          ScreenLayoutSize.SCREEN_LAYOUT_SIZE_SMALL,
+          ScreenSize.SMALL,
+          ScreenLayoutSize.SCREEN_LAYOUT_SIZE_NORMAL,
+          ScreenSize.NORMAL,
+          ScreenLayoutSize.SCREEN_LAYOUT_SIZE_LARGE,
+          ScreenSize.LARGE,
+          ScreenLayoutSize.SCREEN_LAYOUT_SIZE_XLARGE,
+          ScreenSize.XLARGE);
+
+  static final ImmutableMap<Configuration.ScreenLayoutLong, ScreenRatio> SCREEN_LONG_MAP =
+      ImmutableMap.of(
+          ScreenLayoutLong.SCREEN_LAYOUT_LONG_LONG,
+          ScreenRatio.LONG,
+          ScreenLayoutLong.SCREEN_LAYOUT_LONG_NOTLONG,
+          ScreenRatio.NOTLONG);
+
+  static final ImmutableMap<Configuration.ScreenRound, ScreenRound> SCREEN_ROUND_MAP =
+      ImmutableMap.of(
+          Configuration.ScreenRound.SCREEN_ROUND_ROUND, ScreenRound.ROUND,
+          Configuration.ScreenRound.SCREEN_ROUND_NOTROUND, ScreenRound.NOTROUND);
+
+  private static final ImmutableMap<Configuration.Orientation, ScreenOrientation>
+      SCREEN_ORIENTATION_MAP =
+          ImmutableMap.of(
+              Orientation.ORIENTATION_LAND, ScreenOrientation.LANDSCAPE,
+              Orientation.ORIENTATION_PORT, ScreenOrientation.PORTRAIT,
+              Orientation.ORIENTATION_SQUARE, ScreenOrientation.SQUARE);
+
+  private static final ImmutableMap<UiModeType, UiMode> SCREEN_UI_MODE =
+      ImmutableMap.<UiModeType, UiMode>builder()
+          .put(UiModeType.UI_MODE_TYPE_APPLIANCE, UiMode.APPLIANCE)
+          .put(UiModeType.UI_MODE_TYPE_CAR, UiMode.CAR)
+          .put(UiModeType.UI_MODE_TYPE_DESK, UiMode.DESK)
+          .put(UiModeType.UI_MODE_TYPE_NORMAL, UiMode.NORMAL)
+          .put(UiModeType.UI_MODE_TYPE_TELEVISION, UiMode.TELEVISION)
+          .put(UiModeType.UI_MODE_TYPE_VRHEADSET, UiMode.NORMAL)
+          .put(UiModeType.UI_MODE_TYPE_WATCH, UiMode.WATCH)
+          .build();
+
+  static final ImmutableMap<Configuration.UiModeNight, NightMode> NIGHT_MODE_MAP =
+      ImmutableMap.of(
+          UiModeNight.UI_MODE_NIGHT_NIGHT, NightMode.NIGHT,
+          UiModeNight.UI_MODE_NIGHT_NOTNIGHT, NightMode.NOTNIGHT);
+
+  static final ImmutableMap<Configuration.KeysHidden, KeyboardState> KEYBOARD_STATE_MAP =
+      ImmutableMap.of(
+          KeysHidden.KEYS_HIDDEN_KEYSEXPOSED,
+          KeyboardState.EXPOSED,
+          KeysHidden.KEYS_HIDDEN_KEYSSOFT,
+          KeyboardState.SOFT,
+          KeysHidden.KEYS_HIDDEN_KEYSHIDDEN,
+          KeyboardState.HIDDEN);
+
+  static final ImmutableMap<Configuration.Touchscreen, TouchScreen> TOUCH_TYPE_MAP =
+      ImmutableMap.of(
+          Touchscreen.TOUCHSCREEN_FINGER,
+          TouchScreen.FINGER,
+          Touchscreen.TOUCHSCREEN_NOTOUCH,
+          TouchScreen.NOTOUCH,
+          Touchscreen.TOUCHSCREEN_STYLUS,
+          TouchScreen.STYLUS);
+
+  static final ImmutableMap<Configuration.Keyboard, Keyboard> KEYBOARD_MAP =
+      ImmutableMap.of(
+          Configuration.Keyboard.KEYBOARD_NOKEYS,
+          Keyboard.NOKEY,
+          Configuration.Keyboard.KEYBOARD_QWERTY,
+          Keyboard.QWERTY,
+          Configuration.Keyboard.KEYBOARD_TWELVEKEY,
+          Keyboard.TWELVEKEY);
+
+  static final ImmutableMap<Configuration.NavHidden, NavigationState> NAV_STATE_MAP =
+      ImmutableMap.of(
+          NavHidden.NAV_HIDDEN_NAVHIDDEN,
+          NavigationState.HIDDEN,
+          NavHidden.NAV_HIDDEN_NAVEXPOSED,
+          NavigationState.EXPOSED);
+
+  static final ImmutableMap<Configuration.Navigation, Navigation> NAVIGATION_MAP =
+      ImmutableMap.of(
+          Configuration.Navigation.NAVIGATION_DPAD,
+          Navigation.DPAD,
+          Configuration.Navigation.NAVIGATION_NONAV,
+          Navigation.NONAV,
+          Configuration.Navigation.NAVIGATION_TRACKBALL,
+          Navigation.TRACKBALL,
+          Configuration.Navigation.NAVIGATION_WHEEL,
+          Navigation.WHEEL);
+
+  static final ImmutableMap<Integer, Density> DENSITY_MAP =
+      ImmutableMap.<Integer, Density>builder()
+          .put(0xfffe, Density.ANYDPI)
+          .put(0xffff, Density.NODPI)
+          .put(120, Density.LOW)
+          .put(160, Density.MEDIUM)
+          .put(213, Density.TV)
+          .put(240, Density.HIGH)
+          .put(320, Density.XHIGH)
+          .put(480, Density.XXHIGH)
+          .put(640, Density.XXXHIGH)
+          .build();
 
   private final ImmutableSet<String> filteredResources;
 
@@ -79,8 +241,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
   private void readResourceTable(
       LittleEndianDataInputStream resourceTableStream,
-      KeyValueConsumers consumers,
-      Factory fqnFactory) throws IOException {
+      KeyValueConsumers consumers)
+      throws IOException {
     long alignedSize = resourceTableStream.readLong();
     Preconditions.checkArgument(alignedSize <= Integer.MAX_VALUE);
 
@@ -106,49 +268,181 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
         for (Resources.Entry resource : resourceFormatType.getEntryList()) {
           String resourceName = packageName + resource.getName();
-
-          FullyQualifiedName fqn = fqnFactory.create(resourceType, resourceName);
-          fullyQualifiedNames.put(
-              String.format("%s%s/%s", packageName, resourceType, resource.getName()),
-              new SimpleEntry<FullyQualifiedName, Boolean>(fqn, packageName.isEmpty()));
-
-          List<ConfigValue> configValues = resource.getConfigValueList();
-          if (configValues.isEmpty()
+          if (resource.getConfigValueList().isEmpty()
               && resource.getVisibility().getLevel() == Level.PUBLIC) {
+
             int sourceIndex = resource.getVisibility().getSource().getPathIdx();
 
             String source = sourcePool.get(sourceIndex);
             DataSource dataSource = DataSource.of(Paths.get(source));
 
-            DataResourceXml dataResourceXml = DataResourceXml
-                .fromPublic(dataSource, resourceType, resource.getEntryId().getId());
-            consumers.combiningConsumer.accept(fqn, dataResourceXml);
-          } else if (packageName.isEmpty()) {// This means this resource is not in the android sdk
-            Preconditions.checkArgument(configValues.size() == 1);
-            int sourceIndex =
-                configValues.get(0)
-                    .getValue()
-                    .getSource()
-                    .getPathIdx();
-
-            String source = sourcePool.get(sourceIndex);
-            DataSource dataSource = DataSource.of(Paths.get(source));
-
-            Value resourceValue = resource.getConfigValue(0).getValue();
             DataResourceXml dataResourceXml =
-                DataResourceXml
-                    .from(resourceValue, dataSource, resourceType, fullyQualifiedNames);
+                DataResourceXml.fromPublic(dataSource, resourceType, resource.getEntryId().getId());
+            final FullyQualifiedName fqn =
+                FullyQualifiedName.of(
+                    packageName.isEmpty() ? FullyQualifiedName.DEFAULT_PACKAGE : packageName,
+                    ImmutableList.of(),
+                    resourceType,
+                    resourceName);
+            fullyQualifiedNames.put(
+                String.format("%s%s/%s", packageName, resourceType, resource.getName()),
+                new SimpleEntry<>(fqn, packageName.isEmpty()));
+            consumers.combiningConsumer.accept(fqn, dataResourceXml);
+          } else if (packageName.isEmpty()) { // This means this resource is not in the android sdk
+            for (ConfigValue configValue : resource.getConfigValueList()) {
+              FullyQualifiedName fqn =
+                  FullyQualifiedName.of(
+                      packageName.isEmpty() ? FullyQualifiedName.DEFAULT_PACKAGE : packageName,
+                      convertToQualifiers(configValue),
+                      resourceType,
+                      resourceName);
+              fullyQualifiedNames.put(
+                  String.format("%s%s/%s", packageName, resourceType, resource.getName()),
+                  new SimpleEntry<>(fqn, packageName.isEmpty()));
 
-            if (resourceType == ResourceType.ID
-                || resourceType == ResourceType.STYLEABLE) {
-              consumers.combiningConsumer.accept(fqn, dataResourceXml);
-            } else {
-              consumers.overwritingConsumer.accept(fqn, dataResourceXml);
+              int sourceIndex = configValue.getValue().getSource().getPathIdx();
+
+              String source = sourcePool.get(sourceIndex);
+              DataSource dataSource = DataSource.of(Paths.get(source));
+
+              Value resourceValue = resource.getConfigValue(0).getValue();
+              DataResourceXml dataResourceXml =
+                  DataResourceXml.from(
+                      resourceValue, dataSource, resourceType, fullyQualifiedNames);
+
+              if (!fqn.isOverwritable()) {
+                consumers.combiningConsumer.accept(fqn, dataResourceXml);
+              } else {
+                consumers.overwritingConsumer.accept(fqn, dataResourceXml);
+              }
             }
+          } else {
+            throw new IllegalArgumentException("Unexpected package name " + packageName);
           }
         }
       }
     }
+  }
+
+  private List<String> convertToQualifiers(ConfigValue configValue) {
+    FolderConfiguration configuration = new FolderConfiguration();
+    final Configuration protoConfig = configValue.getConfig();
+    if (protoConfig.getMcc() > 0) {
+      configuration.setCountryCodeQualifier(new CountryCodeQualifier(protoConfig.getMcc()));
+    }
+    // special code for 0, as MNC can be zero
+    // https://android.googlesource.com/platform/frameworks/native/+/master/include/android/configuration.h#473
+    if (protoConfig.getMnc() != 0) {
+      configuration.setNetworkCodeQualifier(
+          NetworkCodeQualifier.getQualifier(
+              String.format(
+                  Locale.US,
+                  "mnc%1$03d",
+                  protoConfig.getMnc() == 0xffff ? 0 : protoConfig.getMnc())));
+    }
+
+    // locales are the wild, wild west: no enums.
+    if (!protoConfig.getLocale().isEmpty()) {
+      new LocaleQualifier().checkAndSet(protoConfig.getLocale(), configuration);
+    }
+
+    if (LAYOUT_DIRECTION_MAP.containsKey(protoConfig.getLayoutDirection())) {
+      configuration.setLayoutDirectionQualifier(
+          new LayoutDirectionQualifier(LAYOUT_DIRECTION_MAP.get(protoConfig.getLayoutDirection())));
+    }
+
+    if (protoConfig.getSmallestScreenWidthDp() > 0) {
+      configuration.setSmallestScreenWidthQualifier(
+          new SmallestScreenWidthQualifier(protoConfig.getSmallestScreenWidthDp()));
+    }
+
+    // screen dimension is defined if one number is greater than 0
+    if (Math.max(protoConfig.getScreenHeight(), protoConfig.getScreenWidth()) > 0) {
+      configuration.setScreenDimensionQualifier(
+          new ScreenDimensionQualifier(
+              Math.max(
+                  protoConfig.getScreenHeight(),
+                  protoConfig.getScreenWidth()), // biggest is always first
+              Math.min(protoConfig.getScreenHeight(), protoConfig.getScreenWidth())));
+    }
+
+    if (protoConfig.getScreenWidthDp() > 0) {
+      configuration.setScreenWidthQualifier(
+          new ScreenWidthQualifier(protoConfig.getScreenWidthDp()));
+    }
+
+    if (protoConfig.getScreenHeightDp() > 0) {
+      configuration.setScreenHeightQualifier(
+          new ScreenHeightQualifier(protoConfig.getScreenHeightDp()));
+    }
+
+    if (LAYOUT_SIZE_MAP.containsKey(protoConfig.getScreenLayoutSize())) {
+      configuration.setScreenSizeQualifier(
+          new ScreenSizeQualifier(LAYOUT_SIZE_MAP.get(protoConfig.getScreenLayoutSize())));
+    }
+
+    if (SCREEN_LONG_MAP.containsKey(protoConfig.getScreenLayoutLong())) {
+      configuration.setScreenRatioQualifier(
+          new ScreenRatioQualifier(SCREEN_LONG_MAP.get(protoConfig.getScreenLayoutLong())));
+    }
+
+    if (SCREEN_ROUND_MAP.containsKey(protoConfig.getScreenRound())) {
+      configuration.setScreenRoundQualifier(
+          new ScreenRoundQualifier(SCREEN_ROUND_MAP.get(protoConfig.getScreenRound())));
+    }
+
+    if (SCREEN_ORIENTATION_MAP.containsKey(protoConfig.getOrientation())) {
+      configuration.setScreenOrientationQualifier(
+          new ScreenOrientationQualifier(SCREEN_ORIENTATION_MAP.get(protoConfig.getOrientation())));
+    }
+
+    if (SCREEN_UI_MODE.containsKey(protoConfig.getUiModeType())) {
+      configuration.setUiModeQualifier(
+          new UiModeQualifier(SCREEN_UI_MODE.get(protoConfig.getUiModeType())));
+    }
+
+    if (NIGHT_MODE_MAP.containsKey(protoConfig.getUiModeNight())) {
+      configuration.setNightModeQualifier(
+          new NightModeQualifier(NIGHT_MODE_MAP.get(protoConfig.getUiModeNight())));
+    }
+
+    if (DENSITY_MAP.containsKey(protoConfig.getDensity())) {
+      configuration.setDensityQualifier(
+          new DensityQualifier(DENSITY_MAP.get(protoConfig.getDensity())));
+    }
+
+    if (TOUCH_TYPE_MAP.containsKey(protoConfig.getTouchscreen())) {
+      configuration.setTouchTypeQualifier(
+          new TouchScreenQualifier(TOUCH_TYPE_MAP.get(protoConfig.getTouchscreen())));
+    }
+
+    if (KEYBOARD_STATE_MAP.containsKey(protoConfig.getKeysHidden())) {
+      configuration.setKeyboardStateQualifier(
+          new KeyboardStateQualifier(KEYBOARD_STATE_MAP.get(protoConfig.getKeysHidden())));
+    }
+
+    if (KEYBOARD_MAP.containsKey(protoConfig.getKeyboard())) {
+      configuration.setTextInputMethodQualifier(
+          new TextInputMethodQualifier(KEYBOARD_MAP.get(protoConfig.getKeyboard())));
+    }
+
+    if (NAV_STATE_MAP.containsKey(protoConfig.getNavHidden())) {
+      configuration.setNavigationStateQualifier(
+          new NavigationStateQualifier(NAV_STATE_MAP.get(protoConfig.getNavHidden())));
+    }
+
+    if (NAVIGATION_MAP.containsKey(protoConfig.getNavigation())) {
+      configuration.setNavigationMethodQualifier(
+          new NavigationMethodQualifier(NAVIGATION_MAP.get(protoConfig.getNavigation())));
+    }
+
+    if (protoConfig.getSdkVersion() > 0) {
+      configuration.setVersionQualifier(new VersionQualifier(protoConfig.getSdkVersion()));
+    }
+
+    return Arrays.stream(configuration.getQualifiers())
+        .map(ResourceQualifier::getFolderSegment)
+        .collect(toList());
   }
 
   /**
@@ -165,13 +459,14 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   private void readCompiledFile(
       LittleEndianDataInputStream compiledFileStream,
       KeyValueConsumers consumers,
-      Factory fqnFactory) throws IOException {
-    //Skip aligned size. We don't need it here.
+      Factory fqnFactory)
+      throws IOException {
+    // Skip aligned size. We don't need it here.
     Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
 
     int resFileHeaderSize = compiledFileStream.readInt();
 
-    //Skip data payload size. We don't need it here.
+    // Skip data payload size. We don't need it here.
     Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
 
     byte[] file = new byte[resFileHeaderSize];
@@ -201,9 +496,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   }
 
   private void readAttributesFile(
-      InputStream resourceFileStream,
-      FileSystem fileSystem,
-      KeyValueConsumers consumers) throws IOException {
+      InputStream resourceFileStream, FileSystem fileSystem, KeyValueConsumers consumers)
+      throws IOException {
 
     Header header = Header.parseDelimitedFrom(resourceFileStream);
     List<DataKey> fullyQualifiedNames = new ArrayList<>();
@@ -219,10 +513,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       SerializeFormat.DataValue protoValue =
           SerializeFormat.DataValue.parseDelimitedFrom(resourceFileStream);
       DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
-      DataResourceXml dataResourceXml =
-          (DataResourceXml) DataResourceXml.from(protoValue, source);
-      AttributeType attributeType =
-          AttributeType.valueOf(protoValue.getXmlValue().getValueType());
+      DataResourceXml dataResourceXml = (DataResourceXml) DataResourceXml.from(protoValue, source);
+      AttributeType attributeType = AttributeType.valueOf(protoValue.getXmlValue().getValueType());
 
       if (attributeType.isCombining()) {
         consumers.combiningConsumer.accept(fullyQualifiedName, dataResourceXml);
@@ -276,18 +568,20 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
             int resourceType = dataInputStream.readInt();
 
             if (resourceType == 0) { // 0 is a resource table
-              readResourceTable(dataInputStream, consumers, fqnFactory);
+              readResourceTable(dataInputStream, consumers);
             } else if (resourceType == 1) { // 1 is a resource file
               readCompiledFile(dataInputStream, consumers, fqnFactory);
             } else {
-              throw new DeserializationException("aapt2 version mismatch.",
-                  new DeserializationException(String.format(
-                  "Unexpected tag for resourceType %s expected 0 or 1 in %s."
-                      + "\n Last known good values:"
-                      + "\n\tmagicNumber 1414545729 (is %s)"
-                      + "\n\tformatVersion 1 (is %s)"
-                      + "\n\tnumberOfEntries 1 (is %s)",
-                      resourceType, fileZipPath, magicNumber, formatVersion, numberOfEntries)));
+              throw new DeserializationException(
+                  "aapt2 version mismatch.",
+                  new DeserializationException(
+                      String.format(
+                          "Unexpected tag for resourceType %s expected 0 or 1 in %s."
+                              + "\n Last known good values:"
+                              + "\n\tmagicNumber 1414545729 (is %s)"
+                              + "\n\tformatVersion 1 (is %s)"
+                              + "\n\tnumberOfEntries 1 (is %s)",
+                          resourceType, fileZipPath, magicNumber, formatVersion, numberOfEntries)));
             }
           }
         }
