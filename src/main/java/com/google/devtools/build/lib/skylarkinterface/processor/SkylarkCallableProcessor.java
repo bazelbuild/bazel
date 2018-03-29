@@ -23,7 +23,6 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -58,7 +57,6 @@ import javax.tools.Diagnostic;
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({"com.google.devtools.build.lib.skylarkinterface.SkylarkCallable"})
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class SkylarkCallableProcessor extends AbstractProcessor {
   private Messager messager;
 
@@ -67,6 +65,11 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
   private static final String SKYLARK_SEMANTICS =
       "com.google.devtools.build.lib.syntax.SkylarkSemantics";
+
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
