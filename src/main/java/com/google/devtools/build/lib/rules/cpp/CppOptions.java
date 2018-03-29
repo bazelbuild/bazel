@@ -239,7 +239,7 @@ public class CppOptions extends FragmentOptions {
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Determines whether C++ binaries will be linked dynamically.  'default' means "
-            + "blaze will choose whether to link dynamically.  'fully' means all libraries "
+            + "Bazel will choose whether to link dynamically.  'fully' means all libraries "
             + "will be linked dynamically. 'off' means that all libraries will be linked "
             + "in mostly static mode."
   )
@@ -251,8 +251,8 @@ public class CppOptions extends FragmentOptions {
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
     help =
-        "If enabled, bazel will not scan linkopts for -static. Rules have to define their fully"
-            + " static linking mode through 'link_fully_static_binary' feature."
+        "If enabled, Bazel will not scan linkopts for -static. Rules have to define their fully"
+            + " static linking mode through 'fully_static_link' feature."
   )
   public boolean dropFullyStaticLinkingMode;
 
@@ -462,7 +462,7 @@ public class CppOptions extends FragmentOptions {
             + "an auto profile. This flag also accepts files specified as labels, for "
             + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
             + "need to add an exports_files directive to the corresponding package to make "
-            + "the file visible to Blaze. It also accepts a raw or an indexed LLVM profile file."
+            + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file."
   )
   /**
    * Never read FDO/LIPO options directly. This is because {@link #lipoConfigurationState}
@@ -699,7 +699,7 @@ public class CppOptions extends FragmentOptions {
     },
     help =
         "By default, the --crosstool_top and --compiler options are also used "
-            + "for the host configuration. If this flag is provided, Blaze uses the default libc "
+            + "for the host configuration. If this flag is provided, Bazel uses the default libc "
             + "and compiler for the given crosstool_top."
   )
   public Label hostCrosstoolTop;
