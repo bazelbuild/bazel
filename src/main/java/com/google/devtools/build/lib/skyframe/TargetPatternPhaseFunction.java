@@ -185,17 +185,37 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     ResolvedTargets<Target> expandedTargets = expandedTargetsBuilder.build();
     Set<Target> testSuiteTargets =
         Sets.difference(targets.getTargets(), expandedTargets.getTargets());
-    TargetPatternPhaseValue result = new TargetPatternPhaseValue(
-        expandedTargets.getTargets(), testsToRun, preExpansionError,
-        expandedTargets.hasError() || workspaceError, filteredTargets, testFilteredTargets,
-        ImmutableSet.copyOf(testSuiteTargets), workspaceName);
-    env.getListener().post(
-        new TargetParsingCompleteEvent(
-            targets.getTargets(),
-            result.getFilteredTargets(),
-            result.getTestFilteredTargets(),
-            options.getTargetPatterns(),
-            result.getTargets()));
+    ImmutableSet<Label> targetLabels =
+        expandedTargets
+            .getTargets()
+            .stream()
+            .map(Target::getLabel)
+            .collect(ImmutableSet.toImmutableSet());
+    ImmutableSet<Label> testsToRunLabels = null;
+    if (testsToRun != null) {
+      testsToRunLabels =
+          testsToRun.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
+    }
+    ImmutableSet<Label> removedTargetLabels =
+        testSuiteTargets.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
+
+    TargetPatternPhaseValue result =
+        new TargetPatternPhaseValue(
+            targetLabels,
+            testsToRunLabels,
+            targets.hasError(),
+            expandedTargets.hasError() || workspaceError,
+            removedTargetLabels,
+            workspaceName);
+
+    env.getListener()
+        .post(
+            new TargetParsingCompleteEvent(
+                targets.getTargets(),
+                filteredTargets,
+                testFilteredTargets,
+                options.getTargetPatterns(),
+                expandedTargets.getTargets()));
     return result;
   }
 

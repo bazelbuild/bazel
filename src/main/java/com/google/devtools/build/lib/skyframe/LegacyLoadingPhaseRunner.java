@@ -194,37 +194,46 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
         ImmutableSet.copyOf(Sets.difference(targetsToLoad, expandedTargetsToLoad));
     long testSuiteTime = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
+    ImmutableSet<Label> targetLabels =
+        expandedTargetsToLoad.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
+    ImmutableSet<Label> testsToRunLabels = null;
+    if (testsToRun != null) {
+      testsToRunLabels =
+          testsToRun.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
+    }
+    ImmutableSet<Label> removedTargetLabels =
+        removedTargets.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
+
     TargetPatternPhaseValue patternParsingValue =
         new TargetPatternPhaseValue(
-            expandedTargetsToLoad,
-            testsToRun,
+            targetLabels,
+            testsToRunLabels,
             targets.hasError(),
             expandedResult.hasError(),
-            filteredTargets,
-            testFilteredTargets,
-            removedTargets,
+            removedTargetLabels,
             getWorkspaceName(eventHandler));
 
     // This is the same code as SkyframeLoadingPhaseRunner.
     eventHandler.post(
         new TargetParsingCompleteEvent(
             targets.getTargets(),
-            patternParsingValue.getFilteredTargets(),
-            patternParsingValue.getTestFilteredTargets(),
+            filteredTargets,
+            testFilteredTargets,
             targetPatterns,
-            patternParsingValue.getTargets()));
+            expandedTargetsToLoad));
     eventHandler.post(new TargetParsingPhaseTimeEvent(targetPatternEvalTime));
     if (callback != null) {
-      callback.notifyTargets(patternParsingValue.getTargets());
+      callback.notifyTargets(expandedTargetsToLoad);
     }
+
     eventHandler.post(
         new LoadingPhaseCompleteEvent(
-            patternParsingValue.getTargets(),
-            patternParsingValue.getRemovedTargets(),
+            expandedTargetsToLoad,
+            removedTargets,
             packageManager.getAndClearStatistics(),
             testSuiteTime));
     logger.info("Target pattern evaluation finished");
-    return patternParsingValue.toLoadingResult();
+    return patternParsingValue.toLoadingResult(eventHandler, packageManager);
   }
 
   private ResolvedTargets<Target> expandTestSuites(
