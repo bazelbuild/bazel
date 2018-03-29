@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
@@ -161,9 +162,8 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "WORKSPACE", "local_repository(name = 'bla', path = '/bla/')", existingWorkspace);
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
 
-    Artifact hFile =
-        getFirstArtifactEndingWith(
-            getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto")), "bar.pb.h");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo_cc_proto");
+    Artifact hFile = getFirstArtifactEndingWith(getFilesToBuild(target), "bar.pb.h");
     SpawnAction protoCompileAction = getGeneratingSpawnAction(hFile);
 
     assertThat(protoCompileAction.getArguments())
@@ -171,6 +171,10 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
             String.format(
                 "--cpp_out=%s/external/bla",
                 getTargetConfiguration().getGenfilesFragment().toString()));
+
+    Artifact headerFile = getGenfilesArtifactWithNoOwner("external/bla/foo/bar.pb.h");
+    CcCompilationInfo ccCompilationInfo = target.get(CcCompilationInfo.PROVIDER);
+    assertThat(ccCompilationInfo.getDeclaredIncludeSrcs()).containsExactly(headerFile);
   }
 
   @Test
