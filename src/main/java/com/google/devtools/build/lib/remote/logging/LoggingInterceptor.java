@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote.logging;
 
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.remoteexecution.v1test.ExecutionGrpc;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -30,6 +32,12 @@ import javax.annotation.Nullable;
 
 /** Client interceptor for logging details of certain gRPC calls. */
 public class LoggingInterceptor implements ClientInterceptor {
+  AsynchronousFileOutputStream rpcLogFile;
+
+  /** Constructs a LoggingInterceptor which logs RPC calls to the given file. */
+  public LoggingInterceptor(AsynchronousFileOutputStream rpcLogFile) {
+    this.rpcLogFile = rpcLogFile;
+  }
 
   /**
    * Returns a {@link LoggingHandler} to handle logging details for the specified method. If there
@@ -37,9 +45,12 @@ public class LoggingInterceptor implements ClientInterceptor {
    *
    * @param method Method to return handler for.
    */
-  protected <ReqT, RespT> @Nullable LoggingHandler<ReqT, RespT> selectHandler(
+  @SuppressWarnings("rawtypes")
+  protected <ReqT, RespT> @Nullable LoggingHandler selectHandler(
       MethodDescriptor<ReqT, RespT> method) {
-    // TODO(cdlee): add handlers for methods
+    if (method == ExecutionGrpc.getExecuteMethod()) {
+      return new ExecuteHandler();
+    }
     return null;
   }
 
@@ -56,9 +67,10 @@ public class LoggingInterceptor implements ClientInterceptor {
   }
 
   /**
-   * Wraps client call to log call details by building a {@link LogEntry} and writing it to a log.
+   * Wraps client call to log call details by building a {@link LogEntry} and writing it to the RPC
+   * log file.
    */
-  private static class LoggingForwardingCall<ReqT, RespT>
+  private class LoggingForwardingCall<ReqT, RespT>
       extends ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT> {
     private final LoggingHandler<ReqT, RespT> handler;
     private final LogEntry.Builder entryBuilder;
@@ -90,8 +102,8 @@ public class LoggingInterceptor implements ClientInterceptor {
             @Override
             public void onClose(Status status, Metadata trailers) {
               entryBuilder.setStatus(makeStatusProto(status));
-              // TODO(cdlee): Actually store this and log the entry.
-              entryBuilder.mergeFrom(handler.getEntry()).build();
+              entryBuilder.setDetails(handler.getDetails());
+              rpcLogFile.write(entryBuilder.build());
               super.onClose(status, trailers);
             }
           },

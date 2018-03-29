@@ -206,4 +206,20 @@ public final class RemoteOptions extends OptionsBase {
             + "writing of files, which could cause false positives."
   )
   public boolean experimentalGuardAgainstConcurrentChanges;
+
+  @Option(
+    name = "experimental_remote_grpc_log",
+    defaultValue = "",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "If specified, a path to a file to log gRPC call related details. This log consists "
+            + "of a sequence of serialized "
+            + "com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry "
+            + "protobufs with each message prefixed by a varint denoting the size of the following "
+            + "serialized protobuf message, as performed by the method "
+            + "LogEntry.writeDelimitedTo(OutputStream)."
+  )
+  public String experimentalRemoteGrpcLog;
 }

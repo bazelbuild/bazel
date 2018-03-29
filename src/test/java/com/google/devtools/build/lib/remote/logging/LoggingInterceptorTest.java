@@ -30,7 +30,16 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ExecuteDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
+import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.remoteexecution.v1test.Action;
+import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
+import com.google.devtools.remoteexecution.v1test.ExecutionGrpc;
+import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionBlockingStub;
+import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
+import com.google.longrunning.Operation;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
@@ -59,8 +68,9 @@ public class LoggingInterceptorTest {
 
   // This returns a logging interceptor where all calls are handled by the given handler.
   @SuppressWarnings({"rawtypes", "unchecked"})
-  private LoggingInterceptor getInterceptorWithAlwaysThisHandler(LoggingHandler handler) {
-    return new LoggingInterceptor() {
+  private LoggingInterceptor getInterceptorWithAlwaysThisHandler(
+      LoggingHandler handler, AsynchronousFileOutputStream outputFile) {
+    return new LoggingInterceptor(outputFile) {
       @Override
       public <ReqT, RespT> LoggingHandler<ReqT, RespT> selectHandler(
           MethodDescriptor<ReqT, RespT> method) {
@@ -103,18 +113,28 @@ public class LoggingInterceptorTest {
 
     @SuppressWarnings("unchecked")
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
-    Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
+    RpcCallDetails details = RpcCallDetails.getDefaultInstance();
+    Mockito.when(handler.getDetails()).thenReturn(details);
+    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
     ByteStreamBlockingStub stub = ByteStreamGrpc.newBlockingStub(channel);
 
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getReadMethod().getFullMethodName())
+            .setDetails(details)
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .build();
+
     stub.read(request).next();
     verify(handler).handleReq(request);
     verify(handler).handleResp(response);
-    verify(handler).getEntry();
+    verify(handler).getDetails();
+    verify(output).write(expectedEntry);
   }
 
   @Test
@@ -136,9 +156,11 @@ public class LoggingInterceptorTest {
 
     @SuppressWarnings("unchecked")
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
-    Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
+    RpcCallDetails details = RpcCallDetails.getDefaultInstance();
+    Mockito.when(handler.getDetails()).thenReturn(details);
+    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -149,11 +171,19 @@ public class LoggingInterceptorTest {
 
     ArgumentCaptor<ReadResponse> resultCaptor = ArgumentCaptor.forClass(ReadResponse.class);
 
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getReadMethod().getFullMethodName())
+            .setDetails(details)
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .build();
+
     verify(handler).handleReq(request);
     verify(handler, times(2)).handleResp(resultCaptor.capture());
     assertThat(resultCaptor.getAllValues().get(0)).isEqualTo(response1);
     assertThat(resultCaptor.getAllValues().get(1)).isEqualTo(response2);
-    verify(handler).getEntry();
+    verify(handler).getDetails();
+    verify(output).write(expectedEntry);
   }
 
   @Test
@@ -191,9 +221,11 @@ public class LoggingInterceptorTest {
 
     @SuppressWarnings("unchecked")
     LoggingHandler<WriteRequest, WriteResponse> handler = Mockito.mock(LoggingHandler.class);
-    Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
+    RpcCallDetails details = RpcCallDetails.getDefaultInstance();
+    Mockito.when(handler.getDetails()).thenReturn(details);
+    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -209,11 +241,19 @@ public class LoggingInterceptorTest {
 
     ArgumentCaptor<WriteRequest> resultCaptor = ArgumentCaptor.forClass(WriteRequest.class);
 
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getWriteMethod().getFullMethodName())
+            .setDetails(details)
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .build();
+
     verify(handler, times(2)).handleReq(resultCaptor.capture());
     assertThat(resultCaptor.getAllValues().get(0)).isEqualTo(request1);
     assertThat(resultCaptor.getAllValues().get(1)).isEqualTo(request2);
     verify(handler).handleResp(response);
-    verify(handler).getEntry();
+    verify(handler).getDetails();
+    verify(output).write(expectedEntry);
   }
 
   @Test
@@ -231,9 +271,11 @@ public class LoggingInterceptorTest {
 
     @SuppressWarnings("unchecked")
     LoggingHandler<ReadRequest, ReadResponse> handler = Mockito.mock(LoggingHandler.class);
-    Mockito.when(handler.getEntry()).thenReturn(LogEntry.getDefaultInstance());
+    RpcCallDetails details = RpcCallDetails.getDefaultInstance();
+    Mockito.when(handler.getDetails()).thenReturn(details);
+    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
 
-    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler);
+    LoggingInterceptor interceptor = getInterceptorWithAlwaysThisHandler(handler, output);
     Channel channel =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
@@ -241,8 +283,57 @@ public class LoggingInterceptorTest {
 
     assertThrows(StatusRuntimeException.class, () -> stub.read(request).next());
 
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ByteStreamGrpc.getReadMethod().getFullMethodName())
+            .setDetails(details)
+            .setStatus(
+                com.google.rpc.Status.newBuilder()
+                    .setCode(error.getCode().value())
+                    .setMessage("not found"))
+            .build();
+
     verify(handler).handleReq(request);
     verify(handler, never()).handleResp(any());
-    verify(handler).getEntry();
+    verify(handler).getDetails();
+    verify(output).write(expectedEntry);
+  }
+
+  @Test
+  public void testExecuteCallOk() {
+    ExecuteRequest request =
+        ExecuteRequest.newBuilder()
+            .setInstanceName("test-instance")
+            .setAction(Action.newBuilder().addOutputFiles("somefile"))
+            .build();
+    Operation response = Operation.newBuilder().setName("test-operation").build();
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+          }
+        });
+
+    @SuppressWarnings("unchecked")
+    AsynchronousFileOutputStream output = Mockito.mock(AsynchronousFileOutputStream.class);
+    LoggingInterceptor interceptor = new LoggingInterceptor(output);
+    Channel channel =
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(), interceptor);
+    ExecutionBlockingStub stub = ExecutionGrpc.newBlockingStub(channel);
+
+    stub.execute(request);
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ExecutionGrpc.getExecuteMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setExecute(
+                        ExecuteDetails.newBuilder().setRequest(request).setResponse(response)))
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .build();
+    verify(output).write(expectedEntry);
   }
 }
