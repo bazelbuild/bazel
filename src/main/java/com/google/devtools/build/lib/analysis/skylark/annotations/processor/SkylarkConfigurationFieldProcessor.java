@@ -22,7 +22,6 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -49,13 +48,17 @@ import javax.tools.Diagnostic;
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({"com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField"})
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor {
 
   private Messager messager;
   private Types typeUtils;
   private TypeMirror labelType;
   private TypeMirror configurationFragmentType;
+
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {

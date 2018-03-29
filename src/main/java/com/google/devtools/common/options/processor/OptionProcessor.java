@@ -36,7 +36,6 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -74,7 +73,6 @@ import javax.tools.Diagnostic;
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({"com.google.devtools.common.options.Option"})
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class OptionProcessor extends AbstractProcessor {
 
   private Types typeUtils;
@@ -82,6 +80,11 @@ public final class OptionProcessor extends AbstractProcessor {
   private Messager messager;
   private ImmutableMap<TypeMirror, Converter<?>> defaultConverters;
   private ImmutableMap<Class<?>, PrimitiveType> primitiveTypeMap;
+
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
