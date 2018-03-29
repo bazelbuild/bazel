@@ -45,6 +45,10 @@ class OutputJar {
                             const std::string *input_jar_aux_label);
   // Return jar path.
   const char *path() const { return options_->output_jar.c_str(); }
+  // True if an entry with given name have not been added to this archive.
+  bool NewEntry(const std::string& entry_name) {
+    return known_members_.count(entry_name) == 0;
+  }
 
  protected:
   // The purpose  of these two tiny utility methods is to avoid creating a
@@ -58,10 +62,6 @@ class OutputJar {
   static bool ends_with(const char *str, size_t n, const char *tail) {
     const size_t n_tail = strlen(tail);
     return n >= n_tail && !strncmp(str + n - n_tail, tail, n_tail);
-  }
-  // True if an entry with given name have not been added to this archive.
-  bool NewEntry(const std::string& entry_name) {
-    return known_members_.count(entry_name) == 0;
   }
 
  private:

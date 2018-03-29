@@ -50,8 +50,29 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkstatic = 1,
+    # TODO(b/68065069): use singlejar_local except in remote execution
     visibility = ["//visibility:public"],
     deps = [
+        "options",
+        "output_jar",
+        "//third_party/zlib",
+    ],
+)
+
+cc_binary(
+    name = "singlejar_local",
+    srcs = [
+        "singlejar_local_main.cc",
+    ],
+    linkopts = select({
+        "//src/conditions:freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [
+        "combiners",
+        "desugar_checking",
         "options",
         "output_jar",
         "//third_party/zlib",
@@ -68,6 +89,22 @@ cc_test(
     ],
     deps = [
         ":combiners",
+        ":input_jar",
+        "//third_party/zlib",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "desugar_checking_test",
+    srcs = [
+        "combiners_test.cc",
+        ":zip_headers",
+        ":zlib_interface",
+    ],
+    deps = [
+        ":combiners",
+        ":desugar_checking",
         ":input_jar",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
@@ -289,6 +326,15 @@ cc_library(
     hdrs = ["combiners.h"],
     deps = [
         "//third_party/zlib",
+    ],
+)
+
+cc_library(
+    name = "desugar_checking",
+    srcs = ["desugar_checking.cc"],
+    hdrs = ["desugar_checking.h"],
+    deps = [
+        ":combiners",
     ],
 )
 
