@@ -119,10 +119,10 @@ To use Robolectric with <code>android_local_test</code>, add
 to your <code>WORKSPACE</code> file:
 <pre class="code">
 http_archive(
- name = "robolectric",
- urls = ["https://github.com/robolectric/robolectric/archive/&lt;COMMIT&gt;.tar.gz"],
- strip_prefix = "robolectric-&lt;COMMIT&gt;",
- sha256 = "&lt;HASH&gt;",
+    name = "robolectric",
+    urls = ["https://github.com/robolectric/robolectric/archive/&lt;COMMIT&gt;.tar.gz"],
+    strip_prefix = "robolectric-&lt;COMMIT&gt;",
+    sha256 = "&lt;HASH&gt;",
 )
 load("@robolectric//bazel:robolectric.bzl", "robolectric_repositories")
 robolectric_repositories()
@@ -152,7 +152,7 @@ android_library(
     name = "sample_test_lib",
     srcs = [
          "Lib.java",
-    ]
+    ],
     resource_files = glob(["res/**"]),
     manifest = "AndroidManifest.xml",
 )
