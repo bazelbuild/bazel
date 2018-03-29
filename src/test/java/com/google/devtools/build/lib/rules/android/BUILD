@@ -360,6 +360,20 @@ java_test(
     ],
 )
 
+java_test(
+    name = "AndroidDataConverterTest",
+    srcs = ["AndroidDataConverterTest.java"],
+    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:testutil"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
