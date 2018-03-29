@@ -124,51 +124,6 @@ bool SearchNullaryOption(const vector<string>& args,
   return result;
 }
 
-// Read the Jvm version from a file descriptor. The read fd
-// should contains a similar output as the java -version output.
-string ReadJvmVersion(const string& version_string) {
-  // try to look out for 'version "'
-  static const string version_pattern = "version \"";
-  size_t found = version_string.find(version_pattern);
-  if (found != string::npos) {
-    found += version_pattern.size();
-    // If we found "version \"", process until next '"'
-    size_t end = version_string.find("\"", found);
-    if (end == string::npos) {  // consider end of string as a '"'
-      end = version_string.size();
-    }
-    return version_string.substr(found, end - found);
-  }
-
-  return "";
-}
-
-bool CheckJavaVersionIsAtLeast(const string &jvm_version,
-                               const string &version_spec) {
-  vector<string> jvm_version_vect = blaze_util::Split(jvm_version, '.');
-  int jvm_version_size = static_cast<int>(jvm_version_vect.size());
-  vector<string> version_spec_vect = blaze_util::Split(version_spec, '.');
-  int version_spec_size = static_cast<int>(version_spec_vect.size());
-  int i;
-  for (i = 0; i < jvm_version_size && i < version_spec_size; i++) {
-    int jvm = blaze_util::strto32(jvm_version_vect[i].c_str(), NULL, 10);
-    int spec = blaze_util::strto32(version_spec_vect[i].c_str(), NULL, 10);
-    if (jvm > spec) {
-      return true;
-    } else if (jvm < spec) {
-      return false;
-    }
-  }
-  if (i < version_spec_size) {
-    for (; i < version_spec_size; i++) {
-      if (version_spec_vect[i] != "0") {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 bool IsArg(const string& arg) {
   return blaze_util::starts_with(arg, "-") && (arg != "--help")
       && (arg != "-help") && (arg != "-h");

@@ -640,36 +640,6 @@ static void GoToWorkspace(const WorkspaceLayout *workspace_layout) {
   }
 }
 
-// Check the java version if a java version specification is bundled. On
-// success, returns the executable path of the java command.
-static void VerifyJavaVersionAndSetJvm() {
-  string exe = globals->options->GetJvm();
-
-  string version_spec_file = blaze_util::JoinPath(
-      GetEmbeddedBinariesRoot(globals->options->install_base), "java.version");
-  string version_spec = "";
-  if (blaze_util::ReadFile(version_spec_file, &version_spec)) {
-    blaze_util::StripWhitespace(&version_spec);
-    // A version specification is given, get version of java.
-    string jvm_version = GetJvmVersion(exe);
-
-    // Compare that jvm_version is found and at least the one specified.
-    if (jvm_version.empty()) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Java version not detected while at least %s is needed.\n"
-          "Please set JAVA_HOME.",
-          version_spec.c_str());
-    } else if (!CheckJavaVersionIsAtLeast(jvm_version, version_spec)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Java version is %s while at least %s is needed.\n"
-          "Please set JAVA_HOME.",
-          jvm_version.c_str(), version_spec.c_str());
-    }
-  }
-
-  globals->jvm_path = exe;
-}
-
 // Starts the Blaze server.
 static int StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
@@ -1489,7 +1459,7 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   WarnFilesystemType(globals->options->output_base);
 
   ExtractData(self_path);
-  VerifyJavaVersionAndSetJvm();
+  globals->jvm_path = globals->options->GetJvm();
 
   blaze_server->Connect();
   EnsureCorrectRunningVersion(blaze_server);

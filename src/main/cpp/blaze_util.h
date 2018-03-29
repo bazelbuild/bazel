@@ -66,20 +66,6 @@ bool SearchNullaryOption(const std::vector<std::string>& args,
                          const std::string& flag_name,
                          const bool default_value);
 
-// Read the JVM version from a string. The string should contain the output of a
-// "java -version" execution and is supposed to contain a string of the form
-// 'version "version-number"' in the first 255 bytes. If the string is found,
-// version-number is returned, else the empty string is returned.
-std::string ReadJvmVersion(const std::string &version_string);
-
-// Returns true iff jvm_version is at least the version specified by
-// version_spec.
-// jvm_version is supposed to be a string specifying a java runtime version
-// as specified by the JSR-56 appendix A. version_spec is supposed to be a
-// version is the format [0-9]+(.[1-9]+)*.
-bool CheckJavaVersionIsAtLeast(const std::string &jvm_version,
-                               const std::string &version_spec);
-
 // Returns true iff arg is a valid command line argument for bazel.
 bool IsArg(const std::string& arg);
 
