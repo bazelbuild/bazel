@@ -437,15 +437,6 @@ static string RunProgram(const string& exe,
   return string("");  //  We cannot reach here, just placate the compiler.
 }
 
-string GetJvmVersion(const string& java_exe) {
-  vector<string> args;
-  args.push_back("java");
-  args.push_back("-version");
-
-  string version_string = RunProgram(java_exe, args);
-  return ReadJvmVersion(version_string);
-}
-
 bool CompareAbsolutePaths(const string& a, const string& b) {
   return a == b;
 }

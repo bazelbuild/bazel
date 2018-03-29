@@ -53,23 +53,6 @@ genquery(
     scope = ["//tools/defaults:java_toolchain"],
 )
 
-genrule(
-    name = "java-version",
-    srcs = [":java_toolchain_content"],
-    outs = ["java.version"],
-    cmd = """
-          VERSION_LINE=$$(cat $< | grep target_version);
-          JAVA_VERSION=$$(echo $${VERSION_LINE} | sed 's/.*value=\\"\\([^\\"]\\)\\".*/\\1/');
-          if [ -z "$${JAVA_VERSION}" ]; then
-            echo "1.8" >$@  # Java 8 is the default
-          elif [[ "$${JAVA_VERSION}" =~ ^[0-9]+$$ ]]; then
-            echo "1.$${JAVA_VERSION}" >$@  # Add 1. before 7 or 8
-          else
-            echo "$${JAVA_VERSION}" >$@
-          fi
-          """,
-)
-
 # Create dummy tools so we can do select to prevent building iOS target on
 # Linux.
 OSX_DUMMY_TARGETS = [
@@ -259,7 +242,6 @@ genrule(
         "//src/main/tools:jdk-support",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-        ":java-version",
     ],
     outs = ["package" + suffix + ".zip"],
     cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",

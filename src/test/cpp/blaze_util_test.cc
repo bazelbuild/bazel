@@ -93,10 +93,6 @@ class BlazeUtilTest : public ::testing::Test {
 
   static void AssertReadFrom(string input) { AssertReadFrom2(input, ""); }
 
-  static void AssertReadJvmVersion(string expected, const string& input) {
-    ASSERT_EQ(expected, ReadJvmVersion(input));
-  }
-
   void ReadFromTest() const {
     AssertReadFrom(
         "DummyJDK Blabla\n"
@@ -107,56 +103,9 @@ class BlazeUtilTest : public ::testing::Test {
         "More DummyJDK Blabla\n");
     AssertReadFrom2("first_line\n", "second line version \"1.4.2_0\"\n");
   }
-
-  void ReadJvmVersionTest() const {
-    AssertReadJvmVersion("1.42", "dummyjdk version \"1.42\"\n"
-                         "DummyJDK Blabla\n"
-                         "More DummyJDK Blabla\n");
-    AssertReadJvmVersion("1.42.qual", "dummyjdk version \"1.42.qual\"\n"
-                         "DummyJDK Blabla\n"
-                         "More DummyJDK Blabla\n");
-    AssertReadJvmVersion("1.42.qualifie", "dummyjdk version \"1.42.qualifie");
-    AssertReadJvmVersion("", "dummyjdk version ");
-    AssertReadJvmVersion("1.4.2_0",
-                          "first_line\nsecond line version \"1.4.2_0\"\n");
-  }
-
-  void CheckJavaVersionIsAtLeastTest() const {
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", ""));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "0"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1.7"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1.7.0"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1.0"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1.6"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.42", "1"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.42", "1.7"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.42", "1.11"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.42.42", "1.11"));
-    ASSERT_TRUE(CheckJavaVersionIsAtLeast("1.42.42", "1.11.11"));
-
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "42"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "2"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1.8"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1.7.1"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.7.0-ver-specifier-42", "1.42"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.42", "2"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.42", "1.69"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.42", "1.42.1"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.42.42", "1.42.43"));
-    ASSERT_FALSE(CheckJavaVersionIsAtLeast("1.42.42.0", "1.42.42.1"));
-  }
 };
 
-TEST_F(BlazeUtilTest, CheckJavaVersionIsAtLeast) {
-  CheckJavaVersionIsAtLeastTest();
-}
-
 TEST_F(BlazeUtilTest, ReadFrom) { ReadFromTest(); }
-
-TEST_F(BlazeUtilTest, ReadJvmVersion) {
-  ReadJvmVersionTest();
-}
 
 TEST_F(BlazeUtilTest, TestSearchNullaryEmptyCase) {
   ASSERT_FALSE(SearchNullaryOption({}, "flag", false));
