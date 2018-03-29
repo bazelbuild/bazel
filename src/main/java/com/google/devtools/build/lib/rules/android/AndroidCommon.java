@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
@@ -789,14 +788,6 @@ public class AndroidCommon {
         javaCommon.getJavaSemantics(),
         javaCommon.getJavaCompilationArtifacts(),
         asNeverLink);
-  }
-
-  public static PathFragment getAssetDir(RuleContext ruleContext) {
-    if (ruleContext.attributes().has(ResourceType.ASSETS.getAttribute() + "_dir")) {
-      return PathFragment.create(
-          ruleContext.attributes().get(ResourceType.ASSETS.getAttribute() + "_dir", Type.STRING));
-    }
-    return PathFragment.EMPTY_FRAGMENT;
   }
 
   /**

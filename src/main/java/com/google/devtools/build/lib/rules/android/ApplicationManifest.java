@@ -296,7 +296,7 @@ public final class ApplicationManifest {
       throws InterruptedException, RuleErrorException {
     LocalResourceContainer data =
         LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidCommon.getAssetDir(ruleContext), "local_resource_files");
+            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "local_resource_files");
 
     ResourceContainer resourceContainer =
         ResourceContainer.builderFromRule(ruleContext)
@@ -447,7 +447,7 @@ public final class ApplicationManifest {
       throws InterruptedException, RuleErrorException {
     LocalResourceContainer data =
         LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidCommon.getAssetDir(ruleContext), "resource_files");
+            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "resource_files");
 
     // Filter the resources during analysis to prevent processing of dependencies on unwanted
     // resources during execution.
@@ -522,7 +522,7 @@ public final class ApplicationManifest {
       throws InterruptedException, RuleErrorException {
     LocalResourceContainer data =
         LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidCommon.getAssetDir(ruleContext), "resource_files");
+            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "resource_files");
 
     ResourceFilter resourceFilter =
         resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, data);
@@ -604,7 +604,7 @@ public final class ApplicationManifest {
     // resources during execution.
     LocalResourceContainer data =
         LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidCommon.getAssetDir(ruleContext), "resource_files");
+            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "resource_files");
     ResourceFilter resourceFilter =
         ResourceFilterFactory.fromRuleContext(ruleContext)
             .getResourceFilter(ruleContext, resourceDeps, data);
