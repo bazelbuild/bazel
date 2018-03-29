@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -2202,13 +2203,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
       eventHandler.post(new TargetParsingPhaseTimeEvent(timeMillis));
+      ImmutableSet<Target> targets = patternParsingValue.getTargets(eventHandler, packageManager);
       if (callback != null) {
-        callback.notifyTargets(patternParsingValue.getTargets());
+        callback.notifyTargets(targets);
       }
-      eventHandler.post(new LoadingPhaseCompleteEvent(
-          patternParsingValue.getTargets(), patternParsingValue.getRemovedTargets(),
-          PackageManagerStatistics.ZERO, /*timeInMs=*/0));
-      return patternParsingValue.toLoadingResult();
+      eventHandler.post(
+          new LoadingPhaseCompleteEvent(
+              targets,
+              patternParsingValue.getRemovedTargets(eventHandler, packageManager),
+              PackageManagerStatistics.ZERO,
+              /*timeInMs=*/ 0));
+      return patternParsingValue.toLoadingResult(eventHandler, packageManager);
     }
   }
 
