@@ -161,7 +161,6 @@ public final class CcLinkingHelper {
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<Artifact> linkActionInputs = new ArrayList<>();
-  private CcCompilationInfo ccCompilationInfo;
 
   @Nullable private Artifact dynamicLibrary;
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
@@ -453,8 +452,6 @@ public final class CcLinkingHelper {
             ruleContext, dep, CppRuleClasses.LANGUAGE, "deps");
       }
     }
-
-    this.ccCompilationInfo = ccCompilationInfo;
 
     // Create link actions (only if there are object files or if explicitly requested).
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
@@ -983,8 +980,7 @@ public final class CcLinkingHelper {
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(
             ruleContext, outputArtifact, ccToolchain, fdoSupport, featureConfiguration, semantics)
-        .setCrosstoolInputs(ccToolchain.getLink())
-        .addNonCodeInputs(ccCompilationInfo.getTransitiveCompilationPrerequisites());
+        .setCrosstoolInputs(ccToolchain.getLink());
   }
 
   /**
