@@ -17,6 +17,7 @@ syntax = "proto3";
 package remote_logging;
 
 import "google/devtools/remoteexecution/v1test/remote_execution.proto";
+import "google/longrunning/operations.proto";
 import "google/rpc/status.proto";
 
 option java_package = "com.google.devtools.build.lib.remote.logging";
@@ -33,4 +34,24 @@ message LogEntry {
   // io.grpc.MethodDescriptor.getFullMethodName() (i.e. in format
   // $FULL_SERVICE_NAME/$METHOD_NAME).
   string method_name = 3;
+
+  // Method specific details for this call.
+  RpcCallDetails details = 4;
+}
+
+// Details for a call to
+// google.devtools.remoteexecution.v1test.Execution.Execute.
+message ExecuteDetails {
+  // The google.devtools.remoteexecution.v1test.ExecuteRequest sent by the
+  // call.
+  google.devtools.remoteexecution.v1test.ExecuteRequest request = 1;
+  // The google.longrunning.Operation received by the Execute call.
+  google.longrunning.Operation response = 2;
+}
+
+// Contains details for specific types of calls.
+message RpcCallDetails {
+  oneof details {
+    ExecuteDetails execute = 1;
+  }
 }

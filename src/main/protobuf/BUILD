@@ -133,6 +133,7 @@ proto_library(
     srcs = ["remote_execution_log.proto"],
     deps = [
         "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_proto",
+        "@googleapis//:google_longrunning_operations_proto",
         "@googleapis//:google_rpc_status_proto",
     ],
 )
