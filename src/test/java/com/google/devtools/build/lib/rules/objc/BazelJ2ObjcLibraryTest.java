@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
@@ -275,6 +276,53 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test);
     assertThat(objcProvider.get(ObjcProvider.HEADER)).contains(headerFile);
     assertThat(objcProvider.get(ObjcProvider.SOURCE)).contains(sourceFile);
+  }
+
+  @Test
+  public void testJavaProtoLibraryWithProtoLibrary_external() throws Exception {
+    scratch.file("/bla/WORKSPACE");
+    // Create the rule '@bla//foo:test_proto'.
+    scratch.file(
+        "/bla/foo/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        j2ObjcCompatibleProtoLibrary("    name = 'test_proto',", "    srcs = ['test.proto'],"),
+        "java_proto_library(",
+        "    name = 'test_java_proto',",
+        "    deps = [':test_proto'])",
+        "");
+
+    String existingWorkspace =
+        new String(FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
+    scratch.overwriteFile(
+        "WORKSPACE", "local_repository(name = 'bla', path = '/bla/')", existingWorkspace);
+    invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
+
+    scratch.file(
+        "x/BUILD",
+        "",
+        "java_library(",
+        "    name = 'test',",
+        "    srcs = ['test.java'],",
+        "    deps = ['@bla//foo:test_java_proto'])");
+
+    ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
+    ConfiguredTarget test =
+        getConfiguredTarget("@bla//foo:test_proto", getAppleCrosstoolConfiguration());
+
+    J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
+
+    Artifact classMappingFile =
+        getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test);
+    assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
+
+    ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+
+    Artifact headerFile = getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test);
+    Artifact sourceFile = getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.m", test);
+    assertThat(objcProvider.get(ObjcProvider.HEADER)).contains(headerFile);
+    assertThat(objcProvider.get(ObjcProvider.SOURCE)).contains(sourceFile);
+    assertThat(objcProvider.get(ObjcProvider.INCLUDE))
+        .contains(getConfiguration(target).getGenfilesFragment().getRelative("external/bla"));
   }
 
   @Test
