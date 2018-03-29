@@ -125,7 +125,7 @@ struct MappedOutputFileImpl {
   }
 };
 
-MappedOutputFile::MappedOutputFile(const char* name, u8 estimated_size) {
+MappedOutputFile::MappedOutputFile(const char* name, size_t estimated_size) {
   impl_ = NULL;
   opened_ = false;
   errmsg_ = errmsg;
@@ -169,7 +169,7 @@ MappedOutputFile::~MappedOutputFile() {
   delete impl_;
 }
 
-int MappedOutputFile::Close(int size) {
+int MappedOutputFile::Close(size_t size) {
   if (!UnmapViewOfFile(buffer_)) {
     blaze_util::die(255, "MappedOutputFile::Close: UnmapViewOfFile failed: %s",
                     blaze_util::GetLastErrorString().c_str());
