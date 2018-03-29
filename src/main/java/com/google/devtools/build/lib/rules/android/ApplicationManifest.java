@@ -356,41 +356,25 @@ public final class ApplicationManifest {
       Artifact symbols,
       Artifact manifestOut,
       Artifact mergedResources)
-      throws InterruptedException, RuleErrorException {
-    // Filter the resources during analysis to prevent processing of dependencies on unwanted
-    // resources during execution.
-    ResourceFilter resourceFilter =
-        ResourceFilterFactory.fromRuleContext(ruleContext)
-            .getResourceFilter(ruleContext, resourceDeps, resources);
-    resources = resources.filterLocalResources(resourceFilter);
-    resourceDeps = resourceDeps.filter(resourceFilter);
-
-    // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
-    // container from it.
+      throws InterruptedException {
     ResourceContainer resourceContainer =
         ResourceContainer.builderFromRule(ruleContext)
             .setRTxt(rTxt)
-            .setSymbols(symbols)
             .setJavaPackageFrom(JavaPackageSource.MANIFEST)
             .setManifestExported(true)
             .setManifest(getManifest())
-            .setAssets(assets)
-            .setResources(resources)
             .build();
 
     // android_library should only build the APK one way (!incremental).
     Artifact rJavaClassJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
-    if (resourceContainer.getSymbols() != null) {
-      AndroidResourceParsingActionBuilder parsingBuilder =
-          new AndroidResourceParsingActionBuilder(ruleContext)
-              .setPrimary(resourceContainer)
-              .setOutput(resourceContainer.getSymbols())
-              .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
-
-      resourceContainer = parsingBuilder.build(ruleContext);
-    }
+    resourceContainer =
+        new AndroidResourceParsingActionBuilder(ruleContext)
+            .setAssets(assets)
+            .setResources(resources)
+            .setOutput(symbols)
+            .buildAndUpdate(ruleContext, resourceContainer);
 
     ResourceContainer merged =
         new AndroidResourceMergingActionBuilder(ruleContext)
@@ -595,21 +579,13 @@ public final class ApplicationManifest {
       Artifact symbols,
       Artifact manifestOut,
       Artifact mergedResources,
-      Artifact dataBindingInfoZip)
+      @Nullable Artifact dataBindingInfoZip)
       throws InterruptedException, RuleErrorException {
-    // Filter the resources during analysis to prevent processing of dependencies on unwanted
-    // resources during execution.
     AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
-    ResourceFilter resourceFilter =
-        ResourceFilterFactory.fromRuleContext(ruleContext)
-            .getResourceFilter(ruleContext, resourceDeps, resources);
-    resources = resources.filterLocalResources(resourceFilter);
-    resourceDeps = resourceDeps.filter(resourceFilter);
+    AndroidAssets assets = AndroidAssets.from(ruleContext);
 
     ResourceContainer.Builder builder =
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssets(AndroidAssets.from(ruleContext))
-            .setResources(resources)
             .setManifest(getManifest())
             .setSymbols(symbols)
             .setRTxt(rTxt)
@@ -644,25 +620,27 @@ public final class ApplicationManifest {
     boolean skipParsingAction =
         targetAaptVersion == AndroidAaptVersion.AAPT2 && androidConfiguration.skipParsingAction();
 
-    if (resourceContainer.getSymbols() != null) {
-      AndroidResourceParsingActionBuilder parsingBuilder =
-          new AndroidResourceParsingActionBuilder(ruleContext)
-              .setPrimary(resourceContainer)
-              .setOutput(resourceContainer.getSymbols())
-              .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
+    AndroidResourceParsingActionBuilder parsingBuilder =
+        new AndroidResourceParsingActionBuilder(ruleContext)
+            .setAssets(assets)
+            .setResources(resources)
+            .setOutput(resourceContainer.getSymbols())
+            .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
 
-      if (dataBindingInfoZip != null && resourceContainer.getCompiledSymbols() != null) {
+    if (dataBindingInfoZip != null && resourceContainer.getCompiledSymbols() != null) {
         PathFragment unusedInfo = dataBindingInfoZip.getRootRelativePath();
-        // TODO(corysmith): Centralize the data binding processing and zipping into a single
-        // action. Data binding processing needs to be triggered here as well as the merger to
-        // avoid aapt2 from throwing an error during compilation.
-        parsingBuilder.setDataBindingInfoZip(
-            ruleContext.getDerivedArtifact(
-                unusedInfo.replaceName(unusedInfo.getBaseName() + "_unused.zip"),
-                dataBindingInfoZip.getRoot()));
-      }
-      resourceContainer = parsingBuilder.build(ruleContext);
+      // TODO(corysmith): Centralize the data binding processing and zipping into a single
+      // action. Data binding processing needs to be triggered here as well as the merger to
+      // avoid aapt2 from throwing an error during compilation.
+      parsingBuilder
+          .setDataBindingInfoZip(
+              ruleContext.getDerivedArtifact(
+                  unusedInfo.replaceName(unusedInfo.getBaseName() + "_unused.zip"),
+                  dataBindingInfoZip.getRoot()))
+          .setManifest(resourceContainer.getManifest())
+          .setJavaPackage(resourceContainer.getJavaPackage());
     }
+    resourceContainer = parsingBuilder.buildAndUpdate(ruleContext, resourceContainer);
 
     ResourceContainer merged =
         new AndroidResourceMergingActionBuilder(ruleContext)
