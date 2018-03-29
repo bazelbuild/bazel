@@ -93,7 +93,7 @@ class ZipBuilder {
   // ZipExtractor::CalculateOuputLength() to have an estimated_size depending on
   // a list of file to store.
   // On failure, returns NULL. Refer to errno for error code.
-  static ZipBuilder* Create(const char* zip_file, u8 estimated_size);
+  static ZipBuilder* Create(const char* zip_file, size_t estimated_size);
 
   // Estimate the maximum size of the ZIP files containing files in the "files"
   // null-terminated array.

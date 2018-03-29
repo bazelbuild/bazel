@@ -71,7 +71,7 @@
 namespace devtools_ijar {
 // In the absence of ZIP64 support, zip files are limited to 4GB.
 // http://www.info-zip.org/FAQ.html#limits
-static const u8 kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
+static const size_t kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
 
 static const u4 kDefaultTimestamp =
     30 << 25 | 1 << 21 | 1 << 16;  // January 1, 2010 in DOS time
@@ -199,11 +199,11 @@ class InputZipFile : public ZipExtractor {
 //
 class OutputZipFile : public ZipBuilder {
  public:
-  OutputZipFile(const char* filename, u8 estimated_size) :
-      output_file_(NULL),
-      filename_(filename),
-      estimated_size_(estimated_size),
-      finished_(false) {
+  OutputZipFile(const char *filename, size_t estimated_size)
+      : output_file_(NULL),
+        filename_(filename),
+        estimated_size_(estimated_size),
+        finished_(false) {
     errmsg[0] = 0;
   }
 
@@ -257,7 +257,7 @@ class OutputZipFile : public ZipBuilder {
 
   MappedOutputFile* output_file_;
   const char* filename_;
-  u8 estimated_size_;
+  size_t estimated_size_;
   bool finished_;
 
   // OutputZipFile is responsible for maintaining the following
@@ -1078,8 +1078,8 @@ int OutputZipFile::FinishFile(size_t filelength, bool compress,
 bool OutputZipFile::Open() {
   if (estimated_size_ > kMaximumOutputSize) {
     fprintf(stderr,
-            "Uncompressed input jar has size %llu, "
-            "which exceeds the maximum supported output size %llu.\n"
+            "Uncompressed input jar has size %lu, "
+            "which exceeds the maximum supported output size %lu.\n"
             "Assuming that ijar will be smaller and hoping for the best.\n",
             estimated_size_, kMaximumOutputSize);
     estimated_size_ = kMaximumOutputSize;
@@ -1099,7 +1099,7 @@ bool OutputZipFile::Open() {
   return true;
 }
 
-ZipBuilder* ZipBuilder::Create(const char* zip_file, u8 estimated_size) {
+ZipBuilder *ZipBuilder::Create(const char *zip_file, size_t estimated_size) {
   OutputZipFile* result = new OutputZipFile(zip_file, estimated_size);
   if (!result->Open()) {
     fprintf(stderr, "%s\n", result->GetError());
