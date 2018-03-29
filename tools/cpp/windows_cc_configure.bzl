@@ -27,6 +27,12 @@ load(
     "is_cc_configure_debug",
 )
 
+load(
+    "@bazel_tools//tools/cpp:windows_cc_configure_crosstool.bzl",
+    "configure_windows_crosstool_template"
+)
+
+
 def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
   """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
   bazel_sh = get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
@@ -66,9 +72,9 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
       '   objcopy_embed_flag: "-I"\n' +
       '   objcopy_embed_flag: "binary"\n' +
       '   tool_path { name: "objdump" path: "%s%s/bin/objdump" }\n' % (escaped_msys_root, prefix) +
-      '   tool_path { name: "strip" path: "%s%s/bin/strip" }'% (escaped_msys_root, prefix) +
-      '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }' +
-      '   feature { name: "copy_dynamic_libraries_to_binary" }' )
+      '   tool_path { name: "strip" path: "%s%s/bin/strip" }\n'% (escaped_msys_root, prefix) +
+      '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }\n' +
+      '   feature { name: "copy_dynamic_libraries_to_binary" }\n' )
 
 def _get_system_root(repository_ctx):
   r"""Get System root path on Windows, default is C:\\Windows. Doesn't %-escape the result."""
@@ -414,6 +420,7 @@ def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_sym
       "%{opt_content}": "",
       "%{dbg_content}": "",
       "%{link_content}": "",
+      "%{msvc_link_target}" : "/MACHINE:X64" if architecture == "x64_windows" else "/MACHINE:X86",
       "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
       "%{coverage}": ""
   }
@@ -422,11 +429,15 @@ def configure_windows_toolchain(repository_ctx):
   """Configure C++ toolchain on Windows."""
   repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static.windows"), "BUILD")
 
+  default_name = "x64_windows"
+  configurations = [("x64_windows", "msvc_x64"), ("x86_32_windows", "msvc_x86_32")]
+
   vc_path = find_vc_path(repository_ctx)
 
-  all_options = _get_toolchain_options(repository_ctx, vc_path, "x64_windows", initialize_symlinks=True)
-  x86_32_options = _get_toolchain_options(repository_ctx, vc_path, "x86_32_windows", initialize_symlinks=False)
-  for option in x86_32_options:
-    all_options[option.replace('}', '_x86_32}')] = x86_32_options[option]
+  all_options = _get_toolchain_options(repository_ctx, vc_path, default_name, initialize_symlinks=True)
+  for index, (name, toolchain_name) in enumerate(configurations):
+    options = _get_toolchain_options(repository_ctx, vc_path, name, initialize_symlinks=False)
+    all_options += { key.replace("}", "_%s}" % (toolchain_name)) : value for key, value in options.items() }
 
-  tpl(repository_ctx, "CROSSTOOL", all_options)
+  configure_windows_crosstool_template(repository_ctx, "CROSSTOOL.tpl", configurations)
+  tpl(repository_ctx, "CROSSTOOL", all_options, generated=True)

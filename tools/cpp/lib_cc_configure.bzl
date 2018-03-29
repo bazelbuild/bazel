@@ -164,12 +164,16 @@ def get_cpu_value(repository_ctx):
   return "k8" if result.stdout.strip() in ["amd64", "x86_64", "x64"] else "piii"
 
 
-def tpl(repository_ctx, template, substitutions={}, out=None):
+def _tpl_label(template, generated=False):
+  return "%s.tpl" % (template) if generated else Label("@bazel_tools//tools/cpp:%s.tpl" % (template))
+
+
+def tpl(repository_ctx, template, substitutions={}, out=None, generated=False):
   if not out:
     out = template
   repository_ctx.template(
       out,
-      Label("@bazel_tools//tools/cpp:%s.tpl" % template),
+      _tpl_label(template, generated),
       substitutions)
 
 
