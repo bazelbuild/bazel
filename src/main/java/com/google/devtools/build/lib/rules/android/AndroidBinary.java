@@ -184,7 +184,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     boolean shrinkResources = shouldShrinkResources(ruleContext);
 
     // Retrieve and compile the resources defined on the android_binary rule.
-    LocalResourceContainer.validateRuleContext(ruleContext);
+    AndroidResources.validateRuleContext(ruleContext);
 
     ApplicationManifest applicationManifest =
         androidSemantics.getManifestForRule(ruleContext).mergeWith(ruleContext, resourceDeps);

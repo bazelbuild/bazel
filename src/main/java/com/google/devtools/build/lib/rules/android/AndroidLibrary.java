@@ -131,9 +131,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     AndroidCommon androidCommon = new AndroidCommon(javaCommon);
 
     boolean definesLocalResources =
-        LocalResourceContainer.definesAndroidResources(ruleContext.attributes());
+        AndroidResources.definesAndroidResources(ruleContext.attributes());
     if (definesLocalResources) {
-      LocalResourceContainer.validateRuleContext(ruleContext);
+      AndroidResources.validateRuleContext(ruleContext);
     }
 
     // TODO(b/69668042): Always correctly apply neverlinking for resources

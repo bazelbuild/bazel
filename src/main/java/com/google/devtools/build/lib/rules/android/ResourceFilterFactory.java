@@ -316,7 +316,7 @@ public class ResourceFilterFactory {
   ResourceFilter getResourceFilter(
       RuleErrorConsumer ruleErrorConsumer,
       ResourceDependencies resourceDeps,
-      LocalResourceContainer localResources) {
+      AndroidResources localResources) {
     if (!isPrefiltering()) {
       return ResourceFilter.empty();
     }

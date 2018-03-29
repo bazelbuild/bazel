@@ -89,11 +89,13 @@ public class AarImportTest extends BuildViewTestCase {
     ResourceContainer resourceContainer = directResources.iterator().next();
     assertThat(resourceContainer.getManifest()).isNotNull();
 
-    Artifact resourceTreeArtifact = Iterables.getOnlyElement(resourceContainer.getResources());
+    Artifact resourceTreeArtifact =
+        Iterables.getOnlyElement(resourceContainer.getResources().getResources());
     assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
     assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/resources/foo");
 
-    Artifact assetsTreeArtifact = Iterables.getOnlyElement(resourceContainer.getAssets());
+    Artifact assetsTreeArtifact =
+        Iterables.getOnlyElement(resourceContainer.getAssets().getAssets());
     assertThat(assetsTreeArtifact.isTreeArtifact()).isTrue();
     assertThat(assetsTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/assets/foo");
   }
@@ -107,8 +109,8 @@ public class AarImportTest extends BuildViewTestCase {
             .toList()
             .get(0);
 
-    Artifact resourceTreeArtifact = resourceContainer.getResources().get(0);
-    Artifact assetsTreeArtifact = resourceContainer.getAssets().get(0);
+    Artifact resourceTreeArtifact = resourceContainer.getResources().getResources().get(0);
+    Artifact assetsTreeArtifact = resourceContainer.getAssets().getAssets().get(0);
     Artifact aarResourcesExtractor =
         getHostConfiguredTarget(
             ruleClassProvider.getToolsRepository() + "//tools/android:aar_resources_extractor")
@@ -326,7 +328,7 @@ public class AarImportTest extends BuildViewTestCase {
         .getManifest()
         .getRootRelativePathString();
   }
-  
+
   @Test
   public void testTransitiveExports() throws Exception {
     assertThat(getConfiguredTarget("//a:bar").get(JavaInfo.PROVIDER).getTransitiveExports())

@@ -257,11 +257,11 @@ public final class ResourceDependencies {
         NestedSetBuilder.<ResourceContainer>naiveLinkOrder().add(newDirectResource).build(),
         NestedSetBuilder.<Artifact>naiveLinkOrder()
             .addTransitive(transitiveResources)
-            .addAll(newDirectResource.getResources())
+            .addAll(newDirectResource.getResources().getResources())
             .build(),
         NestedSetBuilder.<Artifact>naiveLinkOrder()
             .addTransitive(transitiveAssets)
-            .addAll(newDirectResource.getAssets())
+            .addAll(newDirectResource.getAssets().getAssets())
             .build(),
         withDirectAndTransitive(newDirectResource.getManifest(), transitiveManifests),
         withDirectAndTransitive(newDirectResource.getAapt2RTxt(), transitiveAapt2RTxt),

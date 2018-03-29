@@ -18,17 +18,19 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests {@link LocalResourceContainer} */
+/** Tests {@link AndroidResourcesTest} */
 @RunWith(JUnit4.class)
-public class LocalResourceContainerTest extends ResourceTestBase {
+public class AndroidResourcesTest extends ResourceTestBase {
   private static final PathFragment DEFAULT_RESOURCE_ROOT = PathFragment.create(RESOURCE_ROOT);
   private static final ImmutableList<PathFragment> RESOURCES_ROOTS =
       ImmutableList.of(DEFAULT_RESOURCE_ROOT);
@@ -84,7 +86,7 @@ public class LocalResourceContainerTest extends ResourceTestBase {
 
   private ImmutableList<PathFragment> getResourceRoots(ImmutableList<Artifact> artifacts)
       throws Exception {
-    return LocalResourceContainer.getResourceRoots(errorConsumer, artifacts, "resource_files");
+    return AndroidResources.getResourceRoots(errorConsumer, artifacts, "resource_files");
   }
 
   @Test
@@ -112,36 +114,58 @@ public class LocalResourceContainerTest extends ResourceTestBase {
         ImmutableList.of(keptResource));
   }
 
+  @Test
+  public void testFilterIsDependency() throws Exception {
+    Artifact keptResource = getResource("values-en/foo.xml");
+    assertFilter(
+        ImmutableList.of(keptResource, getResource("drawable/bar.png")),
+        ImmutableList.of(keptResource),
+        /* isDependency = */ true);
+  }
+
   private void assertFilter(
       ImmutableList<Artifact> unfilteredResources, ImmutableList<Artifact> filteredResources)
       throws Exception {
+    assertFilter(unfilteredResources, filteredResources, /* isDependency = */ false);
+  }
+
+  private void assertFilter(
+      ImmutableList<Artifact> unfilteredResources,
+      ImmutableList<Artifact> filteredResources,
+      boolean isDependency)
+      throws Exception {
     ImmutableList<PathFragment> unfilteredResourcesRoots = getResourceRoots(unfilteredResources);
-    LocalResourceContainer unfiltered =
-        new LocalResourceContainer(
-            unfilteredResources,
-            unfilteredResourcesRoots,
-            unfilteredResources,
-            unfilteredResourcesRoots);
+    AndroidResources unfiltered =
+        new AndroidResources(unfilteredResources, unfilteredResourcesRoots);
+
+    ImmutableList.Builder<Artifact> filteredDepsBuilder = ImmutableList.builder();
 
     ResourceFilter fakeFilter =
-        ResourceFilter.of(ImmutableSet.copyOf(filteredResources), (artifact) -> {});
+        ResourceFilter.of(ImmutableSet.copyOf(filteredResources), filteredDepsBuilder::add);
 
-    LocalResourceContainer filtered = unfiltered.filter(errorConsumer, fakeFilter);
+    Optional<AndroidResources> filtered = unfiltered.maybeFilter(fakeFilter, isDependency);
 
-    if (unfilteredResources.equals(filteredResources)) {
-      // The filtering was a no-op; the original object, not a copy, should be returned
-      assertThat(filtered).isSameAs(unfiltered);
+    if (filteredResources.equals(unfilteredResources)) {
+      // We expect filtering to have been a no-op
+      assertThat(filtered.isPresent()).isFalse();
     } else {
       // The resources and their roots should be filtered
-      assertThat(filtered.getResources()).containsExactlyElementsIn(filteredResources).inOrder();
-      assertThat(filtered.getResourceRoots())
+      assertThat(filtered.get().getResources())
+          .containsExactlyElementsIn(filteredResources)
+          .inOrder();
+      assertThat(filtered.get().getResourceRoots())
           .containsExactlyElementsIn(getResourceRoots(filteredResources))
           .inOrder();
+    }
 
-      // The assets and their roots should not be filtered; the original objects, not a copy, should
-      // be returned.
-      assertThat(filtered.getAssets()).isSameAs(unfiltered.getAssets());
-      assertThat(filtered.getAssetRoots()).isSameAs(unfiltered.getAssetRoots());
+    if (!isDependency) {
+      // The filter should not record any filtered dependencies
+      assertThat(filteredDepsBuilder.build()).isEmpty();
+    } else {
+      // The filtered dependencies should be exactly the list of filtered resources
+      assertThat(unfilteredResources)
+          .containsExactlyElementsIn(
+              Iterables.concat(filteredDepsBuilder.build(), filteredResources));
     }
   }
 }
