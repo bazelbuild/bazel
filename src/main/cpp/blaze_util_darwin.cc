@@ -40,7 +40,7 @@
 namespace blaze {
 
 using blaze_util::die;
-using blaze_util::pdie;
+using blaze_util::GetLastErrorString;
 using std::string;
 using std::vector;
 
@@ -127,7 +127,8 @@ string GetSelfPath() {
   char pathbuf[PROC_PIDPATHINFO_MAXSIZE] = {};
   int len = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));
   if (len == 0) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error calling proc_pidpath");
+    die(blaze_exit_code::INTERNAL_ERROR, "error calling proc_pidpath: %s",
+        GetLastErrorString().c_str());
   }
   return string(pathbuf, len);
 }
@@ -135,7 +136,8 @@ string GetSelfPath() {
 uint64_t GetMillisecondsMonotonic() {
   struct timeval ts = {};
   if (gettimeofday(&ts, NULL) < 0) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error calling gettimeofday");
+    die(blaze_exit_code::INTERNAL_ERROR, "error calling gettimeofday: %s",
+        GetLastErrorString().c_str());
   }
   return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
 }
@@ -169,8 +171,9 @@ string GetDefaultHostJavabase() {
 
   FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");
   if (output == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Could not run /usr/libexec/java_home");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Could not run /usr/libexec/java_home: %s",
+        GetLastErrorString().c_str());
   }
 
   char buf[512];

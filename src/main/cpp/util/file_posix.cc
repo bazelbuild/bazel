@@ -160,17 +160,18 @@ class PosixPipe : public IPipe {
 IPipe* CreatePipe() {
   int fd[2];
   if (pipe(fd) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "pipe()");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "pipe() failed: %s",
+        GetLastErrorString().c_str());
   }
 
   if (fcntl(fd[0], F_SETFD, FD_CLOEXEC) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "fcntl(F_SETFD, FD_CLOEXEC) failed");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "fcntl(F_SETFD, FD_CLOEXEC) failed: %s", GetLastErrorString().c_str());
   }
 
   if (fcntl(fd[1], F_SETFD, FD_CLOEXEC) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "fcntl(F_SETFD, FD_CLOEXEC) failed");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "fcntl(F_SETFD, FD_CLOEXEC) failed: %s", GetLastErrorString().c_str());
   }
 
   return new PosixPipe(fd[0], fd[1]);
@@ -328,12 +329,13 @@ void SyncFile(const string& path) {
   const char* file_path = path.c_str();
   int fd = open(file_path, O_RDONLY);
   if (fd < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "failed to open '%s' for syncing", file_path);
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "failed to open '%s' for syncing: %s", file_path,
+        GetLastErrorString().c_str());
   }
   if (fsync(fd) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "failed to sync '%s'",
-         file_path);
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "failed to sync '%s': %s",
+        file_path, GetLastErrorString().c_str());
   }
   close(fd);
 }
@@ -390,7 +392,8 @@ bool PosixFileMtime::Set(const string &path, const struct utimbuf &mtime) {
 time_t PosixFileMtime::GetNow() {
   time_t result = time(NULL);
   if (result == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "time(NULL) failed");
+    die(blaze_exit_code::INTERNAL_ERROR, "time(NULL) failed: %s",
+        GetLastErrorString().c_str());
   }
   return result;
 }
@@ -414,7 +417,8 @@ bool MakeDirectories(const string &path, unsigned int mode) {
 string GetCwd() {
   char cwdbuf[PATH_MAX];
   if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "getcwd() failed");
+    die(blaze_exit_code::INTERNAL_ERROR, "getcwd() failed: %s",
+        GetLastErrorString().c_str());
   }
   return string(cwdbuf);
 }
@@ -443,7 +447,8 @@ void ForEachDirectoryEntry(const string &path,
     if (ent->d_type == DT_UNKNOWN) {
       struct stat buf;
       if (lstat(filename.c_str(), &buf) == -1) {
-        die(blaze_exit_code::INTERNAL_ERROR, "stat failed");
+        die(blaze_exit_code::INTERNAL_ERROR, "stat failed: %s",
+            GetLastErrorString().c_str());
       }
       is_directory = S_ISDIR(buf.st_mode);
     } else {

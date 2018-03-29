@@ -39,7 +39,8 @@ bool stat_file(const char* path, Stat* result) {
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
   std::wstring wpath;
   if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath)) {
-    blaze_util::pdie(255, "stat_file: AsAbsoluteWindowsPath(%s)", path);
+    blaze_util::die(255, "stat_file: AsAbsoluteWindowsPath(%s) failed: %s",
+                    path, blaze_util::GetLastErrorString().c_str());
   }
   bool success = false;
   BY_HANDLE_FILE_INFORMATION info;

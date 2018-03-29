@@ -39,7 +39,7 @@
 namespace blaze {
 
 using blaze_util::die;
-using blaze_util::pdie;
+using blaze_util::GetLastErrorString;
 using std::string;
 
 string GetOutputRoot() {
@@ -79,12 +79,14 @@ string GetSelfPath() {
   auto p = procstat_getprocs(procstat, KERN_PROC_PID, pid, &n);
   if (p) {
     if (n != 1) {
-      pdie(blaze_exit_code::INTERNAL_ERROR,
-           "expected exactly one process from procstat_getprocs, got %d", n);
+      die(blaze_exit_code::INTERNAL_ERROR,
+          "expected exactly one process from procstat_getprocs, got %d: %s", n,
+          GetLastErrorString().c_str());
     }
     auto r = procstat_getpathname(procstat, p, buffer, PATH_MAX);
     if (r != 0) {
-      pdie(blaze_exit_code::INTERNAL_ERROR, "error procstat_getpathname");
+      die(blaze_exit_code::INTERNAL_ERROR, "procstat_getpathname failed: %s",
+          GetLastErrorString().c_str());
     }
     procstat_freeprocs(procstat, p);
   }
@@ -116,8 +118,9 @@ string GetProcessCWD(int pid) {
   string cwd;
   if (p) {
     if (n != 1) {
-      pdie(blaze_exit_code::INTERNAL_ERROR,
-           "expected exactly one process from procstat_getprocs, got %d", n);
+      die(blaze_exit_code::INTERNAL_ERROR,
+          "expected exactly one process from procstat_getprocs, got %d: %s", n,
+          GetLastErrorString().c_str());
     }
     auto files = procstat_getfiles(procstat, p, false);
     filestat *entry;
