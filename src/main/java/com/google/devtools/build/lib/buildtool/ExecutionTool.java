@@ -630,6 +630,7 @@ public class ExecutionTool {
       resources = LocalHostCapacity.getLocalHostCapacity();
       resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
     }
+    resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 
     resourceMgr.setAvailableResources(ResourceSet.create(
         resources.getMemoryMb(),
