@@ -422,6 +422,15 @@ filegroup(
     srcs = ["guava/guava-24.1-jre.jar"],
 )
 
+# javax.annotation.Generated is not included in the default root modules in 9,
+# see: http://openjdk.java.net/jeps/320.
+java_import(
+    name = "javax_annotations",
+    jars = ["javax_annotations/javax.annotation-api-1.3.2.jar"],
+    neverlink = 1,  # @Generated is source-retention
+    srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
+)
+
 java_import(
     name = "jgit",
     jars = ["jgit/org.eclipse.jgit-4.10.0.201712302008-r.jar"],
