@@ -77,10 +77,7 @@ public final class AndroidAssets {
     return new AndroidAssets(assets.build(), assetRoots.build());
   }
 
-  static PathFragment getAssetDir(RuleContext ruleContext) {
-    if (!ruleContext.attributes().has(ASSETS_DIR_ATTR)) {
-      return PathFragment.EMPTY_FRAGMENT;
-    }
+  private static PathFragment getAssetDir(RuleContext ruleContext) {
     return PathFragment.create(ruleContext.attributes().get(ASSETS_DIR_ATTR, Type.STRING));
   }
 
@@ -97,6 +94,10 @@ public final class AndroidAssets {
     Preconditions.checkArgument(assetsDir.isTreeArtifact());
     return new AndroidAssets(
         ImmutableList.of(assetsDir), ImmutableList.of(assetsDir.getExecPath().getChild("assets")));
+  }
+
+  static AndroidAssets empty() {
+    return new AndroidAssets(ImmutableList.of(), ImmutableList.of());
   }
 
   private final ImmutableList<Artifact> assets;

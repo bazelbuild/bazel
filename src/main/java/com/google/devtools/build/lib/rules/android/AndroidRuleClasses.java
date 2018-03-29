@@ -350,7 +350,7 @@ public final class AndroidRuleClasses {
               AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
-          if (LocalResourceContainer.definesAndroidResources(attributes)) {
+          if (AndroidResources.definesAndroidResources(attributes)) {
             implicitOutputs.add(
                 AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR,
                 AndroidRuleClasses.ANDROID_R_TXT,

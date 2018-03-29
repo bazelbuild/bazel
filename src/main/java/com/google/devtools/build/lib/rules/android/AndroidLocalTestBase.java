@@ -395,8 +395,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       throws InterruptedException, RuleErrorException {
     ApplicationManifest applicationManifest;
 
-    if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
-      LocalResourceContainer.validateRuleContext(ruleContext);
+    if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
+      AndroidResources.validateRuleContext(ruleContext);
       ApplicationManifest ruleManifest = androidSemantics.getManifestForRule(ruleContext);
       applicationManifest = ruleManifest.mergeWith(ruleContext, resourceDependencies, false);
     } else {

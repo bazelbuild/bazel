@@ -266,7 +266,7 @@ public class AndroidCommon {
     }
 
     // If the rule defines resources, put those in the IDE info.
-    if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
+    if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       ideInfoProviderBuilder
           .setDefinesAndroidResources(true)
           // Sets the possibly merged manifest and the raw manifest.
@@ -299,7 +299,7 @@ public class AndroidCommon {
   }
 
   static PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
-    PathFragment resourceDir = LocalResourceContainer.findResourceDir(resource);
+    PathFragment resourceDir = AndroidResources.findResourceDir(resource);
     if (resourceDir == null) {
       return null;
     }

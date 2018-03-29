@@ -294,13 +294,11 @@ public final class ApplicationManifest {
       @Nullable String packageUnderTest,
       boolean hasLocalResourceFiles)
       throws InterruptedException, RuleErrorException {
-    LocalResourceContainer data =
-        LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "local_resource_files");
 
     ResourceContainer resourceContainer =
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
+            .setAssets(AndroidAssets.from(ruleContext))
+            .setResources(AndroidResources.from(ruleContext, "local_resource_files"))
             .setManifest(getManifest())
             .setApk(resourceApk)
             .setRTxt(rTxt)
@@ -351,7 +349,8 @@ public final class ApplicationManifest {
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
   public ResourceApk packAarWithDataAndResources(
       RuleContext ruleContext,
-      LocalResourceContainer data,
+      AndroidAssets assets,
+      AndroidResources resources,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbols,
@@ -362,8 +361,8 @@ public final class ApplicationManifest {
     // resources during execution.
     ResourceFilter resourceFilter =
         ResourceFilterFactory.fromRuleContext(ruleContext)
-            .getResourceFilter(ruleContext, resourceDeps, data);
-    data = data.filter(ruleContext, resourceFilter);
+            .getResourceFilter(ruleContext, resourceDeps, resources);
+    resources = resources.filterLocalResources(resourceFilter);
     resourceDeps = resourceDeps.filter(resourceFilter);
 
     // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
@@ -375,7 +374,8 @@ public final class ApplicationManifest {
             .setJavaPackageFrom(JavaPackageSource.MANIFEST)
             .setManifestExported(true)
             .setManifest(getManifest())
-            .setAssetsAndResourcesFrom(data)
+            .setAssets(assets)
+            .setResources(resources)
             .build();
 
     // android_library should only build the APK one way (!incremental).
@@ -385,8 +385,7 @@ public final class ApplicationManifest {
     if (resourceContainer.getSymbols() != null) {
       AndroidResourceParsingActionBuilder parsingBuilder =
           new AndroidResourceParsingActionBuilder(ruleContext)
-              .withPrimary(resourceContainer)
-              .setParse(data)
+              .setPrimary(resourceContainer)
               .setOutput(resourceContainer.getSymbols())
               .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
 
@@ -445,17 +444,15 @@ public final class ApplicationManifest {
       boolean crunchPng,
       Artifact proguardCfg)
       throws InterruptedException, RuleErrorException {
-    LocalResourceContainer data =
-        LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "resource_files");
+    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
 
     // Filter the resources during analysis to prevent processing of dependencies on unwanted
     // resources during execution.
     ResourceFilterFactory resourceFilterFactory =
         ResourceFilterFactory.fromRuleContext(ruleContext);
     ResourceFilter resourceFilter =
-        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, data);
-    data = data.filter(ruleContext, resourceFilter);
+        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
+    resources = resources.filterLocalResources(resourceFilter);
     resourceDeps = resourceDeps.filter(resourceFilter);
 
     // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
@@ -464,7 +461,8 @@ public final class ApplicationManifest {
         ResourceContainer.builderFromRule(ruleContext)
             .setApk(resourceApk)
             .setManifest(getManifest())
-            .setAssetsAndResourcesFrom(data)
+            .setAssets(AndroidAssets.from(ruleContext))
+            .setResources(resources)
             .build();
 
     ResourceContainer processed =
@@ -520,20 +518,19 @@ public final class ApplicationManifest {
       @Nullable Artifact featureOf,
       @Nullable Artifact featureAfter)
       throws InterruptedException, RuleErrorException {
-    LocalResourceContainer data =
-        LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "resource_files");
 
+    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
     ResourceFilter resourceFilter =
-        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, data);
-    data = data.filter(ruleContext, resourceFilter);
+        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
+    resources = resources.filterLocalResources(resourceFilter);
     resourceDeps = resourceDeps.filter(resourceFilter);
 
     // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
     // container from it.
     ResourceContainer resourceContainer =
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
+            .setAssets(AndroidAssets.from(ruleContext))
+            .setResources(resources)
             .setManifest(getManifest())
             .setRTxt(rTxt)
             .setApk(resourceApk)
@@ -602,18 +599,17 @@ public final class ApplicationManifest {
       throws InterruptedException, RuleErrorException {
     // Filter the resources during analysis to prevent processing of dependencies on unwanted
     // resources during execution.
-    LocalResourceContainer data =
-        LocalResourceContainer.forAssetsAndResources(
-            ruleContext, "assets", AndroidAssets.getAssetDir(ruleContext), "resource_files");
+    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
     ResourceFilter resourceFilter =
         ResourceFilterFactory.fromRuleContext(ruleContext)
-            .getResourceFilter(ruleContext, resourceDeps, data);
-    data = data.filter(ruleContext, resourceFilter);
+            .getResourceFilter(ruleContext, resourceDeps, resources);
+    resources = resources.filterLocalResources(resourceFilter);
     resourceDeps = resourceDeps.filter(resourceFilter);
 
     ResourceContainer.Builder builder =
         ResourceContainer.builderFromRule(ruleContext)
-            .setAssetsAndResourcesFrom(data)
+            .setAssets(AndroidAssets.from(ruleContext))
+            .setResources(resources)
             .setManifest(getManifest())
             .setSymbols(symbols)
             .setRTxt(rTxt)
@@ -651,8 +647,7 @@ public final class ApplicationManifest {
     if (resourceContainer.getSymbols() != null) {
       AndroidResourceParsingActionBuilder parsingBuilder =
           new AndroidResourceParsingActionBuilder(ruleContext)
-              .withPrimary(resourceContainer)
-              .setParse(data)
+              .setPrimary(resourceContainer)
               .setOutput(resourceContainer.getSymbols())
               .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
 

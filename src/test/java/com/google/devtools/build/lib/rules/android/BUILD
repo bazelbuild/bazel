@@ -104,8 +104,8 @@ java_test(
 )
 
 java_test(
-    name = "LocalResourceContainerTest",
-    srcs = ["LocalResourceContainerTest.java"],
+    name = "AndroidResourcesTest",
+    srcs = ["AndroidResourcesTest.java"],
     deps = [
         ":ResourceTestBase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",

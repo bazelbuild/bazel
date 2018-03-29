@@ -47,10 +47,9 @@ public class AndroidResourceParsingActionBuilder {
 
   private final RuleContext ruleContext;
   private final AndroidSdkProvider sdk;
-  private LocalResourceContainer primary;
+  private ResourceContainer primary;
   private Artifact output;
 
-  private ResourceContainer resourceContainer;
   private Artifact compiledSymbols;
   private Artifact dataBindingInfoZip;
 
@@ -60,12 +59,6 @@ public class AndroidResourceParsingActionBuilder {
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
   }
 
-  /** Set the resource container to parse. */
-  public AndroidResourceParsingActionBuilder setParse(LocalResourceContainer primary) {
-    this.primary = primary;
-    return this;
-  }
-
   /** Set the artifact location for the output protobuf. */
   public AndroidResourceParsingActionBuilder setOutput(Artifact output) {
     this.output = output;
@@ -73,8 +66,8 @@ public class AndroidResourceParsingActionBuilder {
   }
 
   /** Set the primary resources. */
-  public AndroidResourceParsingActionBuilder withPrimary(ResourceContainer resourceContainer) {
-    this.resourceContainer = resourceContainer;
+  public AndroidResourceParsingActionBuilder setPrimary(ResourceContainer primary) {
+    this.primary = primary;
     return this;
   }
 
@@ -89,30 +82,28 @@ public class AndroidResourceParsingActionBuilder {
     return this;
   }
 
-  private static class ResourceContainerToArg implements Function<LocalResourceContainer, String> {
+  private static class ResourceContainerToArg implements Function<ResourceContainer, String> {
 
     public ResourceContainerToArg() {}
 
     @Override
-    public String apply(LocalResourceContainer container) {
-      return new StringBuilder()
-          .append(convertRoots(container.getResourceRoots()))
-          .append(":")
-          .append(convertRoots(container.getAssetRoots()))
-          .toString();
+    public String apply(ResourceContainer container) {
+      return convertRoots(container.getResources().getResourceRoots())
+          + ":"
+          + convertRoots(container.getAssets().getAssetRoots());
     }
   }
 
   private static class ResourceContainerToArtifacts
-      implements Function<LocalResourceContainer, NestedSet<Artifact>> {
+      implements Function<ResourceContainer, NestedSet<Artifact>> {
 
     public ResourceContainerToArtifacts() {}
 
     @Override
-    public NestedSet<Artifact> apply(LocalResourceContainer container) {
+    public NestedSet<Artifact> apply(ResourceContainer container) {
       NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.naiveLinkOrder();
-      artifacts.addAll(container.getAssets());
-      artifacts.addAll(container.getResources());
+      artifacts.addAll(container.getAssets().getAssets());
+      artifacts.addAll(container.getResources().getResources());
       return artifacts.build();
     }
   }
@@ -177,10 +168,10 @@ public class AndroidResourceParsingActionBuilder {
 
       // The databinding needs to be processed before compilation, so the stripping happens here.
       if (dataBindingInfoZip != null) {
-        flatFileBuilder.addExecPath("--manifest", resourceContainer.getManifest());
-        inputs.add(resourceContainer.getManifest());
-        if (!Strings.isNullOrEmpty(resourceContainer.getJavaPackage())) {
-          flatFileBuilder.add("--packagePath", resourceContainer.getJavaPackage());
+        flatFileBuilder.addExecPath("--manifest", primary.getManifest());
+        inputs.add(primary.getManifest());
+        if (!Strings.isNullOrEmpty(primary.getJavaPackage())) {
+          flatFileBuilder.add("--packagePath", primary.getJavaPackage());
         }
         flatFileBuilder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
         outs.add(dataBindingInfoZip);
@@ -197,13 +188,9 @@ public class AndroidResourceParsingActionBuilder {
               .setProgressMessage("Compiling Android resources for %s", ruleContext.getLabel())
               .setMnemonic("AndroidResourceCompiler")
               .build(context));
-      return resourceContainer
-          .toBuilder()
-          .setCompiledSymbols(compiledSymbols)
-          .setSymbols(output)
-          .build();
+      return primary.toBuilder().setCompiledSymbols(compiledSymbols).setSymbols(output).build();
     } else {
-      return resourceContainer.toBuilder().setSymbols(output).build();
+      return primary.toBuilder().setSymbols(output).build();
     }
   }
 }

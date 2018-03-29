@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -83,8 +84,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     // AndroidManifest.xml is required in every AAR.
     Artifact androidManifestArtifact = createAarArtifact(ruleContext, ANDROID_MANIFEST);
 
-    Artifact resources = createAarTreeArtifact(ruleContext, "resources");
-    Artifact assets = createAarTreeArtifact(ruleContext, "assets");
+    SpecialArtifact resources = createAarTreeArtifact(ruleContext, "resources");
+    SpecialArtifact assets = createAarTreeArtifact(ruleContext, "assets");
     ruleContext.registerAction(
         createAarResourcesExtractorActions(ruleContext, aar, resources, assets));
 
@@ -97,7 +98,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ResourceApk resourceApk =
         androidManifest.packAarWithDataAndResources(
             ruleContext,
-            LocalResourceContainer.forAssetsAndResourcesDirectories(assets, resources),
+            AndroidAssets.forAarImport(assets),
+            AndroidResources.forAarImport(resources),
             ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
@@ -342,7 +344,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         "_aar", name, ruleContext.getBinOrGenfilesDirectory());
   }
 
-  private static Artifact createAarTreeArtifact(RuleContext ruleContext, String name) {
+  private static SpecialArtifact createAarTreeArtifact(RuleContext ruleContext, String name) {
     PathFragment rootRelativePath = ruleContext.getUniqueDirectory("_aar/unzipped/" + name);
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }

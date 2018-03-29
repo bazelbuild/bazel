@@ -2635,7 +2635,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     checkError("java/android/resources", "r",
         "'java/android/resources/res/somefile.xml' is not in the expected resource directory "
         + "structure of <resource directory>/{"
-        + Joiner.on(',').join(LocalResourceContainer.RESOURCE_DIRECTORY_TYPES) + "}",
+        + Joiner.on(',').join(AndroidResources.RESOURCE_DIRECTORY_TYPES) + "}",
         "android_binary(name = 'r',",
         "                manifest = 'AndroidManifest.xml',",
         "                resource_files = ['res/somefile.xml', 'r/t/f/m/raw/fold']",
@@ -2649,7 +2649,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "r",
         "'java/android/resources/res/other/somefile.xml' is not in the expected resource directory "
         + "structure of <resource directory>/{"
-        + Joiner.on(',').join(LocalResourceContainer.RESOURCE_DIRECTORY_TYPES) + "}",
+        + Joiner.on(',').join(AndroidResources.RESOURCE_DIRECTORY_TYPES) + "}",
         "android_binary(name = 'r',",
         "               manifest = 'AndroidManifest.xml',",
         "               resource_files = ['res/other/somefile.xml', 'r/t/f/m/raw/fold']",

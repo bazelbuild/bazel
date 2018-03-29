@@ -20,10 +20,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
@@ -36,17 +36,18 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * The collected resources and assets artifacts and roots.
+ * The collected resources artifacts and roots.
  *
- * <p>This is used to encapsulate the logic and the data associated with the resources and assets
- * derived from an appropriate android rule in a reusable instance.
+ * <p>This is used to encapsulate the logic and the data associated with the resources derived from
+ * an appropriate android rule in a reusable instance.
  */
-@Immutable
-public final class LocalResourceContainer {
+public final class AndroidResources {
+  private static final String DEFAULT_RESOURCES_ATTR = "resource_files";
+
   public static final String[] RESOURCES_ATTRIBUTES =
       new String[] {
         "manifest",
-        "resource_files",
+        DEFAULT_RESOURCES_ATTR,
         "local_resource_files",
         "assets",
         "assets_dir",
@@ -66,7 +67,13 @@ public final class LocalResourceContainer {
               + "<resource directory>/{%s}/<file>",
           Joiner.on(',').join(RESOURCE_DIRECTORY_TYPES));
 
-  /** Determines if the attributes contain resource and asset attributes. */
+  /**
+   * Determines if the attributes contain resource and asset attributes.
+   *
+   * @deprecated We are moving towards processing Android assets, resources, and manifests
+   *     separately. Use a separate method that just checks the attributes you need.
+   */
+  @Deprecated
   public static boolean definesAndroidResources(AttributeMap attributes) {
     for (String attribute : RESOURCES_ATTRIBUTES) {
       if (attributes.isAttributeValueExplicitlySpecified(attribute)) {
@@ -77,11 +84,14 @@ public final class LocalResourceContainer {
   }
 
   /**
-   * Checks validity of a RuleContext to produce an AndroidData.
+   * Checks validity of a RuleContext to produce Android resources, assets, and manifests.
    *
    * @throws RuleErrorException if the RuleContext is invalid. Accumulated errors will be available
    *     via {@code ruleContext}
+   * @deprecated We are moving towards processing Android assets, resources, and manifests
+   *     separately. Use a separate method that just checks the values you need.
    */
+  @Deprecated
   public static void validateRuleContext(RuleContext ruleContext) throws RuleErrorException {
     AndroidAssets.validateAssetsAndAssetsDir(ruleContext);
     validateNoAndroidResourcesInSources(ruleContext);
@@ -110,61 +120,56 @@ public final class LocalResourceContainer {
     }
   }
 
-  /**
-   * Creates a {@link LocalResourceContainer} containing this target's assets and resources.
-   *
-   * @param ruleContext the current context
-   * @param assetsAttr the attribute used to refer to assets in this target
-   * @param assetsDir the path to the assets directory
-   * @param resourcesAttr the attribute used to refer to resource files in this target
-   */
-  public static LocalResourceContainer forAssetsAndResources(
-      RuleContext ruleContext, String assetsAttr, PathFragment assetsDir, String resourcesAttr)
+  public static AndroidResources from(RuleContext ruleContext, String resourcesAttr)
       throws RuleErrorException {
-
     if (!hasLocalResourcesAttributes(ruleContext)) {
-      return new LocalResourceContainer(
-          ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+      return empty();
     }
-
-    AndroidAssets assets = AndroidAssets.from(ruleContext);
 
     ImmutableList<Artifact> resources =
         getResources(
             ruleContext.getPrerequisites(resourcesAttr, Mode.TARGET, FileProvider.class));
 
-    return new LocalResourceContainer(
-        resources,
-        getResourceRoots(ruleContext, resources, resourcesAttr),
-        assets.getAssets(),
-        assets.getAssetRoots());
-
+    return forResources(ruleContext, resources, resourcesAttr);
   }
 
+  /** Returns an {@link AndroidResources} for a list of resource artifacts. */
+  @VisibleForTesting
+  public static AndroidResources forResources(
+      RuleErrorConsumer ruleErrorConsumer, ImmutableList<Artifact> resources, String resourcesAttr)
+      throws RuleErrorException {
+    return new AndroidResources(
+        resources, getResourceRoots(ruleErrorConsumer, resources, resourcesAttr));
+  }
+
+  /**
+   * TODO(b/76218640): Whether local resources are built into a target should depend on that
+   * target's resource attribute ("resource_files" in general, but local_resource_files for
+   * android_test), not any other attributes.
+   */
   private static boolean hasLocalResourcesAttributes(RuleContext ruleContext) {
     return ruleContext.attributes().has("assets") || ruleContext.attributes().has("resource_files");
   }
 
+  static AndroidResources empty() {
+    return new AndroidResources(ImmutableList.of(), ImmutableList.of());
+  }
+
   /**
-   * Creates a {@link LocalResourceContainer} containing all the resources and assets in directory
-   * artifacts.
+   * Creates a {@link AndroidResources} containing all the resources in directory artifacts, for use
+   * with AarImport rules.
    *
-   * <p>In general, {@link #forAssetsAndResources(RuleContext, String, PathFragment, String)} should
-   * be used instead. No assets or transitive resources will be included in the container produced
-   * by this method.
+   * <p>In general, {@link #from(RuleContext, String)} should be used instead, but it can't be for
+   * AarImport since we don't know about its individual assets at analysis time. No transitive
+   * resources will be included in the container produced by this method.
    *
-   * @param assetsDir the tree artifact containing a {@code assets/} directory
    * @param resourcesDir the tree artifact containing a {@code res/} directory
    */
-  static LocalResourceContainer forAssetsAndResourcesDirectories(
-      Artifact assetsDir, Artifact resourcesDir) {
+  static AndroidResources forAarImport(SpecialArtifact resourcesDir) {
     Preconditions.checkArgument(resourcesDir.isTreeArtifact());
-    Preconditions.checkArgument(assetsDir.isTreeArtifact());
-    return new LocalResourceContainer(
+    return new AndroidResources(
         ImmutableList.of(resourcesDir),
-        ImmutableList.of(resourcesDir.getExecPath().getChild("res")),
-        ImmutableList.of(assetsDir),
-        ImmutableList.of(assetsDir.getExecPath().getChild("assets")));
+        ImmutableList.of(resourcesDir.getExecPath().getChild("res")));
   }
 
   /**
@@ -286,20 +291,13 @@ public final class LocalResourceContainer {
   }
 
   private final ImmutableList<Artifact> resources;
-  private final ImmutableList<Artifact> assets;
-  private final ImmutableList<PathFragment> assetRoots;
   private final ImmutableList<PathFragment> resourceRoots;
 
   @VisibleForTesting
-  public LocalResourceContainer(
-      ImmutableList<Artifact> resources,
-      ImmutableList<PathFragment> resourceRoots,
-      ImmutableList<Artifact> assets,
-      ImmutableList<PathFragment> assetRoots) {
+  public AndroidResources(
+      ImmutableList<Artifact> resources, ImmutableList<PathFragment> resourceRoots) {
     this.resources = resources;
     this.resourceRoots = resourceRoots;
-    this.assets = assets;
-    this.assetRoots = assetRoots;
   }
 
   private static ImmutableList<Artifact> getResources(Iterable<FileProvider> targets) {
@@ -315,20 +313,12 @@ public final class LocalResourceContainer {
     return resources;
   }
 
-  public ImmutableList<Artifact> getAssets() {
-    return assets;
-  }
-
-  public ImmutableList<PathFragment> getAssetRoots() {
-    return assetRoots;
-  }
-
   /**
    * Gets the roots of some resources.
    *
    * @return a list of roots, or an empty list of the passed resources cannot all be contained in a
-   *     single {@link LocalResourceContainer}. If that's the case, it will be reported to the
-   *     {@link RuleErrorConsumer}.
+   *     single {@link AndroidResources}. If that's the case, it will be reported to the {@link
+   *     RuleErrorConsumer}.
    */
   @VisibleForTesting
   static ImmutableList<PathFragment> getResourceRoots(
@@ -353,43 +343,46 @@ public final class LocalResourceContainer {
   }
 
   /**
+   * Filters this object, assuming it contains the resources of the current target.
+   *
+   * <p>If this object contains the resources from a dependency of this target, use {@link
+   * #maybeFilter(ResourceFilter, boolean)} instead.
+   *
+   * @return a filtered {@link AndroidResources} object. If no filtering was done, this object will
+   *     be returned.
+   */
+  public AndroidResources filterLocalResources(ResourceFilter resourceFilter) {
+    return maybeFilter(resourceFilter, /* isDependency = */ false).orElse(this);
+  }
+
+  /**
    * Filters this object.
    *
-   * @return a new {@link LocalResourceContainer} with resources filtered by the passed {@link
-   *     ResourceFilter}, or this object if no resources should be filtered.
+   * @return an optional wrapping a = new {@link AndroidResources} with resources filtered by the
+   *     passed {@link ResourceFilter}, or {@link Optional#empty()} if no resources should be
+   *     filtered.
    */
-  public LocalResourceContainer filter(
-      RuleErrorConsumer ruleErrorConsumer, ResourceFilter resourceFilter)
-      throws RuleErrorException {
+  public Optional<AndroidResources> maybeFilter(
+      ResourceFilter resourceFilter, boolean isDependency) {
     Optional<ImmutableList<Artifact>> filtered =
-        resourceFilter.maybeFilter(resources, /* isDependency= */ false);
+        resourceFilter.maybeFilter(resources, /* isDependency= */ isDependency);
 
     if (!filtered.isPresent()) {
       // Nothing was filtered out
-      return this;
+      return Optional.empty();
     }
 
-    return withResources(ruleErrorConsumer, filtered.get(), "resource_files");
-  }
+    // If the resources were filtered, also filter the resource roots
+    ImmutableList.Builder<PathFragment> filteredResourcesRootsBuilder = ImmutableList.builder();
+    for (PathFragment resourceRoot : resourceRoots) {
+      for (Artifact resource : filtered.get()) {
+        if (resource.getRootRelativePath().startsWith(resourceRoot)) {
+          filteredResourcesRootsBuilder.add(resourceRoot);
+          break;
+        }
+      }
+    }
 
-  @VisibleForTesting
-  static LocalResourceContainer forResources(
-      RuleErrorConsumer ruleErrorConsumer, ImmutableList<Artifact> resources)
-      throws RuleErrorException {
-    return new LocalResourceContainer(
-        resources,
-        getResourceRoots(ruleErrorConsumer, resources, "resource_files"),
-        ImmutableList.of(),
-        ImmutableList.of());
-  }
-
-  private LocalResourceContainer withResources(
-      RuleErrorConsumer ruleErrorConsumer, ImmutableList<Artifact> resources, String resourcesAttr)
-      throws RuleErrorException {
-    return new LocalResourceContainer(
-        resources,
-        getResourceRoots(ruleErrorConsumer, resources, resourcesAttr),
-        assets,
-        assetRoots);
+    return Optional.of(new AndroidResources(filtered.get(), filteredResourcesRootsBuilder.build()));
   }
 }
