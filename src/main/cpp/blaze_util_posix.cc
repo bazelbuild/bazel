@@ -48,9 +48,9 @@
 
 namespace blaze {
 
-using blaze_util::die;
-using blaze_util::pdie;
 using blaze_exit_code::INTERNAL_ERROR;
+using blaze_util::die;
+using blaze_util::GetLastErrorString;
 
 using std::string;
 using std::vector;
@@ -340,7 +340,8 @@ int ExecuteDaemon(const string& exe,
   int fds[2];
 
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "socket creation failed");
+    die(blaze_exit_code::INTERNAL_ERROR, "socket creation failed: %s",
+        GetLastErrorString().c_str());
   }
 
   const char* daemon_output_chars = daemon_output.c_str();
@@ -349,7 +350,8 @@ int ExecuteDaemon(const string& exe,
 
   int child = fork();
   if (child == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+    die(blaze_exit_code::INTERNAL_ERROR, "fork() failed: %s",
+        GetLastErrorString().c_str());
     return -1;
   } else if (child > 0) {
     // Parent process (i.e. the client)
@@ -361,7 +363,8 @@ int ExecuteDaemon(const string& exe,
                         "cannot read server PID from server");
     string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
     if (!blaze_util::WriteFile(ToString(server_pid), pid_file)) {
-      pdie(blaze_exit_code::INTERNAL_ERROR, "cannot write PID file");
+      die(blaze_exit_code::INTERNAL_ERROR, "cannot write PID file: %s",
+          GetLastErrorString().c_str());
       return -1;
     }
 
@@ -402,7 +405,8 @@ static string RunProgram(const string& exe,
                          const std::vector<string>& args_vector) {
   int fds[2];
   if (pipe(fds)) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
+    die(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed: %s",
+        GetLastErrorString().c_str());
   }
   int recv_socket = fds[0];
   int send_socket = fds[1];
@@ -412,14 +416,16 @@ static string RunProgram(const string& exe,
 
   int child = fork();
   if (child == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+    die(blaze_exit_code::INTERNAL_ERROR, "fork() failed: %s",
+        GetLastErrorString().c_str());
   } else if (child > 0) {  // we're the parent
     close(send_socket);    // parent keeps only the reading side
     string result;
     bool success = blaze_util::ReadFrom(recv_socket, &result);
     close(recv_socket);
     if (!success) {
-      pdie(blaze_exit_code::INTERNAL_ERROR, "Cannot read subprocess output");
+      die(blaze_exit_code::INTERNAL_ERROR, "Cannot read subprocess output: %s",
+          GetLastErrorString().c_str());
     }
     return result;
   } else {                 // We're the child
@@ -454,14 +460,16 @@ void CreateSecureOutputRoot(const string& path) {
   struct stat fileinfo = {};
 
   if (!blaze_util::MakeDirectories(root, 0755)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s'): %s", root,
+        GetLastErrorString().c_str());
   }
 
   // The path already exists.
   // Check ownership and mode, and verify that it is a directory.
 
   if (lstat(root, &fileinfo) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "lstat('%s')", root);
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "lstat('%s'): %s", root,
+        GetLastErrorString().c_str());
   }
 
   if (fileinfo.st_uid != geteuid()) {
@@ -479,7 +487,8 @@ void CreateSecureOutputRoot(const string& path) {
   }
 
   if (stat(root, &fileinfo) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "stat('%s')", root);
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "stat('%s'): %s", root,
+        GetLastErrorString().c_str());
   }
 
   if (!S_ISDIR(fileinfo.st_mode)) {
@@ -559,8 +568,9 @@ static int setlk(int fd, struct flock *lock) {
   if (fcntl(fd, F_OFD_SETLK, lock) == 0) return 0;
   if (errno != EINVAL) {
     if (errno != EACCES && errno != EAGAIN) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_OFD_SETLK");
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "unexpected result from F_OFD_SETLK: %s",
+          GetLastErrorString().c_str());
     }
     return -1;
   }
@@ -569,8 +579,8 @@ static int setlk(int fd, struct flock *lock) {
 #endif
   if (fcntl(fd, F_SETLK, lock) == 0) return 0;
   if (errno != EACCES && errno != EAGAIN) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "unexpected result from F_SETLK");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "unexpected result from F_SETLK: %s", GetLastErrorString().c_str());
   }
   return -1;
 }
@@ -581,15 +591,17 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   int lockfd = open(lockfile.c_str(), O_CREAT|O_RDWR, 0644);
 
   if (lockfd < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "cannot open lockfile '%s' for writing", lockfile.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "cannot open lockfile '%s' for writing: %s", lockfile.c_str(),
+        GetLastErrorString().c_str());
   }
 
   // Keep server from inheriting a useless fd if we are not in batch mode
   if (!batch_mode) {
     if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "fcntl(F_SETFD) failed for lockfile");
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "fcntl(F_SETFD) failed for lockfile: %s",
+          GetLastErrorString().c_str());
     }
   }
 
@@ -699,8 +711,9 @@ string GetUserName() {
   errno = 0;
   passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
   if (pwent == NULL || pwent->pw_name == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "$USER is not set, and unable to look up name of current user");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "$USER is not set, and unable to look up name of current user: %s",
+        GetLastErrorString().c_str());
   }
   return pwent->pw_name;
 }

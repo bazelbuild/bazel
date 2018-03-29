@@ -149,7 +149,8 @@ IPipe* CreatePipe() {
   HANDLE read_handle = INVALID_HANDLE_VALUE;
   HANDLE write_handle = INVALID_HANDLE_VALUE;
   if (!CreatePipe(&read_handle, &write_handle, &sa, 0)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe: %s",
+        GetLastErrorString().c_str());
   }
   return new WindowsPipe(read_handle, write_handle);
 }
@@ -184,9 +185,10 @@ bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
   }
   wstring wpath;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "WindowsFileMtime::GetIfInDistantFuture(%s): AsAbsoluteWindowsPath",
-         path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "WindowsFileMtime::GetIfInDistantFuture(%s): AsAbsoluteWindowsPath "
+        "failed: %s",
+        path.c_str(), GetLastErrorString().c_str());
   }
 
   AutoHandle handle(::CreateFileW(
@@ -236,8 +238,9 @@ bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
   }
   wstring wpath;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "WindowsFileMtime::Set(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "WindowsFileMtime::Set(%s): AsAbsoluteWindowsPath failed: %s",
+        path.c_str(), GetLastErrorString().c_str());
     return false;
   }
 
@@ -267,8 +270,9 @@ FILETIME WindowsFileMtime::GetNow() {
   ::GetSystemTime(&sys_time);
   FILETIME file_time;
   if (!::SystemTimeToFileTime(&sys_time, &file_time)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "WindowsFileMtime::GetNow: SystemTimeToFileTime");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "WindowsFileMtime::GetNow: SystemTimeToFileTime failed: %s",
+        GetLastErrorString().c_str());
   }
   return file_time;
 }
@@ -286,8 +290,9 @@ FILETIME WindowsFileMtime::GetFuture(WORD years) {
   future_time.wMilliseconds = 0;
   FILETIME file_time;
   if (!::SystemTimeToFileTime(&future_time, &file_time)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "WindowsFileMtime::GetFuture: SystemTimeToFileTime");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "WindowsFileMtime::GetFuture: SystemTimeToFileTime failed: %s",
+        GetLastErrorString().c_str());
   }
   return file_time;
 }
@@ -552,8 +557,9 @@ bool AsShortWindowsPath(const string& path, string* result) {
   wstring wpath;
   wstring wsuffix;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "AsShortWindowsPath(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "AsShortWindowsPath(%s): AsAbsoluteWindowsPath failed: %s",
+        path.c_str(), GetLastErrorString().c_str());
     return false;
   }
   DWORD size = ::GetShortPathNameW(wpath.c_str(), nullptr, 0);
@@ -593,9 +599,9 @@ bool AsShortWindowsPath(const string& path, string* result) {
     unique_ptr<WCHAR[]> wshort(
         new WCHAR[size]);  // size includes null-terminator
     if (size - 1 != ::GetShortPathNameW(wpath.c_str(), wshort.get(), size)) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "AsShortWindowsPath(%s): GetShortPathNameW(%S)", path.c_str(),
-           wpath.c_str());
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "AsShortWindowsPath(%s): GetShortPathNameW(%S) failed: %s",
+          path.c_str(), wpath.c_str(), GetLastErrorString().c_str());
     }
     // GetShortPathNameW may preserve the UNC prefix in the result, so strip it.
     wresult = wstring(RemoveUncPrefixMaybe(wshort.get())) + wsuffix;
@@ -616,8 +622,9 @@ static bool OpenFileForReading(const string& filename, HANDLE* result) {
   }
   wstring wfilename;
   if (!AsAbsoluteWindowsPath(filename, &wfilename)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "OpenFileForReading(%s): AsAbsoluteWindowsPath", filename.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "OpenFileForReading(%s): AsAbsoluteWindowsPath failed: %s",
+        filename.c_str(), GetLastErrorString().c_str());
   }
   *result = ::CreateFileW(
       /* lpFileName */ wfilename.c_str(),
@@ -685,8 +692,9 @@ bool WriteFile(const void* data, size_t size, const string& filename,
   }
   wstring wpath;
   if (!AsAbsoluteWindowsPath(filename, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "WriteFile(%s): AsAbsoluteWindowsPath", filename.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "WriteFile(%s): AsAbsoluteWindowsPath failed: %s", filename.c_str(),
+        GetLastErrorString().c_str());
     return false;
   }
 
@@ -727,17 +735,19 @@ int WriteToStdOutErr(const void* data, size_t size, bool to_stdout) {
 int RenameDirectory(const std::string& old_name, const std::string& new_name) {
   wstring wold_name;
   if (!AsAbsoluteWindowsPath(old_name, &wold_name)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "RenameDirectory(%s, %s): AsAbsoluteWindowsPath(%s)", old_name.c_str(),
-         new_name.c_str(), old_name.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "RenameDirectory(%s, %s): AsAbsoluteWindowsPath(%s) failed: %s",
+        old_name.c_str(), new_name.c_str(), old_name.c_str(),
+        GetLastErrorString().c_str());
     return kRenameDirectoryFailureOtherError;
   }
 
   wstring wnew_name;
   if (!AsAbsoluteWindowsPath(new_name, &wnew_name)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "RenameDirectory(%s, %s): AsAbsoluteWindowsPath(%s)", old_name.c_str(),
-         new_name.c_str(), new_name.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "RenameDirectory(%s, %s): AsAbsoluteWindowsPath(%s) failed: %s",
+        old_name.c_str(), new_name.c_str(), new_name.c_str(),
+        GetLastErrorString().c_str());
     return kRenameDirectoryFailureOtherError;
   }
 
@@ -777,8 +787,9 @@ bool UnlinkPath(const string& file_path) {
 
   wstring wpath;
   if (!AsAbsoluteWindowsPath(file_path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "UnlinkPath(%s): AsAbsoluteWindowsPath", file_path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "UnlinkPath(%s): AsAbsoluteWindowsPath failed: %s", file_path.c_str(),
+        GetLastErrorString().c_str());
     return false;
   }
   return UnlinkPathW(wpath);
@@ -909,8 +920,9 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
 bool ReadDirectorySymlink(const string& name, string* result) {
   wstring wname;
   if (!AsAbsoluteWindowsPath(name, &wname)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ReadDirectorySymlink(%s): AsAbsoluteWindowsPath", name.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "ReadDirectorySymlink(%s): AsAbsoluteWindowsPath failed: %s",
+        name.c_str(), GetLastErrorString().c_str());
     return false;
   }
   unique_ptr<WCHAR[]> result_ptr;
@@ -930,8 +942,9 @@ bool PathExists(const string& path) {
   }
   wstring wpath;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "PathExists(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "PathExists(%s): AsAbsoluteWindowsPath failed: %s", path.c_str(),
+        GetLastErrorString().c_str());
     return false;
   }
   return JunctionResolver().Resolve(wpath.c_str(), nullptr);
@@ -946,8 +959,9 @@ string MakeCanonical(const char* path) {
     return "";
   }
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "MakeCanonical(%s): AsAbsoluteWindowsPath", path);
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "MakeCanonical(%s): AsAbsoluteWindowsPath failed: %s", path,
+        GetLastErrorString().c_str());
   }
 
   // Resolve all segments of the path. Do this from leaf to root, so we always
@@ -1052,8 +1066,9 @@ static bool CanReadFileW(const wstring& path) {
 bool CanReadFile(const std::string& path) {
   wstring wpath;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "CanReadFile(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "CanReadFile(%s): AsAbsoluteWindowsPath failed: %s", path.c_str(),
+        GetLastErrorString().c_str());
     return false;
   }
   return CanReadFileW(wpath);
@@ -1062,8 +1077,9 @@ bool CanReadFile(const std::string& path) {
 bool CanExecuteFile(const std::string& path) {
   wstring wpath;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "CanExecuteFile(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "CanExecuteFile(%s): AsAbsoluteWindowsPath failed: %s", path.c_str(),
+        GetLastErrorString().c_str());
     return false;
   }
   return CanReadFileW(wpath) && (ends_with(wpath, wstring(L".exe")) ||
@@ -1075,8 +1091,9 @@ bool CanExecuteFile(const std::string& path) {
 bool CanAccessDirectory(const std::string& path) {
   wstring wpath;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "CanAccessDirectory(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "CanAccessDirectory(%s): AsAbsoluteWindowsPath failed: %s",
+        path.c_str(), GetLastErrorString().c_str());
     return false;
   }
   DWORD attr = ::GetFileAttributesW(wpath.c_str());
@@ -1142,8 +1159,9 @@ bool IsDirectory(const string& path) {
   }
   wstring wpath;
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "IsDirectory(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "IsDirectory(%s): AsAbsoluteWindowsPath failed: %s", path.c_str(),
+        GetLastErrorString().c_str());
     return false;
   }
   return IsDirectoryW(wpath);
@@ -1175,8 +1193,9 @@ static bool MakeDirectoriesW(const wstring& path) {
   if (parent.empty()) {
     // Since `path` is not a root directory, there should have been at least one
     // directory above it.
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "MakeDirectoriesW(%S), could not find dirname", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "MakeDirectoriesW(%S), could not find dirname: %s", path.c_str(),
+        GetLastErrorString().c_str());
   }
   return MakeDirectoriesW(parent) &&
          ::CreateDirectoryW(path.c_str(), NULL) == TRUE;
@@ -1192,8 +1211,9 @@ bool MakeDirectories(const string& path, unsigned int mode) {
   // According to MSDN, CreateDirectory's limit without the UNC prefix is
   // 248 characters (so it could fit another filename before reaching MAX_PATH).
   if (!AsAbsoluteWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "MakeDirectories(%s): AsAbsoluteWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "MakeDirectories(%s): AsAbsoluteWindowsPath failed: %s", path.c_str(),
+        GetLastErrorString().c_str());
     return false;
   }
   return MakeDirectoriesW(wpath);
@@ -1203,7 +1223,8 @@ static unique_ptr<WCHAR[]> GetCwdW() {
   DWORD len = ::GetCurrentDirectoryW(0, nullptr);
   unique_ptr<WCHAR[]> cwd(new WCHAR[len]);
   if (!::GetCurrentDirectoryW(len, cwd.get())) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "GetCurrentDirectoryW");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "GetCurrentDirectoryW failed: %s", GetLastErrorString().c_str());
   }
   for (WCHAR* p = cwd.get(); *p != 0; ++p) {
     *p = towlower(*p);
@@ -1235,8 +1256,9 @@ void ForEachDirectoryEntry(const string &path,
     return;
   }
   if (!AsWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ForEachDirectoryEntry(%s): AsWindowsPath", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "ForEachDirectoryEntry(%s): AsWindowsPath failed: %s", path.c_str(),
+        GetLastErrorString().c_str());
   }
 
   static const wstring kUncPrefix(L"\\\\?\\");
@@ -1273,8 +1295,8 @@ string NormalizeWindowsPath(string path) {
   }
   if (path[0] == '/') {
     // This is an absolute MSYS path, error out.
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "NormalizeWindowsPath(%s): expected a Windows path", path.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "NormalizeWindowsPath(%s): expected a Windows path", path.c_str());
   }
   if (path.size() >= 4 && HasUncPrefix(path.c_str())) {
     path = path.substr(4);

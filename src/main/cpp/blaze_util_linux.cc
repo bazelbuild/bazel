@@ -38,7 +38,7 @@
 namespace blaze {
 
 using blaze_util::die;
-using blaze_util::pdie;
+using blaze_util::GetLastErrorString;
 using std::string;
 using std::vector;
 
@@ -89,7 +89,8 @@ string GetSelfPath() {
     errno = ENAMETOOLONG;
   }
   if (bytes == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error reading /proc/self/exe");
+    die(blaze_exit_code::INTERNAL_ERROR, "error reading /proc/self/exe: %s",
+        GetLastErrorString().c_str());
   }
   buffer[bytes] = '\0';  // readlink does not NUL-terminate
   return string(buffer);
@@ -112,8 +113,9 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
     sched_param param = {};
     param.sched_priority = 0;
     if (sched_setscheduler(0, SCHED_BATCH, &param)) {
-      pdie(blaze_exit_code::INTERNAL_ERROR,
-           "sched_setscheduler(SCHED_BATCH) failed");
+      die(blaze_exit_code::INTERNAL_ERROR,
+          "sched_setscheduler(SCHED_BATCH) failed: %s",
+          GetLastErrorString().c_str());
     }
   }
 
@@ -121,9 +123,9 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
     if (blaze_util::sys_ioprio_set(
             IOPRIO_WHO_PROCESS, getpid(),
             IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, io_nice_level)) < 0) {
-      pdie(blaze_exit_code::INTERNAL_ERROR,
-           "ioprio_set() with class %d and level %d failed",
-           IOPRIO_CLASS_BE, io_nice_level);
+      die(blaze_exit_code::INTERNAL_ERROR,
+          "ioprio_set() with class %d and level %d failed: %s", IOPRIO_CLASS_BE,
+          io_nice_level, GetLastErrorString().c_str());
     }
   }
 }
@@ -183,8 +185,8 @@ string GetDefaultHostJavabase() {
   // Resolve all symlinks.
   char resolved_path[PATH_MAX];
   if (realpath(javac_dir.c_str(), resolved_path) == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Could not resolve javac directory");
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Could not resolve javac directory: %s", GetLastErrorString().c_str());
   }
   javac_dir = resolved_path;
 
@@ -203,8 +205,9 @@ static bool GetStartTime(const string& pid, string* start_time) {
 
   vector<string> stat_entries = blaze_util::Split(statline, ' ');
   if (stat_entries.size() < 22) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Format of stat file at %s is unknown", statfile.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Format of stat file at %s is unknown: %s", statfile.c_str(),
+        GetLastErrorString().c_str());
   }
 
   // Start time since startup in jiffies. This combined with the PID should be
@@ -219,14 +222,16 @@ void WriteSystemSpecificProcessIdentifier(
 
   string start_time;
   if (!GetStartTime(pid_string, &start_time)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Cannot get start time of process %s", pid_string.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Cannot get start time of process %s: %s", pid_string.c_str(),
+        GetLastErrorString().c_str());
   }
 
   string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
   if (!blaze_util::WriteFile(start_time, start_time_file)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Cannot write start time in server dir %s", server_dir.c_str());
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Cannot write start time in server dir %s: %s", server_dir.c_str(),
+        GetLastErrorString().c_str());
   }
 }
 
