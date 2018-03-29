@@ -337,7 +337,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             /*keepEdges=*/ false));
   }
 
-  protected abstract String getName();
+  /**
+   * Version is the string BazelPackageLoader reports in native.bazel_version to be used by Skylark.
+   */
+  protected abstract String getVersion();
 
   protected abstract ImmutableList<EnvironmentExtension> getEnvironmentExtensions();
 
@@ -362,7 +365,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             ruleClassProvider,
             AttributeContainer::new,
             getEnvironmentExtensions(),
-            getName(),
+            getVersion(),
             Package.Builder.DefaultHelper.INSTANCE);
     pkgFactory.setGlobbingThreads(legacyGlobbingThreads);
     pkgFactory.setSyscalls(syscallCacheRef);
