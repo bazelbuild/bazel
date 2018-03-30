@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
  */
 public class EnvironmentMissing {
 
-  @SkylarkCallable(name = "three_arg_method_missing_env", doc = "", useEnvironment = true)
+  @SkylarkCallable(name = "three_arg_method_missing_env", documented = false, useEnvironment = true)
   public String threeArgMethod(String one, Integer two, String three) {
     return "bar";
   }

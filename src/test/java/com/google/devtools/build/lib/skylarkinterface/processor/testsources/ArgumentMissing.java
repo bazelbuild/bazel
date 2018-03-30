@@ -25,7 +25,7 @@ public class ArgumentMissing {
 
   @SkylarkCallable(
     name = "method_with_params",
-    doc = "",
+    documented = false,
     parameters = {
       @Param(name = "a_parameter", type = String.class, named = true),
     })

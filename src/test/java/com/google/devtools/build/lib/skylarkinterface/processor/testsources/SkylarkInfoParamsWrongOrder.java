@@ -26,7 +26,7 @@ public class SkylarkInfoParamsWrongOrder {
 
   @SkylarkCallable(
     name = "skylark_info_params_wrong_order",
-    doc = "",
+    documented = false,
     useLocation = true,
     useEnvironment = true
   )

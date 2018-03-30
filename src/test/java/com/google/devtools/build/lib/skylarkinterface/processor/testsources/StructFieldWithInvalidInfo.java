@@ -22,7 +22,7 @@ public class StructFieldWithInvalidInfo {
 
   @SkylarkCallable(
     name = "struct_field_method_with_info",
-    doc = "",
+    documented = false,
     structField = true,
     useEnvironment = true
   )

@@ -25,7 +25,7 @@ public class InvalidParamNoneDefault {
 
   @SkylarkCallable(
       name = "method_with_invalid_default",
-      doc = "",
+      documented = false,
       parameters = {
           @Param(name = "a_parameter", type = String.class, named = true, defaultValue = "None"),
       })

@@ -14,24 +14,16 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Environment;
 
 /**
- * Test case for a SkylarkCallable method which specifies skylark-info parameters (for example
- * Environment) before other parameters.
+ * Test case for a SkylarkCallable method which has no documentation and is not explicitly marked
+ * "documented=false".
  */
-public class SkylarkInfoBeforeParams {
+public class DocumentationMissing {
 
-  @SkylarkCallable(
-    name = "skylark_info_wrong_order",
-    documented = false,
-    useLocation = true,
-    useEnvironment = true
-  )
-  public String threeArgMethod(
-      Location location, Environment environment, String one, Integer two, String three) {
-    return "bar";
+  @SkylarkCallable(name = "undocumented_method")
+  public String undocumentedMethod() {
+    return "fox";
   }
 }
