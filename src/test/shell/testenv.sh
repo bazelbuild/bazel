@@ -230,11 +230,11 @@ exit 1;
 case "${PLATFORM}" in
   darwin|freebsd)
     function sha256sum() {
-      cat "$1" | shasum -a 256 | cut -f 1 -d " "
+      shasum -a 256 "$@"
     }
     ;;
   *)
-    # Under linux sha256sum should exists
+    # Under Linux, sha256sum usually exists as a binary as part of coreutils.
     ;;
 esac
 
