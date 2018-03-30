@@ -27,7 +27,6 @@ source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function hash_outputs() {
-  [ -n "${BAZEL_TEST_XTRACE:-}" ] && set +x  # Avoid garbage in the output
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
   # ar on OS-X is non-deterministic, ignore .a files.
   for i in $(find bazel-bin/ -type f -a \! -name MANIFEST -a \! -name '*.runfiles_manifest' -a \! -name '*.a'); do
@@ -36,7 +35,6 @@ function hash_outputs() {
   for i in $(find bazel-genfiles/ -type f); do
     sha256sum $i
   done
-  [ -n "${BAZEL_TEST_XTRACE:-}" ] && set -x
 }
 
 function get_outputs_sum() {
