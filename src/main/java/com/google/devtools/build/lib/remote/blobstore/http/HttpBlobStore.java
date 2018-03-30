@@ -206,6 +206,12 @@ public final class HttpBlobStore implements SimpleBlobStore {
         new FilterOutputStream(out) {
 
           @Override
+          public void write(byte[] b, int offset, int length) throws IOException {
+            dataWritten.set(true);
+            super.write(b, offset, length);
+          }
+
+          @Override
           public void write(int b) throws IOException {
             dataWritten.set(true);
             super.write(b);
