@@ -25,14 +25,18 @@ import com.google.devtools.common.options.OptionsBase;
 import java.util.Map;
 
 /**
- * Options that will be evaluated by the blaze client startup code and passed
- * to the blaze server upon startup.
+ * Options that will be evaluated by the blaze client startup code and passed to the blaze server
+ * upon startup.
  *
- * <h4>IMPORTANT</h4> These options and their defaults must be kept in sync with those in the
- * source of the launcher.  The latter define the actual default values; this class exists only to
- * provide the help message, which displays the default values.
+ * <h4>IMPORTANT</h4>
  *
- * The same relationship holds between {@link HostJvmStartupOptions} and the launcher.
+ * These options and their defaults must be kept in sync with those in the source of the launcher.
+ * The latter define the actual default values, most startup options are passed every time,
+ * regardless of whether a value was set explicitly or if the default was used. Some options are
+ * omitted by default, though this should only be true for options where "omitted" is a distinct
+ * value.
+ *
+ * <p>The same relationship holds between {@link HostJvmStartupOptions} and the launcher.
  */
 public class BlazeServerStartupOptions extends OptionsBase {
   /**
@@ -79,7 +83,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    */
   @Option(
     name = "install_base",
-    defaultValue = "", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     metadataTags = {OptionMetadataTag.HIDDEN},
@@ -94,7 +98,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    */
   @Option(
     name = "install_md5",
-    defaultValue = "", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
     metadataTags = {OptionMetadataTag.HIDDEN},
@@ -109,7 +113,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    */
   @Option(
     name = "output_base",
-    defaultValue = "null", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "null", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     converter = OptionsUtils.PathFragmentConverter.class,
@@ -129,7 +133,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "output_user_root",
-    defaultValue = "null", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "null", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     converter = OptionsUtils.PathFragmentConverter.class,
@@ -148,7 +152,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    */
   @Option(
     name = "server_jvm_out",
-    defaultValue = "null", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     converter = OptionsUtils.PathFragmentConverter.class,
@@ -161,7 +165,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "workspace_directory",
-    defaultValue = "",
+    defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     metadataTags = {OptionMetadataTag.HIDDEN},
@@ -174,7 +178,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "max_idle_secs",
-    defaultValue = "" + (3 * 3600), // NOTE: purely decorative!  See class docstring.
+    // NOTE: default value only used for documentation, value is always passed by the client when
+    // not in --batch mode.
+    defaultValue = "" + (3 * 3600),
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     valueHelp = "<integer>",
@@ -186,7 +192,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "batch",
-    defaultValue = "false", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {
       OptionEffectTag.LOSES_INCREMENTAL_STATE,
@@ -200,7 +206,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "deep_execroot",
-    defaultValue = "true", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
     help =
@@ -211,7 +217,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "experimental_oom_more_eagerly",
-    defaultValue = "false", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
@@ -224,7 +230,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "experimental_oom_more_eagerly_threshold",
-    defaultValue = "100", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "100", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
@@ -236,7 +242,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "block_for_lock",
-    defaultValue = "true", // NOTE: purely decorative!  See class docstring.
+    defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
@@ -247,7 +253,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "io_nice_level",
-    defaultValue = "-1", // NOTE: purely decorative!
+    defaultValue = "-1", // NOTE: only for documentation, value never passed to the server.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
     valueHelp = "{-1,0,1,2,3,4,5,6,7}",
@@ -261,7 +267,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "batch_cpu_scheduling",
-    defaultValue = "false", // NOTE: purely decorative!
+    defaultValue = "false", // NOTE: only for documentation, value never passed to the server.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
     help =
@@ -273,7 +279,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "blazerc",
-    defaultValue = "null", // NOTE: purely decorative!
+    defaultValue = "null", // NOTE: purely decorative, rc files are read by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     valueHelp = "<path>",
@@ -288,7 +294,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "master_blazerc",
-    defaultValue = "true", // NOTE: purely decorative!
+    defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     help = "If this option is false, the master %{product}rc next to the binary is not read."
@@ -297,7 +303,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "fatal_event_bus_exceptions",
-    defaultValue = "false", // NOTE: purely decorative!
+    defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Whether or not to exit if an exception is thrown by an internal EventBus handler."
@@ -319,7 +325,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   // turn this into a non-startup option.
   @Option(
     name = "watchfs",
-    defaultValue = "false",
+    defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = OptionMetadataTag.DEPRECATED,
@@ -329,6 +335,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   )
   public boolean watchFS;
 
+  // This option is only passed in --batch mode. The value is otherwise passed as part of the
+  // server request.
   @Option(
     name = "invocation_policy",
     defaultValue = "",
@@ -355,7 +363,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "product_name",
-    defaultValue = "bazel", // NOTE: purely decorative!
+    defaultValue = "bazel", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {
       OptionEffectTag.LOSES_INCREMENTAL_STATE,
@@ -373,7 +381,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   // TODO(ulfjack): Make this a command option.
   @Option(
     name = "write_command_log",
-    defaultValue = "true",
+    defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Whether or not to write the command.log file"
@@ -382,7 +390,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "client_debug",
-    defaultValue = "false", // NOTE: purely decorative!
+    defaultValue = "false", // NOTE: only for documentation, value is set and used by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     help =
@@ -393,7 +401,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "connect_timeout_secs",
-    defaultValue = "30",
+    defaultValue = "30", // NOTE: only for documentation, value is set and used by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     help = "The amount of time the client waits for each attempt to connect to the server"
@@ -402,7 +410,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
     name = "expand_configs_in_place",
-    defaultValue = "true", // NOTE: purely decorative!
+    defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION, OptionEffectTag.CHANGES_INPUTS},
     metadataTags = {OptionMetadataTag.EXPERIMENTAL},

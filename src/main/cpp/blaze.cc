@@ -519,16 +519,22 @@ static vector<string> GetArgumentArray(
   }
   if (globals->options->oom_more_eagerly) {
     result.push_back("--experimental_oom_more_eagerly");
+  } else {
+    result.push_back("--noexperimental_oom_more_eagerly");
   }
   result.push_back("--experimental_oom_more_eagerly_threshold=" +
                    ToString(globals->options->oom_more_eagerly_threshold));
 
-  if (!globals->options->write_command_log) {
+  if (globals->options->write_command_log) {
+    result.push_back("--write_command_log");
+  } else {
     result.push_back("--nowrite_command_log");
   }
 
   if (globals->options->watchfs) {
     result.push_back("--watchfs");
+  } else {
+    result.push_back("--nowatchfs");
   }
   if (globals->options->fatal_event_bus_exceptions) {
     result.push_back("--fatal_event_bus_exceptions");
@@ -536,25 +542,25 @@ static vector<string> GetArgumentArray(
     result.push_back("--nofatal_event_bus_exceptions");
   }
 
-  // We use this syntax so that the logic in ServerNeedsToBeKilled() that
+  // We use this syntax so that the logic in AreStartupOptionsDifferent() that
   // decides whether the server needs killing is simpler. This is parsed by the
   // Java code where --noclient_debug and --client_debug=false are equivalent.
   // Note that --client_debug false (separated by space) won't work either,
-  // because the logic in ServerNeedsToBeKilled() assumes that every argument
-  // is in the --arg=value form.
+  // because the logic in AreStartupOptionsDifferent() assumes that every
+  // argument is in the --arg=value form.
   if (globals->options->client_debug) {
     result.push_back("--client_debug=true");
   } else {
     result.push_back("--client_debug=false");
   }
 
+  // These flags are passed to the java process only for Blaze reporting
+  // purposes; the real interpretation of the jvm flags occurs when we set up
+  // the java command line.
   if (!globals->options->GetExplicitHostJavabase().empty()) {
     result.push_back("--host_javabase=" +
                      globals->options->GetExplicitHostJavabase());
   }
-
-  // This is only for Blaze reporting purposes; the real interpretation of the
-  // jvm flags occurs when we set up the java command line.
   if (globals->options->host_jvm_debug) {
     result.push_back("--host_jvm_debug");
   }
@@ -1066,41 +1072,48 @@ static void ExtractData(const string &self_path) {
   }
 }
 
-const char *volatile_startup_options[] = {
-    "--option_sources=",
-    "--max_idle_secs=",
-    "--connect_timeout_secs=",
-    "--client_debug=",
-    NULL,
-};
+// TODO(ccalvarin) when --batch is gone and the startup_options field in the
+// gRPC message is always set, there is no reason for client options that are
+// not used at server startup to be part of the startup command line. The server
+// command line difference logic can be simplified then.
+const std::vector<string> volatile_startup_options = {
+    "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
+    "--client_debug="};
 
 // Returns true if the server needs to be restarted to accommodate changes
 // between the two argument lists.
-static bool ServerNeedsToBeKilled(const vector<string> &args1,
-                                  const vector<string> &args2) {
+static bool AreStartupOptionsDifferent(
+    const vector<string> &running_server_args,
+    const vector<string> &requested_args) {
   // We need not worry about one side missing an argument and the other side
-  // having the default value, since this command line is already the
-  // canonicalized one that always contains every switch (with default values
-  // if it was not present on the real command line). Same applies for argument
-  // ordering.
-  if (args1.size() != args2.size()) {
+  // having the default value, since this command line is the canonical one for
+  // this version of Bazel: either the default value is listed explicitly or it
+  // is not, but this has nothing to do with the user's command line: it is
+  // defined by GetArgumentArray(). Same applies for argument ordering.
+  if (running_server_args.size() != requested_args.size()) {
+    BAZEL_LOG(INFO) << "The new command line has a different length from the "
+                       "running server's.";
     return true;
   }
 
-  for (int i = 0; i < args1.size(); i++) {
-    bool option_volatile = false;
-    for (const char **candidate = volatile_startup_options; *candidate != NULL;
-         candidate++) {
-      string candidate_string(*candidate);
-      if (args1[i].substr(0, candidate_string.size()) == candidate_string &&
-          args2[i].substr(0, candidate_string.size()) == candidate_string) {
-        option_volatile = true;
-        break;
+  for (int i = 0; i < running_server_args.size(); i++) {
+    if (running_server_args[i] != requested_args[i]) {
+      bool option_volatile = false;
+      // Only check if this is a volatile option for dissimilar args.
+      for (const string &candidate : volatile_startup_options) {
+        if (running_server_args[i].substr(0, candidate.size()) == candidate &&
+            requested_args[i].substr(0, candidate.size()) == candidate) {
+          option_volatile = true;
+          break;
+        }
       }
-    }
-
-    if (!option_volatile && args1[i] != args2[i]) {
-      return true;
+      if (!option_volatile) {
+        BAZEL_LOG(INFO)
+            << "A difference was found between the command lines at position "
+            << i << ": the running server has option " << running_server_args[i]
+            << ", and requested option is: " << requested_args[i];
+        return true;
+      }
     }
   }
 
@@ -1116,19 +1129,20 @@ static void KillRunningServerIfDifferentStartupOptions(
 
   string cmdline_path =
       blaze_util::JoinPath(globals->options->output_base, "server/cmdline");
-  string joined_arguments;
+  string old_joined_arguments;
 
   // No, /proc/$PID/cmdline does not work, because it is limited to 4K. Even
   // worse, its behavior differs slightly between kernels (in some, when longer
   // command lines are truncated, the last 4 bytes are replaced with
   // "..." + NUL.
-  blaze_util::ReadFile(cmdline_path, &joined_arguments);
-  vector<string> arguments = blaze_util::Split(joined_arguments, '\0');
+  blaze_util::ReadFile(cmdline_path, &old_joined_arguments);
+  vector<string> old_arguments = blaze_util::Split(old_joined_arguments, '\0');
 
   // These strings contain null-separated command line arguments. If they are
   // the same, the server can stay alive, otherwise, it needs shuffle off this
   // mortal coil.
-  if (ServerNeedsToBeKilled(arguments, GetArgumentArray(workspace_layout))) {
+  if (AreStartupOptionsDifferent(old_arguments,
+                                 GetArgumentArray(workspace_layout))) {
     globals->restart_reason = NEW_OPTIONS;
     BAZEL_LOG(WARNING) << "Running " << globals->options->product_name
                        << " server needs to be killed, because the startup "
@@ -1155,6 +1169,9 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
   if (!ok || !CompareAbsolutePaths(prev_installation,
                                    globals->options->install_base)) {
     if (server->Connected()) {
+      BAZEL_LOG(INFO)
+          << "Killing running server because it is using another version of "
+          << globals->options->product_name;
       server->KillRunningServer();
       globals->restart_reason = NEW_VERSION;
     }
