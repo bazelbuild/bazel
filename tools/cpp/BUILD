@@ -291,8 +291,8 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x64_windows_msvc",
-    all_files = ":every-file-x64_windows",
-    compiler_files = ":compile-x64_windows",
+    all_files = ":every-file-windows",
+    compiler_files = ":compile-windows",
     cpu = "x64_windows",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
@@ -320,8 +320,8 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x86_32_windows_msvc",
-    all_files = ":every-file-x86_32_windows",
-    compiler_files = ":compile-x86_32_windows",
+    all_files = ":every-file-windows",
+    compiler_files = ":compile-windows",
     cpu = "x86_32_windows",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
@@ -372,29 +372,14 @@ toolchain(
 )
 
 filegroup(
-    name = "every-file-x64_windows",
+    name = "every-file-windows",
     srcs = [
-        ":compile-x64_windows",
+        ":compile-windows",
     ],
 )
 
 filegroup(
-    name = "every-file-x86_32_windows",
-    srcs = [
-        ":compile-x86_32_windows",
-    ],
-)
-
-filegroup(
-    name = "compile-x64_windows",
-    srcs = glob([
-        "wrapper/bin/msvc_*",
-        "wrapper/bin/pydir/msvc*",
-    ]),
-)
-
-filegroup(
-    name = "compile-x86_32_windows",
+    name = "compile-windows",
     srcs = glob([
         "wrapper/bin/msvc_*",
         "wrapper/bin/pydir/msvc*",
