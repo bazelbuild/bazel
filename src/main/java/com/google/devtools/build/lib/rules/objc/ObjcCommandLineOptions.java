@@ -292,10 +292,12 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "incompatible_strict_objc_module_maps",
-    category = "incompatible changes",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
     help =
         "Propagates Objective-C module maps only to direct dependencies in the 'objc' provider, "
