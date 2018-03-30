@@ -25,7 +25,7 @@ public class TooManyArguments {
 
   @SkylarkCallable(
     name = "method_with_too_many_arguments",
-    doc = "",
+    documented = false,
     parameters = {
       @Param(name = "parameter_one", type = String.class, named = true),
     })

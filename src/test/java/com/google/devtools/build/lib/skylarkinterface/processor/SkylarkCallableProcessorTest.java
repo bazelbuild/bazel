@@ -78,6 +78,15 @@ public final class SkylarkCallableProcessorTest {
   }
 
   @Test
+  public void testDocumentationMissing() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("DocumentationMissing.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining("The 'doc' string must be non-empty if 'documented' is true.");
+  }
+
+  @Test
   public void testArgumentMissing() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ArgumentMissing.java"))

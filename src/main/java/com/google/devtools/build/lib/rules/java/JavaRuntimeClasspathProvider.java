@@ -41,7 +41,7 @@ public final class JavaRuntimeClasspathProvider implements TransitiveInfoProvide
   /**
    * Returns the artifacts included on the runtime classpath of this binary.
    */
-  @SkylarkCallable(name = "runtime_classpath", doc = "", structField = true)
+  @SkylarkCallable(name = "runtime_classpath", documented = false, structField = true)
   public NestedSet<Artifact> getRuntimeClasspath() {
     return runtimeClasspath;
   }

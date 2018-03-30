@@ -25,7 +25,7 @@ public class LocationMissing {
 
   @SkylarkCallable(
     name = "three_arg_method_missing_location",
-    doc = "",
+    documented = false,
     useLocation = true,
     useEnvironment = true
   )

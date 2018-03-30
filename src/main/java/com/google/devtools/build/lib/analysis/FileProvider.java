@@ -62,7 +62,7 @@ public final class FileProvider implements TransitiveInfoProvider {
    * <p>Also, some rules may generate artifacts that are not listed here by way of defining other
    * implicit targets, for example, deploy jars.
    */
-  @SkylarkCallable(name = "files_to_build", doc = "", structField = true)
+  @SkylarkCallable(name = "files_to_build", documented = false, structField = true)
   public NestedSet<Artifact> getFilesToBuild() {
     return filesToBuild;
   }
