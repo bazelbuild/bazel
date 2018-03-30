@@ -667,12 +667,13 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
     newTest().testIfExactError(
-        "too many (2) positional arguments in call to keys(self: dict)", "{'a': 1}.keys('abc')");
+        "too many arguments, in method call keys(string) of 'dict'", "{'a': 1}.keys('abc')");
   }
 
   @Test
   public void testDictKeysTooManyKeyArgs() throws Exception {
-    newTest().testIfExactError("unexpected keyword 'arg' in call to keys(self: dict)",
+    newTest().testIfExactError(
+        "unexpected keyword 'arg', in method call keys(string arg) of 'dict'",
         "{'a': 1}.keys(arg='abc')");
   }
 

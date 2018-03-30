@@ -43,7 +43,7 @@ assert_eq(foo, ['a', 'b', 'c', 'd', 'e', 'f'])
 ---
 (1, 2).extend([3, 4]) ### type 'tuple' has no method extend(list)
 ---
-[1, 2].extend(3) ### argument 'items' has type 'int', but should be 'sequence'
+[1, 2].extend(3) ### expected value of type 'sequence' for parameter 'items'
 
 # remove
 
