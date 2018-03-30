@@ -287,13 +287,13 @@ java_library(
 
 java_import(
     name = "auto_value_value",
-    jars = ["auto/auto-value-1.4.jar"],
+    jars = ["auto/auto-value-1.5.4.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "auto_value-jars",
-    srcs = ["auto/auto-value-1.4.jar"],
+    srcs = ["auto/auto-value-1.5.4.jar"],
 )
 
 java_import(
