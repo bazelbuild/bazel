@@ -29,6 +29,7 @@ import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -75,9 +76,8 @@ public abstract class ImplicitOutputsFunction {
     }
   }
 
-  /**
-   * Implicit output functions executing Skylark code.
-   */
+  /** Implicit output functions executing Skylark code. */
+  @AutoCodec
   public static final class SkylarkImplicitOutputsFunctionWithCallback
       extends SkylarkImplicitOutputsFunction {
 
@@ -138,9 +138,8 @@ public abstract class ImplicitOutputsFunction {
     }
   }
 
-  /**
-   * Implicit output functions using a simple an output map.
-   */
+  /** Implicit output functions using a simple an output map. */
+  @AutoCodec
   public static final class SkylarkImplicitOutputsFunctionWithMap
       extends SkylarkImplicitOutputsFunction {
 

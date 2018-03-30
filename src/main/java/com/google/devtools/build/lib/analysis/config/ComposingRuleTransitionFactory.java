@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A {@link RuleTransitionFactory} that composes other {@link RuleTransitionFactory}s.
- */
+/** A {@link RuleTransitionFactory} that composes other {@link RuleTransitionFactory}s. */
+@AutoCodec
 public class ComposingRuleTransitionFactory implements RuleTransitionFactory {
 
   private final RuleTransitionFactory rtf1;

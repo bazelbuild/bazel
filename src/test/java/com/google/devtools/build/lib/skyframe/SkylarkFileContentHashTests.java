@@ -183,10 +183,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     Collection<Target> targets = result.get(pkgLookupKey).getPackage().getTargets().values();
     for (Target target : targets) {
       if (target.getName().equals(name)) {
-        return ((Rule) target)
-            .getRuleClassObject()
-            .getRuleDefinitionEnvironment()
-            .getTransitiveContentHashCode();
+        return ((Rule) target).getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
       }
     }
     throw new IllegalStateException("target not found: " + name);

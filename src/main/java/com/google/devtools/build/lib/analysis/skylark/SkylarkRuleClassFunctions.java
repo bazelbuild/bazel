@@ -556,7 +556,8 @@ public class SkylarkRuleClassFunctions {
           RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
           RuleClass parent =
               test
-                  ? getTestBaseRule(SkylarkUtils.getToolsRepository(funcallEnv),
+                  ? getTestBaseRule(
+                      SkylarkUtils.getToolsRepository(funcallEnv),
                       (PatchTransition) SkylarkUtils.getLipoDataTransition(funcallEnv))
                   : (executable ? binaryBaseRule : baseRule);
 
@@ -609,7 +610,9 @@ public class SkylarkRuleClassFunctions {
               .requiresHostConfigurationFragmentsBySkylarkModuleName(
                   hostFragments.getContents(String.class, "host_fragments"));
           builder.setConfiguredTargetFunction(implementation);
-          builder.setRuleDefinitionEnvironment(funcallEnv);
+          builder.setRuleDefinitionEnvironmentLabelAndHashCode(
+              funcallEnv.getGlobals().getTransitiveLabel(),
+              funcallEnv.getTransitiveContentHashCode());
           builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
 
           return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());

@@ -867,7 +867,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         name,
         RuleClassType.NORMAL,
         /*isSkylark=*/ skylarkExecutable,
-        skylarkExecutable,
         /*skylarkTestable=*/ false,
         documented,
         publicByDefault,
@@ -884,7 +883,9 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
-        ruleDefinitionEnvironment,
+        ruleDefinitionEnvironment == null
+            ? null
+            : ruleDefinitionEnvironment.getGlobals().getLabel(),
         ruleDefinitionEnvironmentHashCode,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
@@ -893,7 +894,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         supportsConstraintChecking,
         /*requiredToolchains=*/ ImmutableSet.<Label>of(),
         /*supportsPlatforms=*/ true,
-        attributes);
+        ImmutableList.copyOf(attributes));
   }
 
   private static RuleClass createParentRuleClass() {

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -141,8 +142,9 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
   }
 
-  private static class SetsTestFilterFromAttributeTransitionFactory
-      implements RuleTransitionFactory {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class SetsTestFilterFromAttributeTransitionFactory implements RuleTransitionFactory {
     @Override
     public ConfigurationTransition buildTransitionFor(Rule rule) {
       NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);

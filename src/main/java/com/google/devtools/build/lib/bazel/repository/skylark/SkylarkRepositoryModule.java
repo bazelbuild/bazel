@@ -126,8 +126,8 @@ public class SkylarkRepositoryModule {
           Builder builder = new Builder("", RuleClassType.WORKSPACE, true);
 
           builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
-          builder.addOrOverrideAttribute(attr("$environ", STRING_LIST)
-              .defaultValue(environ).build());
+          builder.addOrOverrideAttribute(
+              attr("$environ", STRING_LIST).defaultValue(environ).build());
           BaseRuleClasses.nameAttribute(builder);
           BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
           builder.add(attr("expect_failure", STRING));
@@ -141,7 +141,9 @@ public class SkylarkRepositoryModule {
             }
           }
           builder.setConfiguredTargetFunction(implementation);
-          builder.setRuleDefinitionEnvironment(funcallEnv);
+          builder.setRuleDefinitionEnvironmentLabelAndHashCode(
+              funcallEnv.getGlobals().getTransitiveLabel(),
+              funcallEnv.getTransitiveContentHashCode());
           builder.setWorkspaceOnly();
           return new RepositoryRuleFunction(builder);
         }
