@@ -55,7 +55,17 @@ public enum OptionMetadataTag {
    *
    * <p>These should be in category {@code OptionDocumentationCategory.UNDOCUMENTED}.
    */
-  INTERNAL(4);
+  INTERNAL(4),
+
+  /**
+   * Options that are triggered by --all_incompatible_changes.
+   *
+   * <p>These must also be labelled {@link OptionMetadataTag#INCOMPATIBLE_CHANGE} and have the
+   * prefix --incompatible_. Note that the option name prefix is also a triggering case for the
+   * --all_incompatible_changes expansion, and so all options that start with the "incompatible_"
+   * prefix must have this tag.
+   */
+  TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES(5);
 
   private final int value;
 

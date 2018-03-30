@@ -137,7 +137,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   /** {@link Option#expansionFunction()} ()} */
-  Class<? extends ExpansionFunction> getExpansionFunction() {
+  public Class<? extends ExpansionFunction> getExpansionFunction() {
     return optionAnnotation.expansionFunction();
   }
 

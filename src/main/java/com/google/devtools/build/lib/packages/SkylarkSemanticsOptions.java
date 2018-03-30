@@ -62,10 +62,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, all `load` must be called at the top of .bzl files, before any other "
             + "statement."
@@ -75,10 +77,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_depset_union",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, depset union using `+`, `|` or `.union` are forbidden. "
             + "Use the `depset` constructor instead."
@@ -88,10 +92,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_depset_is_not_iterable",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, depset type is not iterable. For loops and functions expecting an "
             + "iterable will reject depset objects. Use the `.to_list` method to explicitly "
@@ -102,54 +108,64 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_disable_glob_tracking",
     defaultValue = "true",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help = "If set to true, do not track the values of globs (this is used by rare specific cases"
   )
   public boolean incompatibleDisableGlobTracking;
 
   @Option(
-      name = "incompatible_disable_objc_provider_resources",
-      defaultValue = "false",
-      category = "incompatible changes",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, disallow use of deprecated resource fields on the Objc provider."
+    name = "incompatible_disable_objc_provider_resources",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help = "If set to true, disallow use of deprecated resource fields on the Objc provider."
   )
   public boolean incompatibleDisableObjcProviderResources;
 
   @Option(
     name = "incompatible_disallow_dict_plus",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help = "If set to true, the `+` becomes disabled for dicts."
   )
   public boolean incompatibleDisallowDictPlus;
 
   @Option(
-      name = "incompatible_disallow_three_arg_vardef",
-      defaultValue = "false",
-      category = "incompatible changes",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, three-argument `vardef()` functions are disallowed."
+    name = "incompatible_disallow_three_arg_vardef",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help = "If set to true, three-argument `vardef()` functions are disallowed."
   )
   public boolean incompatibleDisallowThreeArgVardef;
 
   @Option(
     name = "incompatible_disallow_toplevel_if_statement",
     defaultValue = "true",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, 'if' statements are forbidden at the top-level "
             + "(outside a function definition)"
@@ -157,24 +173,29 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowToplevelIfStatement;
 
   @Option(
-      name = "incompatible_new_actions_api",
-      defaultValue = "false",
-      category = "incompatible changes",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, the API to create actions is only available on `ctx.actions`, "
-          + "not on `ctx`."
+    name = "incompatible_new_actions_api",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help =
+        "If set to true, the API to create actions is only available on `ctx.actions`, "
+            + "not on `ctx`."
   )
   public boolean incompatibleNewActionsApi;
 
   @Option(
     name = "incompatible_package_name_is_a_function",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, the values PACKAGE_NAME and REPOSITORY_NAME are not available. "
             + "Use the package_name() or repository_name() functions instead."
@@ -184,10 +205,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_remove_native_git_repository",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, the native git_repository rules are disabled; only the skylark version "
             + "will be available"
@@ -197,10 +220,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_remove_native_http_archive",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, the native http_archive rules are disabled; only the skylark version "
             + "will be available"
@@ -210,10 +235,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_string_is_not_iterable",
     defaultValue = "false",
-    category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
     help =
         "If set to true, iterating over a string will throw an error. String indexing and `len` "
             + "are still allowed."
