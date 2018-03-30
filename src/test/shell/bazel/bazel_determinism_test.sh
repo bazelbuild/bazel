@@ -50,22 +50,21 @@ function hash_outputs() {
 }
 
 function test_determinism()  {
-    local olddir=$(pwd)
-    WRKDIR=$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)
-    mkdir -p "${WRKDIR}" || fail "Could not create workdir"
-    trap "rm -rf \"$WRKDIR\"" EXIT
-    cd "${WRKDIR}" || fail "Could not change to work directory"
-    unzip -q ${DISTFILE}
-    # Compile bazel a first time
-    bazel build --nostamp src:bazel
-    cp bazel-bin/src/bazel bazel1
+    local workdir="${TEST_TMPDIR}/workdir"
+    mkdir "${workdir}" || fail "Could not create work directory"
+    cd "${workdir}" || fail "Could not change to work directory"
+    unzip -q "${DISTFILE}"
+
+    # Build Bazel once.
+    bazel --output_base="${TEST_TMPDIR}/out1" build --nostamp //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum1"
-    ./bazel1 clean --expunge
-    ./bazel1 build --nostamp src:bazel
+
+    # Build Bazel twice.
+    bazel-bin/src/bazel --output_base="${TEST_TMPDIR}/out2" build --nostamp //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum2"
-    if ! (diff -q "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2"); then
-      diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log
-      fail "Non deterministic outputs found!"
+
+    if ! diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log; then
+      fail "Non-deterministic outputs found!"
     fi
 }
 
