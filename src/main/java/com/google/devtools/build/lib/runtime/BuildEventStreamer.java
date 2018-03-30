@@ -101,7 +101,7 @@ public class BuildEventStreamer implements EventHandler {
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
   private OutErrProvider outErrProvider;
   private AbortReason abortReason = AbortReason.UNKNOWN;
-  // Will be set to true if the build was invoked through "bazel test".
+  // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
   private boolean isTestCommand;
 
   // After a BuildCompetingEvent we might expect a whitelisted set of events. If non-null,
@@ -463,7 +463,8 @@ public class BuildEventStreamer implements EventHandler {
 
     if (event instanceof BuildStartingEvent) {
       BuildRequest buildRequest = ((BuildStartingEvent) event).getRequest();
-      isTestCommand = "test".equals(buildRequest.getCommandName());
+      isTestCommand = "test".equals(buildRequest.getCommandName())
+          || "coverage".equals(buildRequest.getCommandName());
     }
 
     if (event instanceof BuildEventWithConfiguration) {
