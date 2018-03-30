@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
@@ -63,7 +64,10 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
             Environment.builder(mutability)
                 .useDefaultSemantics()
                 .setEventHandler(getEventHandler())
-                .setGlobals(SkylarkModules.getGlobals(modules))
+                .setGlobals(
+                    SkylarkModules.getGlobals(modules)
+                        .withLabel(
+                            Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                 .setPhase(Phase.LOADING)
                 .build()
                 .setupDynamic(

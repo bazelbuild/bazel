@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -211,15 +210,15 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
       postProcess(rule, rulePb, serializedAttributes);
 
-      Environment env = rule.getRuleClassObject().getRuleDefinitionEnvironment();
-      if (env != null && includeRuleDefinitionEnvironment()) {
+      String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
+      if (transitiveHashCode != null && includeRuleDefinitionEnvironment()) {
         // The RuleDefinitionEnvironment is always defined for Skylark rules and
         // always null for non Skylark rules.
         rulePb.addAttribute(
             Build.Attribute.newBuilder()
                 .setName(RULE_IMPLEMENTATION_HASH_ATTR_NAME)
                 .setType(ProtoUtils.getDiscriminatorFromType(Type.STRING))
-                .setStringValue(env.getTransitiveContentHashCode()));
+                .setStringValue(transitiveHashCode));
       }
 
       ImmutableMultimap<Attribute, Label> aspectsDependencies =
