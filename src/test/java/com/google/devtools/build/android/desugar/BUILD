@@ -15,6 +15,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/io:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/scan:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )
