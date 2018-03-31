@@ -25,6 +25,9 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.bazel.BazelJavaCompiler;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -307,6 +310,104 @@ public class IjarTests {
       assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
           .isEqualTo(
               LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+    }
+  }
+
+  // Tests --nostrip_jar with a jar that already has a manifest, but no target label
+  @Test
+  public void testNoStripJarWithManifest() throws Exception {
+    JarFile original = new JarFile("third_party/ijar/test/jar-with-manifest.jar");
+    JarFile stripped = new JarFile("third_party/ijar/test/jar-with-manifest-nostrip.jar");
+    try {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Manifest-Version")).isEqualTo("1.0");
+      // Created-By was already in manifest, doesn't get overwritten
+      assertThat(attributes.getValue("Created-By")).isEqualTo("test-code");
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+    } finally {
+      original.close();
+      stripped.close();
+    }
+  }
+
+  // Tests --nostrip_jar with a jar that already has a manifest with a target label
+  @Test
+  public void testNoStripJarWithManifestAndTargetLabel() throws Exception {
+    JarFile original = new JarFile("third_party/ijar/test/jar-with-manifest-and-target-label.jar");
+    JarFile stripped =
+        new JarFile("third_party/ijar/test/jar-with-manifest-and-target-label-nostrip.jar");
+    try {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Manifest-Version")).isEqualTo("1.0");
+      // Created-By was already in manifest, doesn't get overwritten
+      assertThat(attributes.getValue("Created-By")).isEqualTo("test-code");
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+    } finally {
+      original.close();
+      stripped.close();
+    }
+  }
+
+  // Tests --nostrip_jar with a jar that didn't already have a manifest
+  @Test
+  public void testNoStripJarWithoutManifest() throws Exception {
+    JarFile original = new JarFile("third_party/ijar/test/jar-without-manifest.jar");
+    JarFile stripped = new JarFile("third_party/ijar/test/jar-without-manifest-nostrip.jar");
+    try {
+      ImmutableList<String> strippedEntries =
+          stripped.stream().map(JarEntry::getName).collect(toImmutableList());
+      assertThat(strippedEntries.get(0)).isEqualTo("META-INF/");
+      assertThat(strippedEntries.get(1)).isEqualTo("META-INF/MANIFEST.MF");
+      Manifest manifest = stripped.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      assertThat(attributes.getValue("Manifest-Version")).isEqualTo("1.0");
+      assertThat(attributes.getValue("Created-By")).isEqualTo("bazel");
+      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
+      assertNonManifestFilesBitIdentical(original, stripped);
+    } finally {
+      original.close();
+      stripped.close();
+    }
+  }
+
+  // Tests idempotence of --nostrip
+  @Test
+  public void testNoStripIdempotence() throws Exception {
+    byte[] original =
+        Files.readAllBytes(Paths.get("third_party/ijar/test/jar-without-manifest-nostrip.jar"));
+    byte[] stripped =
+        Files.readAllBytes(
+            Paths.get("third_party/ijar/test/jar-without-manifest-nostrip-idempotence.jar"));
+    assertThat(original).isEqualTo(stripped);
+  }
+
+  private static void assertNonManifestFilesBitIdentical(JarFile original, JarFile stripped)
+      throws IOException {
+    // Make sure that all other files came across bitwise equal
+    for (String classEntry :
+        original
+            .stream()
+            .map(JarEntry::getName)
+            .filter(name -> !name.equals("META-INF/MANIFEST.MF"))
+            .collect(toImmutableList())) {
+      ZipEntry originalEntry = original.getEntry(classEntry);
+      ZipEntry strippedEntry = stripped.getEntry(classEntry);
+      InputStream originalStream = original.getInputStream(originalEntry);
+      InputStream strippedStream = stripped.getInputStream(strippedEntry);
+      assertThat(ByteStreams.toByteArray(strippedStream))
+          .isEqualTo(ByteStreams.toByteArray(originalStream));
     }
   }
 }
