@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -105,6 +106,9 @@ public class TestResult {
     return testAction.getCacheStatusArtifact();
   }
 
+  public BuildEventStreamProtos.TestResult.ExecutionInfo getExecutionInfo() {
+    return BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance();
+  }
 
   /**
    * Gets the test name in a user-friendly format.

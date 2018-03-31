@@ -124,6 +124,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     return new TestAttempt(
         true,
         result.getTestAction(),
+        result.getExecutionInfo(),
         1,
         data.getStatus(),
         data.getStartTimeMillisEpoch(),
