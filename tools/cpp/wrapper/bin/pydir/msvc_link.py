@@ -17,7 +17,16 @@
 import os
 import re
 import sys
-import msvc_tools
+
+architecture = os.path.basename(os.environ['arg0']).split('-')[0]
+if architecture == 'x64_windows':
+  import msvc_x64_windows_tools
+  msvc_tools = msvc_x64_windows_tools
+elif architecture == 'x86_32_windows':
+  import msvc_x86_32_windows_tools
+  msvc_tools = msvc_x86_32_windows_tools
+else:
+  import msvc_tools
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 

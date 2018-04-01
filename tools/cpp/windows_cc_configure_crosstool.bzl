@@ -15,42 +15,6 @@
 """Templating functions for C++ toolchain on Windows."""
 
 
-def _find_closing_brace(arg, start_index):
-  braces = 0
-  sub_index = 0
-  for character in arg[start_index:]:
-    if character == '{':
-      braces += 1
-    elif character == '}':
-      braces -= 1
-    if braces < 0:
-      return start_index + sub_index
-    sub_index += 1
-  return -1
-
-
-def _safe_substitute(arg, values):
-  result = ''
-  last_index = 0
-  for not_used_symbol in arg:
-    start_index = arg.find('{', last_index)
-    if start_index == -1:
-      break
-    else:
-      end_index = _find_closing_brace(arg, start_index+2)
-      if end_index == -1:
-        fail("Malformed string \"%s\"" % (arg))
-      else:
-        maybe_key = arg[start_index+1:end_index]
-        if maybe_key in values:
-          result += arg[last_index:start_index] + values[maybe_key]
-          last_index = end_index + 1
-        else:
-          result += arg[last_index:start_index+1]
-          last_index = start_index + 1
-  return result + arg[last_index:]
-
-
 def _template_common_toolchains():
   return """
 major_version: "local"
@@ -58,7 +22,7 @@ minor_version: ""
 default_target_cpu: "same_as_host"
 
 default_toolchain {
-  cpu: "%{cpu}"
+  cpu: "%{default_cpu}"
   toolchain_identifier: "%{default_toolchain_name}"
 }
 
@@ -84,7 +48,7 @@ default_toolchain {
 
 default_toolchain {
   cpu: "s390x"
-  toolchain_identifier: "%{toolchain_name}"
+  toolchain_identifier: "msys_x64"
 }
 
 default_toolchain {
@@ -163,20 +127,20 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "%{toolchain_name}"
-%{content}
+  toolchain_identifier: "msys_x64"
+%{msys_x64_content}
 
   compilation_mode_flags {
     mode: DBG
-%{dbg_content}
+%{msys_x64_dbg_content}
   }
   compilation_mode_flags {
     mode: OPT
-%{opt_content}
+%{msys_x64_opt_content}
   }
   linking_mode_flags { mode: DYNAMIC }
 
-%{coverage}
+%{msys_x64_coverage}
 
   feature {
     name: 'fdo_optimize'
@@ -212,42 +176,42 @@ toolchain {
 """
 
 
-def _template_msvc_toolchain(**kwargs):
-  return _safe_substitute("""
+def _template_msvc_toolchain(architecture):
+  return """
 default_toolchain {
-  cpu: "{name}"
-  toolchain_identifier: "{toolchain_name}"
+  cpu: "{architecture}"
+  toolchain_identifier: "%{toolchain_name_{architecture}}"
 }
 
 toolchain {
-  toolchain_identifier: "{toolchain_name}"
+  toolchain_identifier: "%{toolchain_name_{architecture}}"
   host_system_name: "local"
   target_system_name: "local"
 
   abi_version: "local"
   abi_libc_version: "local"
-  target_cpu: "{name}"
+  target_cpu: "{architecture}"
   compiler: "msvc-cl"
   target_libc: "msvcrt"
   default_python_version: "python2.7"
 
-%{cxx_builtin_include_directory_{toolchain_name}}
+%{cxx_builtin_include_directory_{architecture}}
 
   tool_path {
     name: "ar"
-    path: "%{msvc_lib_path_{toolchain_name}}"
+    path: "%{msvc_lib_path_{architecture}}"
   }
   tool_path {
     name: "ml"
-    path: "%{msvc_ml_path_{toolchain_name}}"
+    path: "%{msvc_ml_path_{architecture}}"
   }
   tool_path {
     name: "cpp"
-    path: "%{msvc_cl_path_{toolchain_name}}"
+    path: "%{msvc_cl_path_{architecture}}"
   }
   tool_path {
     name: "gcc"
-    path: "%{msvc_cl_path_{toolchain_name}}"
+    path: "%{msvc_cl_path_{architecture}}"
   }
   tool_path {
     name: "gcov"
@@ -255,7 +219,7 @@ toolchain {
   }
   tool_path {
     name: "ld"
-    path: "%{msvc_link_path_{toolchain_name}}"
+    path: "%{msvc_link_path_{architecture}}"
   }
   tool_path {
     name: "nm"
@@ -318,7 +282,7 @@ toolchain {
   # Don't warn about insecure functions (e.g. non _s functions).
   compiler_flag: "/wd4996"
 
-  linker_flag: "%{msvc_link_target_{toolchain_name}}"
+  linker_flag: "%{msvc_link_target_{architecture}}"
 
   feature {
     name: "no_legacy_features"
@@ -370,7 +334,7 @@ toolchain {
     config_name: 'assemble'
     action_name: 'assemble'
     tool {
-      tool_path: '%{msvc_ml_path_{toolchain_name}}'
+      tool_path: '%{msvc_ml_path_{architecture}}'
     }
     flag_set {
       expand_if_all_available: 'output_object_file'
@@ -390,7 +354,7 @@ toolchain {
     config_name: 'c-compile'
     action_name: 'c-compile'
     tool {
-      tool_path: '%{msvc_cl_path_{toolchain_name}}'
+      tool_path: '%{msvc_cl_path_{architecture}}'
     }
     flag_set {
       flag_group {
@@ -430,7 +394,7 @@ toolchain {
     config_name: 'c++-compile'
     action_name: 'c++-compile'
     tool {
-      tool_path: '%{msvc_cl_path_{toolchain_name}}'
+      tool_path: '%{msvc_cl_path_{architecture}}'
     }
     flag_set {
       flag_group {
@@ -470,7 +434,7 @@ toolchain {
     config_name: 'c++-link-executable'
     action_name: 'c++-link-executable'
     tool {
-      tool_path: '%{msvc_link_path_{toolchain_name}}'
+      tool_path: '%{msvc_link_path_{architecture}}'
     }
     implies: 'nologo'
     implies: 'linkstamps'
@@ -488,7 +452,7 @@ toolchain {
     config_name: 'c++-link-dynamic-library'
     action_name: 'c++-link-dynamic-library'
     tool {
-      tool_path: '%{msvc_link_path_{toolchain_name}}'
+      tool_path: '%{msvc_link_path_{architecture}}'
     }
     implies: 'nologo'
     implies: 'shared_flag'
@@ -509,7 +473,7 @@ toolchain {
       config_name: 'c++-link-nodeps-dynamic-library'
       action_name: 'c++-link-nodeps-dynamic-library'
       tool {
-        tool_path: '%{msvc_link_path{toolchain_name}}'
+        tool_path: '%{msvc_link_path{architecture}}'
       }
       implies: 'nologo'
       implies: 'shared_flag'
@@ -530,7 +494,7 @@ toolchain {
     config_name: 'c++-link-static-library'
     action_name: 'c++-link-static-library'
     tool {
-      tool_path: '%{msvc_lib_path_{toolchain_name}}'
+      tool_path: '%{msvc_lib_path_{architecture}}'
     }
     implies: 'nologo'
     implies: 'archiver_flags'
@@ -576,23 +540,23 @@ toolchain {
       action: "c++-link-static-library"
       env_entry {
         key: "PATH"
-        value: "%{msvc_env_path_{toolchain_name}}"
+        value: "%{msvc_env_path_{architecture}}"
       }
       env_entry {
         key: "INCLUDE"
-        value: "%{msvc_env_include_{toolchain_name}}"
+        value: "%{msvc_env_include_{architecture}}"
       }
       env_entry {
         key: "LIB"
-        value: "%{msvc_env_lib_{toolchain_name}}"
+        value: "%{msvc_env_lib_{architecture}}"
       }
       env_entry {
         key: "TMP"
-        value: "%{msvc_env_tmp_{toolchain_name}}"
+        value: "%{msvc_env_tmp_{architecture}}"
       }
       env_entry {
         key: "TEMP"
-        value: "%{msvc_env_tmp_{toolchain_name}}"
+        value: "%{msvc_env_tmp_{architecture}}"
       }
     }
   }
@@ -987,7 +951,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
-        flag: "%{dbg_mode_debug_{toolchain_name}}"
+        flag: "%{dbg_mode_debug_{architecture}}"
         flag: "/INCREMENTAL:NO"
       }
     }
@@ -1010,7 +974,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
-        flag: "%{fastbuild_mode_debug_{toolchain_name}}"
+        flag: "%{fastbuild_mode_debug_{architecture}}"
         flag: "/INCREMENTAL:NO"
       }
     }
@@ -1114,14 +1078,14 @@ toolchain {
 
   linking_mode_flags { mode: DYNAMIC }
 
-%{compilation_mode_content_{toolchain_name}}
+%{compilation_mode_content_{architecture}}
 
 }
-""", kwargs)
+""".replace('{architecture}', architecture)
 
 
-def configure_windows_crosstool_template(repository_ctx, output, configurations):
+def configure_windows_crosstool_template(repository_ctx, output, architectures):
   content = _template_common_toolchains()
-  for name, toolchain_name in configurations:
-    content += _template_msvc_toolchain(name=name, toolchain_name=toolchain_name)
+  for architecture in architectures:
+    content += _template_msvc_toolchain(architecture)
   repository_ctx.file(output, content, executable=False)

@@ -17,7 +17,7 @@
 set arg0=%~1
 for %%F in ("%arg0%") do set DRIVER_BIN=%%~dpF
 
-for /F "delims=" %%i in ("%arg0%") do set TOOLNAME=%%~ni
+for /F "delims=-; tokens=2" %%i in ("%~nx1") do set TOOLNAME=%%~ni
 
 set PYDIR=%DRIVER_BIN%pydir
 
