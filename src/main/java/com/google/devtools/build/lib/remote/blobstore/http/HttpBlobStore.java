@@ -42,7 +42,6 @@ import io.netty.util.internal.PlatformDependent;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.FilterInputStream;
-import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -193,23 +192,31 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private boolean get(String key, OutputStream out, boolean casDownload)
+  private boolean get(String key, final OutputStream out, boolean casDownload)
       throws IOException, InterruptedException {
     final AtomicBoolean dataWritten = new AtomicBoolean();
+
     OutputStream wrappedOut =
-        new FilterOutputStream(out) {
+        new OutputStream() {
+          // OutputStream.close() does nothing, which is what we want to ensure that the
+          // OutputStream can't be closed somewhere in the Netty pipeline, so that we can support
+          // retries. The OutputStream is closed in the finally block below.
+
+          @Override
+          public void write(byte[] b, int offset, int length) throws IOException {
+            dataWritten.set(true);
+            out.write(b, offset, length);
+          }
 
           @Override
           public void write(int b) throws IOException {
             dataWritten.set(true);
-            super.write(b);
+            out.write(b);
           }
 
           @Override
-          public void close() {
-            // Ensure that the OutputStream can't be closed somewhere in the Netty
-            // pipeline, so that we can support retries. The OutputStream is closed in
-            // the finally block below.
+          public void flush() throws IOException {
+            out.flush();
           }
         };
     DownloadCommand download = new DownloadCommand(uri, casDownload, key, wrappedOut);
