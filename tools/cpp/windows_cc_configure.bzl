@@ -304,7 +304,10 @@ def _escaped_cuda_compute_capabilities(repository_ctx):
       auto_configure_fail("Invalid compute capability: %s" % capability)
   return capabilities
 
-def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_symlinks):
+def _architecture_specific_dict(d, architecture):
+  return { key.replace('}', '_%s}' % architecture) : value for key, value in d.items() }
+
+def _get_toolchain_options(repository_ctx, vc_path, architecture, toolchain_name):
   missing_tools = None
   vc_installation_error_script = "vc_installation_error_%s.bat" % (architecture)
   if not vc_path:
@@ -322,10 +325,8 @@ def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_sym
       ])}, out=vc_installation_error_script)
 
   if not vc_path or missing_tools:
-    return {
-        "%{cpu}": "x64_windows",
-        "%{default_toolchain_name}": "msvc_x64",
-        "%{toolchain_name}": "msys_x64",
+    return _architecture_specific_dict({
+        "%{toolchain_name}": toolchain_name,
         "%{msvc_env_tmp}": "",
         "%{msvc_env_path}": "",
         "%{msvc_env_include}": "",
@@ -337,14 +338,10 @@ def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_sym
         "%{dbg_mode_debug}": "/DEBUG",
         "%{fastbuild_mode_debug}": "/DEBUG",
         "%{compilation_mode_content}": "",
-        "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-        "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-        "%{opt_content}": "",
-        "%{dbg_content}": "",
         "%{link_content}": "",
-        "%{cxx_builtin_include_directory}": "",
-        "%{coverage}": "",
-    }
+        "%{msvc_link_target}" : "/MACHINE:X64" if architecture == "x64_windows" else "/MACHINE:X86",
+        "%{cxx_builtin_include_directory}": ""
+    }, architecture)
 
   env = setup_vc_env_vars(repository_ctx, vc_path, architecture)
   escaped_paths = escape_string(env["PATH"])
@@ -370,29 +367,23 @@ def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_sym
     if cuda_path:
       escaped_paths = escape_string(cuda_path.replace("\\", "\\\\") + "/bin;") + escaped_paths
     escaped_compute_capabilities = _escaped_cuda_compute_capabilities(repository_ctx)
-    if initialize_symlinks:
-      tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-          "%{lib_tool}": escape_string(msvc_lib_path),
-          "%{support_whole_archive}": support_whole_archive,
-          "%{cuda_compute_capabilities}": ", ".join(
-              ["\"%s\"" % c for c in escaped_compute_capabilities]),
-          "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
-      })
+    tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
+        "%{lib_tool}": escape_string(msvc_lib_path),
+        "%{support_whole_archive}": support_whole_archive,
+        "%{cuda_compute_capabilities}": ", ".join(
+            ["\"%s\"" % c for c in escaped_compute_capabilities]),
+        "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
+    }, out="wrapper/bin/pydir/msvc_%s_tools.py" % (architecture))
     # nvcc will generate some source files under %{nvcc_tmp_dir_name}
     # The generated files are guranteed to have unique name, so they can share the same tmp directory
     escaped_cxx_include_directories += [ "cxx_builtin_include_directory: \"%s\"" % nvcc_tmp_dir_name ]
-    if initialize_symlinks:
-      msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
-      for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:
-        repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/" + f)
-      msvc_wrapper = msvc_wrapper.get_child("pydir")
-      for f in ["msvc_cl.py", "msvc_link.py"]:
-        repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
-      python_binary = _find_python(repository_ctx)
-      tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": escape_string(python_binary)})
-    msvc_cl_path = "wrapper/bin/msvc_cl.bat"
-    msvc_link_path = "wrapper/bin/msvc_link.bat"
-    msvc_lib_path = "wrapper/bin/msvc_link.bat"
+    msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
+    for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:
+      repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/%s-%s" % (architecture, f))
+    # These bat files are same for all architectures. Architecture is being passed to a corresponding python script through filename (%0).
+    msvc_cl_path = "wrapper/bin/%s-msvc_cl.bat" % (architecture)
+    msvc_link_path = "wrapper/bin/%s-msvc_link.bat" % (architecture)
+    msvc_lib_path = "wrapper/bin/%s-msvc_link.bat" % (architecture)
     compilation_mode_content = _get_compilation_mode_content()
 
   for path in escaped_include_paths.split(";"):
@@ -400,10 +391,8 @@ def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_sym
       escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
 
   support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, vc_path, architecture)
-  return {
-      "%{cpu}": architecture,
-      "%{default_toolchain_name}": "msvc_x64" if architecture == "x64_windows" else "msvc_x86_32",
-      "%{toolchain_name}": "msys_x64" if architecture == "x64_windows" else "msys_x86_32",
+  return _architecture_specific_dict({
+      "%{toolchain_name}": toolchain_name,
       "%{msvc_env_tmp}": escaped_tmp_dir,
       "%{msvc_env_path}": escaped_paths,
       "%{msvc_env_include}": escaped_include_paths,
@@ -415,29 +404,37 @@ def _get_toolchain_options(repository_ctx, vc_path, architecture, initialize_sym
       "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
       "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
       "%{compilation_mode_content}": compilation_mode_content,
-      "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-      "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-      "%{opt_content}": "",
-      "%{dbg_content}": "",
       "%{link_content}": "",
       "%{msvc_link_target}" : "/MACHINE:X64" if architecture == "x64_windows" else "/MACHINE:X86",
-      "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
-      "%{coverage}": ""
-  }
+      "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories)
+  }, architecture)
 
 def configure_windows_toolchain(repository_ctx):
   """Configure C++ toolchain on Windows."""
   repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static.windows"), "BUILD")
 
-  default_name = "x64_windows"
-  configurations = [("x64_windows", "msvc_x64"), ("x86_32_windows", "msvc_x86_32")]
+  if _is_use_msvc_wrapper(repository_ctx):
+    msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin").get_child("pydir")
+    for f in ["msvc_cl.py", "msvc_link.py"]:
+      repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
+    python_binary = _find_python(repository_ctx)
+    tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": escape_string(python_binary)})
 
+  default_architecture = "x64_windows"
+  toolchains = { "x64_windows" : "msvc_x64", "x86_32_windows" : "msvc_x86_32" }
   vc_path = find_vc_path(repository_ctx)
 
-  all_options = _get_toolchain_options(repository_ctx, vc_path, default_name, initialize_symlinks=True)
-  for index, (name, toolchain_name) in enumerate(configurations):
-    options = _get_toolchain_options(repository_ctx, vc_path, name, initialize_symlinks=False)
-    all_options += { key.replace("}", "_%s}" % (toolchain_name)) : value for key, value in options.items() }
+  options = {
+      "%{default_cpu}": default_architecture,
+      "%{default_toolchain_name}": toolchains[default_architecture],
+      "%{msys_x64_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+      "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+      "%{msys_x64_opt_content}": "",
+      "%{msys_x64_dbg_content}": "",
+      "%{msys_x64_coverage}": ""
+  }
+  for architecture in toolchains:
+    options += _get_toolchain_options(repository_ctx, vc_path, architecture, toolchains[architecture])
 
-  configure_windows_crosstool_template(repository_ctx, "CROSSTOOL.tpl", configurations)
-  tpl(repository_ctx, "CROSSTOOL", all_options, generated=True)
+  configure_windows_crosstool_template(repository_ctx, "CROSSTOOL.tpl", toolchains.keys())
+  tpl(repository_ctx, "CROSSTOOL", options, generated=True)
