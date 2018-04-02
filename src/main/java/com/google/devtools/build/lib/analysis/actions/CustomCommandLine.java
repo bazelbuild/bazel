@@ -208,7 +208,7 @@ public final class CustomCommandLine extends CommandLine {
       }
 
       /** Each argument is mapped using the supplied map function */
-      public MappedVectorArg<T> mapped(CommandLineItem.MapFn<T> mapFn) {
+      public MappedVectorArg<T> mapped(CommandLineItem.MapFn<? super T> mapFn) {
         return new MappedVectorArg<>(this, mapFn);
       }
     }
@@ -216,9 +216,9 @@ public final class CustomCommandLine extends CommandLine {
     /** A vector arg that maps some type T to strings. */
     static class MappedVectorArg<T> extends VectorArg<String> {
       private final Iterable<T> values;
-      private final CommandLineItem.MapFn<T> mapFn;
+      private final CommandLineItem.MapFn<? super T> mapFn;
 
-      private MappedVectorArg(SimpleVectorArg<T> other, CommandLineItem.MapFn<T> mapFn) {
+      private MappedVectorArg(SimpleVectorArg<T> other, CommandLineItem.MapFn<? super T> mapFn) {
         super(
             other.isNestedSet,
             other.isEmpty,

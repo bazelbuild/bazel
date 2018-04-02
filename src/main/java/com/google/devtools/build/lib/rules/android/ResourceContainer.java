@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.NONE,
   doc = "The Android resources contributed by a single target."
 )
-public abstract class ResourceContainer {
+public abstract class ResourceContainer implements MergableAndroidData {
   /** The type of resource in question: either asset or a resource. */
   public enum ResourceType {
     ASSETS("assets"),
@@ -92,10 +92,18 @@ public abstract class ResourceContainer {
         : getResources().getResources();
   }
 
-  /** @deprecated We are moving towards decoupling assets and resources */
-  @Deprecated
   public Iterable<Artifact> getArtifacts() {
     return Iterables.concat(getAssets().getAssets(), getResources().getResources());
+  }
+
+  @Override
+  public ImmutableList<PathFragment> getResourceRoots() {
+    return getResources().getResourceRoots();
+  }
+
+  @Override
+  public ImmutableList<PathFragment> getAssetRoots() {
+    return getAssets().getAssetRoots();
   }
 
   /**
