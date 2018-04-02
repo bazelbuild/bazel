@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -360,9 +361,12 @@ public class CrosstoolConfigurationLoader {
     }
 
     if (selectedIdentifier == null) {
+      HashSet<String> seenCpus = new HashSet<>();
       StringBuilder cpuBuilder = new StringBuilder();
       for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
-        cpuBuilder.append("  ").append(selector.getCpu()).append(",\n");
+        if (seenCpus.add(selector.getCpu())) {
+          cpuBuilder.append("  ").append(selector.getCpu()).append(",\n");
+        }
       }
       throw new InvalidConfigurationException(
           "No default_toolchain found for cpu '"
