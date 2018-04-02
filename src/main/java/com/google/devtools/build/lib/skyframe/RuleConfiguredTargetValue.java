@@ -26,14 +26,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Memoization;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /** A configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
-@AutoCodec(memoization = Memoization.START_MEMOIZING)
+@AutoCodec
 @VisibleForTesting
 public final class RuleConfiguredTargetValue extends ActionLookupValue
     implements ConfiguredTargetValue {

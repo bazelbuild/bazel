@@ -38,18 +38,11 @@ public class DynamicCodec implements ObjectCodec<Object> {
   private final Class<?> type;
   private final Constructor<?> constructor;
   private final ImmutableSortedMap<Field, Long> offsets;
-  private final ObjectCodec.MemoizationStrategy strategy;
 
   public DynamicCodec(Class<?> type) throws ReflectiveOperationException {
-    this(type, ObjectCodec.MemoizationStrategy.MEMOIZE_BEFORE);
-  }
-
-  public DynamicCodec(Class<?> type, ObjectCodec.MemoizationStrategy strategy)
-      throws ReflectiveOperationException {
     this.type = type;
     this.constructor = getConstructor(type);
     this.offsets = getOffsets(type);
-    this.strategy = strategy;
   }
 
   @Override
@@ -59,7 +52,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
 
   @Override
   public MemoizationStrategy getStrategy() {
-    return strategy;
+    return ObjectCodec.MemoizationStrategy.MEMOIZE_BEFORE;
   }
 
   @Override
@@ -141,9 +134,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
     } catch (ReflectiveOperationException e) {
       throw new SerializationException("Could not instantiate object of type: " + type, e);
     }
-    if (strategy.equals(ObjectCodec.MemoizationStrategy.MEMOIZE_BEFORE)) {
-      context.registerInitialValue(instance);
-    }
+    context.registerInitialValue(instance);
     for (Map.Entry<Field, Long> entry : offsets.entrySet()) {
       deserializeField(context, codedIn, instance, entry.getKey().getType(), entry.getValue());
     }

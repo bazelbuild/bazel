@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -26,8 +25,6 @@ import java.io.IOException;
  * serving as a layer between the streaming-oriented {@link ObjectCodec} interface and users.
  */
 public class ObjectCodecs {
-  // TODO(shahan): when per-invocation state is needed, for example, memoization, these may
-  // need to be constructed each time.
   private final SerializationContext serializationContext;
   private final DeserializationContext deserializationContext;
 
@@ -42,66 +39,81 @@ public class ObjectCodecs {
   }
 
   public ByteString serialize(Object subject) throws SerializationException {
-    ByteString.Output resultOut = ByteString.newOutput();
-    CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
-    try {
-      serializationContext.serialize(subject, codedOut);
-      codedOut.flush();
-      return resultOut.toByteString();
-    } catch (IOException e) {
-      throw new SerializationException("Failed to serialize " + subject, e);
-    }
+    return serializeToByteString(subject, this::serialize);
   }
 
-  public void serialize(
-      Object subject, CodedOutputStream codedOut, MemoizationPermission memoizationPermission)
+  public void serialize(Object subject, CodedOutputStream codedOut) throws SerializationException {
+    serializeImpl(subject, codedOut, /*memoize=*/ false);
+  }
+
+  public ByteString serializeMemoized(Object subject) throws SerializationException {
+    return serializeToByteString(subject, this::serializeMemoized);
+  }
+
+  public void serializeMemoized(Object subject, CodedOutputStream codedOut)
       throws SerializationException {
-    SerializationContext context = serializationContext;
-    if (memoizationPermission == MemoizationPermission.DISABLED) {
-      context = context.disableMemoization();
-    }
-    try {
-      context.serialize(subject, codedOut);
-    } catch (IOException e) {
-      throw new SerializationException("Failed to serialize " + subject, e);
-    }
-  }
-
-  /**
-   * Controls whether memoization can occur for serialization/deserialization. Should be allowed
-   * unless bit-equivalence is needed.
-   */
-  public enum MemoizationPermission {
-    ALLOWED,
-    DISABLED
+    serializeImpl(subject, codedOut, /*memoize=*/ true);
   }
 
   public Object deserialize(ByteString data) throws SerializationException {
-    return deserialize(data.newCodedInput(), MemoizationPermission.ALLOWED);
+    return deserialize(data.newCodedInput());
   }
 
-  public Object deserialize(CodedInputStream codedIn, MemoizationPermission memoizationPermission)
+  public Object deserialize(CodedInputStream codedIn) throws SerializationException {
+    return deserializeImpl(codedIn, /*memoize=*/ false);
+  }
+
+  public Object deserializeMemoized(ByteString data) throws SerializationException {
+    return deserializeMemoized(data.newCodedInput());
+  }
+
+  public Object deserializeMemoized(CodedInputStream codedIn) throws SerializationException {
+    return deserializeImpl(codedIn, /*memoize=*/ true);
+  }
+
+  private void serializeImpl(Object subject, CodedOutputStream codedOut, boolean memoize)
       throws SerializationException {
-    // Allow access to buffer without copying (although this means buffer may be pinned in memory).
-    codedIn.enableAliasing(true);
-    DeserializationContext context = deserializationContext;
-    if (memoizationPermission == MemoizationPermission.DISABLED) {
-      context = context.disableMemoization();
-    }
     try {
-      return context.deserialize(codedIn);
+      if (memoize) {
+        serializationContext.getMemoizingContext().serialize(subject, codedOut);
+      } else {
+        serializationContext.serialize(subject, codedOut);
+      }
+    } catch (IOException e) {
+      throw new SerializationException("Failed to serialize " + subject, e);
+    }
+  }
+
+  private Object deserializeImpl(CodedInputStream codedIn, boolean memoize)
+      throws SerializationException {
+    // Allows access to buffer without copying (although this means buffer may be pinned in memory).
+    codedIn.enableAliasing(true);
+    try {
+      if (memoize) {
+        return deserializationContext.getMemoizingContext().deserialize(codedIn);
+      } else {
+        return deserializationContext.deserialize(codedIn);
+      }
     } catch (IOException e) {
       throw new SerializationException("Failed to deserialize data", e);
     }
   }
 
-  @VisibleForTesting
-  public SerializationContext getSerializationContextForTesting() {
-    return serializationContext;
+  @FunctionalInterface
+  private static interface SerializeCall {
+    void serialize(Object subject, CodedOutputStream codedOut) throws SerializationException;
   }
 
-  @VisibleForTesting
-  public DeserializationContext getDeserializationContextForTesting() {
-    return deserializationContext;
+  private static ByteString serializeToByteString(Object subject, SerializeCall wrapped)
+      throws SerializationException {
+    ByteString.Output resultOut = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
+    wrapped.serialize(subject, codedOut);
+    try {
+      codedOut.flush();
+      return resultOut.toByteString();
+    } catch (IOException e) {
+      throw new SerializationException("Failed to serialize " + subject, e);
+    }
   }
 }
