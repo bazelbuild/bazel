@@ -517,7 +517,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       name = "append",
       doc = "Adds an item to the end of the list.",
       parameters = {
-          @Param(name = "item", type = Object.class, doc = "Item to add at the end.")
+          @Param(name = "item",
+            type = Object.class,
+            doc = "Item to add at the end.",
+            noneable = true)
       },
       useLocation = true,
       useEnvironment = true
@@ -534,7 +537,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       doc = "Inserts an item at a given position.",
       parameters = {
           @Param(name = "index", type = Integer.class, doc = "The index of the given position."),
-          @Param(name = "item", type = Object.class, doc = "The item.")
+          @Param(name = "item", type = Object.class, doc = "The item.", noneable = true)
       },
       useLocation = true,
       useEnvironment = true
