@@ -25,7 +25,8 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerType;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.ToArg.Includes;
 import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,22 +40,21 @@ import java.util.List;
  */
 public class AndroidResourceMergingActionBuilder {
 
-  private static final AndroidDataConverter<MergableAndroidData> RESOURCE_CONTAINER_TO_ARG =
-      AndroidDataConverter.<MergableAndroidData>builder(JoinerType.SEMICOLON_AMPERSAND)
-          .withRoots(MergableAndroidData::getResourceRoots)
-          .withRoots(MergableAndroidData::getAssetRoots)
-          .withLabel(MergableAndroidData::getLabel)
-          .withArtifact(MergableAndroidData::getSymbols)
-          .build();
+  private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
+      ResourceContainerConverter.builder()
+          .include(Includes.ResourceRoots)
+          .include(Includes.Label)
+          .include(Includes.SymbolsBin)
+          .withSeparator(ToArg.SeparatorType.SEMICOLON_AMPERSAND)
+          .toArgConverter();
 
-  private static final AndroidDataConverter<ResourceContainer>
-      RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED =
-          AndroidDataConverter.<ResourceContainer>builder(JoinerType.SEMICOLON_AMPERSAND)
-              .withRoots(ResourceContainer::getResourceRoots)
-              .withRoots(ResourceContainer::getAssetRoots)
-              .withLabel(ResourceContainer::getLabel)
-              .withArtifact(ResourceContainer::getCompiledSymbols)
-              .build();
+  private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED =
+      ResourceContainerConverter.builder()
+          .include(Includes.ResourceRoots)
+          .include(Includes.Label)
+          .include(Includes.CompiledSymbols)
+          .withSeparator(ToArg.SeparatorType.SEMICOLON_AMPERSAND)
+          .toArgConverter();
 
   private final RuleContext ruleContext;
   private final AndroidSdkProvider sdk;
@@ -172,10 +172,8 @@ public class AndroidResourceMergingActionBuilder {
     inputs.add(primary.getCompiledSymbols());
 
     if (dependencies != null) {
-      RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED.addDepsToCommandLine(
-          builder,
-          dependencies.getDirectResourceContainers(),
-          dependencies.getTransitiveResourceContainers());
+      ResourceContainerConverter.addToCommandLine(
+          dependencies, builder, RESOURCE_CONTAINER_TO_ARG_FOR_COMPILED);
       inputs.addTransitive(dependencies.getTransitiveResources());
       inputs.addTransitive(dependencies.getTransitiveAssets());
       inputs.addTransitive(dependencies.getTransitiveCompiledSymbols());
@@ -210,10 +208,7 @@ public class AndroidResourceMergingActionBuilder {
     inputs.add(primary.getSymbols());
 
     if (dependencies != null) {
-      RESOURCE_CONTAINER_TO_ARG.addDepsToCommandLine(
-          builder,
-          dependencies.getDirectResourceContainers(),
-          dependencies.getTransitiveResourceContainers());
+      ResourceContainerConverter.addToCommandLine(dependencies, builder, RESOURCE_CONTAINER_TO_ARG);
       inputs.addTransitive(dependencies.getTransitiveResources());
       inputs.addTransitive(dependencies.getTransitiveAssets());
       inputs.addTransitive(dependencies.getTransitiveSymbolsBin());

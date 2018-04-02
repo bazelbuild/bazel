@@ -35,11 +35,8 @@ import java.util.function.Consumer;
  * Factory for functions to convert a {@link ResourceContainer} to a commandline argument, or a
  * collection of artifacts. Uses a certain convention for commandline arguments (e.g., separators,
  * and ordering of container elements).
- *
- * @deprecated Use {@link AndroidDataConverter} instead.
  */
 @VisibleForTesting
-@Deprecated
 public class ResourceContainerConverter {
 
   static Builder builder() {
