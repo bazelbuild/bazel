@@ -69,6 +69,9 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
                         ImmutableList.of(
                             SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))))
         .override(attr("$testsupport", LABEL).value(environment.getToolsLabel(JUNIT_TESTRUNNER)))
+        .add(
+            attr("$robolectric_implicit_classpath", LABEL_LIST)
+                .value(ImmutableList.of(environment.getToolsLabel("//tools/android:android_jar"))))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .removeAttribute("$experimental_testsupport")
         .removeAttribute("classpath_resources")
