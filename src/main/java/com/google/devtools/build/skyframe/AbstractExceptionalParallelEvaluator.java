@@ -206,7 +206,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       }
     }
 
-    Profiler.instance().startTask(ProfilerTask.SKYFRAME_EVAL, skyKeySet);
+    Profiler.instance().startTask(ProfilerTask.SKYFRAME_EVAL, "Parallel Evaluator evaluation");
     try {
       return doMutatingEvaluation(skyKeySet);
     } finally {

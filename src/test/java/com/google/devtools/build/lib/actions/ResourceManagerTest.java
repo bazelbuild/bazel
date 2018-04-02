@@ -561,6 +561,11 @@ public class ResourceManagerTest {
     }
 
     @Override
+    public String describe() {
+      return "ResourceOwnerStubAction";
+    }
+
+    @Override
     public ImmutableSet<Artifact> getMandatoryOutputs() {
       return ImmutableSet.of();
     }

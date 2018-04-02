@@ -1003,17 +1003,12 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
-  /**
-   * Recalculates this action's live input collection, including sources, middlemen.
-   *
-   * @throws ActionExecutionException iff any errors happen during update.
-   */
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  /** Recalculates this action's live input collection, including sources, middlemen. */
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  public final void updateActionInputs(NestedSet<Artifact> discoveredInputs)
-      throws ActionExecutionException {
+  public final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-    Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, this);
+    Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, describe());
     try {
       inputs.addTransitive(mandatoryInputs);
       if (optionalSourceFile != null) {

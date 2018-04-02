@@ -496,7 +496,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       long actionStartTime,
       Iterable<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv) {
-    profiler.startTask(ProfilerTask.ACTION_CHECK, action);
+    startProfileAction(ProfilerTask.ACTION_CHECK, action);
     Token token =
         actionCacheChecker.getTokenIfNeedToExecute(
             action, resolvedCacheArtifacts, clientEnv, explain ? reporter : null, metadataHandler);
@@ -641,6 +641,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     this.actionInputPrefetcher = actionInputPrefetcher;
   }
 
+  private void startProfileAction(ProfilerTask task, Action action) {
+    profiler.startTask(task, action.describe());
+  }
+
   private class ActionRunner implements Callable<ActionExecutionValue> {
     private final ExtendedEventHandler eventHandler;
     private final Action action;
@@ -666,7 +670,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
     @Override
     public ActionExecutionValue call() throws ActionExecutionException, InterruptedException {
-      profiler.startTask(ProfilerTask.ACTION, action);
+      startProfileAction(ProfilerTask.ACTION, action);
       try {
         if (actionCacheChecker.isActionExecutionProhibited(action)) {
           // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail
@@ -883,7 +887,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       Action action,
       ActionExecutionContext actionExecutionContext)
           throws ActionExecutionException, InterruptedException {
-    profiler.startTask(ProfilerTask.ACTION_EXECUTE, action);
+    startProfileAction(ProfilerTask.ACTION_EXECUTE, action);
     // ActionExecutionExceptions that occur as the thread is interrupted are
     // assumed to be a result of that, so we throw InterruptedException
     // instead.
@@ -922,7 +926,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       Preconditions.checkState(action.inputsDiscovered(),
           "Action %s successfully executed, but inputs still not known", action);
 
-      profiler.startTask(ProfilerTask.ACTION_COMPLETE, action);
+      startProfileAction(ProfilerTask.ACTION_COMPLETE, action);
       try {
         if (!checkOutputs(action, metadataHandler)) {
           reportError("not all outputs were created or valid", null, action,
