@@ -22,7 +22,7 @@ default_toolchain {
 }
 
 default_toolchain {
-  cpu: "armeabi-v7a"
+  cpu: "local"
   toolchain_identifier: "stub_armeabi-v7a"
 }
 
@@ -47,7 +47,7 @@ default_toolchain {
 }
 
 default_toolchain {
-  cpu: "ios_x86_64"
+  cpu: "local"
   toolchain_identifier: "ios_x86_64"
 }
 
