@@ -135,6 +135,11 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
+  public String describe() {
+    return getProgressMessage();
+  }
+
+  @Override
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext) {
     return ImmutableList.of();

@@ -602,32 +602,33 @@ public final class UnixGlob {
     /** Should only be called by link {@GlobTaskContext}. */
     private void queueGlob(final Path base, final boolean baseIsDir, final int idx,
         final GlobTaskContext context) {
-      enqueue(new Runnable() {
-        @Override
-        public void run() {
-          Profiler.instance().startTask(ProfilerTask.VFS_GLOB, this);
-          try {
-            reallyGlob(base, baseIsDir, idx, context);
-          } catch (IOException e) {
-            ioException.set(e);
-          } catch (RuntimeException e) {
-            runtimeException.set(e);
-          } catch (Error e) {
-            error.set(e);
-          } finally {
-            Profiler.instance().completeTask(ProfilerTask.VFS_GLOB);
-          }
-        }
+      enqueue(
+          new Runnable() {
+            @Override
+            public void run() {
+              Profiler.instance().startTask(ProfilerTask.VFS_GLOB, base.getPathString());
+              try {
+                reallyGlob(base, baseIsDir, idx, context);
+              } catch (IOException e) {
+                ioException.set(e);
+              } catch (RuntimeException e) {
+                runtimeException.set(e);
+              } catch (Error e) {
+                error.set(e);
+              } finally {
+                Profiler.instance().completeTask(ProfilerTask.VFS_GLOB);
+              }
+            }
 
-        @Override
-        public String toString() {
-          return String.format(
+            @Override
+            public String toString() {
+              return String.format(
                   "%s glob(include=[%s], exclude_directories=%s)",
                   base.getPathString(),
                   "\"" + Joiner.on("\", \"").join(context.patternParts) + "\"",
                   context.excludeDirectories);
-        }
-      });
+            }
+          });
     }
 
     protected void enqueue(final Runnable r) {

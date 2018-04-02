@@ -203,7 +203,7 @@ public class ResourceManager {
     Preconditions.checkState(
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
 
-    AutoProfiler p = profiled(owner, ProfilerTask.ACTION_LOCK);
+    AutoProfiler p = profiled(owner.describe(), ProfilerTask.ACTION_LOCK);
     CountDownLatch latch = null;
     try {
       latch = acquire(resources);
@@ -300,7 +300,7 @@ public class ResourceManager {
         threadHasResources(), "releaseResources without resource lock during %s", owner);
 
     boolean isConflict = false;
-    AutoProfiler p = profiled(owner, ProfilerTask.ACTION_RELEASE);
+    AutoProfiler p = profiled(owner.describe(), ProfilerTask.ACTION_RELEASE);
     try {
       isConflict = release(resources);
     } finally {

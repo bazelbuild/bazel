@@ -102,6 +102,9 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   @Nullable
   String describeKey();
 
+  /** Returns a description of this action. */
+  String describe();
+
   /**
    * Get the {@link RunfilesSupplier} providing runfiles needed by this action.
    */

@@ -351,7 +351,7 @@ public abstract class TestStrategy implements TestActionContext {
     // local test sharding.
     long startTime = Profiler.nanoTimeMaybe();
     synchronized (execSettings.getInputManifest()) {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction.describe());
       updateLocalRunfilesDirectory(
           testAction,
           runfilesDir,

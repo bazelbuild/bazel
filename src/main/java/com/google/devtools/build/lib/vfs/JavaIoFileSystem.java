@@ -303,7 +303,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } catch (java.nio.file.NoSuchFileException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, nioPath);
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, path.getPathString());
     }
   }
 
@@ -337,7 +337,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       return stat(path, followSymlinks).getSize();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path);
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.getPathString());
     }
   }
 

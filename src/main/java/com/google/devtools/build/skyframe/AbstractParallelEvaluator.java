@@ -354,7 +354,7 @@ public abstract class AbstractParallelEvaluator {
                       startTime,
                       Duration.ofNanos(elapsedTimeNanos),
                       ProfilerTask.SKYFUNCTION,
-                      skyKey);
+                      skyKey.functionName().getName());
             }
           }
         } catch (final SkyFunctionException builderException) {

@@ -109,7 +109,8 @@ public final class Lexer {
     indentStack.push(0);
     long startTime = Profiler.nanoTimeMaybe();
     tokenize();
-    Profiler.instance().logSimpleTask(startTime, ProfilerTask.SKYLARK_LEXER, getFilename());
+    Profiler.instance()
+        .logSimpleTask(startTime, ProfilerTask.SKYLARK_LEXER, getFilename().getPathString());
   }
 
   public Lexer(ParserInputSource input, EventHandler eventHandler) {
