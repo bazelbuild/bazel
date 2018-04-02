@@ -23,10 +23,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBase;
-import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts.Builder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -79,30 +77,6 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
       ruleContext.throwWithRuleError("android_local_test does not yet support coverage");
     }
     return "com.google.testing.junit.runner.BazelTestRunner";
-  }
-
-  @Override
-  protected JavaCompilationHelper getJavaCompilationHelperWithDependencies(
-      RuleContext ruleContext,
-      JavaSemantics javaSemantics,
-      JavaCommon javaCommon,
-      JavaTargetAttributes.Builder javaTargetAttributesBuilder) {
-
-    JavaCompilationHelper javaCompilationHelper =
-        new JavaCompilationHelper(
-            ruleContext, javaSemantics, javaCommon.getJavacOpts(), javaTargetAttributesBuilder);
-    javaCompilationHelper.addLibrariesToAttributes(
-        ImmutableList.copyOf(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY)));
-
-    javaCompilationHelper.addLibrariesToAttributes(
-        ImmutableList.of(getAndCheckTestSupport(ruleContext)));
-
-    javaTargetAttributesBuilder.setBootClassPath(
-        ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
-    javaTargetAttributesBuilder.addRuntimeClassPathEntry(
-        AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
-
-    return javaCompilationHelper;
   }
 
   @Override
