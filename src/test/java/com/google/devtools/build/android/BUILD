@@ -18,6 +18,7 @@ java_test(
     srcs = ["AarGeneratorActionTest.java"],
     deps = [
         ":test_utils",
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:android_common_25_0_0",

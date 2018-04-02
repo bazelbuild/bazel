@@ -89,7 +89,7 @@ public final class ProguardLibrary {
   /**
    * Collects the unvalidated proguard specs exported by this rule.
    */
-  private Collection<Artifact> collectLocalProguardSpecs() {
+  public ImmutableList<Artifact> collectLocalProguardSpecs() {
     if (!ruleContext.attributes().has(LOCAL_SPEC_ATTRIBUTE, BuildType.LABEL_LIST)) {
       return ImmutableList.of();
     }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.android.builder.core.VariantType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -125,6 +127,18 @@ public class AarGeneratorAction {
     public Path classes;
 
     @Option(
+      name = "proguardSpec",
+      defaultValue = "",
+      converter = ExistingPathConverter.class,
+      allowMultiple = true,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to proguard spec file."
+    )
+    public List<Path> proguardSpecs;
+
+    @Option(
       name = "aarOutput",
       defaultValue = "null",
       converter = PathConverter.class,
@@ -179,7 +193,13 @@ public class AarGeneratorAction {
               options.throwOnResourceConflict);
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
+      writeAar(
+          options.aarOutput,
+          mergedData,
+          options.manifest,
+          options.rtxt,
+          options.classes,
+          options.proguardSpecs);
       logger.fine(
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
     } catch (MergeConflictException e) {
@@ -214,7 +234,12 @@ public class AarGeneratorAction {
 
   @VisibleForTesting
   static void writeAar(
-      Path aar, final MergedAndroidData data, Path manifest, Path rtxt, Path classes)
+      Path aar,
+      final MergedAndroidData data,
+      Path manifest,
+      Path rtxt,
+      Path classes,
+      List<Path> proguardSpecs)
       throws IOException {
     try (final ZipOutputStream zipOut =
         new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(aar)))) {
@@ -239,6 +264,17 @@ public class AarGeneratorAction {
       zipOut.putNextEntry(r);
       zipOut.write(Files.readAllBytes(rtxt));
       zipOut.closeEntry();
+
+      if (!proguardSpecs.isEmpty()) {
+        ZipEntry proguardTxt = new ZipEntry("proguard.txt");
+        proguardTxt.setTime(DEFAULT_TIMESTAMP);
+        zipOut.putNextEntry(proguardTxt);
+        for (Path proguardSpec : proguardSpecs) {
+          zipOut.write(Files.readAllBytes(proguardSpec));
+          zipOut.write("\r\n".getBytes(UTF_8));
+        }
+        zipOut.closeEntry();
+      }
 
       if (Files.exists(data.getAssetDir()) && data.getAssetDir().toFile().list().length > 0) {
         ZipDirectoryWriter assetWriter =
