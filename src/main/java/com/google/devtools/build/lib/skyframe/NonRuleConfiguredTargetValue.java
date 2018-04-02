@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 /** A non-rule configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
-@AutoCodec(memoization = AutoCodec.Memoization.START_MEMOIZING)
+@AutoCodec
 @VisibleForTesting
 public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
     implements ConfiguredTargetValue {

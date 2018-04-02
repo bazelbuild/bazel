@@ -368,9 +368,7 @@ public final class DynamicCodecTest {
             new PrimitiveExample(false, -1, -5.5, EnumExample.ONE, "bar"),
             new PrimitiveExample(true, 5, 20.0, EnumExample.THREE, null),
             new PrimitiveExample(true, 100, 100, null, "hello"))
-        .addCodec(
-            new DynamicCodec(
-                PrimitiveExample.class, ObjectCodec.MemoizationStrategy.DO_NOT_MEMOIZE))
+        .addCodec(new DynamicCodec(PrimitiveExample.class))
         .addCodec(new EnumCodec<>(EnumExample.class))
         .setRepetitions(100000)
         .runTests();

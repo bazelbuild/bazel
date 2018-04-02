@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** A Skyframe value representing a package. */
-@AutoCodec(memoization = AutoCodec.Memoization.START_MEMOIZING)
+@AutoCodec
 @Immutable
 @ThreadSafe
 public class PackageValue implements NotComparableSkyValue {

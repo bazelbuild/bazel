@@ -22,13 +22,11 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -126,24 +124,20 @@ public class SerializationTester {
 
   private ByteString serialize(Object subject, ObjectCodecs codecs)
       throws SerializationException, IOException {
-    if (!memoize) {
+    if (memoize) {
+      return codecs.serializeMemoized(subject);
+    } else {
       return codecs.serialize(subject);
     }
-    ByteString.Output output = ByteString.newOutput();
-    CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
-    codecs.getSerializationContextForTesting().getMemoizingContext().serialize(subject, codedOut);
-    codedOut.flush();
-    return output.toByteString();
   }
 
   private Object deserialize(ByteString serialized, ObjectCodecs codecs)
       throws SerializationException, IOException {
-    if (!memoize) {
+    if (memoize) {
+      return codecs.deserializeMemoized(serialized);
+    } else {
       return codecs.deserialize(serialized);
     }
-    DeserializationContext context =
-        codecs.getDeserializationContextForTesting().getMemoizingContext();
-    return context.deserialize(serialized.newCodedInput());
   }
 
   /** Runs serialization/deserialization tests. */

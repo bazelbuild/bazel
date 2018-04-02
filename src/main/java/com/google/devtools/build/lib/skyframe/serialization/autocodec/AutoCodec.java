@@ -35,7 +35,7 @@ import java.lang.annotation.Target;
  *
  * <p>If applied to a field (which must be static and final), the field is stored as a "constant"
  * allowing for trivial serialization of it as an integer tag (see {@code CodecScanner} and
- * {@code ObjectCodecRegistery}). In order to do that, a trivial associated "RegisteredSingleton"
+ * {@code ObjectCodecRegistry}). In order to do that, a trivial associated "RegisteredSingleton"
  * class is generated.
  */
 @Target({ElementType.TYPE, ElementType.FIELD})
@@ -88,20 +88,6 @@ public @interface AutoCodec {
   @interface Instantiator {}
 
   Strategy strategy() default Strategy.INSTANTIATOR;
-
-  /** Whether to start memoizing values below this codec. */
-  enum Memoization {
-    /** Do not start memoization, but also do not disable memoization if it is already happening. */
-    UNCHANGED,
-    /**
-     * Start memoizing. Memoization is assumed to always need a Skylark "Mutability" object. If this
-     * package does not have access to the {@link com.google.devtools.build.lib.syntax.Mutability}
-     * class, memoization cannot be started here.
-     */
-    START_MEMOIZING
-  }
-
-  Memoization memoization() default Memoization.UNCHANGED;
 
   /**
    * Signals that the annotated element is only visible for use by serialization. It should not be

@@ -69,10 +69,9 @@ class AutoCodecUtil {
    * Initializes the deserialize method.
    *
    * @param encodedType type being serialized
-   * @param startMemoizing whether memoization should start in this method.
    */
   static MethodSpec.Builder initializeSerializeMethodBuilder(
-      TypeElement encodedType, boolean startMemoizing, ProcessingEnvironment env) {
+      TypeElement encodedType, ProcessingEnvironment env) {
     MethodSpec.Builder builder =
         MethodSpec.methodBuilder("serialize")
             .addModifiers(Modifier.PUBLIC)
@@ -83,9 +82,6 @@ class AutoCodecUtil {
             .addParameter(SerializationContext.class, "context")
             .addParameter(TypeName.get(env.getTypeUtils().erasure(encodedType.asType())), "input")
             .addParameter(CodedOutputStream.class, "codedOut");
-    if (startMemoizing) {
-      builder.addStatement("context = context.getMemoizingContext()");
-    }
     return builder;
   }
 
@@ -93,10 +89,9 @@ class AutoCodecUtil {
    * Initializes the deserialize method.
    *
    * @param encodedType type being serialized
-   * @param startMemoizing whether memoization should start in this method.
    */
   static MethodSpec.Builder initializeDeserializeMethodBuilder(
-      TypeElement encodedType, boolean startMemoizing, ProcessingEnvironment env) {
+      TypeElement encodedType, ProcessingEnvironment env) {
     MethodSpec.Builder builder =
         MethodSpec.methodBuilder("deserialize")
             .addModifiers(Modifier.PUBLIC)
@@ -106,9 +101,6 @@ class AutoCodecUtil {
             .addException(IOException.class)
             .addParameter(DeserializationContext.class, "context")
             .addParameter(CodedInputStream.class, "codedIn");
-    if (startMemoizing) {
-      builder.addStatement("context = context.getMemoizingContext()");
-    }
     return builder;
   }
 
