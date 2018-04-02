@@ -39,7 +39,6 @@ public final class PythonUtils {
 
   private static final FileType REQUIRES_INIT_PY = FileType.of(".py", ".so", ".pyc");
 
-  @AutoCodec
   static class GetInitPyFiles implements Runfiles.EmptyFilesSupplier {
     @Override
     public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
@@ -47,6 +46,7 @@ public final class PythonUtils {
     }
   }
 
+  @AutoCodec
   public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES = new GetInitPyFiles();
 
   private PythonUtils() {
