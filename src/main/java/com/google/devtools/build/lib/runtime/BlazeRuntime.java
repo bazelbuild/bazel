@@ -1282,8 +1282,7 @@ public final class BlazeRuntime {
 
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper =
-            module.getPackageBuilderHelper(ruleClassProvider, fileSystem);
+        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper(ruleClassProvider);
         if (candidateHelper != null) {
           Preconditions.checkState(packageBuilderHelper == null,
               "more than one module defines a package builder helper");

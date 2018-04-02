@@ -477,7 +477,7 @@ public class IncrementalLoadingTest {
           SequencedSkyframeExecutor.create(
               loadingMock
                   .getPackageFactoryBuilderForTesting(directories)
-                  .build(ruleClassProvider, fs),
+                  .build(ruleClassProvider),
               fs,
               directories,
               actionKeyContext,

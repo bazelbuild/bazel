@@ -138,7 +138,7 @@ public class FilesystemValueCheckerTest {
             TestRuleClassProvider.getRuleClassProvider(),
             TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
                 .builder(directories)
-                .build(TestRuleClassProvider.getRuleClassProvider(), fs),
+                .build(TestRuleClassProvider.getRuleClassProvider()),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 
