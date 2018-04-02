@@ -238,7 +238,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
-    pkgFactory = pkgFactoryBuilder.build(ruleClassProvider, scratch.getFileSystem());
+    pkgFactory = pkgFactoryBuilder.build(ruleClassProvider);
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(

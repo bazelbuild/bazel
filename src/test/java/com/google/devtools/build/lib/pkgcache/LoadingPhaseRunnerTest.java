@@ -725,7 +725,7 @@ public class LoadingPhaseRunnerTest {
 
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
+          analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider);
       PackageCacheOptions options = Options.getDefaults(PackageCacheOptions.class);
       storedErrors = new StoredEventHandler();
       BuildOptions defaultBuildOptions;

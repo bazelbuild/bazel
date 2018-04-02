@@ -270,8 +270,7 @@ public abstract class BlazeModule {
    * does not provide any helper, it should return null. Note that only one helper per Bazel/Blaze
    * runtime is allowed.
    */
-  public Package.Builder.Helper getPackageBuilderHelper(RuleClassProvider ruleClassProvider,
-      FileSystem fs) {
+  public Package.Builder.Helper getPackageBuilderHelper(RuleClassProvider ruleClassProvider) {
     return null;
   }
 
