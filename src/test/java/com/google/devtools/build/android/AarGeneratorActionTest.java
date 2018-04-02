@@ -22,19 +22,24 @@ import com.android.builder.core.VariantType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AarGeneratorAction.AarGeneratorOptions;
+import com.google.devtools.build.zip.ZipReader;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -87,6 +92,7 @@ public class AarGeneratorActionTest {
       private Path classes;
       private Map<Path, String> filesToWrite = new HashMap<>();
       private Map<String, String> classesToWrite = new HashMap<>();
+      private ImmutableList.Builder<Path> proguardSpecs = ImmutableList.builder();
       private boolean withEmptyRes = false;
       private boolean withEmptyAssets = false;
 
@@ -149,9 +155,16 @@ public class AarGeneratorActionTest {
         return this;
       }
 
+      public Builder addProguardSpec(String path, String... lines) {
+        Path proguardSpecPath = root.resolve(path);
+        proguardSpecs.add(proguardSpecPath);
+        filesToWrite.put(proguardSpecPath, String.format("%s", Joiner.on("\n").join(lines)));
+        return this;
+      }
+
       public AarData build() throws IOException {
         writeFiles();
-        return new AarData(buildMerged(), manifest, rtxt, classes);
+        return new AarData(buildMerged(), manifest, rtxt, classes, proguardSpecs.build());
       }
 
       private MergedAndroidData buildMerged() {
@@ -206,12 +219,19 @@ public class AarGeneratorActionTest {
     final Path manifest;
     final Path rtxt;
     final Path classes;
+    final ImmutableList<Path> proguardSpecs;
 
-    private AarData(MergedAndroidData data, Path manifest, Path rtxt, Path classes) {
+    private AarData(
+        MergedAndroidData data,
+        Path manifest,
+        Path rtxt,
+        Path classes,
+        ImmutableList<Path> proguardSpecs) {
       this.data = data;
       this.manifest = manifest;
       this.rtxt = rtxt;
       this.classes = classes;
+      this.proguardSpecs = proguardSpecs;
     }
   }
 
@@ -343,7 +363,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testWriteAar_DefaultTimestamps() throws Exception {
@@ -365,7 +386,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
 
     assertThat(getZipEntryTimestamps(aar)).containsExactly(AarGeneratorAction.DEFAULT_TIMESTAMP);
     assertThat(aar.toFile().lastModified()).isEqualTo(AarGeneratorAction.DEFAULT_TIMESTAMP);
@@ -390,7 +412,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
 
     // verify aar archive
     Set<String> zipEntries = getZipEntries(aar);
@@ -418,7 +441,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testMissingRtxt() throws Exception {
@@ -439,7 +463,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testMissingClasses() throws Exception {
@@ -461,7 +486,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testMissingResources() throws Exception {
@@ -482,7 +508,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testEmptyResources() throws Exception {
@@ -505,7 +532,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testMissingAssets() throws Exception {
@@ -526,7 +554,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testEmptyAssets() throws Exception {
@@ -548,7 +577,8 @@ public class AarGeneratorActionTest {
         aarData.data,
         aarData.manifest,
         aarData.rtxt,
-        aarData.classes);
+        aarData.classes,
+        aarData.proguardSpecs);
   }
 
   @Test public void testFullIntegration() throws Exception {
@@ -650,7 +680,8 @@ public class AarGeneratorActionTest {
             /* filteredResources= */ ImmutableList.of(),
             true);
 
-    AarGeneratorAction.writeAar(aar, mergedData, aarData.manifest, aarData.rtxt, aarData.classes);
+    AarGeneratorAction.writeAar(
+        aar, mergedData, aarData.manifest, aarData.rtxt, aarData.classes, aarData.proguardSpecs);
 
     // verify aar archive
     Set<String> zipEntries = getZipEntries(aar);
@@ -676,5 +707,38 @@ public class AarGeneratorActionTest {
         "assets/some/other/ft/data.txt",
         "assets/some/other/ft/data1.txt",
         "assets/some/other/ft/data2.txt");
+  }
+
+  @Test public void testProguardSpecs() throws Exception {
+    Path aar = tempDir.resolve("foo.aar");
+    AarData aarData =
+        new AarData.Builder(tempDir.resolve("data"))
+            .createManifest("AndroidManifest.xml", "com.google.android.apps.foo.d1", "")
+            .createRtxt("R.txt", "")
+            .withEmptyResources(true)
+            .withEmptyAssets(true)
+            .createClassesJar("classes.jar")
+            .addProguardSpec("spec1", "foo", "bar")
+            .addProguardSpec("spec2", "baz")
+            .build();
+
+    AarGeneratorAction.writeAar(
+        aar,
+        aarData.data,
+        aarData.manifest,
+        aarData.rtxt,
+        aarData.classes,
+        aarData.proguardSpecs);
+    Set<String> zipEntries = getZipEntries(aar);
+    assertThat(zipEntries).contains("proguard.txt");
+    ZipReader aarReader = new ZipReader(aar.toFile());
+    List<String> proguardTxtContents =
+        new BufferedReader(
+                new InputStreamReader(
+                    aarReader.getInputStream(aarReader.getEntry("proguard.txt")),
+                    StandardCharsets.UTF_8))
+            .lines()
+            .collect(Collectors.toList());
+    assertThat(proguardTxtContents).containsExactly("foo", "bar", "baz").inOrder();
   }
 }

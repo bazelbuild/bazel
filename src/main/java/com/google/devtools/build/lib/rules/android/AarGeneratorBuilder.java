@@ -39,6 +39,7 @@ public class AarGeneratorBuilder {
   private Artifact manifest;
   private Artifact rTxt;
   private Artifact classes;
+  private ImmutableList<Artifact> proguardSpecs = ImmutableList.of();
 
   private Artifact aarOut;
   private boolean throwOnResourceConflict;
@@ -81,6 +82,11 @@ public class AarGeneratorBuilder {
     return this;
   }
 
+  public AarGeneratorBuilder setProguardSpecs(ImmutableList<Artifact> proguardSpecs) {
+    this.proguardSpecs = proguardSpecs;
+    return this;
+  }
+
   public AarGeneratorBuilder setThrowOnResourceConflict(boolean throwOnResourceConflict) {
     this.throwOnResourceConflict = throwOnResourceConflict;
     return this;
@@ -116,6 +122,12 @@ public class AarGeneratorBuilder {
       args.add("--classes");
       args.add(classes.getExecPathString());
       ins.add(classes);
+    }
+
+    for (Artifact proguardSpec : proguardSpecs) {
+      args.add("--proguardSpec");
+      args.add(proguardSpec.getExecPathString());
+      ins.add(proguardSpec);
     }
 
     args.add("--aarOutput");

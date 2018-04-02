@@ -121,7 +121,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     collectTransitiveAars(ruleContext, transitiveAars, transitiveAarArtifacts);
 
     NestedSetBuilder<Artifact> proguardConfigsbuilder = NestedSetBuilder.stableOrder();
-    proguardConfigsbuilder.addTransitive(new ProguardLibrary(ruleContext).collectProguardSpecs());
+    ProguardLibrary proguardLibrary = new ProguardLibrary(ruleContext);
+    proguardConfigsbuilder.addTransitive(proguardLibrary.collectProguardSpecs());
     AndroidIdlHelper.maybeAddSupportLibProguardConfigs(ruleContext, proguardConfigsbuilder);
     NestedSet<Artifact> transitiveProguardConfigs = proguardConfigsbuilder.build();
 
@@ -237,6 +238,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         .withRtxt(primaryResources.getRTxt())
         .withClasses(classesJar)
         .setAAROut(aarOut)
+        .setProguardSpecs(proguardLibrary.collectLocalProguardSpecs())
         .setThrowOnResourceConflict(
             ruleContext.getFragment(AndroidConfiguration.class).throwOnResourceConflict())
         .build(ruleContext);
