@@ -20,6 +20,7 @@ import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.resources.ResourceType;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterators;
@@ -33,6 +34,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -130,6 +132,23 @@ public class FullyQualifiedName implements DataKey {
         protoKey.getKeyValue());
   }
 
+  static final Pattern QUALIFIED_REFERENCE =
+      Pattern.compile("((?<package>[^:]+):)?(?<type>\\w+)/(?<name>\\w+)");
+
+  public static FullyQualifiedName fromReference(String qualifiedReference) {
+    final Matcher matcher = QUALIFIED_REFERENCE.matcher(qualifiedReference);
+    Preconditions.checkArgument(
+        matcher.find(),
+        "%s is not a reference. Expected %s",
+        qualifiedReference,
+        QUALIFIED_REFERENCE.pattern());
+    return of(
+        Optional.ofNullable(matcher.group("package")).orElse(DEFAULT_PACKAGE),
+        ImmutableList.of(),
+        ResourceType.getEnum(matcher.group("type")),
+        matcher.group("name"));
+  }
+
   public static void logCacheUsage(Logger logger) {
     logger.fine(
         String.format(
@@ -184,6 +203,16 @@ public class FullyQualifiedName implements DataKey {
 
   public String name() {
     return name;
+  }
+
+  /** Provides the name qualified by the package it belongs to. */
+  public String qualifiedName() {
+    return (pkg.equals(DEFAULT_PACKAGE) ? "" : pkg + ":") + name;
+  }
+
+  public String asQualifiedReference() {
+    return String.format(
+        "%s%s/%s", (pkg.equals(DEFAULT_PACKAGE) ? "" : pkg + ":"), type.getName(), name);
   }
 
   public ResourceType type() {

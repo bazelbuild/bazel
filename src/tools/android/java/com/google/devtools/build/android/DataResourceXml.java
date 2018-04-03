@@ -46,7 +46,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLEventReader;
@@ -174,7 +173,7 @@ public class DataResourceXml implements DataResource {
       Value protoValue,
       DataSource source,
       ResourceType resourceType,
-      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      Map<String, Boolean> fullyQualifiedNames)
       throws InvalidProtocolBufferException {
     DataResourceXml dataResourceXml =
         createWithNamespaces(
@@ -212,9 +211,7 @@ public class DataResourceXml implements DataResource {
   }
 
   private static XmlResourceValue valueFromProto(
-      Value proto,
-      ResourceType resourceType,
-      Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames)
+      Value proto, ResourceType resourceType, Map<String, Boolean> qualifiedReferenceToInlineStatus)
       throws InvalidProtocolBufferException {
     switch (resourceType) {
       case STYLE:
@@ -226,7 +223,7 @@ public class DataResourceXml implements DataResource {
       case ATTR:
         return AttrXmlResourceValue.from(proto);
       case STYLEABLE:
-        return StyleableXmlResourceValue.from(proto, fullyQualifiedNames);
+        return StyleableXmlResourceValue.from(proto, qualifiedReferenceToInlineStatus);
       case ID:
         return IdXmlResourceValue.of();
       case DIMEN:
