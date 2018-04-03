@@ -22,6 +22,11 @@ default_toolchain {
 }
 
 default_toolchain {
+  cpu: "local"
+  toolchain_identifier: "stub_armeabi-v7a"
+}
+
+default_toolchain {
   cpu: "armeabi-v7a"
   toolchain_identifier: "stub_armeabi-v7a"
 }
@@ -44,6 +49,11 @@ default_toolchain {
 default_toolchain {
   cpu: "s390x"
   toolchain_identifier: "%{toolchain_name}"
+}
+
+default_toolchain {
+  cpu: "local"
+  toolchain_identifier: "ios_x86_64"
 }
 
 default_toolchain {
