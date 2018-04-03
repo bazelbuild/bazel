@@ -448,6 +448,7 @@ public class CcCommonTest extends BuildViewTestCase {
             .addAll(noIncludes.get(CcCompilationContextInfo.PROVIDER).getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
+            .add(targetConfig.getBinFragment().getRelative(includesRoot))
             .build();
     assertThat(foo.get(CcCompilationContextInfo.PROVIDER).getSystemIncludeDirs())
         .containsExactlyElementsIn(expected);

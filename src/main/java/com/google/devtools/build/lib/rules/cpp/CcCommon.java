@@ -591,6 +591,7 @@ public final class CcCommon {
       }
       result.add(includesPath);
       result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+      result.add(ruleContext.getConfiguration().getBinFragment().getRelative(includesPath));
     }
     return result;
   }
