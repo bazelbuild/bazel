@@ -383,4 +383,30 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
                 .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar"))
         .isNull();
   }
+
+  /**
+   * Creates a mock SDK with aapt2.
+   *
+   * <p>You'll need to use a configuration pointing to it, such as "--android_sdk=//sdk:sdk", to use
+   * it.
+   */
+  void mockAndroidSdkWithAapt2() throws Exception {
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign')");
+  }
 }

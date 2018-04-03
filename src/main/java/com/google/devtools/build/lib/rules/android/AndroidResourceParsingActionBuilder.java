@@ -46,10 +46,13 @@ public class AndroidResourceParsingActionBuilder {
 
   private AndroidResources resources = AndroidResources.empty();
   private AndroidAssets assets = AndroidAssets.empty();
+
+  // The symbols file is a required output
   private Artifact output;
 
-  private Artifact compiledSymbols;
-  private Artifact dataBindingInfoZip;
+  // Optional outputs
+  @Nullable private Artifact compiledSymbols;
+  @Nullable private Artifact dataBindingInfoZip;
 
   /** @param ruleContext The RuleContext that was used to create the SpawnAction.Builder. */
   public AndroidResourceParsingActionBuilder(RuleContext ruleContext) {
@@ -181,6 +184,18 @@ public class AndroidResourceParsingActionBuilder {
               .setMnemonic("AndroidResourceCompiler")
               .build(context));
     }
+  }
+
+  /**
+   * Builds and registers the action, and returns a copy of the passed resources with artifacts for
+   * parsed and compiled information.
+   */
+  public ParsedAndroidResources build(AndroidResources androidResources) {
+    setResources(androidResources);
+    build(ruleContext);
+
+    return ParsedAndroidResources.of(
+        androidResources, output, compiledSymbols, ruleContext.getLabel());
   }
 
   /**

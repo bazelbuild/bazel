@@ -132,9 +132,13 @@ public final class DataBinding {
    * outputs are zipped up into a single container.
    */
   static Artifact getLayoutInfoFile(RuleContext ruleContext) {
-    // The data binding library expects this to be called "layout-info.zip".
+    return getSuffixedInfoFile(ruleContext, "");
+  }
+
+  /** Gets a layout info file with the specified suffix (for use in having different outputs) */
+  static Artifact getSuffixedInfoFile(RuleContext ruleContext, String suffix) {
     return ruleContext.getUniqueDirectoryArtifact(
-        "databinding", "layout-info.zip", ruleContext.getBinOrGenfilesDirectory());
+        "databinding", "layout-info" + suffix + ".zip", ruleContext.getBinOrGenfilesDirectory());
   }
 
   /**
