@@ -89,9 +89,9 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
@@ -446,21 +446,22 @@ public class CompilationSupport {
       resultLink.addLinkActionInput(linkActionInput);
     }
 
-    CcCompilationInfo.Builder ccCompilationInfoBuilder = new CcCompilationInfo.Builder(ruleContext);
-    ccCompilationInfoBuilder.mergeDependentCcCompilationInfos(
+    CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder =
+        new CcCompilationContextInfo.Builder(ruleContext);
+    ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfos(
         Arrays.asList(
-            objcArcCompilationInfo.getCcCompilationInfo(),
-            nonObjcArcCompilationInfo.getCcCompilationInfo()));
-    ccCompilationInfoBuilder.setPurpose(
+            objcArcCompilationInfo.getCcCompilationContextInfo(),
+            nonObjcArcCompilationInfo.getCcCompilationContextInfo()));
+    ccCompilationContextInfoBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-    semantics.setupCcCompilationInfo(ruleContext, ccCompilationInfoBuilder);
+    semantics.setupCcCompilationContextInfo(ruleContext, ccCompilationContextInfoBuilder);
 
     CcCompilationOutputs.Builder compilationOutputsBuilder = new CcCompilationOutputs.Builder();
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
 
     LinkingInfo linkingInfo =
-        resultLink.link(compilationOutputsBuilder.build(), ccCompilationInfoBuilder.build());
+        resultLink.link(compilationOutputsBuilder.build(), ccCompilationContextInfoBuilder.build());
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(

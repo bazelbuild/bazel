@@ -67,7 +67,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -167,7 +167,7 @@ public final class ObjcCommon {
     private DsymOutputType dsymOutputType;
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Optional<Artifact> linkmapFile = Optional.absent();
-    private Iterable<CcCompilationInfo> depCcHeaderProviders = ImmutableList.of();
+    private Iterable<CcCompilationContextInfo> depCcHeaderProviders = ImmutableList.of();
     private Iterable<CcLinkParamsInfo> depCcLinkProviders = ImmutableList.of();
 
     /**
@@ -256,17 +256,18 @@ public final class ObjcCommon {
     Builder addDeps(List<ConfiguredTargetAndData> deps) {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps =
           ImmutableList.<ObjcProvider>builder();
-      ImmutableList.Builder<CcCompilationInfo> cppDeps = ImmutableList.<CcCompilationInfo>builder();
+      ImmutableList.Builder<CcCompilationContextInfo> cppDeps =
+          ImmutableList.<CcCompilationContextInfo>builder();
       ImmutableList.Builder<CcLinkParamsInfo> cppDepLinkParams =
           ImmutableList.<CcLinkParamsInfo>builder();
 
       for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
         addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
-        addAnyProviders(cppDeps, depCT, CcCompilationInfo.PROVIDER);
+        addAnyProviders(cppDeps, depCT, CcCompilationContextInfo.PROVIDER);
         if (isCcLibrary(dep)) {
           cppDepLinkParams.add(depCT.get(CcLinkParamsInfo.PROVIDER));
-          addDefines(depCT.get(CcCompilationInfo.PROVIDER).getDefines());
+          addDefines(depCT.get(CcCompilationContextInfo.PROVIDER).getDefines());
         }
       }
       addDepObjcProviders(propagatedObjcDeps.build());
@@ -422,11 +423,11 @@ public final class ObjcCommon {
         objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
       }
 
-      for (CcCompilationInfo headerProvider : depCcHeaderProviders) {
+      for (CcCompilationContextInfo headerProvider : depCcHeaderProviders) {
         objcProvider.addAll(HEADER, filterFileset(headerProvider.getDeclaredIncludeSrcs()));
         objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
         // TODO(bazel-team): This pulls in stl via
-        // CppHelper.mergeToolchainDependentCcCompilationInfo but
+        // CppHelper.mergeToolchainDependentCcCompilationContextInfo but
         // probably shouldn't.
         objcProvider.addAll(INCLUDE_SYSTEM, headerProvider.getSystemIncludeDirs());
         objcProvider.addAll(DEFINE, headerProvider.getDefines());

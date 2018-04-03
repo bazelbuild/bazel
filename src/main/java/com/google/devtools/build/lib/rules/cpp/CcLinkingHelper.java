@@ -438,12 +438,14 @@ public final class CcLinkingHelper {
    *
    * @throws RuleErrorException
    */
-  // TODO(b/73997894): Try to remove CcCompilationInfo. Right now headers are passed as non code
+  // TODO(b/73997894): Try to remove CcCompilationContextInfo. Right now headers are passed as non
+  // code
   // inputs to the linker.
-  public LinkingInfo link(CcCompilationOutputs ccOutputs, CcCompilationInfo ccCompilationInfo)
+  public LinkingInfo link(
+      CcCompilationOutputs ccOutputs, CcCompilationContextInfo ccCompilationContextInfo)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);
-    Preconditions.checkNotNull(ccCompilationInfo);
+    Preconditions.checkNotNull(ccCompilationContextInfo);
 
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :
@@ -548,11 +550,11 @@ public final class CcLinkingHelper {
     if (emitCcSpecificLinkParamsProvider) {
       providers.add(
           new CcSpecificLinkParamsProvider(
-              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationInfo, forcePic)));
+              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationContextInfo, forcePic)));
     } else {
       providers.put(
           new CcLinkParamsInfo(
-              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationInfo, forcePic)));
+              createCcLinkParamsStore(ccLinkingOutputs, ccCompilationContextInfo, forcePic)));
     }
     return new LinkingInfo(
         providers.build(), outputGroups, ccLinkingOutputs, originalLinkingOutputs);
@@ -633,13 +635,13 @@ public final class CcLinkingHelper {
 
   private CcLinkParamsStore createCcLinkParamsStore(
       final CcLinkingOutputs ccLinkingOutputs,
-      final CcCompilationInfo ccCompilationInfo,
+      final CcCompilationContextInfo ccCompilationContextInfo,
       final boolean forcePic) {
     return new CcLinkParamsStore() {
       @Override
       protected void collect(
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-        builder.addLinkstamps(linkstamps.build(), ccCompilationInfo);
+        builder.addLinkstamps(linkstamps.build(), ccCompilationContextInfo);
         builder.addTransitiveTargets(
             deps, CcLinkParamsInfo.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {

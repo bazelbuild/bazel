@@ -327,9 +327,10 @@ public final class CcLinkParams {
 
     /** Adds a collection of linkstamps. */
     public Builder addLinkstamps(
-        NestedSet<Artifact> linkstamps, CcCompilationInfo ccCompilationInfo) {
+        NestedSet<Artifact> linkstamps, CcCompilationContextInfo ccCompilationContextInfo) {
       for (Artifact linkstamp : linkstamps) {
-        linkstampsBuilder.add(new Linkstamp(linkstamp, ccCompilationInfo.getDeclaredIncludeSrcs()));
+        linkstampsBuilder.add(
+            new Linkstamp(linkstamp, ccCompilationContextInfo.getDeclaredIncludeSrcs()));
       }
       return this;
     }

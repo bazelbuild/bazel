@@ -75,7 +75,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       PathFragment tempOutputFile,
       DotdFile dotdFile,
       ImmutableMap<String, String> localShellEnvironment,
-      CcCompilationInfo ccCompilationInfo,
+      CcCompilationContextInfo ccCompilationContextInfo,
       CoptsFilter nocopts,
       Iterable<IncludeScannable> lipoScannables,
       CppSemantics cppSemantics,
@@ -112,7 +112,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         // cc_fake_binary and for the negative compilation tests that depend on
         // the cc_fake_binary, and the runfiles must be determined at analysis
         // time, so they can't depend on the contents of the ".d" file.)
-        CcCompilationInfo.disallowUndeclaredHeaders(ccCompilationInfo),
+        CcCompilationContextInfo.disallowUndeclaredHeaders(ccCompilationContextInfo),
         nocopts,
         lipoScannables,
         ImmutableList.<Artifact>of(),

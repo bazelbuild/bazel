@@ -74,7 +74,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
           /* dynamicRuntimeLinkInputs= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           /* dynamicRuntimeLinkMiddleman= */ null,
           /* dynamicRuntimeSolibDir= */ PathFragment.EMPTY_FRAGMENT,
-          CcCompilationInfo.EMPTY,
+          CcCompilationContextInfo.EMPTY,
           /* supportsParamFiles= */ false,
           /* supportsHeaderParsing= */ false,
           Variables.EMPTY,
@@ -105,7 +105,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
   @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
-  private final CcCompilationInfo ccCompilationInfo;
+  private final CcCompilationContextInfo ccCompilationContextInfo;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
   private final Variables buildVariables;
@@ -138,7 +138,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
       @Nullable Artifact dynamicRuntimeLinkMiddleman,
       PathFragment dynamicRuntimeSolibDir,
-      CcCompilationInfo ccCompilationInfo,
+      CcCompilationContextInfo ccCompilationContextInfo,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
       Variables buildVariables,
@@ -169,7 +169,7 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.dynamicRuntimeLinkInputs = Preconditions.checkNotNull(dynamicRuntimeLinkInputs);
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
-    this.ccCompilationInfo = Preconditions.checkNotNull(ccCompilationInfo);
+    this.ccCompilationContextInfo = Preconditions.checkNotNull(ccCompilationContextInfo);
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.buildVariables = buildVariables;
@@ -375,9 +375,9 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return dynamicRuntimeSolibDir;
   }
 
-  /** Returns the {@code CcCompilationInfo} for the toolchain. */
-  public CcCompilationInfo getCcCompilationInfo() {
-    return ccCompilationInfo;
+  /** Returns the {@code CcCompilationContextInfo} for the toolchain. */
+  public CcCompilationContextInfo getCcCompilationContextInfo() {
+    return ccCompilationContextInfo;
   }
 
   /**

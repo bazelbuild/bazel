@@ -90,13 +90,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   private CppModuleMapAction getCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    CppModuleMap cppModuleMap = target.get(CcCompilationInfo.PROVIDER).getCppModuleMap();
+    CppModuleMap cppModuleMap = target.get(CcCompilationContextInfo.PROVIDER).getCppModuleMap();
     return (CppModuleMapAction) getGeneratingAction(cppModuleMap.getArtifact());
   }
 
   private void assertNoCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    assertThat(target.get(CcCompilationInfo.PROVIDER).getCppModuleMap()).isNull();
+    assertThat(target.get(CcCompilationContextInfo.PROVIDER).getCppModuleMap()).isNull();
   }
 
   @Test
@@ -104,7 +104,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget l = scratchConfiguredTarget("a", "l",
         "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
         "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
-    assertThat(l.get(CcCompilationInfo.PROVIDER).getDefines()).contains("V=BAR");
+    assertThat(l.get(CcCompilationContextInfo.PROVIDER).getDefines()).contains("V=BAR");
   }
 
   @Test
@@ -559,7 +559,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppCompileAction aObjectAction = (CppCompileAction) getGeneratingAction(aObjectArtifact);
     assertThat(aObjectAction.getIncludeScannerSources()).containsExactly(
         getSourceArtifact("module/a.cc"));
-    assertThat(aObjectAction.getCcCompilationInfo().getTransitiveModules(true))
+    assertThat(aObjectAction.getCcCompilationContextInfo().getTransitiveModules(true))
         .contains(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
     assertThat(aObjectAction.getInputs()).contains(
         getGenfilesArtifactWithNoOwner("module/b.cppmap"));
@@ -751,7 +751,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//module:j");
     Artifact jObjectArtifact = getBinArtifact("_objs/j/module/j.pic.o", "//module:j");
     CppCompileAction jObjectAction = (CppCompileAction) getGeneratingAction(jObjectArtifact);
-    assertThat(getHeaderModules(jObjectAction.getCcCompilationInfo().getTransitiveModules(true)))
+    assertThat(
+            getHeaderModules(
+                jObjectAction.getCcCompilationContextInfo().getTransitiveModules(true)))
         .containsExactly(
             getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"),
             getBinArtifact("_objs/g/module/g.pic.pcm", "//module:g"));
@@ -759,7 +761,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getSourceArtifact("module/j.cc"));
     assertThat(jObjectAction.getMainIncludeScannerSource()).isEqualTo(
         getSourceArtifact("module/j.cc"));
-    assertThat(getHeaderModules(jObjectAction.getCcCompilationInfo().getTransitiveModules(true)))
+    assertThat(
+            getHeaderModules(
+                jObjectAction.getCcCompilationContextInfo().getTransitiveModules(true)))
         .containsExactly(
             getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"),
             getBinArtifact("_objs/g/module/g.pic.pcm", "//module:g"));
@@ -789,7 +793,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(
             getGenfilesArtifact("b.cppmap", "//module:b"),
             getGenfilesArtifact("c.cppmap", "//nomodule:e"));
-    assertThat(getHeaderModules(cObjectAction.getCcCompilationInfo().getTransitiveModules(true)))
+    assertThat(
+            getHeaderModules(
+                cObjectAction.getCcCompilationContextInfo().getTransitiveModules(true)))
         .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
 
     getConfiguredTarget("//nomodule:d");
@@ -799,7 +805,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(
             getGenfilesArtifact("c.cppmap", "//nomodule:c"),
             getGenfilesArtifact("d.cppmap", "//nomodule:d"));
-    assertThat(getHeaderModules(dObjectAction.getCcCompilationInfo().getTransitiveModules(true)))
+    assertThat(
+            getHeaderModules(
+                dObjectAction.getCcCompilationContextInfo().getTransitiveModules(true)))
         .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
   }
 

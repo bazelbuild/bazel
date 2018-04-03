@@ -33,24 +33,24 @@ import java.util.Map;
 @Immutable
 @AutoCodec
 public final class LipoContextProvider implements TransitiveInfoProvider {
-  private final CcCompilationInfo ccCompilationInfo;
+  private final CcCompilationContextInfo ccCompilationContextInfo;
 
   private final ImmutableMap<Artifact, IncludeScannable> includeScannables;
   private final ImmutableMap<PathFragment, Artifact> sourceArtifactMap;
 
   @AutoCodec.Instantiator
   public LipoContextProvider(
-      CcCompilationInfo ccCompilationInfo,
+      CcCompilationContextInfo ccCompilationContextInfo,
       Map<Artifact, IncludeScannable> includeScannables,
       Map<PathFragment, Artifact> sourceArtifactMap) {
-    this.ccCompilationInfo = ccCompilationInfo;
+    this.ccCompilationContextInfo = ccCompilationContextInfo;
     this.includeScannables = ImmutableMap.copyOf(includeScannables);
     this.sourceArtifactMap = ImmutableMap.copyOf(sourceArtifactMap);
   }
 
-  /** Returns merged {@code CcCompilationInfo} for the whole LIPO subtree. */
-  public CcCompilationInfo getLipoCcCompilationInfo() {
-    return ccCompilationInfo;
+  /** Returns merged {@code CcCompilationContextInfo} for the whole LIPO subtree. */
+  public CcCompilationContextInfo getLipoCcCompilationContextInfo() {
+    return ccCompilationContextInfo;
   }
 
   /**

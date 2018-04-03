@@ -30,13 +30,13 @@ public interface CppSemantics {
   void finalizeCompileActionBuilder(RuleContext ruleContext, CppCompileActionBuilder actionBuilder);
 
   /**
-   * Called before {@link CcCompilationInfo}s are finalized.
+   * Called before {@link CcCompilationContextInfo}s are finalized.
    *
    * <p>Gives the semantics implementation the opportunity to change what the C++ rule propagates to
    * dependent rules.
    */
-  void setupCcCompilationInfo(
-      RuleContext ruleContext, CcCompilationInfo.Builder ccCompilationInfoBuilder);
+  void setupCcCompilationContextInfo(
+      RuleContext ruleContext, CcCompilationContextInfo.Builder ccCompilationContextInfoBuilder);
 
   /**
    * Returns the set of includes which are not mandatory and may be pruned by include processing.
