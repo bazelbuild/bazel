@@ -120,7 +120,7 @@ public final class MockProtoSupport {
         "cc_library(name = 'stubby12_proto_rpc_libs')");
     config.create("net/rpc4/public/core/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'rpc4_base')");
+        "cc_library(name = 'stubby4_rpc_libs')");
     config.create("net/grpc/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'grpc++_codegen_lib')");
