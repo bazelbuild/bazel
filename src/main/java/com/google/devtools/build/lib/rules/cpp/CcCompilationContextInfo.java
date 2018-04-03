@@ -56,14 +56,15 @@ import javax.annotation.Nullable;
       "Immutable store of information needed for C++ compilation that is aggregated across "
           + "dependencies."
 )
-public final class CcCompilationInfo extends NativeInfo {
-  public static final NativeProvider<CcCompilationInfo> PROVIDER =
-      new NativeProvider<CcCompilationInfo>(CcCompilationInfo.class, "CcCompilationInfo") {};
+public final class CcCompilationContextInfo extends NativeInfo {
+  public static final NativeProvider<CcCompilationContextInfo> PROVIDER =
+      new NativeProvider<CcCompilationContextInfo>(
+          CcCompilationContextInfo.class, "CcCompilationContextInfo") {};
 
-  /** An empty {@code CcCompilationInfo}. */
-  public static final CcCompilationInfo EMPTY = new Builder(null).build();
+  /** An empty {@code CcCompilationContextInfo}. */
+  public static final CcCompilationContextInfo EMPTY = new Builder(null).build();
 
-  private final CommandLineCcCompilationInfo commandLineCcCompilationInfo;
+  private final CommandLineCcCompilationContextInfo commandLineCcCompilationContextInfo;
 
   private final NestedSet<PathFragment> declaredIncludeDirs;
   private final NestedSet<PathFragment> declaredIncludeWarnDirs;
@@ -92,8 +93,8 @@ public final class CcCompilationInfo extends NativeInfo {
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  CcCompilationInfo(
-      CommandLineCcCompilationInfo commandLineCcCompilationInfo,
+  CcCompilationContextInfo(
+      CommandLineCcCompilationContextInfo commandLineCcCompilationContextInfo,
       ImmutableSet<Artifact> compilationPrerequisites,
       NestedSet<PathFragment> declaredIncludeDirs,
       NestedSet<PathFragment> declaredIncludeWarnDirs,
@@ -107,8 +108,8 @@ public final class CcCompilationInfo extends NativeInfo {
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
     super(PROVIDER);
-    Preconditions.checkNotNull(commandLineCcCompilationInfo);
-    this.commandLineCcCompilationInfo = commandLineCcCompilationInfo;
+    Preconditions.checkNotNull(commandLineCcCompilationContextInfo);
+    this.commandLineCcCompilationContextInfo = commandLineCcCompilationContextInfo;
     this.declaredIncludeDirs = declaredIncludeDirs;
     this.declaredIncludeWarnDirs = declaredIncludeWarnDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
@@ -135,8 +136,8 @@ public final class CcCompilationInfo extends NativeInfo {
    * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
    * prerequisites as a transitive dependency via a middleman. After they have been accumulated
    * (using {@link Builder#addCompilationPrerequisites(Iterable)}, {@link
-   * Builder#mergeDependentCcCompilationInfo(CcCompilationInfo)}, and {@link
-   * Builder#mergeDependentCcCompilationInfos(Iterable)}, they are consolidated into a single
+   * Builder#mergeDependentCcCompilationContextInfo(CcCompilationContextInfo)}, and {@link
+   * Builder#mergeDependentCcCompilationContextInfos(Iterable)}, they are consolidated into a single
    * middleman Artifact when {@link Builder#build()} is called.
    *
    * <p>The returned set can be empty if there are no prerequisites. Usually it contains a single
@@ -154,7 +155,7 @@ public final class CcCompilationInfo extends NativeInfo {
    * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
    */
   public ImmutableList<PathFragment> getIncludeDirs() {
-    return commandLineCcCompilationInfo.includeDirs;
+    return commandLineCcCompilationContextInfo.includeDirs;
   }
 
   /**
@@ -165,7 +166,7 @@ public final class CcCompilationInfo extends NativeInfo {
    * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
    */
   public ImmutableList<PathFragment> getQuoteIncludeDirs() {
-    return commandLineCcCompilationInfo.quoteIncludeDirs;
+    return commandLineCcCompilationContextInfo.quoteIncludeDirs;
   }
 
   /**
@@ -176,7 +177,7 @@ public final class CcCompilationInfo extends NativeInfo {
    * (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}).
    */
   public ImmutableList<PathFragment> getSystemIncludeDirs() {
-    return commandLineCcCompilationInfo.systemIncludeDirs;
+    return commandLineCcCompilationContextInfo.systemIncludeDirs;
   }
 
   /**
@@ -260,29 +261,30 @@ public final class CcCompilationInfo extends NativeInfo {
    * for the target. The order of the returned collection is deterministic.
    */
   public ImmutableList<String> getDefines() {
-    return commandLineCcCompilationInfo.defines;
+    return commandLineCcCompilationContextInfo.defines;
   }
 
   /**
-   * Returns a {@code CcCompilationInfo} that is based on a given {@code CcCompilationInfo} but
-   * returns empty sets for {@link #getDeclaredIncludeDirs()} and {@link
-   * #getDeclaredIncludeWarnDirs()}.
+   * Returns a {@code CcCompilationContextInfo} that is based on a given {@code
+   * CcCompilationContextInfo} but returns empty sets for {@link #getDeclaredIncludeDirs()} and
+   * {@link #getDeclaredIncludeWarnDirs()}.
    */
-  public static CcCompilationInfo disallowUndeclaredHeaders(CcCompilationInfo ccCompilationInfo) {
-    return new CcCompilationInfo(
-        ccCompilationInfo.commandLineCcCompilationInfo,
-        ccCompilationInfo.compilationPrerequisites,
+  public static CcCompilationContextInfo disallowUndeclaredHeaders(
+      CcCompilationContextInfo ccCompilationContextInfo) {
+    return new CcCompilationContextInfo(
+        ccCompilationContextInfo.commandLineCcCompilationContextInfo,
+        ccCompilationContextInfo.compilationPrerequisites,
         NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
-        ccCompilationInfo.declaredIncludeSrcs,
-        ccCompilationInfo.pregreppedHdrs,
-        ccCompilationInfo.nonCodeInputs,
-        ccCompilationInfo.moduleInfo,
-        ccCompilationInfo.picModuleInfo,
-        ccCompilationInfo.directModuleMaps,
-        ccCompilationInfo.cppModuleMap,
-        ccCompilationInfo.verificationModuleMap,
-        ccCompilationInfo.propagateModuleMapAsActionInput);
+        ccCompilationContextInfo.declaredIncludeSrcs,
+        ccCompilationContextInfo.pregreppedHdrs,
+        ccCompilationContextInfo.nonCodeInputs,
+        ccCompilationContextInfo.moduleInfo,
+        ccCompilationContextInfo.picModuleInfo,
+        ccCompilationContextInfo.directModuleMaps,
+        ccCompilationContextInfo.cppModuleMap,
+        ccCompilationContextInfo.verificationModuleMap,
+        ccCompilationContextInfo.propagateModuleMapAsActionInput);
   }
 
   /**
@@ -304,38 +306,46 @@ public final class CcCompilationInfo extends NativeInfo {
    * <p>Include scanning is not handled by this method. See {@code
    * IncludeScannable#getAuxiliaryScannables()} instead.
    *
-   * @param ownerCcCompilationInfo the {@code CcCompilationInfo} of the owner binary
-   * @param libCcCompilationInfo the {@code CcCompilationInfo} of the library
+   * @param ownerCcCompilationContextInfo the {@code CcCompilationContextInfo} of the owner binary
+   * @param libCcCompilationContextInfo the {@code CcCompilationContextInfo} of the library
    */
-  public static CcCompilationInfo mergeForLipo(
-      CcCompilationInfo ownerCcCompilationInfo, CcCompilationInfo libCcCompilationInfo) {
+  public static CcCompilationContextInfo mergeForLipo(
+      CcCompilationContextInfo ownerCcCompilationContextInfo,
+      CcCompilationContextInfo libCcCompilationContextInfo) {
     ImmutableSet.Builder<Artifact> prerequisites = ImmutableSet.builder();
-    prerequisites.addAll(ownerCcCompilationInfo.compilationPrerequisites);
-    prerequisites.addAll(libCcCompilationInfo.compilationPrerequisites);
+    prerequisites.addAll(ownerCcCompilationContextInfo.compilationPrerequisites);
+    prerequisites.addAll(libCcCompilationContextInfo.compilationPrerequisites);
     ModuleInfo.Builder moduleInfo = new ModuleInfo.Builder();
-    moduleInfo.merge(ownerCcCompilationInfo.moduleInfo);
-    moduleInfo.merge(libCcCompilationInfo.moduleInfo);
+    moduleInfo.merge(ownerCcCompilationContextInfo.moduleInfo);
+    moduleInfo.merge(libCcCompilationContextInfo.moduleInfo);
     ModuleInfo.Builder picModuleInfo = new ModuleInfo.Builder();
-    picModuleInfo.merge(ownerCcCompilationInfo.picModuleInfo);
-    picModuleInfo.merge(libCcCompilationInfo.picModuleInfo);
-    return new CcCompilationInfo(
-        libCcCompilationInfo.commandLineCcCompilationInfo,
+    picModuleInfo.merge(ownerCcCompilationContextInfo.picModuleInfo);
+    picModuleInfo.merge(libCcCompilationContextInfo.picModuleInfo);
+    return new CcCompilationContextInfo(
+        libCcCompilationContextInfo.commandLineCcCompilationContextInfo,
         prerequisites.build(),
         mergeSets(
-            ownerCcCompilationInfo.declaredIncludeDirs, libCcCompilationInfo.declaredIncludeDirs),
+            ownerCcCompilationContextInfo.declaredIncludeDirs,
+            libCcCompilationContextInfo.declaredIncludeDirs),
         mergeSets(
-            ownerCcCompilationInfo.declaredIncludeWarnDirs,
-            libCcCompilationInfo.declaredIncludeWarnDirs),
+            ownerCcCompilationContextInfo.declaredIncludeWarnDirs,
+            libCcCompilationContextInfo.declaredIncludeWarnDirs),
         mergeSets(
-            ownerCcCompilationInfo.declaredIncludeSrcs, libCcCompilationInfo.declaredIncludeSrcs),
-        mergeSets(ownerCcCompilationInfo.pregreppedHdrs, libCcCompilationInfo.pregreppedHdrs),
-        mergeSets(ownerCcCompilationInfo.nonCodeInputs, libCcCompilationInfo.nonCodeInputs),
+            ownerCcCompilationContextInfo.declaredIncludeSrcs,
+            libCcCompilationContextInfo.declaredIncludeSrcs),
+        mergeSets(
+            ownerCcCompilationContextInfo.pregreppedHdrs,
+            libCcCompilationContextInfo.pregreppedHdrs),
+        mergeSets(
+            ownerCcCompilationContextInfo.nonCodeInputs, libCcCompilationContextInfo.nonCodeInputs),
         moduleInfo.build(),
         picModuleInfo.build(),
-        mergeSets(ownerCcCompilationInfo.directModuleMaps, libCcCompilationInfo.directModuleMaps),
-        libCcCompilationInfo.cppModuleMap,
-        libCcCompilationInfo.verificationModuleMap,
-        libCcCompilationInfo.propagateModuleMapAsActionInput);
+        mergeSets(
+            ownerCcCompilationContextInfo.directModuleMaps,
+            libCcCompilationContextInfo.directModuleMaps),
+        libCcCompilationContextInfo.cppModuleMap,
+        libCcCompilationContextInfo.verificationModuleMap,
+        libCcCompilationContextInfo.propagateModuleMapAsActionInput);
   }
 
   /**
@@ -359,19 +369,19 @@ public final class CcCompilationInfo extends NativeInfo {
   }
 
   /**
-   * The parts of the {@code CcCompilationInfo} that influence the command line of compilation
-   * actions.
+   * The parts of the {@code CcCompilationContextInfo} that influence the command line of
+   * compilation actions.
    */
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class CommandLineCcCompilationInfo {
+  static class CommandLineCcCompilationContextInfo {
     private final ImmutableList<PathFragment> includeDirs;
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
     private final ImmutableList<String> defines;
 
-    CommandLineCcCompilationInfo(
+    CommandLineCcCompilationContextInfo(
         ImmutableList<PathFragment> includeDirs,
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
@@ -383,7 +393,7 @@ public final class CcCompilationInfo extends NativeInfo {
     }
   }
 
-  /** Builder class for {@link CcCompilationInfo}. */
+  /** Builder class for {@link CcCompilationContextInfo}. */
   public static class Builder {
     private String purpose;
     private final Set<Artifact> compilationPrerequisites = new LinkedHashSet<>();
@@ -410,15 +420,15 @@ public final class CcCompilationInfo extends NativeInfo {
     /** The rule that owns the context */
     private final RuleContext ruleContext;
 
-    /** Creates a new builder for a {@link CcCompilationInfo} instance. */
+    /** Creates a new builder for a {@link CcCompilationContextInfo} instance. */
     public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
     }
 
     /**
      * Overrides the purpose of this context. This is useful if a Target needs more than one
-     * CcCompilationInfo. (The purpose is used to construct the name of the prerequisites middleman
-     * for the context, and all artifacts for a given Target must have distinct names.)
+     * CcCompilationContextInfo. (The purpose is used to construct the name of the prerequisites
+     * middleman for the context, and all artifacts for a given Target must have distinct names.)
      *
      * @param purpose must be a string which is suitable for use as a filename. A single rule may
      *     have many middlemen with distinct purposes.
@@ -434,41 +444,45 @@ public final class CcCompilationInfo extends NativeInfo {
     }
 
     /**
-     * Merges the context of a dependency into this one by adding the contents of all of its
-     * attributes.
+     * Merges the {@link CcCompilationContextInfo} of a dependency into this one by adding the
+     * contents of all of its attributes.
      */
-    public Builder mergeDependentCcCompilationInfo(CcCompilationInfo otherCcCompilationInfo) {
-      Preconditions.checkNotNull(otherCcCompilationInfo);
+    public Builder mergeDependentCcCompilationContextInfo(
+        CcCompilationContextInfo otherCcCompilationContextInfo) {
+      Preconditions.checkNotNull(otherCcCompilationContextInfo);
       compilationPrerequisites.addAll(
-          otherCcCompilationInfo.getTransitiveCompilationPrerequisites());
-      includeDirs.addAll(otherCcCompilationInfo.getIncludeDirs());
-      quoteIncludeDirs.addAll(otherCcCompilationInfo.getQuoteIncludeDirs());
-      systemIncludeDirs.addAll(otherCcCompilationInfo.getSystemIncludeDirs());
-      declaredIncludeDirs.addTransitive(otherCcCompilationInfo.getDeclaredIncludeDirs());
-      declaredIncludeWarnDirs.addTransitive(otherCcCompilationInfo.getDeclaredIncludeWarnDirs());
-      declaredIncludeSrcs.addTransitive(otherCcCompilationInfo.getDeclaredIncludeSrcs());
-      pregreppedHdrs.addTransitive(otherCcCompilationInfo.getPregreppedHeaders());
-      moduleInfo.addTransitive(otherCcCompilationInfo.moduleInfo);
-      picModuleInfo.addTransitive(otherCcCompilationInfo.picModuleInfo);
-      nonCodeInputs.addTransitive(otherCcCompilationInfo.nonCodeInputs);
+          otherCcCompilationContextInfo.getTransitiveCompilationPrerequisites());
+      includeDirs.addAll(otherCcCompilationContextInfo.getIncludeDirs());
+      quoteIncludeDirs.addAll(otherCcCompilationContextInfo.getQuoteIncludeDirs());
+      systemIncludeDirs.addAll(otherCcCompilationContextInfo.getSystemIncludeDirs());
+      declaredIncludeDirs.addTransitive(otherCcCompilationContextInfo.getDeclaredIncludeDirs());
+      declaredIncludeWarnDirs.addTransitive(
+          otherCcCompilationContextInfo.getDeclaredIncludeWarnDirs());
+      declaredIncludeSrcs.addTransitive(otherCcCompilationContextInfo.getDeclaredIncludeSrcs());
+      pregreppedHdrs.addTransitive(otherCcCompilationContextInfo.getPregreppedHeaders());
+      moduleInfo.addTransitive(otherCcCompilationContextInfo.moduleInfo);
+      picModuleInfo.addTransitive(otherCcCompilationContextInfo.picModuleInfo);
+      nonCodeInputs.addTransitive(otherCcCompilationContextInfo.nonCodeInputs);
 
       // All module maps of direct dependencies are inputs to the current compile independently of
       // the build type.
-      if (otherCcCompilationInfo.getCppModuleMap() != null) {
-        directModuleMaps.add(otherCcCompilationInfo.getCppModuleMap().getArtifact());
+      if (otherCcCompilationContextInfo.getCppModuleMap() != null) {
+        directModuleMaps.add(otherCcCompilationContextInfo.getCppModuleMap().getArtifact());
       }
 
-      defines.addAll(otherCcCompilationInfo.getDefines());
+      defines.addAll(otherCcCompilationContextInfo.getDefines());
       return this;
     }
 
     /**
-     * Merges the {@code CcCompilationInfo}s of some targets into this one by adding the contents of
-     * all of their attributes. Targets that do not implement {@link CcCompilationInfo} are ignored.
+     * Merges the {@code CcCompilationContextInfo}s of some targets into this one by adding the
+     * contents of all of their attributes. Targets that do not implement {@link
+     * CcCompilationContextInfo} are ignored.
      */
-    public Builder mergeDependentCcCompilationInfos(Iterable<CcCompilationInfo> targets) {
-      for (CcCompilationInfo target : targets) {
-        mergeDependentCcCompilationInfo(target);
+    public Builder mergeDependentCcCompilationContextInfos(
+        Iterable<CcCompilationContextInfo> targets) {
+      for (CcCompilationContextInfo target : targets) {
+        mergeDependentCcCompilationContextInfo(target);
       }
       return this;
     }
@@ -670,15 +684,15 @@ public final class CcCompilationInfo extends NativeInfo {
       return this;
     }
 
-    /** Builds the {@link CcCompilationInfo}. */
-    public CcCompilationInfo build() {
+    /** Builds the {@link CcCompilationContextInfo}. */
+    public CcCompilationContextInfo build() {
       return build(
           ruleContext == null ? null : ruleContext.getActionOwner(),
           ruleContext == null ? null : ruleContext.getAnalysisEnvironment().getMiddlemanFactory());
     }
 
     @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-    public CcCompilationInfo build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
+    public CcCompilationContextInfo build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
       // We don't create middlemen in LIPO collector subtree, because some target CT
       // will do that instead.
       Artifact prerequisiteStampFile = (ruleContext != null
@@ -686,8 +700,8 @@ public final class CcCompilationInfo extends NativeInfo {
           ? getMiddlemanArtifact(middlemanFactory)
           : createMiddleman(owner, middlemanFactory);
 
-      return new CcCompilationInfo(
-          new CommandLineCcCompilationInfo(
+      return new CcCompilationContextInfo(
+          new CommandLineCcCompilationContextInfo(
               ImmutableList.copyOf(includeDirs),
               ImmutableList.copyOf(quoteIncludeDirs),
               ImmutableList.copyOf(systemIncludeDirs),

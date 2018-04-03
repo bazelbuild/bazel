@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License.LicenseType;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +41,7 @@ public class AliasTest extends BuildViewTestCase {
         "alias(name='b', actual='a')");
 
     ConfiguredTarget b = getConfiguredTarget("//a:b");
-    assertThat(b.get(CcCompilationInfo.PROVIDER)).isNotNull();
+    assertThat(b.get(CcCompilationContextInfo.PROVIDER)).isNotNull();
   }
 
   @Test

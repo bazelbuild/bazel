@@ -312,7 +312,7 @@ public final class PrintActionCommand implements BlazeCommand {
    * <p>However, since there is a scheduling dependency on the header files, we can use the system
    * to implement said scheduling dependency to figure them out. Thus, we go a-fishing in the action
    * graph reaching through error propagating middlemen: one of these exists for each {@code
-   * CcCompilationInfo} in the transitive closure of the rule.
+   * CcCompilationContextInfo} in the transitive closure of the rule.
    */
   private static void expandRecursiveHelper(
       ActionGraph actionGraph,

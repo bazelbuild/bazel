@@ -143,8 +143,8 @@ public class CppLinkstampCompileHelper {
     // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
     Preconditions.checkArgument(
         featureConfiguration.actionIsConfigured(CppCompileAction.LINKSTAMP_COMPILE));
-    CcCompilationInfo ccCompilationInfo =
-        new CcCompilationInfo.Builder(ruleContext)
+    CcCompilationContextInfo ccCompilationContextInfo =
+        new CcCompilationContextInfo.Builder(ruleContext)
             .addIncludeDir(PathFragment.create("."))
             .addDefines(
                 computeAllLinkstampDefines(
@@ -165,7 +165,7 @@ public class CppLinkstampCompileHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        ccCompilationInfo,
+        ccCompilationContextInfo,
         buildInfoHeaderArtifacts
             .stream()
             .map(Artifact::getExecPathString)
