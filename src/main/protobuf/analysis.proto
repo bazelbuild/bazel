@@ -19,6 +19,8 @@ package analysis;
 option java_package = "com.google.devtools.build.lib.analysis";
 option java_outer_classname = "AnalysisProtos";
 
+import "src/main/protobuf/build.proto";
+
 // Container for the action graph properties.
 message ActionGraphContainer {
   repeated Artifact artifacts = 1;
@@ -146,6 +148,9 @@ message Configuration {
 
   // The platform string.
   string platform_name = 3;
+
+  // The checksum representation of the configuration options;
+  string checksum = 4;
 }
 
 message KeyValuePair {
@@ -154,4 +159,21 @@ message KeyValuePair {
 
   // The variable value.
   string value = 2;
+}
+
+message ConfiguredTarget {
+  // The target. We use blaze_query.Target defined in build.proto instead of
+  // the Target defined in this file because blaze_query.Target is much heavier
+  // and will output proto results similar to what users are familiar with from
+  // regular blaze query.
+  blaze_query.Target target = 1;
+
+  // The configuration
+  Configuration configuration = 2;
+}
+
+// Container for cquery results
+message CqueryResult {
+  // All the configuredtargets returns by cquery
+  repeated ConfiguredTarget results = 1;
 }

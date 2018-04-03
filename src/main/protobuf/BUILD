@@ -14,7 +14,6 @@ exports_files(
 
 FILES = [
     "action_cache",
-    "analysis",
     "android_deploy_info",
     "bazel_flags",
     "build",
@@ -46,6 +45,22 @@ FILES = [
     name = s + "_java_proto_srcs",
     deps = [":" + s + "_java_proto"],
 ) for s in FILES]
+
+proto_library(
+    name = "analysis_proto",
+    srcs = ["analysis.proto"],
+    deps = [":build_proto"],
+)
+
+java_proto_library(
+    name = "analysis_java_proto",
+    deps = [":analysis_proto"],
+)
+
+java_library_srcs(
+    name = "analysis_java_proto_srcs",
+    deps = [":analysis_java_proto"],
+)
 
 # This new option tagging method is in flux while being applied to the options
 # in the Bazel code base. The visibility should not be changed to allow external
@@ -156,6 +171,7 @@ filegroup(
 filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
+        ":analysis_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":option_filters_java_proto_srcs",
