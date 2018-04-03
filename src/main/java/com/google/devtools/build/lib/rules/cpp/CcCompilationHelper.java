@@ -1509,7 +1509,6 @@ public final class CcCompilationHelper {
         new CppCompileActionBuilder(ruleContext, ccToolchain, configuration);
     builder.setSourceFile(source);
     builder.setCcCompilationInfo(ccCompilationInfo);
-    builder.addEnvironment(ccToolchain.getEnvironment());
     builder.setCoptsFilter(coptsFilter);
     return builder;
   }

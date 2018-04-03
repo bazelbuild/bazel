@@ -75,7 +75,6 @@ public class CppCompileActionBuilder {
   private final ImmutableList.Builder<Artifact> additionalIncludeScanningRoots;
   private Boolean shouldScanIncludes;
   private Map<String, String> executionInfo = new LinkedHashMap<>();
-  private Map<String, String> environment = new LinkedHashMap<>();
   private CppSemantics cppSemantics;
   private CcToolchainProvider ccToolchain;
   @Nullable private final Artifact grepIncludes;
@@ -160,7 +159,6 @@ public class CppCompileActionBuilder {
     this.lipoScannableMap = other.lipoScannableMap;
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
-    this.environment = new LinkedHashMap<>(other.environment);
     this.localShellEnvironment = other.localShellEnvironment;
     this.codeCoverageEnabled = other.codeCoverageEnabled;
     this.cppSemantics = other.cppSemantics;
@@ -420,7 +418,6 @@ public class CppCompileActionBuilder {
               additionalIncludeScanningRoots.build(),
               actionClassId,
               ImmutableMap.copyOf(executionInfo),
-              ImmutableMap.copyOf(environment),
               getActionName(),
               cppSemantics,
               ccToolchain,
@@ -540,11 +537,6 @@ public class CppCompileActionBuilder {
   /** Returns the build variables to be used for the action. */
   public CcToolchainFeatures.Variables getVariables() {
     return variables;
-  }
-
-  public CppCompileActionBuilder addEnvironment(Map<String, String> environment) {
-    this.environment.putAll(environment);
-    return this;
   }
 
   public CppCompileActionBuilder addExecutionInfo(Map<String, String> executionInfo) {
