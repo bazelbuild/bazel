@@ -15,12 +15,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.protobuf.ByteString;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -68,27 +64,6 @@ public class NestedSetCodecTest {
                 .build())
         .setVerificationFunction(NestedSetCodecTest::verifyDeserialization)
         .runTests();
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testDeserializedNestedSetsShareChildren() throws Exception {
-    ObjectCodecs objectCodecs =
-        new ObjectCodecs(
-            AutoRegistry.get().getBuilder().setAllowDefaultCodec(true).build(), ImmutableMap.of());
-    NestedSet<String> originalChild = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c");
-    NestedSet<String> originalA =
-        new NestedSetBuilder<String>(Order.STABLE_ORDER).addTransitive(originalChild).build();
-    NestedSet<String> originalB =
-        new NestedSetBuilder<String>(Order.STABLE_ORDER).addTransitive(originalChild).build();
-
-    ByteString serializedA = objectCodecs.serialize(originalA);
-    ByteString serializedB = objectCodecs.serialize(originalB);
-
-    NestedSet<String> deserializedA = (NestedSet<String>) objectCodecs.deserialize(serializedA);
-    NestedSet<String> deserializedB = (NestedSet<String>) objectCodecs.deserialize(serializedB);
-
-    assertThat(deserializedA.rawChildren()).isSameAs(deserializedB.rawChildren());
   }
 
   private static void verifyDeserialization(
