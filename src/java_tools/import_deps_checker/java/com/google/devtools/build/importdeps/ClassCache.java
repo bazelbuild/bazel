@@ -31,7 +31,6 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
@@ -192,10 +191,12 @@ public final class ClassCache implements Closeable {
         ClassInfoBuilder classInfoBuilder = new ClassInfoBuilder();
         classReader.accept(classInfoBuilder, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         if (resolutionFailurePath == null) {
-          classEntry.state = ExistingState.create(classInfoBuilder.build(classIndex));
+          classEntry.state =
+              ExistingState.create(classInfoBuilder.build(classIndex, /*incomplete=*/ false));
         } else {
           classEntry.state =
-              IncompleteState.create(classInfoBuilder.build(classIndex), resolutionFailurePath);
+              IncompleteState.create(
+                  classInfoBuilder.build(classIndex, /*incomplete=*/ true), resolutionFailurePath);
         }
       } catch (IOException e) {
         throw new RuntimeException("Error when resolving class entry " + entryName);
@@ -262,16 +263,21 @@ public final class ClassCache implements Closeable {
       return null;
     }
 
-    public ClassInfo build(ImmutableMap<String, LazyClassEntry> classIndex) {
-      return ClassInfo.create(
-          checkNotNull(internalName),
-          superClasses
-              .stream()
-              .map(classIndex::get)
-              .filter(Objects::nonNull)
-              .map(entry -> entry.state.classInfo().get())
-              .collect(ImmutableList.toImmutableList()),
-          checkNotNull(members).build());
+    public ClassInfo build(ImmutableMap<String, LazyClassEntry> classIndex, boolean incomplete) {
+      ImmutableList<ClassInfo> superClassInfos = superClasses
+          .stream()
+          .map(classIndex::get)
+          // nulls possible when building ClassInfo for an "incomplete" class
+          .filter(entry -> entry != null && entry.state != null)
+          .map(entry -> entry.state.classInfo().get())
+          .collect(ImmutableList.toImmutableList());
+      checkState(
+          incomplete || superClassInfos.size() == superClasses.size(),
+          "Missing class info for some of %s's super types %s: %s",
+          internalName,
+          superClasses,
+          superClassInfos);
+      return ClassInfo.create(checkNotNull(internalName), superClassInfos, members.build());
     }
   }
 }
