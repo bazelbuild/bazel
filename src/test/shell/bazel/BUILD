@@ -154,6 +154,12 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_spawnstats_test",
+    srcs = ["bazel_spawnstats_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_coverage_test",
     srcs = ["bazel_coverage_test.sh"],
     data = [":test-deps"],

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -50,11 +51,14 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private boolean enabled;
   private boolean discardActions;
 
+  private SpawnStats spawnStats;
+
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
     this.actionKeyContext = env.getSkyframeExecutor().getActionKeyContext();
+    this.spawnStats = new SpawnStats();
     eventBus.register(this);
   }
 
@@ -63,6 +67,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     this.criticalPathComputer = null;
     this.eventBus = null;
     this.reporter = null;
+    this.spawnStats = null;
   }
 
   @Override
@@ -78,6 +83,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
           new SimpleCriticalPathComputer(actionKeyContext, BlazeClock.instance(), discardActions);
       eventBus.register(criticalPathComputer);
     }
+  }
+
+  @Subscribe
+  public void actionResultReceived(ActionResultReceivedEvent event) {
+    spawnStats.countActionResult(event.getActionResult());
   }
 
   @Subscribe
@@ -115,6 +125,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
       }
 
       reporter.handle(Event.info(Joiner.on(", ").join(items)));
+
+      String spawnSummary = spawnStats.getSummary();
+      reporter.handle(Event.info(spawnSummary));
+      statistics.add(Pair.of("process stats", ByteString.copyFromUtf8(spawnSummary)));
+
       reporter.post(new BuildToolLogs(statistics, ImmutableList.of()));
     } finally {
       criticalPathComputer = null;
