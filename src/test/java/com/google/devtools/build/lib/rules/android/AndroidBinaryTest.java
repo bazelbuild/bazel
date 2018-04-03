@@ -73,17 +73,6 @@ import org.junit.runners.JUnit4;
 public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Before
-  public final void turnOffPackageLoadingChecks() throws Exception {
-    // By default, PackageLoader loads every package the test harness loads, in order to verify
-    // the PackageLoader works correctly. In this test, however, PackageLoader sometimes fails to
-    // load packages and causes the test to become flaky.
-    // Since PackageLoader gets generally good coverage from the rest of Bazel's tests, and because
-    // we believe there's nothing special from the point of view of package loading in this test,
-    // we disable this verification here.
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
-  }
-
-  @Before
   public void createFiles() throws Exception {
     scratch.file("java/android/BUILD",
         "android_binary(name = 'app',",

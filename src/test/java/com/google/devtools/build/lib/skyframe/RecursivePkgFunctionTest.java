@@ -51,7 +51,6 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
   @Before
   public final void createSkyframeExecutor() throws Exception {
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
     skyframeExecutor = getSkyframeExecutor();
   }
 
@@ -97,6 +96,10 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testPackagesUnderMultipleRoots() throws Exception {
+    // PackageLoader doesn't support --package_path.
+    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
+    skyframeExecutor = getSkyframeExecutor();
+
     Path root1 = rootDirectory.getRelative("root1");
     Path root2 = rootDirectory.getRelative("root2");
     scratch.file(root1 + "/WORKSPACE");
