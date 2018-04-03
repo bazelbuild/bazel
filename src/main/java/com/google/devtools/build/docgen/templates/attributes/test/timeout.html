@@ -36,3 +36,9 @@ correspond to the following time periods:
     <td>60 minutes</td>
   </tr>
 </table>
+
+For times other than the above, the test timeout can be overridden with the
+<code>--test_timeout</code> bazel flag, e.g. for manually running under
+conditions which are known to be slow. The <code>--test_timeout</code> values
+are in seconds. For example <code>--test_timeout=120</code> will set the test
+timeout to two minutes.
