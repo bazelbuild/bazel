@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
 import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * Codec for {@link NestedSet}.
@@ -45,15 +44,6 @@ import java.util.concurrent.ConcurrentMap;
 public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
 
   private static final EnumCodec<Order> orderCodec = new EnumCodec<>(Order.class);
-
-  private static final ConcurrentMap<ByteString, Object> digestToChild =
-      CacheBuilder.newBuilder()
-          .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
-          .weakValues()
-          .<ByteString, Object>build()
-          .asMap();
-
-  public NestedSetCodec() {}
 
   @SuppressWarnings("unchecked")
   @Override
@@ -90,6 +80,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     }
 
     int nestedSetCount = codedIn.readInt32();
+    Map<ByteString, Object> digestToChild = Maps.newHashMapWithExpectedSize(nestedSetCount);
     Preconditions.checkState(
         nestedSetCount >= 1,
         "Should have at least serialized one nested set, got: %s",
@@ -99,7 +90,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     for (int i = 0; i < nestedSetCount; ++i) {
       // Maintain pointers to all children in this NestedSet so that their entries in the
       // digestToChild map are not GCed.
-      childrenForThisNestedSet.add(deserializeOneNestedSet(context, codedIn));
+      childrenForThisNestedSet.add(deserializeOneNestedSet(context, codedIn, digestToChild));
     }
     // The last element of childrenForThisNestedSet is the top-level NestedSet
     return createNestedSet(order, childrenForThisNestedSet.get(nestedSetCount - 1));
@@ -162,7 +153,10 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     context.serialize(singleChild, childCodedOut);
   }
 
-  private Object deserializeOneNestedSet(DeserializationContext context, CodedInputStream codedIn)
+  private Object deserializeOneNestedSet(
+      DeserializationContext context,
+      CodedInputStream codedIn,
+      Map<ByteString, Object> digestToChild)
       throws SerializationException, IOException {
     ByteString digest = codedIn.readBytes();
     CodedInputStream childCodedIn = codedIn.readBytes().newCodedInput();
@@ -170,28 +164,24 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     int childCount = childCodedIn.readInt32();
     final Object result;
     if (childCount > 1) {
-      result = deserializeMultipleItemChildArray(context, childCodedIn, childCount);
+      result = deserializeMultipleItemChildArray(context, childCodedIn, childCount, digestToChild);
     } else if (childCount == 1) {
       result = context.deserialize(childCodedIn);
     } else {
       result = NestedSet.EMPTY_CHILDREN;
     }
-    // If this member has been deserialized already, use it, so that NestedSets that share members
-    // will point at the same object in memory instead of duplicating them.  Unfortunately, we had
-    // to do the work of deserializing the member that we will now throw away, in order to ensure
-    // that the pointer in the codedIn buffer was incremented appropriately.
-    Object oldValue =
-        digestToChild.putIfAbsent(
-            // Copy the ByteString to avoid keeping the full buffer from codedIn alive due to
-            // aliasing.
-            ByteString.copyFrom(digest.asReadOnlyByteBuffer()), result);
-    return oldValue == null ? result : oldValue;
+    digestToChild.put(
+        // Copy the ByteString to avoid keeping the full buffer from codedIn alive due to
+        // aliasing.
+        ByteString.copyFrom(digest.asReadOnlyByteBuffer()), result);
+    return result;
   }
 
   private Object deserializeMultipleItemChildArray(
       DeserializationContext context,
       CodedInputStream childCodedIn,
-      int childCount)
+      int childCount,
+      Map<ByteString, Object> digestToChild)
       throws IOException, SerializationException {
     Object[] children = new Object[childCount];
     for (int i = 0; i < childCount; ++i) {
