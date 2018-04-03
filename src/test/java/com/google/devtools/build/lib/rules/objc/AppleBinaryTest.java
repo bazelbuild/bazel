@@ -44,7 +44,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,17 +51,6 @@ import org.junit.runners.JUnit4;
 /** Test case for apple_binary. */
 @RunWith(JUnit4.class)
 public class AppleBinaryTest extends ObjcRuleTestCase {
-  @Before
-  public final void turnOffPackageLoadingChecks() throws Exception {
-    // By default, PackageLoader loads every package the test harness loads, in order to verify
-    // the PackageLoader works correctly. In this test, however, PackageLoader sometimes fails to
-    // load packages and causes the test to become flaky.
-    // Since PackageLoader gets generally good coverage from the rest of Bazel's tests, and because
-    // we believe there's nothing special from the point of view of package loading in this test,
-    // we disable this verification here.
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
-  }
-
   static final RuleType RULE_TYPE = new RuleType("apple_binary") {
     @Override
     Iterable<String> requiredAttributes(Scratch scratch, String packageDir,
