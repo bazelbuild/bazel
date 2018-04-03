@@ -555,13 +555,13 @@ public class GrpcServerImpl implements RPCServer {
 
     pidFileWatcherThread = new PidFileWatcherThread();
     pidFileWatcherThread.start();
-    idleServerTasks = new IdleServerTasks(workspace);
+    idleServerTasks = new IdleServerTasks();
     idleServerTasks.idle();
   }
 
   private void idle() {
     Preconditions.checkState(idleServerTasks == null);
-    idleServerTasks = new IdleServerTasks(workspace);
+    idleServerTasks = new IdleServerTasks();
     idleServerTasks.idle();
   }
 
