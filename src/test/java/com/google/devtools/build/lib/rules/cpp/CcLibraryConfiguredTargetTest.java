@@ -1007,6 +1007,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
     String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
+    String binDir = getConfiguration(target).getBinFragment().toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
@@ -1016,9 +1017,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-isystem",
             genfilesDir + "/foo/foo",
             "-isystem",
+            binDir + "/foo/foo",
+            "-isystem",
             "foo/bar",
             "-isystem",
-            genfilesDir + "/foo/bar"));
+            genfilesDir + "/foo/bar",
+            "-isystem",
+            binDir + "/foo/bar"));
   }
 
   @Test
