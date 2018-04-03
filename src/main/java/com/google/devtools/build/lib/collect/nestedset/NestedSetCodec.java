@@ -102,25 +102,26 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
       CodedOutputStream codedOut,
       Map<Object, byte[]> childToDigest)
       throws IOException, SerializationException {
-    // Serialize nested set into an inner byte array so we can take its digest
-    ByteArrayOutputStream childOutputStream = new ByteArrayOutputStream();
-    HashingOutputStream hashingOutputStream =
-        new HashingOutputStream(Hashing.md5(), childOutputStream);
-    CodedOutputStream childCodedOut = CodedOutputStream.newInstance(hashingOutputStream);
-    if (children instanceof Object[]) {
-      serializeMultiItemChildArray(context, (Object[]) children, childToDigest, childCodedOut);
-    } else if (children != NestedSet.EMPTY_CHILDREN) {
-      serializeSingleItemChildArray(context, children, childCodedOut);
-    } else {
+    if (children == NestedSet.EMPTY_CHILDREN) {
       // Empty set
-      childCodedOut.writeInt32NoTag(0);
+      codedOut.writeInt32NoTag(0);
+    } else if (children instanceof Object[]) {
+      // Serialize nested set into an inner byte array so we can take its digest.
+      ByteArrayOutputStream childOutputStream = new ByteArrayOutputStream();
+      HashingOutputStream hashingOutputStream =
+          new HashingOutputStream(Hashing.md5(), childOutputStream);
+      CodedOutputStream childCodedOut = CodedOutputStream.newInstance(hashingOutputStream);
+      serializeMultiItemChildArray(context, (Object[]) children, childToDigest, childCodedOut);
+      childCodedOut.flush();
+      byte[] digest = hashingOutputStream.hash().asBytes();
+      codedOut.writeInt32NoTag(((Object[]) children).length);
+      codedOut.writeByteArrayNoTag(digest);
+      byte[] childBytes = childOutputStream.toByteArray();
+      codedOut.writeByteArrayNoTag(childBytes);
+      childToDigest.put(children, digest);
+    } else {
+      serializeSingleItemChildArray(context, children, codedOut);
     }
-    childCodedOut.flush();
-    byte[] digest = hashingOutputStream.hash().asBytes();
-    codedOut.writeByteArrayNoTag(digest);
-    byte[] childBytes = childOutputStream.toByteArray();
-    codedOut.writeByteArrayNoTag(childBytes);
-    childToDigest.put(children, digest);
   }
 
   private void serializeMultiItemChildArray(
@@ -129,7 +130,6 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
       Map<Object, byte[]> childToDigest,
       CodedOutputStream childCodedOut)
       throws IOException, SerializationException {
-    childCodedOut.writeInt32NoTag(children.length);
     for (Object child : children) {
       if (child instanceof Object[]) {
         byte[] digest =
@@ -146,11 +146,11 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
   }
 
   private void serializeSingleItemChildArray(
-      SerializationContext context, Object children, CodedOutputStream childCodedOut)
+      SerializationContext context, Object children, CodedOutputStream codedOut)
       throws IOException, SerializationException {
-    childCodedOut.writeInt32NoTag(1);
+    codedOut.writeInt32NoTag(1);
     T singleChild = cast(children);
-    context.serialize(singleChild, childCodedOut);
+    context.serialize(singleChild, codedOut);
   }
 
   private Object deserializeOneNestedSet(
@@ -158,22 +158,23 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
       CodedInputStream codedIn,
       Map<ByteString, Object> digestToChild)
       throws SerializationException, IOException {
-    ByteString digest = codedIn.readBytes();
-    CodedInputStream childCodedIn = codedIn.readBytes().newCodedInput();
-    childCodedIn.enableAliasing(true); // Allow efficient views of byte slices when reading digests
-    int childCount = childCodedIn.readInt32();
+    int childCount = codedIn.readInt32();
     final Object result;
     if (childCount > 1) {
+      ByteString digest = codedIn.readBytes();
+      CodedInputStream childCodedIn = codedIn.readBytes().newCodedInput();
+      childCodedIn.enableAliasing(
+          true); // Allow efficient views of byte slices when reading digests
       result = deserializeMultipleItemChildArray(context, childCodedIn, childCount, digestToChild);
+      digestToChild.put(
+          // Copy the ByteString to avoid keeping the full buffer from codedIn alive due to
+          // aliasing.
+          ByteString.copyFrom(digest.asReadOnlyByteBuffer()), result);
     } else if (childCount == 1) {
-      result = context.deserialize(childCodedIn);
+      result = context.deserialize(codedIn);
     } else {
       result = NestedSet.EMPTY_CHILDREN;
     }
-    digestToChild.put(
-        // Copy the ByteString to avoid keeping the full buffer from codedIn alive due to
-        // aliasing.
-        ByteString.copyFrom(digest.asReadOnlyByteBuffer()), result);
     return result;
   }
 
