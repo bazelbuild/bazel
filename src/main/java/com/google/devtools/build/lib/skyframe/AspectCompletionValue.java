@@ -37,8 +37,9 @@ public class AspectCompletionValue implements SkyValue {
         targets, aspectValue -> AspectCompletionKey.create(aspectValue.getKey(), ctx));
   }
 
+  /** The key of an AspectCompletionValue. */
   @AutoValue
-  abstract static class AspectCompletionKey implements SkyKey {
+  public abstract static class AspectCompletionKey implements SkyKey {
     public static AspectCompletionKey create(
         AspectKey aspectKey, TopLevelArtifactContext topLevelArtifactContext) {
       return new AutoValue_AspectCompletionValue_AspectCompletionKey(

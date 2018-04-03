@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.Collection;
 import java.util.Set;
@@ -43,33 +44,35 @@ public interface Builder {
 
   /**
    * Transitively build all given artifacts, targets, and tests, and all necessary prerequisites
-   * thereof. For sequential implementations of this interface, the top-level requests will be
-   * built in the iteration order of the Set provided; for concurrent implementations, the order
-   * is undefined.
+   * thereof. For sequential implementations of this interface, the top-level requests will be built
+   * in the iteration order of the Set provided; for concurrent implementations, the order is
+   * undefined.
    *
    * <p>This method should not be invoked more than once concurrently on the same Builder instance.
    *
    * @param artifacts the set of Artifacts to build
    * @param parallelTests tests to execute in parallel with the other top-level targetsToBuild and
-   *        artifacts.
+   *     artifacts.
    * @param exclusiveTests are executed one at a time, only after all other tasks have completed
    * @param targetsToBuild Set of targets which will be built
    * @param targetsToSkip Set of targets which should be skipped (they still show up in build
-   *        results, but with a "SKIPPED" status and without the cost of any actual build work)
+   *     results, but with a "SKIPPED" status and without the cost of any actual build work)
    * @param aspects Set of aspects that will be built
-   * @param executor an opaque application-specific value that will be
-   *        passed down to the execute() method of any Action executed during
-   *        this call
+   * @param executor an opaque application-specific value that will be passed down to the execute()
+   *     method of any Action executed during this call
    * @param builtTargets (out) set of successfully built subset of targetsToBuild. This set is
-   *        populated immediately upon confirmation that artifact is built so it will be
-   *        valid even if a future action throws ActionExecutionException
-   * @param lastExecutionTimeRange If not null, the start/finish time of the last build that
-   *        run the execution phase.
-   * @param topLevelArtifactContext contains the options which determine the artifacts to build
-   *        for the top-level targets.
+   *     populated immediately upon confirmation that artifact is built so it will be valid even if
+   *     a future action throws ActionExecutionException
+   * @param builtAspects (out) set of successfully built subset of targetsToBuild with the passed
+   *     aspects applied. This set is populated immediately upon confirmation that artifact is built
+   *     so it will be valid even if a future action throws ActionExecutionException
+   * @param lastExecutionTimeRange If not null, the start/finish time of the last build that run the
+   *     execution phase.
+   * @param topLevelArtifactContext contains the options which determine the artifacts to build for
+   *     the top-level targets.
    * @throws BuildFailedException if there were problems establishing the action execution
-   *         environment, if the metadata of any file  during the build could not be obtained,
-   *         if any input files are missing, or if an action fails during execution
+   *     environment, if the metadata of any file during the build could not be obtained, if any
+   *     input files are missing, or if an action fails during execution
    * @throws InterruptedException if there was an asynchronous stop request
    * @throws TestExecException if any test fails
    */
@@ -84,6 +87,7 @@ public interface Builder {
       Collection<AspectValue> aspects,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
+      Set<AspectKey> builtAspects,
       boolean explain,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext)

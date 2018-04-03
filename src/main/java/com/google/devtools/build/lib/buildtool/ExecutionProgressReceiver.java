@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
+import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
+import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
@@ -47,6 +50,7 @@ public final class ExecutionProgressReceiver
 
   // Must be thread-safe!
   private final Set<ConfiguredTarget> builtTargets;
+  private final Set<AspectKey> builtAspects;
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
@@ -65,9 +69,9 @@ public final class ExecutionProgressReceiver
    * permitted while this receiver is active.
    */
   ExecutionProgressReceiver(
-      Set<ConfiguredTarget> builtTargets,
-      int exclusiveTestsCount) {
+      Set<ConfiguredTarget> builtTargets, Set<AspectKey> builtAspects, int exclusiveTestsCount) {
     this.builtTargets = Collections.synchronizedSet(builtTargets);
+    this.builtAspects = Collections.synchronizedSet(builtAspects);
     this.exclusiveTestsCount = exclusiveTestsCount;
   }
 
@@ -103,9 +107,15 @@ public final class ExecutionProgressReceiver
       if (value == null) {
         return;
       }
-
       ConfiguredTarget target = value.getConfiguredTarget();
       builtTargets.add(target);
+    } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
+      AspectCompletionValue value = (AspectCompletionValue) skyValueSupplier.get();
+      if (value == null) {
+        return;
+      }
+      AspectKey aspectKey = ((AspectCompletionKey) skyKey).aspectKey();
+      builtAspects.add(aspectKey);
     } else if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
       // Remember all completed actions, even those in error, regardless of having been cached or
       // really executed.
