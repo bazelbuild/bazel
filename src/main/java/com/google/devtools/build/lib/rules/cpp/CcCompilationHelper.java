@@ -1200,7 +1200,7 @@ public final class CcCompilationHelper {
    *                 are ["0/foo", "bar", "1/foo", "2/foo"]
    */
   private ImmutableMap<Artifact, String> calculateOutputNameMap(
-      Iterable<Artifact> sourceArtifacts, String prefixDir) {
+      NestedSet<Artifact> sourceArtifacts, String prefixDir) {
     ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
 
     HashMap<String, Integer> count = new LinkedHashMap<>();
@@ -1227,6 +1227,37 @@ public final class CcCompilationHelper {
     }
 
     return builder.build();
+  }
+
+  /**
+   * Calculate outputNameMap for different source types separately. Returns a merged outputNameMap
+   * for all artifacts.
+   */
+  private ImmutableMap<Artifact, String> calculateOutputNameMapByType(
+      Set<CppSource> sources, String prefixDir) {
+    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
+    builder.putAll(
+        calculateOutputNameMap(
+            getSourceArtifactsByType(sources, CppSource.Type.SOURCE), prefixDir));
+    builder.putAll(
+        calculateOutputNameMap(
+            getSourceArtifactsByType(sources, CppSource.Type.HEADER), prefixDir));
+    // TODO(plf): Removing CLIF logic
+    builder.putAll(
+        calculateOutputNameMap(
+            getSourceArtifactsByType(sources, CppSource.Type.CLIF_INPUT_PROTO), prefixDir));
+    return builder.build();
+  }
+
+  private NestedSet<Artifact> getSourceArtifactsByType(
+    Set<CppSource> sources, CppSource.Type type) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+    result.addAll(sources
+        .stream()
+        .filter(source -> source.getType().equals(type))
+        .map(CppSource::getSource)
+        .collect(Collectors.toList()));
+    return result.build();
   }
 
   /**
@@ -1267,12 +1298,7 @@ public final class CcCompilationHelper {
       if (purpose != null) {
         outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
       }
-      outputNameMap = calculateOutputNameMap(
-          compilationUnitSources
-          .stream()
-          .map(source -> source.getSource())
-          .collect(Collectors.toList()),
-          outputNamePrefixDir);
+      outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
     }
 
     for (CppSource source : compilationUnitSources) {
