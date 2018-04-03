@@ -49,6 +49,8 @@ class LogFinisher;
 class LogMessage {
  public:
   LogMessage(LogLevel level, const std::string& filename, int line);
+  LogMessage(LogLevel level, const std::string& filename, int line,
+             int exit_code);
 
   LogMessage& operator<<(const std::string& value);
   LogMessage& operator<<(const char* value);
@@ -70,9 +72,11 @@ class LogMessage {
   friend class LogFinisher;
   void Finish();
 
-  LogLevel level_;
+  const LogLevel level_;
   const std::string& filename_;
-  int line_;
+  const int line_;
+  // Only used for FATAL log messages.
+  const int exit_code_;
   std::stringstream message_;
 };
 
@@ -98,6 +102,9 @@ inline bool IsOk(bool status) {
   ::blaze_util::internal::LogFinisher() = ::blaze_util::internal::LogMessage( \
       ::blaze_util::LOGLEVEL_##LEVEL, __FILE__, __LINE__)
 #define BAZEL_LOG_IF(LEVEL, CONDITION) !(CONDITION) ? (void)0 : BAZEL_LOG(LEVEL)
+#define BAZEL_DIE(EXIT_CODE)                                                  \
+  ::blaze_util::internal::LogFinisher() = ::blaze_util::internal::LogMessage( \
+      ::blaze_util::LOGLEVEL_FATAL, __FILE__, __LINE__, EXIT_CODE)
 
 #define BAZEL_CHECK(EXPRESSION) \
   BAZEL_LOG_IF(FATAL, !(EXPRESSION)) << "CHECK failed: " #EXPRESSION ": "
@@ -142,7 +149,8 @@ class LogHandler {
  public:
   virtual ~LogHandler() {}
   virtual void HandleMessage(LogLevel level, const std::string& filename,
-                             int line, const std::string& message) = 0;
+                             int line, const std::string& message,
+                             int exit_code) = 0;
 
   virtual void SetOutputStream(std::unique_ptr<std::ostream> output_stream) = 0;
   virtual void SetOutputStreamToStderr() = 0;

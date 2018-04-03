@@ -48,6 +48,7 @@ cc_test(
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:file",
         "//src/main/cpp/util:logging",
         "@com_google_googletest//:gtest_main",
     ],
