@@ -48,17 +48,23 @@ BazelLogHandler::~BazelLogHandler() {
 }
 
 void BazelLogHandler::HandleMessage(LogLevel level, const std::string& filename,
-                                    int line, const std::string& message) {
+                                    int line, const std::string& message,
+                                    int exit_code) {
   // Select the appropriate stream to log to.
   std::ostream* log_stream;
   if (logging_deactivated_) {
     // If the output stream was explicitly deactivated, never print INFO
-    // messages, but USER should always be printed, as should warnings and
-    // errors. Omit the debug-level file and line number information, though.
+    // messages, but messages of level USER and above should always be printed,
+    // as should warnings and errors. Omit the debug-level file and line number
+    // information, though.
     if (level == LOGLEVEL_USER) {
       std::cerr << message << std::endl;
     } else if (level > LOGLEVEL_USER) {
       std::cerr << LogLevelName(level) << ": " << message << std::endl;
+    }
+
+    if (level == LOGLEVEL_FATAL) {
+      std::exit(exit_code);
     }
     return;
   } else if (output_stream_ == nullptr) {
@@ -69,14 +75,15 @@ void BazelLogHandler::HandleMessage(LogLevel level, const std::string& filename,
   (*log_stream) << "[bazel " << LogLevelName(level) << " " << filename << ":"
                 << line << "] " << message << std::endl;
 
-  // If we have a fatal message, we should abort and leave a stack trace -
-  // normal exit behavior will be lost, so print this log message out to
-  // stderr and avoid loosing the information.
+  // If we have a fatal message, exit with the provided error code.
   if (level == LOGLEVEL_FATAL) {
-    std::cerr << "[bazel " << LogLevelName(level) << " " << filename << ":"
-              << line << "] " << message << std::endl;
-    // TODO(b/32967056) pass correct exit code information.
-    std::exit(blaze_exit_code::INTERNAL_ERROR);
+    if (owned_output_stream_ != nullptr) {
+      // If this is is not being printed to stderr but to a custom stream,
+      // also print the error message to stderr.
+      std::cerr << "[bazel " << LogLevelName(level) << " " << filename << ":"
+                << line << "] " << message << std::endl;
+    }
+    std::exit(exit_code);
   }
 }
 

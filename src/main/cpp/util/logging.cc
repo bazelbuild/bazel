@@ -37,7 +37,14 @@ namespace internal {
 static std::unique_ptr<LogHandler> log_handler_(nullptr);
 
 LogMessage::LogMessage(LogLevel level, const std::string& filename, int line)
-    : level_(level), filename_(filename), line_(line) {}
+    : level_(level),
+      filename_(filename),
+      line_(line),
+      exit_code_(blaze_exit_code::INTERNAL_ERROR) {}
+
+LogMessage::LogMessage(LogLevel level, const std::string& filename, int line,
+                       int exit_code)
+    : level_(level), filename_(filename), line_(line), exit_code_(exit_code) {}
 
 #undef DECLARE_STREAM_OPERATOR
 #define DECLARE_STREAM_OPERATOR(TYPE)              \
@@ -66,7 +73,7 @@ DECLARE_STREAM_OPERATOR(void*)
 void LogMessage::Finish() {
   std::string message(message_.str());
   if (log_handler_ != nullptr) {
-    log_handler_->HandleMessage(level_, filename_, line_, message);
+    log_handler_->HandleMessage(level_, filename_, line_, message, exit_code_);
   } else {
     // If no custom handler was provided, never print INFO messages,
     // but USER should always be printed, as should warnings and errors.
@@ -78,8 +85,7 @@ void LogMessage::Finish() {
 
     if (level_ == LOGLEVEL_FATAL) {
       // Exit for fatal calls after handling the message.
-      // TODO(b/32967056) pass correct exit code information.
-      std::exit(blaze_exit_code::INTERNAL_ERROR);
+      std::exit(exit_code_);
     }
   }
 }

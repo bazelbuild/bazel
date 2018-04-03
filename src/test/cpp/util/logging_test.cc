@@ -18,6 +18,7 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/bazel_log_handler.h"
+#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
@@ -30,6 +31,7 @@ using ::testing::Not;
 // like `[bazel INFO filename:134] message`
 // but should not be used for more fine grained testing.
 using ::testing::MatchesRegex;
+using ::testing::ContainsRegex;
 
 class LoggingTest : public ::testing::Test {
  protected:
@@ -39,6 +41,7 @@ class LoggingTest : public ::testing::Test {
     // reads $TMP.
     blaze::SetEnv("TMP", blaze::GetEnv("TEST_TMPDIR"));
   }
+  void TearDown() { blaze_util::SetLogHandler(nullptr); }
 };
 
 TEST(LoggingTest, LogLevelNamesMatch) {
@@ -377,4 +380,133 @@ TEST(LoggingTest, BazelLogHandler_BufferedLogsGetDirectedToCerr) {
   EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
+// We use the LoggingDeathTest test case to make sure that the death tests are
+// run in a single threaded environment, where it is safe to fork. These tests
+// are run before the other tests, which can be run in parallel.
+#if GTEST_HAS_DEATH_TEST
+using LoggingDeathTest = LoggingTest;
+
+TEST(LoggingDeathTest, NoHandler_FatalStatementUsesInternalErrorCode) {
+  // When no handler is specified, we still expect fatal messages to get
+  // printed to stderr.
+  ASSERT_EXIT({ BAZEL_LOG(FATAL) << "something's wrong!"; },
+              ::testing::ExitedWithCode(37), "FATAL: something's wrong!");
+}
+
+TEST(LoggingDeathTest,
+     BazelLogHandler_UnsetOutputStream_FatalStatementUsesInternalErrorCode) {
+  ASSERT_EXIT(
+      {
+        std::unique_ptr<blaze_util::BazelLogHandler> handler(
+            new blaze_util::BazelLogHandler());
+        blaze_util::SetLogHandler(std::move(handler));
+        BAZEL_LOG(FATAL) << "something's wrong!";
+      },
+      ::testing::ExitedWithCode(37), "\\[bazel FATAL .*\\] something's wrong!");
+}
+
+TEST(LoggingDeathTest,
+     BazelLogHandler_Deactivated_FatalStatementUsesInternalErrorCode) {
+  ASSERT_EXIT(
+      {
+        std::unique_ptr<blaze_util::BazelLogHandler> handler(
+            new blaze_util::BazelLogHandler());
+        blaze_util::SetLogHandler(std::move(handler));
+        blaze_util::SetLoggingOutputStream(nullptr);
+
+        BAZEL_LOG(FATAL) << "something's wrong!";
+      },
+      ::testing::ExitedWithCode(37), "FATAL: something's wrong!");
+}
+
+TEST(LoggingDeathTest,
+     BazelLogHandler_Stderr_FatalStatementUsesInternalErrorCode) {
+  ASSERT_EXIT(
+      {
+        std::unique_ptr<blaze_util::BazelLogHandler> handler(
+            new blaze_util::BazelLogHandler());
+        blaze_util::SetLogHandler(std::move(handler));
+        blaze_util::SetLoggingOutputStreamToStderr();
+        BAZEL_LOG(FATAL) << "something's wrong!";
+      },
+      ::testing::ExitedWithCode(37), "\\[bazel FATAL .*\\] something's wrong!");
+}
+
+TEST(LoggingDeathTest, NoHandler_BazelDieDiesWithCustomExitCode) {
+  ASSERT_EXIT({ BAZEL_DIE(42) << "dying with exit code 42."; },
+              ::testing::ExitedWithCode(42), "FATAL: dying with exit code 42.");
+}
+
+TEST(LoggingDeathTest,
+     BazelLogHandler_UnsetOutputStream_BazelDieDiesWithCustomExitCode) {
+  ASSERT_EXIT(
+      {
+        std::unique_ptr<blaze_util::BazelLogHandler> handler(
+            new blaze_util::BazelLogHandler());
+        blaze_util::SetLogHandler(std::move(handler));
+        BAZEL_DIE(42) << "dying with exit code 42.";
+      },
+      ::testing::ExitedWithCode(42),
+      "\\[bazel FATAL .*\\] dying with exit code 42.");
+}
+
+TEST(LoggingDeathTest,
+     BazelLogHandler_Deactivated_BazelDieDiesWithCustomExitCode) {
+  ASSERT_EXIT(
+      {
+        std::unique_ptr<blaze_util::BazelLogHandler> handler(
+            new blaze_util::BazelLogHandler());
+        blaze_util::SetLogHandler(std::move(handler));
+        blaze_util::SetLoggingOutputStream(nullptr);
+        BAZEL_DIE(42) << "dying with exit code 42.";
+      },
+      ::testing::ExitedWithCode(42), "FATAL: dying with exit code 42.");
+}
+
+TEST(LoggingDeathTest, BazelLogHandler_Stderr_BazelDieDiesWithCustomExitCode) {
+  ASSERT_EXIT(
+      {
+        std::unique_ptr<blaze_util::BazelLogHandler> handler(
+            new blaze_util::BazelLogHandler());
+        blaze_util::SetLogHandler(std::move(handler));
+        blaze_util::SetLoggingOutputStreamToStderr();
+        BAZEL_DIE(42) << "dying with exit code 42.";
+      },
+      ::testing::ExitedWithCode(42),
+      "\\[bazel FATAL .*\\] dying with exit code 42.");
+}
+
+TEST(LoggingDeathTest,
+     BazelLogHandler_CustomStream_BazelDiePrintsToStderrAndCustomStream) {
+  std::string logfile =
+      blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "logfile");
+
+  ASSERT_EXIT(
+      {
+        std::unique_ptr<blaze_util::BazelLogHandler> handler(
+            new blaze_util::BazelLogHandler());
+        blaze_util::SetLogHandler(std::move(handler));
+
+        // Ask that the logs get output to a file (the string buffer setup used
+        // in the non-death tests doesn't work here.)
+        std::unique_ptr<std::ofstream> logfile_stream_(
+            new std::ofstream(logfile, std::fstream::out));
+        blaze_util::SetLoggingOutputStream(std::move(logfile_stream_));
+
+        BAZEL_DIE(42) << "dying with exit code 42.";
+      },
+      ::testing::ExitedWithCode(42),
+      "\\[bazel FATAL .*\\] dying with exit code 42.");
+
+  // Check that the error is also in the custom stream.
+  std::string output;
+  ASSERT_TRUE(blaze_util::ReadFile(logfile, &output));
+  // Unlike in earlier tests, this string is read from a file, and since Windows
+  // uses the newline '\r\n', compared to the linux \n, we prefer to keep the
+  // test simple and not test the end of the line explicitly.
+  EXPECT_THAT(output,
+              ContainsRegex("\\[bazel FATAL .*\\] dying with exit code 42."));
+}
+
+#endif  // GTEST_HAS_DEATH_TEST
 }  // namespace blaze_util

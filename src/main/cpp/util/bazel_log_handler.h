@@ -32,7 +32,8 @@ class BazelLogHandler : public blaze_util::LogHandler {
   ~BazelLogHandler() override;
 
   void HandleMessage(blaze_util::LogLevel level, const std::string& filename,
-                     int line, const std::string& message) override;
+                     int line, const std::string& message,
+                     int exit_code) override;
   void SetOutputStream(
       std::unique_ptr<std::ostream> new_output_stream) override;
   void SetOutputStreamToStderr() override;
