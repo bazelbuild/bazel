@@ -18,6 +18,7 @@ import com.android.aapt.Resources.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Iterables;
@@ -165,16 +166,22 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue from(
-      Value proto, Map<String, Entry<FullyQualifiedName, Boolean>> fullyQualifiedNames) {
+      Value proto, Map<String, Boolean> qualifiedReferenceInlineStatus) {
     Map<FullyQualifiedName, Boolean> attributes = new HashMap<>();
 
     Styleable styleable = proto.getCompoundValue().getStyleable();
     for (Styleable.Entry entry : styleable.getEntryList()) {
-      String attrName = entry.getAttr().getName();
+      final FullyQualifiedName reference =
+          FullyQualifiedName.fromReference(entry.getAttr().getName());
+      final String qualifiedReference = reference.asQualifiedReference();
+      Preconditions.checkArgument(
+          qualifiedReferenceInlineStatus.containsKey(qualifiedReference),
+          "Styleable reference %s is not in %s",
+          qualifiedReference,
+          qualifiedReferenceInlineStatus.keySet());
 
-      Entry<FullyQualifiedName, Boolean> fqnEntry = fullyQualifiedNames.get(attrName);
-      attributes.put(fqnEntry.getKey(), fqnEntry.getValue());
-      fqnEntry.setValue(false);
+      attributes.put(reference, qualifiedReferenceInlineStatus.get(qualifiedReference));
+      qualifiedReferenceInlineStatus.put(qualifiedReference, false);
     }
 
     return of(ImmutableMap.copyOf(attributes));
@@ -202,12 +209,12 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   /**
    * Combines this instance with another {@link StyleableXmlResourceValue}.
    *
-   * Defining two Styleables (undocumented in the official Android Docs) with the same
-   * {@link FullyQualifiedName} results in a single Styleable containing a union of all the
-   * attribute references.
+   * <p>Defining two Styleables (undocumented in the official Android Docs) with the same {@link
+   * FullyQualifiedName} results in a single Styleable containing a union of all the attribute
+   * references.
    *
-   * @param value Another {@link StyleableXmlResourceValue} with the same
-   *     {@link FullyQualifiedName}.
+   * @param value Another {@link StyleableXmlResourceValue} with the same {@link
+   *     FullyQualifiedName}.
    * @return {@link StyleableXmlResourceValue} containing a sorted union of the attribute
    *     references.
    * @throws IllegalArgumentException if value is not an {@link StyleableXmlResourceValue}.
