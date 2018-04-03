@@ -113,6 +113,13 @@ public final class ActionEnvironment {
   public void resolve(Map<String, String> result, Map<String, String> clientEnv) {
     Preconditions.checkNotNull(clientEnv);
     result.putAll(fixedEnv);
+    resolveInheritedEnv(result, clientEnv);
+  }
+
+  public void resolveInheritedEnv(Map<String, String> result, Map<String, String> clientEnv) {
+    if (clientEnv == null) {
+      return;
+    }
     for (String var : inheritedEnv) {
       String value = clientEnv.get(var);
       if (value != null) {

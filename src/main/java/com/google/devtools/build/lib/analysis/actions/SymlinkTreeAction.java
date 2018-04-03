@@ -16,16 +16,20 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.util.LinkedHashMap;
 
 /**
  * Action responsible for the symlink tree creation.
@@ -40,8 +44,33 @@ public final class SymlinkTreeAction extends AbstractAction {
   private final Artifact inputManifest;
   private final Artifact outputManifest;
   private final boolean filesetTree;
-  private final ImmutableMap<String, String> shellEnvironment;
   private final boolean enableRunfiles;
+
+  /**
+   * Creates SymlinkTreeAction instance.
+   *  @param owner action owner
+   * @param inputManifest the input runfiles manifest
+   * @param outputManifest the generated symlink tree manifest
+   *                       (must have "MANIFEST" base name). Symlink tree root
+   *                       will be set to the artifact's parent directory.
+   * @param filesetTree true if this is fileset symlink tree,
+   * @param enableRunfiles true is the actual symlink tree needs to be created.
+   */
+  public SymlinkTreeAction(
+      ActionOwner owner,
+      Artifact inputManifest,
+      Artifact outputManifest,
+      boolean filesetTree,
+      ImmutableMap<String, String> shellEnvironment,
+      boolean enableRunfiles) {
+    this(
+        owner,
+        inputManifest,
+        outputManifest,
+        filesetTree,
+        ActionEnvironment.create(shellEnvironment, ImmutableSet.of()),
+        enableRunfiles);
+  }
 
   /**
    * Creates SymlinkTreeAction instance.
@@ -59,14 +88,19 @@ public final class SymlinkTreeAction extends AbstractAction {
       Artifact inputManifest,
       Artifact outputManifest,
       boolean filesetTree,
-      ImmutableMap<String, String> shellEnvironment,
+      ActionEnvironment env,
       boolean enableRunfiles) {
-    super(owner, ImmutableList.of(inputManifest), ImmutableList.of(outputManifest));
+    super(
+        owner,
+        ImmutableList.<Artifact>of(),
+        ImmutableList.of(inputManifest),
+        EmptyRunfilesSupplier.INSTANCE,
+        ImmutableList.of(outputManifest),
+        env);
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     this.inputManifest = inputManifest;
     this.outputManifest = outputManifest;
     this.filesetTree = filesetTree;
-    this.shellEnvironment = shellEnvironment;
     this.enableRunfiles = enableRunfiles;
   }
 
@@ -102,9 +136,13 @@ public final class SymlinkTreeAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    LinkedHashMap<String, String> effectiveEnv = new LinkedHashMap<>(env.getFixedEnv());
+    ImmutableMap<String, String> clientEnv = actionExecutionContext.getClientEnv();
+    env.resolveInheritedEnv(effectiveEnv, clientEnv);
     return ActionResult.create(
         actionExecutionContext
             .getContext(SymlinkTreeActionContext.class)
-            .createSymlinks(this, actionExecutionContext, shellEnvironment, enableRunfiles));
+            .createSymlinks(
+              this, actionExecutionContext, ImmutableMap.copyOf(effectiveEnv), enableRunfiles));
   }
 }

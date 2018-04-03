@@ -173,7 +173,7 @@ public final class NativeLibs {
             inputManifest,
             outputManifest,
             false,
-            ruleContext.getConfiguration().getLocalShellEnvironment(),
+            ruleContext.getConfiguration().getActionEnvironment(),
             ruleContext.getConfiguration().runfilesEnabled()));
     return Pair.of(outputManifest, sourceManifestAction.getGeneratedRunfiles());
   }
