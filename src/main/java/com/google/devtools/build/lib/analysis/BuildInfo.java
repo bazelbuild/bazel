@@ -35,7 +35,7 @@ public class BuildInfo {
   public static final String BUILD_HOST = "BUILD_HOST";
 
   /**
-   * Build time as milliseconds since epoch
+   * Build time as seconds since epoch
    */
   public static final String BUILD_TIMESTAMP = "BUILD_TIMESTAMP";
 
