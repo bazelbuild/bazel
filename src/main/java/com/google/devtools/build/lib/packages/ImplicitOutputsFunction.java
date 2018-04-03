@@ -78,6 +78,7 @@ public abstract class ImplicitOutputsFunction {
   }
 
   /** Implicit output functions executing Skylark code. */
+  @AutoCodec
   public static final class SkylarkImplicitOutputsFunctionWithCallback
       extends SkylarkImplicitOutputsFunction {
 
