@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -56,6 +58,11 @@ import org.w3c.dom.Element;
  * An output formatter that prints the result as XML.
  */
 class XmlOutputFormatter extends AbstractUnorderedFormatter {
+
+  // AbstractUnorderedFormatter also has an options field it's of type CommonQueryOptions, a
+  // superclass of QueryOptions. Store this here to ensure correct type is passed to this class.
+  private QueryOptions queryOptions;
+
   @Override
   public String getName() {
     return "xml";
@@ -66,6 +73,14 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
         createPostFactoStreamCallback(out, options));
+  }
+
+  @Override
+  public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
+    super.setOptions(options, aspectResolver);
+
+    Preconditions.checkArgument(options instanceof QueryOptions);
+    this.queryOptions = (QueryOptions) options;
   }
 
   @Override
@@ -136,7 +151,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
         PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
-        if (values.source == AttributeValueSource.RULE || options.xmlShowDefaultValues) {
+        if (values.source == AttributeValueSource.RULE || queryOptions.xmlShowDefaultValues) {
           Element attrElem = createValueElement(doc, attr.getType(), values);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
@@ -219,7 +234,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
     elem.setAttribute("name", target.getLabel().toString());
     String location = getLocation(target, options.relativeLocations);
-    if (!options.xmlLineNumbers) {
+    if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {
         location = location.substring(0, firstColon);

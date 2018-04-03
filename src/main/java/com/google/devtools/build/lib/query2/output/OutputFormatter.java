@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.AggregatingQueryExpressionVisitor.ContainsFunctionQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -142,7 +143,7 @@ public abstract class OutputFormatter implements Serializable {
    * passing to {@link Rule#getLabels()}, {@link XmlOutputFormatter}, etc.
    */
   public static DependencyFilter getDependencyFilter(
-      QueryOptions queryOptions) {
+      CommonQueryOptions queryOptions) {
     // TODO(bazel-team): Optimize: and(ALL_DEPS, x) -> x, etc.
     return DependencyFilter.and(
         queryOptions.includeHostDeps ? DependencyFilter.ALL_DEPS : DependencyFilter.NO_HOST_DEPS,
@@ -186,7 +187,7 @@ public abstract class OutputFormatter implements Serializable {
    */
   public interface StreamedFormatter {
     /** Specifies options to be used by subsequent calls to {@link #createStreamCallback}. */
-    void setOptions(QueryOptions options, AspectResolver aspectResolver);
+    void setOptions(CommonQueryOptions options, AspectResolver aspectResolver);
 
     /**
      * Returns a {@link ThreadSafeOutputFormatterCallback} whose
@@ -216,7 +217,7 @@ public abstract class OutputFormatter implements Serializable {
 
   abstract static class AbstractUnorderedFormatter extends OutputFormatter
       implements StreamedFormatter {
-    protected QueryOptions options;
+    protected CommonQueryOptions options;
     protected AspectResolver aspectResolver;
     protected DependencyFilter dependencyFilter;
 
@@ -230,7 +231,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public void setOptions(QueryOptions options, AspectResolver aspectResolver) {
+    public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
       this.options = options;
       this.aspectResolver = aspectResolver;
       this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
