@@ -194,7 +194,6 @@ public class CppCompileAction extends AbstractAction
   private final ImmutableList<Artifact> additionalIncludeScanningRoots;
   @VisibleForTesting public final CompileCommandLine compileCommandLine;
   private final ImmutableMap<String, String> executionInfo;
-  private final ImmutableMap<String, String> environment;
   private final String actionName;
 
   private final FeatureConfiguration featureConfiguration;
@@ -256,7 +255,6 @@ public class CppCompileAction extends AbstractAction
    * @param lipoScannables List of artifacts to include-scan when this action is a lipo action
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
    * @param actionClassId TODO(bazel-team): Add parameter description
-   * @param environment TODO(bazel-team): Add parameter description
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
    * @param cppSemantics C++ compilation semantics
@@ -291,7 +289,6 @@ public class CppCompileAction extends AbstractAction
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       UUID actionClassId,
       ImmutableMap<String, String> executionInfo,
-      ImmutableMap<String, String> environment,
       String actionName,
       CppSemantics cppSemantics,
       CcToolchainProvider cppProvider,
@@ -333,7 +330,6 @@ public class CppCompileAction extends AbstractAction
             .setVariables(variables)
             .build(),
         executionInfo,
-        environment,
         actionName,
         featureConfiguration,
         actionClassId,
@@ -374,7 +370,6 @@ public class CppCompileAction extends AbstractAction
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       CompileCommandLine compileCommandLine,
       ImmutableMap<String, String> executionInfo,
-      ImmutableMap<String, String> environment,
       String actionName,
       FeatureConfiguration featureConfiguration,
       UUID actionClassId,
@@ -407,7 +402,6 @@ public class CppCompileAction extends AbstractAction
     this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
     this.compileCommandLine = compileCommandLine;
     this.executionInfo = executionInfo;
-    this.environment = environment;
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
     this.needsDotdInputPruning = needsDotdInputPruning;
@@ -771,9 +765,7 @@ public class CppCompileAction extends AbstractAction
       environment.put("PWD", "/proc/self/cwd");
     }
 
-    environment.putAll(this.environment);
     environment.putAll(compileCommandLine.getEnvironment());
-
     return ImmutableMap.copyOf(environment);
   }
 

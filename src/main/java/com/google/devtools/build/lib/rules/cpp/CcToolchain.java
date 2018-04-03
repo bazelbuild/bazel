@@ -554,7 +554,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             toolchainInfo.supportsInterfaceSharedObjects()
                 ? ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST)
                 : null,
-            getEnvironment(ruleContext),
             builtInIncludeDirectories,
             sysroot,
             fdoMode);
@@ -844,16 +843,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   protected void addBuildVariables(RuleContext ruleContext, Builder variables)
       throws RuleErrorException {
     // To be overridden in subclasses.
-  }
-
-  /**
-   * Returns a map of environment variables to be added to the compile actions created for this
-   * toolchain. Ideally, this will get replaced by features, which also allow setting env variables.
-   *
-   * @param ruleContext the rule context
-   */
-  protected ImmutableMap<String, String> getEnvironment(RuleContext ruleContext) {
-    return ImmutableMap.<String, String>of();
   }
 
   private PathFragment calculateSysroot(RuleContext ruleContext, PathFragment defaultSysroot) {

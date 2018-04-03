@@ -64,7 +64,6 @@ public class CcToolchainProviderTest {
             /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
             /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
             /* linkDynamicLibraryTool= */ null,
-            /* environment= */ ImmutableMap.<String, String>of(),
             /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
             /* sysroot= */ null,
             FdoMode.OFF);
@@ -99,7 +98,6 @@ public class CcToolchainProviderTest {
             /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
             /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
             /* linkDynamicLibraryTool= */ null,
-            /* environment= */ ImmutableMap.<String, String>of(),
             /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
             /* sysroot= */ null,
             FdoMode.OFF);

@@ -81,7 +81,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
           /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
           /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
           /* linkDynamicLibraryTool= */ null,
-          /* environment= */ ImmutableMap.<String, String>of(),
           /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
           /* sysroot= */ null,
           FdoMode.OFF);
@@ -113,7 +112,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
   @Nullable private final Artifact linkDynamicLibraryTool;
-  private final ImmutableMap<String, String> environment;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
   private final FdoMode fdoMode;
@@ -147,7 +145,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
-      ImmutableMap<String, String> environment,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
       FdoMode fdoMode) {
@@ -179,7 +176,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.coverageEnvironment = coverageEnvironment;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
-    this.environment = environment;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
     this.fdoMode = fdoMode;
@@ -506,10 +502,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
    */
   public NestedSet<Pair<String, String>> getCoverageEnvironment() {
     return coverageEnvironment;
-  }
-
-  public ImmutableMap<String, String> getEnvironment() {
-    return environment;
   }
 
   /**
