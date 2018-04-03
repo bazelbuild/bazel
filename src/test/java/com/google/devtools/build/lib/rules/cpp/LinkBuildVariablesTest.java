@@ -41,7 +41,8 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    String variableValue = getVariableValue(variables, CppLinkActionBuilder.FORCE_PIC_VARIABLE);
+    String variableValue =
+        getVariableValue(variables, LinkBuildVariables.FORCE_PIC.getVariableName());
     assertThat(variableValue).contains("");
   }
 
@@ -56,17 +57,18 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Variables variables = getLinkBuildVariables(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     VariableValue librariesToLinkSequence =
-        variables.getVariable(CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE);
+        variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
     assertThat(librariesToLinkSequence).isNotNull();
     Iterable<? extends VariableValue> librariesToLink =
-        librariesToLinkSequence.getSequenceValue(CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE);
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
     assertThat(librariesToLink).hasSize(1);
     VariableValue nameValue =
         librariesToLink
             .iterator()
             .next()
             .getFieldValue(
-                CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE,
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                 LibraryToLinkValue.NAME_FIELD_NAME);
     assertThat(nameValue).isNotNull();
     String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
@@ -85,7 +87,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     List<String> variableValue =
         getSequenceVariableValue(
-            variables, CppLinkActionBuilder.LIBRARY_SEARCH_DIRECTORIES_VARIABLE);
+            variables, LinkBuildVariables.LIBRARY_SEARCH_DIRECTORIES.getVariableName());
     assertThat(Iterables.getOnlyElement(variableValue)).contains("some-dir");
   }
 
@@ -100,7 +102,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     String variableValue =
-        getVariableValue(variables, CppLinkActionBuilder.LINKER_PARAM_FILE_VARIABLE);
+        getVariableValue(variables, LinkBuildVariables.LINKER_PARAM_FILE.getVariableName());
     assertThat(variableValue).matches(".*bin/x/bin" + OsUtils.executableExtension() + "-2.params$");
   }
 
@@ -120,13 +122,14 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     Variables variables = getLinkBuildVariables(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
 
     String interfaceLibraryBuilder =
-        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE);
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName());
     String interfaceLibraryInput =
-        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE);
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName());
     String interfaceLibraryOutput =
-        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE);
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName());
     String generateInterfaceLibrary =
-        getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE);
+        getVariableValue(
+            variables, LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName());
 
     assertThat(generateInterfaceLibrary).isEqualTo("yes");
     assertThat(interfaceLibraryInput).endsWith("libfoo.so");
@@ -150,13 +153,14 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     Variables variables = getLinkBuildVariables(target, LinkTargetType.STATIC_LIBRARY);
 
     String interfaceLibraryBuilder =
-        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE);
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName());
     String interfaceLibraryInput =
-        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE);
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName());
     String interfaceLibraryOutput =
-        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE);
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName());
     String generateInterfaceLibrary =
-        getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE);
+        getVariableValue(
+            variables, LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName());
 
     assertThat(generateInterfaceLibrary).isEqualTo("no");
     assertThat(interfaceLibraryInput).endsWith("ignored");
@@ -174,13 +178,15 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     ConfiguredTarget testTarget = getConfiguredTarget("//x:foo_test");
     Variables testVariables = getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
 
-    assertThat(testVariables.getVariable(CppLinkActionBuilder.IS_CC_TEST_VARIABLE).isTruthy())
+    assertThat(
+            testVariables.getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName()).isTruthy())
         .isTrue();
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//x:foo");
     Variables binaryVariables = getLinkBuildVariables(binaryTarget, LinkTargetType.EXECUTABLE);
 
-    assertThat(binaryVariables.getVariable(CppLinkActionBuilder.IS_CC_TEST_VARIABLE).isTruthy())
+    assertThat(
+            binaryVariables.getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName()).isTruthy())
         .isFalse();
   }
 
@@ -205,7 +211,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     useConfiguration("--strip=" + stripMode, "--compilation_mode=" + compilationMode);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Variables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
-    assertThat(variables.isAvailable(CppLinkActionBuilder.STRIP_DEBUG_SYMBOLS_VARIABLE))
+    assertThat(variables.isAvailable(LinkBuildVariables.STRIP_DEBUG_SYMBOLS.getVariableName()))
         .isEqualTo(isEnabled);
   }
 
@@ -222,12 +228,14 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     useConfiguration("--fission=no");
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Variables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
-    assertThat(variables.isAvailable(CppLinkActionBuilder.IS_USING_FISSION_VARIABLE)).isFalse();
+    assertThat(variables.isAvailable(LinkBuildVariables.IS_USING_FISSION.getVariableName()))
+        .isFalse();
 
     useConfiguration("--fission=yes");
     ConfiguredTarget fissionTarget = getConfiguredTarget("//x:foo");
     Variables fissionVariables = getLinkBuildVariables(fissionTarget, LinkTargetType.EXECUTABLE);
-    assertThat(fissionVariables.isAvailable(CppLinkActionBuilder.IS_USING_FISSION_VARIABLE)).isTrue();
+    assertThat(fissionVariables.isAvailable(LinkBuildVariables.IS_USING_FISSION.getVariableName()))
+        .isTrue();
   }
 
   @Test

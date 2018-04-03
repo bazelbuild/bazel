@@ -213,7 +213,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
         linkAction
             .getLinkCommandLine()
             .getBuildVariables()
-            .getSequenceVariable(CppLinkActionBuilder.RUNTIME_LIBRARY_SEARCH_DIRECTORIES_VARIABLE);
+            .getSequenceVariable(
+                LinkBuildVariables.RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName());
     List<String> directories = new ArrayList<>();
     for (VariableValue value : runtimeLibrarySearchDirectories) {
       directories.add(value.getStringValue("runtime_library_search_directory"));
