@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -103,6 +104,7 @@ public class SkyframeBuilder implements Builder {
       Collection<AspectValue> aspects,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
+      Set<AspectKey> builtAspects,
       boolean explain,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext)
@@ -114,6 +116,7 @@ public class SkyframeBuilder implements Builder {
     ExecutionProgressReceiver executionProgressReceiver =
         new ExecutionProgressReceiver(
             Preconditions.checkNotNull(builtTargets),
+            Preconditions.checkNotNull(builtAspects),
             countTestActions(exclusiveTests));
     skyframeExecutor
         .getEventBus()

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -75,6 +74,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -295,6 +295,7 @@ public class ExecutionTool {
                                   request.getOptionsDescription());
 
     Set<ConfiguredTarget> builtTargets = new HashSet<>();
+    Set<AspectKey> builtAspects = new HashSet<>();
     Collection<AspectValue> aspects = analysisResult.getAspects();
 
     Iterable<Artifact> allArtifactsForProviders =
@@ -345,6 +346,7 @@ public class ExecutionTool {
           analysisResult.getAspects(),
           executor,
           builtTargets,
+          builtAspects,
           request.getBuildOptions().explanationPath != null,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
           topLevelArtifactContext);
@@ -377,9 +379,13 @@ public class ExecutionTool {
         saveActionCache(actionCache);
       }
 
+      env.getEventBus()
+          .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+
       try (AutoProfiler p = AutoProfiler.profiled("Show results", ProfilerTask.INFO)) {
         buildResult.setSuccessfulTargets(
-            determineSuccessfulTargets(configuredTargets, builtTargets, timer));
+            determineSuccessfulTargets(configuredTargets, builtTargets));
+        buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
         buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
         buildResultPrinter.showBuildResult(request, buildResult, configuredTargets,
@@ -529,16 +535,13 @@ public class ExecutionTool {
   }
 
   /**
-   * Computes the result of the build. Sets the list of successful (up-to-date)
-   * targets in the request object.
+   * Computes the result of the build. Sets the list of successful (up-to-date) targets in the
+   * request object.
    *
-   * @param configuredTargets The configured targets whose artifacts are to be
-   *                          built.
-   * @param timer A timer that was started when the execution phase started.
+   * @param configuredTargets The configured targets whose artifacts are to be built.
    */
   private Collection<ConfiguredTarget> determineSuccessfulTargets(
-      Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> builtTargets,
-      Stopwatch timer) {
+      Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> builtTargets) {
     // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
     // order as configuredTargets.
     Collection<ConfiguredTarget> successfulTargets = new LinkedHashSet<>();
@@ -547,9 +550,20 @@ public class ExecutionTool {
         successfulTargets.add(target);
       }
     }
-    env.getEventBus().post(
-        new ExecutionPhaseCompleteEvent(timer.stop().elapsed(MILLISECONDS)));
     return successfulTargets;
+  }
+
+  private Collection<AspectValue> determineSuccessfulAspects(
+      Collection<AspectValue> aspects, Set<AspectKey> builtAspects) {
+    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
+    // order as configuredTargets.
+    Collection<AspectValue> successfulAspects = new LinkedHashSet<>();
+    for (AspectValue aspect : aspects) {
+      if (builtAspects.contains(aspect.getKey())) {
+        successfulAspects.add(aspect);
+      }
+    }
+    return successfulAspects;
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
