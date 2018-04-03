@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -3398,26 +3397,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = [ 'res/values/values.xml' ], ",
         ")");
-  }
-
-  private void mockAndroidSdkWithAapt2() throws IOException {
-    scratch.file(
-        "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign')");
   }
 
   @Test

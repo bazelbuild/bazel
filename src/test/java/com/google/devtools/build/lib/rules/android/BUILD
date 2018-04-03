@@ -109,6 +109,8 @@ java_test(
     deps = [
         ":ResourceTestBase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -122,6 +124,7 @@ java_library(
     name = "ResourceTestBase",
     srcs = ["ResourceTestBase.java"],
     deps = [
+        ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",

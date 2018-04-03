@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -41,7 +42,7 @@ import javax.annotation.Nullable;
  * <p>This is used to encapsulate the logic and the data associated with the resources derived from
  * an appropriate android rule in a reusable instance.
  */
-public final class AndroidResources {
+public class AndroidResources {
   private static final String DEFAULT_RESOURCES_ATTR = "resource_files";
 
   public static final String[] RESOURCES_ATTRIBUTES =
@@ -293,6 +294,10 @@ public final class AndroidResources {
   private final ImmutableList<Artifact> resources;
   private final ImmutableList<PathFragment> resourceRoots;
 
+  AndroidResources(AndroidResources other) {
+    this(other.resources, other.resourceRoots);
+  }
+
   @VisibleForTesting
   public AndroidResources(
       ImmutableList<Artifact> resources, ImmutableList<PathFragment> resourceRoots) {
@@ -384,5 +389,26 @@ public final class AndroidResources {
     }
 
     return Optional.of(new AndroidResources(filtered.get(), filteredResourcesRootsBuilder.build()));
+  }
+
+  public ParsedAndroidResources parse(
+      RuleContext ruleContext,
+      StampedAndroidManifest manifest) throws InterruptedException, RuleErrorException {
+    return ParsedAndroidResources.parseFrom(ruleContext, this, manifest);
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    if (!(object instanceof AndroidResources)) {
+      return false;
+    }
+
+    AndroidResources other = (AndroidResources) object;
+    return resources.equals(other.resources) && resourceRoots.equals(other.resourceRoots);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(resources, resourceRoots);
   }
 }

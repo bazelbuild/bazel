@@ -37,7 +37,7 @@ import org.junit.After;
 import org.junit.Before;
 
 /** Base class for tests that work with resource artifacts. */
-public abstract class ResourceTestBase {
+public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   public static final String RESOURCE_ROOT = "java/android/res";
 
   private static final ArtifactOwner OWNER = () -> {
