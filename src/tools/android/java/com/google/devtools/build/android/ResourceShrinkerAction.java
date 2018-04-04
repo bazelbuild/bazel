@@ -26,13 +26,11 @@ import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOpti
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
@@ -143,22 +141,6 @@ public class ResourceShrinkerAction {
     )
     public List<Path> dependencyManifests;
 
-    // TODO(laszlocsomor): remove this flag after 2018-01-31 (about 6 months from now). Everyone
-    // should have updated to newer Bazel versions by then.
-    @Deprecated
-    @Option(
-      name = "dependencyManifests",
-      defaultValue = "",
-      category = "input",
-      converter = PathListConverter.class,
-      deprecationWarning = "Deprecated in favour of \"--dependencyManifest\"",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of paths to the manifests of the dependencies.",
-      metadataTags = {OptionMetadataTag.DEPRECATED}
-    )
-    public List<Path> deprecatedDependencyManifests;
-
     @Option(
       name = "resourcePackages",
       defaultValue = "",
@@ -257,8 +239,6 @@ public class ResourceShrinkerAction {
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
-    options.dependencyManifests =
-        Converters.concatLists(options.dependencyManifests, options.deprecatedDependencyManifests);
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
     // Setup temporary working directories.

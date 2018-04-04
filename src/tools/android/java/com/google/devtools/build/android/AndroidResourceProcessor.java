@@ -545,7 +545,7 @@ public class AndroidResourceProcessor {
   }
 
   public ResourceSymbols loadResourceSymbolTable(
-      Iterable<SymbolFileProvider> libraries,
+      Iterable<? extends SymbolFileProvider> libraries,
       String appPackageName,
       Path primaryRTxt,
       Multimap<String, ResourceSymbols> libMap)

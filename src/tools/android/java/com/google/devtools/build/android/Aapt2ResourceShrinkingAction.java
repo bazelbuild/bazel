@@ -63,8 +63,6 @@ public class Aapt2ResourceShrinkingAction {
     optionsParser.parseAndExitUponError(args);
     Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
-    options.dependencyManifests =
-        Converters.concatLists(options.dependencyManifests, options.deprecatedDependencyManifests);
     profiler.recordEndOf("flags").startTask("setup");
 
     final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
