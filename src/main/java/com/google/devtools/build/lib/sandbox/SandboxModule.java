@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -29,6 +28,8 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -66,16 +67,14 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /** Computes the path to the sandbox base tree for the given running command. */
-  private static Path computeSandboxBase(SandboxOptions options, CommandEnvironment env)
-      throws IOException {
+  private static Path computeSandboxBase(SandboxOptions options, CommandEnvironment env) {
     if (options.sandboxBase.isEmpty()) {
       return env.getOutputBase().getRelative("sandbox");
     } else {
       String dirName = String.format("%s-sandbox.%s", env.getRuntime().getProductName(),
           Fingerprint.md5Digest(env.getOutputBase().toString()));
       FileSystem fileSystem = env.getRuntime().getFileSystem();
-      Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
-      return resolvedSandboxBase.getRelative(dirName);
+      return fileSystem.getPath(options.sandboxBase).getRelative(dirName);
     }
   }
 
@@ -92,30 +91,18 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder)
-      throws ExecutorInitException {
+  public void executorInit(
+      CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder) {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     checkNotNull(options, "We were told to initialize the executor but the SandboxOptions are "
         + "not present; were they registered for all build commands?");
 
-    try {
-      sandboxBase = computeSandboxBase(options, env);
-    } catch (IOException e) {
-      throw new ExecutorInitException(
-          "--experimental_sandbox_base points to an invalid directory", e);
-    }
+    sandboxBase = computeSandboxBase(options, env);
 
     ActionContextProvider provider;
     try {
-      // Ensure that each build starts with a clean sandbox base directory. Otherwise using the `id`
-      // that is provided by SpawnExecutionPolicy#getId to compute a base directory for a sandbox
-      // might result in an already existing directory.
-      if (sandboxBase.exists()) {
-        FileSystemUtils.deleteTree(sandboxBase);
-      }
-
       sandboxBase.createDirectoryAndParents();
       if (options.useSandboxfs) {
         Path mountPoint = sandboxBase.getRelative("sandboxfs");
@@ -130,7 +117,11 @@ public final class SandboxModule extends BlazeModule {
         provider = SandboxActionContextProvider.create(cmdEnv, sandboxBase, null);
       }
     } catch (IOException e) {
-      throw new ExecutorInitException("Failed to initialize sandbox", e);
+      env.getBlazeModuleEnvironment().exit(
+          new AbruptExitException(
+              "Failed to initialize sandbox: " + e,
+              ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+      return;
     }
     builder.addActionContextProvider(provider);
     builder.addActionContextConsumer(new SandboxActionContextConsumer(cmdEnv));

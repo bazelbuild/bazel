@@ -33,6 +33,6 @@ final class ProcessWrapperSandboxedStrategy extends AbstractSpawnStrategy {
 
   @Override
   public String toString() {
-    return "processwrapper-sandbox";
+    return "sandboxed";
   }
 }

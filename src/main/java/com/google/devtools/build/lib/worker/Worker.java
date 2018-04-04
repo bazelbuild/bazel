@@ -24,8 +24,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 
 /**
@@ -56,15 +54,17 @@ class Worker {
 
     final Worker self = this;
     this.shutdownHook =
-        new Thread(
-            () -> {
-              try {
-                self.shutdownHook = null;
-                self.destroy();
-              } catch (IOException e) {
-                // We can't do anything here.
-              }
-            });
+        new Thread() {
+          @Override
+          public void run() {
+            try {
+              self.shutdownHook = null;
+              self.destroy();
+            } catch (IOException e) {
+              // We can't do anything here.
+            }
+          }
+        };
     Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
@@ -80,6 +80,7 @@ class Worker {
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
     processBuilder.setEnv(workerKey.getEnv());
+
     this.process = processBuilder.start();
   }
 
@@ -137,7 +138,12 @@ class Worker {
   boolean isAlive() {
     // This is horrible, but Process.isAlive() is only available from Java 8 on and this is the
     // best we can do prior to that.
-    return !process.finished();
+    try {
+      process.exitValue();
+      return false;
+    } catch (IllegalThreadStateException e) {
+      return true;
+    }
   }
 
   InputStream getInputStream() {
@@ -148,17 +154,9 @@ class Worker {
     return process.getOutputStream();
   }
 
-  public void prepareExecution(
-      Map<PathFragment, Path> inputFiles,
-      Set<PathFragment> outputFiles,
-      Set<PathFragment> workerFiles)
-      throws IOException {
-    if (process == null) {
-      createProcess();
-    }
-  }
+  public void prepareExecution(WorkerKey key) throws IOException {}
 
-  public void finishExecution(Path execRoot) throws IOException {}
+  public void finishExecution(WorkerKey key) throws IOException {}
 
   public Path getLogFile() {
     return logFile;
