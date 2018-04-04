@@ -192,7 +192,7 @@ output as a graph.
 
 Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
 
-If using Linux Ubuntu you can view the graph locally by installing GraphViz and the xdot Dot Viewer:
+Or, if using Linux Ubuntu you can view the graph locally by installing GraphViz and the xdot Dot Viewer:
 ```
 sudo apt update && sudo apt install graphviz xdot
 ```
