@@ -207,7 +207,7 @@ public class SerializationContextTest {
     toSerialize.add(repeatedObject);
     toSerialize.add(container);
     assertThrows(
-        SerializationException.class,
+        Exception.class,
         () ->
             TestUtils.roundTrip(
                 toSerialize,

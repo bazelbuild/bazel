@@ -61,6 +61,10 @@ public class DeserializationContext {
     if (tag == 0) {
       return null;
     }
+    if (tag < 0) {
+      // Subtract 1 to undo transformation from SerializationContext to avoid null.
+      return (T) deserializer.getMemoized(-tag - 1);
+    }
     T constant = (T) registry.maybeGetConstantByTag(tag);
     if (constant != null) {
       return constant;

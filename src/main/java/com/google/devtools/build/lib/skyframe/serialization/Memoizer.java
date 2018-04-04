@@ -130,18 +130,6 @@ import javax.annotation.Nullable;
 // SerializationException. This requires just a little extra memo tracking for the MEMOIZE_AFTER
 // case.
 class Memoizer {
-
-  /**
-   * Constants used in the wire format to signal whether the next bytes are content or a
-   * backreference.
-   */
-  private enum MemoEntry {
-    NEW_VALUE,
-    BACKREF
-  }
-
-  private static ObjectCodec<MemoEntry> memoEntryCodec = new EnumCodec<>(MemoEntry.class);
-
   private Memoizer() {}
 
   /** A context for serializing; wraps a memo table. Not thread-safe. */
@@ -163,15 +151,14 @@ class Memoizer {
       if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
         codec.serialize(context, obj, codedOut);
       } else {
-        Integer id = memo.lookupNullable(obj);
-        if (id != null) {
-          memoEntryCodec.serialize(context, MemoEntry.BACKREF, codedOut);
-          codedOut.writeInt32NoTag(id);
-        } else {
-          memoEntryCodec.serialize(context, MemoEntry.NEW_VALUE, codedOut);
-          serializeMemoContent(context, obj, codec, codedOut, strategy);
-        }
+        // The caller already checked the table, so this is definitely a new value.
+        serializeMemoContent(context, obj, codec, codedOut, strategy);
       }
+    }
+
+    @Nullable
+    Integer getMemoizedIndex(Object obj) {
+      return memo.lookupNullable(obj);
     }
 
     // Corresponds to MemoContent in the abstract grammar.
@@ -258,11 +245,6 @@ class Memoizer {
       if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
         return codec.deserialize(context, codedIn);
       } else {
-        MemoEntry memoEntry = memoEntryCodec.deserialize(context, codedIn);
-        if (memoEntry == MemoEntry.BACKREF) {
-          int id = codedIn.readInt32();
-          return lookupBackreference(id, codec);
-        } else if (memoEntry == MemoEntry.NEW_VALUE) {
           switch (strategy) {
             case MEMOIZE_BEFORE:
               return deserializeMemoBeforeContent(context, codec, codedIn);
@@ -271,10 +253,11 @@ class Memoizer {
             default:
               throw new AssertionError("Unreachable (strategy=" + strategy + ")");
           }
-        } else {
-          throw new AssertionError("Unreachable (memoEntry=" + memoEntry + ")");
         }
-      }
+    }
+
+    Object getMemoized(int memoIndex) {
+      return Preconditions.checkNotNull(memo.lookup(memoIndex), memoIndex);
     }
 
     private <T> T safeCast(Object obj, ObjectCodec<T> codec) throws SerializationException {
@@ -314,15 +297,6 @@ class Memoizer {
         throws IOException, SerializationException {
       return safeCast(codec.deserialize(context, codedIn), codec);
     }
-    /** Retrieves a memo entry, validating that it exists and has the expected type. */
-    private <T> T lookupBackreference(int id, ObjectCodec<T> codec) throws SerializationException {
-      Object savedUnchecked = memo.lookup(id);
-      if (savedUnchecked == null) {
-        throw new SerializationException(
-            "Found backreference to non-existent memo id (" + id + ")");
-      }
-      return safeCast(savedUnchecked, codec);
-    }
 
     <T> void registerInitialValue(T initialValue) {
       int tag =
@@ -342,7 +316,10 @@ class Memoizer {
       Object initial = memoizedBeforeStackForSanityChecking.removeLast();
       if (value != initial) {
         // This indicates a bug in the particular codec subclass.
-        throw new SerializationException("doDeserialize did not return the initial instance");
+        throw new SerializationException(
+            String.format(
+                "codec did not return the initial instance: %s but was %s with codec %s",
+                value, initial, codec));
       }
       return value;
     }

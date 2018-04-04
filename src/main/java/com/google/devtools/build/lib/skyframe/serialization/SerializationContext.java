@@ -59,7 +59,7 @@ public class SerializationContext {
   public void serialize(Object object, CodedOutputStream codedOut)
       throws IOException, SerializationException {
     ObjectCodecRegistry.CodecDescriptor descriptor =
-        recordAndGetDescriptorIfNotConstantOrNull(object, codedOut);
+        recordAndGetDescriptorIfNotConstantMemoizedOrNull(object, codedOut);
     if (descriptor != null) {
       if (serializer == null) {
         descriptor.serialize(this, object, codedOut);
@@ -113,10 +113,18 @@ public class SerializationContext {
   }
 
   @Nullable
-  private ObjectCodecRegistry.CodecDescriptor recordAndGetDescriptorIfNotConstantOrNull(
+  private ObjectCodecRegistry.CodecDescriptor recordAndGetDescriptorIfNotConstantMemoizedOrNull(
       @Nullable Object object, CodedOutputStream codedOut) throws IOException, NoCodecException {
     if (writeNullOrConstant(object, codedOut)) {
       return null;
+    }
+    if (serializer != null) {
+      Integer memoizedIndex = serializer.getMemoizedIndex(object);
+      if (memoizedIndex != null) {
+        // Subtract 1 so it will be negative and not collide with null.
+        codedOut.writeSInt32NoTag(-memoizedIndex - 1);
+        return null;
+      }
     }
     ObjectCodecRegistry.CodecDescriptor descriptor = registry.getCodecDescriptorForObject(object);
     codedOut.writeSInt32NoTag(descriptor.getTag());
