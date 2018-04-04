@@ -630,6 +630,10 @@ public final class PackageFactory {
               List<Label> defaults = BuildType.LABEL_LIST.convert(defaultsList,
                   "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
 
+              if (environments.isEmpty()) {
+                throw new EvalException(location,
+                    "environment group " + name + " must contain at least one environment");
+              }
               try {
                 context.pkgBuilder.addEnvironmentGroup(
                     name, environments, defaults, context.eventHandler, loc);
