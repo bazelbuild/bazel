@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.List;
 
 /**
@@ -170,64 +169,6 @@ public class BazelLibrary {
   private static boolean isEmptySkylarkList(Object o) {
     return o instanceof SkylarkList && ((SkylarkList) o).isEmpty();
   }
-
-  @SkylarkSignature(
-    name = "union",
-    objectType = SkylarkNestedSet.class,
-    returnType = SkylarkNestedSet.class,
-    doc =
-        "<i>(Deprecated)</i> Returns a new <a href=\"depset.html\">depset</a> that is the merge "
-            + "of the given depset and <code>new_elements</code>. Use the <code>transitive</code> "
-            + "constructor argument instead.",
-    parameters = {
-      @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
-      @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction union =
-      new BuiltinFunction("union") {
-        @SuppressWarnings("unused")
-        public SkylarkNestedSet invoke(
-            SkylarkNestedSet input, Object newElements, Location loc, Environment env)
-            throws EvalException {
-          if (env.getSemantics().incompatibleDepsetUnion()) {
-            throw new EvalException(
-                location,
-                "depset method `.union` has been removed. See "
-                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-                    + "recommendations. Use --incompatible_depset_union=false "
-                    + "to temporarily disable this check.");
-          }
-          // newElements' type is Object because of the polymorphism on unioning two
-          // SkylarkNestedSets versus a set and another kind of iterable.
-          // Can't use EvalUtils#toIterable since that would discard this information.
-          return SkylarkNestedSet.of(input, newElements, loc);
-        }
-      };
-
-  @SkylarkSignature(
-    name = "to_list",
-    objectType = SkylarkNestedSet.class,
-    returnType = MutableList.class,
-    doc =
-        "Returns a list of the elements, without duplicates, in the depset's traversal order. "
-            + "Note that order is unspecified (but deterministic) for elements that were added "
-            + "more than once to the depset. Order is also unspecified for <code>\"default\""
-            + "</code>-ordered depsets, and for elements of child depsets whose order differs "
-            + "from that of the parent depset. The list is a copy; modifying it has no effect "
-            + "on the depset and vice versa.",
-    parameters = {@Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset.")},
-    useEnvironment = true
-  )
-  private static final BuiltinFunction toList =
-      new BuiltinFunction("to_list") {
-        @SuppressWarnings("unused")
-        public MutableList<Object> invoke(SkylarkNestedSet input, Environment env) {
-          return MutableList.copyOf(env, input.toCollection());
-        }
-      };
 
   /**
    * Returns a function-value implementing "select" (i.e. configurable attributes) in the specified
