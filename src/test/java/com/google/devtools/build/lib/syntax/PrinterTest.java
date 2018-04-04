@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -135,6 +136,24 @@ public class PrinterTest {
         "%.3g", 1, 2);
     checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.s\"",
         "%.s");
+  }
+
+  private SkylarkPrinter makeSimplifiedFormatPrinter() {
+    return new Printer.BasePrinter(new StringBuilder(), /*simplifiedFormatStrings=*/ true);
+  }
+
+  @Test
+  public void testSimplifiedDisallowsPlaceholdersBesidesPercentS() {
+    assertThat(makeSimplifiedFormatPrinter().format("Allowed: %%").toString())
+        .isEqualTo("Allowed: %");
+    assertThat(makeSimplifiedFormatPrinter().format("Allowed: %s", "abc").toString())
+        .isEqualTo("Allowed: abc");
+    assertThrows(
+        IllegalFormatException.class,
+        () -> makeSimplifiedFormatPrinter().format("Disallowed: %r", "abc"));
+    assertThrows(
+        IllegalFormatException.class,
+        () -> makeSimplifiedFormatPrinter().format("Disallowed: %d", 5));
   }
 
   @Test
