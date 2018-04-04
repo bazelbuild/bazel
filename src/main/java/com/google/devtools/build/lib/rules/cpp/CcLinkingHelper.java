@@ -528,7 +528,7 @@ public final class CcLinkingHelper {
     // We should consider merging most of these providers into a single provider.
     TransitiveInfoProviderMapBuilder providers =
         new TransitiveInfoProviderMapBuilder()
-            .add(new CppRunfilesProvider(cppStaticRunfiles, cppSharedRunfiles));
+            .put(new CcRunfilesInfo(cppStaticRunfiles, cppSharedRunfiles));
 
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
 
@@ -626,7 +626,7 @@ public final class CcLinkingHelper {
             ruleContext.getWorkspaceName(),
             ruleContext.getConfiguration().legacyExternalRunfiles());
     builder.addTargets(deps, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.addTargets(deps, CppRunfilesProvider.runfilesFunction(linkingStatically));
+    builder.addTargets(deps, CcRunfilesInfo.runfilesFunction(linkingStatically));
     // Add the shared libraries to the runfiles.
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically));
     return builder.build();
