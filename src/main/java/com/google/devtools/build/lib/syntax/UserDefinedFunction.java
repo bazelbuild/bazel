@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
  * The actual function registered in the environment. This function is defined in the parsed code
  * using {@link FunctionDefStatement}.
  */
-@AutoCodec
 public class UserDefinedFunction extends BaseFunction {
 
   private final ImmutableList<Statement> statements;

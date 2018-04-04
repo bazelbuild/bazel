@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
 import java.util.Optional;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
-@AutoCodec
 public final class DotExpression extends Expression {
 
   private final Expression object;

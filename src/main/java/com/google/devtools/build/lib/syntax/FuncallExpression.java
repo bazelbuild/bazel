@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -54,7 +53,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Syntax node for a function call expression. */
-@AutoCodec
 public final class FuncallExpression extends Expression {
 
   /**

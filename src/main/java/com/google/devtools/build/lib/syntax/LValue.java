@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.io.IOException;
 import java.util.Collection;
@@ -45,7 +44,6 @@ import java.util.Collection;
  * cannot appear in {@code LValue}s.
  */
 // TODO(bazel-team): Add support for assigning to slices (e.g. a[2:6] = [3]).
-@AutoCodec
 public final class LValue extends ASTNode {
 
   private final Expression expr;

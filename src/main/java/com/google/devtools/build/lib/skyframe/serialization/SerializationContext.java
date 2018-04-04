@@ -118,7 +118,7 @@ public class SerializationContext {
     if (writeNullOrConstant(object, codedOut)) {
       return null;
     }
-    ObjectCodecRegistry.CodecDescriptor descriptor = registry.getCodecDescriptor(object.getClass());
+    ObjectCodecRegistry.CodecDescriptor descriptor = registry.getCodecDescriptorForObject(object);
     codedOut.writeSInt32NoTag(descriptor.getTag());
     return descriptor;
   }

@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** A wrapper Statement class for return expressions. */
-@AutoCodec
 public final class ReturnStatement extends Statement {
 
   /**

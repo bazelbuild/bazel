@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** Syntax node for a slice expression, e.g. obj[:len(obj):2]. */
-@AutoCodec
 public final class SliceExpression extends Expression {
 
   private final Expression object;

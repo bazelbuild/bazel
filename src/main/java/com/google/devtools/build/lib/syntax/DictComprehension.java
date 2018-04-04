@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 /** Syntax node for dictionary comprehension expressions. */
-@AutoCodec
 public final class DictComprehension extends AbstractComprehension {
   private final Expression keyExpression;
   private final Expression valueExpression;

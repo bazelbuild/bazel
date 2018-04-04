@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
 /**
@@ -22,7 +21,6 @@ import java.io.IOException;
  * obj[from:to]}). The object may be either a sequence or an associative mapping (most commonly
  * lists and dictionaries).
  */
-@AutoCodec
 public final class IndexExpression extends Expression {
 
   private final Expression object;
