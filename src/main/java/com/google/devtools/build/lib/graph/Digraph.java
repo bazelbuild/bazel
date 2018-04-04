@@ -692,29 +692,6 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Removes the node in the graph specified by the given label.  Optionally,
-   * preserves the graph order (by connecting up the broken edges) or drop them
-   * all.  If the specified label is not the label of any node in the graph,
-   * does nothing.
-   *
-   * @param label the label of the node to remove.
-   * @param preserveOrder if true, adds edges between the neighbours
-   *   of the removed node so as to maintain the graph ordering
-   *   relation between all pairs of such nodes.  If false, simply
-   *   discards all edges from the deleted node to its neighbours.
-   * @return true iff 'label' identifies a node (i.e. the graph was changed).
-   */
-  public boolean removeNode(T label, boolean preserveOrder) {
-    Node<T> node = getNodeMaybe(label);
-    if (node != null) {
-      removeNode(node, preserveOrder);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  /**
    * Removes the specified node in the graph.
    *
    * @param n the node to remove (must be in the graph).
