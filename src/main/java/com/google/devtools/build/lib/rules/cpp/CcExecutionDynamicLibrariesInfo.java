@@ -14,24 +14,37 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** A target that provides the execution-time dynamic libraries of a C++ rule. */
 @Immutable
 @AutoCodec
-public final class CcExecutionDynamicLibrariesProvider implements TransitiveInfoProvider {
-  public static final CcExecutionDynamicLibrariesProvider EMPTY =
-      new CcExecutionDynamicLibrariesProvider(
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+@SkylarkModule(
+  name = "cc_execution_dynamic_libraries_info ",
+  documented = false,
+  category = SkylarkModuleCategory.PROVIDER,
+  doc = "."
+)
+public final class CcExecutionDynamicLibrariesInfo extends NativeInfo {
+  public static final NativeProvider<CcExecutionDynamicLibrariesInfo> PROVIDER =
+      new NativeProvider<CcExecutionDynamicLibrariesInfo>(
+          CcExecutionDynamicLibrariesInfo.class, "CcExecutionDynamicLibrariesInfo") {};
+
+  public static final CcExecutionDynamicLibrariesInfo EMPTY =
+      new CcExecutionDynamicLibrariesInfo(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> ccExecutionDynamicLibraries;
 
-  public CcExecutionDynamicLibrariesProvider(NestedSet<Artifact> ccExecutionDynamicLibraries) {
+  public CcExecutionDynamicLibrariesInfo(NestedSet<Artifact> ccExecutionDynamicLibraries) {
+    super(PROVIDER);
     this.ccExecutionDynamicLibraries = ccExecutionDynamicLibraries;
   }
 

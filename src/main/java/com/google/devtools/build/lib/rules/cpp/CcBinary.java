@@ -896,9 +896,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(ccCompilationContextInfo)
         .addProvider(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
-        .addProvider(
-            CcExecutionDynamicLibrariesProvider.class,
-            new CcExecutionDynamicLibrariesProvider(
+        .addNativeDeclaredProvider(
+            new CcExecutionDynamicLibrariesInfo(
                 collectExecutionDynamicLibraryArtifacts(
                     ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
         .addProvider(
@@ -933,11 +932,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
     }
 
-    Iterable<CcExecutionDynamicLibrariesProvider> deps = ruleContext
-        .getPrerequisites("deps", Mode.TARGET, CcExecutionDynamicLibrariesProvider.class);
+    Iterable<CcExecutionDynamicLibrariesInfo> deps =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, CcExecutionDynamicLibrariesInfo.PROVIDER);
 
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (CcExecutionDynamicLibrariesProvider dep : deps) {
+    for (CcExecutionDynamicLibrariesInfo dep : deps) {
       builder.addTransitive(dep.getExecutionDynamicLibraryArtifacts());
     }
     return builder.build();
