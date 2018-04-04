@@ -21,10 +21,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -308,6 +311,49 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   @Override
   public final boolean containsKey(Object key, Location loc) throws EvalException {
     return (set.toList().contains(key));
+  }
+
+  @SkylarkCallable(
+      name = "union",
+      doc =
+          "<i>(Deprecated)</i> Returns a new <a href=\"depset.html\">depset</a> that is the merge "
+              + "of the given depset and <code>new_elements</code>. Use the "
+              + "<code>transitive</code> constructor argument instead.",
+      parameters = {
+          @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
+      },
+      useLocation = true,
+      useEnvironment = true
+  )
+  public SkylarkNestedSet union(Object newElements, Location loc, Environment env)
+      throws EvalException {
+    if (env.getSemantics().incompatibleDepsetUnion()) {
+      throw new EvalException(
+          loc,
+          "depset method `.union` has been removed. See "
+              + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
+              + "recommendations. Use --incompatible_depset_union=false "
+              + "to temporarily disable this check.");
+    }
+    // newElements' type is Object because of the polymorphism on unioning two
+    // SkylarkNestedSets versus a set and another kind of iterable.
+    // Can't use EvalUtils#toIterable since that would discard this information.
+    return SkylarkNestedSet.of(this, newElements, loc);
+  }
+
+  @SkylarkCallable(
+      name = "to_list",
+      doc =
+          "Returns a list of the elements, without duplicates, in the depset's traversal order. "
+              + "Note that order is unspecified (but deterministic) for elements that were added "
+              + "more than once to the depset. Order is also unspecified for <code>\"default\""
+              + "</code>-ordered depsets, and for elements of child depsets whose order differs "
+              + "from that of the parent depset. The list is a copy; modifying it has no effect "
+              + "on the depset and vice versa.",
+      useEnvironment = true
+  )
+  public MutableList<Object> toList(Environment env) {
+    return MutableList.copyOf(env, this.toCollection());
   }
 
   /**
