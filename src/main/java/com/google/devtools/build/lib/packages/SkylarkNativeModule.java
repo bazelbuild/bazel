@@ -17,17 +17,15 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
 /**
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
  */
 @SkylarkModule(
   name = "native",
-  namespace = true,
   category = SkylarkModuleCategory.BUILTIN,
   doc =
       "A built-in module to support native rules and other package helper functions. "
@@ -49,10 +46,8 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 )
 public class SkylarkNativeModule {
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "glob",
-    objectType = SkylarkNativeModule.class,
-    returnType = SkylarkList.class,
     doc =
         "Glob returns a list of every file in the current package that:<ul>\n"
             + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
@@ -86,24 +81,19 @@ public class SkylarkNativeModule {
     useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction glob =
-      new BuiltinFunction("glob") {
-        public SkylarkList invoke(
-            SkylarkList include,
-            SkylarkList exclude,
-            Integer excludeDirectories,
-            FuncallExpression ast,
-            Environment env)
-            throws EvalException, ConversionException, InterruptedException {
-          env.checkLoadingPhase("native.glob", ast.getLocation());
-          return PackageFactory.callGlob(null, include, exclude, excludeDirectories != 0, ast, env);
-        }
-      };
+  public SkylarkList<?> glob(
+      SkylarkList<?> include,
+      SkylarkList<?> exclude,
+      Integer excludeDirectories,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException, ConversionException, InterruptedException {
+    env.checkLoadingPhase("native.glob", ast.getLocation());
+    return PackageFactory.callGlob(null, include, exclude, excludeDirectories != 0, ast, env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "existing_rule",
-    objectType = SkylarkNativeModule.class,
-    returnType = Object.class,
     doc =
         "Returns a dictionary representing the attributes of a previously defined rule, "
             + "or None if the rule does not exist.",
@@ -113,48 +103,38 @@ public class SkylarkNativeModule {
     useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction existingRule =
-      new BuiltinFunction("existing_rule") {
-        public Object invoke(String name, FuncallExpression ast, Environment env)
-            throws EvalException, InterruptedException {
-          env.checkLoadingOrWorkspacePhase("native.existing_rule", ast.getLocation());
-          SkylarkDict<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
-          if (rule != null) {
-            return rule;
-          }
+  public Object existingRule(String name, FuncallExpression ast, Environment env)
+      throws EvalException, InterruptedException {
+    env.checkLoadingOrWorkspacePhase("native.existing_rule", ast.getLocation());
+    SkylarkDict<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
+    if (rule != null) {
+      return rule;
+    }
 
-          return Runtime.NONE;
-        }
-      };
+    return Runtime.NONE;
+  }
 
   /*
     If necessary, we could allow filtering by tag (anytag, alltags), name (regexp?), kind ?
     For now, we ignore this, since users can implement it in Skylark.
   */
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "existing_rules",
-    objectType = SkylarkNativeModule.class,
-    returnType = SkylarkDict.class,
     doc =
         "Returns a dict containing all the rules instantiated so far. "
             + "The map key is the name of the rule. The map value is equivalent to the "
             + "existing_rule output for that rule.",
-    parameters = {},
     useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction existingRules =
-      new BuiltinFunction("existing_rules") {
-        public SkylarkDict<String, SkylarkDict<String, Object>> invoke(
-            FuncallExpression ast, Environment env)
-            throws EvalException, InterruptedException {
-          env.checkLoadingOrWorkspacePhase("native.existing_rules", ast.getLocation());
-          return PackageFactory.callGetRulesFunction(ast, env);
-        }
-      };
+  public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
+      FuncallExpression ast, Environment env)
+      throws EvalException, InterruptedException {
+    env.checkLoadingOrWorkspacePhase("native.existing_rules", ast.getLocation());
+    return PackageFactory.callGetRulesFunction(ast, env);
+  }
 
-  @SkylarkSignature(name = "package_group", objectType = SkylarkNativeModule.class,
-      returnType = Runtime.NoneType.class,
+  @SkylarkCallable(name = "package_group",
       doc = "This function defines a set of packages and assigns a label to the group. "
           + "The label can be referenced in <code>visibility</code> attributes.",
       parameters = {
@@ -167,19 +147,17 @@ public class SkylarkNativeModule {
           defaultValue = "[]", named = true, positional = false,
           doc = "Other package groups that are included in this one.")},
       useAst = true, useEnvironment = true)
-  private static final BuiltinFunction packageGroup = new BuiltinFunction("package_group") {
-      public Runtime.NoneType invoke(String name, SkylarkList packages, SkylarkList includes,
-                FuncallExpression ast, Environment env) throws EvalException, ConversionException {
-        env.checkLoadingPhase("native.package_group", ast.getLocation());
-        return PackageFactory.callPackageFunction(name, packages, includes, ast, env);
-      }
-    };
+  public Runtime.NoneType packageGroup(String name, SkylarkList<?> packages,
+      SkylarkList<?> includes,
+      FuncallExpression ast, Environment env) throws EvalException {
+    env.checkLoadingPhase("native.package_group", ast.getLocation());
+    return PackageFactory.callPackageFunction(name, packages, includes, ast, env);
+  }
 
-  @SkylarkSignature(name = "exports_files", objectType = SkylarkNativeModule.class,
-      returnType = Runtime.NoneType.class,
-      doc = "Specifies a list of files belonging to this package that are exported to other "
-          + "packages but not otherwise mentioned.",
-      parameters = {
+  @SkylarkCallable(name = "exports_files",
+    doc = "Specifies a list of files belonging to this package that are exported to other "
+        + "packages but not otherwise mentioned.",
+    parameters = {
       @Param(name = "srcs", type = SkylarkList.class, generic1 = String.class,
           doc = "The list of files to export."),
       // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
@@ -189,20 +167,16 @@ public class SkylarkNativeModule {
               + "every package."),
       @Param(name = "licenses", type = SkylarkList.class, generic1 = String.class, noneable = true,
           defaultValue = "None", doc = "Licenses to be specified.")},
-      useAst = true, useEnvironment = true)
-  private static final BuiltinFunction exportsFiles = new BuiltinFunction("exports_files") {
-      public Runtime.NoneType invoke(SkylarkList srcs, Object visibility, Object licenses,
-          FuncallExpression ast, Environment env)
-          throws EvalException, ConversionException {
-        env.checkLoadingPhase("native.exports_files", ast.getLocation());
-        return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, env);
-      }
-    };
+    useAst = true, useEnvironment = true)
+  public Runtime.NoneType exportsFiles(SkylarkList<?> srcs, Object visibility, Object licenses,
+      FuncallExpression ast, Environment env)
+      throws EvalException {
+    env.checkLoadingPhase("native.exports_files", ast.getLocation());
+    return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, env);
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "package_name",
-    objectType = SkylarkNativeModule.class,
-    returnType = String.class,
     doc =
         "The name of the package being evaluated. "
             + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
@@ -214,21 +188,16 @@ public class SkylarkNativeModule {
     useAst = true,
     useEnvironment = true
   )
-  static final BuiltinFunction packageName =
-      new BuiltinFunction("package_name") {
-        public String invoke(FuncallExpression ast, Environment env)
-            throws EvalException, ConversionException {
-          env.checkLoadingPhase("native.package_name", ast.getLocation());
-          PackageIdentifier packageId =
-              PackageFactory.getContext(env, ast.getLocation()).getBuilder().getPackageIdentifier();
-          return packageId.getPackageFragment().getPathString();
-        }
-      };
+  public String packageName(FuncallExpression ast, Environment env)
+      throws EvalException {
+    env.checkLoadingPhase("native.package_name", ast.getLocation());
+    PackageIdentifier packageId =
+        PackageFactory.getContext(env, ast.getLocation()).getBuilder().getPackageIdentifier();
+    return packageId.getPackageFragment().getPathString();
+  }
 
-  @SkylarkSignature(
+  @SkylarkCallable(
     name = "repository_name",
-    objectType = SkylarkNativeModule.class,
-    returnType = String.class,
     doc =
         "The name of the repository the rule or build extension is called from. "
             + "For example, in packages that are called into existence by the WORKSPACE stanza "
@@ -240,20 +209,11 @@ public class SkylarkNativeModule {
     useLocation = true,
     useEnvironment = true
   )
-  static final BuiltinFunction repositoryName =
-      new BuiltinFunction("repository_name") {
-        public String invoke(Location location, Environment env)
-            throws EvalException, ConversionException {
-          env.checkLoadingPhase("native.repository_name", location);
-          PackageIdentifier packageId =
-              PackageFactory.getContext(env, location).getBuilder().getPackageIdentifier();
-          return packageId.getRepository().toString();
-        }
-      };
-
-  public static final SkylarkNativeModule NATIVE_MODULE = new SkylarkNativeModule();
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkNativeModule.class);
+  public String repositoryName(Location location, Environment env)
+      throws EvalException {
+    env.checkLoadingPhase("native.repository_name", location);
+    PackageIdentifier packageId =
+        PackageFactory.getContext(env, location).getBuilder().getPackageIdentifier();
+    return packageId.getRepository().toString();
   }
 }

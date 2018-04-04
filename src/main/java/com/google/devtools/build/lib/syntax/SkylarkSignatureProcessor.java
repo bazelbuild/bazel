@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction.ExtraArgKind;
+import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,8 +34,50 @@ import javax.annotation.Nullable;
  * to configure a given field.
  */
 public class SkylarkSignatureProcessor {
+
   /**
-   * Extracts a {@code FunctionSignature.WithValues<Object, SkylarkType>} from an annotation
+   * Extracts a {@code FunctionSignature.WithValues<Object, SkylarkType>} from a
+   * {@link SkylarkCallable}-annotated method.
+   *
+   * @param name the name of the function
+   * @param descriptor the method descriptor
+   * @param paramDoc an optional list into which to store documentation strings
+   * @param enforcedTypesList an optional list into which to store effective types to enforce
+   */
+  public static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallable(
+      String name, MethodDescriptor descriptor,
+      @Nullable List<String> paramDoc, @Nullable List<SkylarkType> enforcedTypesList) {
+
+    SkylarkCallable annotation = descriptor.getAnnotation();
+
+    // TODO(cparsons): Validate these properties with the annotation processor instead.
+    Preconditions.checkArgument(annotation.name().isEmpty() || name.equals(annotation.name()),
+        "%s != %s", name, annotation.name());
+    boolean documented = annotation.documented();
+    if (annotation.doc().isEmpty() && documented) {
+      throw new RuntimeException(String.format("function %s is undocumented", name));
+    }
+    ImmutableList.Builder<Parameter<Object, SkylarkType>> parameters = ImmutableList.builder();
+
+    Class<?>[] javaMethodSignatureParams = descriptor.getMethod().getParameterTypes();
+
+    for (int paramIndex = 0; paramIndex < annotation.mandatoryPositionals(); paramIndex++) {
+      Parameter<Object, SkylarkType> parameter =
+          new Parameter.Mandatory<Object, SkylarkType>("arg" + paramIndex,
+              SkylarkType.of(javaMethodSignatureParams[paramIndex]));
+      parameters.add(parameter);
+    }
+
+    return getSignatureForCallable(name, documented, parameters.build(), annotation.parameters(),
+        /*extraPositionals=*/null,
+        /*extraKeywords=*/null, /*defaultValues=*/null, paramDoc, enforcedTypesList);
+  }
+
+
+  /**
+   * Extracts a {@code FunctionSignature.WithValues<Object, SkylarkType>} from a
+   * {@link SkylarkSignature} annotation.
+   *
    * @param name the name of the function
    * @param annotation the annotation
    * @param defaultValues an optional list of default values
@@ -42,35 +87,50 @@ public class SkylarkSignatureProcessor {
   // NB: the two arguments paramDoc and enforcedTypesList are used to "return" extra values via
   // side-effects, and that's ugly
   // TODO(bazel-team): use AutoValue to declare a value type to use as return value?
-  public static FunctionSignature.WithValues<Object, SkylarkType> getSignature(
+  public static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallable(
       String name, SkylarkSignature annotation,
       @Nullable Iterable<Object> defaultValues,
       @Nullable List<String> paramDoc, @Nullable List<SkylarkType> enforcedTypesList) {
 
     Preconditions.checkArgument(name.equals(annotation.name()),
         "%s != %s", name, annotation.name());
-    ArrayList<Parameter<Object, SkylarkType>> paramList = new ArrayList<>();
-    HashMap<String, SkylarkType> enforcedTypes =
-        enforcedTypesList == null ? null : new HashMap<>();
-
-    HashMap<String, String> doc = new HashMap<>();
     boolean documented = annotation.documented();
     if (annotation.doc().isEmpty() && documented) {
       throw new RuntimeException(String.format("function %s is undocumented", name));
     }
+    return getSignatureForCallable(name, documented,
+        /*mandatoryPositionals=*/ImmutableList.<Parameter<Object, SkylarkType>>of(),
+        annotation.parameters(),
+        annotation.extraPositionals(),
+        annotation.extraKeywords(), defaultValues, paramDoc, enforcedTypesList);
+  }
+
+  private static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallable(
+      String name, boolean documented,
+      ImmutableList<Parameter<Object, SkylarkType>> mandatoryPositionals,
+      Param[] parameters,
+      @Nullable Param extraPositionals, @Nullable Param extraKeywords,
+      @Nullable Iterable<Object> defaultValues,
+      @Nullable List<String> paramDoc, @Nullable List<SkylarkType> enforcedTypesList) {
+    ArrayList<Parameter<Object, SkylarkType>> paramList = new ArrayList<>();
+    paramList.addAll(mandatoryPositionals);
+    HashMap<String, SkylarkType> enforcedTypes =
+        enforcedTypesList == null ? null : new HashMap<>();
+
+    HashMap<String, String> doc = new HashMap<>();
 
     Iterator<Object> defaultValuesIterator = defaultValues == null
         ? null : defaultValues.iterator();
     try {
       boolean named = false;
-      for (Param param : annotation.parameters()) {
+      for (Param param : parameters) {
         boolean mandatory = param.defaultValue() != null && param.defaultValue().isEmpty();
         Object defaultValue = mandatory ? null : getDefaultValue(param, defaultValuesIterator);
         if (param.named() && !param.positional() && !named) {
           named = true;
           @Nullable Param starParam = null;
-          if (!annotation.extraPositionals().name().isEmpty()) {
-            starParam = annotation.extraPositionals();
+          if (extraPositionals != null && !extraPositionals.name().isEmpty()) {
+            starParam = extraPositionals;
           }
           paramList.add(getParameter(name, starParam, enforcedTypes, doc, documented,
                 /*mandatory=*/false, /*star=*/true, /*starStar=*/false, /*defaultValue=*/null));
@@ -78,14 +138,14 @@ public class SkylarkSignatureProcessor {
         paramList.add(getParameter(name, param, enforcedTypes, doc, documented,
                 mandatory, /*star=*/false, /*starStar=*/false, defaultValue));
       }
-      if (!annotation.extraPositionals().name().isEmpty() && !named) {
-        paramList.add(getParameter(name, annotation.extraPositionals(), enforcedTypes, doc,
+      if (extraPositionals != null && !extraPositionals.name().isEmpty() && !named) {
+        paramList.add(getParameter(name, extraPositionals, enforcedTypes, doc,
             documented, /*mandatory=*/false, /*star=*/true, /*starStar=*/false,
             /*defaultValue=*/null));
       }
-      if (!annotation.extraKeywords().name().isEmpty()) {
+      if (extraKeywords != null && !extraKeywords.name().isEmpty()) {
         paramList.add(
-            getParameter(name, annotation.extraKeywords(), enforcedTypes, doc, documented,
+            getParameter(name, extraKeywords, enforcedTypes, doc, documented,
                 /*mandatory=*/false, /*star=*/false, /*starStar=*/true, /*defaultValue=*/null));
       }
       FunctionSignature.WithValues<Object, SkylarkType> signature =

@@ -487,7 +487,7 @@ public abstract class BaseFunction implements SkylarkValue {
     Preconditions.checkState(!isConfigured()); // must not be configured yet
 
     this.paramDoc = new ArrayList<>();
-    this.signature = SkylarkSignatureProcessor.getSignature(
+    this.signature = SkylarkSignatureProcessor.getSignatureForCallable(
         getName(), annotation, unconfiguredDefaultValues, paramDoc, getEnforcedArgumentTypes());
     this.objectType = annotation.objectType().equals(Object.class)
         ? null : annotation.objectType();

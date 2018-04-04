@@ -163,6 +163,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return ImmutableMap.of("a", ImmutableList.of("b", "c"));
     }
 
+    
     @SkylarkCallable(
       name = "with_params",
       documented = false,
@@ -350,6 +351,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
           + ", "
           + (sem != null)
           + ")";
+    }
+
+    @SkylarkCallable(name = "proxy_methods_object",
+        doc = "Returns a struct containing all callable method objects of this mock",
+        allowReturnNones = true)
+    public ClassObject proxyMethodsObject() {
+      ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
+      for (String nativeFunction : FuncallExpression.getMethodNames(Mock.class)) {
+        builder.put(nativeFunction,
+            FuncallExpression.getBuiltinCallable(this, nativeFunction));
+      }
+      return NativeProvider.STRUCT.create(builder.build(), "no native callable '%s'");
     }
 
     @Override
@@ -918,6 +931,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "  return modified_list",
             "m = func(mock)")
         .testLookup("m", MutableList.of(env, "b", "c", "extra_string"));
+  }
+
+  @Test
+  public void testProxyMethodsObject() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "m = mock.proxy_methods_object()",
+            "b = m.with_params(1, True, named=True)")
+        .testLookup("b", "with_params(1, true, false, true, false, a)");
   }
 
   @Test
@@ -1527,6 +1550,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "is_empty",
             "nullfunc_failing",
             "nullfunc_working",
+            "proxy_methods_object",
             "return_bad",
             "string",
             "string_list",
