@@ -78,7 +78,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // it, but instead be loaded as an extension. So we need the dynamic library for this in the
     // runfiles.
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically && !neverLink));
-    builder.add(context, CppRunfilesProvider.runfilesFunction(linkingStatically));
+    builder.add(context, CcRunfilesInfo.runfilesFunction(linkingStatically));
 
     builder.addDataDeps(context);
 
@@ -338,8 +338,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
         // Remove this?
-        .addProvider(
-            CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
+        .addNativeDeclaredProvider(new CcRunfilesInfo(staticRunfiles, sharedRunfiles))
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             collectHiddenTopLevelArtifacts(

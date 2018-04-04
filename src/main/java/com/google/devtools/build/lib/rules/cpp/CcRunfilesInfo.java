@@ -17,8 +17,9 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -29,12 +30,16 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  */
 @Immutable
 @AutoCodec
-public final class CppRunfilesProvider implements TransitiveInfoProvider {
+public final class CcRunfilesInfo extends NativeInfo {
+  public static final NativeProvider<CcRunfilesInfo> PROVIDER =
+      new NativeProvider<CcRunfilesInfo>(CcRunfilesInfo.class, "CcRunfilesInfo") {};
+
   private final Runfiles staticRunfiles;
   private final Runfiles sharedRunfiles;
 
   @AutoCodec.Instantiator
-  public CppRunfilesProvider(Runfiles staticRunfiles, Runfiles sharedRunfiles) {
+  public CcRunfilesInfo(Runfiles staticRunfiles, Runfiles sharedRunfiles) {
+    super(PROVIDER);
     this.staticRunfiles = staticRunfiles;
     this.sharedRunfiles = sharedRunfiles;
   }
@@ -53,7 +58,7 @@ public final class CppRunfilesProvider implements TransitiveInfoProvider {
    */
   public static final Function<TransitiveInfoCollection, Runfiles> STATIC_RUNFILES =
       input -> {
-        CppRunfilesProvider provider = input.getProvider(CppRunfilesProvider.class);
+        CcRunfilesInfo provider = input.get(CcRunfilesInfo.PROVIDER);
         return provider == null ? Runfiles.EMPTY : provider.getStaticRunfiles();
       };
 
@@ -63,7 +68,7 @@ public final class CppRunfilesProvider implements TransitiveInfoProvider {
    */
   public static final Function<TransitiveInfoCollection, Runfiles> SHARED_RUNFILES =
       input -> {
-        CppRunfilesProvider provider = input.getProvider(CppRunfilesProvider.class);
+        CcRunfilesInfo provider = input.get(CcRunfilesInfo.PROVIDER);
         return provider == null ? Runfiles.EMPTY : provider.getSharedRunfiles();
       };
 
