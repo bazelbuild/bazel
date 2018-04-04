@@ -80,7 +80,7 @@ public final class OutputGroupInfo extends NativeInfo
    * Building these artifacts only results in the compilation (and not e.g. linking) of the
    * associated target. Mostly useful for C++, less so for e.g. Java.
    */
-  public static final String FILES_TO_COMPILE = "files_to_compile" + INTERNAL_SUFFIX;
+  public static final String FILES_TO_COMPILE = "compilation_outputs";
 
   /**
    * These artifacts are the direct requirements for compilation, but building these does not

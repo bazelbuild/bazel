@@ -263,10 +263,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertThat(myTarget.get("has_key2")).isEqualTo(Boolean.FALSE);
     assertThat((SkylarkList) myTarget.get("all_keys"))
         .containsExactly(
-            "_hidden_top_level" + INTERNAL_SUFFIX,
-            "compilation_prerequisites" + INTERNAL_SUFFIX,
-            "files_to_compile" + INTERNAL_SUFFIX,
-            "temp_files" + INTERNAL_SUFFIX);
+            OutputGroupInfo.HIDDEN_TOP_LEVEL,
+            OutputGroupInfo.COMPILATION_PREREQUISITES,
+            OutputGroupInfo.FILES_TO_COMPILE,
+            OutputGroupInfo.TEMP_FILES);
   }
 
   @Test
