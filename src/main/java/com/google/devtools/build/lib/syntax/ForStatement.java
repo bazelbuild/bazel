@@ -15,12 +15,10 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for a for loop statement. */
-@AutoCodec
 public final class ForStatement extends Statement {
 
   private final LValue variable;

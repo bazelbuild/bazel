@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
 /** Syntax node for a unary operator expression. */
-@AutoCodec
 public final class UnaryOperatorExpression extends Expression {
 
   private final UnaryOperator operator;

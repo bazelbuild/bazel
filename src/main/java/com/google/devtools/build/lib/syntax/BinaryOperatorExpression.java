@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -23,7 +22,6 @@ import java.io.IOException;
 import java.util.IllegalFormatException;
 
 /** Syntax node for a binary operator expression. */
-@AutoCodec
 public final class BinaryOperatorExpression extends Expression {
 
   private final Expression lhs;

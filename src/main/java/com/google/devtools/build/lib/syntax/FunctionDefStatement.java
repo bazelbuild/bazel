@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
 /** Syntax node for a function definition. */
-@AutoCodec
 public final class FunctionDefStatement extends Statement {
 
   private final Identifier identifier;

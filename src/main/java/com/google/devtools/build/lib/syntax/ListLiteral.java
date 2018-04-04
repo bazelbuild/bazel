@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
@@ -27,7 +26,6 @@ import java.util.List;
  * <p>(Note that during evaluation, both list and tuple values are represented by java.util.List
  * objects, the only difference between them being whether or not they are mutable.)
  */
-@AutoCodec
 public final class ListLiteral extends Expression {
 
   /**

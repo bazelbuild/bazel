@@ -30,7 +30,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.io.NotSerializableException;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -174,13 +173,6 @@ public class ObjectCodecsTest {
   }
 
   @Test
-  public void testSerializePropagatesSerializationExceptionFromDefaultCodec() {
-    SerializationException exception =
-        assertThrows(SerializationException.class, () -> underTest.serialize(new Object()));
-    assertThat(exception).hasCauseThat().isInstanceOf(NotSerializableException.class);
-  }
-
-  @Test
   public void testDeserializePropagatesSerializationExceptionFromDefaultCodec() {
     ByteString serialized = ByteString.copyFromUtf8("probably not serialized anything");
 
@@ -207,7 +199,8 @@ public class ObjectCodecsTest {
         new ObjectCodecs(
             ObjectCodecRegistry.newBuilder().setAllowDefaultCodec(false).build(),
             ImmutableMap.of());
-    assertThrows(RuntimeException.class, () -> underTest.deserialize(serialized));
+    assertThrows(
+        SerializationException.NoCodecException.class, () -> underTest.deserialize(serialized));
   }
 
   @Test

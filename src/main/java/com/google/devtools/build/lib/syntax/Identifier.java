@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
 import java.util.Set;
@@ -34,7 +33,6 @@ import javax.annotation.Nullable;
  * Object#hashCode} (but note that these methods ignore location information). They are needed
  * because {@code Identifier}s are stored in maps when constructing {@link LoadStatement}.
  */
-@AutoCodec
 public final class Identifier extends Expression {
 
   private final String name;

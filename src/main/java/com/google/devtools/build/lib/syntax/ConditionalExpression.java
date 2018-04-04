@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
 /** Syntax node for an if/else expression. */
-@AutoCodec
 public final class ConditionalExpression extends Expression {
 
   // Python conditional expressions: $thenCase if $condition else $elseCase

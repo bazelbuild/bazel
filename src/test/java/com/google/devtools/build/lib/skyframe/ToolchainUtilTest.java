@@ -296,12 +296,21 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     }
   }
 
-  @AutoValue
-  abstract static class CreateToolchainContextValue implements SkyValue {
-    abstract ToolchainContext toolchainContext();
+  // TODO(blaze-team): implement equals and hashcode for ToolchainContext and convert this to
+  // autovalue.
+  static class CreateToolchainContextValue implements SkyValue {
+    private final ToolchainContext toolchainContext;
+
+    private CreateToolchainContextValue(ToolchainContext toolchainContext) {
+      this.toolchainContext = toolchainContext;
+    }
 
     static CreateToolchainContextValue create(ToolchainContext toolchainContext) {
-      return new AutoValue_ToolchainUtilTest_CreateToolchainContextValue(toolchainContext);
+      return new CreateToolchainContextValue(toolchainContext);
+    }
+
+    ToolchainContext toolchainContext() {
+      return toolchainContext;
     }
   }
 

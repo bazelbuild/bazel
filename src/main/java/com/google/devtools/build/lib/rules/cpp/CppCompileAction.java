@@ -85,7 +85,6 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
-@AutoCodec
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction
     implements IncludeScannable, ExecutionInfoSpecifier, CommandAction {
@@ -346,7 +345,6 @@ public class CppCompileAction extends AbstractAction
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
   }
 
-  @AutoCodec.Instantiator
   @VisibleForSerialization
   CppCompileAction(
       ActionOwner owner,

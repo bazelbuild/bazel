@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 
 /** Syntax node for an augmented assignment statement. */
-@AutoCodec
 public final class AugmentedAssignmentStatement extends Statement {
 
   private final Operator operator;

@@ -68,13 +68,13 @@ public class SerializationContextTest {
     when(codecDescriptor.getTag()).thenReturn(1);
     ObjectCodecRegistry registry = Mockito.mock(ObjectCodecRegistry.class);
     when(registry.maybeGetTagForConstant(Mockito.anyObject())).thenReturn(null);
-    when(registry.getCodecDescriptor(String.class)).thenReturn(codecDescriptor);
+    when(registry.getCodecDescriptorForObject("string")).thenReturn(codecDescriptor);
     CodedOutputStream codedOutputStream = Mockito.mock(CodedOutputStream.class);
     SerializationContext underTest = new SerializationContext(registry, ImmutableMap.of());
     underTest.serialize("string", codedOutputStream);
     Mockito.verify(codedOutputStream).writeSInt32NoTag(1);
     Mockito.verify(registry).maybeGetTagForConstant("string");
-    Mockito.verify(registry).getCodecDescriptor(String.class);
+    Mockito.verify(registry).getCodecDescriptorForObject("string");
     Mockito.verify(codecDescriptor).getTag();
     Mockito.verify(codecDescriptor).serialize(underTest, "string", codedOutputStream);
   }
@@ -114,14 +114,14 @@ public class SerializationContextTest {
     doReturn(codec).when(codecDescriptor).getCodec();
     ObjectCodecRegistry registry = Mockito.mock(ObjectCodecRegistry.class);
     when(registry.maybeGetTagForConstant(Mockito.anyObject())).thenReturn(null);
-    when(registry.getCodecDescriptor(String.class)).thenReturn(codecDescriptor);
+    when(registry.getCodecDescriptorForObject("string")).thenReturn(codecDescriptor);
     CodedOutputStream codedOutputStream = Mockito.mock(CodedOutputStream.class);
     SerializationContext underTest =
         new SerializationContext(registry, ImmutableMap.of()).getMemoizingContext();
     underTest.serialize("string", codedOutputStream);
     Mockito.verify(codedOutputStream).writeSInt32NoTag(1);
     Mockito.verify(registry).maybeGetTagForConstant("string");
-    Mockito.verify(registry).getCodecDescriptor(String.class);
+    Mockito.verify(registry).getCodecDescriptorForObject("string");
     Mockito.verify(codecDescriptor).getTag();
     Mockito.verify(codecDescriptor).getCodec();
     Mockito.verify(codec).serialize(underTest, "string", codedOutputStream);

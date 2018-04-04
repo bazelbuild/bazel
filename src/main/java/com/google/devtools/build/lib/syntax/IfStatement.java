@@ -15,12 +15,10 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for an if/else statement. */
-@AutoCodec
 public final class IfStatement extends Statement {
 
   /**
@@ -29,7 +27,6 @@ public final class IfStatement extends Statement {
    * <p>This extends Statement, but it is not actually an independent statement in the grammar. We
    * should probably eliminate it in favor of a recursive representation of if/else chains.
    */
-  @AutoCodec
   public static final class ConditionalStatements extends Statement {
 
     private final Expression condition;
