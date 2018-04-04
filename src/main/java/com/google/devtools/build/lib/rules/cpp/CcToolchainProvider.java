@@ -633,6 +633,16 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.getUnfilteredCompilerOptions(features, /* sysroot= */ null);
   }
 
+  /**
+   * Unused, for compatibility with things internal to Google.
+   *
+   * <p>Deprecated: Use platforms.
+   */
+  @Deprecated
+  public String getTargetOS() {
+    return toolchainInfo.getTargetOS();
+  }
+
   @SkylarkCallable(
     name = "link_options_do_not_use",
     structField = true,
