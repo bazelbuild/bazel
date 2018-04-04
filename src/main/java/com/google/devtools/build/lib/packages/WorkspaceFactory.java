@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -551,9 +550,10 @@ public class WorkspaceFactory {
   private static ClassObject newNativeModule(
       ImmutableMap<String, BaseFunction> workspaceFunctions, String version) {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-    Runtime.BuiltinRegistry builtins = Runtime.getBuiltinRegistry();
-    for (String nativeFunction : builtins.getFunctionNames(SkylarkNativeModule.class)) {
-      builder.put(nativeFunction, builtins.getFunction(SkylarkNativeModule.class, nativeFunction));
+    SkylarkNativeModule nativeModuleInstance = new SkylarkNativeModule();
+    for (String nativeFunction : FuncallExpression.getMethodNames(SkylarkNativeModule.class)) {
+      builder.put(nativeFunction,
+          FuncallExpression.getBuiltinCallable(nativeModuleInstance, nativeFunction));
     }
     for (Map.Entry<String, BaseFunction> function : workspaceFunctions.entrySet()) {
       builder.put(function.getKey(), function.getValue());

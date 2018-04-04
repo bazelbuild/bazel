@@ -318,6 +318,21 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
+   * Returns a {@link BuiltinCallable} representing a {@link SkylarkCallable}-annotated instance
+   * method of a given object with the given method name.
+   */
+  public static BuiltinCallable getBuiltinCallable(Object obj, String methodName) {
+    Class<?> objClass = obj.getClass();
+    List<MethodDescriptor> methodDescriptors = getMethods(objClass, methodName);
+    if (methodDescriptors.size() != 1) {
+      throw new IllegalStateException(String.format(
+          "Expected exactly 1 method named '%s' in %s, but found %s",
+          methodName, objClass, methodDescriptors.size()));
+    }
+    return new BuiltinCallable(methodName, obj, methodDescriptors.get(0));
+  }
+
+  /**
    * Invokes the given structField=true method and returns the result.
    *
    * @param methodDescriptor the descriptor of the method to invoke

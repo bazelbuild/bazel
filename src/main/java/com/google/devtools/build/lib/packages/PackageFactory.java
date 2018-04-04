@@ -1360,7 +1360,7 @@ public final class PackageFactory {
     }
     byte[] buildFileBytes = maybeGetBuildFileBytes(buildFile, eventHandler);
     if (buildFileBytes == null) {
-      throw new BuildFileContainsErrorsException(packageId, "IOException occured");
+      throw new BuildFileContainsErrorsException(packageId, "IOException occurred");
     }
 
     Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
@@ -1507,9 +1507,10 @@ public final class PackageFactory {
    */
   private ClassObject newNativeModule() {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-    Runtime.BuiltinRegistry builtins = Runtime.getBuiltinRegistry();
-    for (String nativeFunction : builtins.getFunctionNames(SkylarkNativeModule.class)) {
-      builder.put(nativeFunction, builtins.getFunction(SkylarkNativeModule.class, nativeFunction));
+    SkylarkNativeModule nativeModuleInstance = new SkylarkNativeModule();
+    for (String nativeFunction : FuncallExpression.getMethodNames(SkylarkNativeModule.class)) {
+      builder.put(nativeFunction,
+          FuncallExpression.getBuiltinCallable(nativeModuleInstance, nativeFunction));
     }
     builder.putAll(ruleFunctions);
     builder.put("package", newPackageFunction(packageArguments));
@@ -1529,6 +1530,17 @@ public final class PackageFactory {
     // or if not possible, at least make them straight copies from the native module variant.
     // or better, use a common Environment.Frame for these common bindings
     // (that shares a backing ImmutableMap for the bindings?)
+    Object packageNameFunction;
+    Object repositoryNameFunction;
+    try {
+      packageNameFunction = nativeModule.getValue("package_name");
+      repositoryNameFunction = nativeModule.getValue("repository_name");
+    } catch (EvalException exception) {
+      // This should not occur, as nativeModule.getValue should never throw an exception.
+      throw new IllegalStateException(
+          "error getting package_name or repository_name functions from the native module",
+          exception);
+    }
     pkgEnv
         .setup("native", nativeModule)
         .setup("distribs", newDistribsFunction.apply(context))
@@ -1537,8 +1549,8 @@ public final class PackageFactory {
         .setup("exports_files", newExportsFilesFunction.apply())
         .setup("package_group", newPackageGroupFunction.apply())
         .setup("package", newPackageFunction(packageArguments))
-        .setup("package_name", SkylarkNativeModule.packageName)
-        .setup("repository_name", SkylarkNativeModule.repositoryName)
+        .setup("package_name", packageNameFunction)
+        .setup("repository_name", repositoryNameFunction)
         .setup("environment_group", newEnvironmentGroupFunction.apply(context));
 
     for (Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
