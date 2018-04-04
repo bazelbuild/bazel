@@ -654,8 +654,6 @@ public final class AndroidRuleClasses {
           compiled. (This is useful if you need to generate a set of .java files with
           a genrule or build extension.)
           </p>
-          <p>This rule currently forces source and class compatibility with Java 6.
-          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("srcs", LABEL_LIST)
