@@ -58,7 +58,7 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
             sandboxDir,
             execRoot,
             ImmutableList.of("/bin/true"),
-            ImmutableMap.of(),
+            ImmutableMap.<String, String>of(),
             ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
             ImmutableSet.of(PathFragment.create("very/output.txt")),
             ImmutableSet.of(execRoot.getRelative("wow/writable")));
@@ -69,6 +69,35 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
     assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
     assertThat(execRoot.getRelative("very").isDirectory()).isTrue();
     assertThat(execRoot.getRelative("wow/writable").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void cleanFileSystem() throws Exception {
+    Path helloTxt = workspaceDir.getRelative("hello.txt");
+    FileSystemUtils.createEmptyFile(helloTxt);
+
+    SymlinkedSandboxedSpawn symlinkedExecRoot = new SymlinkedSandboxedSpawn(
+        sandboxDir,
+        execRoot,
+        ImmutableList.of("/bin/true"),
+        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+        ImmutableSet.of(PathFragment.create("very/output.txt")),
+        ImmutableSet.of(execRoot.getRelative("wow/writable")));
+    symlinkedExecRoot.createFileSystem();
+
+    // Pretend to do some work inside the execRoot.
+    execRoot.getRelative("tempdir").createDirectory();
+    FileSystemUtils.createEmptyFile(execRoot.getRelative("very/output.txt"));
+    FileSystemUtils.createEmptyFile(execRoot.getRelative("wow/writable/temp.txt"));
+
+    // Reuse the same execRoot.
+    symlinkedExecRoot.createFileSystem();
+
+    assertThat(execRoot.getRelative("such/input.txt").exists()).isTrue();
+    assertThat(execRoot.getRelative("tempdir").exists()).isFalse();
+    assertThat(execRoot.getRelative("very/output.txt").exists()).isFalse();
+    assertThat(execRoot.getRelative("wow/writable/temp.txt").exists()).isFalse();
   }
 
   @Test

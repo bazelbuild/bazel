@@ -14,11 +14,10 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.common.io.Files;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -77,33 +76,19 @@ interface SandboxedSpawn {
     for (PathFragment output : outputs) {
       Path source = sourceRoot.getRelative(output);
       Path target = targetRoot.getRelative(output);
-
-      FileStatus stat = source.statNullable(Symlinks.NOFOLLOW);
-      if (stat != null) {
+      if (source.isFile() || source.isSymbolicLink()) {
         // Ensure the target directory exists in the target. The directories for the action outputs
         // have already been created, but the spawn outputs may be different from the overall action
         // outputs. This is the case for test actions.
-        Path parentDir = target.getParentDirectory();
-        if (parentDir != null) {
-          parentDir.createDirectoryAndParents();
-        }
-
-        if (stat.isSymbolicLink()) {
-          try {
-            source.renameTo(target);
-          } catch (IOException e) {
-            target.createSymbolicLink(source.readSymbolicLink());
-          }
-        } else if (stat.isFile()) {
-          FileSystemUtils.moveFile(source, target);
-        } else if (stat.isDirectory()) {
-          try {
-            source.renameTo(target);
-          } catch (IOException e) {
-            // Failed to move directory directly, thus move it recursively.
-            target.createDirectory();
-            FileSystemUtils.moveTreesBelow(source, target);
-          }
+        target.getParentDirectory().createDirectoryAndParents();
+        Files.move(source.getPathFile(), target.getPathFile());
+      } else if (source.isDirectory()) {
+        try {
+          source.renameTo(target);
+        } catch (IOException e) {
+          // Failed to move directory directly, thus move it recursively.
+          target.createDirectory();
+          FileSystemUtils.moveTreesBelow(source, target);
         }
       }
     }

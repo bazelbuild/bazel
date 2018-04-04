@@ -1516,7 +1516,6 @@ java_test(
         ":foundations_testutil",
         ":guava_junit_truth",
         ":test_runner",
-        ":testutil",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
