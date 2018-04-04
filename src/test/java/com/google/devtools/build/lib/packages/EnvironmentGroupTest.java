@@ -67,12 +67,12 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testDefaultsMembership() throws Exception {
+  public void defaultsMembership() throws Exception {
     assertThat(group.getDefaults()).isEqualTo(ImmutableSet.of(Label.parseAbsolute("//pkg:foo")));
   }
 
   @Test
-  public void testIsDefault() throws Exception {
+  public void isDefault() throws Exception {
     EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
     assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:foo"))).isTrue();
     assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:bar"))).isFalse();
@@ -81,12 +81,25 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFulfillers() throws Exception {
+  public void fulfillers() throws Exception {
     EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
     assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:baz")))
         .containsExactly(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:bar"));
     assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:bar")))
         .containsExactly(Label.parseAbsolute("//pkg:foo"));
     assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:foo"))).isEmpty();
+  }
+
+  @Test
+  public void emptyGroupsNotAllowed() throws Exception {
+    Path buildfile = scratch.file(
+        "a/BUILD",
+        "environment_group(name = 'empty_group', environments = [], defaults = [])");
+    reporter.removeHandler(failFastHandler);
+    Package emptyGroupPkg = packageFactory.createPackageForTesting(
+        PackageIdentifier.createInMainRepo("a"), buildfile, getPackageManager(), reporter);
+    assertThat(emptyGroupPkg.containsErrors()).isTrue();
+    assertContainsEvent(
+        "environment group empty_group must contain at least one environment");
   }
 }
