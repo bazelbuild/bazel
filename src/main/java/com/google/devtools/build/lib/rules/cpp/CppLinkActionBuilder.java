@@ -224,7 +224,7 @@ public class CppLinkActionBuilder {
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.toolchain = toolchain;
     this.fdoSupport = fdoSupport;
-    if (toolchain.supportsEmbeddedRuntimes() && toolchain != null) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
       runtimeSolibDir = toolchain.getDynamicRuntimeSolibDir();
     }
     this.featureConfiguration = featureConfiguration;
@@ -711,7 +711,8 @@ public class CppLinkActionBuilder {
     } else if (mostlyStatic) {
       result.addAll(
           CppHelper.getMostlyStaticLinkOptions(
-              cppConfiguration, toolchain, features, sharedLinkopts));
+              cppConfiguration, toolchain, features, sharedLinkopts,
+              featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)));
     } else {
       result.addAll(
           CppHelper.getDynamicLinkOptions(cppConfiguration, toolchain, features, sharedLinkopts));

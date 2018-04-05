@@ -202,6 +202,11 @@ public class CppActionConfigs {
                     "    }",
                     "  }",
                     "}"),
+                ifTrue(
+                    !existingFeatureNames.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES),
+                    "feature {",
+                    "  name: 'static_link_cpp_runtimes'",
+                    "}"),
                 // Gcc options:
                 //  -MD turns on .d file output as a side-effect (doesn't imply -E)
                 //  -MM[D] enables user includes only, not system includes

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
@@ -40,7 +41,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
     <code>Main.java</code>, then your name could be <code>Main</code>.
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class)
+        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_binary).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.jar</code>: A Java archive, containing the class files and other
