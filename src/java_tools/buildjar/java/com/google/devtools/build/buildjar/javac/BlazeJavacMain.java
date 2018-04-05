@@ -210,7 +210,7 @@ public class BlazeJavacMain {
       }
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
 
-      // TODO(cushon): require an explicit bootclasspath
+      // The bootclasspath may legitimately be empty if --release is being used.
       Collection<Path> bootClassPath = arguments.bootClassPath();
       if (!bootClassPath.isEmpty()) {
         fileManager.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
