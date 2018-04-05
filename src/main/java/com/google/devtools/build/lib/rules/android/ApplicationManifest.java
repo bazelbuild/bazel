@@ -187,7 +187,7 @@ public final class ApplicationManifest {
     return mergeWith(ruleContext, resourceDeps, legacy);
   }
 
-  public ApplicationManifest mergeWith(
+  private ApplicationManifest mergeWith(
       RuleContext ruleContext, ResourceDependencies resourceDeps, boolean legacy) {
     Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResourceContainers());
 
@@ -234,7 +234,7 @@ public final class ApplicationManifest {
   }
 
   private boolean useLegacyMerging(RuleContext ruleContext) {
-    boolean legacy = true;
+    boolean legacy = false;
     if (ruleContext.isLegalFragment(AndroidConfiguration.class)
         && ruleContext.getRule().isAttrDefined("manifest_merger", STRING)) {
       AndroidManifestMerger merger =

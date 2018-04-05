@@ -239,7 +239,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("android_library(name = 'incremental_split_stub_application')")
         .add("sh_binary(name = 'stubify_manifest', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'merge_dexzips', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'merge_manifests', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'build_split_manifest', srcs = ['empty.sh'])")
         .add("filegroup(name = 'debug_keystore', srcs = ['fake.file'])")
         .add("sh_binary(name = 'shuffle_jars', srcs = ['empty.sh'])")
