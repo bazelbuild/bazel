@@ -228,7 +228,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -250,7 +249,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -261,7 +259,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -767,7 +764,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -844,7 +840,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -874,7 +869,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -975,7 +969,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -1662,17 +1655,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -1878,7 +1860,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -1887,7 +1868,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -1910,7 +1890,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -1921,7 +1900,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -2427,7 +2405,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -2504,7 +2481,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -2534,7 +2510,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -2635,7 +2610,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -3329,17 +3303,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -3545,7 +3508,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -3554,7 +3516,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -3577,7 +3538,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -3588,7 +3548,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -4094,7 +4053,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -4171,7 +4129,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -4201,7 +4158,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -4304,7 +4260,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -4998,17 +4953,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -5215,7 +5159,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -5224,7 +5167,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -5247,7 +5189,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -5258,7 +5199,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -5764,7 +5704,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -5841,7 +5780,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -5871,7 +5809,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -5972,7 +5909,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -6697,17 +6633,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -6913,7 +6838,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -6922,7 +6846,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -6945,7 +6868,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -6956,7 +6878,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -7462,7 +7383,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -7539,7 +7459,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -7569,7 +7488,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -7670,7 +7588,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -8364,17 +8281,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -8580,7 +8486,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -8589,7 +8494,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -8612,7 +8516,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -8623,7 +8526,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -9129,7 +9031,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -9206,7 +9107,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -9236,7 +9136,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -9337,7 +9236,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -10019,17 +9917,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -10235,7 +10122,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -10244,7 +10130,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -10267,7 +10152,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -10278,7 +10162,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -10784,7 +10667,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -10861,7 +10743,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -10891,7 +10772,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -10994,7 +10874,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -11676,17 +11555,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -11893,7 +11761,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -11902,7 +11769,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -11925,7 +11791,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -11936,7 +11801,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -12442,7 +12306,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -12519,7 +12382,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -12549,7 +12411,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -12650,7 +12511,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -13363,17 +13223,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -13579,7 +13428,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -13588,7 +13436,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -13611,7 +13458,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -13622,7 +13468,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -14128,7 +13973,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -14205,7 +14049,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -14235,7 +14078,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -14336,7 +14178,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -15018,17 +14859,6 @@ toolchain {
     implies: "apple_env"
   }
   action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
-    implies: "apple_env"
-  }
-  action_config {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
@@ -15237,7 +15067,6 @@ toolchain {
   feature {
     name: "contains_objc_source"
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -15246,7 +15075,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -15269,7 +15097,6 @@ toolchain {
     implies: "c-compile"
     implies: "c++-compile"
     implies: "c++-link-static-library"
-    implies: "c++-link-interface-dynamic-library"
     implies: "c++-link-dynamic-library"
     implies: "c++-link-nodeps-dynamic-library"
     implies: "c++-link-executable"
@@ -15280,7 +15107,6 @@ toolchain {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
@@ -15786,7 +15612,6 @@ toolchain {
     flag_set {
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -15863,7 +15688,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -15893,7 +15717,6 @@ toolchain {
       }
     }
     flag_set {
-      action: "c++-link-interface-dynamic-library"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-executable"
@@ -15994,7 +15817,6 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
       action: "c++-link-static-library"
-      action: "c++-link-interface-dynamic-library"
       action: "objc-executable"
       action: "objc++-executable"
       action: "linkstamp-compile"
@@ -16673,17 +16495,6 @@ toolchain {
     implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
-    implies: "apple_env"
-  }
-  action_config {
-    config_name: "c++-link-interface-dynamic-library"
-    action_name: "c++-link-interface-dynamic-library"
-    tool {
-      tool_path: "wrapped_clang"
-      execution_requirement: "requires-darwin"
-    }
-    implies: "contains_objc_source"
-    implies: "strip_debug_symbols"
     implies: "apple_env"
   }
   action_config {

@@ -494,17 +494,6 @@ toolchain {
     implies: 'msvc_env'
   }
 
-  action_config {
-    config_name: 'c++-link-interface-dynamic-library'
-    action_name: 'c++-link-interface-dynamic-library'
-    tool {
-      tool_path: '%{msvc_lib_path}'
-    }
-    implies: 'nologo'
-    implies: 'linker_param_file'
-    implies: 'msvc_env'
-  }
-
   # TODO(b/65151735): Remove legacy_compile_flags feature when legacy fields are
   # not used in this crosstool
   feature {

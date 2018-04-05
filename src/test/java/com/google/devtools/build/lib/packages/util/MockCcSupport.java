@@ -401,7 +401,6 @@ public abstract class MockCcSupport {
           + "  flag_set {"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
-          + "    action: 'c++-link-interface-dynamic-library'"
           + "    action: 'c++-link-dynamic-library'"
           + "    action: 'c++-link-nodeps-dynamic-library'"
           + "    action: 'c++-link-executable'"
