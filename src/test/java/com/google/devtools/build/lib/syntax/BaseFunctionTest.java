@@ -157,4 +157,14 @@ public class BaseFunctionTest extends EvaluationTestCase {
         .isEqualTo("{\"name\": \"foo\", \"type\": \"jpg\", \"version\": 42}");
     assertThat(Printer.repr(lookup("b2"))).isEqualTo("{}");
   }
+
+  @Test
+  public void testCommaAfterArgsAndKwargs() throws Exception {
+    // Test that commas are not allowed in function definitions and calls
+    // after last *args or **kwargs expressions.
+    checkEvalErrorContains("syntax error at ')': expected identifier", "def foo(*args,): pass");
+    checkEvalErrorContains("unexpected tokens after kwarg", "def foo(**kwargs,): pass");
+    checkEvalErrorContains("syntax error at ')': expected expression", "foo(*args,)");
+    checkEvalErrorContains("unexpected tokens after kwarg", "foo(**kwargs,)");
+  }
 }

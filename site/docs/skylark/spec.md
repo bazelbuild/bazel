@@ -1635,10 +1635,10 @@ print(x)                        # 1
 ### Function and method calls
 
 ```text
-CallSuffix = '(' [Arguments] ')' .
+CallSuffix = '(' [Arguments [',']] ')' .
 
 Arguments = Argument {',' Argument} .
-Argument  = Test | identifier '=' Test | '*' identifier | '**' identifier .
+Argument  = Test | identifier '=' Test | '*' Test | '**' Test .
 ```
 
 A value `f` of type `function` may be called using the expression `f(...)`.
@@ -3161,6 +3161,7 @@ File = {Statement | newline} eof .
 Statement = DefStmt | IfStmt | ForStmt | SimpleStmt .
 
 DefStmt = 'def' identifier '(' [Parameters [',']] ')' ':' Suite .
+# NOTE: trailing comma is not permitted if the last argument is `'*' identifier` or `'**' identifier`.
 
 Parameters = Parameter {',' Parameter}.
 
@@ -3214,11 +3215,12 @@ Operand = identifier
         .
 
 DotSuffix   = '.' identifier .
-CallSuffix  = '(' [Arguments [',']] ')' .
 SliceSuffix = '[' [Expression] [':' Test [':' Test]] ']' .
+CallSuffix  = '(' [Arguments [',']] ')' .
+# NOTE: trailing comma is not permitted if the last argument is `'*' Test` or `'**' Test`.
 
 Arguments = Argument {',' Argument} .
-Argument  = Test | identifier '=' Test | '*' identifier | '**' identifier .
+Argument  = Test | identifier '=' Test | '*' Test | '**' Test .
 
 ListExpr = '[' [Expression [',']] ']' .
 ListComp = '[' Test {CompClause} ']'.
