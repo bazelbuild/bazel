@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -83,12 +83,13 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
    * @param hostConfiguration host configuration for this query.
    */
   TransitionsOutputFormatterCallback(
+      Reporter reporter,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration) {
-    super(options, out, skyframeExecutor);
+    super(reporter, options, out, skyframeExecutor);
     this.accessor = (ConfiguredTargetAccessor) accessor;
     this.hostConfiguration = hostConfiguration;
     this.partialResultMap = Maps.newHashMap();
@@ -98,17 +99,20 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
   public void processOutput(Iterable<ConfiguredTarget> partialResult)
       throws IOException, InterruptedException {
     CqueryOptions.Transitions verbosity = options.transitions;
-    Preconditions.checkArgument(
-        !verbosity.equals(CqueryOptions.Transitions.NONE),
-        "Instead of using --output=transitions, set the --transition flag explicitly to 'lite' or"
-            + "'full'");
+    if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
+      reporter.handle(
+          Event.error(
+              "Instead of using --output=transitions, set the --transition flag"
+                  + " explicitly to 'lite' or 'full'"));
+      return;
+    }
     partialResult.forEach(
         ct -> partialResultMap.put(ct.getLabel(), accessor.getTargetFromConfiguredTarget(ct)));
     for (ConfiguredTarget configuredTarget : partialResult) {
       Target target = partialResultMap.get(configuredTarget.getLabel());
       BuildConfiguration config =
           skyframeExecutor.getConfiguration(
-              NullEventHandler.INSTANCE, configuredTarget.getConfigurationKey());
+              reporter, configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
               + configuredTarget.getLabel()
@@ -128,7 +132,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
         // Also, we don't actually use fromOptions in our implementation of DependencyResolver but
         // passing to avoid passing a null and since we have the information anyway.
         deps =
-            new FormatterDependencyResolver(configuredTarget, NullEventHandler.INSTANCE)
+            new FormatterDependencyResolver(configuredTarget, reporter)
                 .dependentNodeMap(
                     new TargetAndConfiguration(target, config),
                     hostConfiguration,

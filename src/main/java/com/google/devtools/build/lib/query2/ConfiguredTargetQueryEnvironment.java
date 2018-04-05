@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
@@ -207,14 +208,17 @@ public class ConfiguredTargetQueryEnvironment
   public ImmutableList<CqueryThreadsafeCallback> getDefaultOutputFormatters(
       TargetAccessor<ConfiguredTarget> accessor,
       CqueryOptions options,
-      OutputStream out,
+      Reporter reporter,
       SkyframeExecutor skyframeExecutor,
       BuildConfiguration hostConfiguration) {
+    OutputStream out = reporter.getOutErr().getOutputStream();
     return new ImmutableList.Builder<CqueryThreadsafeCallback>()
-        .add(new LabelAndConfigurationOutputFormatterCallback(options, out, skyframeExecutor))
+        .add(
+            new LabelAndConfigurationOutputFormatterCallback(
+                reporter, options, out, skyframeExecutor))
         .add(
             new TransitionsOutputFormatterCallback(
-                options, out, skyframeExecutor, accessor, hostConfiguration))
+                reporter, options, out, skyframeExecutor, accessor, hostConfiguration))
         .build();
   }
 

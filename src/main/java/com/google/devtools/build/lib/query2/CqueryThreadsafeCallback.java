@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -34,6 +35,7 @@ import java.util.List;
 public abstract class CqueryThreadsafeCallback
     extends ThreadSafeOutputFormatterCallback<ConfiguredTarget> {
 
+  protected final Reporter reporter;
   protected final CqueryOptions options;
   protected PrintStream printStream = null;
   protected final SkyframeExecutor skyframeExecutor;
@@ -41,7 +43,11 @@ public abstract class CqueryThreadsafeCallback
   private final List<String> result = new ArrayList<>();
 
   CqueryThreadsafeCallback(
-      CqueryOptions options, OutputStream out, SkyframeExecutor skyframeExecutor) {
+      Reporter reporter,
+      CqueryOptions options,
+      OutputStream out,
+      SkyframeExecutor skyframeExecutor) {
+    this.reporter = reporter;
     this.options = options;
     if (out != null) {
       this.printStream = new PrintStream(out);
