@@ -329,6 +329,9 @@ public class CppRuleClasses {
   /** A string constant for a feature to dynamically link MSVCRT with debug info on Windows. */
   public static final String DYNAMIC_LINK_MSVCRT_DEBUG = "dynamic_link_msvcrt_debug";
 
+  /** A string constant for a feature to statically link the C++ runtimes. */
+  public static final String STATIC_LINK_CPP_RUNTIMES = "static_link_cpp_runtimes";
+
   /**
    * A string constant for a feature that indicates we are using a toolchain building for Windows.
    */

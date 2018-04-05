@@ -234,11 +234,15 @@ public abstract class NativeDepsHelper {
             featureConfiguration,
             cppSemantics);
     if (useDynamicRuntime) {
-      builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
-          toolchain.getDynamicRuntimeLinkMiddleman(), toolchain.getDynamicRuntimeLinkInputs());
+      builder.setRuntimeInputs(
+          ArtifactCategory.DYNAMIC_LIBRARY,
+          toolchain.getDynamicRuntimeLinkMiddleman(featureConfiguration),
+          toolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
     } else {
-      builder.setRuntimeInputs(ArtifactCategory.STATIC_LIBRARY,
-          toolchain.getStaticRuntimeLinkMiddleman(), toolchain.getStaticRuntimeLinkInputs());
+      builder.setRuntimeInputs(
+          ArtifactCategory.STATIC_LIBRARY,
+          toolchain.getStaticRuntimeLinkMiddleman(featureConfiguration),
+          toolchain.getStaticRuntimeLinkInputs(featureConfiguration));
     }
     ImmutableMap.Builder<Artifact, Artifact> ltoBitcodeFilesMap = new ImmutableMap.Builder<>();
     for (LibraryToLink lib : linkerInputs) {
@@ -288,7 +292,8 @@ public abstract class NativeDepsHelper {
       List<Artifact> runtimeSymlinks;
       if (useDynamicRuntime) {
         runtimeSymlinks = new LinkedList<>();
-        for (final Artifact runtimeInput : toolchain.getDynamicRuntimeLinkInputs()) {
+        for (final Artifact runtimeInput :
+            toolchain.getDynamicRuntimeLinkInputs(featureConfiguration)) {
           final Artifact runtimeSymlink =
               ruleContext.getPackageRelativeArtifact(
                   getRuntimeLibraryPath(ruleContext, runtimeInput), bindirIfShared);
