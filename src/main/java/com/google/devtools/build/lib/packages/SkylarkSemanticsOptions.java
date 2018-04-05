@@ -144,6 +144,21 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean incompatibleDisallowDictPlus;
 
+  /** Controls legacy arguments to ctx.actions.Args#add. */
+  @Option(
+    name = "incompatible_disallow_old_style_args_add",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help = "If set to true, vectorized calls to Args#add are disallowed."
+  )
+  public boolean incompatibleDisallowOldStyleArgsAdd;
+
   @Option(
     name = "incompatible_disallow_three_arg_vardef",
     defaultValue = "false",
@@ -266,6 +281,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisableGlobTracking(incompatibleDisableGlobTracking)
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
+        .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowThreeArgVardef(incompatibleDisallowThreeArgVardef)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)

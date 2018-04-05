@@ -393,12 +393,12 @@ public abstract class BaseFunction implements SkylarkValue {
     if (types == null) {
       return;
     }
-    List<String> names = signature.getSignature().getNames();
     int length = types.size();
     for (int i = 0; i < length; i++) {
       Object value = arguments[i];
       SkylarkType type = types.get(i);
       if (value != null && type != null && !type.contains(value)) {
+        List<String> names = signature.getSignature().getNames();
         throw new EvalException(loc,
             String.format("expected %s for '%s' while calling %s but got %s instead: %s",
                 type, names.get(i), getName(), EvalUtils.getDataTypeName(value, true), value));
@@ -437,6 +437,22 @@ public abstract class BaseFunction implements SkylarkValue {
     Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
 
     Object[] arguments = processArguments(args, kwargs, loc, env);
+    return callWithArgArray(arguments, ast, env, location);
+  }
+
+  /**
+   * The outer calling convention to a BaseFunction. This function expects all arguments to have
+   * been resolved into positional ones.
+   *
+   * @param ast the expression for this function's definition
+   * @param env the Environment in the function is called
+   * @return the value resulting from evaluating the function with the given arguments
+   * @throws EvalException-s containing source information.
+   */
+  public Object callWithArgArray(
+      Object[] arguments, @Nullable FuncallExpression ast, Environment env, Location loc)
+      throws EvalException, InterruptedException {
+    Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
     canonicalizeArguments(arguments, loc);
 
     try {
