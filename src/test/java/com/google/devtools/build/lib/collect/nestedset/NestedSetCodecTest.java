@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link NestedSetCodec}. */
+/** Tests for {@link NestedSet} serialization. */
 @RunWith(JUnit4.class)
 public class NestedSetCodecTest {
 

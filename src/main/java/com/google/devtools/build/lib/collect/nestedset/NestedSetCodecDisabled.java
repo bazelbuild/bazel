@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -40,8 +41,11 @@ import java.util.Map;
  * <p>Nested sets are serialized by sorting the sub-graph in topological order, then writing the
  * nodes in that order. As a node is written we remember its digest. When serializing a node higher
  * in the graph, we replace any edge to another nested set with its digest.
+ *
+ * <p>Currently not used in favor of an @{@link AutoCodec}-ed NestedSet. Disabled by just not ending
+ * in "Codec".
  */
-public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
+public class NestedSetCodecDisabled<T> implements ObjectCodec<NestedSet<T>> {
 
   private static final EnumCodec<Order> orderCodec = new EnumCodec<>(Order.class);
 
@@ -203,8 +207,7 @@ public class NestedSetCodec<T> implements ObjectCodec<NestedSet<T>> {
     return (T) object;
   }
 
-  private static Collection<Object> getTopologicallySortedChildren(
-      NestedSet<?> nestedSet) {
+  private static Collection<Object> getTopologicallySortedChildren(NestedSet<?> nestedSet) {
     LinkedHashSet<Object> result = new LinkedHashSet<>();
     dfs(result, nestedSet.rawChildren());
     return result;
