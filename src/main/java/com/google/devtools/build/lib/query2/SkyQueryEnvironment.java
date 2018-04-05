@@ -760,25 +760,24 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
           // Also add the BUILD file of the extension.
           if (buildFiles) {
-            Path buildFileForLoad = null;
-            try {
-              buildFileForLoad =
-                  pkgPath.getPackageBuildFile(loadTarget.getLabel().getPackageIdentifier());
-            } catch (NoSuchPackageException e) {
-              throw new QueryException(
-                  loadTarget.getLabel().getPackageIdentifier() + " does not exist in graph");
-            }
-            Label buildFileLabel =
-                Label.createUnvalidated(
-                    loadTarget.getLabel().getPackageIdentifier(),
-                    buildFileForLoad.getBaseName());
-
+            Label buildFileLabel = getBuildFileLabel(loadTarget.getLabel().getPackageIdentifier());
             addIfUniqueLabel(new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
           }
         }
       }
     }
     return dependentFiles;
+  }
+
+  protected Label getBuildFileLabel(PackageIdentifier packageIdentifier) throws QueryException {
+    // TODO(bazel-team): Try avoid filesystem access here.
+    Path buildFileForLoad = null;
+    try {
+      buildFileForLoad = pkgPath.getPackageBuildFile(packageIdentifier);
+    } catch (NoSuchPackageException e) {
+      throw new QueryException(packageIdentifier + " does not exist in graph");
+    }
+    return Label.createUnvalidated(packageIdentifier, buildFileForLoad.getBaseName());
   }
 
   private static void addIfUniqueLabel(Target node, Set<Label> labels, Set<Target> nodes) {
