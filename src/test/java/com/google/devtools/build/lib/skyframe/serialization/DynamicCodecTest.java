@@ -228,7 +228,6 @@ public final class DynamicCodecTest {
                 new char[] {'a', 'b', 'c', 'x', 'y', 'z'},
                 new long[] {Long.MAX_VALUE, Long.MIN_VALUE, 27983741982341L, 52893748523495834L}))
         .addCodec(new DynamicCodec(ArrayExample.class))
-        .makeMemoizing()
         .runTests();
   }
 
@@ -262,7 +261,6 @@ public final class DynamicCodecTest {
                 }),
             new NestedArrayExample(new int[][] {{1, 2, 3}, null, {7}}))
         .addCodec(new DynamicCodec(NestedArrayExample.class))
-        .makeMemoizing()
         .runTests();
   }
 
