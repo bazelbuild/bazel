@@ -676,28 +676,11 @@ public class Artifact
       return "[" + root + "]" + rootRelativePath;
     } else {
       // Derived Artifact: path and root are under execRoot
-      PathFragment execRoot = trimTail(getPath().asFragment(), execPath);
-      return "[["
-          + execRoot
-          + "]"
-          + root.getRoot().asPath().asFragment().relativeTo(execRoot)
-          + "]"
-          + rootRelativePath;
+      //
+      // TODO(blaze-team): this is misleading beacuse execution_root isn't unique. Dig the
+      // workspace name out and print that also.
+      return "[[<execution_root>]" + root.getExecPath() + "]" + rootRelativePath;
     }
-  }
-
-  /**
-   * Serializes this artifact to a string that has enough data to reconstruct the artifact.
-   */
-  public final String serializeToString() {
-    // In theory, it should be enough to serialize execPath and rootRelativePath (which is a suffix
-    // of execPath). However, in practice there is code around that uses other attributes which
-    // needs cleaning up.
-    String result = execPath + " /" + rootRelativePath.toString().length();
-    if (getOwner() != null) {
-      result += " " + getOwner();
-    }
-    return result;
   }
 
   // ---------------------------------------------------------------------------

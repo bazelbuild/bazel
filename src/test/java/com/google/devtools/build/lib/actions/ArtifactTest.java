@@ -285,12 +285,12 @@ public class ArtifactTest {
 
   @Test
   public void testToDetailString() throws Exception {
-    Path execRoot = scratch.getFileSystem().getPath("/a");
+    Path execRoot = scratch.getFileSystem().getPath("/execroot/workspace");
     Artifact a =
         new Artifact(
-            ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a/b")),
+            ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/execroot/workspace/b")),
             PathFragment.create("b/c"));
-    assertThat(a.toDetailString()).isEqualTo("[[/a]b]c");
+    assertThat(a.toDetailString()).isEqualTo("[[<execution_root>]b]c");
   }
 
   @Test
@@ -301,37 +301,6 @@ public class ArtifactTest {
         () ->
             new Artifact(
                 ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a")), PathFragment.create("c")));
-  }
-
-  @Test
-  public void testSerializeToString() throws Exception {
-    Path execRoot = scratch.getFileSystem().getPath("/");
-    assertThat(
-            new Artifact(
-                    scratch.file("/a/b/c"), ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a")))
-                .serializeToString())
-        .isEqualTo("a/b/c /3");
-  }
-
-  @Test
-  public void testSerializeToStringWithExecPath() throws Exception {
-    Path execRoot = scratch.getFileSystem().getPath("/aaa");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/aaa/bbb"));
-    PathFragment execPath = PathFragment.create("bbb/ccc");
-
-    assertThat(new Artifact(root, execPath).serializeToString()).isEqualTo("bbb/ccc /3");
-  }
-
-  @Test
-  public void testSerializeToStringWithOwner() throws Exception {
-    Path execRoot = scratch.getFileSystem().getPath("/aa");
-    assertThat(
-            new Artifact(
-                    ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/aa/b")),
-                    PathFragment.create("b/c"),
-                    new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar")))
-                .serializeToString())
-        .isEqualTo("b/c /1 //foo:bar");
   }
 
   @Test
