@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -26,19 +25,20 @@ import javax.annotation.Nullable;
  * the path to the primary output. For reference, a Label is attached as well.
  */
 public class ActionFailed implements Cause {
-  private final Path path;
+  private final String artifactStringRepresentation;
   private final Label label;
   private final String configurationChecksum;
 
-  public ActionFailed(Path path, Label label, @Nullable String configurationChecksum) {
-    this.path = path;
+  public ActionFailed(
+      String artifactStringRepresentation, Label label, @Nullable String configurationChecksum) {
+    this.artifactStringRepresentation = artifactStringRepresentation;
     this.label = label;
     this.configurationChecksum = configurationChecksum;
   }
 
   @Override
   public String toString() {
-    return path.toString();
+    return artifactStringRepresentation;
   }
 
   @Override
@@ -49,7 +49,7 @@ public class ActionFailed implements Cause {
   @Override
   public BuildEventStreamProtos.BuildEventId getIdProto() {
     ActionCompletedId.Builder actionId =
-        ActionCompletedId.newBuilder().setPrimaryOutput(path.toString());
+        ActionCompletedId.newBuilder().setPrimaryOutput(artifactStringRepresentation);
     if (label != null) {
       actionId.setLabel(label.toString());
     }
