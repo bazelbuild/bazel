@@ -564,7 +564,8 @@ public class CcToolchainFeatures implements Serializable {
       if (iterateOverVariable != null) {
         for (Variables.VariableValue variableValue :
             variables.getSequenceVariable(iterateOverVariable, expander)) {
-          Variables nestedVariables = new Variables(variables, iterateOverVariable, variableValue);
+          Variables nestedVariables =
+              new SingleVariables(variables, iterateOverVariable, variableValue);
           for (Expandable expandable : expandables) {
             expandable.expand(nestedVariables, expander, commandLine);
           }
@@ -1125,9 +1126,7 @@ public class CcToolchainFeatures implements Serializable {
    * <p>TODO(b/32655571): Investigate cleanup once implicit iteration is not needed. Variables
    * instance could serve as a top level View used to expand all flag_groups.
    */
-  @Immutable
-  @AutoCodec
-  public static class Variables {
+  public abstract static class Variables {
     /** An empty variables instance. */
     public static final Variables EMPTY = new Variables.Builder().build();
 
@@ -1145,9 +1144,113 @@ public class CcToolchainFeatures implements Serializable {
           .collect(ImmutableList.toImmutableList());
     }
 
-    public Variables getParent() {
-      return parent;
+    /**
+     * Get a variable value named @param name. Supports accessing fields in structures (e.g.
+     * 'libraries_to_link.interface_libraries')
+     *
+     * @throws ExpansionException when no such variable or no such field are present, or when
+     *     accessing a field of non-structured variable
+     */
+    VariableValue getVariable(String name) {
+      return lookupVariable(name, true, null);
     }
+
+    VariableValue getVariable(String name, @Nullable ArtifactExpander expander) {
+      return lookupVariable(name, true, expander);
+    }
+
+    /**
+     * Lookup a variable named @param name or return a reason why the variable was not found.
+     * Supports accessing fields in structures.
+     *
+     * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
+     *     reason why variable was not found)
+     */
+    private VariableValue lookupVariable(
+        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
+      VariableValue nonStructuredVariable = getNonStructuredVariable(name);
+      if (nonStructuredVariable != null) {
+        return nonStructuredVariable;
+      }
+      VariableValue structuredVariable =
+          getStructureVariable(name, throwOnMissingVariable, expander);
+      if (structuredVariable != null) {
+        return structuredVariable;
+      } else if (throwOnMissingVariable) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
+      } else {
+        return null;
+      }
+    }
+
+    private VariableValue getStructureVariable(
+        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
+      if (!name.contains(".")) {
+        return null;
+      }
+
+      Stack<String> fieldsToAccess = new Stack<>();
+      String structPath = name;
+      VariableValue variable;
+
+      do {
+        fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
+        structPath = structPath.substring(0, structPath.lastIndexOf('.'));
+        variable = getNonStructuredVariable(structPath);
+      } while (variable == null && structPath.contains("."));
+
+      if (variable == null) {
+        return null;
+      }
+
+      while (!fieldsToAccess.empty()) {
+        String field = fieldsToAccess.pop();
+        variable = variable.getFieldValue(structPath, field, expander);
+        if (variable == null) {
+          if (throwOnMissingVariable) {
+            throw new ExpansionException(
+                String.format(
+                    "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
+                        + "doesn't have a field named '%s'",
+                    structPath, field, structPath, field));
+          } else {
+            return null;
+          }
+        }
+      }
+      return variable;
+    }
+
+    public String getStringVariable(String variableName) {
+      return getVariable(variableName, null).getStringValue(variableName);
+    }
+
+    public Iterable<? extends VariableValue> getSequenceVariable(String variableName) {
+      return getVariable(variableName, null).getSequenceValue(variableName);
+    }
+
+    public Iterable<? extends VariableValue> getSequenceVariable(
+        String variableName, @Nullable ArtifactExpander expander) {
+      return getVariable(variableName, expander).getSequenceValue(variableName);
+    }
+
+    /** Returns whether {@code variable} is set. */
+    boolean isAvailable(String variable) {
+      return isAvailable(variable, null);
+    }
+
+    boolean isAvailable(String variable, @Nullable ArtifactExpander expander) {
+      return lookupVariable(variable, false, expander) != null;
+    }
+
+    abstract Map<String, VariableValue> getVariablesMap();
+
+    abstract Map<String, String> getStringVariablesMap();
+
+    @Nullable
+    abstract VariableValue getNonStructuredVariable(String name);
 
     /**
      * Value of a build variable exposed to the CROSSTOOL used for flag expansion.
@@ -1816,33 +1919,29 @@ public class CcToolchainFeatures implements Serializable {
        */
       public Builder addAllNonTransitive(Variables variables) {
         SetView<String> intersection =
-            Sets.intersection(variables.variablesMap.keySet(), variablesMap.keySet());
+            Sets.intersection(variables.getVariablesMap().keySet(), variablesMap.keySet());
         SetView<String> stringIntersection =
-            Sets.intersection(variables.stringVariablesMap.keySet(), stringVariablesMap.keySet());
+            Sets.intersection(
+                variables.getStringVariablesMap().keySet(), stringVariablesMap.keySet());
         Preconditions.checkArgument(
             intersection.isEmpty(), "Cannot overwrite existing variables: %s", intersection);
         Preconditions.checkArgument(
             stringIntersection.isEmpty(),
             "Cannot overwrite existing variables: %s", stringIntersection);
-        this.variablesMap.putAll(variables.variablesMap);
-        this.stringVariablesMap.putAll(variables.stringVariablesMap);
-        return this;
-      }
-
-      /**
-       * Add all variables to this builder, possibly overriding variables already present in the
-       * builder. Use cautiously, prefer {@code addAllNonTransitive} if possible.
-       * TODO(b/32893861) Clean 'module_files' to be registered only once and remove this method.
-       */
-      Builder addAndOverwriteAll(Variables overwrittenVariables) {
-        this.variablesMap.putAll(overwrittenVariables.variablesMap);
-        this.stringVariablesMap.putAll(overwrittenVariables.stringVariablesMap);
+        this.variablesMap.putAll(variables.getVariablesMap());
+        this.stringVariablesMap.putAll(variables.getStringVariablesMap());
         return this;
       }
 
       /** @return a new {@Variables} object. */
       public Variables build() {
-        return new Variables(
+        if (stringVariablesMap.isEmpty() && variablesMap.size() == 1) {
+          return new SingleVariables(
+              parent,
+              variablesMap.keySet().iterator().next(),
+              variablesMap.values().iterator().next());
+        }
+        return new MapVariables(
             parent, ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
       }
     }
@@ -1854,14 +1953,19 @@ public class CcToolchainFeatures implements Serializable {
     public interface VariablesExtension {
       void addVariables(Builder builder);
     }
-    
+  }
+
+  @Immutable
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class MapVariables extends Variables {
     private final ImmutableMap<String, VariableValue> variablesMap;
     private final ImmutableMap<String, String> stringVariablesMap;
     private final Variables parent;
 
     @AutoCodec.Instantiator
     @VisibleForSerialization
-    Variables(
+    MapVariables(
         Variables parent,
         ImmutableMap<String, VariableValue> variablesMap,
         ImmutableMap<String, String> stringVariablesMap) {
@@ -1870,58 +1974,18 @@ public class CcToolchainFeatures implements Serializable {
       this.parent = parent;
     }
 
-    /**
-     * Creates a variables instance nested under the @param parent, and binds variable named @param
-     * name to @param value
-     */
-    private Variables(Variables parent, String name, VariableValue value) {
-      this.variablesMap = ImmutableMap.of(name, value);
-      this.stringVariablesMap = ImmutableMap.of();
-      this.parent = parent;
+    @Override
+    Map<String, VariableValue> getVariablesMap() {
+      return variablesMap;
     }
 
-    /**
-     * Get a variable value named @param name. Supports accessing fields in structures (e.g.
-     * 'libraries_to_link.interface_libraries')
-     *
-     * @throws ExpansionException when no such variable or no such field are present, or when
-     *     accessing a field of non-structured variable
-     */
-    public VariableValue getVariable(String name) {
-      return lookupVariable(name, true, null);
+    @Override
+    Map<String, String> getStringVariablesMap() {
+      return stringVariablesMap;
     }
 
-    public VariableValue getVariable(String name, @Nullable ArtifactExpander expander) {
-      return lookupVariable(name, true, expander);
-    }
-
-    /**
-     * Lookup a variable named @param name or return a reason why the variable was not found.
-     * Supports accessing fields in structures.
-     *
-     * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
-     *     reason why variable was not found)
-     */
-    private VariableValue lookupVariable(
-        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
-      VariableValue nonStructuredVariable = getNonStructuredVariable(name);
-      if (nonStructuredVariable != null) {
-        return nonStructuredVariable;
-      }
-      VariableValue structuredVariable =
-          getStructureVariable(name, throwOnMissingVariable, expander);
-      if (structuredVariable != null) {
-        return structuredVariable;
-      } else if (throwOnMissingVariable) {
-        throw new ExpansionException(
-            String.format(
-                "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
-      } else {
-        return null;
-      }
-    }
-
-    private VariableValue getNonStructuredVariable(String name) {
+    @Override
+    VariableValue getNonStructuredVariable(String name) {
       if (variablesMap.containsKey(name)) {
         return variablesMap.get(name);
       }
@@ -1935,69 +1999,36 @@ public class CcToolchainFeatures implements Serializable {
 
       return null;
     }
+  }
 
-    private VariableValue getStructureVariable(
-        String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander) {
-      if (!name.contains(".")) {
-        return null;
+  @Immutable
+  private static class SingleVariables extends Variables {
+    private final Variables parent;
+    private final String name;
+    private final VariableValue variableValue;
+
+    SingleVariables(Variables parent, String name, VariableValue variableValue) {
+      this.parent = parent;
+      this.name = name;
+      this.variableValue = variableValue;
+    }
+
+    @Override
+    Map<String, VariableValue> getVariablesMap() {
+      return ImmutableMap.of(name, variableValue);
+    }
+
+    @Override
+    Map<String, String> getStringVariablesMap() {
+      return ImmutableMap.of();
+    }
+
+    @Override
+    VariableValue getNonStructuredVariable(String name) {
+      if (this.name.equals(name)) {
+        return variableValue;
       }
-
-      Stack<String> fieldsToAccess = new Stack<>();
-      String structPath = name;
-      VariableValue variable;
-
-      do {
-        fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
-        structPath = structPath.substring(0, structPath.lastIndexOf('.'));
-        variable = getNonStructuredVariable(structPath);
-      } while (variable == null && structPath.contains("."));
-
-      if (variable == null) {
-        return null;
-      }
-
-      while (!fieldsToAccess.empty()) {
-        String field = fieldsToAccess.pop();
-        variable = variable.getFieldValue(structPath, field, expander);
-        if (variable == null) {
-          if (throwOnMissingVariable) {
-            throw new ExpansionException(
-                String.format(
-                    "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
-                        + "doesn't have a field named '%s'",
-                    structPath, field, structPath, field));
-          } else {
-            return null;
-          }
-        }
-      }
-      return variable;
-    }
-
-    public String getStringVariable(String variableName) {
-      return getVariable(variableName, null).getStringValue(variableName);
-    }
-
-    public String getStringVariable(String variableName, @Nullable ArtifactExpander expander) {
-      return getVariable(variableName, expander).getStringValue(variableName);
-    }
-
-    public Iterable<? extends VariableValue> getSequenceVariable(String variableName) {
-      return getVariable(variableName, null).getSequenceValue(variableName);
-    }
-
-    public Iterable<? extends VariableValue> getSequenceVariable(
-        String variableName, @Nullable ArtifactExpander expander) {
-      return getVariable(variableName, expander).getSequenceValue(variableName);
-    }
-
-    /** Returns whether {@code variable} is set. */
-    boolean isAvailable(String variable) {
-      return isAvailable(variable, null);
-    }
-
-    boolean isAvailable(String variable, @Nullable ArtifactExpander expander) {
-      return lookupVariable(variable, false, expander) != null;
+      return parent == null ? null : parent.getNonStructuredVariable(name);
     }
   }
 
