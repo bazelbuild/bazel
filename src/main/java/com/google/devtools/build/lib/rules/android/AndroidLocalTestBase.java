@@ -398,11 +398,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       AndroidResources.validateRuleContext(ruleContext);
       ApplicationManifest ruleManifest = androidSemantics.getManifestForRule(ruleContext);
-      applicationManifest = ruleManifest.mergeWith(ruleContext, resourceDependencies, false);
+      applicationManifest = ruleManifest.mergeWith(ruleContext, resourceDependencies);
     } else {
       // we don't have a manifest, merge like android_library with a stub manifest
       ApplicationManifest dummyManifest = ApplicationManifest.generatedManifest(ruleContext);
-      applicationManifest = dummyManifest.mergeWith(ruleContext, resourceDependencies, false);
+      applicationManifest = dummyManifest.mergeWith(ruleContext, resourceDependencies);
     }
     return applicationManifest;
   }
