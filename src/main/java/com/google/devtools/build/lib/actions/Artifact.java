@@ -94,20 +94,18 @@ import javax.annotation.Nullable;
  *   <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used by
  *       new rule implementations.
  * </ul>
- *
- * <p>This class is "theoretically" final; it should not be subclassed except by {@link
- * SpecialArtifact}.
  */
 @Immutable
 @SkylarkModule(
-    name = "File",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "This object is created during the analysis phase to represent a file or directory that "
-        + "will be read or written during the execution phase. It is not an open file handle, and "
-        + "cannot be used to directly read or write file contents. Rather, you use it to construct "
-        + "the action graph in a rule implementation function by passing it to action-creating "
-        + "functions. See the <a href='../rules.$DOC_EXT#files'>Rules page</a> for more "
-        + "information."
+  name = "File",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "This object is created during the analysis phase to represent a file or directory that "
+          + "will be read or written during the execution phase. It is not an open file handle, "
+          + "and cannot be used to directly read or write file contents. Rather, you use it to "
+          + "construct the action graph in a rule implementation function by passing it to "
+          + "action-creating functions. See the "
+          + "<a href='../rules.$DOC_EXT#files'>Rules page</a> for more information."
 )
 @AutoCodec
 public class Artifact
@@ -420,6 +418,31 @@ public class Artifact
    */
   public boolean isConstantMetadata() {
     return false;
+  }
+
+  /** Only callable if isSourceArtifact() is true. */
+  public SourceArtifact asSourceArtifact() {
+    throw new IllegalStateException("Not a source artifact!");
+  }
+
+  /** {@link Artifact#isSourceArtifact() is true.
+   *
+   * <p>Source artifacts have the property that unlike for output artifacts, direct file system
+   * access for their contents should be safe, even in a distributed context.
+   *
+   * TODO(shahan): move {@link Artifact#getPath} to this subclass.
+   * */
+  @AutoCodec
+  public static final class SourceArtifact extends Artifact {
+    @AutoCodec.VisibleForSerialization
+    SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
+      super(root, execPath, owner);
+    }
+
+    @Override
+    public SourceArtifact asSourceArtifact() {
+      return this;
+    }
   }
 
   /**

@@ -78,7 +78,9 @@ public final class EvalUtils {
               && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
             return compareLists((SkylarkList) o1, (SkylarkList) o2);
           }
-          if (!o1.getClass().equals(o2.getClass())) {
+
+          if (!(o1.getClass().isAssignableFrom(o2.getClass())
+              || o2.getClass().isAssignableFrom(o1.getClass()))) {
             throw new ComparisonException(
                 "Cannot compare " + getDataTypeName(o1) + " with " + getDataTypeName(o2));
           }

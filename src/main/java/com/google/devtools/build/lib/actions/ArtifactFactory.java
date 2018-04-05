@@ -258,7 +258,9 @@ public class ArtifactFactory implements ArtifactResolver {
       @Nullable SpecialArtifactType type) {
     Preconditions.checkNotNull(owner);
     if (type == null) {
-      return new Artifact(root, execPath, owner);
+      return root.isSourceRoot()
+          ? new Artifact.SourceArtifact(root, execPath, owner)
+          : new Artifact(root, execPath, owner);
     } else {
       return new Artifact.SpecialArtifact(root, execPath, owner, type);
     }
