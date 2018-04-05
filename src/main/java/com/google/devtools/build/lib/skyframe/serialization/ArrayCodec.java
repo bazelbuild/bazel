@@ -29,8 +29,13 @@ class ArrayCodec implements ObjectCodec<Object[]> {
   public void serialize(SerializationContext context, Object[] obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(obj.length);
-    for (Object item : obj) {
-      context.serialize(item, codedOut);
+    try {
+      for (Object item : obj) {
+        context.serialize(item, codedOut);
+      }
+    } catch (StackOverflowError e) {
+      // TODO(janakr): figure out if we need to handle this better and handle it better if so.
+      throw new SerializationException("StackOverflow serializing array", e);
     }
   }
 
@@ -38,8 +43,13 @@ class ArrayCodec implements ObjectCodec<Object[]> {
   public Object[] deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     Object[] result = new Object[codedIn.readInt32()];
-    for (int i = 0; i < result.length; i++) {
-      result[i] = context.deserialize(codedIn);
+    try {
+      for (int i = 0; i < result.length; i++) {
+        result[i] = context.deserialize(codedIn);
+      }
+    } catch (StackOverflowError e) {
+      // TODO(janakr): figure out if we need to handle this better and handle it better if so.
+      throw new SerializationException("StackOverflow deserializing array", e);
     }
     return result;
   }
