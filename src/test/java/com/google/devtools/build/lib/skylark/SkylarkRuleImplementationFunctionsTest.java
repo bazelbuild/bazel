@@ -1749,7 +1749,249 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLazyArgs() throws Exception {
+  public void testArgsScalarAdd() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "args = ruleContext.actions.args()",
+        "args.add('--foo')",
+        "args.add('-')",
+        "args.add('foo', format='format%s')",
+        "args.add('-')",
+        "args.add(arg_name='--foo', value='val')",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly("foo/t.exe", "--foo", "-", "formatfoo", "-", "--foo", "val")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsScalarAddThrowsWithVectorArg() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=true");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    checkErrorContains(
+        ruleContext,
+        "Args#add no longer accepts vectorized",
+        "args = ruleContext.actions.args()",
+        "args.add([1, 2])",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+  }
+
+  @Test
+  public void testArgsAddAll() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "args = ruleContext.actions.args()",
+        "args.add_all([1, 2])",
+        "args.add('-')",
+        "args.add_all(arg_name='--foo', values=[1, 2])",
+        "args.add('-')",
+        "args.add_all([1, 2], before_each='-before')",
+        "args.add('-')",
+        "args.add_all([1, 2], format_each='format/%s')",
+        "args.add('-')",
+        "args.add_all(ruleContext.files.srcs)",
+        "args.add('-')",
+        "args.add_all(ruleContext.files.srcs, format_each='format/%s')",
+        "args.add('-')",
+        "args.add_all([1, 2], terminate_with='--terminator')",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "1",
+            "2",
+            "-",
+            "--foo",
+            "1",
+            "2",
+            "-",
+            "-before",
+            "1",
+            "-before",
+            "2",
+            "-",
+            "format/1",
+            "format/2",
+            "-",
+            "foo/a.txt",
+            "foo/b.img",
+            "-",
+            "format/foo/a.txt",
+            "format/foo/b.img",
+            "-",
+            "1",
+            "2",
+            "--terminator")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsAddAllWithMapEach() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "def add_one(val): return str(val + 1)",
+        "def expand_to_many(val): return ['hey', 'hey']",
+        "args = ruleContext.actions.args()",
+        "args.add_all([1, 2], map_each=add_one)",
+        "args.add('-')",
+        "args.add_all([1, 2], map_each=expand_to_many)",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly("foo/t.exe", "2", "3", "-", "hey", "hey", "hey", "hey")
+        .inOrder();
+  }
+
+  @Test
+  public void testOmitIfEmpty() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "def add_one(val): return str(val + 1)",
+        "def filter(val): return None",
+        "args = ruleContext.actions.args()",
+        "args.add_joined([], join_with=',')",
+        "args.add('-')",
+        "args.add_joined([], join_with=',', omit_if_empty=False)",
+        "args.add('-')",
+        "args.add_all(arg_name='--foo', values=[])",
+        "args.add('-')",
+        "args.add_all(arg_name='--foo', values=[], omit_if_empty=False)",
+        "args.add('-')",
+        "args.add_all(arg_name='--foo', values=[1], map_each=filter, terminate_with='hello')",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            // Nothing
+            "-",
+            "", // Empty string was joined and added
+            "-",
+            // Nothing
+            "-",
+            "--foo", // Arg added regardless
+            "-"
+            // Nothing, all values were filtered
+            )
+        .inOrder();
+  }
+
+  @Test
+  public void testUniquify() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "def add_one(val): return str(val + 1)",
+        "args = ruleContext.actions.args()",
+        "args.add_all(['a', 'b', 'a'])",
+        "args.add('-')",
+        "args.add_all(['a', 'b', 'a', 'c', 'b'], uniquify=True)",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly("foo/t.exe", "a", "b", "a", "-", "a", "b", "c")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsAddJoined() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "def add_one(val): return str(val + 1)",
+        "args = ruleContext.actions.args()",
+        "args.add_joined([1, 2], join_with=':')",
+        "args.add('-')",
+        "args.add_joined([1, 2], join_with=':', format_each='format/%s')",
+        "args.add('-')",
+        "args.add_joined([1, 2], join_with=':', format_each='format/%s', format_joined='--foo=%s')",
+        "args.add('-')",
+        "args.add_joined([1, 2], join_with=':', map_each=add_one)",
+        "args.add('-')",
+        "args.add_joined(ruleContext.files.srcs, join_with=':')",
+        "args.add('-')",
+        "args.add_joined(ruleContext.files.srcs, join_with=':', format_each='format/%s')",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "1:2",
+            "-",
+            "format/1:format/2",
+            "-",
+            "--foo=format/1:format/2",
+            "-",
+            "2:3",
+            "-",
+            "foo/a.txt:foo/b.img",
+            "-",
+            "format/foo/a.txt:format/foo/b.img")
+        .inOrder();
+  }
+
+  @Test
+  public void testLazyArgsLegacy() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=false");
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
@@ -1800,6 +2042,35 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             "format/foo/a.txt",
             "format/foo/b.img")
         .inOrder();
+  }
+
+  @Test
+  public void testLegacyLazyArgMapFnReturnsWrongArgumentCount() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=false");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "args = ruleContext.actions.args()",
+        "def bad_fn(args): return [0]",
+        "args.add([1, 2], map_fn=bad_fn)",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    try {
+      action.getArguments();
+      fail();
+    } catch (CommandLineExpansionException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains("map_fn must return a list of the same length as the input");
+    }
   }
 
   @Test
@@ -1913,7 +2184,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     evalRuleContextCode(
         ruleContext,
         "args = ruleContext.actions.args()",
-        "args.add([1, 2], format='format/%s%s')", // Expects two args, will only be given one
+        "args.add('foo', format='format/%s%s')", // Expects two args, will only be given one
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -1933,13 +2204,30 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLazyArgBadMapFn() throws Exception {
+  public void testLazyArgMapEachWrongArgCount() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    checkErrorContains(
+        ruleContext,
+        "map_each must be a function that accepts a single",
+        "args = ruleContext.actions.args()",
+        "def bad_fn(val, val2): return str(val)",
+        "args.add_all([1, 2], map_each=bad_fn)",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        ")");
+  }
+
+  @Test
+  public void testLazyArgMapEachThrowsError() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
         "args = ruleContext.actions.args()",
-        "def bad_fn(args): 'hello'.nosuchmethod()",
-        "args.add([1, 2], map_fn=bad_fn)",
+        "def bad_fn(val): 'hello'.nosuchmethod()",
+        "args.add_all([1, 2], map_each=bad_fn)",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -1959,13 +2247,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLazyArgMapFnReturnsWrongType() throws Exception {
+  public void testLazyArgMapEachReturnsNone() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
         "args = ruleContext.actions.args()",
-        "def bad_fn(args): return None",
-        "args.add([1, 2], map_fn=bad_fn)",
+        "def none_fn(val): return None if val == 'nokeep' else val",
+        "args.add_all(['keep', 'nokeep'], map_each=none_fn)",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -1976,22 +2264,17 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    try {
-      action.getArguments();
-      fail();
-    } catch (CommandLineExpansionException e) {
-      assertThat(e.getMessage()).contains("map_fn must return a list, got NoneType");
-    }
+    assertThat(action.getArguments()).containsExactly("foo/t.exe", "keep").inOrder();
   }
 
   @Test
-  public void testLazyArgMapFnReturnsWrongArgumentCount() throws Exception {
+  public void testLazyArgMapEachReturnsWrongType() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
         "args = ruleContext.actions.args()",
-        "def bad_fn(args): return [0]",
-        "args.add([1, 2], map_fn=bad_fn)",
+        "def bad_fn(val): return 1",
+        "args.add_all([1, 2], map_each=bad_fn)",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2007,7 +2290,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       fail();
     } catch (CommandLineExpansionException e) {
       assertThat(e.getMessage())
-          .contains("map_fn must return a list of the same length as the input");
+          .contains("Expected map_each to return string, None, or list of strings, found Integer");
     }
   }
 
@@ -2088,7 +2371,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
-
     assertThat(expected).hasMessageThat()
         .contains("invalid configuration fragment name 'notarealfragment'");
   }

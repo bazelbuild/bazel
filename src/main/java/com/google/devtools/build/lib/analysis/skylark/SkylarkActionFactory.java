@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FunctionSignature.Shape;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
@@ -880,6 +881,7 @@ public class SkylarkActionFactory implements SkylarkValue {
   )
   static class Args extends SkylarkMutable {
     private final Mutability mutability;
+    private final SkylarkSemantics skylarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;
     private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
     private String flagFormatString;
@@ -891,13 +893,18 @@ public class SkylarkActionFactory implements SkylarkValue {
       parameters = {
         @Param(
           name = "value",
-          type = Object.class,
+          named = true,
           doc =
               "The object to add to the argument list. "
-                  + "If the object is scalar, the object's string representation is added. "
-                  + "If it's a <a href=\"list.html\">list</a> or "
-                  + "<a href=\"depset.html\">depset</a>, "
-                  + "each element's string representation is added."
+                  + "The object's string representation is added. "
+        ),
+        @Param(
+          name = "arg_name",
+          type = String.class,
+          named = true,
+          defaultValue = "None",
+          noneable = true,
+          doc = "The argument name as a string to add before the value."
         ),
         @Param(
           name = "format",
@@ -909,7 +916,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           doc =
               "A format string used to format the object(s). "
                   + "The format string is as per pattern % tuple. "
-                  + "Limitations: only %d %s %r %% are supported."
+                  + "Limitations: only %s and %% are supported."
         ),
         @Param(
           name = "before_each",
@@ -920,7 +927,9 @@ public class SkylarkActionFactory implements SkylarkValue {
           noneable = true,
           doc =
               "Each object in the list is prepended by this string. "
-                  + "Only supported for vector arguments."
+                  + "Only supported for vector arguments. "
+                  + "Deprecated. Please use <a href=\"Args.html#add_all\">add_all</a>"
+                  + " or <a href=\"Args.html#add_joined\">add_joined</a> instead."
         ),
         @Param(
           name = "join_with",
@@ -931,7 +940,9 @@ public class SkylarkActionFactory implements SkylarkValue {
           noneable = true,
           doc =
               "Each object in the list is joined with this string. "
-                  + "Only supported for vector arguments."
+                  + "Only supported for vector arguments. "
+                  + "Deprecated. Please use <a href=\"Args.html#add_all\">add_all</a>"
+                  + " or <a href=\"Args.html#add_joined\">add_joined</a> instead."
         ),
         @Param(
           name = "map_fn",
@@ -943,36 +954,328 @@ public class SkylarkActionFactory implements SkylarkValue {
           doc =
               "The passed objects are passed through a map function. "
                   + "For vector args the function is given a list and is expected to "
-                  + "return a list of the same length as the input."
+                  + "return a list of the same length as the input. "
+                  + "Deprecated. Please use <a href=\"Args.html#add_all\">add_all</a>"
+                  + " or <a href=\"Args.html#add_joined\">add_joined</a> instead."
         )
       },
       useLocation = true
     )
     public NoneType addArgument(
         Object value,
+        Object argName,
         Object format,
         Object beforeEach,
         Object joinWith,
         Object mapFn,
         Location loc)
         throws EvalException {
-      if (this.isImmutable()) {
+      if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
+      if (argName != Runtime.NONE) {
+        commandLine.add(argName);
+      }
       if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
-        addVectorArg(value, format, beforeEach, joinWith, mapFn, loc);
+        if (skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
+          throw new EvalException(
+              loc,
+              "Args#add no longer accepts vectorized arguments when "
+                  + "--incompatible_disallow_old_style_args_add is set. "
+                  + "Please use Args#add_all or Args#add_joined.");
+        }
+        addVectorArg(
+            value,
+            null /* argName */,
+            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
+            null /* mapEach */,
+            format != Runtime.NONE ? (String) format : null,
+            beforeEach != Runtime.NONE ? (String) beforeEach : null,
+            joinWith != Runtime.NONE ? (String) joinWith : null,
+            null /* formatJoined */,
+            false /* omitIfEmpty */,
+            false /* uniquify */,
+            null /* terminateWith */,
+            loc);
       } else {
-        addScalarArg(value, format, beforeEach, joinWith, mapFn, loc);
+        if (mapFn != Runtime.NONE && skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
+          throw new EvalException(
+              loc,
+              "Args#add no longer accepts map_fn when"
+                  + "--incompatible_disallow_old_style_args_add is set. "
+                  + "Please eagerly map the value.");
+        }
+        if (beforeEach != Runtime.NONE) {
+          throw new EvalException(null, "'before_each' is not supported for scalar arguments");
+        }
+        if (joinWith != Runtime.NONE) {
+          throw new EvalException(null, "'join_with' is not supported for scalar arguments");
+        }
+        addScalarArg(
+            value,
+            format != Runtime.NONE ? (String) format : null,
+            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
+            loc);
       }
       return Runtime.NONE;
     }
 
-    private void addVectorArg(
-        Object value, Object format, Object beforeEach, Object joinWith, Object mapFn, Location loc)
+    @SkylarkCallable(
+      name = "add_all",
+      doc = "Adds an vector argument to be dynamically expanded at evaluation time.",
+      parameters = {
+        @Param(
+          name = "values",
+          allowedTypes = {
+            @ParamType(type = SkylarkList.class),
+            @ParamType(type = SkylarkNestedSet.class),
+          },
+          named = true,
+          doc = "The sequence to add. Each element's string representation is added."
+        ),
+        @Param(
+          name = "arg_name",
+          type = String.class,
+          named = true,
+          defaultValue = "None",
+          noneable = true,
+          doc = "The argument name as a string to add before the values."
+        ),
+        @Param(
+          name = "map_each",
+          type = BaseFunction.class,
+          named = true,
+          positional = false,
+          defaultValue = "None",
+          noneable = true,
+          doc =
+              "Each object is passed through a map function "
+                  + "prior to formatting and joining. "
+                  + "The function is given a single element and is expected to return a string, "
+                  + "a list of strings, or None (in which case the return value is ignored)."
+        ),
+        @Param(
+          name = "format_each",
+          type = String.class,
+          named = true,
+          positional = false,
+          defaultValue = "None",
+          noneable = true,
+          doc =
+              "A format string used to format each object in the list. "
+                  + "The format string is as per pattern % tuple. "
+                  + "Limitations: only %s and %% are supported. "
+        ),
+        @Param(
+          name = "before_each",
+          type = String.class,
+          named = true,
+          positional = false,
+          defaultValue = "None",
+          noneable = true,
+          doc =
+              "Each object in the list is prepended by this string. "
+                  + "This happens after any mapping and formatting."
+        ),
+        @Param(
+          name = "omit_if_empty",
+          type = Boolean.class,
+          named = true,
+          positional = false,
+          defaultValue = "True",
+          doc =
+              "Omits the arg_name and terminate_with (if passed) if the values end up empty, "
+                  + "either because empty values was passed, "
+                  + "or because map_each filtered out the values."
+        ),
+        @Param(
+          name = "uniquify",
+          type = Boolean.class,
+          named = true,
+          positional = false,
+          defaultValue = "False",
+          doc =
+              "Omits non-unique values. Order is preserved. "
+                  + "This is usually not needed as depsets already omit duplicates."
+        ),
+        @Param(
+          name = "terminate_with",
+          type = String.class,
+          named = true,
+          positional = false,
+          defaultValue = "None",
+          noneable = true,
+          doc = "Adds a terminating argument last, after all other arguments have been added."
+        ),
+      },
+      useLocation = true
+    )
+    public NoneType addAll(
+        Object value,
+        Object argName,
+        Object mapEach,
+        Object formatEach,
+        Object beforeEach,
+        Boolean omitIfEmpty,
+        Boolean uniquify,
+        Object terminateWith,
+        Location loc)
         throws EvalException {
-      if (beforeEach != Runtime.NONE && joinWith != Runtime.NONE) {
-        throw new EvalException(null, "cannot pass both 'before_each' and 'join_with'");
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
       }
+      addVectorArg(
+          value,
+          argName != Runtime.NONE ? (String) argName : null,
+          null /* mapAll */,
+          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Runtime.NONE ? (String) formatEach : null,
+          beforeEach != Runtime.NONE ? (String) beforeEach : null,
+          null /* joinWith */,
+          null /* formatJoined */,
+          omitIfEmpty,
+          uniquify,
+          terminateWith != Runtime.NONE ? (String) terminateWith : null,
+          loc);
+      return Runtime.NONE;
+    }
+
+    @SkylarkCallable(
+      name = "add_joined",
+      doc =
+          "Adds a vector argument to be dynamically expanded at evaluation time "
+              + "and joined with a string.",
+      parameters = {
+        @Param(
+          name = "values",
+          allowedTypes = {
+            @ParamType(type = SkylarkList.class),
+            @ParamType(type = SkylarkNestedSet.class),
+          },
+          named = true,
+          doc = "The sequence to add. Each element's string representation is joined and added."
+        ),
+        @Param(
+          name = "arg_name",
+          type = String.class,
+          named = true,
+          defaultValue = "None",
+          noneable = true,
+          doc = "The argument name as a string to add before the values."
+        ),
+        @Param(
+          name = "join_with",
+          type = String.class,
+          named = true,
+          positional = false,
+          doc = "Each object in the supplied list is joined with this string. "
+        ),
+        @Param(
+          name = "map_each",
+          type = BaseFunction.class,
+          named = true,
+          positional = false,
+          defaultValue = "None",
+          noneable = true,
+          doc =
+              "Each object is passed through a map function "
+                  + "prior to formatting and joining. "
+                  + "The function is given a single element and is expected to return a string, "
+                  + "a list of strings, or None (in which case the return value is ignored)."
+        ),
+        @Param(
+          name = "format_each",
+          type = String.class,
+          named = true,
+          positional = false,
+          defaultValue = "None",
+          noneable = true,
+          doc =
+              "A format string used to format each object in the list prior to joining. "
+                  + "The format string is as per pattern % tuple. "
+                  + "Limitations: only %s and %% are supported. "
+                  + "Only supported for vector arguments."
+        ),
+        @Param(
+          name = "format_joined",
+          type = String.class,
+          named = true,
+          positional = false,
+          defaultValue = "None",
+          noneable = true,
+          doc =
+              "A format string used to format the final joined string. "
+                  + "The format string is as per pattern % tuple. "
+                  + "Limitations: only %s and %% are supported."
+        ),
+        @Param(
+          name = "omit_if_empty",
+          type = Boolean.class,
+          named = true,
+          positional = false,
+          defaultValue = "True",
+          doc =
+              "Omits the joined value when the passed objects are empty. "
+                  + "In case 'arg_name' was passed it is also omitted. "
+                  + "If false, the joined string is always added, even if it is the empty string."
+        ),
+        @Param(
+          name = "uniquify",
+          type = Boolean.class,
+          named = true,
+          positional = false,
+          defaultValue = "False",
+          doc =
+              "Omits non-unique values. Order is preserved. "
+                  + "This is usually not needed as depsets already omit duplicates."
+        )
+      },
+      useLocation = true
+    )
+    public NoneType addJoined(
+        Object value,
+        Object argName,
+        String joinWith,
+        Object mapEach,
+        Object formatEach,
+        Object formatJoined,
+        Boolean omitIfEmpty,
+        Boolean uniquify,
+        Location loc)
+        throws EvalException {
+      if (isImmutable()) {
+        throw new EvalException(null, "cannot modify frozen value");
+      }
+      addVectorArg(
+          value,
+          argName != Runtime.NONE ? (String) argName : null,
+          null /* mapAll */,
+          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Runtime.NONE ? (String) formatEach : null,
+          null /* beforeEach */,
+          joinWith,
+          formatJoined != Runtime.NONE ? (String) formatJoined : null,
+          omitIfEmpty,
+          uniquify,
+          null /* terminateWith */,
+          loc);
+      return Runtime.NONE;
+    }
+
+    private void addVectorArg(
+        Object value,
+        String argName,
+        BaseFunction mapAll,
+        BaseFunction mapEach,
+        String formatEach,
+        String beforeEach,
+        String joinWith,
+        String formatJoined,
+        boolean omitIfEmpty,
+        boolean uniquify,
+        String terminateWith,
+        Location loc)
+        throws EvalException {
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof SkylarkNestedSet) {
         NestedSet<?> nestedSet = ((SkylarkNestedSet) value).getSet(Object.class);
@@ -981,45 +1284,47 @@ public class SkylarkActionFactory implements SkylarkValue {
         SkylarkList skylarkList = (SkylarkList) value;
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(skylarkList);
       }
-      vectorArg.setLocation(loc);
-      if (format != Runtime.NONE) {
-        vectorArg.setFormat((String) format);
+      if (mapEach != null) {
+        validateMapEach(mapEach, loc);
       }
-      if (beforeEach != Runtime.NONE) {
-        vectorArg.setBeforeEach((String) beforeEach);
-      }
-      if (joinWith != Runtime.NONE) {
-        vectorArg.setJoinWith((String) joinWith);
-      }
-      if (mapFn != Runtime.NONE) {
-        vectorArg.setMapFn((BaseFunction) mapFn);
-      }
+      vectorArg
+          .setLocation(loc)
+          .setArgName(argName)
+          .setMapAll(mapAll)
+          .setFormatEach(formatEach)
+          .setBeforeEach(beforeEach)
+          .setJoinWith(joinWith)
+          .setFormatJoined(formatJoined)
+          .omitIfEmpty(omitIfEmpty)
+          .uniquify(uniquify)
+          .setTerminateWith(terminateWith)
+          .setMapEach(mapEach);
       commandLine.add(vectorArg);
     }
 
-    private void addScalarArg(
-        Object value, Object format, Object beforeEach, Object joinWith, Object mapFn, Location loc)
+    private void validateMapEach(BaseFunction mapEach, Location loc) throws EvalException {
+      Shape shape = mapEach.getSignature().getSignature().getShape();
+      boolean valid =
+          shape.getMandatoryPositionals() == 1
+              && shape.getOptionalPositionals() == 0
+              && shape.getMandatoryNamedOnly() == 0
+              && shape.getOptionalPositionals() == 0;
+      if (!valid) {
+        throw new EvalException(
+            loc, "map_each must be a function that accepts a single positional argument");
+      }
+    }
+
+    private void addScalarArg(Object value, String format, BaseFunction mapFn, Location loc)
         throws EvalException {
       if (!EvalUtils.isImmutable(value)) {
         throw new EvalException(null, "arg must be an immutable type");
       }
-      if (beforeEach != Runtime.NONE) {
-        throw new EvalException(null, "'before_each' is not supported for scalar arguments");
-      }
-      if (joinWith != Runtime.NONE) {
-        throw new EvalException(null, "'join_with' is not supported for scalar arguments");
-      }
-      if (format == Runtime.NONE && mapFn == Runtime.NONE) {
+      if (format == null && mapFn == null) {
         commandLine.add(value);
       } else {
-        ScalarArg.Builder scalarArg = new ScalarArg.Builder(value);
-        scalarArg.setLocation(loc);
-        if (format != Runtime.NONE) {
-          scalarArg.setFormat((String) format);
-        }
-        if (mapFn != Runtime.NONE) {
-          scalarArg.setMapFn((BaseFunction) mapFn);
-        }
+        ScalarArg.Builder scalarArg =
+            new ScalarArg.Builder(value).setLocation(loc).setFormat(format).setMapFn(mapFn);
         commandLine.add(scalarArg);
       }
     }
@@ -1104,6 +1409,7 @@ public class SkylarkActionFactory implements SkylarkValue {
 
     private Args(@Nullable Mutability mutability, SkylarkSemantics skylarkSemantics) {
       this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
+      this.skylarkSemantics = skylarkSemantics;
       this.commandLine = new SkylarkCustomCommandLine.Builder(skylarkSemantics);
     }
 
@@ -1128,7 +1434,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     useEnvironment = true
   )
   public Args args(Environment env) {
-    return new Args(env.mutability(), env.getSemantics());
+    return new Args(env.mutability(), skylarkSemantics);
   }
 
   @Override
