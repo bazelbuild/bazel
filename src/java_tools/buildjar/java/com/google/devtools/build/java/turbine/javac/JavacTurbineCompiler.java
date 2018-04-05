@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -85,7 +86,11 @@ public class JavacTurbineCompiler {
         fm.setContext(context);
         fm.setLocationFromPaths(StandardLocation.SOURCE_PATH, Collections.<Path>emptyList());
         fm.setLocationFromPaths(StandardLocation.CLASS_PATH, request.classPath());
-        fm.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, request.bootClassPath());
+        // The bootclasspath may legitimately be empty if --release is being used.
+        Collection<Path> bootClassPath = request.bootClassPath();
+        if (!bootClassPath.isEmpty()) {
+          fm.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
+        }
         fm.setLocationFromPaths(
             StandardLocation.ANNOTATION_PROCESSOR_PATH, request.processorClassPath());
         fm.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, ImmutableList.of(classes));
