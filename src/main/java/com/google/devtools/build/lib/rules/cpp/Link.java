@@ -160,7 +160,7 @@ public abstract class Link {
     INTERFACE_DYNAMIC_LIBRARY(
         ".ifso",
         Staticness.DYNAMIC,
-        "c++-link-interface-dynamic-library",
+        "c++-link-dynamic-library",
         Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
         ArtifactCategory.INTERFACE_LIBRARY,
         Executable.NOT_EXECUTABLE),

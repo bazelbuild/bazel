@@ -116,7 +116,6 @@ public final class CcCommon {
 
   public static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
-          Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
           LinkTargetType.EXECUTABLE.getActionName());
