@@ -364,7 +364,7 @@ public class ResourceFilterFactory {
         (artifact) -> {
           // This class needs to record any dependent resources that were filtered out so that
           // resource processing ignores references to them in symbols files of  dependencies.
-          String parentDir = artifact.getPath().getParentDirectory().getBaseName();
+          String parentDir = artifact.getExecPath().getParentDirectory().getBaseName();
           filteredResources.add(parentDir + "/" + artifact.getFilename());
         });
   }
