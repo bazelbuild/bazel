@@ -252,7 +252,7 @@ public class AndroidResources {
    * directory.
    */
   public static PathFragment findResourceDir(Artifact artifact) {
-    PathFragment fragment = artifact.getPath().asFragment();
+    PathFragment fragment = artifact.getExecPath();
     int segmentCount = fragment.segmentCount();
     if (segmentCount < 3) {
       return null;
