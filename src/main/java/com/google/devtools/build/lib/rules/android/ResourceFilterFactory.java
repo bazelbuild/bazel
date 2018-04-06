@@ -540,7 +540,7 @@ public class ResourceFilterFactory {
   }
 
   private static String getContainingFolder(Artifact artifact) {
-    return artifact.getPath().getParentDirectory().getBaseName();
+    return artifact.getExecPath().getParentDirectory().getBaseName();
   }
 
   private static boolean matchesConfigurationFilters(
