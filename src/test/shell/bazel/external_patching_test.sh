@@ -62,6 +62,8 @@ http_archive(
   urls=["file://${EXTREPODIR}/ext.zip"],
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:patch_foo.sh"],
+  patch_verbose = True,
+  patch_arguments = ["--verbose", "-p0"],
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
@@ -89,7 +91,7 @@ EOF
 -echo Here be dragons...
 +echo completely differently patched
 EOF
-  bazel build :foo.sh
+  bazel build :foo.sh | grep -q 'Hunk' || fail "expected verbose patch output"
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'differently patched' $foopath \
       || fail "expected the new patch to be applied"
