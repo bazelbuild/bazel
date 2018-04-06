@@ -389,7 +389,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       ActionMetadataHandler metadataHandler,
       long actionStartTime,
       ActionExecutionContext actionExecutionContext,
-      ActionLookupData actionLookupData)
+      ActionLookupData actionLookupData,
+      boolean inputDiscoveryRan)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
     if (exception != null) {
@@ -409,8 +410,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // Check to see if another action is already executing/has executed this value.
     Pair<ActionLookupData, FutureTask<ActionExecutionValue>> oldAction =
         buildActionMap.putIfAbsent(primaryOutput, Pair.of(actionLookupData, actionTask));
+    // true if this is a non-shared action or it's shared and to be executed.
+    boolean isPrimaryActionForTheValue = oldAction == null;
 
-    if (oldAction == null) {
+    if (isPrimaryActionForTheValue) {
       actionTask.run();
     } else {
       // Wait for other action to finish, so any actions that depend on its outputs can execute.
@@ -423,6 +426,15 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
           ActionExecutionException.class, InterruptedException.class);
       throw new IllegalStateException(e);
     } finally {
+      if (!isPrimaryActionForTheValue && action.discoversInputs() && inputDiscoveryRan) {
+        /**
+         * If this is a shared action that does input discovery, but was not executed, we need to
+         * remove it from the active actions pool (it was added there by {@link
+         * ActionRunner#call()}).
+         */
+        // TODO(b/72764586): Cleanup once we can properly skip input discovery for shared actions
+        statusReporterRef.get().remove(action);
+      }
       String message = action.getProgressMessage();
       if (message != null) {
         // Tell the receiver that the action has completed *before* telling the reporter.
@@ -832,7 +844,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
           context.getFileOutErr(),
           outputDumped);
     } finally {
-      statusReporter.remove(action);
+      statusReporterRef.get().remove(action);
       eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
     }
   }
