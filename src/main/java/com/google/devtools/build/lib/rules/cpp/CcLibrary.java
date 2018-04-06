@@ -66,13 +66,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CppFileTypes.ALWAYS_LINK_LIBRARY, CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
       CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
 
-  private static Runfiles collectRunfiles(
-      RuleContext context,
-      FeatureConfiguration featureConfiguration,
+  private static Runfiles collectRunfiles(RuleContext context,
       CcLinkingOutputs ccLinkingOutputs,
       CcToolchainProvider ccToolchain,
-      boolean neverLink,
-      boolean addDynamicRuntimeInputArtifactsToRunfiles,
+      boolean neverLink, boolean addDynamicRuntimeInputArtifactsToRunfiles,
       boolean linkingStatically) {
     Runfiles.Builder builder = new Runfiles.Builder(
         context.getWorkspaceName(), context.getConfiguration().legacyExternalRunfiles());
@@ -86,7 +83,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     builder.addDataDeps(context);
 
     if (addDynamicRuntimeInputArtifactsToRunfiles) {
-      builder.addTransitiveArtifacts(ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+      builder.addTransitiveArtifacts(ccToolchain.getDynamicRuntimeLinkInputs());
     }
     return builder.build();
   }
@@ -317,24 +314,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
-    Runfiles staticRunfiles =
-        collectRunfiles(
-            ruleContext,
-            featureConfiguration,
-            linkingOutputs,
-            ccToolchain,
-            neverLink,
-            addDynamicRuntimeInputArtifactsToRunfiles,
-            true);
-    Runfiles sharedRunfiles =
-        collectRunfiles(
-            ruleContext,
-            featureConfiguration,
-            linkingOutputs,
-            ccToolchain,
-            neverLink,
-            addDynamicRuntimeInputArtifactsToRunfiles,
-            false);
+    Runfiles staticRunfiles = collectRunfiles(ruleContext, linkingOutputs, ccToolchain,
+        neverLink, addDynamicRuntimeInputArtifactsToRunfiles, true);
+    Runfiles sharedRunfiles = collectRunfiles(ruleContext, linkingOutputs, ccToolchain,
+        neverLink, addDynamicRuntimeInputArtifactsToRunfiles, false);
 
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(compilationInfo.getCcCompilationOutputs().getObjectFiles(false));

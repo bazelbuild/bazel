@@ -408,8 +408,6 @@ public final class CppToolchainInfo {
                 linkerToolPath,
                 arToolPath,
                 stripToolPath,
-                // This should be toolchain-based, rather than feature based, because
-                // it controls whether or not to declare the feature at all.
                 toolchain.getSupportsEmbeddedRuntimes(),
                 toolchain.getSupportsInterfaceSharedObjects()),
             toolchainBuilder);

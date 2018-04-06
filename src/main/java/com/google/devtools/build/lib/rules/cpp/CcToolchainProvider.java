@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
@@ -340,51 +339,31 @@ public final class CcToolchainProvider extends ToolchainInfo {
   }
 
   /**
-   * Returns true if the featureConfiguration includes statically linking the cpp runtimes.
-   *
-   * @param featureConfiguration the relevant FeatureConfiguration.
+   * Returns the static runtime libraries.
    */
-  public boolean shouldStaticallyLinkCppRuntimes(FeatureConfiguration featureConfiguration) {
-    return featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
+  public NestedSet<Artifact> getStaticRuntimeLinkInputs() {
+    return staticRuntimeLinkInputs;
   }
 
-  /** Returns the static runtime libraries. */
-  public NestedSet<Artifact> getStaticRuntimeLinkInputs(FeatureConfiguration featureConfiguration) {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      return staticRuntimeLinkInputs;
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
+  /**
+   * Returns an aggregating middleman that represents the static runtime libraries.
+   */
+  @Nullable public Artifact getStaticRuntimeLinkMiddleman() {
+    return staticRuntimeLinkMiddleman;
   }
 
-  /** Returns an aggregating middleman that represents the static runtime libraries. */
-  @Nullable
-  public Artifact getStaticRuntimeLinkMiddleman(FeatureConfiguration featureConfiguration) {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      return staticRuntimeLinkMiddleman;
-    } else {
-      return null;
-    }
+  /**
+   * Returns the dynamic runtime libraries.
+   */
+  public NestedSet<Artifact> getDynamicRuntimeLinkInputs() {
+    return dynamicRuntimeLinkInputs;
   }
 
-  /** Returns the dynamic runtime libraries. */
-  public NestedSet<Artifact> getDynamicRuntimeLinkInputs(
-      FeatureConfiguration featureConfiguration) {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      return dynamicRuntimeLinkInputs;
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
-  /** Returns an aggregating middleman that represents the dynamic runtime libraries. */
-  @Nullable
-  public Artifact getDynamicRuntimeLinkMiddleman(FeatureConfiguration featureConfiguration) {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      return dynamicRuntimeLinkMiddleman;
-    } else {
-      return null;
-    }
+  /**
+   * Returns an aggregating middleman that represents the dynamic runtime libraries.
+   */
+  @Nullable public Artifact getDynamicRuntimeLinkMiddleman() {
+    return dynamicRuntimeLinkMiddleman;
   }
 
   /**
