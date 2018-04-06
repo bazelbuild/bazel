@@ -943,6 +943,38 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("b", "with_params(1, true, false, true, false, a)");
   }
 
+  /**
+   * This test verifies an error is raised when a method parameter is set both positionally and
+   * by name.
+   */
+  @Test
+  public void testArgSpecifiedBothByNameAndPosition() throws Exception {
+    // in with_params, 'posOrNamed' is positional parameter index 2. So by specifying both
+    // posOrNamed by name and three positional parameters, there is a conflict.
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfErrorContains("got multiple values for keyword argument 'posOrNamed'",
+            "mock.with_params(1, True, True, posOrNamed=True, named=True)");
+  }
+
+  @Test
+  public void testTooManyPositionalArgs() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfErrorContains("expected no more than 3 positional arguments, but got 4",
+            "mock.with_params(1, True, True, 'toomany', named=True)");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfErrorContains("expected no more than 3 positional arguments, but got 5",
+            "mock.with_params(1, True, True, 'toomany', 'alsotoomany', named=True)");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testIfErrorContains("expected no more than 1 positional arguments, but got 2",
+            "mock.is_empty('a', 'b')");
+  }
+
   @Test
   public void testJavaCallWithPositionalAndKwargs() throws Exception {
     new SkylarkTest()

@@ -667,7 +667,8 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
     newTest().testIfExactError(
-        "too many arguments, in method call keys(string) of 'dict'", "{'a': 1}.keys('abc')");
+        "expected no more than 0 positional arguments, but got 1, "
+            + "in method call keys(string) of 'dict'", "{'a': 1}.keys('abc')");
   }
 
   @Test
