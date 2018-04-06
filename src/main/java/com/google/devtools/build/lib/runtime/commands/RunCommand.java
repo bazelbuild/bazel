@@ -465,6 +465,11 @@ public class RunCommand implements BlazeCommand  {
           settings.getRunfilesDir().relativeTo(env.getExecRoot()),
           relativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
       workingDir = env.getExecRoot();
+
+      if (!prepareTestEnvironment(env, testAction)) {
+        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+      }
+
       try {
         cmdLine.addAll(TestStrategy.getArgs(testAction));
         cmdLine.addAll(commandLineArgs);
@@ -512,6 +517,16 @@ public class RunCommand implements BlazeCommand  {
     }
 
     return BlazeCommandResult.execute(execDescription.build());
+  }
+
+  private boolean prepareTestEnvironment(CommandEnvironment env, TestRunnerAction action) {
+    try {
+      action.prepare(env.getRuntime().getFileSystem(), env.getExecRoot());
+      return true;
+    } catch (IOException e) {
+      env.getReporter().handle(Event.error("Error while setting up test: " + e.getMessage()));
+      return false;
+    }
   }
 
   /**
