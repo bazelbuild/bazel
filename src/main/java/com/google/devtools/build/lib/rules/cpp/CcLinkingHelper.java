@@ -880,8 +880,8 @@ public final class CcLinkingHelper {
             .addLinkopts(sonameLinkopts)
             .setRuntimeInputs(
                 ArtifactCategory.DYNAMIC_LIBRARY,
-                ccToolchain.getDynamicRuntimeLinkMiddleman(featureConfiguration),
-                ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration))
+                ccToolchain.getDynamicRuntimeLinkMiddleman(),
+                ccToolchain.getDynamicRuntimeLinkInputs())
             .addVariablesExtensions(variablesExtensions);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {

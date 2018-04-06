@@ -95,7 +95,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
   private static Runfiles collectRunfiles(
       RuleContext context,
-      FeatureConfiguration featureConfiguration,
       CcToolchainProvider toolchain,
       CcLinkingOutputs linkingOutputs,
       CcLinkingOutputs ccLibraryLinkingOutputs,
@@ -118,7 +117,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder.add(context, runfilesMapping);
     // Add the C++ runtime libraries if linking them dynamically.
     if (linkStaticness == LinkStaticness.DYNAMIC) {
-      builder.addTransitiveArtifacts(toolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+      builder.addTransitiveArtifacts(toolchain.getDynamicRuntimeLinkInputs());
     }
     if (linkCompileOutputSeparately) {
       builder.addArtifacts(
@@ -300,17 +299,17 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (linkStaticness == LinkStaticness.DYNAMIC) {
       linkActionBuilder.setRuntimeInputs(
           ArtifactCategory.DYNAMIC_LIBRARY,
-          ccToolchain.getDynamicRuntimeLinkMiddleman(featureConfiguration),
-          ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+          ccToolchain.getDynamicRuntimeLinkMiddleman(),
+          ccToolchain.getDynamicRuntimeLinkInputs());
     } else {
       linkActionBuilder.setRuntimeInputs(
           ArtifactCategory.STATIC_LIBRARY,
-          ccToolchain.getStaticRuntimeLinkMiddleman(featureConfiguration),
-          ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
+          ccToolchain.getStaticRuntimeLinkMiddleman(),
+          ccToolchain.getStaticRuntimeLinkInputs());
       // Only force a static link of libgcc if static runtime linking is enabled (which
       // can't be true if runtimeInputs is empty).
       // TODO(bazel-team): Move this to CcToolchain.
-      if (!ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration).isEmpty()) {
+      if (!ccToolchain.getStaticRuntimeLinkInputs().isEmpty()) {
         linkActionBuilder.addLinkopt("-static-libgcc");
       }
     }
@@ -467,7 +466,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Runfiles runfiles =
         collectRunfiles(
             ruleContext,
-            featureConfiguration,
             ccToolchain,
             linkingOutputs,
             ccLinkingOutputs,

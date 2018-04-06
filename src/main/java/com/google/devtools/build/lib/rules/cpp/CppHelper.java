@@ -358,11 +358,10 @@ public class CppHelper {
       CppConfiguration config,
       CcToolchainProvider toolchain,
       Iterable<String> features,
-      boolean sharedLib,
-      boolean shouldStaticallyLinkCppRuntimes) {
+      Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          shouldStaticallyLinkCppRuntimes
+          toolchain.supportsEmbeddedRuntimes()
               ? toolchain.getMostlyStaticSharedLinkFlags(
                   config.getCompilationMode(), config.getLipoMode())
               : toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
@@ -514,38 +513,6 @@ public class CppHelper {
   public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
       RuleContext ruleContext) {
     return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
-  }
-
-  /**
-   * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
-   * for non C++ rules that link against the C++ runtime.
-   */
-  public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) {
-    CcToolchainProvider defaultToolchain =
-        getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
-    if (defaultToolchain == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(ruleContext, defaultToolchain);
-    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
-  }
-
-  /**
-   * Convenience function for finding the static runtime inputs for the current toolchain. Useful
-   * for non C++ rules that link against the C++ runtime.
-   */
-  public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) {
-    CcToolchainProvider defaultToolchain =
-        getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
-    if (defaultToolchain == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(ruleContext, defaultToolchain);
-    return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
   }
 
   /**
