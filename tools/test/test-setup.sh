@@ -24,7 +24,7 @@ if [[ "$1" = "--no_echo" ]]; then
   no_echo="true"
   shift
 else
-  echo 'exec ${PAGER:-/usr/bin/less1} "$0" || exit 1'
+  echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
   echo "Executing tests from ${TEST_TARGET}"
 fi
 
