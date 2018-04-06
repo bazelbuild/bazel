@@ -197,9 +197,6 @@ java_test(
     data = [
         "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:test_data",
     ],
-    jvm_flags = [
-        "-Dtestdatadir=io_bazel/src/test/java/com/google/devtools/build/android/testing/manifestmerge",
-    ],
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
