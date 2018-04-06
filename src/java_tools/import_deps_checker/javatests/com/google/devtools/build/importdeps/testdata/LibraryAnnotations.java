@@ -23,17 +23,24 @@ public class LibraryAnnotations {
   /** A library annotation for testing. */
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.TYPE)
-  public @interface ClassAnnotation {}
+  public @interface ClassAnnotation {
+    Class<?>[] friends() default {};
+    SuppressWarnings nested() default @SuppressWarnings("raw");
+  }
 
   /** A library annotation for testing. */
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.METHOD)
-  public @interface MethodAnnotation {}
+  public @interface MethodAnnotation {
+    String name();
+  }
 
   /** A library annotation for testing. */
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.FIELD)
-  public @interface FieldAnnotation {}
+  public @interface FieldAnnotation {
+    int[] value() default {};
+  }
 
   /** A library annotation for testing. */
   @Retention(RetentionPolicy.RUNTIME)
@@ -43,7 +50,9 @@ public class LibraryAnnotations {
   /** A library annotation for testing. */
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.PARAMETER)
-  public @interface ParameterAnnotation {}
+  public @interface ParameterAnnotation {
+    byte position() default -1;
+  }
 
   /** A library annotation for testing. */
   @Retention(RetentionPolicy.RUNTIME)
@@ -53,5 +62,12 @@ public class LibraryAnnotations {
   /** A library annotation for testing. */
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.ANNOTATION_TYPE)
-  public @interface AnnotationAnnotation {}
+  public @interface AnnotationAnnotation {
+    AnnotationFlag value();
+  }
+
+  /** An enum used in annotations for testing */
+  public enum AnnotationFlag {
+    N, Y
+  }
 }
