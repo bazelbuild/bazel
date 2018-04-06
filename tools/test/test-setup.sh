@@ -25,6 +25,7 @@ if [[ "$1" = "--no_echo" ]]; then
   shift
 else
   echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
+  echo "Executing tests from ${TEST_TARGET}"
 fi
 
 function is_absolute {

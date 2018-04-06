@@ -461,6 +461,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   public void setupEnvVariables(Map<String, String> env, Duration timeout) {
+    env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
     env.put("TEST_TIMEOUT", Long.toString(timeout.getSeconds()));
     env.put("TEST_WORKSPACE", getRunfilesPrefix());
