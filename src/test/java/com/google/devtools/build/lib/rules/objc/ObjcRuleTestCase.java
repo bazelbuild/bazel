@@ -737,14 +737,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     Artifact protoHeaderC = getBinArtifact("_generated_protos/x/protos/DataC.pbobjc.h", topTarget);
     Artifact protoHeaderD = getBinArtifact("_generated_protos/x/protos/DataD.pbobjc.h", topTarget);
 
-    Artifact protoObjectA =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
-    Artifact protoObjectB =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataB.pbobjc.o", topTarget);
-    Artifact protoObjectC =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataC.pbobjc.o", topTarget);
-    Artifact protoObjectD =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataD.pbobjc.o", topTarget);
+    Artifact protoObjectA = getBinArtifact("_objs/x/non_arc/DataA.pbobjc.o", topTarget);
+    Artifact protoObjectB = getBinArtifact("_objs/x/non_arc/DataB.pbobjc.o", topTarget);
+    Artifact protoObjectC = getBinArtifact("_objs/x/non_arc/DataC.pbobjc.o", topTarget);
+    Artifact protoObjectD = getBinArtifact("_objs/x/non_arc/DataD.pbobjc.o", topTarget);
 
     CommandAction protoObjectActionA = (CommandAction) getGeneratingAction(protoObjectA);
     CommandAction protoObjectActionB = (CommandAction) getGeneratingAction(protoObjectB);
@@ -770,8 +766,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private void assertCoptsAndDefinesNotPropagatedToProtos(ConfiguredTarget topTarget)
       throws Exception {
-    Artifact protoObject =
-        getBinArtifact("_objs/x/x/_generated_protos/x/protos/DataA.pbobjc.o", topTarget);
+    Artifact protoObject = getBinArtifact("_objs/x/non_arc/DataA.pbobjc.o", topTarget);
     CommandAction protoObjectAction = (CommandAction) getGeneratingAction(protoObject);
     assertThat(protoObjectAction).isNotNull();
     assertThat(protoObjectAction.getArguments())

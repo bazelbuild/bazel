@@ -119,7 +119,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(compileA.getPossibleInputsForTesting()))
         .containsAllOf("objc/a.m", "objc/hdr.h", "objc/private.h");
     assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
-        .containsExactly("objc/_objs/x/objc/a.o", "objc/_objs/x/objc/a.d");
+        .containsExactly("objc/_objs/x/arc/a.o", "objc/_objs/x/arc/a.d");
   }
 
   @Test

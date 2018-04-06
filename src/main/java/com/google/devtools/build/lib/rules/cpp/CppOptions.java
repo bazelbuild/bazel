@@ -385,7 +385,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
     name = "experimental_shortened_obj_file_path",
-    defaultValue = "false",
+    defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
     help =
