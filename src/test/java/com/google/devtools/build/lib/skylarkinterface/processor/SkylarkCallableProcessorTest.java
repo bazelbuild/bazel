@@ -179,4 +179,45 @@ public final class SkylarkCallableProcessorTest {
             "Parameter 'a_parameter' has both 'type' and 'allowedTypes' specified."
                 + " Only one may be specified.");
   }
+
+  @Test
+  public void testParamNeitherNamedNorPositional() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ParamNeitherNamedNorPositional.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter 'a_parameter' must be either positional or named");
+  }
+
+  @Test
+  public void testNonDefaultParamAfterDefault() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("NonDefaultParamAfterDefault.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Positional parameter 'two' has no default value but is specified "
+                + "after one or more positional parameters with default values");
+  }
+
+  @Test
+  public void testPositionalParamAfterNonPositional() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("PositionalParamAfterNonPositional.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Positional parameter 'two' is specified after one or more non-positonal parameters");
+  }
+
+  @Test
+  public void testPositionalOnlyParamAfterNamed() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("PositionalOnlyParamAfterNamed.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Positional-only parameter 'two' is specified after one or more named parameters");
+  }
 }

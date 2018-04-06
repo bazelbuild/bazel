@@ -80,6 +80,7 @@ public @interface Param {
 
   /**
    * If true, this parameter can be passed the "None" value in addition to whatever types it allows.
+   * If false, this parameter cannot be passed "None", no matter the types it allows.
    */
   boolean noneable() default false;
 

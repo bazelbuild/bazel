@@ -460,9 +460,9 @@ public final class FuncallExpression extends Expression {
   }
 
   private static SkylarkType getType(Param param) {
+    SkylarkType result = SkylarkType.BOTTOM;
     if (param.allowedTypes().length > 0) {
       Preconditions.checkState(Object.class.equals(param.type()));
-      SkylarkType result = SkylarkType.BOTTOM;
       for (ParamType paramType : param.allowedTypes()) {
         SkylarkType t =
             paramType.generic1() != Object.class
@@ -470,14 +470,17 @@ public final class FuncallExpression extends Expression {
                 : SkylarkType.of(paramType.type());
         result = SkylarkType.Union.of(result, t);
       }
-      return result;
     } else {
-      SkylarkType type =
+      result =
           param.generic1() != Object.class
               ? SkylarkType.of(param.type(), param.generic1())
               : SkylarkType.of(param.type());
-      return type;
     }
+
+    if (param.noneable()) {
+      result = SkylarkType.Union.of(result, SkylarkType.NONE);
+    }
+    return result;
   }
 
   /**
@@ -509,74 +512,84 @@ public final class FuncallExpression extends Expression {
     if (mandatoryPositionals > args.size()) {
       return ArgumentListConversionResult.fromError("too few arguments");
     }
-    if (args.size() > mandatoryPositionals + callable.parameters().length) {
-      return ArgumentListConversionResult.fromError("too many arguments");
-    }
+
     // First process the legacy positional parameters.
-    int i = 0;
+    int argIndex = 0;
     if (mandatoryPositionals > 0) {
       for (Class<?> param : javaMethodSignatureParams) {
-        Object value = args.get(i);
+        Object value = args.get(argIndex);
         if (!param.isAssignableFrom(value.getClass())) {
           return ArgumentListConversionResult.fromError(
               String.format(
                   "Cannot convert parameter at position %d from type %s to type %s",
-                  i, EvalUtils.getDataTypeName(value), param.toString()));
+                  argIndex, EvalUtils.getDataTypeName(value), param.toString()));
         }
         builder.add(value);
-        i++;
-        if (i >= mandatoryPositionals) {
+        argIndex++;
+        if (argIndex >= mandatoryPositionals) {
           // Stops for specified parameters instead.
           break;
         }
       }
     }
 
-    // Then the parameters specified in callable.parameters()
+    // Then process parameters specified in callable.parameters()
     Set<String> keys = new LinkedHashSet<>(kwargs.keySet());
+    int paramIndex = mandatoryPositionals;
+    // Positional parameters are always enumerated before non-positional parameters,
+    // And default-valued positional parameters are always enumerated after other positional
+    // parameters. These invariants are validated by the SkylarkCallable annotation processor.
     for (Param param : callable.parameters()) {
       SkylarkType type = getType(param);
-      if (param.noneable()) {
-        type = SkylarkType.Union.of(type, SkylarkType.NONE);
-      }
       Object value = null;
-      if (i < args.size()) {
-        value = args.get(i);
+
+      if (argIndex < args.size()) { // Positional arguments remain.
+        value = args.get(argIndex);
         if (!param.positional()) {
           return ArgumentListConversionResult.fromError(
-              String.format("Parameter '%s' is not positional", param.name()));
-        } else if (!type.contains(value)) {
-          return ArgumentListConversionResult.fromError(
-              String.format(
-                  "expected value of type '%s' for parameter '%s'",
-                  type.toString(), param.name()));
+              String.format("expected no more than %s positional arguments, but got %s",
+                  paramIndex, args.size()));
         }
-        i++;
-      } else if (param.named() && keys.remove(param.name())) {
-        // Named parameters
-        value = kwargs.get(param.name());
         if (!type.contains(value)) {
           return ArgumentListConversionResult.fromError(
               String.format(
                   "expected value of type '%s' for parameter '%s'",
                   type.toString(), param.name()));
         }
-      } else {
-        // Use default value
-        if (param.defaultValue().isEmpty()) {
+        if (param.named() && keys.contains(param.name())) {
           return ArgumentListConversionResult.fromError(
-              String.format("parameter '%s' has no default value", param.name()));
+              String.format("got multiple values for keyword argument '%s'", param.name()));
         }
-        value = SkylarkSignatureProcessor.getDefaultValue(param, null);
+        argIndex++;
+      } else { // No more positional arguments.
+        if (param.named() && keys.remove(param.name())) { // Param specified by keyword argument.
+          value = kwargs.get(param.name());
+          if (!type.contains(value)) {
+            return ArgumentListConversionResult.fromError(
+                String.format(
+                    "expected value of type '%s' for parameter '%s'",
+                    type.toString(), param.name()));
+          }
+        } else { // Param not specified by user. Use default value.
+          if (param.defaultValue().isEmpty()) {
+            return ArgumentListConversionResult.fromError(
+                String.format("parameter '%s' has no default value", param.name()));
+          }
+          value = SkylarkSignatureProcessor.getDefaultValue(param, null);
+        }
       }
-      builder.add(value);
       if (!param.noneable() && value instanceof NoneType) {
         return ArgumentListConversionResult.fromError(
             String.format("parameter '%s' cannot be None", param.name()));
       }
+      builder.add(value);
+      paramIndex++;
     }
-    if (i < args.size()) {
-      return ArgumentListConversionResult.fromError("too many arguments");
+
+    if (argIndex < args.size()) {
+      return ArgumentListConversionResult.fromError(
+          String.format("expected no more than %s positional arguments, but got %s",
+              paramIndex, args.size()));
     }
     if (!keys.isEmpty()) {
       return ArgumentListConversionResult.fromError(

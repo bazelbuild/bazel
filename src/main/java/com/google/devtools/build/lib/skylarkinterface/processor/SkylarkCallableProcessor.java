@@ -52,9 +52,14 @@ import javax.tools.Diagnostic;
  *   Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes',
  *   not both.
  * </li>
+ * <li>Each parameter must be positional or named (or both).</li>
+ * <li>Positional-only parameters must be specified before any named parameters.</li>
+ * <li>Positional parameters must be specified before any non-positional parameters.</li>
  * <li>
- *   Either the doc string is non-empty, or documented is false.
+ *   Positional parameters without default values must be specified before any
+ *   positional parameters with default values.
  * </li>
+ * <li>Either the doc string is non-empty, or documented is false.</li>
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
@@ -131,7 +136,17 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
 
   private void verifyParamSemantics(ExecutableElement methodElement, SkylarkCallable annotation)
       throws SkylarkCallableProcessorException {
+    boolean allowPositionalNext = true;
+    boolean allowPositionalOnlyNext = true;
+    boolean allowNonDefaultPositionalNext = true;
+
     for (Param parameter : annotation.parameters()) {
+      if ((!parameter.positional()) && (!parameter.named())) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format("Parameter '%s' must be either positional or named",
+                parameter.name()));
+      }
       if ("None".equals(parameter.defaultValue()) && !parameter.noneable()) {
         throw new SkylarkCallableProcessorException(
             methodElement,
@@ -147,6 +162,45 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
             String.format("Parameter '%s' has both 'type' and 'allowedTypes' specified. Only"
                 + " one may be specified.",
             parameter.name()));
+      }
+
+      if (parameter.positional()) {
+        if (!allowPositionalNext) {
+          throw new SkylarkCallableProcessorException(
+              methodElement,
+              String.format(
+                  "Positional parameter '%s' is specified after one or more "
+                      + "non-positonal parameters",
+                  parameter.name()));
+        }
+        if (!parameter.named() && !allowPositionalOnlyNext) {
+          throw new SkylarkCallableProcessorException(
+              methodElement,
+              String.format(
+                  "Positional-only parameter '%s' is specified after one or more "
+                      + "named parameters",
+                  parameter.name()));
+        }
+        if (parameter.defaultValue().isEmpty()) { // There is no default value.
+          if (!allowNonDefaultPositionalNext) {
+            throw new SkylarkCallableProcessorException(
+                methodElement,
+                String.format(
+                    "Positional parameter '%s' has no default value but is specified after one "
+                        + "or more positional parameters with default values",
+                    parameter.name()));
+          }
+        } else { // There is a default value.
+          // No positional parameters without a default value can come after this parameter.
+          allowNonDefaultPositionalNext = false;
+        }
+      } else { // Not positional.
+        // No positional parameters can come after this parameter.
+        allowPositionalNext = false;
+      }
+      if (parameter.named()) {
+        // No positional-only parameters can come after this parameter.
+        allowPositionalOnlyNext = false;
       }
     }
   }

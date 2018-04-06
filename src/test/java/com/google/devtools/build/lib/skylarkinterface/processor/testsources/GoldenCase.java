@@ -126,4 +126,30 @@ public class GoldenCase {
       SkylarkSemantics skylarkSemantics) {
     return "baz";
   }
+
+  @SkylarkCallable(
+      name = "many_arg_method_mixing_positional_and_named",
+      documented = false,
+      parameters = {
+          @Param(name = "one", type = String.class, positional = true, named = false),
+          @Param(name = "two", type = String.class, positional = true, named = true),
+          @Param(name = "three", type = String.class, positional = true, named = true,
+              defaultValue = "three"),
+          @Param(name = "four", type = String.class, positional = false, named = true),
+          @Param(name = "five", type = String.class, positional = false, named = true,
+              defaultValue = "five"),
+          @Param(name = "six", type = String.class, positional = false, named = true),
+      },
+      useLocation = true
+  )
+  public String manyArgMethodMixingPositoinalAndNamed(
+      String one,
+      String two,
+      String three,
+      String four,
+      String five,
+      String six,
+      Location location) {
+    return "baz";
+  }
 }
