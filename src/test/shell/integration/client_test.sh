@@ -93,17 +93,17 @@ function test_output_base() {
 
 function test_output_base_is_file() {
   bazel --output_base=/dev/null &>$TEST_log && fail "Expected non-zero exit"
-  expect_log "Error: Output base directory '/dev/null' could not be created.*exists"
+  expect_log "FATAL: Output base directory '/dev/null' could not be created.*exists"
 }
 
 function test_cannot_create_output_base() {
   bazel --output_base=/foo &>$TEST_log && fail "Expected non-zero exit"
-  expect_log "Error: Output base directory '/foo' could not be created"
+  expect_log "FATAL: Output base directory '/foo' could not be created"
 }
 
 function test_nonwritable_output_base() {
   bazel --output_base=/ &>$TEST_log && fail "Expected non-zero exit"
-  expect_log "Output base directory '/' must be readable and writable."
+  expect_log "FATAL: Output base directory '/' must be readable and writable."
 }
 
 function test_no_arguments() {
@@ -124,7 +124,7 @@ function test_dashdash_before_command() {
   bazel -- info &>$TEST_log && "Expected failure"
   exitcode=$?
   assert_equals 2 $exitcode
-  expect_log "Unknown startup option: '--'."
+  expect_log "\\[bazel FATAL .*\\] Unknown startup option: '--'."
 }
 
 function test_dashdash_after_command() {

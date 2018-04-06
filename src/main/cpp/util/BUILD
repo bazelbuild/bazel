@@ -64,7 +64,7 @@ cc_library(
 
 cc_library(
     name = "errors",
-    srcs = ["errors.cc"] + select({
+    srcs = select({
         "//src/conditions:windows": ["errors_windows.cc"],
         "//conditions:default": ["errors_posix.cc"],
     }),

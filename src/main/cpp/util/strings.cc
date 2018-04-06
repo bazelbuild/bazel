@@ -300,6 +300,10 @@ unique_ptr<char[]> WstringToCstring(const wchar_t *input) {
   return UstringToVstring<wchar_t, char>(input, wcstombs, "%ls");
 }
 
+std::string WstringToString(const std::wstring &input) {
+  return string(WstringToCstring(input.c_str()).get());
+}
+
 unique_ptr<wchar_t[]> CstringToWstring(const char *input) {
   return UstringToVstring<char, wchar_t>(input, mbstowcs, "%s");
 }

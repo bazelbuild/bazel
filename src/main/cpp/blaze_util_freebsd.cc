@@ -38,7 +38,6 @@
 
 namespace blaze {
 
-using blaze_util::die;
 using blaze_util::GetLastErrorString;
 using std::string;
 
@@ -79,14 +78,14 @@ string GetSelfPath() {
   auto p = procstat_getprocs(procstat, KERN_PROC_PID, pid, &n);
   if (p) {
     if (n != 1) {
-      die(blaze_exit_code::INTERNAL_ERROR,
-          "expected exactly one process from procstat_getprocs, got %d: %s", n,
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "expected exactly one process from procstat_getprocs, got " << n
+          << ": " << GetLastErrorString();
     }
     auto r = procstat_getpathname(procstat, p, buffer, PATH_MAX);
     if (r != 0) {
-      die(blaze_exit_code::INTERNAL_ERROR, "procstat_getpathname failed: %s",
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "procstat_getpathname failed: " << GetLastErrorString();
     }
     procstat_freeprocs(procstat, p);
   }
@@ -118,9 +117,9 @@ string GetProcessCWD(int pid) {
   string cwd;
   if (p) {
     if (n != 1) {
-      die(blaze_exit_code::INTERNAL_ERROR,
-          "expected exactly one process from procstat_getprocs, got %d: %s", n,
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "expected exactly one process from procstat_getprocs, got " << n
+          << ": " << GetLastErrorString();
     }
     auto files = procstat_getfiles(procstat, p, false);
     filestat *entry;

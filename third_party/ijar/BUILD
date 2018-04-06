@@ -31,6 +31,8 @@ cc_library(
         "//src:windows": [
             "//src/main/cpp/util:errors",
             "//src/main/cpp/util:file",
+            "//src/main/cpp/util:logging",
+            "//src/main/cpp/util:strings",
         ],
         "//conditions:default": [
         ],
@@ -58,6 +60,7 @@ cc_library(
     deps = [
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:file",
+        "//src/main/cpp/util:logging",
     ],
 )
 

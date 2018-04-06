@@ -30,8 +30,6 @@
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
-using blaze_util::die;
-
 namespace blaze {
 
 using std::string;
@@ -75,8 +73,9 @@ bool GetNullaryOption(const char *arg, const char *key) {
   if (value == NULL) {
     return false;
   } else if (value[0] == '=') {
-    die(blaze_exit_code::BAD_ARGV,
-        "In argument '%s': option '%s' does not take a value.", arg, key);
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "In argument '" << arg << "': option '" << key
+        << "' does not take a value.";
   } else if (value[0]) {
     return false;  // trailing garbage in key name
   }

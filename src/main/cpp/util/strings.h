@@ -110,6 +110,7 @@ std::string AsLower(const std::string &str);
 // Convert a wchar_t string to a char string. Useful when consuming results of
 // widechar Windows API functions.
 std::unique_ptr<char[]> WstringToCstring(const wchar_t *input);
+std::string WstringToString(const std::wstring &input);
 
 // Convert a char string to a wchar_t string. Useful when passing arguments to
 // widechar Windows API functions.

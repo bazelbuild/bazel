@@ -19,12 +19,15 @@
 
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/strings.h"
 #include "third_party/ijar/mapped_file.h"
 
 #define MAX_ERROR 2048
 
 namespace devtools_ijar {
 
+using std::string;
 using std::wstring;
 
 static char errmsg[MAX_ERROR] = "";
@@ -46,36 +49,37 @@ MappedInputFile::MappedInputFile(const char* name) {
 
   wstring wname;
   if (!blaze_util::AsAbsoluteWindowsPath(name, &wname)) {
-    blaze_util::die(255,
-                    "MappedInputFile(%s): AsAbsoluteWindowsPath failed: %s",
-                    name, blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedInputFile(" << name
+                   << "): AsAbsoluteWindowsPath failed: "
+                   << blaze_util::GetLastErrorString();
   }
   HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
                             OPEN_EXISTING, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
-    blaze_util::die(255, "MappedInputFile(%s): CreateFileW(%S) failed: %s",
-                    name, wname.c_str(),
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedInputFile(" << name << "): CreateFileW("
+                   << blaze_util::WstringToString(wname)
+                   << ") failed: " << blaze_util::GetLastErrorString();
   }
 
   LARGE_INTEGER size;
   if (!GetFileSizeEx(file, &size)) {
-    blaze_util::die(255, "MappedInputFile(%s): GetFileSizeEx failed: %s", name,
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedInputFile(" << name << "): GetFileSizeEx failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READONLY,
       size.HighPart, size.LowPart, NULL);
   if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
-    blaze_util::die(255, "MappedInputFile(%s): CreateFileMapping failed: %s",
-                    name),
-        blaze_util::GetLastErrorString().c_str();
+    BAZEL_DIE(255) << "MappedInputFile(" << name
+                   << "): CreateFileMapping failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   void *view = MapViewOfFileEx(mapping, FILE_MAP_READ, 0, 0, 0, NULL);
   if (view == NULL) {
-    blaze_util::die(255, "MappedInputFile(%s): MapViewOfFileEx failed: %s",
-                    name, blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedInputFile(" << name
+                   << "): MapViewOfFileEx failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   impl_ = new MappedInputFileImpl(file, mapping);
@@ -96,20 +100,18 @@ void MappedInputFile::Discard(size_t bytes) {
 
 int MappedInputFile::Close() {
   if (!UnmapViewOfFile(buffer_)) {
-    blaze_util::die(255, "MappedInputFile::Close: UnmapViewOfFile failed: %s",
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedInputFile::Close: UnmapViewOfFile failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   if (!CloseHandle(impl_->mapping_)) {
-    blaze_util::die(
-        255, "MappedInputFile::Close: CloseHandle for mapping failed: %s",
-        blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedInputFile::Close: CloseHandle for mapping failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   if (!CloseHandle(impl_->file_)) {
-    blaze_util::die(255,
-                    "MappedInputFile::Close: CloseHandle for file failed: %s",
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedInputFile::Close: CloseHandle for file failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   return 0;
@@ -132,29 +134,30 @@ MappedOutputFile::MappedOutputFile(const char* name, size_t estimated_size) {
 
   wstring wname;
   if (!blaze_util::AsAbsoluteWindowsPath(name, &wname)) {
-    blaze_util::die(255,
-                    "MappedOutputFile(%s): AsAbsoluteWindowsPath failed: %s",
-                    name, blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedOutputFile(" << name
+                   << "): AsAbsoluteWindowsPath failed: "
+                   << blaze_util::GetLastErrorString();
   }
   HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
                             NULL, CREATE_ALWAYS, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
-    blaze_util::die(255, "MappedOutputFile(%s): CreateFileW(%S) failed: %s",
-                    name, wname.c_str(),
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedOutputFile(" << name << "): CreateFileW("
+                   << blaze_util::WstringToString(wname)
+                   << ") failed: " << blaze_util::GetLastErrorString();
   }
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READWRITE,
       estimated_size >> 32, estimated_size & 0xffffffffUL, NULL);
   if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
-    blaze_util::die(255, "MappedOutputFile(%s): CreateFileMapping failed: %s",
-                    name);
+    BAZEL_DIE(255) << "MappedOutputFile(" << name
+                   << "): CreateFileMapping failed: ";
   }
 
   void *view = MapViewOfFileEx(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 0, NULL);
   if (view == NULL) {
-    blaze_util::die(255, "MappedOutputFile(%s): MapViewOfFileEx failed: %s",
-                    name, blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedOutputFile(" << name
+                   << "): MapViewOfFileEx failed: "
+                   << blaze_util::GetLastErrorString();
     CloseHandle(mapping);
     CloseHandle(file);
     return;
@@ -171,30 +174,29 @@ MappedOutputFile::~MappedOutputFile() {
 
 int MappedOutputFile::Close(size_t size) {
   if (!UnmapViewOfFile(buffer_)) {
-    blaze_util::die(255, "MappedOutputFile::Close: UnmapViewOfFile failed: %s",
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedOutputFile::Close: UnmapViewOfFile failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   if (!CloseHandle(impl_->mapping_)) {
-    blaze_util::die(
-        255, "MappedOutputFile::Close: CloseHandle for mapping failed: %s",
-        blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255)
+        << "MappedOutputFile::Close: CloseHandle for mapping failed: "
+        << blaze_util::GetLastErrorString();
   }
 
   if (!SetFilePointer(impl_->file_, size, NULL, FILE_BEGIN)) {
-    blaze_util::die(255, "MappedOutputFile::Close: SetFilePointer failed: %s",
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedOutputFile::Close: SetFilePointer failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   if (!SetEndOfFile(impl_->file_)) {
-    blaze_util::die(255, "MappedOutputFile::Close: SetEndOfFile failed: %s",
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedOutputFile::Close: SetEndOfFile failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   if (!CloseHandle(impl_->file_)) {
-    blaze_util::die(255,
-                    "MappedOutputFile::Close: CloseHandle for file failed: %s",
-                    blaze_util::GetLastErrorString().c_str());
+    BAZEL_DIE(255) << "MappedOutputFile::Close: CloseHandle for file failed: "
+                   << blaze_util::GetLastErrorString();
   }
 
   return 0;
