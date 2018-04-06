@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -113,7 +113,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
             .addKeyValuePair(
                 "bash_bin_path",
                 ruleContext
-                    .getFragment(BazelConfiguration.class)
+                    .getFragment(ShellConfiguration.class)
                     .getShellExecutable()
                     .getPathString())
             .build();
@@ -153,7 +153,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
                 Substitution.of(
                     "%bash_exe_path%",
                     ruleContext
-                        .getFragment(BazelConfiguration.class)
+                        .getFragment(ShellConfiguration.class)
                         .getShellExecutable()
                         .getPathString())),
             true));

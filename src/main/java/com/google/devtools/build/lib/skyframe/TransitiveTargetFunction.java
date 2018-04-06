@@ -218,8 +218,10 @@ public class TransitiveTargetFunction
       addFragmentsIfNew(builder, getFragmentsFromRequiredOptions(rule));
 
       // Fragments to unconditionally include:
-      addFragmentIfNew(builder,
-          ruleClassProvider.getUniversalFragment().asSubclass(BuildConfiguration.Fragment.class));
+      for (Class<? extends BuildConfiguration.Fragment> universalFragment :
+          ruleClassProvider.getUniversalFragments()) {
+        addFragmentIfNew(builder, universalFragment);
+      }
     }
 
     return builder.build(errorLoadingTarget);

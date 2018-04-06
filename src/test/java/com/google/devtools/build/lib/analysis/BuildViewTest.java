@@ -1241,7 +1241,7 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult res = update("//foo:x");
     ConfiguredTarget topLevelTarget = Iterables.getOnlyElement(res.getTargetsToBuild());
     assertThat(getConfiguration(topLevelTarget).getFragmentsMap().keySet())
-        .containsExactly(ruleClassProvider.getUniversalFragment());
+        .containsExactlyElementsIn(ruleClassProvider.getUniversalFragments());
   }
 
   /**

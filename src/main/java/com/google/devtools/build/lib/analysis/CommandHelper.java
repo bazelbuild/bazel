@@ -306,6 +306,7 @@ public final class CommandHelper {
   private PathFragment shellPath(Map<String, String> executionInfo) {
     // Use vanilla /bin/bash for actions running on mac machines.
     return executionInfo.containsKey(ExecutionRequirements.REQUIRES_DARWIN)
-        ? PathFragment.create("/bin/bash") : ruleContext.getConfiguration().getShellExecutable();
+        ? PathFragment.create("/bin/bash")
+        : ruleContext.getConfiguration().getFragment(ShellConfiguration.class).getShellExecutable();
   }
 }

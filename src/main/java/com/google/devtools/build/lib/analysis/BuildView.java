@@ -1270,7 +1270,7 @@ public class BuildView {
             getPrerequisiteMapForTesting(
                 eventHandler, configuredTarget, configurations, toolchainContext))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
-        .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+        .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContext(toolchainContext)
         .build();
   }
