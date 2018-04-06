@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,13 +62,11 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.ConfigsMode;
@@ -137,10 +134,8 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -161,7 +156,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -1404,32 +1398,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         }));
   }
 
-  protected String readContentAsLatin1String(Artifact artifact) throws IOException {
-    return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
-  }
-
-  /**
-   * Asserts that the predecessor closure of the given Artifact contains the same elements as those
-   * in expectedPredecessors, plus the given common predecessors.  Only looks at predecessors of
-   * the given file type.
-   */
-  public void assertPredecessorClosureSameContents(
-      Artifact artifact, FileType fType, Iterable<String> common, String... expectedPredecessors) {
-    assertSameContentsWithCommonElements(
-        actionsTestUtil().predecessorClosureAsCollection(artifact, fType),
-        expectedPredecessors, common);
-  }
-
-  /**
-   * Utility method for asserting that the contents of one collection are the
-   * same as those in a second plus some set of common elements.
-   */
-  protected void assertSameContentsWithCommonElements(Iterable<Artifact> artifacts,
-      Iterable<String> common, String... expectedInputs) {
-    assertThat(Iterables.concat(Lists.newArrayList(expectedInputs), common))
-        .containsExactlyElementsIn(ActionsTestUtil.prettyArtifactNames(artifacts));
-  }
-
   /**
    * Utility method for asserting that the contents of one collection are the
    * same as those in a second plus some set of common elements.
@@ -1718,12 +1686,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return result;
   }
 
-  protected String getErrorMsgSingleFile(String attrName, String ruleType, String ruleName,
-      String depRuleName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": '"
-        + depRuleName + "' must produce a single file";
-  }
-
   protected String getErrorMsgNoGoodFiles(String attrName, String ruleType, String ruleName,
       String depRuleName) {
     return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": '"
@@ -1990,38 +1952,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return label.replace(':', '/').substring(1);
   }
 
-  protected Map<String, String> getSymlinkTreeManifest(Artifact outputManifest) throws Exception {
-    SymlinkTreeAction symlinkTreeAction = (SymlinkTreeAction) getGeneratingAction(outputManifest);
-    Artifact inputManifest = Iterables.getOnlyElement(symlinkTreeAction.getInputs());
-    SourceManifestAction inputManifestAction =
-        (SourceManifestAction) getGeneratingAction(inputManifest);
-    // Ask the manifest to write itself to a byte array so that we can read its contents.
-    ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    inputManifestAction.writeOutputFile(stream, reporter);
-    String contents = stream.toString();
-
-    // Get the file names from the manifest output.
-    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-    for (String line : Splitter.on('\n').split(contents)) {
-      int space = line.indexOf(' ');
-      if (space < 0) {
-        continue;
-      }
-      result.put(line.substring(0, space), line.substring(space + 1));
-    }
-
-    return result.build();
-  }
-
   protected Artifact getImplicitOutputArtifact(
       ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
-    return getImplicitOutputArtifact(
-        target, getConfiguration(target), getConfiguration(target), outputFunction);
+    return getImplicitOutputArtifact(target, getConfiguration(target), outputFunction);
   }
 
   protected final Artifact getImplicitOutputArtifact(
       ConfiguredTarget target,
-      BuildConfiguration targetConfiguration,
       BuildConfiguration configuration,
       SafeImplicitOutputsFunction outputFunction) {
     Rule rule;

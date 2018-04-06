@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -78,39 +77,8 @@ public class ProtoCompileActionBuilder {
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
 
-  /** Build a proto compiler commandline argument for use in setXParameter methods. */
-  public static String buildProtoArg(String arg, String value, Iterable<String> flags) {
-    return String.format(
-        "--%s=%s%s", arg, (isEmpty(flags) ? "" : Joiner.on(',').join(flags) + ":"), value);
-  }
-
-  public ProtoCompileActionBuilder setRuleContext(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setSupportData(SupportData supportData) {
-    this.supportData = supportData;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setLanguage(String language) {
-    this.language = language;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setLangPrefix(String langPrefix) {
-    this.langPrefix = langPrefix;
-    return this;
-  }
-
   public ProtoCompileActionBuilder allowServices(boolean hasServices) {
     this.hasServices = hasServices;
-    return this;
-  }
-
-  public ProtoCompileActionBuilder setOutputs(Iterable<Artifact> outputs) {
-    this.outputs = outputs;
     return this;
   }
 
@@ -350,9 +318,6 @@ public class ProtoCompileActionBuilder {
 
     return result;
   }
-
-  @VisibleForTesting
-  static class ProtoCommandLineArgv {}
 
   /** Signifies that a prerequisite could not be satisfied. */
   private static class MissingPrerequisiteException extends Exception {}

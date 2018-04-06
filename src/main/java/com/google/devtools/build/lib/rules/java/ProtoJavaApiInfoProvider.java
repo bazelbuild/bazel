@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An object that provides information about API versions used by a proto library. */
@@ -49,7 +47,6 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
       JavaCompilationArgs transitiveProtoRuntime1,
       JavaCompilationArgs transitiveProtoRuntimeMutable,
       JavaCompilationArgs transitiveProtoRuntimeImmutable,
-      Map<Artifact, Artifact> compileTimeJarToRuntimeJar,
       boolean hasMixedApiVersions,
       int apiVersion,
       boolean supportsProto1,
@@ -78,8 +75,7 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
         apiVersion,
         supportsProto1,
         supportsProto2Mutable,
-        hasProto1OnlyDependency,
-        ImmutableMap.copyOf(compileTimeJarToRuntimeJar));
+        hasProto1OnlyDependency);
   }
 
   /**
@@ -193,12 +189,4 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
    */
   public abstract boolean hasProto1OnlyDependency();
 
-  /**
-   * Returns the runtime jar artifact output created by this proto_libary rule.
-   */
-  public Artifact getRuntimeJarFor(Artifact compileTimeJar) {
-    return getCompileTimeJarToRuntimeJar().get(compileTimeJar);
-  }
-
-  abstract ImmutableMap<Artifact, Artifact> getCompileTimeJarToRuntimeJar();
 }
