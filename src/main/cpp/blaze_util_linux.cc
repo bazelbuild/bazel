@@ -37,7 +37,6 @@
 
 namespace blaze {
 
-using blaze_util::die;
 using blaze_util::GetLastErrorString;
 using std::string;
 using std::vector;
@@ -89,8 +88,8 @@ string GetSelfPath() {
     errno = ENAMETOOLONG;
   }
   if (bytes == -1) {
-    die(blaze_exit_code::INTERNAL_ERROR, "error reading /proc/self/exe: %s",
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "error reading /proc/self/exe: " << GetLastErrorString();
   }
   buffer[bytes] = '\0';  // readlink does not NUL-terminate
   return string(buffer);
@@ -113,9 +112,8 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
     sched_param param = {};
     param.sched_priority = 0;
     if (sched_setscheduler(0, SCHED_BATCH, &param)) {
-      die(blaze_exit_code::INTERNAL_ERROR,
-          "sched_setscheduler(SCHED_BATCH) failed: %s",
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "sched_setscheduler(SCHED_BATCH) failed: " << GetLastErrorString();
     }
   }
 
@@ -123,9 +121,9 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
     if (blaze_util::sys_ioprio_set(
             IOPRIO_WHO_PROCESS, getpid(),
             IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, io_nice_level)) < 0) {
-      die(blaze_exit_code::INTERNAL_ERROR,
-          "ioprio_set() with class %d and level %d failed: %s", IOPRIO_CLASS_BE,
-          io_nice_level, GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "ioprio_set() with class " << IOPRIO_CLASS_BE << " and level "
+          << io_nice_level << " failed: " << GetLastErrorString();
     }
   }
 }
@@ -148,8 +146,8 @@ bool IsSharedLibrary(const string &filename) {
 static string Which(const string &executable) {
   string path(GetEnv("PATH"));
   if (path.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Could not get PATH to find %s", executable.c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Could not get PATH to find " << executable;
   }
 
   vector<string> pieces = blaze_util::Split(path, ':');
@@ -179,14 +177,15 @@ string GetDefaultHostJavabase() {
   // which javac
   string javac_dir = Which("javac");
   if (javac_dir.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Could not find javac");
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Could not find javac";
   }
 
   // Resolve all symlinks.
   char resolved_path[PATH_MAX];
   if (realpath(javac_dir.c_str(), resolved_path) == NULL) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Could not resolve javac directory: %s", GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Could not resolve javac directory: " << GetLastErrorString();
   }
   javac_dir = resolved_path;
 
@@ -205,9 +204,9 @@ static bool GetStartTime(const string& pid, string* start_time) {
 
   vector<string> stat_entries = blaze_util::Split(statline, ' ');
   if (stat_entries.size() < 22) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Format of stat file at %s is unknown: %s", statfile.c_str(),
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Format of stat file at " << statfile
+        << " is unknown: " << GetLastErrorString();
   }
 
   // Start time since startup in jiffies. This combined with the PID should be
@@ -222,16 +221,16 @@ void WriteSystemSpecificProcessIdentifier(
 
   string start_time;
   if (!GetStartTime(pid_string, &start_time)) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Cannot get start time of process %s: %s", pid_string.c_str(),
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Cannot get start time of process " << pid_string << ": "
+        << GetLastErrorString();
   }
 
   string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
   if (!blaze_util::WriteFile(start_time, start_time_file)) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Cannot write start time in server dir %s: %s", server_dir.c_str(),
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Cannot write start time in server dir " << server_dir << ": "
+        << GetLastErrorString();
   }
 }
 

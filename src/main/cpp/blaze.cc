@@ -70,7 +70,6 @@
 
 #include "src/main/protobuf/command_server.grpc.pb.h"
 
-using blaze_util::die;
 using blaze_util::GetLastErrorString;
 
 namespace blaze {
@@ -279,8 +278,8 @@ class NoteAllFilesZipProcessor : public PureZipExtractorProcessor {
 
   void Process(const char *filename, const devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data, const size_t size) override {
-    die(blaze_exit_code::INTERNAL_ERROR,
-        "NoteAllFilesZipProcessor::Process shouldn't be called");
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "NoteAllFilesZipProcessor::Process shouldn't be called";
   }
  private:
   std::vector<std::string>* files_;
@@ -339,10 +338,10 @@ class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
     string str(reinterpret_cast<const char *>(data), size);
     blaze_util::StripWhitespace(&str);
     if (str.size() != 32) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "\nFailed to extract install_base_key: file size mismatch "
-          "(should be 32, is %zd)",
-          str.size());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Failed to extract install_base_key: file size mismatch "
+             "(should be 32, is "
+          << str.size() << ")";
     }
     *install_base_key_ = str;
   }
@@ -362,18 +361,18 @@ static void ComputeInstallMd5AndNoteAllFiles(const string &self_path) {
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
   if (extractor.get() == NULL) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Failed to open %s as a zip file: %s",
-        globals->options->product_name.c_str(), GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to open " << globals->options->product_name
+        << " as a zip file: " << GetLastErrorString();
   }
   if (extractor->ProcessAll() < 0) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Failed to extract install_base_key: %s", extractor->GetError());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to extract install_base_key: " << extractor->GetError();
   }
 
   if (globals->install_md5.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Failed to find install_base_key's in zip file");
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to find install_base_key's in zip file";
   }
 }
 
@@ -426,7 +425,7 @@ static vector<string> GetArgumentArray(
       globals->options->AddJVMArguments(globals->options->GetHostJavabase(),
                                         &result, user_options, &error);
   if (jvm_args_exit_code != blaze_exit_code::SUCCESS) {
-    die(jvm_args_exit_code, "%s", error.c_str());
+    BAZEL_DIE(jvm_args_exit_code) << error;
   }
 
   // We put all directories on java.library.path that contain .so/.dll files.
@@ -640,9 +639,9 @@ static string GetArgumentString(const vector<string> &argument_array) {
 static void GoToWorkspace(const WorkspaceLayout *workspace_layout) {
   if (workspace_layout->InWorkspace(globals->workspace) &&
       !blaze_util::ChangeDirectory(globals->workspace)) {
-    die(blaze_exit_code::INTERNAL_ERROR,
-        "changing directory into %s failed: %s", globals->workspace.c_str(),
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "changing directory into " << globals->workspace
+        << " failed: " << GetLastErrorString();
   }
 }
 
@@ -723,23 +722,23 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
   string exe =
       globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
   ExecuteProgram(exe, jvm_args_vector);
-  die(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed: %s", exe.c_str(),
-      GetLastErrorString().c_str());
+  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "execv of '" << exe << "' failed: " << GetLastErrorString();
 }
 
 static void WriteFileToStderrOrDie(const char *file_name) {
   FILE *fp = fopen(file_name, "r");
   if (fp == NULL) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "opening %s failed: %s",
-        file_name, GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "opening " << file_name << " failed: " << GetLastErrorString();
   }
   char buffer[255];
   int num_read;
   while ((num_read = fread(buffer, 1, sizeof buffer, fp)) > 0) {
     if (ferror(fp)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "failed to read from '%s': %s", file_name,
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "failed to read from '" << file_name
+          << "': " << GetLastErrorString();
     }
     fwrite(buffer, 1, num_read, stderr);
   }
@@ -777,9 +776,9 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   // The server dir has the socket, so we don't allow access by other
   // users.
   if (!blaze_util::MakeDirectories(server_dir, 0700)) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "server directory '%s' could not be created: %s", server_dir.c_str(),
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "server directory '" << server_dir
+        << "' could not be created: " << GetLastErrorString();
   }
 
   // If we couldn't connect to the server check if there is still a PID file
@@ -848,8 +847,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
       exit(blaze_exit_code::INTERNAL_ERROR);
     }
   }
-  die(blaze_exit_code::INTERNAL_ERROR,
-      "couldn't connect to server (%d) after 120 seconds.", server_pid);
+  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "couldn't connect to server (" << server_pid << ") after 120 seconds.";
 }
 
 // A PureZipExtractorProcessor to extract the files from the blaze zip.
@@ -871,14 +870,14 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
                const devtools_ijar::u1 *data, const size_t size) override {
     string path = blaze_util::JoinPath(embedded_binaries_, filename);
     if (!blaze_util::MakeDirectories(blaze_util::Dirname(path), 0777)) {
-      die(blaze_exit_code::INTERNAL_ERROR, "couldn't create '%s': %s",
-          path.c_str(), GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "couldn't create '" << path << "': " << GetLastErrorString();
     }
 
     if (!blaze_util::WriteFile(data, size, path, 0755)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Failed to write zipped file \"%s\": %s", path.c_str(),
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Failed to write zipped file '" << path
+          << "': " << GetLastErrorString();
     }
   }
 
@@ -896,8 +895,9 @@ static void ActuallyExtractData(const string &argv0,
   CompoundZipProcessor processor({&extract_blaze_processor,
                                   &install_key_processor});
   if (!blaze_util::MakeDirectories(embedded_binaries, 0777)) {
-    die(blaze_exit_code::INTERNAL_ERROR, "couldn't create '%s': %s",
-        embedded_binaries.c_str(), GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "couldn't create '" << embedded_binaries
+        << "': " << GetLastErrorString();
   }
 
   BAZEL_LOG(USER) << "Extracting " << globals->options->product_name
@@ -906,27 +906,25 @@ static void ActuallyExtractData(const string &argv0,
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(argv0.c_str(), &processor));
   if (extractor.get() == NULL) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Failed to open %s as a zip file: %s",
-        globals->options->product_name.c_str(), GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to open " << globals->options->product_name
+        << " as a zip file: " << GetLastErrorString();
   }
   if (extractor->ProcessAll() < 0) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Failed to extract %s as a zip file: %s",
-        globals->options->product_name.c_str(), extractor->GetError());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to extract " << globals->options->product_name
+        << " as a zip file: " << extractor->GetError();
   }
 
   if (install_md5 != globals->install_md5) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "The %s binary at %s was replaced during the client's self-extraction "
-        "(old md5: %s new md5: %s). If you expected this then you should "
-        "simply re-run %s in order to pick up the different version. If you "
-        "didn't expect this then you should investigate what happened.",
-        globals->options->product_name.c_str(),
-        argv0.c_str(),
-        globals->install_md5.c_str(),
-        install_md5.c_str(),
-        globals->options->product_name.c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "The " << globals->options->product_name << " binary at " << argv0
+        << " was replaced during the client's self-extraction (old md5: "
+        << globals->install_md5 << " new md5: " << install_md5
+        << "). If you expected this then you should simply re-run "
+        << globals->options->product_name
+        << " in order to pick up the different version. If you didn't expect "
+           "this then you should investigate what happened.";
   }
 
   // Set the timestamps of the extracted files to the future and make sure (or
@@ -951,9 +949,9 @@ static void ActuallyExtractData(const string &argv0,
     // changed. This is essential for the correctness of actions that use
     // embedded binaries as artifacts.
     if (!mtime.get()->SetToDistantFuture(it)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "failed to set timestamp on '%s': %s", extracted_path,
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "failed to set timestamp on '" << extracted_path
+          << "': " << GetLastErrorString();
     }
 
     blaze_util::SyncFile(it);
@@ -1023,17 +1021,15 @@ static void ExtractData(const string &self_path) {
 
     // Give up renaming after 120 failed attempts / 2 minutes.
     if (attempts == 120) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "install base directory '%s' could not be renamed into place: "
-          "%s",
-          tmp_install.c_str(), GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "install base directory '" << tmp_install
+          << "' could not be renamed into place: " << GetLastErrorString();
     }
   } else {
     if (!blaze_util::IsDirectory(globals->options->install_base)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Install base directory '%s' could not be created. "
-          "It exists but is not a directory.",
-          globals->options->install_base.c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Install base directory '" << globals->options->install_base
+          << "' could not be created. It exists but is not a directory.";
     }
 
     std::unique_ptr<blaze_util::IFileMtime> mtime(
@@ -1047,26 +1043,26 @@ static void ExtractData(const string &self_path) {
         continue;
       }
       if (!blaze_util::CanReadFile(path)) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "corrupt installation: file '%s' missing."
-            " Please remove '%s' and try again.",
-            path.c_str(), globals->options->install_base.c_str());
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+            << "corrupt installation: file '" << path
+            << "' missing. Please remove '" << globals->options->install_base
+            << "' and try again.";
       }
       // Check that the timestamp is in the future. A past timestamp would
       // indicate that the file has been tampered with.
       // See ActuallyExtractData().
       bool is_in_future = false;
       if (!mtime.get()->GetIfInDistantFuture(path, &is_in_future)) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "Error: could not retrieve mtime of file '%s'. "
-            "Please remove '%s' and try again.",
-            path.c_str(), globals->options->install_base.c_str());
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+            << "Error: could not retrieve mtime of file '" << path
+            << "'. Please remove '" << globals->options->install_base
+            << "' and try again.";
       }
       if (!is_in_future) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "Error: corrupt installation: file '%s' "
-            "modified.  Please remove '%s' and try again.",
-            path.c_str(), globals->options->install_base.c_str());
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+            << "Error: corrupt installation: file '" << path
+            << "' modified.  Please remove '" << globals->options->install_base
+            << "' and try again.";
       }
     }
   }
@@ -1179,9 +1175,9 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
     blaze_util::UnlinkPath(installation_path);
     if (!SymlinkDirectories(globals->options->install_base,
                             installation_path)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "failed to create installation symlink '%s': %s",
-          installation_path.c_str(), GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "failed to create installation symlink '" << installation_path
+          << "': " << GetLastErrorString();
     }
 
     // Update the mtime of the install base so that cleanup tools can
@@ -1189,9 +1185,9 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
     if (!mtime.get()->SetToNow(globals->options->install_base)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "failed to set timestamp on '%s': %s",
-          globals->options->install_base.c_str(), GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "failed to set timestamp on '" << globals->options->install_base
+          << "': " << GetLastErrorString();
     }
   }
 }
@@ -1256,7 +1252,7 @@ static void ParseOptions(int argc, const char *argv[]) {
 
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
     globals->option_processor->PrintStartupOptionsProvenanceMessage();
-    die(parse_exit_code, "%s", error.c_str());
+    BAZEL_DIE(parse_exit_code) << error;
   }
   globals->options = globals->option_processor->GetParsedStartupOptions();
 }
@@ -1265,9 +1261,9 @@ static void ParseOptions(int argc, const char *argv[]) {
 static void ComputeWorkspace(const WorkspaceLayout *workspace_layout) {
   globals->cwd = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
   if (globals->cwd.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "blaze_util::MakeCanonical('%s') failed: %s",
-        blaze_util::GetCwd().c_str(), GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "blaze_util::MakeCanonical('" << blaze_util::GetCwd()
+        << "') failed: " << GetLastErrorString();
   }
   globals->workspace = workspace_layout->GetWorkspace(globals->cwd);
 }
@@ -1307,30 +1303,29 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
   const char *output_base = globals->options->output_base.c_str();
   if (!blaze_util::PathExists(globals->options->output_base)) {
     if (!blaze_util::MakeDirectories(globals->options->output_base, 0777)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Output base directory '%s' could not be created: %s", output_base,
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Output base directory '" << output_base
+          << "' could not be created: " << GetLastErrorString();
     }
   } else {
     if (!blaze_util::IsDirectory(globals->options->output_base)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "Output base directory '%s' could not be created. "
-          "It exists but is not a directory.",
-          output_base);
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Output base directory '" << output_base
+          << "' could not be created. It exists but is not a directory.";
     }
   }
   if (!blaze_util::CanAccessDirectory(globals->options->output_base)) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Output base directory '%s' must be readable and writable.",
-        output_base);
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Output base directory '" << output_base
+        << "' must be readable and writable.";
   }
   ExcludePathFromBackup(output_base);
 
   globals->options->output_base = blaze_util::MakeCanonical(output_base);
   if (globals->options->output_base.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "blaze_util::MakeCanonical('%s') failed: %s", output_base,
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "blaze_util::MakeCanonical('" << output_base
+        << "') failed: " << GetLastErrorString();
   }
 
   globals->lockfile =
@@ -1507,8 +1502,8 @@ GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
 
   pipe_ = blaze_util::CreatePipe();
   if (pipe_ == NULL) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Couldn't create pipe: %s",
-        GetLastErrorString().c_str());
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Couldn't create pipe: " << GetLastErrorString();
   }
 }
 
@@ -1637,9 +1632,8 @@ void GrpcBlazeServer::CancelThread() {
     if (bytes_read < 0 && error == blaze_util::IPipe::INTERRUPTED) {
       continue;
     } else if (bytes_read != 1) {
-      die(blaze_exit_code::INTERNAL_ERROR,
-          "Cannot communicate with cancel thread: %s",
-          GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "Cannot communicate with cancel thread: " << GetLastErrorString();
     }
 
     switch (buf) {
@@ -1866,9 +1860,9 @@ unsigned int GrpcBlazeServer::Communicate() {
     }
 
     if (!blaze_util::ChangeDirectory(request.working_directory())) {
-      die(blaze_exit_code::INTERNAL_ERROR,
-          "changing directory into %s failed: %s",
-          request.working_directory().c_str(), GetLastErrorString().c_str());
+      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+          << "changing directory into " << request.working_directory()
+          << " failed: " << GetLastErrorString();
     }
     ExecuteProgram(request.argv(0), argv);
   }
