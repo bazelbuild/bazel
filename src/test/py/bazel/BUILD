@@ -10,6 +10,7 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel_with_jdk"],
+    data = ["//src/tools/remote:worker"],
 )
 
 py_library(
@@ -76,6 +77,23 @@ py_test(
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
+    name = "windows_remote_test",
+    size = "medium",
+    srcs = select({
+        "//src/conditions:windows": ["windows_remote_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "windows_remote_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
