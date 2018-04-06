@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -56,11 +54,8 @@ import javax.annotation.Nullable;
       "Immutable store of information needed for C++ compilation that is aggregated across "
           + "dependencies."
 )
-public final class CcCompilationContextInfo extends NativeInfo {
-  public static final NativeProvider<CcCompilationContextInfo> PROVIDER =
-      new NativeProvider<CcCompilationContextInfo>(
-          CcCompilationContextInfo.class, "CcCompilationContextInfo") {};
-
+// TODO(b/77669139): Rename to CcCompilationContext.
+public final class CcCompilationContextInfo {
   /** An empty {@code CcCompilationContextInfo}. */
   public static final CcCompilationContextInfo EMPTY = new Builder(null).build();
 
@@ -107,7 +102,6 @@ public final class CcCompilationContextInfo extends NativeInfo {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
-    super(PROVIDER);
     Preconditions.checkNotNull(commandLineCcCompilationContextInfo);
     this.commandLineCcCompilationContextInfo = commandLineCcCompilationContextInfo;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -274,8 +268,8 @@ public final class CcCompilationContextInfo extends NativeInfo {
     return new CcCompilationContextInfo(
         ccCompilationContextInfo.commandLineCcCompilationContextInfo,
         ccCompilationContextInfo.compilationPrerequisites,
-        NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         ccCompilationContextInfo.declaredIncludeSrcs,
         ccCompilationContextInfo.pregreppedHdrs,
         ccCompilationContextInfo.nonCodeInputs,

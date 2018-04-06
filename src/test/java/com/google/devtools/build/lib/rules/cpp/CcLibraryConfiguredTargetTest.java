@@ -90,13 +90,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   private CppModuleMapAction getCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    CppModuleMap cppModuleMap = target.get(CcCompilationContextInfo.PROVIDER).getCppModuleMap();
+    CppModuleMap cppModuleMap =
+        target.get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo().getCppModuleMap();
     return (CppModuleMapAction) getGeneratingAction(cppModuleMap.getArtifact());
   }
 
   private void assertNoCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    assertThat(target.get(CcCompilationContextInfo.PROVIDER).getCppModuleMap()).isNull();
+    assertThat(
+            target.get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo().getCppModuleMap())
+        .isNull();
   }
 
   @Test
@@ -104,7 +107,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget l = scratchConfiguredTarget("a", "l",
         "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
         "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
-    assertThat(l.get(CcCompilationContextInfo.PROVIDER).getDefines()).contains("V=BAR");
+    assertThat(l.get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo().getDefines())
+        .contains("V=BAR");
   }
 
   @Test

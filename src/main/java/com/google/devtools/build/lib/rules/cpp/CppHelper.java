@@ -120,13 +120,16 @@ public class CppHelper {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
-        CcCompilationContextInfo provider = stl.get(CcCompilationContextInfo.PROVIDER);
-        if (provider == null) {
-          ruleContext.ruleError("Unable to merge the STL '" + stl.getLabel()
-              + "' and toolchain contexts");
+        CcCompilationInfo ccCompilationInfo = stl.get(CcCompilationInfo.PROVIDER);
+        CcCompilationContextInfo ccCompilationContextInfo =
+            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContextInfo() : null;
+        if (ccCompilationContextInfo == null) {
+          ruleContext.ruleError(
+              "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
           return;
         }
-        ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfo(provider);
+        ccCompilationContextInfoBuilder.mergeDependentCcCompilationContextInfo(
+            ccCompilationContextInfo);
       }
     }
     if (toolchain != null) {
