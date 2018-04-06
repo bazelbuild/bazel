@@ -64,7 +64,8 @@ public abstract class AbstractClassCacheTest {
                       "ConstructorAnnotation",
                       "ParameterAnnotation",
                       "TypeAnnotation",
-                      "AnnotationAnnotation")
+                      "AnnotationAnnotation",
+                      "AnnotationFlag")
                   .map(name -> "LibraryAnnotations$" + name)
                   .collect(ImmutableList.toImmutableList()))
           .build()
