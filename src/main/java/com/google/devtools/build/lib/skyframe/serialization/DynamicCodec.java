@@ -123,7 +123,12 @@ public class DynamicCodec implements ObjectCodec<Object> {
         serializeField(context, codedOut, arr, type.getComponentType(), base + scale * i);
       }
     } else {
-      context.serialize(UnsafeProvider.getInstance().getObject(obj, offset), codedOut);
+      try {
+        context.serialize(UnsafeProvider.getInstance().getObject(obj, offset), codedOut);
+      } catch (SerializationException.NoCodecException e) {
+        e.addTrail(this.type);
+        throw e;
+      }
     }
   }
 
