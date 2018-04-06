@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -183,7 +184,8 @@ public abstract class TestStrategy implements TestActionContext {
       // the --run_under parameter and getCommand only returns the first such token.
       boolean needsShell = !command.contains("/");
       if (needsShell) {
-        args.add(testAction.getConfiguration().getShellExecutable().getPathString());
+        args.add(testAction.getConfiguration().getFragment(ShellConfiguration.class)
+            .getShellExecutable().getPathString());
         args.add("-c");
         args.add("\"$@\"");
         args.add("/bin/sh"); // Sets $0.

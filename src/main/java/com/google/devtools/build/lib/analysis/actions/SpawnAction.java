@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -678,8 +679,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         AnalysisEnvironment analysisEnvironment,
         BuildConfiguration configuration,
         List<Action> paramFileActions) {
-      ImmutableList<String> executableArgs =
-          buildExecutableArgs(configuration.getShellExecutable());
+      ImmutableList<String> executableArgs = buildExecutableArgs(
+          configuration.getFragment(ShellConfiguration.class).getShellExecutable());
       boolean hasConditionalParamFile =
           commandLines.stream().anyMatch(c -> c.paramFileInfo != null && !c.paramFileInfo.always());
       boolean spillToParamFiles = false;

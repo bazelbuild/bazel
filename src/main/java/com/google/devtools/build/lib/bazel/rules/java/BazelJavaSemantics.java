@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -405,13 +405,13 @@ public class BazelJavaSemantics implements JavaSemantics {
                   Substitution.of(
                       "%bash_exe_path%",
                       ruleContext
-                          .getFragment(BazelConfiguration.class)
+                          .getFragment(ShellConfiguration.class)
                           .getShellExecutable()
                           .getPathString()),
                   Substitution.of(
                       "%cygpath_exe_path%",
                       ruleContext
-                          .getFragment(BazelConfiguration.class)
+                          .getFragment(ShellConfiguration.class)
                           .getShellExecutable()
                           .replaceName("cygpath.exe")
                           .getPathString())),

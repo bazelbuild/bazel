@@ -165,16 +165,6 @@ public class BuildConfiguration {
     }
 
     /**
-     * Returns the shell to be used.
-     *
-     * <p>Each configuration instance must have at most one fragment that returns non-null.
-     */
-    @SuppressWarnings("unused")
-    public PathFragment getShellExecutable() {
-      return null;
-    }
-
-    /**
      * Returns { 'option name': 'alternative default' } entries for options where the
      * "real default" should be something besides the default specified in the {@link Option}
      * declaration.
@@ -1115,9 +1105,6 @@ public class BuildConfiguration {
   // is mutable, so a cached value there could fall out of date when it's updated.
   private final boolean actionsEnabled;
 
-  // TODO(bazel-team): Move this to a configuration fragment.
-  private final PathFragment shellExecutable;
-
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
    * this configuration.
@@ -1334,8 +1321,6 @@ public class BuildConfiguration {
     this.middlemanDirectoryForMainRepository =
         OutputDirectory.MIDDLEMAN.getRoot(
             RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
-
-    this.shellExecutable = computeShellExecutable();
 
     this.actionEnv = setupActionEnvironment();
 
@@ -1642,13 +1627,6 @@ public class BuildConfiguration {
   }
 
   /**
-   * Returns the path to sh.
-   */
-  public PathFragment getShellExecutable() {
-    return shellExecutable;
-  }
-
-  /**
    * Returns a regex-based instrumentation filter instance that used to match label
    * names to identify targets to be instrumented in the coverage mode.
    */
@@ -1927,22 +1905,6 @@ public class BuildConfiguration {
 
   public boolean enableWindowsExeLauncher() {
     return options.windowsExeLauncher;
-  }
-
-  /**
-   * Collects executables defined by fragments.
-   */
-  private PathFragment computeShellExecutable() {
-    PathFragment result = null;
-
-    for (Fragment fragment : fragments.values()) {
-      if (fragment.getShellExecutable() != null) {
-        Verify.verify(result == null);
-        result = fragment.getShellExecutable();
-      }
-    }
-
-    return result;
   }
 
   /**
