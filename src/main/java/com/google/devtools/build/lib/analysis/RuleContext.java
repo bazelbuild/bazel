@@ -759,7 +759,7 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the a prerequisites keyed by the CPU of their configurations. If the split transition
+   * Returns the prerequisites keyed by the CPU of their configurations. If the split transition
    * is not active (e.g. split() returned an empty list), the key is an empty Optional.
    */
   public Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
