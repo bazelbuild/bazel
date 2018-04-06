@@ -163,9 +163,17 @@ public class ArtifactFactory implements ArtifactResolver {
         rootRelativePath.isAbsolute() == root.getRoot().isAbsolute(), rootRelativePath);
     Preconditions.checkArgument(!rootRelativePath.containsUplevelReferences(), rootRelativePath);
     Preconditions.checkArgument(
-        root.getRoot().asPath().startsWith(execRootParent), "%s %s", root, execRootParent);
+        root.getRoot().asPath().startsWith(execRootParent),
+        "%s %s %s",
+        root.getRoot(),
+        execRootParent,
+        root);
     Preconditions.checkArgument(
-        !root.getRoot().asPath().equals(execRootParent), "%s %s", root, execRootParent);
+        !root.getRoot().asPath().equals(execRootParent),
+        "%s %s %s",
+        root.getRoot(),
+        execRootParent,
+        root);
     // TODO(bazel-team): this should only accept roots from derivedRoots.
     //Preconditions.checkArgument(derivedRoots.contains(root), "%s not in %s", root, derivedRoots);
   }
