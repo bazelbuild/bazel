@@ -1440,7 +1440,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
                 a.getConfiguration(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(compileAction).isNotNull();
 
@@ -1448,7 +1447,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         getGeneratingSpawnAction(
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
-                a.getConfiguration(),
                 a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
@@ -1459,11 +1457,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
                 a.getConfiguration(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
             getImplicitOutputArtifact(
                 b.getConfiguredTarget(),
-                b.getConfiguration(),
                 a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
@@ -1471,11 +1467,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
                 a.getConfiguration(),
-                a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT),
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
-                a.getConfiguration(),
                 a.getConfiguration(),
                 AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR));
   }

@@ -20,7 +20,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -328,13 +327,6 @@ public final class RuleContext extends TargetContext
    */
   public BuildConfiguration getHostConfiguration() {
     return hostConfiguration;
-  }
-
-  /**
-   * Attributes from aspects.
-   */
-  public ImmutableMap<String, Attribute> getAspectAttributes() {
-    return attributes.getAspectAttributes();
   }
 
   /**
@@ -1508,15 +1500,6 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /**
-     * Sets a map that indicates which providers should be exported to skylark under the key
-     * (map key).  These provider types will also be exportable by skylark rules under (map key).
-     */
-    Builder setSkylarkProvidersRegistry(
-        ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry) {
-      return this;
-    }
-
     /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
     Builder setToolchainContext(ToolchainContext toolchainContext) {
       this.toolchainContext = toolchainContext;
@@ -1645,10 +1628,6 @@ public final class RuleContext extends TargetContext
       reporter.attributeError(attrName, message);
     }
 
-    public void reportWarning(Location location, String message) {
-      reporter.reportWarning(location, message);
-    }
-
     @Override
     public void ruleWarning(String message) {
       reporter.ruleWarning(message);
@@ -1682,7 +1661,6 @@ public final class RuleContext extends TargetContext
 
     private String badPrerequisiteMessage(
         ConfiguredTargetAndData prerequisite, String reason, boolean isWarning) {
-      String targetKind = prerequisite.getTarget().getTargetKind();
       String msgReason = reason != null ? " (" + reason + ")" : "";
       if (isWarning) {
         return String.format(

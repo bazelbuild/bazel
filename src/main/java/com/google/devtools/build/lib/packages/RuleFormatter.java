@@ -65,7 +65,7 @@ public class RuleFormatter {
         // true), and the attribute has a ComputedDefault value, then we must serialize what it
         // evaluates to. The Skylark-defined ComputedDefault function won't be available after
         // deserialization due to Skylark's non-serializability.
-        valueToSerialize = evaluateSkylarkComputedDefault(rule, rawAttributeMapper, attr);
+        valueToSerialize = evaluateSkylarkComputedDefault(rawAttributeMapper, attr);
         if (valueToSerialize == null) {
           continue;
         }
@@ -106,7 +106,7 @@ public class RuleFormatter {
    */
   @Nullable
   private static Object evaluateSkylarkComputedDefault(
-      Rule rule, RawAttributeMapper rawAttributeMapper, Attribute attr) {
+      RawAttributeMapper rawAttributeMapper, Attribute attr) {
     if (SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES.contains(attr.getName())) {
       return rawAttributeMapper.get(attr.getName(), attr.getType());
     }
