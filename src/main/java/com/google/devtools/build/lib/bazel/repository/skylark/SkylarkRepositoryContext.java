@@ -760,4 +760,20 @@ public class SkylarkRepositoryContext {
     return new SkylarkPath(rootedPath.asPath());
   }
 
+  /**
+   * Try to compute the paths of all attibutes that are labels.
+   *
+   * <p>The value is ignored, but any missing information from the environment is detected (and an
+   * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
+   * potentially more expensive operations.
+   */
+  public void enforceLabelAttributes() throws EvalException, InterruptedException {
+    Info attr = getAttr();
+    for (String name : attr.getFieldNames()) {
+      Object value = attr.getValue(name);
+      if (value instanceof Label) {
+        getPathFromLabel((Label) value);
+      }
+    }
+  }
 }

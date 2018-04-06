@@ -317,6 +317,12 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_prefetching_test",
+    srcs = ["skylark_prefetching_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "external_skylark_load_test",
     size = "large",
     srcs = ["external_skylark_load_test.sh"],

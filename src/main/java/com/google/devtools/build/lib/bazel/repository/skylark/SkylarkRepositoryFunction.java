@@ -71,6 +71,21 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new SkylarkRepositoryContext(
               rule, outputDirectory, env, clientEnvironment, httpDownloader, markerData);
 
+      // Since restarting a repository function can be really expensive, we first ensure that
+      // all label-arguments can be resolved to paths.
+      try {
+        skylarkRepositoryContext.enforceLabelAttributes();
+      } catch (EvalException e) {
+        if (e instanceof RepositoryMissingDependencyException) {
+          // Missing values are expected; just restart before we actually start the rule
+          return null;
+        }
+        // Other EvalExceptions indicate labels not referring to existing files. This is fine,
+        // as long as they are never resolved to files in the execution of the rule; we allow
+        // non-strict rules. So now we have to start evaluating the actual rule, even if that
+        // means the rule might get restarted for legitimate reasons.
+      }
+
       // This has side-effect, we don't care about the output.
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
       // it possible to return null and not block but it doesn't seem to be easy with Skylark
