@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -108,7 +109,9 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
     CcCompilationContextInfo ccCompilationContextInfo =
-        getConfiguredTarget("//x:foo_cc_proto").get(CcCompilationContextInfo.PROVIDER);
+        getConfiguredTarget("//x:foo_cc_proto")
+            .get(CcCompilationInfo.PROVIDER)
+            .getCcCompilationContextInfo();
     assertThat(prettyArtifactNames(ccCompilationContextInfo.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h");
   }
@@ -122,7 +125,9 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
 
     CcCompilationContextInfo ccCompilationContextInfo =
-        getConfiguredTarget("//x:foo_cc_proto").get(CcCompilationContextInfo.PROVIDER);
+        getConfiguredTarget("//x:foo_cc_proto")
+            .get(CcCompilationInfo.PROVIDER)
+            .getCcCompilationContextInfo();
     assertThat(prettyArtifactNames(ccCompilationContextInfo.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h", "x/bar.pb.h");
   }
@@ -174,7 +179,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
     Artifact headerFile = getGenfilesArtifactWithNoOwner("external/bla/foo/bar.pb.h");
     CcCompilationContextInfo ccCompilationContextInfo =
-        target.get(CcCompilationContextInfo.PROVIDER);
+        target.get(CcCompilationInfo.PROVIDER).getCcCompilationContextInfo();
     assertThat(ccCompilationContextInfo.getDeclaredIncludeSrcs()).containsExactly(headerFile);
   }
 

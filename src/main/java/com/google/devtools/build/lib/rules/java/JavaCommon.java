@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContextInfo;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.syntax.Type;
@@ -407,19 +406,6 @@ public class JavaCommon {
         classJarsBuilder.build(),
         sourceJarsBuilder.build()
     );
-  }
-
-  /** Collects transitive C++ dependencies. */
-  protected CcCompilationContextInfo collectTransitiveCppDeps() {
-    CcCompilationContextInfo.Builder builder = new CcCompilationContextInfo.Builder(ruleContext);
-    for (TransitiveInfoCollection dep : targetsTreatedAsDeps(ClasspathType.BOTH)) {
-      CcCompilationContextInfo ccCompilationContextInfo =
-          dep.get(CcCompilationContextInfo.PROVIDER);
-      if (ccCompilationContextInfo != null) {
-        builder.mergeDependentCcCompilationContextInfo(ccCompilationContextInfo);
-      }
-    }
-    return builder.build();
   }
 
   /**
