@@ -15,8 +15,9 @@ package com.google.devtools.build.importdeps;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.io.Files.asCharSink;
+import static com.google.common.io.MoreFiles.asCharSink;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
@@ -84,7 +85,7 @@ public class Main {
 
     @Option(
       name = "output",
-      defaultValue = "",
+      defaultValue = "null",
       category = "output",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -133,13 +134,14 @@ public class Main {
                 + ", classpath = "
                 + options.classpath);
         System.err.println(result);
-        asCharSink(options.output.toFile(), StandardCharsets.UTF_8).write(result);
+        asCharSink(options.output, StandardCharsets.UTF_8).write(result);
       }
     }
     System.exit(exitCode);
   }
 
-  private static Options parseCommandLineOptions(String[] args) throws IOException {
+  @VisibleForTesting
+  static Options parseCommandLineOptions(String[] args) throws IOException {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.setAllowResidue(false);
     optionsParser.enableParamsFileSupport(
@@ -148,6 +150,7 @@ public class Main {
     Options options = optionsParser.getOptions(Options.class);
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
+    checkArgument(options.output != null, "--output is required");
     checkArgument(!options.bootclasspath.isEmpty(), "--bootclasspath_entry is required");
     return options;
   }

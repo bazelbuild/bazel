@@ -205,3 +205,14 @@ create_golden_test(
     rt_jar = "@local_jdk//:jre/lib/rt.jar",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
+
+java_test(
+    name = "MainTest",
+    srcs = ["MainTest.java"],
+    deps = [
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/bazel/src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:main",
+        "//third_party/bazel/src/test/java/com/google/devtools/build/lib/testutil",
+    ],
+)
