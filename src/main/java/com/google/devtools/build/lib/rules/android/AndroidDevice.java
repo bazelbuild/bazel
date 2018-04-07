@@ -77,7 +77,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   private static final int MIN_LCD_DENSITY = 30;
 
   private static final Predicate<Artifact> SOURCE_PROPERTIES_SELECTOR =
-      (Artifact artifact) -> "source.properties".equals(artifact.getPath().getBaseName());
+      (Artifact artifact) -> "source.properties".equals(artifact.getExecPath().getBaseName());
 
   private static final Predicate<Artifact> SOURCE_PROPERTIES_FILTER =
       Predicates.not(SOURCE_PROPERTIES_SELECTOR);
