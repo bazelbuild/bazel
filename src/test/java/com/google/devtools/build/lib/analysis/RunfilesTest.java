@@ -41,7 +41,7 @@ import org.junit.runners.JUnit4;
 public class RunfilesTest extends FoundationTestCase {
 
   private void checkWarning() {
-    assertContainsEvent("obscured by a -> /workspace/a");
+    assertContainsEvent("obscured by a -> x");
     assertWithMessage("Runfiles.filterListForObscuringSymlinks should have warned once")
         .that(eventCollector.count())
         .isEqualTo(1);
@@ -53,7 +53,7 @@ public class RunfilesTest extends FoundationTestCase {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
-    Artifact artifactA = new Artifact(PathFragment.create("a"), root);
+    Artifact artifactA = new Artifact(PathFragment.create("x"), root);
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(PathFragment.create("a/b"), new Artifact(PathFragment.create("c/b"),
         root));
@@ -67,8 +67,7 @@ public class RunfilesTest extends FoundationTestCase {
     Map<PathFragment, Artifact> obscuringMap = new HashMap<>();
     PathFragment pathA = PathFragment.create("a");
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
-    Artifact artifactA = new Artifact(PathFragment.create("a"),
-                                          root);
+    Artifact artifactA = new Artifact(PathFragment.create("x"), root);
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(PathFragment.create("a/b/c"), new Artifact(PathFragment.create("b/c"),
                                                          root));
