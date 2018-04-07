@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -423,11 +422,20 @@ public final class Runfiles {
             continue outer;
           }
           PathFragment suffix = source.subFragment(n - j, n);
-          Path viaAncestor = ancestor.getPath().getRelative(suffix);
-          Path expected = symlink.getPath();
+          PathFragment viaAncestor = ancestor.getExecPath().getRelative(suffix);
+          PathFragment expected = symlink.getExecPath();
           if (!viaAncestor.equals(expected)) {
-            eventHandler.handle(Event.warn(location, "runfiles symlink " + source + " -> "
-                + expected + " obscured by " + prefix + " -> " + ancestor.getPath()));
+            eventHandler.handle(
+                Event.warn(
+                    location,
+                    "runfiles symlink "
+                        + source
+                        + " -> "
+                        + expected
+                        + " obscured by "
+                        + prefix
+                        + " -> "
+                        + ancestor.getExecPath()));
           }
           continue outer;
         }
@@ -731,8 +739,10 @@ public final class Runfiles {
         // Previous and new entry might have value of null
         Artifact previous = map.get(path);
         if (!Objects.equals(previous, artifact)) {
-          String previousStr = (previous == null) ? "empty file" : previous.getPath().toString();
-          String artifactStr = (artifact == null) ? "empty file" : artifact.getPath().toString();
+          String previousStr =
+              (previous == null) ? "empty file" : previous.getExecPath().toString();
+          String artifactStr =
+              (artifact == null) ? "empty file" : artifact.getExecPath().toString();
           String message =
               String.format(
                   "overwrote runfile %s, was symlink to %s, now symlink to %s",
