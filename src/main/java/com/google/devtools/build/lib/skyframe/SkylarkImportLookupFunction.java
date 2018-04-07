@@ -124,7 +124,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       // Because we automatically filter out deps we've seen before and we don't expect this to be
       // a super large DAG of dependencies, we iterate through without checking for already visited
       // deps.
-      env.getValues(depGroup);
+      env.registerDependencies(depGroup);
     }
     return cachedSkylarkImportLookupValueAndDeps.getValue();
   }

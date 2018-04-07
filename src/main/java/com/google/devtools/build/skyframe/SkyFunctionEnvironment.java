@@ -621,4 +621,15 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   public boolean inErrorBubblingForTesting() {
     return bubbleErrorInfo != null;
   }
+
+  @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    newlyRequestedDeps.startGroup();
+    for (SkyKey key : keys) {
+      if (!directDeps.containsKey(key)) {
+        addDep(key);
+      }
+    }
+    newlyRequestedDeps.endGroup();
+  }
 }
