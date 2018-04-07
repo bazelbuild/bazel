@@ -145,7 +145,8 @@ public final class ImportDepsChecker implements Closeable {
           .append(incompleteClasses.size())
           .append('\n')
           .append("missing_members=")
-          .append(missingMembers.size());
+          .append(missingMembers.size())
+          .append('\n');
     }
     return builder.toString();
   }

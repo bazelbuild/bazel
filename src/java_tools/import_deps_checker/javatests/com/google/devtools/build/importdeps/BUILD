@@ -216,3 +216,32 @@ java_test(
         "//third_party/bazel/src/test/java/com/google/devtools/build/lib/testutil",
     ],
 )
+
+java_library(
+    name = "empty",
+    srcs = [],
+)
+
+sh_test(
+    name = "string_annotation_value_test",
+    srcs = ["golden_test.sh"],
+    args = [
+        "$(location string_annotation_value_test.txt)",
+        "199",
+        "$(location //third_party/bazel/src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker)",
+        "--fail_on_errors",
+        "--bootclasspath_entry",
+        "$(location :libempty.jar)",
+        "--classpath_entry",
+        "$(location //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libStringAnnotation.jar)",
+        "--input",
+        "$(location //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libOneAnnotationValue.jar)",
+    ],
+    data = [
+        ":libempty.jar",
+        "//third_party/bazel/src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
+        "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:string_annotation_value_test.txt",
+        "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libOneAnnotationValue.jar",
+        "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libStringAnnotation.jar",
+    ],
+)

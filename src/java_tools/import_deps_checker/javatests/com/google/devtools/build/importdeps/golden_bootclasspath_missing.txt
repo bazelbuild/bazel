@@ -1,6 +1,12 @@
+Missing java.io.PrintStream
+Missing java.lang.Byte
+Missing java.lang.Class
+Missing java.lang.Enum
 Missing java.lang.Exception
 Missing java.lang.Object
 Missing java.lang.String
+Missing java.lang.SuppressWarnings
+Missing java.lang.System
 Missing java.lang.annotation.Annotation
 Missing java.lang.annotation.ElementType
 Missing java.lang.annotation.Retention
@@ -15,6 +21,9 @@ Missing java.util.Objects
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client
     missing ancestor: java.lang.Object
     resolution failure path: com.google.devtools.build.importdeps.testdata.Library -> java.lang.Object
+Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client$EnumTest
+    missing ancestor: java.lang.Enum
+    resolution failure path: java.lang.Enum
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library
     missing ancestor: java.lang.Object
     resolution failure path: java.lang.Object
@@ -54,6 +63,9 @@ Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation
     missing ancestor: java.lang.Object
     resolution failure path: java.lang.Object
+Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationFlag
+    missing ancestor: java.lang.Enum
+    resolution failure path: java.lang.Enum
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation
     missing ancestor: java.lang.Object
     resolution failure path: java.lang.Object
@@ -81,7 +93,9 @@ Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
     missing ancestor: java.lang.Object
     resolution failure path: java.lang.Object
+Missing member 'name' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=name, descriptor=()Ljava/lang/String;
+Missing member 'ordinal' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=ordinal, descriptor=()I
 ===Total===
-missing=14
-incomplete=23
-missing_members=0
+missing=20
+incomplete=25
+missing_members=2
