@@ -284,6 +284,13 @@ public interface SkyFunction {
       return null;
     }
 
+    /**
+     * Register dependencies on keys without necessarily requiring their values.
+     */
+    default void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
+      getValues(keys);
+    }
+
     /** Returns whether we are currently in error bubbling. */
     @VisibleForTesting
     boolean inErrorBubblingForTesting();
