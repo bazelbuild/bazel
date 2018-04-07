@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -u
+
 gold_file=$1
 shift
 
@@ -52,19 +54,23 @@ fi
 diff "${gold_file}" "${actual_file}"
 gold_actual_ret=$?
 
-# The actual file and the stderr of the checker should be the same.
-diff "${actual_file}" "${checker_stderr}"
-checker_stderr_actual_ret=$?
+# TODO(b/77721804): re-enable test coverage for stderr
 
-if [[ "${gold_actual_ret}" != 0 ]] || [[ "${checker_stderr_actual_ret}" != 0 ]]; then
+if [[ "${gold_actual_ret}" != 0 ]]; then
   echo "============== Actual Output =============="
   cat "${actual_file}"
   echo "" # New line.
   echo "===========================================\n"
 
+  echo "============== Expected Output =============="
+  cat "${gold_file}"
+  echo "" # New line.
+  echo "==========================================="
+
   echo "============== Checker Stderr =============="
   cat "${checker_stderr}"
   echo "" # New line.
   echo "==========================================="
+
+  exit 1
 fi
-exit ${ret}

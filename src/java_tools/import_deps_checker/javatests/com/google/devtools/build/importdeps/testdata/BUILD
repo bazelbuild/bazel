@@ -49,3 +49,14 @@ java_library(
     name = "testdata_lib_LibraryInterface",
     srcs = ["LibraryInterface.java"],
 )
+
+java_library(
+    name = "OneAnnotationValue",
+    srcs = ["OneAnnotationValue.java"],
+    deps = [":StringAnnotation"],
+)
+
+java_library(
+    name = "StringAnnotation",
+    srcs = ["StringAnnotation.java"],
+)
