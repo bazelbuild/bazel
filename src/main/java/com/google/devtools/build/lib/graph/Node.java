@@ -63,15 +63,12 @@ public final class Node<T> {
    */
   private Collection<Node<T>> preds = null;
 
-  private final int hashCode;
-
   /**
    * Only Digraph.createNode() can call this!
    */
-  Node(T label, int hashCode) {
+  Node(T label) {
     if (label == null) { throw new NullPointerException("label"); }
     this.label = label;
-    this.hashCode = hashCode;
   }
 
   /**
@@ -273,7 +270,7 @@ public final class Node<T> {
 
   @Override
   public int hashCode() {
-    return hashCode; // Fast, deterministic.
+    return super.hashCode();
   }
 
   @Override
