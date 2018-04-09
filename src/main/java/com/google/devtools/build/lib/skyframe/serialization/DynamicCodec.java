@@ -58,8 +58,6 @@ public class DynamicCodec implements ObjectCodec<Object> {
   @Override
   public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    // TODO(janakr,shahan): Remove when memoization is on by default.
-    context = context.getMemoizingContext();
     for (Map.Entry<Field, Long> entry : offsets.entrySet()) {
       serializeField(context, codedOut, obj, entry.getKey().getType(), entry.getValue());
     }
@@ -142,11 +140,6 @@ public class DynamicCodec implements ObjectCodec<Object> {
       throw new SerializationException("Could not instantiate object of type: " + type, e);
     }
     context.registerInitialValue(instance);
-    // We start memoizing if we weren't already doing so. We can't start before registering the
-    // initial value because the memoizer would get confused, since it doesn't have a tag for this
-    // object.
-    // TODO(janakr,shahan): Remove when memoization is on by default.
-    context = context.getMemoizingContext();
     for (Map.Entry<Field, Long> entry : offsets.entrySet()) {
       deserializeField(context, codedIn, instance, entry.getKey().getType(), entry.getValue());
     }

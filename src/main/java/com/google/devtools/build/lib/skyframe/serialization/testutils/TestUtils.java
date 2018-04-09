@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
@@ -117,25 +118,22 @@ public class TestUtils {
       throws IOException, SerializationException {
     ByteString.Output output = ByteString.newOutput();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
-    new SerializationContext(registry, ImmutableMap.of())
-        .getMemoizingContext()
-        .serialize(original, codedOut);
+    new ObjectCodecs(registry).serializeMemoized(original, codedOut);
     codedOut.flush();
     return output.toByteString();
   }
 
   public static Object fromBytesMemoized(ByteString bytes, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return new DeserializationContext(registry, ImmutableMap.of())
-        .getMemoizingContext()
-        .deserialize(bytes.newCodedInput());
+    return new ObjectCodecs(registry).deserializeMemoized(bytes.newCodedInput());
   }
 
+  @SuppressWarnings("unchecked")
   public static <T> T roundTripMemoized(T original, ObjectCodecRegistry registry)
       throws IOException, SerializationException {
-    return new DeserializationContext(registry, ImmutableMap.of())
-        .getMemoizingContext()
-        .deserialize(toBytesMemoized(original, registry).newCodedInput());
+    return (T)
+        new ObjectCodecs(registry)
+            .deserializeMemoized(toBytesMemoized(original, registry).newCodedInput());
   }
 
   public static <T> T roundTripMemoized(T original, ObjectCodec<?>... codecs)
