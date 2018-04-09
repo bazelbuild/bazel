@@ -228,7 +228,7 @@ local_repository(name = 'bazel_tools', path = '${BAZEL_TOOLS_REPO}')
 bind(name = "cc_toolchain", actual = "@bazel_tools//tools/cpp:default-toolchain")
 EOF
 
-  create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
+  create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
       ${OUTPUT_DIR}
 fi
 
