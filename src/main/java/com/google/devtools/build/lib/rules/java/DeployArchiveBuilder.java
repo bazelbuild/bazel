@@ -264,6 +264,8 @@ public class DeployArchiveBuilder {
     }
     if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF && usingNativeSinglejar) {
       args.add("--enforce_one_version");
+      // RuleErrors should have been added in Builder.build() before this command
+      // line is invoked.
       Preconditions.checkNotNull(oneVersionWhitelistArtifact);
       args.addExecPath("--one_version_whitelist", oneVersionWhitelistArtifact);
       if (oneVersionEnforcementLevel == OneVersionEnforcementLevel.WARNING) {
@@ -343,6 +345,11 @@ public class DeployArchiveBuilder {
     }
 
     if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+      if (oneVersionWhitelistArtifact == null) {
+        OneVersionCheckActionBuilder.addRuleErrorForMissingArtifacts(
+            ruleContext, JavaToolchainProvider.from(ruleContext));
+        return;
+      }
       inputs.add(oneVersionWhitelistArtifact);
     }
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.

@@ -78,13 +78,7 @@ public final class OneVersionCheckActionBuilder {
     Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionWhitelist = javaToolchain.getOneVersionWhitelist();
     if (oneVersionTool == null || oneVersionWhitelist == null) {
-      ruleContext.ruleError(
-          String.format(
-              "one version enforcement was requested but it is not supported by the current "
-                  + "Java toolchain '%s'; see the "
-                  + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist "
-                  + "attributes",
-              javaToolchain.getToolchainLabel()));
+      addRuleErrorForMissingArtifacts(ruleContext, javaToolchain);
       return outputArtifact;
     }
 
@@ -110,6 +104,17 @@ public final class OneVersionCheckActionBuilder {
             .setProgressMessage("Checking for one-version violations in %s", ruleContext.getLabel())
             .build(ruleContext));
     return outputArtifact;
+  }
+
+  public static void addRuleErrorForMissingArtifacts(
+      RuleContext ruleContext, JavaToolchainProvider javaToolchain) {
+    ruleContext.ruleError(
+        String.format(
+            "one version enforcement was requested but it is not supported by the current "
+                + "Java toolchain '%s'; see the "
+                + "java_toolchain.oneversion and java_toolchain.oneversion_whitelist "
+                + "attributes",
+            javaToolchain.getToolchainLabel()));
   }
 
   static VectorArg<String> jarAndTargetVectorArg(NestedSet<Artifact> jarsToCheck) {
