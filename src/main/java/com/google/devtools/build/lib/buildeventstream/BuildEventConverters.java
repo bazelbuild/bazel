@@ -26,7 +26,7 @@ public interface BuildEventConverters {
   PathConverter pathConverter();
 
   /**
-   * Return the {@link ArtifactGroupNamer} that can be used to refer to a {@link
+   * Return the {@link ArtifactGroupNamer} that can be used to refer to a {@code
    * NestedSet<Artifact>} declared via the {@link EventReportingArtifacts} interface.
    */
   ArtifactGroupNamer artifactGroupNamer();
