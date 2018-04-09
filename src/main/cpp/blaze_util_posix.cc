@@ -400,48 +400,6 @@ int ExecuteDaemon(const string& exe,
   }
 }
 
-static string RunProgram(const string& exe,
-                         const std::vector<string>& args_vector) {
-  int fds[2];
-  if (pipe(fds)) {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "pipe creation failed: " << GetLastErrorString();
-  }
-  int recv_socket = fds[0];
-  int send_socket = fds[1];
-
-  const char* exe_chars = exe.c_str();
-  const char** argv = ConvertStringVectorToArgv(args_vector);
-
-  int child = fork();
-  if (child == -1) {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "fork() failed: " << GetLastErrorString();
-  } else if (child > 0) {  // we're the parent
-    close(send_socket);    // parent keeps only the reading side
-    string result;
-    bool success = blaze_util::ReadFrom(recv_socket, &result);
-    close(recv_socket);
-    if (!success) {
-      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-          << "Cannot read subprocess output: " << GetLastErrorString();
-    }
-    return result;
-  } else {                 // We're the child
-    // NB: There should only be system calls in this branch. See the comment
-    // before ExecuteDaemon() to understand why.
-
-    close(recv_socket);    // child keeps only the writing side
-    // Redirect output to the writing side of the dup.
-    dup2(send_socket, STDOUT_FILENO);
-    dup2(send_socket, STDERR_FILENO);
-    // Execute the binary
-    execv(exe_chars, const_cast<char**>(argv));
-    DieAfterFork("Failed to run program");
-  }
-  return string("");  //  We cannot reach here, just placate the compiler.
-}
-
 bool CompareAbsolutePaths(const string& a, const string& b) {
   return a == b;
 }
