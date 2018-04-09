@@ -348,8 +348,6 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     }
 
     /** Returns the canonical command options, overridden and default values are not listed. */
-    // TODO(b/19881919) this should use OptionValueDescription's tracking of relevant option
-    // instances, but as this is not yet possible, list the full options list.
     private CommandLineSection getCanonicalCommandOptions() {
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
