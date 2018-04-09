@@ -14,7 +14,7 @@
 """Mock Python binary, only used in tests."""
 
 from __future__ import print_function
-from bazel_tools.tools.runfiles import runfiles
+from bazel_tools.tools.python.runfiles import runfiles
 
 print('Hello Python Bar!')
 r = runfiles.Create()
