@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -193,8 +195,11 @@ public abstract class ResourceContainer implements MergableAndroidData {
    * Returns a copy of this container with filtered resources, or the original if no resources
    * should be filtered. The original container is unchanged.
    */
-  public ResourceContainer filter(ResourceFilter filter, boolean isDependency) {
-    Optional<AndroidResources> filteredResources = getResources().maybeFilter(filter, isDependency);
+  public ResourceContainer filter(
+      RuleErrorConsumer errorConsumer, ResourceFilter filter, boolean isDependency)
+      throws RuleErrorException {
+    Optional<AndroidResources> filteredResources =
+        getResources().maybeFilter(errorConsumer, filter, isDependency);
 
     if (!filteredResources.isPresent()) {
       // No filtering was done; return this container

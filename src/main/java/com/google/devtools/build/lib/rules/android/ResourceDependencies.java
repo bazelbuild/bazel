@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -195,7 +197,8 @@ public final class ResourceDependencies {
   }
 
   /** Returns a copy of this instance with filtered resources. The original object is unchanged. */
-  public ResourceDependencies filter(ResourceFilter resourceFilter) {
+  public ResourceDependencies filter(RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter)
+      throws RuleErrorException {
     Optional<NestedSet<Artifact>> filteredResources =
         resourceFilter.maybeFilterDependencies(transitiveResources);
 
@@ -208,8 +211,8 @@ public final class ResourceDependencies {
     // means that if any resource changes, the corresponding actions will get
     // re-executed
     return withResources(
-        resourceFilter.filterDependencyContainers(transitiveResourceContainers),
-        resourceFilter.filterDependencyContainers(directResourceContainers),
+        resourceFilter.filterDependencyContainers(errorConsumer, transitiveResourceContainers),
+        resourceFilter.filterDependencyContainers(errorConsumer, directResourceContainers),
         filteredResources.get());
   }
 

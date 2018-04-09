@@ -436,8 +436,8 @@ public final class ApplicationManifest {
         ResourceFilterFactory.fromRuleContext(ruleContext);
     ResourceFilter resourceFilter =
         resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
-    resources = resources.filterLocalResources(resourceFilter);
-    resourceDeps = resourceDeps.filter(resourceFilter);
+    resources = resources.filterLocalResources(ruleContext, resourceFilter);
+    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
 
     // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
     // container from it.
@@ -506,8 +506,8 @@ public final class ApplicationManifest {
     AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
     ResourceFilter resourceFilter =
         resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
-    resources = resources.filterLocalResources(resourceFilter);
-    resourceDeps = resourceDeps.filter(resourceFilter);
+    resources = resources.filterLocalResources(ruleContext, resourceFilter);
+    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
 
     // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
     // container from it.
@@ -628,7 +628,7 @@ public final class ApplicationManifest {
             .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
 
     if (dataBindingInfoZip != null && resourceContainer.getCompiledSymbols() != null) {
-        PathFragment unusedInfo = dataBindingInfoZip.getRootRelativePath();
+      PathFragment unusedInfo = dataBindingInfoZip.getRootRelativePath();
       // TODO(corysmith): Centralize the data binding processing and zipping into a single
       // action. Data binding processing needs to be triggered here as well as the merger to
       // avoid aapt2 from throwing an error during compilation.
