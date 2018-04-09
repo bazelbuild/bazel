@@ -445,22 +445,26 @@ void ForEachDirectoryEntry(const string &path,
 
     string filename(blaze_util::JoinPath(path, ent->d_name));
     bool is_directory;
-    if (ent->d_type == DT_UNKNOWN) {
-      struct stat buf;
-      if (lstat(filename.c_str(), &buf) == -1) {
-        BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-            << "stat failed for filename '" << filename
-            << "': " << GetLastErrorString();
-      }
-      is_directory = S_ISDIR(buf.st_mode);
-    } else {
+// 'd_type' field isn't part of the POSIX spec.
+#ifdef _DIRENT_HAVE_D_TYPE
+    if (ent->d_type != DT_UNKNOWN) {
       is_directory = (ent->d_type == DT_DIR);
+    } else  // NOLINT (the brace is on the next line)
+#endif
+      {
+        struct stat buf;
+        if (lstat(filename.c_str(), &buf) == -1) {
+          BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+              << "stat failed for filename '" << filename
+              << "': " << GetLastErrorString();
+        }
+        is_directory = S_ISDIR(buf.st_mode);
+      }
+
+      consume->Consume(filename, is_directory);
     }
 
-    consume->Consume(filename, is_directory);
+    closedir(dir);
   }
-
-  closedir(dir);
-}
 
 }  // namespace blaze_util
