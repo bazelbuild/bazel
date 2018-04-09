@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -533,9 +534,10 @@ class SkylarkCustomCommandLine extends CommandLine {
     String format(Object object) throws CommandLineExpansionException {
       try {
         args.set(0, object);
-        return Printer.getPrinter(skylarkSemantics.incompatibleDisallowOldStyleArgsAdd())
-            .formatWithList(formatStr, args)
-            .toString();
+        SkylarkPrinter printer =
+            skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()
+                ? Printer.getSimplifiedPrinter() : Printer.getPrinter();
+        return printer.formatWithList(formatStr, args).toString();
       } catch (IllegalFormatException e) {
         throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
       }
