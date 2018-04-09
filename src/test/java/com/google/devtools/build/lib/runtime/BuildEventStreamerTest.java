@@ -646,10 +646,11 @@ public class BuildEventStreamerTest extends FoundationTestCase {
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
                 "productName"),
-            ImmutableMap
+            /* fragmentsMap= */ ImmutableMap
                 .<Class<? extends BuildConfiguration.Fragment>, BuildConfiguration.Fragment>of(),
             defaultBuildOptions,
             BuildOptions.diffForReconstruction(defaultBuildOptions, defaultBuildOptions),
+            /* reservedActionMnemonics= */ ImmutableSet.of(),
             "workspace");
     BuildEvent firstWithConfiguration =
         new GenericConfigurationEvent(testId("first"), configuration.toBuildEvent());

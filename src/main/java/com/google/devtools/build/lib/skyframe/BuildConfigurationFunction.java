@@ -80,7 +80,12 @@ public class BuildConfigurationFunction implements SkyFunction {
 
     BuildConfiguration config =
         new BuildConfiguration(
-            directories, fragmentsMap, options, key.getOptionsDiff(), workspaceNameValue.getName());
+            directories,
+            fragmentsMap,
+            options,
+            key.getOptionsDiff(),
+            ruleClassProvider.getReservedActionMnemonics(),
+            workspaceNameValue.getName());
     return new BuildConfigurationValue(config);
   }
 

@@ -25,6 +25,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -69,6 +70,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
@@ -233,6 +236,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private ImmutableList.Builder<Class<?>> skylarkModules =
         ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
     private ImmutableList.Builder<NativeProvider> nativeProviders = ImmutableList.builder();
+    private Set<String> reservedActionMnemonics = new TreeSet<>();
     private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
         registeredSkylarkProviders = ImmutableBiMap.builder();
 
@@ -362,6 +366,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    public Builder addReservedActionMnemonic(String mnemonic) {
+      this.reservedActionMnemonics.add(mnemonic);
+      return this;
+    }
+
     /**
      * Sets the C++ LIPO data transition, as defined in {@link
      * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
@@ -461,6 +470,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
           skylarkModules.build(),
+          ImmutableSet.copyOf(reservedActionMnemonics),
           nativeProviders.build());
     }
 
@@ -567,6 +577,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final Environment.GlobalFrame globals;
 
+  private final ImmutableSet<String> reservedActionMnemonics;
+
   private final ImmutableList<NativeProvider> nativeProviders;
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
@@ -588,6 +600,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules,
+      ImmutableSet<String> reservedActionMnemonics,
       ImmutableList<NativeProvider> nativeProviders) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -604,6 +617,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragments = universalFragments;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
+    this.reservedActionMnemonics = reservedActionMnemonics;
     this.nativeProviders = nativeProviders;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
   }
@@ -811,6 +825,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
     fragmentsBuilder.addAll(getUniversalFragments());
     return fragmentsBuilder.build();
+  }
+
+  /** Returns a reserved set of action mnemonics. These cannot be used from a Skylark action. */
+  public ImmutableSet<String> getReservedActionMnemonics() {
+    return reservedActionMnemonics;
   }
 
   /**
