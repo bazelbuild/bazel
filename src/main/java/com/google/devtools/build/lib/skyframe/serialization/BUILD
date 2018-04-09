@@ -5,7 +5,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/serializers:srcs",
     ],
 )
 
@@ -19,7 +18,6 @@ java_library(
         ":constants",
     ],
     deps = [
-        ":kryo",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:unsafe-provider",
         "//third_party:guava",
@@ -33,18 +31,5 @@ java_library(
     srcs = ["SerializationConstants.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:resource_usage",
-    ],
-)
-
-# A convenience library that bundles together kryo and its runtime dependencies.
-java_library(
-    name = "kryo",
-    exports = [
-        "//third_party:kryo",
-        "//third_party:objenesis",
-    ],
-    runtime_deps = [
-        "//third_party:minlog",
-        "//third_party:reflectasm",
     ],
 )
