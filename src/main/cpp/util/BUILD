@@ -61,6 +61,7 @@ cc_library(
         ":strings",
     ] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
+        "//src/conditions:windows_x86_32": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
     }),
 )
@@ -69,6 +70,7 @@ cc_library(
     name = "errors",
     srcs = select({
         "//src/conditions:windows": ["errors_windows.cc"],
+        "//src/conditions:windows_x86_32": ["errors_windows.cc"],
         "//conditions:default": ["errors_posix.cc"],
     }),
     hdrs = ["errors.h"],
