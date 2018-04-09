@@ -74,7 +74,29 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, useEnvironment, or useLocation");
+                + "useAst, useEnvironment, useLocation, extraPositionals, or extraKeywords");
+  }
+
+  @Test
+  public void testStructFieldWithExtraArgs() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StructFieldWithExtraArgs.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@SkylarkCallable-annotated methods with structField=true may not also specify "
+                + "useAst, useEnvironment, useLocation, extraPositionals, or extraKeywords");
+  }
+
+  @Test
+  public void testStructFieldWithExtraKeywords() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StructFieldWithExtraKeywords.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@SkylarkCallable-annotated methods with structField=true may not also specify "
+                + "useAst, useEnvironment, useLocation, extraPositionals, or extraKeywords");
   }
 
   @Test
@@ -219,5 +241,28 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "Positional-only parameter 'two' is specified after one or more named parameters");
+  }
+
+  @Test
+  public void testExtraKeywordsOutOfOrder() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ExtraKeywordsOutOfOrder.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected parameter index 1 to be the "
+                + "com.google.devtools.build.lib.syntax.SkylarkDict<?,?> type, matching "
+                + "extraKeywords, but was java.lang.String");
+  }
+
+  @Test
+  public void testExtraPositionalsMissing() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ExtraPositionalsMissing.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@SkylarkCallable annotated method has 3 parameters, but annotation declared "
+                + "1 user-supplied parameters and 3 extra interpreter parameters.");
   }
 }

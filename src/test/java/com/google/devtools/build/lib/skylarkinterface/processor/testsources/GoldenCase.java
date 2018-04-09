@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 
 /**
@@ -151,5 +153,49 @@ public class GoldenCase {
       String six,
       Location location) {
     return "baz";
+  }
+
+  @SkylarkCallable(
+    name = "two_arg_method_with_params_and_info_and_kwargs",
+    documented = false,
+    parameters = {
+      @Param(name = "one", type = String.class, named = true),
+      @Param(name = "two", type = Integer.class, named = true),
+    },
+    extraKeywords = @Param(name = "kwargs"),
+    useAst = true,
+    useLocation = true,
+    useEnvironment = true,
+    useSkylarkSemantics = true
+  )
+  public String twoArgMethodWithParamsAndInfoAndKwargs(
+      String one,
+      Integer two,
+      SkylarkDict<?, ?> kwargs,
+      Location location,
+      FuncallExpression ast,
+      Environment environment,
+      SkylarkSemantics skylarkSemantics) {
+    return "blep";
+  }
+
+  @SkylarkCallable(
+    name = "two_arg_method_with_env_and_args_and_kwargs",
+    documented = false,
+    parameters = {
+      @Param(name = "one", type = String.class, named = true),
+      @Param(name = "two", type = Integer.class, named = true),
+    },
+    extraPositionals = @Param(name = "args"),
+    extraKeywords = @Param(name = "kwargs"),
+    useEnvironment = true
+  )
+  public String twoArgMethodWithParamsAndInfoAndKwargs(
+      String one,
+      Integer two,
+      SkylarkList<?> args,
+      SkylarkDict<?, ?> kwargs,
+      Environment environment) {
+    return "yar";
   }
 }

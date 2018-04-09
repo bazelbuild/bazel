@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -163,7 +164,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return ImmutableMap.of("a", ImmutableList.of("b", "c"));
     }
 
-    
+
     @SkylarkCallable(
       name = "with_params",
       documented = false,
@@ -363,6 +364,82 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             FuncallExpression.getBuiltinCallable(this, nativeFunction));
       }
       return NativeProvider.STRUCT.create(builder.build(), "no native callable '%s'");
+    }
+
+    @SkylarkCallable(
+      name = "with_args_and_env",
+      documented = false,
+      parameters = {
+        @Param(name = "pos1", type = Integer.class),
+        @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
+        @Param(name = "named", type = Boolean.class, positional = false, named = true),
+      },
+      extraPositionals = @Param(name = "args"),
+      useEnvironment = true
+    )
+    public String withArgsAndEnv(
+        Integer pos1, boolean pos2, boolean named, SkylarkList<?> args, Environment env) {
+      String argsString =
+          "args(" + args.stream().map(Printer::debugPrint).collect(joining(", ")) + ")";
+      return "with_args_and_env("
+          + pos1
+          + ", "
+          + pos2
+          + ", "
+          + named
+          + ", "
+          + argsString
+          + ", "
+          + env.isGlobal()
+          + ")";
+    }
+
+    @SkylarkCallable(
+      name = "with_kwargs",
+      documented = false,
+      parameters = {
+        @Param(name = "pos", defaultValue = "False", type = Boolean.class),
+        @Param(name = "named", type = Boolean.class, positional = false, named = true),
+      },
+      extraKeywords = @Param(name = "kwargs")
+    )
+    public String withKwargs(boolean pos, boolean named, SkylarkDict<?, ?> kwargs)
+        throws EvalException {
+      String kwargsString =
+          "kwargs("
+              + kwargs
+                  .getContents(String.class, Object.class, "kwargs")
+                  .entrySet()
+                  .stream()
+                  .map(entry -> entry.getKey() + "=" + entry.getValue())
+                  .collect(joining(", "))
+              + ")";
+      return "with_kwargs(" + pos + ", " + named + ", " + kwargsString + ")";
+    }
+
+    @SkylarkCallable(
+      name = "with_args_and_kwargs",
+      documented = false,
+      parameters = {
+        @Param(name = "foo", named = true, positional = true, type = String.class),
+      },
+      extraPositionals = @Param(name = "args"),
+      extraKeywords = @Param(name = "kwargs")
+    )
+    public String withArgsAndKwargs(String foo, SkylarkList<?> args, SkylarkDict<?, ?> kwargs)
+        throws EvalException {
+      String argsString =
+          "args(" + args.stream().map(Printer::debugPrint).collect(joining(", ")) + ")";
+      String kwargsString =
+          "kwargs("
+              + kwargs
+                  .getContents(String.class, Object.class, "kwargs")
+                  .entrySet()
+                  .stream()
+                  .map(entry -> entry.getKey() + "=" + entry.getValue())
+                  .collect(joining(", "))
+              + ")";
+      return "with_args_and_kwargs(" + foo + ", " + argsString + ", " + kwargsString + ")";
     }
 
     @Override
@@ -1108,6 +1185,107 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testJavaFunctionWithExtraArgsAndEnv() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_args_and_env(1, True, 'extraArg1', 'extraArg2', named=True)")
+        .testLookup("b", "with_args_and_env(1, true, true, args(extraArg1, extraArg2), true)");
+
+    // Use an args list.
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "myargs = ['extraArg2']",
+            "b = mock.with_args_and_env(1, True, 'extraArg1', named=True, *myargs)")
+        .testLookup("b", "with_args_and_env(1, true, true, args(extraArg1, extraArg2), true)");
+  }
+
+  @Test
+  public void testJavaFunctionWithExtraKwargs() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_kwargs(True, extraKey1=True, named=True, extraKey2='x')")
+        .testLookup("b", "with_kwargs(true, true, kwargs(extraKey1=true, extraKey2=x))");
+
+    // Use a kwargs dict.
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "mykwargs = {'extraKey2':'x', 'named':True}",
+            "b = mock.with_kwargs(True, extraKey1=True, **mykwargs)")
+        .testLookup("b", "with_kwargs(true, true, kwargs(extraKey1=true, extraKey2=x))");
+  }
+
+  @Test
+  public void testJavaFunctionWithArgsAndKwargs() throws Exception {
+    // Foo is used positionally
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_args_and_kwargs('foo', 'bar', 'baz', extraKey1=True, extraKey2='x')")
+        .testLookup(
+            "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey1=true, extraKey2=x))");
+
+    // Use an args list and a kwargs dict
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "mykwargs = {'extraKey1':True}",
+            "myargs = ['baz']",
+            "b = mock.with_args_and_kwargs('foo', 'bar', extraKey2='x', *myargs, **mykwargs)")
+        .testLookup(
+            "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey2=x, extraKey1=true))");
+
+    // Foo is used by name
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_args_and_kwargs(foo='foo', extraKey1=True)")
+        .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs(extraKey1=true))");
+
+    // Empty args and kwargs.
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_args_and_kwargs('foo')")
+        .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs())");
+  }
+
+  @Test
+  public void testProxyMethodsObjectWithArgsAndKwargs() throws Exception {
+    // Foo is used positionally
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "m = mock.proxy_methods_object()",
+            "b = m.with_args_and_kwargs('foo', 'bar', 'baz', extraKey1=True, extraKey2='x')")
+        .testLookup(
+            "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey1=true, extraKey2=x))");
+
+    // Use an args list and a kwargs dict
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "mykwargs = {'extraKey1':True}",
+            "myargs = ['baz']",
+            "m = mock.proxy_methods_object()",
+            "b = m.with_args_and_kwargs('foo', 'bar', extraKey2='x', *myargs, **mykwargs)")
+        .testLookup(
+            "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey2=x, extraKey1=true))");
+
+    // Foo is used by name
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "m = mock.proxy_methods_object()",
+            "b = m.with_args_and_kwargs(foo='foo', extraKey1=True)")
+        .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs(extraKey1=true))");
+
+    // Empty args and kwargs.
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("m = mock.proxy_methods_object()", "b = m.with_args_and_kwargs('foo')")
+        .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs())");
+  }
+
+  @Test
   public void testStructAccessOfMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1591,7 +1769,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "struct_field_callable",
             "value_of",
             "voidfunc",
+            "with_args_and_env",
+            "with_args_and_kwargs",
             "with_extra",
+            "with_kwargs",
             "with_params",
             "with_params_and_extra");
   }

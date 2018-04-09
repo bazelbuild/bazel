@@ -68,6 +68,9 @@ import javax.tools.Diagnostic;
 public final class SkylarkCallableProcessor extends AbstractProcessor {
   private Messager messager;
 
+  private static final String SKYLARK_LIST = "com.google.devtools.build.lib.syntax.SkylarkList<?>";
+  private static final String SKYLARK_DICT =
+      "com.google.devtools.build.lib.syntax.SkylarkDict<?,?>";
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
@@ -100,7 +103,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
 
       try {
         verifyDocumented(methodElement, annotation);
-        verifyNotStructFieldWithInvalidExtraParams(methodElement, annotation);
+        verifyNotStructFieldWithParams(methodElement, annotation);
         verifyParamSemantics(methodElement, annotation);
         verifyNumberOfParameters(methodElement, annotation);
         verifyExtraInterpreterParams(methodElement, annotation);
@@ -121,15 +124,19 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
   }
 
-  private void verifyNotStructFieldWithInvalidExtraParams(
+  private void verifyNotStructFieldWithParams(
       ExecutableElement methodElement, SkylarkCallable annotation)
       throws SkylarkCallableProcessorException {
     if (annotation.structField()) {
-      if (annotation.useAst() || annotation.useEnvironment() || annotation.useAst()) {
+      if (annotation.useAst()
+          || annotation.useEnvironment()
+          || annotation.useAst()
+          || !annotation.extraPositionals().name().isEmpty()
+          || !annotation.extraKeywords().name().isEmpty()) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, useEnvironment, or useLocation");
+                + "useAst, useEnvironment, useLocation, extraPositionals, or extraKeywords");
       }
     }
   }
@@ -255,6 +262,32 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     // TODO(cparsons): Matching by class name alone is somewhat brittle, but due to tangled
     // dependencies, it is difficult for this processor to depend directy on the expected
     // classes here.
+    if (!annotation.extraPositionals().name().isEmpty()) {
+      if (!SKYLARK_LIST.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format(
+                "Expected parameter index %d to be the %s type, matching extraPositionals, "
+                    + "but was %s",
+                currentIndex,
+                SKYLARK_LIST,
+                methodSignatureParams.get(currentIndex).asType().toString()));
+      }
+      currentIndex++;
+    }
+    if (!annotation.extraKeywords().name().isEmpty()) {
+      if (!SKYLARK_DICT.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format(
+                "Expected parameter index %d to be the %s type, matching extraKeywords, "
+                    + "but was %s",
+                currentIndex,
+                SKYLARK_DICT,
+                methodSignatureParams.get(currentIndex).asType().toString()));
+      }
+      currentIndex++;
+    }
     if (annotation.useLocation()) {
       if (!LOCATION.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
         throw new SkylarkCallableProcessorException(
@@ -306,6 +339,8 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
 
   private int numExpectedExtraInterpreterParams(SkylarkCallable annotation) {
     int numExtraInterpreterParams = 0;
+    numExtraInterpreterParams += annotation.extraPositionals().name().isEmpty() ? 0 : 1;
+    numExtraInterpreterParams += annotation.extraKeywords().name().isEmpty() ? 0 : 1;
     numExtraInterpreterParams += annotation.useLocation() ? 1 : 0;
     numExtraInterpreterParams += annotation.useAst() ? 1 : 0;
     numExtraInterpreterParams += annotation.useEnvironment() ? 1 : 0;

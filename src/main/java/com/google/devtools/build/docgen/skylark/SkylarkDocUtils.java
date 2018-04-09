@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.docgen.skylark;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.DocgenConsts;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 
 /** A utility class for the documentation generator. */
 public final class SkylarkDocUtils {
@@ -29,5 +31,27 @@ public final class SkylarkDocUtils {
     return documentation
         .replace("$BE_ROOT", DocgenConsts.BeDocsRoot)
         .replace("$DOC_EXT", DocgenConsts.documentationExtension);
+  }
+
+  /**
+   * Returns a list of parameter documentation elements for a given method doc and the method's
+   * parameters.
+   */
+  static ImmutableList<SkylarkParamDoc> determineParams(
+      SkylarkMethodDoc methodDoc,
+      Param[] userSuppliedParams,
+      Param extraPositionals,
+      Param extraKeywords) {
+    ImmutableList.Builder<SkylarkParamDoc> paramsBuilder = ImmutableList.builder();
+    for (Param param : userSuppliedParams) {
+      paramsBuilder.add(new SkylarkParamDoc(methodDoc, param));
+    }
+    if (!extraPositionals.name().isEmpty()) {
+      paramsBuilder.add(new SkylarkParamDoc(methodDoc, extraPositionals));
+    }
+    if (!extraKeywords.name().isEmpty()) {
+      paramsBuilder.add(new SkylarkParamDoc(methodDoc, extraKeywords));
+    }
+    return paramsBuilder.build();
   }
 }
