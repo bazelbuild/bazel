@@ -63,8 +63,8 @@ function set_up() {
 # //planets has a dependency on a target in the pluto Git repository.
 function test_git_repository() {
   local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
-  # Commit 85b8224 corresponds to tag 1-build. See testdata/pluto.git_log.
-  local commit_hash="b87de93"
+  # Commit corresponds to tag 1-build. See testdata/pluto.git_log.
+  local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
@@ -269,7 +269,7 @@ function test_git_repository_not_refetched_on_server_restart() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
 
   # Use batch to force server restarts.
@@ -284,7 +284,7 @@ EOF
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
 
   bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
@@ -295,7 +295,7 @@ EOF
   cat > WORKSPACE <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
 
   bazel --batch build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
@@ -309,7 +309,7 @@ function test_git_repository_refetched_when_commit_changes() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
 
   bazel build --noexperimental_ui @g//:g >& $TEST_log || fail "Build failed"
@@ -318,7 +318,7 @@ EOF
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
 
 
@@ -332,7 +332,7 @@ function test_git_repository_and_nofetch() {
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
@@ -341,7 +341,7 @@ EOF
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   cat > WORKSPACE <<EOF
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
 
 
@@ -388,8 +388,8 @@ EOF
 function test_git_repository_both_commit_tag_error() {
   setup_error_test
   local pluto_repo_dir=$TEST_TMPDIR/pluto
-  # Commit 85b8224 corresponds to tag 1-build. See testdata/pluto.git_log.
-  local commit_hash="b87de93"
+  # Commit corresponds to tag 1-build. See testdata/pluto.git_log.
+  local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF

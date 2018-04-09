@@ -1,5 +1,5 @@
-commit c6ffd1361759036836186f06078af8ebc297bf39 (HEAD -> master, tag: 1-submodule)
-Author: John Doe <john@foo.com>
+commit ce0b196c8608948574c73fd0c7c426dd29892344 (HEAD -> master, tag: 1-submodule)
+Author: John Doe <john@example.com>
 Date:   Thu Jul 16 04:53:18 2015 -0700
 
     Add pluto submodule.
@@ -15,14 +15,14 @@ index 0000000..1d2f9b1
 +	url = ../pluto
 diff --git a/pluto b/pluto
 new file mode 160000
-index 0000000..36db6be
+index 0000000..dc948ef
 --- /dev/null
 +++ b/pluto
 @@ -0,0 +1 @@
-+Subproject commit 36db6be50fd9f33cf89fc5b8206f2e3714b520e3
++Subproject commit dc948ef26ccac814b7b77f38d263f09778973b57
 
-commit eaf1b34982ead69228b6f3f894a0a34c59c07f17 (tag: 0-initial)
-Author: John Doe <john@foo.com>
+commit f31c17b16a9a845259e85fd4ac861693e3fde2ee (tag: 0-initial)
+Author: John Doe <john@example.com>
 Date:   Thu Jul 16 04:52:23 2015 -0700
 
     Initial commit.
