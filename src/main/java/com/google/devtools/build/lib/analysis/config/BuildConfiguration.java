@@ -209,11 +209,6 @@ public class BuildConfiguration {
     public PatchTransition topLevelConfigurationHook(Target toTarget) {
       return null;
     }
-
-    /** Returns a reserved set of action mnemonics. These cannot be used from a Skylark action. */
-    public ImmutableSet<String> getReservedActionMnemonics() {
-      return ImmutableSet.of();
-    }
   }
 
   public static final Label convertOptionsLabel(String input) throws OptionsParsingException {
@@ -1273,6 +1268,7 @@ public class BuildConfiguration {
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
       BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
+      ImmutableSet<String> reservedActionMnemonics,
       String repositoryName) {
     this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
@@ -1347,11 +1343,7 @@ public class BuildConfiguration {
     checksum = buildOptions.computeChecksum();
     hashCode = computeHashCode();
 
-    ImmutableSet.Builder<String> reservedActionMnemonics = ImmutableSet.builder();
-    for (Fragment fragment : fragments.values()) {
-      reservedActionMnemonics.addAll(fragment.getReservedActionMnemonics());
-    }
-    this.reservedActionMnemonics = reservedActionMnemonics.build();
+    this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
   }
 
@@ -1378,6 +1370,7 @@ public class BuildConfiguration {
             fragmentsMap,
             options,
             BuildOptions.diffForReconstruction(defaultBuildOptions, options),
+            reservedActionMnemonics,
             mainRepositoryName.strippedName());
     return newConfig;
   }
@@ -1960,10 +1953,6 @@ public class BuildConfiguration {
     return skylarkVisibleFragments.keySet();
   }
 
-  public ImmutableSet<String> getReservedActionMnemonics() {
-    return reservedActionMnemonics;
-  }
-
   /**
    * Returns an extra transition that should apply to top-level targets in this
    * configuration. Returns null if no transition is needed.
@@ -2006,5 +1995,9 @@ public class BuildConfiguration {
                 .setCpu(getCpu())
                 .build());
     return new BuildConfigurationEvent(eventId, builder.build());
+  }
+
+  public ImmutableSet<String> getReservedActionMnemonics() {
+    return reservedActionMnemonics;
   }
 }
