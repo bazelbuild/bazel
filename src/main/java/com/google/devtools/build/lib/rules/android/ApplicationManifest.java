@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -266,8 +267,19 @@ public final class ApplicationManifest {
   }
 
   public ApplicationManifest renamePackage(RuleContext ruleContext, String customPackage) {
-    if (isNullOrEmpty(customPackage)) {
+    Optional<Artifact> stamped = maybeSetManifestPackage(ruleContext, manifest, customPackage);
+
+    if (!stamped.isPresent()) {
       return this;
+    }
+
+    return new ApplicationManifest(ruleContext, stamped.get(), targetAaptVersion);
+  }
+
+  static Optional<Artifact> maybeSetManifestPackage(
+      RuleContext ruleContext, Artifact manifest, String customPackage) {
+    if (isNullOrEmpty(customPackage)) {
+      return Optional.empty();
     }
     Artifact outputManifest =
         ruleContext.getUniqueDirectoryArtifact(
@@ -275,12 +287,13 @@ public final class ApplicationManifest {
             "AndroidManifest.xml",
             ruleContext.getBinOrGenfilesDirectory());
     new ManifestMergerActionBuilder(ruleContext)
-        .setManifest(getManifest())
+        .setManifest(manifest)
         .setLibrary(true)
         .setCustomPackage(customPackage)
         .setManifestOutput(outputManifest)
         .build(ruleContext);
-    return new ApplicationManifest(ruleContext, outputManifest, targetAaptVersion);
+
+    return Optional.of(outputManifest);
   }
 
   public ResourceApk packTestWithDataAndResources(

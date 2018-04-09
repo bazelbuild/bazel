@@ -21,27 +21,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 @Immutable
 public class StampedAndroidManifest extends AndroidManifest {
 
-  StampedAndroidManifest(
-      RuleContext ruleContext, Artifact manifest, String pkg, boolean isDummy) {
-    super(ruleContext, manifest, pkg, isDummy);
+  StampedAndroidManifest(Artifact manifest, String pkg) {
+    super(manifest, pkg);
   }
 
   @Override
-  StampedAndroidManifest stamp() {
+  public StampedAndroidManifest stamp(RuleContext ruleContext) {
     // This manifest is already stamped
     return this;
-  }
-
-  /**
-   * Gets the manifest artifact wrapped by this object. Stamped manifests are guaranteed to have a
-   * non-null manifest artifact.
-   */
-  @Override
-  Artifact getManifest() {
-    return super.getManifest();
-  }
-
-  public AndroidManifestInfo toProvider() {
-    return AndroidManifestInfo.of(getManifest(), getPackage(), isDummy());
   }
 }

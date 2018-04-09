@@ -291,7 +291,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
         new AndroidResources(
             resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"));
     StampedAndroidManifest manifest =
-        new StampedAndroidManifest(ruleContext, getManifest(), "some.java.pkg", false);
+        new StampedAndroidManifest(getManifest(), "some.java.pkg");
 
     ParsedAndroidResources parsed = raw.parse(ruleContext, manifest);
 
