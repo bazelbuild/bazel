@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
+import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 
 /**
@@ -69,6 +70,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCcLibraryRule());
     builder.addRuleDefinition(new BazelCcImportRule());
     builder.addRuleDefinition(new CcIncludeScanningRule());
+    builder.addRuleDefinition(new FdoProfileRule());
   }
 
   @Override

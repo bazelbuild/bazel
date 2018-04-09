@@ -86,7 +86,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final Label ccToolchainLabel;
     protected final Label stlLabel;
     protected final Path fdoProfileAbsolutePath;
-    protected final Label fdoProfileLabel;
+    protected final Label fdoOptimizeLabel;
     protected final Label sysrootLabel;
     protected final CpuTransformer cpuTransformer;
 
@@ -96,7 +96,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         String cacheKeySuffix,
         BuildOptions buildOptions,
         Path fdoProfileAbsolutePath,
-        Label fdoProfileLabel,
+        Label fdoOptimizeLabel,
         Label crosstoolTop,
         Label ccToolchainLabel,
         Label stlLabel,
@@ -108,7 +108,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
       this.cppOptions = buildOptions.get(CppOptions.class);
       this.fdoProfileAbsolutePath = fdoProfileAbsolutePath;
-      this.fdoProfileLabel = fdoProfileLabel;
+      this.fdoOptimizeLabel = fdoOptimizeLabel;
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
       this.stlLabel = stlLabel;
@@ -149,8 +149,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         CrosstoolConfigurationLoader.selectToolchain(
             file.getProto(), options, cpuTransformer.getTransformer());
 
-    // FDO
-    // TODO(bazel-team): move this to CppConfiguration.prepareHook
     Path fdoProfileAbsolutePath = null;
     Label fdoProfileLabel = null;
     if (cppOptions.getFdoOptimize() != null) {

@@ -322,13 +322,27 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT) {
       if (cppConfiguration.getFdoProfileAbsolutePath() != null) {
         fdoZip = cppConfiguration.getFdoProfileAbsolutePath();
-      } else if (cppConfiguration.getFdoProfileLabel() != null) {
-        Artifact fdoArtifact = ruleContext.getPrerequisiteArtifact(":fdo_optimize", Mode.TARGET);
-        if (fdoArtifact != null) {
-          if (!fdoArtifact.isSourceArtifact()) {
-            ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
-            return null;
-          }
+      } else if (cppConfiguration.getFdoProfileLabel() != null
+          || cppConfiguration.getFdoOptimizeLabel() != null) {
+        Artifact fdoArtifact;
+        if (cppConfiguration.getFdoProfileLabel() != null) {
+          fdoArtifact =
+              ruleContext
+                  .getPrerequisite(":fdo_profile", Mode.TARGET, FdoProfileProvider.PROVIDER)
+                  .getProfileArtifact();
+        } else {
+          fdoArtifact = ruleContext.getPrerequisiteArtifact(":fdo_optimize", Mode.TARGET);
+        }
+
+        String flagInUse =
+            cppConfiguration.getFdoProfileLabel() != null ? "--fdo_profile" : "--fdo_optimize";
+
+        if (!fdoArtifact.isSourceArtifact()) {
+          ruleContext.ruleError(
+              String.format("%s points to a target that is not an input file", flagInUse));
+          return null;
+        }
+        if (flagInUse.equals("--fdo_optimize")) {
           Label fdoLabel = ruleContext.getPrerequisite(":fdo_optimize", Mode.TARGET).getLabel();
           if (!fdoLabel
               .getPackageIdentifier()
@@ -338,8 +352,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
             return null;
           }
-          fdoZip = fdoArtifact.getPath();
         }
+        fdoZip = fdoArtifact.getPath();
       }
     }
 
@@ -359,7 +373,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       fdoMode = FdoMode.OFF;
     } else if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip.getBaseName())) {
       fdoMode = FdoMode.AUTO_FDO;
-    } else if (cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler())) {
+    } else if (isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler(), fdoZip)) {
       fdoMode = FdoMode.LLVM_FDO;
     } else {
       fdoMode = FdoMode.VANILLA;
@@ -514,7 +528,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // This tries to convert LLVM profiles to the indexed format if necessary.
     Artifact profileArtifact = null;
-    if (cppConfiguration.isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler())) {
+    if (fdoMode == FdoMode.LLVM_FDO) {
       profileArtifact =
           convertLLVMRawProfileToIndexed(fdoZip, toolchainInfo, ruleContext);
       if (ruleContext.hasErrors()) {
@@ -590,6 +604,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
+  }
+
+  /** Returns true if LLVM FDO Optimization should be applied for this configuration. */
+  private boolean isLLVMOptimizedFdo(boolean isLLVMCompiler, Path fdoProfilePath) {
+    return fdoProfilePath != null
+        && (CppFileTypes.LLVM_PROFILE.matches(fdoProfilePath)
+            || CppFileTypes.LLVM_PROFILE_RAW.matches(fdoProfilePath)
+            || (isLLVMCompiler && fdoProfilePath.toString().endsWith(".zip")));
   }
 
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
