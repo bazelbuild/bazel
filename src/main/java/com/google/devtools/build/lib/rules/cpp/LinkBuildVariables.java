@@ -164,7 +164,7 @@ public enum LinkBuildVariables {
     }
 
     // output exec path
-    if (outputArtifact != null) {
+    if (outputArtifact != null && !isLtoIndexing) {
       buildVariables.addStringVariable(
           OUTPUT_EXECPATH.getVariableName(), outputArtifact.getExecPathString());
     }
@@ -205,7 +205,10 @@ public enum LinkBuildVariables {
       }
     }
     boolean shouldGenerateInterfaceLibrary =
-        outputArtifact != null && interfaceLibraryBuilder != null && interfaceLibraryOutput != null;
+        outputArtifact != null
+            && interfaceLibraryBuilder != null
+            && interfaceLibraryOutput != null
+            && !isLtoIndexing;
     buildVariables.addStringVariable(
         GENERATE_INTERFACE_LIBRARY.getVariableName(),
         shouldGenerateInterfaceLibrary ? "yes" : "no");
