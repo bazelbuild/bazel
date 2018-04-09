@@ -20,4 +20,4 @@ for the two repositories:
 * refetch.git_log
 
 These files were created by manually creating a git repository and tarring up
-the result.
+the result using `tar -zcvf`.
