@@ -25,7 +25,7 @@ import java.util.Properties;
 /**
  * The main class.
  */
-public final class BazelMain {
+public final class Bazel {
   private static final String BUILD_DATA_PROPERTIES = "/build-data.properties";
 
   /**
@@ -67,7 +67,7 @@ public final class BazelMain {
    * load the returned map is empty.
    */
   private static ImmutableMap<String, String> tryGetBuildInfo() {
-    try (InputStream in = BazelMain.class.getResourceAsStream(BUILD_DATA_PROPERTIES)) {
+    try (InputStream in = Bazel.class.getResourceAsStream(BUILD_DATA_PROPERTIES)) {
       if (in == null) {
         return ImmutableMap.of();
       }

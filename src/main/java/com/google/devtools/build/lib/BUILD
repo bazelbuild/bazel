@@ -1347,7 +1347,7 @@ java_binary(
         "-Xlint:all",
         "-Xlint:-path",
     ],
-    main_class = "com.google.devtools.build.lib.bazel.BazelMain",
+    main_class = "com.google.devtools.build.lib.bazel.Bazel",
     runtime_deps = [
         ":server",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",

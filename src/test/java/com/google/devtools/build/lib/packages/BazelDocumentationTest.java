@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.bazel.BazelMain;
+import com.google.devtools.build.lib.bazel.Bazel;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.packages.util.DocumentationTestUtil;
 import com.google.devtools.build.lib.util.OS;
@@ -44,7 +44,7 @@ public class BazelDocumentationTest {
     }
     final File documentationFile = new File(documentationFilePath);
     DocumentationTestUtil.validateUserManual(
-        BazelMain.BAZEL_MODULES,
+        Bazel.BAZEL_MODULES,
         BazelRuleClassProvider.create(),
         Files.asCharSource(documentationFile, UTF_8).read());
   }
