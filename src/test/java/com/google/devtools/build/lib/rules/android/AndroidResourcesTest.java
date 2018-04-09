@@ -154,7 +154,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
     ResourceFilter fakeFilter =
         ResourceFilter.of(ImmutableSet.copyOf(filteredResources), filteredDepsBuilder::add);
 
-    Optional<AndroidResources> filtered = unfiltered.maybeFilter(fakeFilter, isDependency);
+    Optional<AndroidResources> filtered =
+        unfiltered.maybeFilter(errorConsumer, fakeFilter, isDependency);
 
     if (filteredResources.equals(unfilteredResources)) {
       // We expect filtering to have been a no-op
@@ -245,8 +246,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
             .add(getManifest())
             .build(),
         /* outputs = */ ImmutableList.of(
-            parsed.getCompiledSymbols(),
-            DataBinding.getSuffixedInfoFile(ruleContext, "_unused")));
+            parsed.getCompiledSymbols(), DataBinding.getSuffixedInfoFile(ruleContext, "_unused")));
   }
 
   /**

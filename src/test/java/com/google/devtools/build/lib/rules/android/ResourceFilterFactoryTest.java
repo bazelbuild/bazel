@@ -383,10 +383,10 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         resourceFilterFactory.getResourceFilter(
             errorConsumer, resourceDependencies, localResources);
 
-    assertThat(localResources.filterLocalResources(filter).getResources())
+    assertThat(localResources.filterLocalResources(errorConsumer, filter).getResources())
         .containsExactly(localResourceToKeep);
 
-    ResourceDependencies filteredResourceDeps = resourceDependencies.filter(filter);
+    ResourceDependencies filteredResourceDeps = resourceDependencies.filter(errorConsumer, filter);
 
     // TODO: Remove - assert was same order before
     assertThat(resourceDependencies.getTransitiveResources())
@@ -500,8 +500,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     ResourceFilter filter =
         resourceFilterFactory.getResourceFilter(errorConsumer, resourceDeps, localResources);
 
-    assertThat(resourceDeps.filter(filter)).isSameAs(resourceDeps);
+    assertThat(resourceDeps.filter(errorConsumer, filter)).isSameAs(resourceDeps);
 
-    return localResources.filterLocalResources(filter).getResources();
+    return localResources.filterLocalResources(errorConsumer, filter).getResources();
   }
 }
