@@ -79,11 +79,6 @@ public final class Digraph<T> implements Cloneable {
   private final HashMap<T, Node<T>> nodes = Maps.newHashMap();
 
   /**
-   * A source of unique, deterministic hashCodes for {@link Node} instances.
-   */
-  private int nextHashCode = 0;
-
-  /**
    * Construct an empty Digraph.
    */
   public Digraph() {}
@@ -377,7 +372,7 @@ public final class Digraph<T> implements Cloneable {
     if (label == null) {
       throw new NullPointerException();
     }
-    return nodes.computeIfAbsent(label, k -> new Node<>(k, nextHashCode++));
+    return nodes.computeIfAbsent(label, k -> new Node<>(k));
   }
 
   /******************************************************************
