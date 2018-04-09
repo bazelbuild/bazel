@@ -164,10 +164,12 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkArgument(!rootRelativePath.containsUplevelReferences(), rootRelativePath);
     Preconditions.checkArgument(
         root.getRoot().asPath().startsWith(execRootParent),
-        "%s %s %s",
+        "%s must start with %s, root = %s, root fs = %s, execRootParent fs = %s",
         root.getRoot(),
         execRootParent,
-        root);
+        root,
+        root.getRoot().asPath().getFileSystem(),
+        execRootParent.getFileSystem());
     Preconditions.checkArgument(
         !root.getRoot().asPath().equals(execRootParent),
         "%s %s %s",
