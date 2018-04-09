@@ -14,8 +14,6 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -163,81 +161,6 @@ public final class SkylarkDocumentationProcessor {
     page.add("global_modules", globalModules);
     page.add("modules", modulesPerCategory);
     page.write(skylarkDocPath);
-  }
-
-  /**
-   * Returns the API doc for the specified Skylark object in a command line printable format,
-   * params[0] identifies either a module or a top-level object, the optional params[1] identifies a
-   * method in the module.<br>
-   * Returns null if no Skylark object is found.
-   */
-  public static String getCommandLineAPIDoc(String[] params) throws ClassPathException {
-    Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
-    SkylarkModuleDoc toplevelModuleDoc = modules.get(
-        SkylarkDocumentationCollector.getTopLevelModule().name());
-    if (modules.containsKey(params[0])) {
-      // Top level module
-      SkylarkModuleDoc module = modules.get(params[0]);
-      if (params.length == 1) {
-        String moduleName = module.getAnnotation().name();
-        StringBuilder sb = new StringBuilder();
-        sb.append(moduleName).append("\n\t").append(module.getAnnotation().doc()).append("\n");
-        // Print the signature of all built-in methods
-        for (SkylarkBuiltinMethodDoc method : module.getBuiltinMethods().values()) {
-          printBuiltinFunctionDoc(moduleName, method, sb);
-        }
-        // Print all Java methods
-        for (SkylarkJavaMethodDoc method : module.getJavaMethods()) {
-          printJavaFunctionDoc(method, sb);
-        }
-        return DocgenConsts.toCommandLineFormat(sb.toString());
-      } else {
-        return getFunctionDoc(module.getAnnotation().name(), params[1], module);
-      }
-    } else if (toplevelModuleDoc.getBuiltinMethods().containsKey(params[0])) {
-      // Top level object / function
-      return getFunctionDoc(null, params[0], toplevelModuleDoc);
-    }
-    return null;
-  }
-
-  private static String getFunctionDoc(String moduleName, String methodName,
-      SkylarkModuleDoc module) {
-    if (module.getBuiltinMethods().containsKey(methodName)) {
-      // Create the doc for the built-in function
-      SkylarkBuiltinMethodDoc method = module.getBuiltinMethods().get(methodName);
-      StringBuilder sb = new StringBuilder();
-      printBuiltinFunctionDoc(moduleName, method, sb);
-      sb.append(method.getParams());
-      return DocgenConsts.removeDuplicatedNewLines(DocgenConsts.toCommandLineFormat(sb.toString()));
-    } else {
-      // Search if there are matching Java functions
-      StringBuilder sb = new StringBuilder();
-      boolean foundMatchingMethod = false;
-      for (SkylarkJavaMethodDoc method : module.getJavaMethods()) {
-        if (method.getName().equals(methodName)) {
-          printJavaFunctionDoc(method, sb);
-          foundMatchingMethod = true;
-        }
-      }
-      if (foundMatchingMethod) {
-        return DocgenConsts.toCommandLineFormat(sb.toString());
-      }
-    }
-    return null;
-  }
-
-  private static void printBuiltinFunctionDoc(String moduleName, SkylarkBuiltinMethodDoc method,
-      StringBuilder sb) {
-    if (moduleName != null) {
-      sb.append(moduleName).append(".");
-    }
-    sb.append(method.getName()).append("\n\t").append(method.getDocumentation()).append("\n");
-  }
-
-  private static void printJavaFunctionDoc(SkylarkJavaMethodDoc method, StringBuilder sb) {
-    sb.append(method.getSignature())
-      .append("\t").append(method.getDocumentation()).append("\n");
   }
 
   private static void parseOptions(String... args) {
