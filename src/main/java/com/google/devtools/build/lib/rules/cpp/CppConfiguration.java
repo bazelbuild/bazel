@@ -162,7 +162,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   private final PathFragment crosstoolTopPathFragment;
 
   private final Path fdoProfileAbsolutePath;
-  private final Label fdoProfileLabel;
+  private final Label fdoOptimizeLabel;
 
   // TODO(bazel-team): All these labels (except for ccCompilerRuleLabel) can be removed once the
   // transition to the cc_compiler rule is complete.
@@ -268,7 +268,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         cppOptions.convertLipoToThinLto,
         crosstoolTopPathFragment,
         params.fdoProfileAbsolutePath,
-        params.fdoProfileLabel,
+        params.fdoOptimizeLabel,
         params.ccToolchainLabel,
         params.stlLabel,
         params.sysrootLabel == null
@@ -333,7 +333,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       boolean convertLipoToThinLto,
       PathFragment crosstoolTopPathFragment,
       Path fdoProfileAbsolutePath,
-      Label fdoProfileLabel,
+      Label fdoOptimizeLabel,
       Label ccToolchainLabel,
       Label stlLabel,
       PathFragment nonConfiguredSysroot,
@@ -365,7 +365,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.convertLipoToThinLto = convertLipoToThinLto;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.fdoProfileAbsolutePath = fdoProfileAbsolutePath;
-    this.fdoProfileLabel = fdoProfileLabel;
+    this.fdoOptimizeLabel = fdoOptimizeLabel;
     this.ccToolchainLabel = ccToolchainLabel;
     this.stlLabel = stlLabel;
     this.nonConfiguredSysroot = nonConfiguredSysroot;
@@ -901,7 +901,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns true if LLVM FDO Optimization should be applied for this configuration.
    *
-   * <p>Deprecated: Use {@link CppConfiguration#isLLVMOptimizedFdo(boolean)}
+   * <p>Deprecated: Use {@link CcToolchain#isLLVMOptimizedFdo(boolean, Path)}
    */
   // TODO(b/64384912): Remove in favor of overload with isLLVMCompiler.
   @Deprecated
@@ -911,14 +911,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             || CppFileTypes.LLVM_PROFILE_RAW.matches(cppOptions.getFdoOptimize())
             || (isLLVMCompiler()
                 && cppOptions.getFdoOptimize().endsWith(".zip")));
-  }
-
-  /** Returns true if LLVM FDO Optimization should be applied for this configuration. */
-  public boolean isLLVMOptimizedFdo(boolean isLLVMCompiler) {
-    return cppOptions.getFdoOptimize() != null
-        && (CppFileTypes.LLVM_PROFILE.matches(cppOptions.getFdoOptimize())
-            || CppFileTypes.LLVM_PROFILE_RAW.matches(cppOptions.getFdoOptimize())
-            || (isLLVMCompiler && cppOptions.getFdoOptimize().endsWith(".zip")));
   }
 
   /** Returns true if LIPO optimization is implied by the flags of this build. */
@@ -1220,18 +1212,29 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       }
     }
 
+    // FDO
+    if (cppOptions.getFdoOptimize() != null && cppOptions.getFdoProfileLabel() != null) {
+      reporter.handle(Event.error("Both --fdo_optimize and --fdo_profile specified"));
+    }
+
     if (cppOptions.getFdoInstrument() != null) {
-      if (cppOptions.getFdoOptimize() != null) {
+      if (cppOptions.getFdoOptimize() != null || cppOptions.getFdoProfileLabel() != null) {
         reporter.handle(
             Event.error(
-                "Cannot instrument and optimize for FDO at the same time. "
-                    + "Remove one of the '--fdo_instrument' and '--fdo_optimize' options"));
+                "Cannot instrument and optimize for FDO at the same time. Remove one of the "
+                    + "'--fdo_instrument' and '--fdo_optimize/--fdo_profile' options"));
       }
       if (!cppOptions.coptList.contains("-Wno-error")) {
         // This is effectively impossible. --fdo_instrument adds this value, and only invocation
         // policy could remove it.
         reporter.handle(Event.error("Cannot instrument FDO without --copt including -Wno-error."));
       }
+    }
+
+    if (cppOptions.getLipoMode() != LipoMode.OFF && cppOptions.getFdoProfileLabel() != null) {
+      reporter.handle(
+          Event.error(
+              "LIPO options can not be used with --fdo_profile. Use --fdo_optimize instead"));
     }
 
     if (cppOptions.getLipoMode() != LipoMode.OFF
@@ -1349,8 +1352,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return fdoProfileAbsolutePath;
   }
 
+  public Label getFdoOptimizeLabel() {
+    return fdoOptimizeLabel;
+  }
+
   public Label getFdoProfileLabel() {
-    return fdoProfileLabel;
+    return cppOptions.getFdoProfileLabel();
   }
 
   public boolean useLLVMCoverageMapFormat() {

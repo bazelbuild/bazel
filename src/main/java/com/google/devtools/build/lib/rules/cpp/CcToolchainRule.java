@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -55,7 +56,13 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getSysrootLabel());
 
-  private static final LabelLateBoundDefault<?> FDO_LABEL =
+  private static final LabelLateBoundDefault<?> FDO_OPTIMIZE_LABEL =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getFdoOptimizeLabel());
+
+  private static final LabelLateBoundDefault<?> FDO_PROFILE_LABEL =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class,
           null,
@@ -135,7 +142,12 @@ public final class CcToolchainRule implements RuleDefinition {
                         (rule, attributes, cppConfig) ->
                             cppConfig.isLLVMOptimizedFdo() ? zipper : null)))
         .add(attr(":libc_top", LABEL).value(LIBC_TOP))
-        .add(attr(":fdo_optimize", LABEL).singleArtifact().value(FDO_LABEL))
+        .add(attr(":fdo_optimize", LABEL).singleArtifact().value(FDO_OPTIMIZE_LABEL))
+        .add(
+            attr(":fdo_profile", LABEL)
+                .allowedRuleClasses("fdo_profile")
+                .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
+                .value(FDO_PROFILE_LABEL))
         .add(
             attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
                 .cfg(LipoContextCollectorTransition.INSTANCE)
