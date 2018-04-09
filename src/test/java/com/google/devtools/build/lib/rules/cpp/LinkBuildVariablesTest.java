@@ -17,8 +17,11 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
@@ -138,6 +141,54 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
+  public void testNoIfsoBuildingWhenWhenThinLtoIndexing() throws Exception {
+    // Make sure the interface shared object generation is enabled in the configuration
+    // (which it is not by default for some windows toolchains)
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.THIN_LTO_CONFIGURATION,
+            MockCcSupport.HOST_AND_NONHOST_CONFIGURATION,
+            "supports_interface_shared_objects: true",
+            "needsPic: true",
+            "supports_start_end_lib: true");
+    useConfiguration("--features=thin_lto");
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    CppLinkAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
+    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
+
+    CppLinkAction indexAction =
+        (CppLinkAction)
+            getPredecessorByInputName(
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
+    Variables variables = indexAction.getLinkCommandLine().getBuildVariables();
+
+    String interfaceLibraryBuilder =
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName());
+    String interfaceLibraryInput =
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName());
+    String interfaceLibraryOutput =
+        getVariableValue(variables, LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName());
+    String generateInterfaceLibrary =
+        getVariableValue(
+            variables, LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName());
+
+    assertThat(generateInterfaceLibrary).isEqualTo("no");
+    assertThat(interfaceLibraryInput).endsWith("ignored");
+    assertThat(interfaceLibraryOutput).endsWith("ignored");
+    assertThat(interfaceLibraryBuilder).endsWith("ignored");
+  }
+
+  @Test
   public void testInterfaceLibraryBuildingVariablesWhenGenerationNotAllowed() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration
     // (which it is not by default for some windows toolchains)
@@ -166,6 +217,55 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     assertThat(interfaceLibraryInput).endsWith("ignored");
     assertThat(interfaceLibraryOutput).endsWith("ignored");
     assertThat(interfaceLibraryBuilder).endsWith("ignored");
+  }
+
+  @Test
+  public void testOutputExecpath() throws Exception {
+    // Make sure the interface shared object generation is enabled in the configuration
+    // (which it is not by default for some windows toolchains)
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+
+    assertThat(getVariableValue(variables, LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
+        .endsWith("x/libfoo.so");
+  }
+
+  @Test
+  public void testOutputExecpathIsNotExposedWhenThinLtoIndexing() throws Exception {
+    // Make sure the interface shared object generation is enabled in the configuration
+    // (which it is not by default for some windows toolchains)
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.THIN_LTO_CONFIGURATION,
+            MockCcSupport.HOST_AND_NONHOST_CONFIGURATION,
+            "needsPic: true",
+            "supports_start_end_lib: true");
+    useConfiguration("--features=thin_lto");
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    CppLinkAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
+    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
+
+    CppLinkAction indexAction =
+        (CppLinkAction)
+            getPredecessorByInputName(
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
+    Variables variables = indexAction.getLinkCommandLine().getBuildVariables();
+
+    assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
+        .isFalse();
   }
 
   @Test
@@ -252,5 +352,14 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     Variables testVariables = getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
 
     assertThat(testVariables.isAvailable(CcCommon.SYSROOT_VARIABLE_NAME)).isTrue();
+  }
+
+  private Action getPredecessorByInputName(Action action, String str) {
+    for (Artifact a : action.getInputs()) {
+      if (a.getExecPathString().contains(str)) {
+        return getGeneratingAction(a);
+      }
+    }
+    return null;
   }
 }
