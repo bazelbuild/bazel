@@ -452,7 +452,7 @@ public abstract class BlazeOptionHandler {
       for (ParsedOptionDescription configInstance : configInstances) {
         String configValueToExpand = (String) configInstance.getConvertedValue();
         List<String> expansion = getExpansion(eventHandler, commandToRcArgs, configValueToExpand);
-        optionsParser.parseArgsFixedAsExpansionOfOption(
+        optionsParser.parseArgsAsExpansionOfOption(
             configInstance, String.format("expanded from --%s", configValueToExpand), expansion);
       }
 

@@ -1710,31 +1710,37 @@ public class OptionsParserTest {
   }
 
   @Test
-  public void canonicalizeSorts() throws Exception {
-    assertThat(canonicalize(Yesterday.class, "--b=y", "--a=x"))
-        .containsExactly("--a=x", "--b=y").inOrder();
+  public void canonicalizeDoesNotReorder() throws Exception {
+    assertThat(canonicalize(Yesterday.class, "--b=y", "--d=x", "--a=z"))
+        .containsExactly("--b=y", "--d=x", "--a=z")
+        .inOrder();
   }
 
   @Test
   public void canonicalizeImplicitDepsNotListed() throws Exception {
     // e's requirement overrides the explicit "a" here, so the "a" value is not in the canonical
     // form - the effective value is implied and the overridden value is lost.
-    assertThat(canonicalize(Yesterday.class, "--a=x", "--e=y"))
-        .isEqualTo(Arrays.asList("--e=y"));
+    assertThat(canonicalize(Yesterday.class, "--a=x", "--e=y")).containsExactly("--e=y");
   }
 
   @Test
-  public void canonicalizeImplicitDepsSkipsDuplicate() throws Exception {
+  public void canonicalizeSkipsDuplicateAndStillOmmitsImplicitDeps() throws Exception {
     assertThat(canonicalize(Yesterday.class, "--e=x", "--e=y")).containsExactly("--e=y");
   }
 
   @Test
-  public void implicitDepsDoNotAffectCanonicalOrder() throws Exception {
-    // e requires a value of a that is overridden and should therefore be absent.
-    // f requires a value of b, that is absent because it is implied. Neither of these affects
-    // the order of the canonical list.
-    assertThat(canonicalize(Yesterday.class, "--f=z", "--e=y", "--a=x"))
-        .containsExactly("--a=x", "--e=y", "--f=z").inOrder();
+  public void implicitDepsAreNotInTheCanonicalOrderWhenTheyAreOverridden() throws Exception {
+    assertThat(canonicalize(Yesterday.class, "--e=y", "--a=x"))
+        .containsExactly("--e=y", "--a=x")
+        .inOrder();
+  }
+
+  @Test
+  public void implicitDepsAreNotInTheCanonicalOrder() throws Exception {
+    // f requires a value of b, that is absent because it is implied.
+    assertThat(canonicalize(Yesterday.class, "--f=z", "--a=x"))
+        .containsExactly("--f=z", "--a=x")
+        .inOrder();
   }
 
   @Test
