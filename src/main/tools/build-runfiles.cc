@@ -246,7 +246,7 @@ class RunfilesCreator {
 
       std::string entry_path = prefix + entry->d_name;
       FileInfo actual_info;
-      actual_info.type = DentryToFileType(entry_path, entry->d_type);
+      actual_info.type = DentryToFileType(entry_path, entry);
 
       if (actual_info.type == FILE_TYPE_SYMLINK) {
         ReadLinkOrDie(entry_path, &actual_info.symlink_target);
@@ -310,8 +310,19 @@ class RunfilesCreator {
     }
   }
 
-  FileType DentryToFileType(const std::string &path, char d_type) {
-    if (d_type == DT_UNKNOWN) {
+  FileType DentryToFileType(const std::string &path, struct dirent *ent) {
+#ifdef _DIRENT_HAVE_D_TYPE
+    if (ent->d_type != DT_UNKNOWN) {
+      if (ent->d_type == DT_DIR) {
+        return FILE_TYPE_DIRECTORY;
+      } else if (ent->d_type == DT_LNK) {
+        return FILE_TYPE_SYMLINK;
+      } else {
+        return FILE_TYPE_REGULAR;
+      }
+    } else  // NOLINT (the brace is in the next line)
+#endif
+    {
       struct stat st;
       LStatOrDie(path, &st);
       if (S_ISDIR(st.st_mode)) {
@@ -321,12 +332,6 @@ class RunfilesCreator {
       } else {
         return FILE_TYPE_REGULAR;
       }
-    } else if (d_type == DT_DIR) {
-      return FILE_TYPE_DIRECTORY;
-    } else if (d_type == DT_LNK) {
-      return FILE_TYPE_SYMLINK;
-    } else {
-      return FILE_TYPE_REGULAR;
     }
   }
 
@@ -386,7 +391,7 @@ class RunfilesCreator {
     while ((entry = readdir(dh)) != nullptr) {
       if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
       const std::string entry_path = path + '/' + entry->d_name;
-      FileType entry_file_type = DentryToFileType(entry_path, entry->d_type);
+      FileType entry_file_type = DentryToFileType(entry_path, entry);
       DelTree(entry_path, entry_file_type);
       errno = 0;
     }
