@@ -167,6 +167,32 @@ public class Artifact
   private final ArtifactOwner owner;
 
   /**
+   * The {@code rootRelativePath is a few characters shorter than the {@code execPath} for derived
+   * artifacts, so we save a few bytes by serializing it rather than the {@code execPath},
+   * especially when the {@code root} is common to many artifacts and therefore memoized.
+   */
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  static Artifact createForSerialization(
+      ArtifactRoot root, ArtifactOwner owner, PathFragment rootRelativePath) {
+    if (rootRelativePath == null || rootRelativePath.isAbsolute() != root.getRoot().isAbsolute()) {
+      throw new IllegalArgumentException(
+          rootRelativePath
+              + ": illegal rootRelativePath for "
+              + rootRelativePath
+              + " (root: "
+              + root
+              + ")");
+    }
+    PathFragment rootExecPath = root.getExecPath();
+    return new Artifact(
+        root,
+        rootExecPath.isEmpty() ? rootRelativePath : rootExecPath.getRelative(rootRelativePath),
+        rootRelativePath,
+        owner);
+  }
+
+  /**
    * Constructs an artifact for the specified path, root and execPath. The root must be an ancestor
    * of path, and execPath must be a non-absolute tail of path. Outside of testing, this method
    * should only be called by ArtifactFactory. The ArtifactOwner may be null.
@@ -186,13 +212,24 @@ public class Artifact
    * </pre>
    */
   @VisibleForTesting
-  @AutoCodec.Instantiator
   public Artifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
-    Preconditions.checkNotNull(root);
-    if (execPath == null || execPath.isAbsolute() != root.getRoot().isAbsolute()) {
+    this(
+        Preconditions.checkNotNull(root),
+        Preconditions.checkNotNull(execPath, "Null execPath not allowed (root %s", root),
+        root.getExecPath().isEmpty() ? execPath : execPath.relativeTo(root.getExecPath()),
+        Preconditions.checkNotNull(owner));
+    if (execPath.isAbsolute() != root.getRoot().isAbsolute()) {
       throw new IllegalArgumentException(
           execPath + ": illegal execPath for " + execPath + " (root: " + root + ")");
     }
+  }
+
+  private Artifact(
+      ArtifactRoot root,
+      PathFragment execPath,
+      PathFragment rootRelativePath,
+      ArtifactOwner owner) {
+    Preconditions.checkNotNull(root);
     if (execPath.isEmpty()) {
       throw new IllegalArgumentException(
           "it is illegal to create an artifact with an empty execPath");
@@ -200,12 +237,7 @@ public class Artifact
     this.hashCode = execPath.hashCode();
     this.root = root;
     this.execPath = execPath;
-    PathFragment rootExecPath = root.getExecPath();
-    if (rootExecPath.isEmpty()) {
-      this.rootRelativePath = execPath;
-    } else {
-      this.rootRelativePath = execPath.relativeTo(root.getExecPath());
-    }
+    this.rootRelativePath = rootRelativePath;
     this.owner = Preconditions.checkNotNull(owner);
   }
 
