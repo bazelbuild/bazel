@@ -74,7 +74,7 @@ toolchain(
         "{os_label}",
     ],
     toolchain = ":local_bash",
-    toolchain_type = "@bazel_tools//tools/bash:bash_toolchain_type",
+    toolchain_type = "@bazel_tools//tools/bash:toolchain_type",
 )
 """.format(bash_path = bash_path, os_label = os_label))
 

@@ -1,6 +1,6 @@
 exports_files(["bash_def.bzl"])
 
 toolchain_type(
-    name = "bash_toolchain_type",
+    name = "toolchain_type",
     visibility = ["//visibility:public"],
 )
