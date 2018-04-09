@@ -71,12 +71,11 @@ public class Printer {
   }
 
   /**
-   * Creates an instance of {@link BasePrinter} with an empty buffer.
-   *
-   * @param simplifiedFormatStrings if true, format strings will allow only %s and %%
+   * Creates an instance of {@link BasePrinter} with an empty buffer and whose format strings allow
+   * only %s and %%.
    */
-  public static BasePrinter getPrinter(boolean simplifiedFormatStrings) {
-    return getPrinter(new StringBuilder());
+  public static BasePrinter getSimplifiedPrinter() {
+    return new BasePrinter(new StringBuilder(), /*simplifiedFormatStrings=*/ true);
   }
 
   private Printer() {}
