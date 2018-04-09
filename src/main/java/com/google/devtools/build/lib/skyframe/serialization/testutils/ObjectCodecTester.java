@@ -33,7 +33,7 @@ import java.util.logging.Logger;
 
 /** Utility for testing {@link ObjectCodec} instances. */
 public class ObjectCodecTester<T> {
-  private static final Logger logger = Logger.getLogger(SerializerTester.class.getName());
+  private static final Logger logger = Logger.getLogger(ObjectCodecTester.class.getName());
 
   /** Interface for testing successful deserialization of an object. */
   @FunctionalInterface
