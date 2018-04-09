@@ -1,18 +1,41 @@
+# Copyright 2018 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Configure the Bash toolchain on the local machine."""
+
 def _bash_toolchain_impl(ctx):
+  """bash_toolchain rule implementation."""
   return [platform_common.ToolchainInfo(path = ctx.attr.path)]
 
 def _is_windows(repository_ctx):
+  """Returns true if the host OS is Windows."""
   return repository_ctx.os.name.startswith("windows")
 
 def _bash_config_impl(repository_ctx):
+  """bash_config rule implementation.
+
+  Detects the path of Bash on the local machine and stores it in a
+  bash_toolchain rule.
+  """
   bash_path = repository_ctx.os.environ.get("BAZEL_SH")
   if not bash_path:
     if _is_windows(repository_ctx):
       bash_path = repository_ctx.which("bash.exe")
       if bash_path:
-        # When the Windows Subsystem for Linux is installed there's a bash.exe
-        # under %WINDIR%\system32\bash.exe that launches Ubuntu Bash which
-        # cannot run native Windows programs so it's not what we want.
+        # When the Windows Subsystem for Linux is installed there's a
+        # bash.exe under %WINDIR%\system32\bash.exe that launches Ubuntu
+        # Bash which cannot run native Windows programs so it's not what
+        # we want.
         windir = repository_ctx.os.environ.get("WINDIR")
         if windir and bash_path.startswith(windir):
           bash_path = None
