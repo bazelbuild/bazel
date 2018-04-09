@@ -1,5 +1,5 @@
-commit b0a2adafea74d36e0374a119eab6623dbe5ba418 (HEAD -> master)
-Author: John Doe <john@foo.com>
+commit 17ea13b242e4cbcc27a6ef745939ebb7dcccea10 (HEAD -> master)
+Author: John Doe <john@example.com>
 Date:   Fri Dec 29 18:36:06 2017 -0500
 
     Move BUILD into a subdirectory
@@ -9,8 +9,8 @@ similarity index 100%
 rename from BUILD
 rename to gdir/BUILD
 
-commit 62777acc140a240a3ec8fa1adecaa6bc9e25ccdd
-Author: John Doe <john@foo.com>
+commit db134ae9b644d8237954a8e6f1ef80fcfd85d521
+Author: John Doe <john@example.com>
 Date:   Wed Nov 25 13:20:07 2015 +0100
 
     Change 1 to 2
@@ -23,8 +23,8 @@ index 335b1cf..07034a3 100644
 -genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 1 > $@")
 +genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 2 > $@")
 
-commit f0b79ff07baddf85b73ed84459487f78042760ff
-Author: John Doe <john@foo.com>
+commit 22095302abaf776886879efa5129aa4d44c53017
+Author: John Doe <john@example.com>
 Date:   Wed Nov 25 13:19:52 2015 +0100
 
     Initial checkin.

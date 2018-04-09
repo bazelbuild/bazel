@@ -114,13 +114,13 @@ EOF
 }
 
 function test_git_repository() {
-  do_git_repository_test "b87de93"
+  do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 }
 
 function test_git_repository_strip_prefix() {
   # This commit has the files in a subdirectory named 'pluto'
   # so we strip_prefix and the build should still work.
-  do_git_repository_test "ceab34f" "pluto"
+  do_git_repository_test "dbf9236251a9ea01b7a2eb563ca8e911060fc97c" "pluto"
 }
 
 function test_new_git_repository_with_build_file() {
@@ -323,7 +323,7 @@ function test_git_repository_not_refetched_on_server_restart() {
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0', verbose=True)
+git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
 
   # Use batch to force server restarts.
@@ -339,7 +339,7 @@ EOF
   # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='62777acc', verbose=True)
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
@@ -351,7 +351,7 @@ EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='62777acc', verbose=True)
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
@@ -364,7 +364,7 @@ function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
   # Change the strip_prefix which should cause a new checkout
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='b0a2ada', verbose=True)
+git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True)
 EOF
   bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
@@ -372,7 +372,7 @@ EOF
 
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='b0a2ada', verbose=True, strip_prefix="gdir")
+git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True, strip_prefix="gdir")
 EOF
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
@@ -386,7 +386,7 @@ function test_git_repository_refetched_when_commit_changes() {
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0', verbose=True)
+git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
@@ -396,7 +396,7 @@ EOF
   # Change the commit id, which should cause the checkout to be re-cloned.
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='62777acc', verbose=True)
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
@@ -410,7 +410,7 @@ function test_git_repository_and_nofetch() {
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
@@ -420,7 +420,7 @@ EOF
 
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='62777acc')
+git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
 
 
@@ -432,7 +432,7 @@ EOF
 
   cat > WORKSPACE <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
-git_repository(name='g', remote='$repo_dir', commit='b0a2ada', strip_prefix="gdir")
+git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', strip_prefix="gdir")
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
@@ -478,8 +478,8 @@ EOF
 function test_git_repository_both_commit_tag_error() {
   setup_error_test
   local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
-  # Commit 85b8224 corresponds to tag 1-build. See testdata/pluto.git_log.
-  local commit_hash="b87de93"
+  # Commit corresponds to tag 1-build. See testdata/pluto.git_log.
+  local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
