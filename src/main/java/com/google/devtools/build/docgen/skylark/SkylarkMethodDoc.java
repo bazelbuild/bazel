@@ -72,6 +72,12 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
       }
       argList.add(formatParameter(param));
     }
+    if (!annotation.extraPositionals().name().isEmpty()) {
+      argList.add("*" + annotation.extraPositionals().name());
+    }
+    if (!annotation.extraKeywords().name().isEmpty()) {
+      argList.add("**" + annotation.extraKeywords().name());
+    }
     return Joiner.on(", ").join(argList);
   }
 

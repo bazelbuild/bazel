@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.io.IOException;
@@ -492,10 +493,16 @@ public final class FuncallExpression extends Expression {
       Map<String, Object> kwargs,
       MethodDescriptor method,
       Environment environment) {
-    ImmutableList.Builder<Object> builder = ImmutableList.builder();
-    Class<?>[] javaMethodSignatureParams = method.getMethod().getParameterTypes();
     SkylarkCallable callable = method.getAnnotation();
+    ImmutableList.Builder<Object> builder = ImmutableList.builder();
+    ImmutableList.Builder<Object> extraArgsBuilder = ImmutableList.builder();
+    ImmutableMap.Builder<String, Object> extraKwargsBuilder = ImmutableMap.builder();
+    boolean acceptsExtraArgs = !callable.extraPositionals().name().isEmpty();
+    boolean acceptsExtraKwargs = !callable.extraKeywords().name().isEmpty();
+    Class<?>[] javaMethodSignatureParams = method.getMethod().getParameterTypes();
     int numExtraInterpreterParams = 0;
+    numExtraInterpreterParams += acceptsExtraArgs ? 1 : 0;
+    numExtraInterpreterParams += acceptsExtraKwargs ? 1 : 0;
     numExtraInterpreterParams += callable.useLocation() ? 1 : 0;
     numExtraInterpreterParams += callable.useAst() ? 1 : 0;
     numExtraInterpreterParams += callable.useEnvironment() ? 1 : 0;
@@ -535,7 +542,6 @@ public final class FuncallExpression extends Expression {
 
     // Then process parameters specified in callable.parameters()
     Set<String> keys = new LinkedHashSet<>(kwargs.keySet());
-    int paramIndex = mandatoryPositionals;
     // Positional parameters are always enumerated before non-positional parameters,
     // And default-valued positional parameters are always enumerated after other positional
     // parameters. These invariants are validated by the SkylarkCallable annotation processor.
@@ -543,13 +549,8 @@ public final class FuncallExpression extends Expression {
       SkylarkType type = getType(param);
       Object value = null;
 
-      if (argIndex < args.size()) { // Positional arguments remain.
+      if (argIndex < args.size() && param.positional()) { // Positional args and params remain.
         value = args.get(argIndex);
-        if (!param.positional()) {
-          return ArgumentListConversionResult.fromError(
-              String.format("expected no more than %s positional arguments, but got %s",
-                  paramIndex, args.size()));
-        }
         if (!type.contains(value)) {
           return ArgumentListConversionResult.fromError(
               String.format(
@@ -561,7 +562,7 @@ public final class FuncallExpression extends Expression {
               String.format("got multiple values for keyword argument '%s'", param.name()));
         }
         argIndex++;
-      } else { // No more positional arguments.
+      } else { // No more positional arguments, or no more positional parameters.
         if (param.named() && keys.remove(param.name())) { // Param specified by keyword argument.
           value = kwargs.get(param.name());
           if (!type.contains(value)) {
@@ -583,22 +584,41 @@ public final class FuncallExpression extends Expression {
             String.format("parameter '%s' cannot be None", param.name()));
       }
       builder.add(value);
-      paramIndex++;
     }
 
     if (argIndex < args.size()) {
-      return ArgumentListConversionResult.fromError(
-          String.format("expected no more than %s positional arguments, but got %s",
-              paramIndex, args.size()));
+      if (acceptsExtraArgs) {
+        for (; argIndex < args.size(); argIndex++) {
+          extraArgsBuilder.add(args.get(argIndex));
+        }
+      } else {
+        return ArgumentListConversionResult.fromError(
+            String.format(
+                "expected no more than %s positional arguments, but got %s",
+                argIndex, args.size()));
+      }
     }
     if (!keys.isEmpty()) {
-      return ArgumentListConversionResult.fromError(
-          String.format("unexpected keyword%s %s",
-              keys.size() > 1 ? "s" : "",
-              Joiner.on(",").join(Iterables.transform(keys, s -> "'" + s + "'"))));
+      if (acceptsExtraKwargs) {
+        for (String key : keys) {
+          extraKwargsBuilder.put(key, kwargs.get(key));
+        }
+      } else {
+        return ArgumentListConversionResult.fromError(
+            String.format(
+                "unexpected keyword%s %s",
+                keys.size() > 1 ? "s" : "",
+                Joiner.on(",").join(Iterables.transform(keys, s -> "'" + s + "'"))));
+      }
     }
 
-    // Then add any skylark-info arguments (for example the Environment).
+    // Then add any skylark-interpreter arguments (for example kwargs or the Environment).
+    if (acceptsExtraArgs) {
+      builder.add(Tuple.copyOf(extraArgsBuilder.build()));
+    }
+    if (acceptsExtraKwargs) {
+      builder.add(SkylarkDict.copyOf(environment, extraKwargsBuilder.build()));
+    }
     if (callable.useLocation()) {
       builder.add(getLocation());
     }

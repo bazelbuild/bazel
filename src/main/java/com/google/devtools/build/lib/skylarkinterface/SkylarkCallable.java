@@ -27,12 +27,13 @@ import java.lang.annotation.Target;
  * <ul>
  *   <li>The method must be public.
  *   <li>If structField=true, there must be zero user-supplied parameters.
- *   <li>Method parameters must be supplied in the following order:
- *       <pre>method([positionals][other user-args]
+ *   <li>The underlying java method's parameters must be supplied in the following order:
+ *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
  *       (Location)(FuncallExpression)(Envrionment)(SkylarkSemantics))</pre>
- *       where Location, FuncallExpression, Environment, and SkylarkSemantics are supplied by the
- *       interpreter if and only if useLocation, useAst, useEnvironment, and useSkylarkSemantics are
- *       specified, respectively.
+ *       where (extra positionals list) is a SkylarkList if extraPositionals is defined, (extra
+ *       kwargs) is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
+ *       Environment, and SkylarkSemantics are supplied by the interpreter if and only if
+ *       useLocation, useAst, useEnvironment, and useSkylarkSemantics are specified, respectively.
  *   <li>The number of method parameters much match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
  * </ul>
@@ -80,6 +81,34 @@ public @interface SkylarkCallable {
    * List of parameters this function accept after the {@link #mandatoryPositionals()} parameters.
    */
   Param[] parameters() default {};
+
+  /**
+   * Defines a catch-all list for additional unspecified positional parameters.
+   *
+   * <p>If this is left as default, it is an error for the caller to pass more positional arguments
+   * than are explicitly allowed by the method signature. If this is defined, all additional
+   * positional arguments are passed as elements of a {@link SkylarkList} to the method.
+   *
+   * <p>See python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
+   *
+   * <p>(If this is defined, the annotated method signature must contain a corresponding SkylarkList
+   * parameter. See the interface-level javadoc for details.)
+   */
+  Param extraPositionals() default @Param(name = "");
+
+  /**
+   * Defines a catch-all dictionary for additional unspecified named parameters.
+   *
+   * <p>If this is left as default, it is an error for the caller to pass any named arguments not
+   * explicitly declared by the method signature. If this is defined, all additional named arguments
+   * are passed as elements of a {@link SkylarkDict} to the method.
+   *
+   * <p>See python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
+   *
+   * <p>(If this is defined, the annotated method signature must contain a corresponding SkylarkDict
+   * parameter. See the interface-level javadoc for details.)
+   */
+  Param extraKeywords() default @Param(name = "");
 
   /**
    * Set it to true if the Java method may return <code>null</code> (which will then be converted to

@@ -68,9 +68,16 @@ public class SkylarkSignatureProcessor {
       parameters.add(parameter);
     }
 
-    return getSignatureForCallable(name, documented, parameters.build(), annotation.parameters(),
-        /*extraPositionals=*/null,
-        /*extraKeywords=*/null, /*defaultValues=*/null, paramDoc, enforcedTypesList);
+    return getSignatureForCallable(
+        name,
+        documented,
+        parameters.build(),
+        annotation.parameters(),
+        annotation.extraPositionals(),
+        annotation.extraKeywords(),
+        /*defaultValues=*/ null,
+        paramDoc,
+        enforcedTypesList);
   }
 
 
