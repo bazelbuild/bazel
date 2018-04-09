@@ -278,7 +278,7 @@ public final class ObjcCommon {
       for (CcCompilationInfo ccCompilationInfo : cppDeps.build()) {
         CcCompilationContextInfo ccCompilationContextInfo =
             ccCompilationInfo.getCcCompilationContextInfo();
-        if (ccCompilationContextInfo == null) {
+        if (ccCompilationContextInfo != null) {
           ccCompilationContextInfoBuilder.add(ccCompilationContextInfo);
         }
       }
