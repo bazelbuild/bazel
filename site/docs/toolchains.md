@@ -32,8 +32,8 @@ toolchains and creates a dependency from the target to the first matching
 toolchain it finds. To find a matching toolchain, Bazel does the following:
 
 1.  Looks through the registered toolchains, first from the `--extra_toolchains`
-    flag, then from the `registered_toolchains` calls in the project's
-    `WORKSPACE` file.
+    flag, then from the `register_toolchains` calls in the project's `WORKSPACE`
+    file.
 
 2.  For each registered toolchain, Bazel performs the following checks:
 
