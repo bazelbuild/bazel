@@ -75,11 +75,12 @@ cause an execution of the implementation function.
 
 The implementation function can be _restarted_ if a dependency it
 request is _missing_. The beginning of the implementation function
-will be re-executed after the dependency has been resolved.
-
-File given as a label are declared as dependencies, so requesting it
-might interrupt the function and restart it later, re-executing the
-part up till there.
+will be re-executed after the dependency has been resolved. To avoid
+unnecessary restarts (which are expensive, as network access might
+have to be repeated), label arguments are prefetched, provided all
+label arguments can be resolved to an existing file. Note that resolving
+a path from a string or a label that was constructed only during execution
+of the function might still cause a restart.
 
 Finally, for non-`local` repositories, only a change in the following
 dependencies might cause a restart:
