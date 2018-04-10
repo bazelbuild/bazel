@@ -19,9 +19,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
@@ -36,6 +38,8 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -53,9 +57,11 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -2477,6 +2483,127 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(expected).hasMessageThat()
         .contains("expected value of type 'int or function' for parameter 'default', "
             + "in method call int(SkylarkLateBoundDefault default)");
+  }
+
+  @Test
+  public void testSkylarkCustomCommandLineKeyComputation() throws Exception {
+    ImmutableList.Builder<SkylarkCustomCommandLine> commandLines = ImmutableList.builder();
+    commandLines.add(getCommandLine("ruleContext.actions.args()"));
+    commandLines.add(
+        getCommandLine("args = ruleContext.actions.args()", "args.add('foo')", "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add(arg_name='--foo', value='foo')",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()", "args.add('foo', format='--foo=%s')", "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()", "args.add_all(['foo', 'bar'])", "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_all(arg_name='-foo', values=['foo', 'bar'])",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_all(['foo', 'bar'], format_each='format%s')",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_all(['foo', 'bar'], before_each='-I')",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_all(['boing', 'boing', 'boing'])",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_all(['boing', 'boing', 'boing'], uniquify=True)",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_all(['foo', 'bar'], terminate_with='baz')",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_joined(['foo', 'bar'], join_with=',')",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "args.add_joined(['foo', 'bar'], join_with=',', format_joined='--foo=%s')",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _map_each(s): return s + '_mapped'",
+            "args.add_all(['foo', 'bar'], map_each=_map_each)",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "values = depset(['a', 'b'])",
+            "args.add_all(values)",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _map_each(s): return s + '_mapped'",
+            "values = depset(['a', 'b'])",
+            "args.add_all(values, map_each=_map_each)",
+            "args"));
+    commandLines.add(
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _map_each(s): return s + '_mapped_again'",
+            "values = depset(['a', 'b'])",
+            "args.add_all(values, map_each=_map_each)",
+            "args"));
+
+    // Ensure all these command lines have distinct keys
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    Map<String, SkylarkCustomCommandLine> digests = new HashMap<>();
+    for (SkylarkCustomCommandLine commandLine : commandLines.build()) {
+      Fingerprint fingerprint = new Fingerprint();
+      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      String digest = fingerprint.hexDigestAndReset();
+      SkylarkCustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
+      if (previous != null) {
+        fail(
+            String.format(
+                "Found two command lines with identical digest %s: '%s' and '%s'",
+                digest,
+                Joiner.on(' ').join(previous.arguments()),
+                Joiner.on(' ').join(commandLine.arguments())));
+      }
+    }
+
+    // Ensure errors are handled
+    MoreAsserts.assertThrows(
+        CommandLineExpansionException.class,
+        () -> {
+          SkylarkCustomCommandLine commandLine =
+              getCommandLine(
+                  "args = ruleContext.actions.args()",
+                  "def _bad_fn(s): return s.doesnotexist()",
+                  "values = depset(['a', 'b'])",
+                  "args.add_all(values, map_each=_bad_fn)",
+                  "args");
+          commandLine.addToFingerprint(actionKeyContext, new Fingerprint());
+        });
+  }
+
+  private SkylarkCustomCommandLine getCommandLine(String... lines) throws Exception {
+    return ((SkylarkActionFactory.Args) evalRuleContextCode(lines)).build();
   }
 
   private void setupThrowFunction(BuiltinFunction func) throws Exception {
