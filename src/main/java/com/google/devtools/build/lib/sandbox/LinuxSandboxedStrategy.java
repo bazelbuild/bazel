@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
+import javax.annotation.Nullable;
 
 /** Strategy that uses sandboxing to execute a process. */
 // TODO(ulfjack): This class only exists for this annotation. Find a better way to handle this!
@@ -46,9 +47,12 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param timeoutKillDelay additional grace period before killing timing out commands
+   * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
+   *     which case the runner uses a symlinked sandbox
    */
   static LinuxSandboxedSpawnRunner create(
-      CommandEnvironment cmdEnv, Path sandboxBase, Duration timeoutKillDelay) throws IOException {
+      CommandEnvironment cmdEnv, Path sandboxBase, Duration timeoutKillDelay,
+      @Nullable SandboxfsProcess sandboxfsProcess) throws IOException {
     Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");
     FileSystemUtils.touchFile(inaccessibleHelperFile);
     inaccessibleHelperFile.setReadable(false);
@@ -66,6 +70,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
         sandboxBase,
         inaccessibleHelperFile,
         inaccessibleHelperDir,
-        timeoutKillDelay);
+        timeoutKillDelay,
+        sandboxfsProcess);
   }
 }

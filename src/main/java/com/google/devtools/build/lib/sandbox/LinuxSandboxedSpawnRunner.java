@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -80,6 +81,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
+  private final @Nullable SandboxfsProcess sandboxfsProcess;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -89,13 +91,16 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param inaccessibleHelperFile path to a file that is (already) inaccessible
    * @param inaccessibleHelperDir path to a directory that is (already) inaccessible
    * @param timeoutKillDelay an additional grace period before killing timing out commands
+   * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
+   *     which case the runner uses a symlinked sandbox
    */
   LinuxSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
-      Duration timeoutKillDelay) {
+      Duration timeoutKillDelay,
+      @Nullable SandboxfsProcess sandboxfsProcess) {
     super(cmdEnv, sandboxBase);
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
@@ -105,6 +110,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutKillDelay = timeoutKillDelay;
+    this.sandboxfsProcess = sandboxfsProcess;
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
   }
 
@@ -114,10 +120,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    sandboxExecRoot.createDirectoryAndParents();
 
-    // Each sandboxed action runs in its own execroot, so we don't need to make the temp directory's
+    // Each sandboxed action runs in its own directory so we don't need to make the temp directory's
     // name unique (like we have to with standalone execution strategy).
-    Path tmpDir = sandboxExecRoot.getRelative("tmp");
+    //
+    // Note that, for sandboxfs-based executions, this temp directory lives outside of the sandboxfs
+    // instance. This is perfectly fine (because linux-sandbox controls accesses to this directory)
+    // and is actually desirable for performance reasons.
+    Path tmpDir = sandboxPath.getRelative("tmp");
 
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, tmpDir.getPathString());
@@ -151,15 +162,28 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineBuilder.setStatisticsPath(statisticsPath);
     }
 
-    SandboxedSpawn sandbox =
-        new SymlinkedSandboxedSpawn(
-            sandboxPath,
-            sandboxExecRoot,
-            commandLineBuilder.build(),
-            environment,
-            SandboxHelpers.getInputFiles(spawn, policy, execRoot),
-            outputs,
-            writableDirs);
+    SandboxedSpawn sandbox;
+    if (sandboxfsProcess != null) {
+      sandbox =
+          new SandboxfsSandboxedSpawn(
+              sandboxfsProcess,
+              sandboxPath,
+              commandLineBuilder.build(),
+              environment,
+              SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+              outputs,
+              ImmutableSet.of());
+    } else {
+      sandbox =
+          new SymlinkedSandboxedSpawn(
+              sandboxPath,
+              sandboxExecRoot,
+              commandLineBuilder.build(),
+              environment,
+              SandboxHelpers.getInputFiles(spawn, policy, execRoot),
+              outputs,
+              writableDirs);
+    }
 
     return runSpawn(spawn, sandbox, policy, execRoot, tmpDir, timeout, statisticsPath);
   }
