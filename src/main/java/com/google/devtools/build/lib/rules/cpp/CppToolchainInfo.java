@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ArtifactNamePattern;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.OptionalFlag;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
@@ -95,7 +94,6 @@ public final class CppToolchainInfo {
 
   private final ImmutableList<String> crosstoolCompilerFlags;
   private final ImmutableList<String> crosstoolCxxFlags;
-  private final ImmutableList<OptionalFlag> crosstoolOptionalCompilerFlags;
 
   private final ImmutableListMultimap<CompilationMode, String> cFlagsByCompilationMode;
   private final ImmutableListMultimap<CompilationMode, String> cxxFlagsByCompilationMode;
@@ -183,7 +181,6 @@ public final class CppToolchainInfo {
           toolchain.getHostSystemName(),
           new FlagList(
               ImmutableList.copyOf(toolchain.getDynamicLibraryLinkerFlagList()),
-              ImmutableList.of(),
               ImmutableList.of()),
           ImmutableList.copyOf(toolchain.getLinkerFlagList()),
           linkOptionsFromLinkingModeBuilder.build(),
@@ -206,14 +203,12 @@ public final class CppToolchainInfo {
           computeAdditionalMakeVariables(toolchain),
           ImmutableList.copyOf(toolchain.getCompilerFlagList()),
           ImmutableList.copyOf(toolchain.getCxxFlagList()),
-          ImmutableList.copyOf(toolchain.getOptionalCompilerFlagList()),
           cFlagsBuilder.build(),
           cxxFlagsBuilder.build(),
           lipoCFlagsBuilder.build(),
           lipoCxxFlagsBuilder.build(),
           new FlagList(
               ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
-              ImmutableList.of(),
               ImmutableList.of()),
           toolchain.getSupportsFission(),
           toolchain.getSupportsStartEndLib(),
@@ -260,7 +255,6 @@ public final class CppToolchainInfo {
       ImmutableMap<String, String> additionalMakeVariables,
       ImmutableList<String> crosstoolCompilerFlags,
       ImmutableList<String> crosstoolCxxFlags,
-      ImmutableList<OptionalFlag> crosstoolOptionalCompilerFlags,
       ImmutableListMultimap<CompilationMode, String> cFlagsByCompilationMode,
       ImmutableListMultimap<CompilationMode, String> cxxFlagsByCompilationMode,
       ImmutableListMultimap<LipoMode, String> lipoCFlags,
@@ -305,7 +299,6 @@ public final class CppToolchainInfo {
     this.additionalMakeVariables = additionalMakeVariables;
     this.crosstoolCompilerFlags = crosstoolCompilerFlags;
     this.crosstoolCxxFlags = crosstoolCxxFlags;
-    this.crosstoolOptionalCompilerFlags = crosstoolOptionalCompilerFlags;
     this.cFlagsByCompilationMode = cFlagsByCompilationMode;
     this.cxxFlagsByCompilationMode = cxxFlagsByCompilationMode;
     this.lipoCFlags = lipoCFlags;
@@ -628,10 +621,10 @@ public final class CppToolchainInfo {
    * Returns link options for the specified flag list, combined with universal options for all
    * shared libraries (regardless of link staticness).
    */
-  ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags, Iterable<String> features) {
+  ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags) {
     return ImmutableList.<String>builder()
-        .addAll(flags.evaluate(features))
-        .addAll(dynamicLibraryLinkFlags.evaluate(features))
+        .addAll(flags.evaluate())
+        .addAll(dynamicLibraryLinkFlags.evaluate())
         .build();
   }
 
@@ -738,22 +731,14 @@ public final class CppToolchainInfo {
     return lipoCxxFlags;
   }
 
-  /** Returns optional compiler flags from this toolchain. */
-  @Deprecated
-  // TODO(b/76449614): Remove all traces of optional flag crosstool fields when g3 is migrated.
-  public ImmutableList<OptionalFlag> getOptionalCompilerFlags() {
-    return crosstoolOptionalCompilerFlags;
-  }
-
   /** Returns unfiltered compiler options for C++ from this toolchain. */
-  public ImmutableList<String> getUnfilteredCompilerOptions(
-      Iterable<String> features, @Nullable PathFragment sysroot) {
+  public ImmutableList<String> getUnfilteredCompilerOptions(@Nullable PathFragment sysroot) {
     if (sysroot == null) {
-      return unfilteredCompilerFlags.evaluate(features);
+      return unfilteredCompilerFlags.evaluate();
     }
     return ImmutableList.<String>builder()
         .add("--sysroot=" + sysroot)
-        .addAll(unfilteredCompilerFlags.evaluate(features))
+        .addAll(unfilteredCompilerFlags.evaluate())
         .build();
   }
 

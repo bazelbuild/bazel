@@ -277,36 +277,29 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         params.sysrootLabel,
         new FlagList(
             coptsBuilder.build(),
-            FlagList.convertOptionalOptions(toolchain.getOptionalCompilerFlagList()),
             ImmutableList.copyOf(cppOptions.coptList)),
         new FlagList(
             cxxOptsBuilder.build(),
-            ImmutableList.of(),
             ImmutableList.copyOf(cppOptions.cxxoptList)),
         new FlagList(
             ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
-            ImmutableList.of(),
             ImmutableList.of()),
         ImmutableList.copyOf(cppOptions.conlyoptList),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.FULLY_STATIC),
-            ImmutableList.of(),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC),
-            ImmutableList.of(),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.MOSTLY_STATIC_LIBRARIES),
-            ImmutableList.of(),
             ImmutableList.of()),
         new FlagList(
             cppToolchainInfo.configureLinkerOptions(
                 compilationMode, cppOptions.getLipoMode(), LinkingMode.DYNAMIC),
-            ImmutableList.of(),
             ImmutableList.of()),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
@@ -593,19 +586,22 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             + "in addition to the ones returned by this method"
   )
   @Deprecated
-  public ImmutableList<String> getCompilerOptions(Iterable<String> features) {
-    return compilerFlags.evaluate(features);
+  public ImmutableList<String> getCompilerOptions(Iterable<String> featuresNotUsedAnymore) {
+    return compilerFlags.evaluate();
   }
 
   /**
-   * Returns the list of additional C-specific options to use for compiling
-   * C. These should be go on the command line after the common options
-   * returned by {@link #getCompilerOptions}.
+   * Returns the list of additional C-specific options to use for compiling C. These should be go on
+   * the command line after the common options returned by {@link #getCompilerOptions}.
    */
-  @SkylarkCallable(name = "c_options", structField = true,
-      doc = "Returns the list of additional C-specific options to use for compiling C. "
-      + "These should be go on the command line after the common options returned by "
-      + "<code>compiler_options</code>")
+  // TODO(b/64384912): Migrate skylark callers and remove.
+  @SkylarkCallable(
+      name = "c_options",
+      structField = true,
+      doc =
+          "Returns the list of additional C-specific options to use for compiling C. "
+              + "These should be go on the command line after the common options returned by "
+              + "<code>compiler_options</code>")
   public ImmutableList<String> getCOptions() {
     return cOptions;
   }
@@ -625,17 +621,17 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             + "<code>compiler_options</code>"
   )
   @Deprecated
-  public ImmutableList<String> getCxxOptions(Iterable<String> features) {
-    return cxxFlags.evaluate(features);
+  public ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore) {
+    return cxxFlags.evaluate();
   }
 
   /**
    * Returns the default list of options which cannot be filtered by BUILD rules. These should be
    * appended to the command line after filtering.
    *
-   * @deprecated since it uses nonconfigured sysroot. Use
-   * {@link CcToolchainProvider#getUnfilteredCompilerOptionsWithSysroot(Iterable)} if you *really*
-   * need to.
+   * @deprecated since it uses nonconfigured sysroot. Use {@link
+   *     CcToolchainProvider#getUnfilteredCompilerOptionsWithSysroot(Iterable)} if you *really* need
+   *     to.
    */
   // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
   @Deprecated
@@ -646,25 +642,23 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             + "rules. These should be appended to the command line after filtering."
   )
   public ImmutableList<String> getUnfilteredCompilerOptionsWithLegacySysroot(
-      Iterable<String> features) {
-    return getUnfilteredCompilerOptionsDoNotUse(features, nonConfiguredSysroot);
+      Iterable<String> featuresNotUsedAnymore) {
+    return getUnfilteredCompilerOptionsDoNotUse(nonConfiguredSysroot);
   }
 
   /**
-   * @deprecated since it hardcodes --sysroot flag. Use
-   * {@link com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration}
-   * instead.
+   * @deprecated since it hardcodes --sysroot flag. Use {@link
+   *     com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration} instead.
    */
   // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
   @Deprecated
-  ImmutableList<String> getUnfilteredCompilerOptionsDoNotUse(
-      Iterable<String> features, @Nullable PathFragment sysroot) {
+  ImmutableList<String> getUnfilteredCompilerOptionsDoNotUse(@Nullable PathFragment sysroot) {
     if (sysroot == null) {
-      return unfilteredCompilerFlags.evaluate(features);
+      return unfilteredCompilerFlags.evaluate();
     }
     return ImmutableList.<String>builder()
         .add("--sysroot=" + sysroot)
-        .addAll(unfilteredCompilerFlags.evaluate(features))
+        .addAll(unfilteredCompilerFlags.evaluate())
         .build();
   }
 
@@ -732,10 +726,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the immutable list of linker options for fully statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
-   * @param features default settings affecting this link
+   * @param featuresNotUsedAnymore
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    *     <p>Deprecated: Use {@link CppHelper#getFullyStaticLinkOptions(CppConfiguration,
-   *     CcToolchainProvider, Iterable, Boolean)}
+   *     CcToolchainProvider, Boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
   @SkylarkCallable(
@@ -747,11 +741,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   )
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(
-      Iterable<String> features, Boolean sharedLib) {
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
     if (sharedLib) {
-      return getSharedLibraryLinkOptions(mostlyStaticLinkFlags, features);
+      return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
     } else {
-      return fullyStaticLinkFlags.evaluate(features);
+      return fullyStaticLinkFlags.evaluate();
     }
   }
 
@@ -759,10 +753,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the immutable list of linker options for mostly statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
-   * @param features default settings affecting this link
+   * @param featuresNotUsedAnymore
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    *     <p>Deprecated: Use {@link CppHelper#getMostlyStaticLinkOptions(CppConfiguration,
-   *     CcToolchainProvider, Iterable, Boolean)}
+   *     CcToolchainProvider, Boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
   @SkylarkCallable(
@@ -774,15 +768,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   )
   @Deprecated
   public ImmutableList<String> getMostlyStaticLinkOptions(
-      Iterable<String> features, Boolean sharedLib) {
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(
           cppToolchainInfo.supportsEmbeddedRuntimes()
               ? mostlyStaticSharedLinkFlags
-              : dynamicLinkFlags,
-          features);
+              : dynamicLinkFlags);
     } else {
-      return mostlyStaticLinkFlags.evaluate(features);
+      return mostlyStaticLinkFlags.evaluate();
     }
   }
 
@@ -790,10 +783,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the immutable list of linker options for artifacts that are not fully or mostly
    * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
    *
-   * @param features default settings affecting this link
+   * @param featuresNotUsedAnymore
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    *     <p>Deprecated: Use {@link CppHelper#getDynamicLinkOptions(CppConfiguration,
-   *     CcToolchainProvider, Iterable, Boolean)}
+   *     CcToolchainProvider, Boolean)}
    */
   // TODO(b/64384912): Migrate skylark users to cc_common and remove.
   @SkylarkCallable(
@@ -804,11 +797,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
             + "passed via --linkopt or --linkopts."
   )
   @Deprecated
-  public ImmutableList<String> getDynamicLinkOptions(Iterable<String> features, Boolean sharedLib) {
+  public ImmutableList<String> getDynamicLinkOptions(
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
     if (sharedLib) {
-      return getSharedLibraryLinkOptions(dynamicLinkFlags, features);
+      return getSharedLibraryLinkOptions(dynamicLinkFlags);
     } else {
-      return dynamicLinkFlags.evaluate(features);
+      return dynamicLinkFlags.evaluate();
     }
   }
 
@@ -819,9 +813,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>Deprecated: Use {@link CcToolchainProvider#getSharedLibraryLinkOptions}
    */
   // TODO(b/64384912): Migrate skylark dependants and delete.
-  private ImmutableList<String> getSharedLibraryLinkOptions(
-      FlagList flags, Iterable<String> features) {
-    return cppToolchainInfo.getSharedLibraryLinkOptions(flags, features);
+  private ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags) {
+    return cppToolchainInfo.getSharedLibraryLinkOptions(flags);
   }
 
   /**

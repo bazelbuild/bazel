@@ -254,7 +254,7 @@ public class CppHelper {
    */
   // TODO(b/70784100): Figure out if these methods can be moved to CcToolchainProvider.
   public static ImmutableList<String> getCrosstoolCompilerOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+      CppConfiguration config, CcToolchainProvider toolchain) {
     ImmutableList.Builder<String> coptsBuilder =
         ImmutableList.<String>builder()
             .addAll(toolchain.getToolchainCompilerFlags())
@@ -270,10 +270,9 @@ public class CppHelper {
     FlagList compilerFlags =
         new FlagList(
             coptsBuilder.build(),
-            FlagList.convertOptionalOptions(toolchain.getOptionalCompilerFlags()),
             ImmutableList.of());
 
-    return compilerFlags.evaluate(features);
+    return compilerFlags.evaluate();
   }
 
   /**
@@ -282,9 +281,9 @@ public class CppHelper {
    * C++-specific options that should be used, in addition to the ones returned by this method.
    */
   public static ImmutableList<String> getCompilerOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+      CppConfiguration config, CcToolchainProvider toolchain) {
     return ImmutableList.<String>builder()
-        .addAll(getCrosstoolCompilerOptions(config, toolchain, features))
+        .addAll(getCrosstoolCompilerOptions(config, toolchain))
         .addAll(config.getCopts())
         .build();
   }
@@ -295,17 +294,16 @@ public class CppHelper {
    * returned by {@link #getCompilerOptions}.
    */
   public static ImmutableList<String> getCrosstoolCxxOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+      CppConfiguration config, CcToolchainProvider toolchain) {
     ImmutableList.Builder<String> cxxOptsBuilder =
         ImmutableList.<String>builder()
             .addAll(toolchain.getToolchainCxxFlags())
             .addAll(toolchain.getCxxFlagsByCompilationMode().get(config.getCompilationMode()))
             .addAll(toolchain.getLipoCxxFlags().get(config.getLipoMode()));
 
-    FlagList cxxFlags =
-        new FlagList(cxxOptsBuilder.build(), ImmutableList.of(), ImmutableList.of());
+    FlagList cxxFlags = new FlagList(cxxOptsBuilder.build(), ImmutableList.of());
 
-    return cxxFlags.evaluate(features);
+    return cxxFlags.evaluate();
   }
 
   /**
@@ -313,9 +311,9 @@ public class CppHelper {
    * go on the command line after the common options returned by {@link #getCompilerOptions}.
    */
   public static ImmutableList<String> getCxxOptions(
-      CppConfiguration config, CcToolchainProvider toolchain, Iterable<String> features) {
+      CppConfiguration config, CcToolchainProvider toolchain) {
     return ImmutableList.<String>builder()
-        .addAll(getCrosstoolCxxOptions(config, toolchain, features))
+        .addAll(getCrosstoolCxxOptions(config, toolchain))
         .addAll(config.getCxxopts())
         .build();
   }
@@ -326,22 +324,19 @@ public class CppHelper {
    *
    * @param config the CppConfiguration for this build
    * @param toolchain the c++ toolchain
-   * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getFullyStaticLinkOptions(
       CppConfiguration config,
       CcToolchainProvider toolchain,
-      Iterable<String> features,
       Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode()),
-          features);
+          toolchain.getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
           .getFullyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate(features);
+          .evaluate();
     }
   }
 
@@ -351,25 +346,22 @@ public class CppHelper {
    *
    * @param config the CppConfiguration for this build
    * @param toolchain the c++ toolchain
-   * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getMostlyStaticLinkOptions(
       CppConfiguration config,
       CcToolchainProvider toolchain,
-      Iterable<String> features,
       Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
           toolchain.supportsEmbeddedRuntimes()
               ? toolchain.getMostlyStaticSharedLinkFlags(
                   config.getCompilationMode(), config.getLipoMode())
-              : toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
-          features);
+              : toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
           .getMostlyStaticLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate(features);
+          .evaluate();
     }
   }
 
@@ -379,22 +371,19 @@ public class CppHelper {
    *
    * @param config the CppConfiguration for this build
    * @param toolchain the c++ toolchain
-   * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   public static ImmutableList<String> getDynamicLinkOptions(
       CppConfiguration config,
       CcToolchainProvider toolchain,
-      Iterable<String> features,
       Boolean sharedLib) {
     if (sharedLib) {
       return toolchain.getSharedLibraryLinkOptions(
-          toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()),
-          features);
+          toolchain.getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode()));
     } else {
       return toolchain
           .getDynamicLinkFlags(config.getCompilationMode(), config.getLipoMode())
-          .evaluate(features);
+          .evaluate();
     }
   }
 
