@@ -348,6 +348,8 @@ public class LabelTest {
     assertSyntaxError("package names may not end with '/'",
                       "//foo/:bar");
     assertSyntaxError("package names may not start with '/'", "///p:foo");
+    assertSyntaxError(
+        "package names may not start with '/' (do you have too many '/'?)", "////p:foo");
     assertSyntaxError("package names may not contain '//' path separators",
                       "//a//b:foo");
   }
