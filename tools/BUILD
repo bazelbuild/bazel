@@ -57,7 +57,7 @@ filegroup(
         "//tools/def_parser:srcs",
         "//tools/platforms:srcs",
         "//tools/objc:srcs",
-        "//tools/python:srcs",
+        "//tools/python:embedded_tools",
         "//tools/runfiles:embedded_tools",
         "//tools/test:srcs",
         "//tools/osx/crosstool:srcs",
