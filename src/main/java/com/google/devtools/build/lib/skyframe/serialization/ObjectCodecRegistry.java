@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -265,6 +266,28 @@ public class ObjectCodecRegistry {
       return this;
     }
 
+    /**
+     * Adds a constant value by reference. Any value encountered during serialization which {@code
+     * == object} will be replaced by {@code object} upon deserialization. Interned objects and
+     * effective singletons are ideal for reference constants.
+     *
+     * <p>These constants should be interned or effectively interned: it should not be possible to
+     * create objects that should be considered equal in which one has an element of this list and
+     * the other does not, since that would break bit-for-bit equality of the objects' serialized
+     * bytes when used in {@link com.google.devtools.build.skyframe.SkyKey}s.
+     *
+     * <p>Note that even {@link Boolean} does not satisfy this constraint, since {@code new
+     * Boolean(true)} is allowed, but upon deserialization, when a {@code boolean} is boxed to a
+     * {@link Boolean}, it will always be {@link Boolean#TRUE} or {@link Boolean#FALSE}.
+     *
+     * <p>The same is not true for an empty {@link ImmutableList}, since an empty non-{@link
+     * ImmutableList} will not serialize to an {@link ImmutableList}, and so won't be deserialized
+     * to an empty {@link ImmutableList}. If an object has a list field, and one codepath passes in
+     * an empty {@link ArrayList} and another passes in an empty {@link ImmutableList}, and two
+     * objects constructed in this way can be considered equal, then those two objects already do
+     * not serialize bit-for-bit identical disregarding this list of constants, since the list
+     * object's codec will be different for the two objects.
+     */
     public Builder addConstant(Object object) {
       constantsBuilder.add(object);
       return this;

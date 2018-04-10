@@ -53,7 +53,7 @@ public final class PathFragment
         CommandLineItem {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
-  public static final PathFragment EMPTY_FRAGMENT = create("");
+  @AutoCodec public static final PathFragment EMPTY_FRAGMENT = create("");
   public static final char SEPARATOR_CHAR = OS.getSeparator();
   public static final int INVALID_SEGMENT = -1;
 
