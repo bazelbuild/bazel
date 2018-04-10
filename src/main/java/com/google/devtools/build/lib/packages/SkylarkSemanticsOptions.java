@@ -160,19 +160,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowOldStyleArgsAdd;
 
   @Option(
-    name = "incompatible_disallow_three_arg_vardef",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, three-argument `vardef()` functions are disallowed."
-  )
-  public boolean incompatibleDisallowThreeArgVardef;
-
-  @Option(
     name = "incompatible_disallow_toplevel_if_statement",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -282,7 +269,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
-        .incompatibleDisallowThreeArgVardef(incompatibleDisallowThreeArgVardef)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
