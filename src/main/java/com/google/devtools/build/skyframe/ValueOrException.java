@@ -21,4 +21,89 @@ public abstract class ValueOrException<E extends Exception> extends ValueOrUntyp
   /** Gets the stored value. Throws an exception if one was thrown when computing this value. */
   @Nullable
   public abstract SkyValue get() throws E;
+
+  static <E extends Exception> ValueOrException<E> fromUntypedException(
+      ValueOrUntypedException voe, Class<E> exceptionClass) {
+    SkyValue value = voe.getValue();
+    if (value != null) {
+      return ofValue(value);
+    }
+    Exception e = voe.getException();
+    if (e != null) {
+      if (exceptionClass.isInstance(e)) {
+        return ofExn1(exceptionClass.cast(e));
+      }
+    }
+    return ofNullValue();
+  }
+
+  private static <E extends Exception> ValueOrException<E> ofExn1(E e) {
+    return new ValueOrExceptionExnImpl<>(e);
+  }
+
+  private static <E extends Exception> ValueOrException<E> ofNullValue() {
+    return ValueOrExceptionValueImpl.ofNullValue();
+  }
+
+  private static <E extends Exception> ValueOrException<E> ofValue(SkyValue value) {
+    return new ValueOrExceptionValueImpl<>(value);
+  }
+
+  private static class ValueOrExceptionValueImpl<E extends Exception> extends ValueOrException<E> {
+    private static final ValueOrExceptionValueImpl<Exception> NULL =
+        new ValueOrExceptionValueImpl<>(null);
+
+    @Nullable private final SkyValue value;
+
+    private ValueOrExceptionValueImpl(@Nullable SkyValue value) {
+      this.value = value;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue get() {
+      return value;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return value;
+    }
+
+    @Override
+    @Nullable
+    public Exception getException() {
+      return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <E extends Exception> ValueOrExceptionValueImpl<E> ofNullValue() {
+      return (ValueOrExceptionValueImpl<E>) NULL;
+    }
+  }
+
+  private static class ValueOrExceptionExnImpl<E extends Exception> extends ValueOrException<E> {
+    private final E e;
+
+    private ValueOrExceptionExnImpl(E e) {
+      this.e = e;
+    }
+
+    @Override
+    public SkyValue get() throws E {
+      throw e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+  }
 }
