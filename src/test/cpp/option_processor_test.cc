@@ -95,7 +95,7 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
                 << error;
 
   ASSERT_EQ("", error);
-  ASSERT_EQ(1,
+  ASSERT_EQ(size_t(1),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
@@ -119,7 +119,7 @@ TEST_F(OptionProcessorTest, CanParseHelpArgs) {
                 << error;
 
   ASSERT_EQ("", error);
-  ASSERT_EQ(1,
+  ASSERT_EQ(size_t(1),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
@@ -155,7 +155,7 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
                 << error;
   ASSERT_EQ("", error);
 
-  ASSERT_EQ(2,
+  ASSERT_EQ(size_t(2),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
