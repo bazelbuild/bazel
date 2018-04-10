@@ -165,8 +165,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    *     as a map of mapped path to target path. The target path may be null, in which case an empty
    *     read-only file is mapped.
    * @return the collection of mappings to use for reconfiguration
+   * @throws IOException if we fail to resolve symbolic links
    */
-  private List<Mapping> createMappings(Map<PathFragment, Path> inputs) {
+  private List<Mapping> createMappings(Map<PathFragment, Path> inputs) throws IOException {
     List<Mapping> mappings = new ArrayList<>();
 
     mappings.add(Mapping.builder()
@@ -176,9 +177,24 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
         .build());
 
     for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
+      PathFragment target;
+      if (entry.getValue() == null) {
+        target = EMPTY_FILE;
+      } else if (entry.getValue().isSymbolicLink()) {
+        // If an input is a symlink, we don't necessarily have its target as an input as well.  To
+        // ensure the target is reachable within the sandbox, we have two choices: we can either
+        // expose the target in the sandbox and respect the symlink, or we can resolve what the
+        // actual target is and point the mapping there.  The former has higher fidelity, as the
+        // sandbox will respect the file's type as a symlink.  The latter is easier to implement
+        // and is slightly faster, as we avoid having to resolve symlinks later via sandboxfs.
+        // Therefore, do the latter until proven insufficient.
+        target = entry.getValue().resolveSymbolicLinks().asFragment();
+      } else {
+        target = entry.getValue().asFragment();
+      }
       mappings.add(Mapping.builder()
           .setPath(innerExecRoot.getRelative(entry.getKey()))
-          .setTarget(entry.getValue() == null ? EMPTY_FILE : entry.getValue().asFragment())
+          .setTarget(target)
           .setWritable(false)
           .build());
     }
