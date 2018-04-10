@@ -473,7 +473,7 @@ toolchain {
       config_name: 'c++-link-nodeps-dynamic-library'
       action_name: 'c++-link-nodeps-dynamic-library'
       tool {
-        tool_path: '%{msvc_link_path{architecture}}'
+        tool_path: '%{msvc_link_path_{architecture}}'
       }
       implies: 'nologo'
       implies: 'shared_flag'
