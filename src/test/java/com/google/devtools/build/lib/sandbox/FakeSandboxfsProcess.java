@@ -90,13 +90,21 @@ final class FakeSandboxfsProcess implements SandboxfsProcess {
       Path link = fileSystem.getPath(mountPoint).getRelative(mapping.path().toRelative());
       link.getParentDirectory().createDirectoryAndParents();
 
-      if (!fileSystem.getPath(mapping.target()).exists()) {
+      Path target = fileSystem.getPath(mapping.target());
+      if (!target.exists()) {
         // Not a requirement for the creation of a symbolic link but this reflects the behavior of
         // the real sandboxfs.
         throw new IOException("Target " + mapping.target() + " does not exist");
       }
 
-      link.createSymbolicLink(fileSystem.getPath(mapping.target()));
+      if (target.isSymbolicLink()) {
+        // sandboxfs is able to expose symlinks as they are in the underlying file system.  Mimic
+        // this behavior by respecting the symlink in that case, instead of just creating a new
+        // symlink that points to the actual target.
+        link.createSymbolicLink(target.readSymbolicLink());
+      } else {
+        link.createSymbolicLink(fileSystem.getPath(mapping.target()));
+      }
     }
   }
 

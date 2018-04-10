@@ -124,4 +124,38 @@ public class SandboxfsSandboxedSpawnTest extends SandboxTestCase {
 
     assertThat(outputsDir.getRelative(outputFile).isFile(Symlinks.NOFOLLOW)).isTrue();
   }
+
+  @Test
+  public void testSymlinksAreNotExposed() throws Exception {
+    Path helloTxt = workspaceDir.getRelative("dir1/hello.txt");
+    helloTxt.getParentDirectory().createDirectory();
+    FileSystemUtils.createEmptyFile(helloTxt);
+
+    Path linkToHello = workspaceDir.getRelative("dir2/link-to-hello");
+    linkToHello.getParentDirectory().createDirectory();
+    linkToHello.createSymbolicLink(PathFragment.create("../dir1/hello.txt"));
+
+    // Ensure that the symlink we have created has a relative target, as otherwise we wouldn't
+    // exercise the functionality we are trying to test.
+    assertThat(linkToHello.readSymbolicLink().isAbsolute()).isFalse();
+
+    SandboxedSpawn spawn =
+        new SandboxfsSandboxedSpawn(
+            sandboxfs,
+            outerDir,
+            ImmutableList.of("/bin/true"),
+            ImmutableMap.of(),
+            ImmutableMap.of(PathFragment.create("such/input.txt"), linkToHello),
+            ImmutableSet.of(PathFragment.create("very/output.txt")),
+            ImmutableSet.of());
+
+    spawn.createFileSystem();
+    Path execRoot = spawn.getSandboxExecRoot();
+
+    assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
+    // We expect the target of the input file to be the final target of the input in use, not the
+    // intermediate symlink we specified. Otherwise, the exposed symlink in the sandbox would be
+    // broken because its relative target is not transitively exposed.
+    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
+  }
 }
