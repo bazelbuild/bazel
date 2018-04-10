@@ -69,11 +69,10 @@ final class SandboxActionContextProvider extends ActionContextProvider {
 
     // This is the preferred sandboxing strategy on Linux.
     if (LinuxSandboxedSpawnRunner.isSupported(cmdEnv)) {
-      // TODO(jmmv): Inject process into spawn runner.
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay));
+              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay, process));
       contexts.add(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
     }
 
