@@ -23,6 +23,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -96,14 +97,15 @@ StartupOptions::StartupOptions(const string &product_name,
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
-    fprintf(stderr,
-            "INFO: $TEST_TMPDIR defined: output root default is '%s' and "
-            "max_idle_secs default is '%d'.\n",
-            output_root.c_str(),
-            max_idle_secs);
+    BAZEL_LOG(USER) << "$TEST_TMPDIR defined: output root default is '"
+                    << output_root << "' and max_idle_secs default is '"
+                    << max_idle_secs << "'.";
   } else {
     output_root = workspace_layout->GetOutputRoot();
     max_idle_secs = 3 * 3600;
+    BAZEL_LOG(INFO) << "output root is '" << output_root
+                    << "' and max_idle_secs default is '" << max_idle_secs
+                    << "'.";
   }
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
@@ -463,10 +465,11 @@ string StartupOptions::GetJvm() {
       blaze_util::JoinPath(GetHostJavabase(), GetJavaBinaryUnderJavabase());
   if (!blaze_util::CanExecuteFile(java_program)) {
     if (!blaze_util::PathExists(java_program)) {
-      fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
+      BAZEL_LOG(ERROR) << "Couldn't find java at '" << java_program << "'.";
     } else {
-      fprintf(stderr, "Java at '%s' exists but is not executable: %s\n",
-              java_program.c_str(), blaze_util::GetLastErrorString().c_str());
+      BAZEL_LOG(ERROR) << "Java at '" << java_program
+                       << "' exists but is not executable: "
+                       << blaze_util::GetLastErrorString();
     }
     exit(1);
   }
@@ -483,10 +486,9 @@ string StartupOptions::GetJvm() {
       blaze_util::CanReadFile(jre_java_exe)) {
     return java_program;
   }
-  fprintf(stderr,
-          "Problem with java installation: "
-          "couldn't find/access rt.jar or java in %s\n",
-          GetHostJavabase().c_str());
+  BAZEL_LOG(ERROR) << "Problem with java installation: couldn't find/access "
+                      "rt.jar or java in "
+                   << GetHostJavabase();
   exit(1);
 }
 
