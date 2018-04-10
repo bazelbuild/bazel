@@ -2034,8 +2034,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @VisibleForTesting
-  public Path getOutputBaseForTesting() {
-    return directories.getOutputBase();
+  public BlazeDirectories getBlazeDirectoriesForTesting() {
+    return directories;
   }
 
   /**
