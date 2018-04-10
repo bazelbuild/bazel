@@ -25,8 +25,10 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -56,7 +58,7 @@ public class ObjectCodecRegistry {
   private final IdentityHashMap<String, Supplier<CodecDescriptor>> dynamicCodecs;
 
   private ObjectCodecRegistry(
-      ImmutableSet<ObjectCodec<?>> memoizingCodecs,
+      Set<ObjectCodec<?>> memoizingCodecs,
       ImmutableList<Object> constants,
       ImmutableSortedSet<String> classNames,
       boolean allowDefaultCodec) {
@@ -241,13 +243,17 @@ public class ObjectCodecRegistry {
 
   /** Builder for {@link ObjectCodecRegistry}. */
   public static class Builder {
-    private final ImmutableSet.Builder<ObjectCodec<?>> codecBuilder = ImmutableSet.builder();
+    private final Map<Class<?>, ObjectCodec<?>> codecs = new HashMap<>();
     private final ImmutableList.Builder<Object> constantsBuilder = ImmutableList.builder();
     private final ImmutableSortedSet.Builder<String> classNames = ImmutableSortedSet.naturalOrder();
     private boolean allowDefaultCodec = true;
 
+    /**
+     * Adds the given codec. If a codec for this codec's encoded class already exists in the
+     * registry, it is overwritten.
+     */
     public Builder add(ObjectCodec<?> codec) {
-      codecBuilder.add(codec);
+      codecs.put(codec.getEncodedClass(), codec);
       return this;
     }
 
@@ -271,7 +277,10 @@ public class ObjectCodecRegistry {
 
     public ObjectCodecRegistry build() {
       return new ObjectCodecRegistry(
-          codecBuilder.build(), constantsBuilder.build(), classNames.build(), allowDefaultCodec);
+          ImmutableSet.copyOf(codecs.values()),
+          constantsBuilder.build(),
+          classNames.build(),
+          allowDefaultCodec);
     }
   }
 
