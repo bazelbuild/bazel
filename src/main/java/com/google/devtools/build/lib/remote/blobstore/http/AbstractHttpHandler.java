@@ -94,8 +94,9 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   @Override
-  public void exceptionCaught(ChannelHandlerContext channelHandlerContext, Throwable throwable) {
-    failAndResetUserPromise(throwable);
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable t) {
+    failAndResetUserPromise(t);
+    ctx.fireExceptionCaught(t);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -131,6 +132,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
   public void deregister(ChannelHandlerContext ctx, ChannelPromise promise) {
+    failAndResetUserPromise(new ClosedChannelException());
     ctx.deregister(promise);
   }
 
@@ -147,8 +149,19 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   @Override
-  public void channelInactive(ChannelHandlerContext channelHandlerContext) throws Exception {
+  public void channelInactive(ChannelHandlerContext ctx) {
     failAndResetUserPromise(new ClosedChannelException());
-    super.channelInactive(channelHandlerContext);
+    ctx.fireChannelInactive();
+  }
+
+  @Override
+  public void handlerRemoved(ChannelHandlerContext ctx) {
+    failAndResetUserPromise(new IOException("handler removed"));
+  }
+
+  @Override
+  public void channelUnregistered(ChannelHandlerContext ctx) {
+    failAndResetUserPromise(new ClosedChannelException());
+    ctx.fireChannelUnregistered();
   }
 }
