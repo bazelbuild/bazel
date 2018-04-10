@@ -84,7 +84,7 @@ public class TestUtils {
       throws IOException, SerializationException {
     ObjectCodecRegistry.Builder builder = AutoRegistry.get().getBuilder();
     for (Object constant : dependencies.values()) {
-      builder.addConstant(constant);
+      builder.addReferenceConstant(constant);
     }
     ObjectCodecRegistry registry = builder.build();
     return new DeserializationContext(registry, dependencies)
