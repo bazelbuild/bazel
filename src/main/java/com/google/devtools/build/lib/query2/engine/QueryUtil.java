@@ -233,6 +233,11 @@ public final class QueryUtil {
     }
 
     @Override
+    public boolean uniquePure(T element) {
+      return !alreadySeen.contains(extractor.extractKey(element));
+    }
+
+    @Override
     public boolean unique(T element) {
       return alreadySeen.add(extractor.extractKey(element));
     }
