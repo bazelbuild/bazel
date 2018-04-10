@@ -1,13 +1,13 @@
 py_binary(
     name = "runfiles-py",
-    srcs = ["runfiles.py"],
+    srcs = ["foo.py"],
     data = [
         "datadep/hello.txt",
         "//bar:bar-py",
         "//bar:bar-java",
     ],
-    main = "runfiles.py",
-    deps = ["@bazel_tools//tools/runfiles:py-runfiles"],
+    main = "foo.py",
+    deps = ["@bazel_tools//tools/python/runfiles"],
 )
 
 java_binary(

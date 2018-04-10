@@ -18,7 +18,7 @@ from __future__ import print_function
 import os
 import subprocess
 
-from bazel_tools.tools.runfiles import runfiles
+from bazel_tools.tools.python.runfiles import runfiles
 
 
 def IsWindows():
@@ -65,8 +65,8 @@ def main():
       print(out[0])  # e.g. "Hello Python Bar!"
       print(out[1])  # e.g. "rloc=/tmp/foo_ws/bar/bar-py-data.txt"
     else:
-      raise Exception("ERROR: error running bar-%s: %s" % (lang,
-                                                           SplitToLines(err)))
+      raise Exception(
+          "ERROR: error running bar-%s: %s" % (lang, SplitToLines(err)))
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@
 
 Usage:
 
-from bazel_tools.tools.runfiles import runfiles
+from bazel_tools.tools.python.runfiles import runfiles
 
 r = runfiles.Create()
 with open(r.Rlocation("io_bazel/foo/bar.txt"), "r") as f:
@@ -35,7 +35,7 @@ If you want to start subprocesses that also need runfiles, you need to set the
 right environment variables for them:
 
   import subprocess
-  from bazel_tools.tools.runfiles import runfiles
+  from bazel_tools.tools.python.runfiles import runfiles
 
   r = runfiles.Create()
   env = {}
