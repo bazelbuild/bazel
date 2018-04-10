@@ -25,7 +25,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrExceptionUtils;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.util.Map;
 
@@ -56,7 +55,7 @@ public class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnviron
         skyframeExecutor.evaluateSkyKeys(eventHandler, keysToEvaluate, true);
         buildDriver.evaluate(depKeys, true, ResourceUsage.getAvailableProcessors(), eventHandler);
     for (SkyKey depKey : ImmutableSet.copyOf(depKeys)) {
-      resultMap.put(depKey, ValueOrExceptionUtils.ofValue(evaluationResult.get(depKey)));
+      resultMap.put(depKey, ValueOrUntypedException.ofValueUntyped(evaluationResult.get(depKey)));
     }
     return resultMap.build();
   }

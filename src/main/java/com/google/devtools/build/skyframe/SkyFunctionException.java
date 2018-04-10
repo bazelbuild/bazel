@@ -97,10 +97,6 @@ public abstract class SkyFunctionException extends Exception {
   }
 
   static <E extends Exception> void validateExceptionType(Class<E> exceptionClass) {
-    if (exceptionClass.equals(ValueOrExceptionUtils.BottomException.class)) {
-      return;
-    }
-
     if (exceptionClass.isAssignableFrom(RuntimeException.class)) {
       throw new IllegalStateException(exceptionClass.getSimpleName() + " is a supertype of "
           + "RuntimeException. Don't do this since then you would potentially swallow all "

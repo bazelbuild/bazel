@@ -80,7 +80,6 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrExceptionUtils;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -219,22 +218,22 @@ public final class ActionsTestUtil {
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         for (SkyKey key : depKeys) {
-          result.put(key, ValueOrExceptionUtils.ofNull());
+          result.put(key, ValueOrUntypedException.ofNull());
         }
         return result;
       }
       for (SkyKey key : depKeys) {
         SkyValue value = evaluationResult.get(key);
         if (value != null) {
-          result.put(key, ValueOrExceptionUtils.ofValue(value));
+          result.put(key, ValueOrUntypedException.ofValueUntyped(value));
           continue;
         }
         ErrorInfo errorInfo = evaluationResult.getError(key);
         if (errorInfo == null || errorInfo.getException() == null) {
-          result.put(key, ValueOrExceptionUtils.ofNull());
+          result.put(key, ValueOrUntypedException.ofNull());
           continue;
         }
-        result.put(key, ValueOrExceptionUtils.ofExn(errorInfo.getException()));
+        result.put(key, ValueOrUntypedException.ofExn(errorInfo.getException()));
       }
       return result;
     }
