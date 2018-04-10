@@ -111,7 +111,7 @@ public class SerializationTester {
     ImmutableMap<Class<?>, Object> dependencies = dependenciesBuilder.build();
     ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
     for (Object val : dependencies.values()) {
-      registryBuilder.addConstant(val);
+      registryBuilder.addReferenceConstant(val);
     }
     for (ObjectCodec<?> codec : additionalCodecs) {
       registryBuilder.add(codec);
