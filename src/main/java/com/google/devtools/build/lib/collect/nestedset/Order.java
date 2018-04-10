@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashMap;
 
 /**
@@ -114,6 +115,29 @@ public enum Order {
     this.skylarkName = skylarkName;
     this.emptySet = new NestedSet<>(this);
   }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Order STABLE_ORDER_CONSTANT = STABLE_ORDER;
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Order COMPILE_ORDER_CONSTANT = COMPILE_ORDER;
+
+  @AutoCodec @AutoCodec.VisibleForSerialization static final Order LINK_ORDER_CONSTANT = LINK_ORDER;
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Order NAIVE_LINK_ORDER_CONSTANT = NAIVE_LINK_ORDER;
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final NestedSet<?> EMPTY_STABLE = STABLE_ORDER.emptySet();
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final NestedSet<?> EMPTY_COMPILE = COMPILE_ORDER.emptySet();
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final NestedSet<?> EMPTY_LINK = LINK_ORDER.emptySet();
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final NestedSet<?> EMPTY_NAIVE_LINK = NAIVE_LINK_ORDER.emptySet();
 
   /**
    * Returns an empty set of the given ordering.

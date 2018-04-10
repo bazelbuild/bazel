@@ -32,6 +32,14 @@ public class AppleConfigurationSerializationTest {
     new SerializationTester(getSubjects()).runTests();
   }
 
+  @Test
+  public void optionsSerialization() throws Exception {
+    new SerializationTester(
+            BuildOptions.of(ImmutableList.of(AppleCommandLineOptions.class))
+                .get(AppleCommandLineOptions.class))
+        .runTests();
+  }
+
   private static ImmutableList<AppleConfiguration> getSubjects() {
     AppleCommandLineOptions firstOptions = new AppleCommandLineOptions();
     firstOptions.mandatoryMinimumVersion = false;

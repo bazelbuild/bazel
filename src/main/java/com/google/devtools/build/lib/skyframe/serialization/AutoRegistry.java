@@ -18,7 +18,10 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
 import java.io.IOException;
+import java.util.Comparator;
 
 /**
  * A lazy, automatically populated registry.
@@ -48,7 +51,11 @@ public class AutoRegistry {
           Predicates.alwaysTrue(),
           Predicates.alwaysFalse(),
           Predicates.isNull(),
-          Predicates.notNull());
+          Predicates.notNull(),
+          ImmutableList.of(),
+          ImmutableSet.of(),
+          Comparator.naturalOrder(),
+          Ordering.natural());
 
   public static ObjectCodecRegistry get() {
     return SUPPLIER.get();

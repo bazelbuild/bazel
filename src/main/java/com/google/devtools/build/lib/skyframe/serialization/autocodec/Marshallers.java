@@ -18,14 +18,11 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.squareup.javapoet.TypeName;
-import java.util.Comparator;
 import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
@@ -86,21 +83,6 @@ class Marshallers {
       context.builder.endControlFlow();
     }
   }
-
-
-  private void writeIterableDeserializationLoopWithoutNullsAndBuild(
-      Context context, Context repeated, String builderName) {
-    String lengthName = context.makeName("length");
-    context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-    String indexName = context.makeName("i");
-    context.builder.beginControlFlow(
-        "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-    writeDeserializationCode(repeated);
-    context.builder.addStatement("$L.add($L)", builderName, repeated.name);
-    context.builder.endControlFlow();
-    context.builder.addStatement("$L = $L.build()", context.name, builderName);
-  }
-
 
   private SerializationCodeGenerator getMatchingCodeGenerator(TypeMirror type) {
     if (type.getKind() == TypeKind.ARRAY) {
@@ -324,54 +306,6 @@ class Marshallers {
         }
       };
 
-  private void addSerializationCodeForIterable(Context context) {
-    // Writes the target count to the stream so deserialization knows when to stop.
-    context.builder.addStatement(
-        "codedOut.writeInt32NoTag($T.size($L))", Iterables.class, context.name);
-    TypeMirror typeParameter = context.getDeclaredType().getTypeArguments().get(0);
-    // If this is generic we have to get the erasure since we don't know what <T> or <?> are.
-    if (isVariableOrWildcardType(typeParameter)) {
-      typeParameter = env.getTypeUtils().erasure(typeParameter);
-    }
-    Context repeated =
-        context.with(
-            context.getDeclaredType().getTypeArguments().get(0), context.makeName("repeated"));
-    context.builder.beginControlFlow(
-        "for ($T $L : $L)", typeParameter, repeated.name, context.name);
-          writeSerializationCode(repeated);
-          context.builder.endControlFlow();
-  }
-
-  private final Marshaller immutableSortedSetMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesErased(type, ImmutableSortedSet.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          addSerializationCodeForIterable(context);
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          Context repeated =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(0),
-                  context.makeName("repeated"));
-          String builderName = context.makeName("builder");
-          context.builder.addStatement(
-              "$T<$T> $L = new $T<>($T.naturalOrder())",
-              ImmutableSortedSet.Builder.class,
-              repeated.getTypeName(),
-              builderName,
-              ImmutableSortedSet.Builder.class,
-              Comparator.class);
-          writeIterableDeserializationLoopWithoutNullsAndBuild(context, repeated, builderName);
-        }
-      };
-
   private final Marshaller multimapMarshaller =
       new Marshaller() {
         @Override
@@ -462,7 +396,6 @@ class Marshallers {
       ImmutableList.of(
           charSequenceMarshaller,
           supplierMarshaller,
-          immutableSortedSetMarshaller,
           multimapMarshaller,
           contextMarshaller);
 
