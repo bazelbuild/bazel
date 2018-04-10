@@ -348,7 +348,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private class GraphBuildingObserver implements TargetEdgeObserver {
 
     @Override
-    public synchronized void edge(Target from, Attribute attribute, Target to) {
+    public void edge(Target from, Attribute attribute, Target to) {
       Preconditions.checkState(attribute == null ||
           dependencyFilter.apply(((Rule) from), attribute),
           "Disallowed edge from LabelVisitor: %s --> %s", from, to);
@@ -356,7 +356,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     @Override
-    public synchronized void node(Target node) {
+    public void node(Target node) {
       graph.createNode(node);
     }
 
