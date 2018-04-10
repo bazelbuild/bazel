@@ -290,7 +290,7 @@ public final class ProfileCommand implements BlazeCommand {
                       phase,
                       info,
                       (workspace == null
-                          ? new String("<workspace>")
+                          ? "<workspace>"
                           : workspace.getBaseName()),
                       opts.vfsStatsLimit > 0));
             }
