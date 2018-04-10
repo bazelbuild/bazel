@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.skylark;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -850,6 +851,7 @@ public class SkylarkActionFactory implements SkylarkValue {
     return new String(latin1.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
   }
 
+  /** Args module. */
   @SkylarkModule(
     name = "Args",
     category = SkylarkModuleCategory.BUILTIN,
@@ -879,7 +881,8 @@ public class SkylarkActionFactory implements SkylarkValue {
             + "# ]"
             + "</pre>"
   )
-  static class Args extends SkylarkMutable {
+  @VisibleForTesting
+  public static class Args extends SkylarkMutable {
     private final Mutability mutability;
     private final SkylarkSemantics skylarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;
