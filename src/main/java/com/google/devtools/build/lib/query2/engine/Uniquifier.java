@@ -19,9 +19,26 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 /** A helper for deduping values. */
 @ThreadSafe
 public interface Uniquifier<T> {
-  /** Returns whether {@code newElement} has been seen before. */
+  /**
+   * Returns whether {@code newElement} has been seen before by {@link #unique(T)} or
+   * {@link #unique(Iterable)}.
+   *
+   * <p>Please note the difference between this method and {@link #unique(T)}!
+   *
+   * <p>This method is inherently racy wrt {@link #unique(T)} and {@link #unique(Iterable)}. Only
+   * use it if you know what you are doing.
+   */
+  boolean uniquePure(T newElement);
+
+  /**
+   * Returns whether {@code newElement} has been seen before by {@link #unique(T)} or
+   * {@link #unique(Iterable)}.
+   */
   boolean unique(T newElement);
 
-  /** Returns the subset of {@code newElements} that haven't been seen before. */
+  /**
+   * Returns the subset of {@code newElements} that haven't been seen before by {@link #unique(T)}
+   * or {@link #unique(Iterable)}.
+   */
   ImmutableList<T> unique(Iterable<T> newElements);
 }

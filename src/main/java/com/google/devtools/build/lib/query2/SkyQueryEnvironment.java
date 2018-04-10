@@ -98,7 +98,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalValue;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -658,11 +657,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE, DEFAULT_THREAD_COUNT);
   }
 
-  @ThreadSafe
-  Uniquifier<Pair<SkyKey, SkyKey>> createReverseDepSkyKeyUniquifier() {
-    return new UniquifierImpl<>(ReverseDepSkyKeyKeyExtractor.INSTANCE, DEFAULT_THREAD_COUNT);
-  }
-
   private ImmutableSet<PathFragment> getBlacklistedExcludes(TargetPatternKey targetPatternKey)
   throws InterruptedException {
     return targetPatternKey.getAllBlacklistedSubdirectoriesToExclude(blacklistPatternsSupplier);
@@ -1182,23 +1176,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     @Override
     public SkyKey extractKey(SkyKey element) {
       return element;
-    }
-  }
-
-  /**
-   * A {@link KeyExtractor} which takes a pair of parent and reverse dep, and uses the second
-   * element (reverse dep) as the key.
-   */
-  private static class ReverseDepSkyKeyKeyExtractor
-      implements KeyExtractor<Pair<SkyKey, SkyKey>, SkyKey> {
-    private static final ReverseDepSkyKeyKeyExtractor INSTANCE = new ReverseDepSkyKeyKeyExtractor();
-
-    private ReverseDepSkyKeyKeyExtractor() {
-    }
-
-    @Override
-    public SkyKey extractKey(Pair<SkyKey, SkyKey> element) {
-      return element.second;
     }
   }
 
