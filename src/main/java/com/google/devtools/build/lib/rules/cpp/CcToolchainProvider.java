@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.OptionalFlag;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -623,14 +622,15 @@ public final class CcToolchainProvider extends ToolchainInfo {
       name = "unfiltered_compiler_options",
       doc =
           "Returns the default list of options which cannot be filtered by BUILD "
-              + "rules. These should be appended to the command line after filtering."
-  )
-  public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(Iterable<String> features) {
-    return toolchainInfo.getUnfilteredCompilerOptions(features, sysroot);
+              + "rules. These should be appended to the command line after filtering.")
+  // TODO(b/24373706): Remove this method once new C++ toolchain API is available
+  public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(
+      Iterable<String> featuresNotUsedAnymore) {
+    return toolchainInfo.getUnfilteredCompilerOptions(sysroot);
   }
 
-  public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
-    return toolchainInfo.getUnfilteredCompilerOptions(features, /* sysroot= */ null);
+  public ImmutableList<String> getUnfilteredCompilerOptions() {
+    return toolchainInfo.getUnfilteredCompilerOptions(/* sysroot= */ null);
   }
 
   /**
@@ -693,8 +693,8 @@ public final class CcToolchainProvider extends ToolchainInfo {
    * Returns link options for the specified flag list, combined with universal options for all
    * shared libraries (regardless of link staticness).
    */
-  ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags, Iterable<String> features) {
-    return toolchainInfo.getSharedLibraryLinkOptions(flags, features);
+  ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags) {
+    return toolchainInfo.getSharedLibraryLinkOptions(flags);
   }
 
   /** Returns compiler flags arising from the {@link CToolchain}. */
@@ -735,16 +735,10 @@ public final class CcToolchainProvider extends ToolchainInfo {
     return toolchainInfo.getLipoCxxFlags();
   }
 
-  /** Returns optional compiler flags arising from the {@link CToolchain}. */
-  ImmutableList<OptionalFlag> getOptionalCompilerFlags() {
-    return toolchainInfo.getOptionalCompilerFlags();
-  }
-
   /** Returns linker flags for fully statically linked outputs. */
   FlagList getFullyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.FULLY_STATIC),
-        ImmutableList.of(),
         ImmutableList.<String>of());
   }
 
@@ -752,7 +746,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
   FlagList getMostlyStaticLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC),
-        ImmutableList.of(),
         ImmutableList.<String>of());
   }
 
@@ -760,7 +753,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
   FlagList getMostlyStaticSharedLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC_LIBRARIES),
-        ImmutableList.of(),
         ImmutableList.<String>of());
   }
 
@@ -768,7 +760,6 @@ public final class CcToolchainProvider extends ToolchainInfo {
   FlagList getDynamicLinkFlags(CompilationMode compilationMode, LipoMode lipoMode) {
     return new FlagList(
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.DYNAMIC),
-        ImmutableList.of(),
         ImmutableList.of());
   }
 

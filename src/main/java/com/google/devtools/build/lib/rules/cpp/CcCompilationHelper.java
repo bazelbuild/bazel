@@ -226,7 +226,6 @@ public final class CcCompilationHelper {
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainProvider ccToolchain;
   private final FdoSupportProvider fdoSupport;
-  private final ImmutableSet<String> features;
   private boolean useDeps = true;
   private boolean generateModuleMap = true;
   private String purpose = null;
@@ -291,7 +290,6 @@ public final class CcCompilationHelper {
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
-    this.features = ruleContext.getFeatures();
     setGenerateNoPicAction(
         !CppHelper.usePicForDynamicLibraries(ruleContext, ccToolchain)
             || !CppHelper.usePicForBinaries(ruleContext, ccToolchain));
@@ -1526,8 +1524,7 @@ public final class CcCompilationHelper {
         CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
-        allAdditionalBuildVariables.build(),
-        features);
+        allAdditionalBuildVariables.build());
   }
 
   /**

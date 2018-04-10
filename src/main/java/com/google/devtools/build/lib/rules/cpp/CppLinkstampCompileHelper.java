@@ -177,8 +177,6 @@ public class CppLinkstampCompileHelper {
         fdoBuildStamp,
         /* dotdFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),
-        /* additionalBuildVariables= */ ImmutableMap.of(),
-        // TODO(b/76449614): Remove use of optional_*_flag from CROSSTOOL and get rid of this param
-        ruleContext.getFeatures());
+        /* additionalBuildVariables= */ ImmutableMap.of());
   }
 }

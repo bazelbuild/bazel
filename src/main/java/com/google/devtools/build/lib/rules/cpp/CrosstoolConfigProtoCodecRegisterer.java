@@ -25,7 +25,6 @@ class CrosstoolConfigProtoCodecRegisterer implements CodecRegisterer<MessageLite
     return ImmutableList.of(
         new MessageLiteCodec(CrosstoolConfig.CrosstoolRelease::newBuilder),
         new MessageLiteCodec(CrosstoolConfig.CToolchain::newBuilder),
-        new MessageLiteCodec(CrosstoolConfig.CToolchain.OptionalFlag::newBuilder),
         new MessageLiteCodec(CrosstoolConfig.CToolchain.FlagGroup::newBuilder),
         new MessageLiteCodec(CrosstoolConfig.CToolchain.VariableWithValue::newBuilder),
         new MessageLiteCodec(CrosstoolConfig.CToolchain.EnvEntry::newBuilder),

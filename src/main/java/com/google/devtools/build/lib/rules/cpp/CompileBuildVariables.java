@@ -120,9 +120,7 @@ public enum CompileBuildVariables {
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
-      ImmutableMap<String, String> additionalBuildVariables,
-      // TODO(b/76449614): Remove use of optional_*_flag from CROSSTOOL and get rid of this param
-      ImmutableSet<String> features) {
+      ImmutableMap<String, String> additionalBuildVariables) {
     Variables.Builder buildVariables =
         new Variables.Builder(ccToolchainProvider.getBuildVariables());
 
@@ -135,16 +133,13 @@ public enum CompileBuildVariables {
     buildVariables.addLazyStringSequenceVariable(
         LEGACY_COMPILE_FLAGS.getVariableName(),
         getLegacyCompileFlagsSupplier(
-            ruleContext.getFragment(CppConfiguration.class),
-            ccToolchainProvider,
-            sourceFilename,
-            features));
+            ruleContext.getFragment(CppConfiguration.class), ccToolchainProvider, sourceFilename));
 
     if (!CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
         && !CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
       buildVariables.addLazyStringSequenceVariable(
           UNFILTERED_COMPILE_FLAGS.getVariableName(),
-          getUnfilteredCompileFlagsSupplier(ccToolchainProvider, features));
+          getUnfilteredCompileFlagsSupplier(ccToolchainProvider));
     }
 
     // TODO(b/76195763): Remove once blaze with cl/189769259 is released and crosstools are updated.
@@ -261,20 +256,15 @@ public enum CompileBuildVariables {
    * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
    */
   private static Supplier<ImmutableList<String>> getLegacyCompileFlagsSupplier(
-      CppConfiguration cppConfiguration,
-      CcToolchainProvider toolchain,
-      String sourceFilename,
-      ImmutableSet<String> features) {
+      CppConfiguration cppConfiguration, CcToolchainProvider toolchain, String sourceFilename) {
     return () -> {
       ImmutableList.Builder<String> legacyCompileFlags = ImmutableList.builder();
-      legacyCompileFlags.addAll(
-          CppHelper.getCrosstoolCompilerOptions(cppConfiguration, toolchain, features));
+      legacyCompileFlags.addAll(CppHelper.getCrosstoolCompilerOptions(cppConfiguration, toolchain));
       if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
           || CppFileTypes.CPP_HEADER.matches(sourceFilename)
           || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
           || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
-        legacyCompileFlags.addAll(
-            CppHelper.getCrosstoolCxxOptions(cppConfiguration, toolchain, features));
+        legacyCompileFlags.addAll(CppHelper.getCrosstoolCxxOptions(cppConfiguration, toolchain));
       }
       return legacyCompileFlags.build();
     };
@@ -287,8 +277,8 @@ public enum CompileBuildVariables {
    * to arguments (to prevent accidental capture of enclosing instance which could regress memory).
    */
   private static Supplier<ImmutableList<String>> getUnfilteredCompileFlagsSupplier(
-      CcToolchainProvider ccToolchain, ImmutableSet<String> features) {
-    return () -> ccToolchain.getUnfilteredCompilerOptions(features);
+      CcToolchainProvider ccToolchain) {
+    return () -> ccToolchain.getUnfilteredCompilerOptions();
   }
 
   public String getVariableName() {

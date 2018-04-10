@@ -40,13 +40,6 @@ package com.google.devtools.build.lib.view.config.crosstool;
 // exectuable. In particular, it is used to check if the compilation products of
 // a toolchain can run on the host machine.
 message CToolchain {
-  // Optional flag. Some option lists have a corresponding optional flag list.
-  // These are appended at the end of the option list in case the corresponding
-  // default setting is set.
-  message OptionalFlag {
-    required string default_setting_name = 1;
-    repeated string flag = 2;
-  }
 
   // A group of correlated flags. Supports parametrization via variable
   // expansion.
@@ -380,7 +373,6 @@ message CToolchain {
 
   // Compiler flags for C/C++/Asm compilation.
   repeated string compiler_flag = 13;
-  repeated OptionalFlag optional_compiler_flag = 35;
   // Additional compiler flags for C++ compilation.
   repeated string cxx_flag = 14;
   // Additional unfiltered compiler flags for C/C++/Asm compilation.
@@ -538,11 +530,6 @@ message DefaultCpuToolchain {
 // cpu, a default toolchain for each supported cpu type, and a set of
 // toolchains.
 message CrosstoolRelease {
-  message DefaultSetting {
-    required string name = 1;
-    required bool default_value = 2;
-  }
-
   // The major and minor version of the crosstool release.
   required string major_version = 1;
   required string minor_version = 2;
@@ -553,9 +540,6 @@ message CrosstoolRelease {
   required string default_target_cpu = 3;
   // The default toolchain to use for each given cpu.
   repeated DefaultCpuToolchain default_toolchain = 4;
-
-  // The default settings used in this release.
-  repeated DefaultSetting default_setting = 6;
 
   // All the toolchains in this release.
   repeated CToolchain toolchain = 5;
