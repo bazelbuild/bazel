@@ -1793,8 +1793,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new NativeInfoMock())
         .testEval(
             "dir(mock)",
-            "['callable_string', 'struct_field_callable', "
-                + "'struct_field_none', 'struct_field_string']");
+            "['callable_string', 'struct_field_callable', 'struct_field_none', "
+                + "'struct_field_string', 'to_json', 'to_proto']");
   }
 
   @Test
