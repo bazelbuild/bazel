@@ -303,6 +303,11 @@ public abstract class AbstractAction implements Action, SkylarkValue {
         + getOutputs() + "]" + ")";
   }
 
+  @SkylarkCallable(
+      name = "mnemonic",
+      structField = true,
+      doc = "The mnemonic for this action."
+  )
   @Override
   public abstract String getMnemonic();
 
@@ -626,6 +631,17 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       allowReturnNones = true)
   public SkylarkDict<String, String> getSkylarkSubstitutions() {
     return null;
+  }
+
+  @SkylarkCallable(
+      name = "env",
+      structField = true,
+      doc = "The 'fixed' environment variables for this action. This includes only environment "
+          + "settings which are explicitly set by the action definition, and thus omits settings "
+          + "which are only pre-set in the execution environment."
+  )
+  public SkylarkDict<String, String> getEnv() {
+    return SkylarkDict.copyOf(null, env.getFixedEnv());
   }
 
   @Override
