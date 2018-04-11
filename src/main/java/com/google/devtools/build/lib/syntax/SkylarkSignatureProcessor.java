@@ -112,6 +112,10 @@ public class SkylarkSignatureProcessor {
         annotation.extraKeywords(), defaultValues, paramDoc, enforcedTypesList);
   }
 
+  private static boolean isParamNamed(Param param) {
+    return param.named() || param.legacyNamed();
+  }
+
   private static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallable(
       String name, boolean documented,
       ImmutableList<Parameter<Object, SkylarkType>> mandatoryPositionals,
@@ -133,7 +137,7 @@ public class SkylarkSignatureProcessor {
       for (Param param : parameters) {
         boolean mandatory = param.defaultValue() != null && param.defaultValue().isEmpty();
         Object defaultValue = mandatory ? null : getDefaultValue(param, defaultValuesIterator);
-        if (param.named() && !param.positional() && !named) {
+        if (isParamNamed(param) && !param.positional() && !named) {
           named = true;
           @Nullable Param starParam = null;
           if (extraPositionals != null && !extraPositionals.name().isEmpty()) {

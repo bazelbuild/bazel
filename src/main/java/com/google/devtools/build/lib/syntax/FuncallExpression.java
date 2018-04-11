@@ -484,6 +484,10 @@ public final class FuncallExpression extends Expression {
     return result;
   }
 
+  private static boolean isParamNamed(Param param) {
+    return param.named() || param.legacyNamed();
+  }
+
   /**
    * Constructs the parameters list to actually pass to the method, filling with default values if
    * any. If there is a type or argument mismatch, returns a result containing an error message.
@@ -557,13 +561,14 @@ public final class FuncallExpression extends Expression {
                   "expected value of type '%s' for parameter '%s'",
                   type.toString(), param.name()));
         }
-        if (param.named() && keys.contains(param.name())) {
+        if (isParamNamed(param) && keys.contains(param.name())) {
           return ArgumentListConversionResult.fromError(
               String.format("got multiple values for keyword argument '%s'", param.name()));
         }
         argIndex++;
       } else { // No more positional arguments, or no more positional parameters.
-        if (param.named() && keys.remove(param.name())) { // Param specified by keyword argument.
+        if (isParamNamed(param) && keys.remove(param.name())) {
+          // Param specified by keyword argument.
           value = kwargs.get(param.name());
           if (!type.contains(value)) {
             return ArgumentListConversionResult.fromError(

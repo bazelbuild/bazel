@@ -164,6 +164,24 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return ImmutableMap.of("a", ImmutableList.of("b", "c"));
     }
 
+    @SkylarkCallable(
+      name = "legacy_method",
+      documented = false,
+      parameters = {
+        @Param(name = "pos", positional = true, type = Boolean.class),
+        @Param(name = "legacyNamed", type = Boolean.class, positional = true, named = false,
+            legacyNamed = true),
+        @Param(name = "named", type = Boolean.class, positional = false, named = true),
+      })
+    public String legacyMethod(Boolean pos, Boolean legacyNamed, Boolean named) {
+      return "legacy_method("
+          + pos
+          + ", "
+          + legacyNamed
+          + ", "
+          + named
+          + ")";
+    }
 
     @SkylarkCallable(
       name = "with_params",
@@ -1020,6 +1038,36 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("b", "with_params(1, true, false, true, false, a)");
   }
 
+  @Test
+  public void testLegacyNamed() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "b = mock.legacy_method(True, legacyNamed=True, named=True)")
+        .testLookup("b", "legacy_method(true, true, true)");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "b = mock.legacy_method(True, True, named=True)")
+        .testLookup("b", "legacy_method(true, true, true)");
+
+    // Verify legacyNamed also works with proxy method objects.
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "m = mock.proxy_methods_object()",
+            "b = m.legacy_method(True, legacyNamed=True, named=True)")
+        .testLookup("b", "legacy_method(true, true, true)");
+
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp(
+            "m = mock.proxy_methods_object()",
+            "b = m.legacy_method(True, True, named=True)")
+        .testLookup("b", "legacy_method(true, true, true)");
+  }
+
   /**
    * This test verifies an error is raised when a method parameter is set both positionally and
    * by name.
@@ -1758,6 +1806,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "dir(mock)",
             "function",
             "is_empty",
+            "legacy_method",
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",
