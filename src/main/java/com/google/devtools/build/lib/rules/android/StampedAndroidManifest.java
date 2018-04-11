@@ -16,18 +16,29 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import javax.annotation.Nullable;
 
 /** An {@link AndroidManifest} stamped with the correct package. */
 @Immutable
 public class StampedAndroidManifest extends AndroidManifest {
 
-  StampedAndroidManifest(Artifact manifest, String pkg) {
-    super(manifest, pkg);
+  StampedAndroidManifest(Artifact manifest, @Nullable String pkg, boolean exported) {
+    super(manifest, pkg, exported);
   }
 
   @Override
   public StampedAndroidManifest stamp(RuleContext ruleContext) {
     // This manifest is already stamped
     return this;
+  }
+
+  /**
+   * Gets the manifest artifact wrapped by this object.
+   *
+   * <p>The manifest is guaranteed to be stamped with the correct Android package.
+   */
+  @Override
+  Artifact getManifest() {
+    return super.getManifest();
   }
 }

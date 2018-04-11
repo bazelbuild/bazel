@@ -190,12 +190,19 @@ public class AndroidResourceParsingActionBuilder {
    * Builds and registers the action, and returns a copy of the passed resources with artifacts for
    * parsed and compiled information.
    */
-  public ParsedAndroidResources build(AndroidResources androidResources) {
+  public ParsedAndroidResources build(
+      AndroidResources androidResources, StampedAndroidManifest manifest) {
+    if (dataBindingInfoZip != null) {
+      // Manifest information is needed for data binding
+      setManifest(manifest.getManifest());
+      setJavaPackage(manifest.getPackage());
+    }
+
     setResources(androidResources);
     build(ruleContext);
 
     return ParsedAndroidResources.of(
-        androidResources, output, compiledSymbols, ruleContext.getLabel());
+        androidResources, output, compiledSymbols, ruleContext.getLabel(), manifest);
   }
 
   /**

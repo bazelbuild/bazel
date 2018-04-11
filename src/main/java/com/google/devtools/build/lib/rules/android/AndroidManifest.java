@@ -13,35 +13,56 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** Wraps an Android Manifest and provides utilities for working with it */
 @Immutable
 public class AndroidManifest {
+  private static final String CUSTOM_PACKAGE_ATTR = "custom_package";
 
   private final Artifact manifest;
   /** The Android package. Will be null if and only if this is an aar_import target. */
   @Nullable private final String pkg;
+  private final boolean exported;
 
   public static AndroidManifest forAarImport(RuleContext ruleContext, Artifact manifest) {
-    return new AndroidManifest(manifest, null);
+    return new AndroidManifest(manifest, /* pkg = */ null, /* exported = */ true);
   }
 
-  AndroidManifest(Artifact manifest, @Nullable String pkg) {
+  public static AndroidManifest from(RuleContext ruleContext, AndroidSemantics androidSemantics)
+      throws RuleErrorException, InterruptedException {
+    return new AndroidManifest(
+        androidSemantics.getManifestForRule(ruleContext).getManifest(),
+        getAndroidPackage(ruleContext),
+        AndroidCommon.getExportsManifest(ruleContext));
+  }
+
+  AndroidManifest(AndroidManifest other, Artifact manifest) {
+    this(manifest, other.pkg, other.exported);
+  }
+
+  @VisibleForTesting
+  AndroidManifest(Artifact manifest, @Nullable String pkg, boolean exported) {
     this.manifest = manifest;
     this.pkg = pkg;
+    this.exported = exported;
   }
 
   /** If needed, stamps the manifest with the correct Java package */
   public StampedAndroidManifest stamp(RuleContext ruleContext) {
     return new StampedAndroidManifest(
         ApplicationManifest.maybeSetManifestPackage(ruleContext, manifest, pkg).orElse(manifest),
-        pkg);
+        pkg,
+        exported);
   }
 
   Artifact getManifest() {
@@ -53,8 +74,21 @@ public class AndroidManifest {
     return pkg;
   }
 
+  boolean isExported() {
+    return exported;
+  }
+
+  /** Gets the Android package for this target, from either rule configuration or Java package */
+  private static String getAndroidPackage(RuleContext ruleContext) {
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified(CUSTOM_PACKAGE_ATTR)) {
+      return ruleContext.attributes().get(CUSTOM_PACKAGE_ATTR, Type.STRING);
+    }
+
+    return getDefaultPackage(ruleContext);
+  }
+
   /** Gets the default Java package */
-  static String getDefaultPackage(RuleContext ruleContext) {
+  private static String getDefaultPackage(RuleContext ruleContext) {
     PathFragment dummyJar = ruleContext.getPackageDirectory().getChild("Dummy.jar");
     return getJavaPackageFromPath(ruleContext, dummyJar);
   }
@@ -85,5 +119,25 @@ public class AndroidManifest {
               + "'custom_package' attribute.");
     }
     return JavaUtil.getJavaPackageName(jarPathFragment);
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    if (object == null || getClass() != object.getClass()) {
+      return false;
+    }
+
+    AndroidManifest other = (AndroidManifest) object;
+
+    return manifest.equals(other.manifest)
+        && Objects.equals(pkg, other.pkg)
+        && exported == other.exported;
+  }
+
+  @Override
+  public int hashCode() {
+    // Hash the current class with the other fields to distinguish between this AndroidManifest and
+    // classes that extend it.
+    return Objects.hash(manifest, pkg, exported, getClass());
   }
 }

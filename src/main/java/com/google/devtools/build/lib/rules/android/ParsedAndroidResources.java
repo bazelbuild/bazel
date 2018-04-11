@@ -26,6 +26,7 @@ public class ParsedAndroidResources extends AndroidResources {
   private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
   private final Label label;
+  private final StampedAndroidManifest manifest;
 
   public static ParsedAndroidResources parseFrom(
       RuleContext ruleContext, AndroidResources resources, StampedAndroidManifest manifest)
@@ -41,10 +42,7 @@ public class ParsedAndroidResources extends AndroidResources {
       // TODO(corysmith): Centralize the data binding processing and zipping into a single
       // action. Data binding processing needs to be triggered here as well as the merger to
       // avoid aapt2 from throwing an error during compilation.
-      builder
-          .setDataBindingInfoZip(DataBinding.getSuffixedInfoFile(ruleContext, "_unused"))
-          .setManifest(manifest.getManifest())
-          .setJavaPackage(manifest.getPackage());
+      builder.setDataBindingInfoZip(DataBinding.getSuffixedInfoFile(ruleContext, "_unused"));
     }
 
     return builder
@@ -53,34 +51,33 @@ public class ParsedAndroidResources extends AndroidResources {
             isAapt2
                 ? ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS)
                 : null)
-        .build(resources);
+        .build(resources, manifest);
   }
 
   public static ParsedAndroidResources of(
       AndroidResources resources,
       Artifact symbols,
       @Nullable Artifact compiledSymbols,
-      Label label) {
-    return new ParsedAndroidResources(
-        resources,
-        symbols,
-        compiledSymbols,
-        label);
+      Label label,
+      StampedAndroidManifest manifest) {
+    return new ParsedAndroidResources(resources, symbols, compiledSymbols, label, manifest);
   }
 
-  ParsedAndroidResources(ParsedAndroidResources other) {
-    this(other, other.symbols, other.compiledSymbols, other.label);
+  ParsedAndroidResources(ParsedAndroidResources other, StampedAndroidManifest manifest) {
+    this(other, other.symbols, other.compiledSymbols, other.label, manifest);
   }
 
   private ParsedAndroidResources(
       AndroidResources resources,
       Artifact symbols,
       @Nullable Artifact compiledSymbols,
-      Label label) {
+      Label label,
+      StampedAndroidManifest manifest) {
     super(resources);
     this.symbols = symbols;
     this.compiledSymbols = compiledSymbols;
     this.label = label;
+    this.manifest = manifest;
   }
 
   public Artifact getSymbols() {
@@ -90,6 +87,10 @@ public class ParsedAndroidResources extends AndroidResources {
   @Nullable
   public Artifact getCompiledSymbols() {
     return compiledSymbols;
+  }
+
+  public Artifact getManifest() {
+    return manifest.getManifest();
   }
 
   public Label getLabel() {
@@ -105,11 +106,12 @@ public class ParsedAndroidResources extends AndroidResources {
     ParsedAndroidResources other = (ParsedAndroidResources) object;
     return symbols.equals(other.symbols)
         && Objects.equals(compiledSymbols, other.compiledSymbols)
-        && label.equals(other.label);
+        && label.equals(other.label)
+        && manifest.equals(other.manifest);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), symbols, compiledSymbols, label);
+    return Objects.hash(super.hashCode(), symbols, compiledSymbols, label, manifest);
   }
 }
