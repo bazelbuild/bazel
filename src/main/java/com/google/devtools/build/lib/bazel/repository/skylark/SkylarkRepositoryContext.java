@@ -761,7 +761,7 @@ public class SkylarkRepositoryContext {
   }
 
   /**
-   * Try to compute the paths of all attibutes that are labels.
+   * Try to compute the paths of all attibutes that are labels, including labels in list arguments.
    *
    * <p>The value is ignored, but any missing information from the environment is detected (and an
    * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
@@ -773,6 +773,13 @@ public class SkylarkRepositoryContext {
       Object value = attr.getValue(name);
       if (value instanceof Label) {
         getPathFromLabel((Label) value);
+      }
+      if (value instanceof SkylarkList) {
+        for (Object entry : (SkylarkList) value) {
+          if (entry instanceof Label) {
+            getPathFromLabel((Label) entry);
+          }
+        }
       }
     }
   }

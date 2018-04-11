@@ -87,4 +87,74 @@ EOF
 }
 
 
+test_label_list_arg() {
+  # Verify that a repository rule does not get restarted, if accessing
+  # the entries of a label list as files.
+  WRKDIR=`pwd`
+  rm -rf repo
+  rm -rf log
+  mkdir repo
+  cd repo
+  touch BUILD
+  cat > rule.bzl <<EOF
+def _impl(ctx):
+  # Access the build file late
+  ctx.execute(["/bin/sh", "-c", "date +%s >> ${WRKDIR}/log"])
+  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("BUILD",  """
+genrule(
+  name="foo",
+  srcs= ["src.txt"],
+  outs=["foo.txt"],
+  cmd = "cp \$< \$@",
+)
+""")
+  for f in ctx.attr.data:
+    ctx.execute(["/bin/sh", "-c", "cat %s >> src.txt" % ctx.path(f)])
+
+myrule=repository_rule(implementation=_impl,
+ attrs={
+   "data" : attr.label_list(),
+ })
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "myrule")
+myrule(name="ext", data = ["//:a.txt", "//:b.txt"])
+EOF
+  echo Hello > a.txt
+  echo World > b.txt
+  bazel build @ext//:foo || fail "expected success"
+  [ `cat "${WRKDIR}/log" | wc -l` -eq 1 ] \
+      || fail "did not find precisely one invocation of the action"
+}
+
+test_unused_invalid_label_list_arg() {
+  # Verify that we preserve the behavior of allowing to pass labels that
+  # do referring to an existing path, if they are never resolved as such.
+  # Here, test it if such labels are passed in a label list.
+  WRKDIR=`pwd`
+  rm -rf repo
+  mkdir repo
+  cd repo
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _impl(ctx):
+  # Access the build file late
+  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("BUILD",
+           "genrule(name=\"foo\", outs=[\"foo.txt\"], cmd = \"echo foo > $@\")")
+
+myrule=repository_rule(implementation=_impl,
+ attrs={
+   "unused_list" : attr.label_list(),
+ })
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "myrule")
+myrule(name="ext", unused_list=["//does/not/exist:file1",
+                                "//does/not/exists:file2"])
+EOF
+  bazel build @ext//:foo || fail "expected success"
+}
+
 run_suite "skylark repo prefetching tests"
