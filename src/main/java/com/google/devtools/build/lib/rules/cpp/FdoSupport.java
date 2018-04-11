@@ -174,6 +174,7 @@ public class FdoSupport {
    * {@code null} if FDO optimization is disabled.  The profile file
    * can be a coverage ZIP or an AutoFDO feedback file.
    */
+  // TODO(lberki): this should be a PathFragment
   private final Path fdoProfile;
 
   /**

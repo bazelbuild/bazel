@@ -51,7 +51,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     useConfiguration(args);
     ConfigurationEnvironment env =
         new ConfigurationEnvironment.TargetProviderEnvironment(
-            skyframeExecutor.getPackageManager(), reporter, directories);
+            skyframeExecutor.getPackageManager(), reporter);
     return loader.create(env, buildOptions);
   }
 

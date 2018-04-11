@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -95,7 +94,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    * Returns the profile name with the same file name as fdoProfile and an
    * extension that matches {@link FileType}.
    */
-  private static String getLLVMProfileFileName(Path fdoProfile, FileType type) {
+  private static String getLLVMProfileFileName(PathFragment fdoProfile, FileType type) {
     if (type.matches(fdoProfile)) {
       return fdoProfile.getBaseName();
     } else {
@@ -188,9 +187,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    * the indexed format (.profdata) if necessary.
    */
   private Artifact convertLLVMRawProfileToIndexed(
-      Path fdoProfile,
-      CppToolchainInfo toolchainInfo,
-      RuleContext ruleContext)
+      PathFragment fdoProfile, CppToolchainInfo toolchainInfo, RuleContext ruleContext)
       throws InterruptedException {
 
     Artifact profileArtifact =
@@ -204,7 +201,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ruleContext.registerAction(
           new SymlinkAction(
               ruleContext.getActionOwner(),
-              PathFragment.create(fdoProfile.getPathString()),
+              fdoProfile,
               profileArtifact,
               "Symlinking LLVM Profile " + fdoProfile.getPathString()));
       return profileArtifact;
@@ -318,10 +315,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
     CppToolchainInfo toolchainInfo = getCppToolchainInfo(ruleContext, cppConfiguration);
 
-    Path fdoZip = null;
+    PathFragment fdoZip = null;
     if (ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT) {
-      if (cppConfiguration.getFdoProfileAbsolutePath() != null) {
-        fdoZip = cppConfiguration.getFdoProfileAbsolutePath();
+      if (cppConfiguration.getFdoPath() != null) {
+        fdoZip = cppConfiguration.getFdoPath();
       } else if (cppConfiguration.getFdoProfileLabel() != null
           || cppConfiguration.getFdoOptimizeLabel() != null) {
         Artifact fdoArtifact;
@@ -353,7 +350,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             return null;
           }
         }
-        fdoZip = fdoArtifact.getPath();
+        fdoZip = fdoArtifact.getPath().asFragment();
       }
     }
 
@@ -530,7 +527,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     Artifact profileArtifact = null;
     if (fdoMode == FdoMode.LLVM_FDO) {
       profileArtifact =
-          convertLLVMRawProfileToIndexed(fdoZip, toolchainInfo, ruleContext);
+          convertLLVMRawProfileToIndexed(
+              fdoSupport.getFdoSupport().getFdoProfile().asFragment(), toolchainInfo, ruleContext);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -607,7 +605,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   }
 
   /** Returns true if LLVM FDO Optimization should be applied for this configuration. */
-  private boolean isLLVMOptimizedFdo(boolean isLLVMCompiler, Path fdoProfilePath) {
+  private boolean isLLVMOptimizedFdo(boolean isLLVMCompiler, PathFragment fdoProfilePath) {
     return fdoProfilePath != null
         && (CppFileTypes.LLVM_PROFILE.matches(fdoProfilePath)
             || CppFileTypes.LLVM_PROFILE_RAW.matches(fdoProfilePath)

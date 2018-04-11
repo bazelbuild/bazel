@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -46,11 +46,11 @@ public class FdoSupportValue implements SkyValue {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private final LipoMode lipoMode;
-    private final Path fdoZip;
+    private final PathFragment fdoZip;
     private final String fdoInstrument;
     private final FdoMode fdoMode;
 
-    private Key(LipoMode lipoMode, Path fdoZip, String fdoInstrument, FdoMode fdoMode) {
+    private Key(LipoMode lipoMode, PathFragment fdoZip, String fdoInstrument, FdoMode fdoMode) {
       this.lipoMode = lipoMode;
       this.fdoZip = fdoZip;
       this.fdoInstrument = fdoInstrument;
@@ -59,7 +59,7 @@ public class FdoSupportValue implements SkyValue {
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(LipoMode lipoMode, Path fdoZip, String fdoInstrument, FdoMode fdoMode) {
+    static Key of(LipoMode lipoMode, PathFragment fdoZip, String fdoInstrument, FdoMode fdoMode) {
       return interner.intern(new Key(lipoMode, fdoZip, fdoInstrument, fdoMode));
     }
 
@@ -67,7 +67,7 @@ public class FdoSupportValue implements SkyValue {
       return lipoMode;
     }
 
-    public Path getFdoZip() {
+    public PathFragment getFdoZip() {
       return fdoZip;
     }
 
@@ -118,7 +118,7 @@ public class FdoSupportValue implements SkyValue {
   }
 
   public static SkyKey key(
-      LipoMode lipoMode, Path fdoZip, String fdoInstrument, FdoMode fdoMode) {
+      LipoMode lipoMode, PathFragment fdoZip, String fdoInstrument, FdoMode fdoMode) {
     return Key.of(lipoMode, fdoZip, fdoInstrument, fdoMode);
   }
 }

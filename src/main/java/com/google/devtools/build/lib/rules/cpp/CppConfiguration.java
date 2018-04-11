@@ -161,7 +161,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
   private final boolean convertLipoToThinLto;
   private final PathFragment crosstoolTopPathFragment;
 
-  private final Path fdoProfileAbsolutePath;
+  private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
   // TODO(bazel-team): All these labels (except for ccCompilerRuleLabel) can be removed once the
@@ -267,7 +267,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(params.commonOptions.cpu),
         cppOptions.convertLipoToThinLto,
         crosstoolTopPathFragment,
-        params.fdoProfileAbsolutePath,
+        params.fdoPath,
         params.fdoOptimizeLabel,
         params.ccToolchainLabel,
         params.stlLabel,
@@ -325,7 +325,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
       String desiredCpu,
       boolean convertLipoToThinLto,
       PathFragment crosstoolTopPathFragment,
-      Path fdoProfileAbsolutePath,
+      PathFragment fdoPath,
       Label fdoOptimizeLabel,
       Label ccToolchainLabel,
       Label stlLabel,
@@ -357,7 +357,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     this.desiredCpu = desiredCpu;
     this.convertLipoToThinLto = convertLipoToThinLto;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
-    this.fdoProfileAbsolutePath = fdoProfileAbsolutePath;
+    this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
     this.ccToolchainLabel = ccToolchainLabel;
     this.stlLabel = stlLabel;
@@ -1341,8 +1341,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.getFdoInstrument();
   }
 
-  public Path getFdoProfileAbsolutePath() {
-    return fdoProfileAbsolutePath;
+  public PathFragment getFdoPath() {
+    return fdoPath;
   }
 
   public Label getFdoOptimizeLabel() {

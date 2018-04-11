@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
@@ -44,15 +43,12 @@ import java.io.IOException;
 public final class ConfigurationFragmentFunction implements SkyFunction {
   private final Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments;
   private final RuleClassProvider ruleClassProvider;
-  private final BlazeDirectories directories;
 
   public ConfigurationFragmentFunction(
       Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments,
-      RuleClassProvider ruleClassProvider,
-      BlazeDirectories directories) {
+      RuleClassProvider ruleClassProvider) {
     this.configurationFragments = configurationFragments;
     this.ruleClassProvider = ruleClassProvider;
-    this.directories = directories;
   }
 
   @Override
@@ -64,7 +60,7 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     ConfigurationFragmentFactory factory = getFactory(configurationFragmentKey.getFragmentType());
     try {
       PackageProviderForConfigurations packageProvider =
-          new SkyframePackageLoaderWithValueEnvironment(env, ruleClassProvider, directories);
+          new SkyframePackageLoaderWithValueEnvironment(env, ruleClassProvider);
       ConfigurationEnvironment confEnv = new ConfigurationBuilderEnvironment(packageProvider);
       Fragment fragment = factory.create(confEnv, buildOptions);
 
@@ -133,11 +129,6 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
         throws InvalidConfigurationException, InterruptedException {
       return packageProvider.getFragment(buildOptions, fragmentType);
-    }
-
-    @Override
-    public BlazeDirectories getBlazeDirectories() throws InterruptedException {
-      return packageProvider.getDirectories();
     }
   }
 
