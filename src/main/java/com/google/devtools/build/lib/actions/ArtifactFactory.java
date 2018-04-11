@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,6 +37,7 @@ public class ArtifactFactory implements ArtifactResolver {
   private final Path execRoot;
   private final Path execRootParent;
   private final PathFragment derivedPathPrefix;
+  private ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots;
 
   /**
    * Cache of source artifacts.
@@ -133,6 +136,11 @@ public class ArtifactFactory implements ArtifactResolver {
     sourceArtifactCache.clear();
   }
 
+  public synchronized void setSourceArtifactRoots(
+      ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots) {
+    this.sourceArtifactRoots = sourceArtifactRoots;
+  }
+
   /**
    * Set the set of known packages and their corresponding source artifact roots. Must be called
    * exactly once after construction or clear().
@@ -145,15 +153,22 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
+  public Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
     Preconditions.checkArgument(
-        execPath.isAbsolute() == root.getRoot().isAbsolute(), "%s %s %s", execPath, root, owner);
+        execPath.isAbsolute() == root.isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
-    return getArtifact(root, execPath, owner, null);
+    Preconditions.checkNotNull(
+        sourceArtifactRoots, "Not initialized for %s %s %s", execPath, root, owner);
+    return getArtifact(
+        Preconditions.checkNotNull(
+            sourceArtifactRoots.get(root), "%s has no ArtifactRoot (%s)", root, execPath),
+        execPath,
+        owner,
+        null);
   }
 
   @Override
-  public Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root) {
+  public Artifact getSourceArtifact(PathFragment execPath, Root root) {
     return getSourceArtifact(execPath, root, ArtifactOwner.NullArtifactOwner.INSTANCE);
   }
 
@@ -296,7 +311,7 @@ public class ArtifactFactory implements ArtifactResolver {
     Preconditions.checkState(
         !relativePath.isEmpty(), "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
-        baseExecPath == null ? relativePath : baseExecPath.getRelative(relativePath);
+        baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
     if (execPath.containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
       return null;
@@ -305,12 +320,14 @@ public class ArtifactFactory implements ArtifactResolver {
     if (isDerivedArtifact(execPath)) {
       return null;
     }
-    ArtifactRoot sourceRoot = findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName);
+    Root sourceRoot =
+        findSourceRoot(
+            execPath, baseExecPath, baseRoot == null ? null : baseRoot.getRoot(), repositoryName);
     Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
     if (artifact != null) {
       ArtifactRoot artifactRoot = artifact.getRoot();
       Preconditions.checkState(
-          sourceRoot == null || sourceRoot.equals(artifactRoot),
+          sourceRoot == null || sourceRoot.equals(artifactRoot.getRoot()),
           "roots mismatch: %s %s %s",
           sourceRoot,
           artifactRoot,
@@ -325,10 +342,10 @@ public class ArtifactFactory implements ArtifactResolver {
    * root directory if our execPath doesn't start with baseExecPath due to uplevel references.
    */
   @Nullable
-  private ArtifactRoot findSourceRoot(
+  private Root findSourceRoot(
       PathFragment execPath,
       @Nullable PathFragment baseExecPath,
-      @Nullable ArtifactRoot baseRoot,
+      @Nullable Root baseRoot,
       RepositoryName repositoryName) {
     PathFragment dir = execPath.getParentDirectory();
     if (dir == null) {
@@ -342,7 +359,7 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     while (dir != null && !dir.equals(baseExecPath)) {
-      ArtifactRoot sourceRoot =
+      Root sourceRoot =
           packageRoots.getRootForPackage(PackageIdentifier.create(repositoryName, dir));
       if (sourceRoot != null) {
         return sourceRoot;
@@ -383,8 +400,7 @@ public class ArtifactFactory implements ArtifactResolver {
         unresolvedPaths.add(execPath);
       }
     }
-    Map<PathFragment, ArtifactRoot> sourceRoots =
-        resolver.findPackageRootsForFiles(unresolvedPaths);
+    Map<PathFragment, Root> sourceRoots = resolver.findPackageRootsForFiles(unresolvedPaths);
     // We are missing some dependencies. We need to rerun this method later.
     if (sourceRoots == null) {
       return null;
@@ -399,20 +415,20 @@ public class ArtifactFactory implements ArtifactResolver {
   public Path getPathFromSourceExecPath(PathFragment execPath) {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
-    ArtifactRoot sourceRoot =
+    Root sourceRoot =
         packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
     if (sourceRoot != null) {
-      return sourceRoot.getRoot().getRelative(execPath);
+      return sourceRoot.getRelative(execPath);
     }
     return execRoot.getRelative(execPath);
   }
 
-  private Artifact createArtifactIfNotValid(ArtifactRoot sourceRoot, PathFragment execPath) {
+  private Artifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
     if (sourceRoot == null) {
       return null;  // not a path that we can find...
     }
     Artifact artifact = sourceArtifactCache.getArtifact(execPath);
-    if (artifact != null && sourceRoot.equals(artifact.getRoot())) {
+    if (artifact != null && sourceRoot.equals(artifact.getRoot().getRoot())) {
       // Source root of existing artifact hasn't changed so we should mark corresponding entry in
       // the cache as valid.
       sourceArtifactCache.markEntryAsValid(execPath);

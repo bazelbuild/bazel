@@ -175,7 +175,7 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
   private Artifact getHeadersListArtifact(Artifact sourceFile) {
     return getSourceArtifact(
         FileSystemUtils.replaceExtension(sourceFile.getExecPath(), ".headers_list"),
-        sourceFile.getRoot());
+        sourceFile.getRoot().getRoot());
   }
 
   private static Map<PathFragment, Artifact> createHeaderFilesMap(Iterable<Artifact> artifacts) {

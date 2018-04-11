@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -26,29 +27,12 @@ public interface PackageRootResolver {
   /**
    * Returns mapping from execPath to Root. Root will be null if the path has no containing package.
    *
-   * @param execPaths the paths to find {@link ArtifactRoot}s for. The search for a containing
-   *     package will start with the path's parent directory, since the path is assumed to be a
-   *     file.
-   * @return mappings from {@code execPath} to {@link ArtifactRoot}, or null if for some reason we
-   *     cannot determine the result at this time (such as when used within a SkyFunction)
+   * @param execPaths the paths to find {@link Root}s for. The search for a containing package will
+   *     start with the path's parent directory, since the path is assumed to be a file.
+   * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we cannot
+   *     determine the result at this time (such as when used within a SkyFunction)
    */
   @Nullable
-  Map<PathFragment, ArtifactRoot> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-      throws InterruptedException;
-
-  /**
-   * Returns mapping from execPath to Root. Root will be null if the path has no containing package.
-   * Unlike {@link #findPackageRootsForFiles(Iterable)}, this function allows directories in the
-   * list of exec paths.
-   *
-   * @param execPaths the paths to find {@link ArtifactRoot}s for. The search for a containing
-   *     package will start with the path's parent directory, since the path is assumed to be a
-   *     file.
-   * @return mappings from {@code execPath} to {@link ArtifactRoot}, or null if for some reason we
-   *     cannot determine the result at this time (such as when used within a SkyFunction)
-   */
-  // TODO(bazel-team): Remove this once we don't need to find package roots for directories.
-  @Nullable
-  Map<PathFragment, ArtifactRoot> findPackageRoots(Iterable<PathFragment> execPaths)
+  Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
       throws InterruptedException;
 }

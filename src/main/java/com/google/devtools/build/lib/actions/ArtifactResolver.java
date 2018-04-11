@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -34,15 +35,15 @@ public interface ArtifactResolver {
    * @param owner the artifact owner.
    * @return the canonical source artifact for the given path
    */
-  Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner);
+  Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
 
   /**
    * Returns the source Artifact for the specified path, creating it if not found and setting its
    * root and execPath.
    *
-   * @see #getSourceArtifact(PathFragment, ArtifactRoot, ArtifactOwner)
+   * @see #getSourceArtifact(PathFragment, Root, ArtifactOwner)
    */
-  Artifact getSourceArtifact(PathFragment execPath, ArtifactRoot root);
+  Artifact getSourceArtifact(PathFragment execPath, Root root);
 
   /**
    * Resolves a source Artifact given an execRoot-relative path.

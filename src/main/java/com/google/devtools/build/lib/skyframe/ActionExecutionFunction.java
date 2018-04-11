@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -283,8 +283,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
 
     @Override
-    public Map<PathFragment, ArtifactRoot> findPackageRootsForFiles(
-        Iterable<PathFragment> execPaths) throws InterruptedException {
+    public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
+        throws InterruptedException {
       Preconditions.checkState(keysRequested.isEmpty(),
           "resolver should only be called once: %s %s", keysRequested, execPaths);
       // Create SkyKeys list based on execPaths.
@@ -313,7 +313,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         return null;
       }
 
-      Map<PathFragment, ArtifactRoot> result = new HashMap<>();
+      Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment path : execPaths) {
         if (!depKeys.containsKey(path)) {
           continue;
@@ -324,7 +324,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           // We have found corresponding root for current execPath.
           result.put(
               path,
-              ArtifactRoot.computeSourceRoot(
+              SkyframeExecutor.maybeTransformRootForRepository(
                   value.getContainingPackageRoot(),
                   value.getContainingPackageName().getRepository()));
         } else {
@@ -333,15 +333,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         }
       }
       return result;
-    }
-
-    @Override
-    @Nullable
-    public Map<PathFragment, ArtifactRoot> findPackageRoots(Iterable<PathFragment> execPaths)
-        throws InterruptedException {
-      // call sites for this implementation of PackageRootResolver shouldn't be passing in
-      // directories.
-      return findPackageRootsForFiles(execPaths);
     }
   }
 
