@@ -116,7 +116,7 @@ public class BazelCppRuleClasses {
 
   static final String[] DEPS_ALLOWED_RULES =
       new String[] {
-        "cc_inc_library", "cc_library", "objc_library", "cc_proto_library", "cc_import",
+        "cc_library", "objc_library", "cc_proto_library", "cc_import",
       };
 
   /**
@@ -350,8 +350,8 @@ public class BazelCppRuleClasses {
                   .allowedFileTypes(ALLOWED_SRC_FILES))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
-          <p>These can be <code>cc_library</code>, <code>cc_inc_library</code>, or
-          <code>objc_library</code> targets.</p>
+          <p>These can be <code>cc_library</code> or <code>objc_library</code>
+          targets.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .override(
               attr("deps", LABEL_LIST)
