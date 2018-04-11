@@ -102,7 +102,7 @@ public final class Identifier extends Expression {
               + "please use the latter ("
               + "https://docs.bazel.build/versions/master/skylark/lib/native.html#package_name). "
               + "You can temporarily allow the old name "
-              + "by using --incompatiblePackageNameIsAFunction=false");
+              + "by using --incompatible_package_name_is_a_function=false");
     }
     if (name.equals("REPOSITORY_NAME")) {
       return new EvalException(
@@ -111,7 +111,7 @@ public final class Identifier extends Expression {
               + "please use the latter ("
               + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name)."
               + " You can temporarily allow the old name "
-              + "by using --incompatiblePackageNameIsAFunction=false");
+              + "by using --incompatible_package_name_is_a_function=false");
     }
 
     String suggestion = SpellChecker.didYouMean(name, symbols);
