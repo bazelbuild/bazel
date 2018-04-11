@@ -109,6 +109,7 @@ public class DeprecatedApiChecker extends AstVisitorWithNameResolution {
           .put("ctx.template_action", "Use ctx.actions.expand_template.")
           .put("PACKAGE_NAME", "Use native.package_name().")
           .put("REPOSITORY_NAME", "Use native.repository_name().")
+          .put("FileType", "Use a list of strings.")
           .put(
               "ctx.outputs.executable",
               "See https://docs.bazel.build/versions/master/skylark/"

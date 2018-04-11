@@ -46,6 +46,8 @@ public class DeprecatedApiCheckerTest {
         .contains("1:1-1:12: PACKAGE_NAME is deprecated");
     Truth.assertThat(findIssues("f = ctx.outputs.executable").toString())
         .contains("1:5-1:26: ctx.outputs.executable is deprecated");
+    Truth.assertThat(findIssues("css_filetype = FileType(['.css'])").toString())
+        .contains("1:16-1:23: FileType is deprecated");
 
     Truth.assertThat(findIssues("ctx.actions()")).isEmpty();
   }
