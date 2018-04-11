@@ -184,8 +184,11 @@ public class BuildConfiguration {
      *
      * <p>If multiple fragments return the same transition, that transition is only applied
      * once. Multiple fragments may not return different non-null transitions.
+     *
+     * <p>Deprecated. The only known use of this is LIPO, which is on its deathbed.
      */
     @Nullable
+    @Deprecated
     public PatchTransition getArtifactOwnerTransition() {
       return null;
     }
