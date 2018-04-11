@@ -1067,7 +1067,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("srcs", "a.m")
         .write();
     CppCompileAction compileAction = (CppCompileAction) compileAction("//lib:lib", "a.o");
-    assertThat(compileAction.discoverInputsFromDotdFiles(null, null, null)).isEmpty();
+    assertThat(
+            compileAction.discoverInputsFromDotdFiles(
+                new ActionExecutionContextBuilder().build(), null, null, null))
+        .isEmpty();
   }
 
   @Test
@@ -1702,7 +1705,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     createLibraryTargetWriter("//lib:lib").setList("srcs", "a.m").write();
     CppCompileAction compileAction = (CppCompileAction) compileAction("//lib:lib", "a.o");
     try {
-      compileAction.discoverInputsFromDotdFiles(null, null, null);
+      compileAction.discoverInputsFromDotdFiles(
+          new ActionExecutionContextBuilder().build(), null, null, null);
       fail("Expected ActionExecutionException");
     } catch (ActionExecutionException expected) {
       assertThat(expected).hasMessageThat().contains("error while parsing .d file");

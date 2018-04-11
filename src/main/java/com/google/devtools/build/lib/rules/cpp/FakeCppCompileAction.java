@@ -160,7 +160,8 @@ public class FakeCppCompileAction extends CppCompileAction {
           new HeaderDiscovery.Builder()
               .setAction(this)
               .setSourceFile(getSourceFile())
-              .setDependencies(processDepset(execRoot, reply).getDependencies())
+              .setDependencies(
+                  processDepset(actionExecutionContext, execRoot, reply).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
               .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
 
@@ -183,16 +184,16 @@ public class FakeCppCompileAction extends CppCompileAction {
     // listed in the "srcs" of the cc_fake_binary or in the "srcs" of a cc_library that it
     // depends on.
     try {
-      validateInclusions(
-          discoveredInputs,
-          actionExecutionContext.getArtifactExpander(),
-          actionExecutionContext.getEventHandler());
+      validateInclusions(actionExecutionContext, discoveredInputs);
     } catch (ActionExecutionException e) {
       // TODO(bazel-team): (2009) make this into an error, once most of the current warnings
       // are fixed.
-      actionExecutionContext.getEventHandler().handle(Event.warn(
-          getOwner().getLocation(),
-          e.getMessage() + ";\n  this warning may eventually become an error"));
+      actionExecutionContext
+          .getEventHandler()
+          .handle(
+              Event.warn(
+                  getOwner().getLocation(),
+                  e.getMessage() + ";\n  this warning may eventually become an error"));
     }
 
     updateActionInputs(discoveredInputs);

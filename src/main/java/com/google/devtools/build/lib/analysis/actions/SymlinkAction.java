@@ -106,8 +106,8 @@ public class SymlinkAction extends AbstractAction {
     return inputPath == null ? getPrimaryInput().getExecPath() : inputPath;
   }
 
-  public Path getOutputPath() {
-    return getPrimaryOutput().getPath();
+  public Path getOutputPath(ActionExecutionContext actionExecutionContext) {
+    return actionExecutionContext.getInputPath(getPrimaryOutput());
   }
 
   @Override
@@ -120,7 +120,7 @@ public class SymlinkAction extends AbstractAction {
       srcPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
     }
     try {
-      getOutputPath().createSymbolicLink(srcPath);
+      getOutputPath(actionExecutionContext).createSymbolicLink(srcPath);
     } catch (IOException e) {
       throw new ActionExecutionException("failed to create symbolic link '"
           + Iterables.getOnlyElement(getOutputs()).prettyPrint()
