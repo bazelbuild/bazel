@@ -91,6 +91,14 @@ new_local_repository(
     build_file = "./third_party/googleapis/BUILD",
 )
 
+http_archive(
+    name = "desugar_jdk_libs",
+    url = "https://github.com/google/desugar_jdk_libs/archive/91c7bd26d3ae32be7cc548d83ce173e8f88a7b94.zip",
+    # Computed using "shasum -a 256 <zip>"
+    sha256 = "3aa43733e16e94c24c98edcf6732df43f8a6ef2bed589b412b00e3003d0c3179",
+    strip_prefix = "desugar_jdk_libs-91c7bd26d3ae32be7cc548d83ce173e8f88a7b94",
+)
+
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",

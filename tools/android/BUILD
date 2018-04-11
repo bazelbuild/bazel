@@ -179,6 +179,14 @@ py_test(
     ],
 )
 
+genrule(
+    name = "desugar_jdk_libs",
+    srcs = ["@desugar_jdk_libs"],
+    outs = ["desugar_jdk_libs.jar"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:private"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//tools/android/emulator:srcs"],
@@ -192,7 +200,10 @@ filegroup(
             "*_test.py",
             "*_test.sh",
         ],
-    ) + ["//tools/android/emulator:embedded_tools"],
+    ) + [
+        ":desugar_jdk_libs.jar",
+        "//tools/android/emulator:embedded_tools",
+    ],
 )
 
 # Exported for AndroidSdkRepositoryTest to use it instead of mocking it out.
