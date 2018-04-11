@@ -779,15 +779,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyKey key = skyKeyAndNodeEntry.getKey();
       SkyFunctionName functionName = key.functionName();
       try {
-        if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-          actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) entry.getValue());
-        } else if (functionName.equals(SkyFunctions.ASPECT)) {
-          AspectValue aspectValue = (AspectValue) entry.getValue();
-          AspectKey aspectKey = aspectValue.getKey();
-          ConfiguredTargetValue configuredTargetValue =
-              (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
-          actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
+        SkyValue skyValue = entry.getValue();
+        // The skyValue may be null in case analysis of the previous build failed.
+        if (skyValue != null) {
+          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+            actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
+          } else if (functionName.equals(SkyFunctions.ASPECT)) {
+            AspectValue aspectValue = (AspectValue) skyValue;
+            AspectKey aspectKey = aspectValue.getKey();
+            ConfiguredTargetValue configuredTargetValue =
+                (ConfiguredTargetValue)
+                memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+            actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
+          }
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
