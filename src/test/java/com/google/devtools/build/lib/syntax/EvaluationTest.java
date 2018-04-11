@@ -195,8 +195,14 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testSlashOperatorIsForbidden() throws Exception {
+    newTest("--incompatible_disallow_slash_operator=true")
+        .testIfErrorContains("The `/` operator has been removed.", "5 / 2");
+  }
+
+  @Test
   public void testDivision() throws Exception {
-    newTest()
+    newTest("--incompatible_disallow_slash_operator=false")
         .testStatement("6 / 2", 3)
         .testStatement("6 / 4", 1)
         .testStatement("3 / 6", 0)

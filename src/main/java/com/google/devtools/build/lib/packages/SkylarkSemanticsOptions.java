@@ -144,6 +144,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean incompatibleDisallowDictPlus;
 
+  @Option(
+    name = "incompatible_disallow_slash_operator",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help = "If set to true, the `/` operator is disabled. Use `//` for integer division."
+  )
+  public boolean incompatibleDisallowSlashOperator;
+
   /** Controls legacy arguments to ctx.actions.Args#add. */
   @Option(
     name = "incompatible_disallow_old_style_args_add",
@@ -269,6 +282,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
+        .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
         .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)

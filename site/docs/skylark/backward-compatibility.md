@@ -98,9 +98,9 @@ To merge two sets, the following examples used to be supported, but are now
 deprecated:
 
 ``` python
-depset1 + depset2
-depset1 | depset2
-depset1.union(depset2)
+depset1 + depset2  # deprecated
+depset1 | depset2  # deprecated
+depset1.union(depset2)  # deprecated
 ```
 
 The recommended solution is to use the `depset` constructor:
@@ -147,6 +147,20 @@ for i in range(len(my_string)):
 *   Flag: `--incompatible_string_is_not_iterable`
 *   Default: `false`
 
+
+### Integer division operator is `//`
+
+Integer division operator is now `//` instead of `/`. This aligns with
+Python 3 and it highlights the fact it is a floor division.
+
+```python
+x = 7 / 2  # deprecated
+
+x = 7 // 2  # x is 3
+```
+
+*   Flag: `--incompatible_disallow_slash_operator`
+*   Default: `false`
 
 ### New actions API
 
