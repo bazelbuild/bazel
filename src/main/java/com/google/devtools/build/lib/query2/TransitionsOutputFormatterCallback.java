@@ -68,7 +68,6 @@ import java.util.stream.Collectors;
  */
 public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
-  protected final ConfiguredTargetAccessor accessor;
   protected final BuildConfiguration hostConfiguration;
 
   private final HashMap<Label, Target> partialResultMap;
@@ -89,8 +88,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration) {
-    super(reporter, options, out, skyframeExecutor);
-    this.accessor = (ConfiguredTargetAccessor) accessor;
+    super(reporter, options, out, skyframeExecutor, accessor);
     this.hostConfiguration = hostConfiguration;
     this.partialResultMap = Maps.newHashMap();
   }
@@ -280,3 +278,4 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
     }
   }
 }
+

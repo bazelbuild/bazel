@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.query2.output.AspectResolver;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
@@ -210,15 +211,19 @@ public class ConfiguredTargetQueryEnvironment
       CqueryOptions options,
       Reporter reporter,
       SkyframeExecutor skyframeExecutor,
-      BuildConfiguration hostConfiguration) {
+      BuildConfiguration hostConfiguration,
+      AspectResolver resolver) {
     OutputStream out = reporter.getOutErr().getOutputStream();
     return new ImmutableList.Builder<CqueryThreadsafeCallback>()
         .add(
             new LabelAndConfigurationOutputFormatterCallback(
-                reporter, options, out, skyframeExecutor))
+                reporter, options, out, skyframeExecutor, accessor))
         .add(
             new TransitionsOutputFormatterCallback(
                 reporter, options, out, skyframeExecutor, accessor, hostConfiguration))
+        .add(
+            new ProtoOutputFormatterCallback(
+                reporter, options, out, skyframeExecutor, accessor, resolver))
         .build();
   }
 
@@ -660,3 +665,4 @@ public class ConfiguredTargetQueryEnvironment
     return parser.getOptions(QueryOptions.class);
   }
 }
+

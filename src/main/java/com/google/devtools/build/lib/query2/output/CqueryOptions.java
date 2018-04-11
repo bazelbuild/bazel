@@ -46,4 +46,14 @@ public class CqueryOptions extends CommonQueryOptions {
   )
   public Transitions transitions;
 
+  @Option(
+    name = "proto:include_configurations",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.QUERY,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help =
+        "if enabled, proto output will include information about configurations. When disabled,"
+            + "cquery proto output format resembles query output format"
+  )
+  public boolean protoIncludeConfigurations;
 }

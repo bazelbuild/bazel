@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.OutputStream;
@@ -28,8 +29,9 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       Reporter reporter,
       CqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor) {
-    super(reporter, options, out, skyframeExecutor);
+      SkyframeExecutor skyframeExecutor,
+      TargetAccessor<ConfiguredTarget> accessor) {
+    super(reporter, options, out, skyframeExecutor, accessor);
   }
 
   @Override

@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -39,6 +40,7 @@ public abstract class CqueryThreadsafeCallback
   protected final CqueryOptions options;
   protected PrintStream printStream = null;
   protected final SkyframeExecutor skyframeExecutor;
+  protected final ConfiguredTargetAccessor accessor;
 
   private final List<String> result = new ArrayList<>();
 
@@ -46,13 +48,15 @@ public abstract class CqueryThreadsafeCallback
       Reporter reporter,
       CqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor) {
+      SkyframeExecutor skyframeExecutor,
+      TargetAccessor<ConfiguredTarget> accessor) {
     this.reporter = reporter;
     this.options = options;
     if (out != null) {
       this.printStream = new PrintStream(out);
     }
     this.skyframeExecutor = skyframeExecutor;
+    this.accessor = (ConfiguredTargetAccessor) accessor;
   }
 
   public abstract String getName();
@@ -87,3 +91,4 @@ public abstract class CqueryThreadsafeCallback
     }
   }
 }
+
