@@ -19,13 +19,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
-import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellActionEnvironmentFactory;
 import com.google.devtools.build.lib.analysis.ShellConfiguration.ShellExecutableProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -100,6 +101,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import java.io.IOException;
 import java.util.Map;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /** A rule class provider implementing the rules Bazel knows. */
@@ -130,35 +132,53 @@ public class BazelRuleClassProvider {
     }
   }
 
-  public static final ShellActionEnvironmentFactory SHELL_ACTION_ENV = (BuildOptions options) -> {
-    boolean strictActionEnv = options.get(
-        StrictActionEnvOptions.class).useStrictActionEnv;
-    return (ShellConfiguration configuration, Map<String, String> builder) -> {
-      OS os = OS.getCurrent();
-      // All entries in the builder that have a value of null inherit the value from the client
-      // environment, which is only known at execution time - we don't want to bake the client env
-      // into the configuration since any change to the configuration requires rerunning the full
-      // analysis phase.
-      if (!strictActionEnv) {
-        builder.put("LD_LIBRARY_PATH", null);
-      }
+  private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
 
-      if (strictActionEnv) {
-        builder.put("PATH", pathOrDefault(os, null, configuration.getShellExecutable()));
-      } else if (os == OS.WINDOWS) {
-        // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
-        // inheriting PATH from the client environment. For now we use System.getenv even though
-        // that is incorrect. We should enable strict_action_env by default and then remove this
-        // code, but that change may break Windows users who are relying on the MSYS root being in
-        // the PATH.
-        builder.put("PATH", pathOrDefault(
-            os, System.getenv("PATH"), configuration.getShellExecutable()));
-      } else {
-        // The previous implementation used System.getenv (which uses the server's environment), and
-        // fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
-        builder.put("PATH", null);
-      }
-    };
+  public static final ShellExecutableProvider SHELL_EXECUTABLE = (BuildOptions options) ->
+      ShellConfiguration.Loader.determineShellExecutable(
+          OS.getCurrent(),
+          options.get(ShellConfiguration.Options.class),
+          FALLBACK_SHELL);
+
+  public static final ActionEnvironmentProvider SHELL_ACTION_ENV = (BuildOptions options) -> {
+    boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
+    OS os = OS.getCurrent();
+    PathFragment shellExecutable = SHELL_EXECUTABLE.getShellExecutable(options);
+    TreeMap<String, String> env = new TreeMap<>();
+
+    // All entries in the builder that have a value of null inherit the value from the client
+    // environment, which is only known at execution time - we don't want to bake the client env
+    // into the configuration since any change to the configuration requires rerunning the full
+    // analysis phase.
+    if (!strictActionEnv) {
+      env.put("LD_LIBRARY_PATH", null);
+    }
+
+    if (strictActionEnv) {
+      env.put("PATH", pathOrDefault(os, null, shellExecutable));
+    } else if (os == OS.WINDOWS) {
+      // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
+      // inheriting PATH from the client environment. For now we use System.getenv even though
+      // that is incorrect. We should enable strict_action_env by default and then remove this
+      // code, but that change may break Windows users who are relying on the MSYS root being in
+      // the PATH.
+      env.put("PATH", pathOrDefault(
+          os, System.getenv("PATH"), shellExecutable));
+    } else {
+      // The previous implementation used System.getenv (which uses the server's environment), and
+      // fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
+      env.put("PATH", null);
+    }
+
+    // Shell environment variables specified via options take precedence over the
+    // ones inherited from the fragments. In the long run, these fragments will
+    // be replaced by appropriate default rc files anyway.
+    for (Map.Entry<String, String> entry :
+        options.get(BuildConfiguration.Options.class).actionEnvironment) {
+      env.put(entry.getKey(), entry.getValue());
+    }
+
+    return ActionEnvironment.split(env);
   };
 
   /** Used by the build encyclopedia generator. */
@@ -175,14 +195,6 @@ public class BazelRuleClassProvider {
     }
   }
 
-  private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
-
-  public static final ShellExecutableProvider SHELL_EXECUTABLE = (BuildOptions options) ->
-    ShellConfiguration.Loader.determineShellExecutable(
-        OS.getCurrent(),
-        options.get(ShellConfiguration.Options.class),
-        FALLBACK_SHELL);
-
   public static final RuleSet BAZEL_SETUP =
       new RuleSet() {
         @Override
@@ -191,12 +203,12 @@ public class BazelRuleClassProvider {
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setNativeLauncherLabel("//tools/launcher:launcher")
               .setRunfilesPrefix(Label.DEFAULT_REPOSITORY_DIRECTORY)
-              .setPrerequisiteValidator(new BazelPrerequisiteValidator());
+              .setPrerequisiteValidator(new BazelPrerequisiteValidator())
+              .setActionEnvironmentProvider(SHELL_ACTION_ENV);
 
           builder.addConfigurationOptions(ShellConfiguration.Options.class);
           builder.addConfigurationFragment(new ShellConfiguration.Loader(
               SHELL_EXECUTABLE,
-              SHELL_ACTION_ENV,
               ShellConfiguration.Options.class,
               StrictActionEnvOptions.class));
           builder.addUniversalConfigurationFragment(ShellConfiguration.class);

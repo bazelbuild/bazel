@@ -285,7 +285,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new CppConfigurationLoader(CpuTransformer.IDENTITY),
         new ShellConfiguration.Loader(
             BazelRuleClassProvider.SHELL_EXECUTABLE,
-            BazelRuleClassProvider.SHELL_ACTION_ENV,
             ShellConfiguration.Options.class,
             StrictActionEnvOptions.class),
         new PythonConfigurationLoader(),

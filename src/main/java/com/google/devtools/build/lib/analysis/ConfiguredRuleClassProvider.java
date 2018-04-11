@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -237,6 +238,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
     private ImmutableList.Builder<NativeProvider> nativeProviders = ImmutableList.builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
+    private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
+        (BuildOptions options) -> ActionEnvironment.EMPTY;
     private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
         registeredSkylarkProviders = ImmutableBiMap.builder();
 
@@ -371,6 +374,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    public Builder setActionEnvironmentProvider(
+        BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider) {
+      this.actionEnvironmentProvider = actionEnvironmentProvider;
+      return this;
+    }
+
     /**
      * Sets the C++ LIPO data transition, as defined in {@link
      * com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition}.
@@ -471,6 +480,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           skylarkAccessibleTopLevels.build(),
           skylarkModules.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
+          actionEnvironmentProvider,
           nativeProviders.build());
     }
 
@@ -579,6 +589,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
+  private final BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider;
+
   private final ImmutableList<NativeProvider> nativeProviders;
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
@@ -601,6 +613,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules,
       ImmutableSet<String> reservedActionMnemonics,
+      BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
       ImmutableList<NativeProvider> nativeProviders) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -618,6 +631,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
     this.reservedActionMnemonics = reservedActionMnemonics;
+    this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.nativeProviders = nativeProviders;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
   }
@@ -830,6 +844,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** Returns a reserved set of action mnemonics. These cannot be used from a Skylark action. */
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
+  }
+
+  public BuildConfiguration.ActionEnvironmentProvider getActionEnvironmentProvider() {
+    return actionEnvironmentProvider;
   }
 
   /**
