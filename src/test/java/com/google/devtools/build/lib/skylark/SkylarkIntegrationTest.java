@@ -359,8 +359,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "str",
         "\t\tstr.index(1)"
             + System.lineSeparator()
-            + "argument 'sub' has type 'int', but should be 'string'\n"
-            + "in call to builtin method string.index(sub, start, end)");
+            + "expected value of type 'string' for parameter 'sub', "
+            + "in method call index(int) of 'string'");
   }
 
   @Test

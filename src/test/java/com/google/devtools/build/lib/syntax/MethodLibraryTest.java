@@ -106,8 +106,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     // only one built-in function.
     new BothModesTest()
         .testIfExactError(
-            "argument 'sub' has type 'int', but should be 'string'\n"
-                + "in call to builtin method string.index(sub, start, end)",
+            "expected value of type 'string' for parameter 'sub', "
+                + "in method call index(int) of 'string'",
             "'test'.index(1)");
   }
 
@@ -131,8 +131,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\t\"test\".index(x)"
                 + LINE_SEPARATOR
-                + "argument 'sub' has type 'int', but should be 'string'\n"
-                + "in call to builtin method string.index(sub, start, end)",
+                + "expected value of type 'string' for parameter 'sub', "
+                + "in method call index(int) of 'string'",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -146,8 +146,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
-            "argument 'sub' has type 'int', but should be 'string'\n"
-                + "in call to builtin method string.startswith(sub, start, end)",
+            "expected value of type 'string' for parameter 'sub', "
+                + "in method call startswith(int) of 'string'",
             "'test'.startswith(1)")
         .testIfErrorContains(
             "expected value of type 'list(object)' for parameter args in dict(), "

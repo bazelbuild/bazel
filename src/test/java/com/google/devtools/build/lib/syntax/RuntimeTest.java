@@ -108,15 +108,6 @@ public final class RuntimeTest {
   }
 
   @Test
-  public void checkStaticallyRegistered_Method() throws Exception {
-    Field splitField = MethodLibrary.class.getDeclaredField("split");
-    splitField.setAccessible(true);
-    Object splitFieldValue = splitField.get(null);
-    Object splitFunc = Runtime.getBuiltinRegistry().getFunction(String.class, "split");
-    assertThat(splitFunc).isSameAs(splitFieldValue);
-  }
-
-  @Test
   public void checkStaticallyRegistered_Global() throws Exception {
     Field lenField = MethodLibrary.class.getDeclaredField("len");
     lenField.setAccessible(true);

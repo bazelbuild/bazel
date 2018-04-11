@@ -63,7 +63,7 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
       argList.add("arg" + i + ":" + getTypeAnchor(method.getParameterTypes()[i]));
     }
     boolean named = false;
-    for (Param param : annotation.parameters()) {
+    for (Param param : withoutSelfParam(annotation, method)) {
       if (param.named() && !param.positional() && !named) {
         named = true;
         if (!argList.isEmpty()) {
@@ -92,7 +92,7 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
   protected String getSignature(String objectName, SkylarkSignature method) {
     List<String> argList = new ArrayList<>();
     boolean named = false;
-    for (Param param : adjustedParameters(method)) {
+    for (Param param : withoutSelfParam(method)) {
       if (param.named() && !param.positional() && !named) {
         named = true;
         if (!method.extraPositionals().name().isEmpty()) {

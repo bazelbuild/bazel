@@ -693,8 +693,8 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testArgBothPosKey() throws Exception {
     newTest().testIfErrorContains(
-        "arguments 'old', 'new' passed both by position and by name "
-        + "in call to replace(self: string, ",
-        "'banana'.replace('a', 'o', 3, old='a', new=4)");
+        "got multiple values for keyword argument 'old', "
+            + "in method call replace(string, string, int, string old) of 'string'",
+        "'banana'.replace('a', 'o', 3, old='a')");
   }
 }
