@@ -173,6 +173,13 @@ public final class MockProtoSupport {
         "licenses(['notice'])",
         "py_library(name = 'six',",
         "           srcs = [ '__init__.py' ])");
+    // TODO(b/77901188): remove once j_p_l migration is complete
+    config.create(
+        "third_party/java/jsr250_annotations/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "java_library(name = 'jsr250_source_annotations',",
+        "           srcs = [ 'Generated.java' ])");
   }
 
   /**

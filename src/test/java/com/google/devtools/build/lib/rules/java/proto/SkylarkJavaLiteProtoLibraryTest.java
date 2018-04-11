@@ -74,6 +74,14 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     scratch.file("net/proto2/compiler/public/BUILD", "exports_files(['protocol_compiler'])");
 
+    // TODO(b/77901188): remove once j_p_l migration is complete
+    scratch.file(
+        "third_party/java/jsr250_annotations/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "java_import(name = 'jsr250_source_annotations',",
+        "            jars = [ 'jsr250_source_annotations.jar' ])");
+
     mockToolchains();
 
     actionsTestUtil = actionsTestUtil();
