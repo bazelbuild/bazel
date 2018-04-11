@@ -257,14 +257,11 @@ public final class Label
    */
   private static PackageIdentifier validatePackageName(String packageIdentifier, String name)
       throws LabelSyntaxException {
-    if (packageIdentifier.startsWith("/")) {
-      throw new LabelSyntaxException(
-          "package names may not start with '/' (do you have too many '/'?)");
-    }
+    String error = null;
     try {
       return PackageIdentifier.parse(packageIdentifier);
     } catch (LabelSyntaxException e) {
-      String error = e.getMessage();
+      error = e.getMessage();
       error = "invalid package name '" + packageIdentifier + "': " + error;
       // This check is just for a more helpful error message
       // i.e. valid target name, invalid package name, colon-free label form
