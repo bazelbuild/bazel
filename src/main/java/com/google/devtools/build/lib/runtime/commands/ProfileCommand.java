@@ -281,11 +281,16 @@ public final class ProfileCommand implements BlazeCommand {
             PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
             EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
                 new EnumMap<>(ProfilePhase.class);
+
+            Path workspace = env.getWorkspace();
             for (ProfilePhase phase : ProfilePhase.values()) {
               phaseStatistics.put(
                   phase,
                   new PhaseStatistics(
-                      phase, info, env.getWorkspace().getBaseName(), opts.vfsStatsLimit > 0));
+                      phase,
+                      info,
+                      (workspace == null ? "<workspace>" : workspace.getBaseName()),
+                      opts.vfsStatsLimit > 0));
             }
 
             CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
