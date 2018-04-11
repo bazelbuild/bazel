@@ -124,20 +124,24 @@ public class Main {
         String result = checker.computeResultOutput();
         checkState(!result.isEmpty(), "The result should NOT be empty.");
         exitCode = options.failOnErrors ? DEPS_ERROR_EXIT_CODE : 0;
-
-        System.err.println(
-            (options.failOnErrors ? "ERROR" : "WARNING")
-                + ": The dependencies for the jars "
-                + options.inputJars
-                + " are not complete. bootclasspath = "
-                + options.bootclasspath
-                + ", classpath = "
-                + options.classpath);
-        System.err.println(result);
+        printErrorMessage(result, options);
         asCharSink(options.output, StandardCharsets.UTF_8).write(result);
       }
     }
     System.exit(exitCode);
+  }
+
+  private static void printErrorMessage(String detailedErrorMessage, Options options) {
+    System.err.print(options.failOnErrors ? "ERROR" : "WARNING");
+    System.err.printf(
+        ": The dependencies for the following %d jar(s) are not complete.\n",
+        options.inputJars.size());
+    int index = 1;
+    for (Path jar : options.inputJars) {
+      System.err.printf("    %3d.%s\n", index++, jar.toString());
+    }
+    System.err.println("The details are listed below:");
+    System.err.print(detailedErrorMessage);
   }
 
   @VisibleForTesting

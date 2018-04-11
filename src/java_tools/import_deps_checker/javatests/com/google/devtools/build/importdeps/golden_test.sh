@@ -16,9 +16,10 @@
 
 set -u
 
-gold_file=$1
+gold_output_file=$1
 shift
-
+gold_stderr_file=$1
+shift
 expected_exit_code=$1
 shift
 
@@ -38,37 +39,47 @@ else
   output="${tmpdir}"
 fi
 
-actual_file="${output}/actual_result.txt"
+output_file="${output}/actual_result.txt"
 checker_stderr="${output}/checker_stderr.txt"
 
 # Run the checker command.
-$@ --output "${actual_file}" 2> ${checker_stderr}
+$@ --output "${output_file}" 2> ${checker_stderr}
 
 checker_ret=$?
 if [[ "${checker_ret}" != ${expected_exit_code} ]]; then
   echo "Checker error!!! ${checker_ret}, expected=${expected_exit_code}"
   cat ${checker_stderr}
-  exit ${checker_ret}
+  exit 1 # Exit with an error.
 fi
 
-diff "${gold_file}" "${actual_file}"
-gold_actual_ret=$?
+diff "${gold_output_file}" "${output_file}"
+gold_output_ret=$?
 
-# TODO(b/77721804): re-enable test coverage for stderr
-
-if [[ "${gold_actual_ret}" != 0 ]]; then
+if [[ "${gold_output_ret}" != 0 ]] ; then
   echo "============== Actual Output =============="
-  cat "${actual_file}"
-  echo "" # New line.
-  echo "===========================================\n"
-
-  echo "============== Expected Output =============="
-  cat "${gold_file}"
+  cat "${output_file}"
   echo "" # New line.
   echo "==========================================="
 
+  echo "============== Expected Output =============="
+  cat "${gold_output_file}"
+  echo "" # New line.
+  echo "==========================================="
+
+  exit 1
+fi
+
+diff "${gold_stderr_file}" "${checker_stderr}"
+gold_stderr_ret=$?
+
+if [[ "${gold_stderr_ret}" != 0 ]]; then
   echo "============== Checker Stderr =============="
   cat "${checker_stderr}"
+  echo "" # New line.
+  echo "==========================================="
+
+  echo "============== Expected Stderr =============="
+  cat "${gold_stderr_file}"
   echo "" # New line.
   echo "==========================================="
 
