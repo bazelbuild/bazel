@@ -1,3 +1,115 @@
+## Release 0.12.0 (2018-04-11)
+
+```
+Baseline: b33e5afa313322a7048044c44d854cbb666b988e
+
+Cherry picks:
+   + 369409995bd75eeb0683fd24f7585d2a90320796:
+     Automated rollback of commit
+     c2b332b45e6ea41a14ecbd3c5f30782bcdeec301.
+   + dbf779869751cc893ba240402d352c6e70be2978:
+     Emit SJD errors even if we don't know the label of a dependency
+   + 4c3098cfa6f00f90c7530b6f40d3e93062931c1d:
+     Android tools: remove mtime-modifications
+   + a1068c44a700ec2cff84cbd12592e9bfea25d754:
+     NDK cc_toolchains: include bundled runtime libraries in
+     cc_toolchain.all_files
+   + b1be5816ec1bf8e1172c1bed4f29b4e6c6bb7202:
+     runfiles,Python: remove library from @bazel_tools
+   + 0a4622012ff796429220fe57d3217f262cc208a8:
+     Fix visibility of def_parser for remote builds
+   + 3c5373c50c7c492842f8a468906eda2c0bc90787:
+     Remove visibility attribute from
+     //third_party/def_parser:def_parser
+   + f54d7e5293cc40ce3507a9adef530e46ab817585:
+     Enable bulk writes in the HttpBlobStore
+   + 04ce86e8ba96630f89a436167b7f3a195c5e50e7:
+     remote/http: properly complete user promise
+```
+
+Incompatible changes:
+
+  - The order of dict-valued attributes is now the order in the BUILD
+    file (or in the Skylark dict they were created from) and not
+    lexicographically sorted.
+
+New features:
+
+  - The new "--direct_run" flag on "blaze run" lets one run
+    interactive binaries.
+  - "blaze run --direct_run" with tests now gives the test an
+    approximation of the official test environment.
+  - "blaze run --direct_run" now exports the
+    BUILD_{WORKSPACE,WORKING}_DIRECTORY variables to tell the binary
+    about the cwd of the client and the workspace root.
+  - New Android device test rule: android_instrumentation_test.
+  - Add option to dump the action graph to a file: 'bazel dump
+    --action_graph=/path/to/file'.
+  - Pass `tags` from `java_import_external` rule to the generated
+    `java_import` rule.
+  - blaze query: use --proto:output_rule_attrs to filter for given
+    attributes
+  - Added Android NDK r15 support, including compatibility with
+    Unified Headers.
+  - Adds --ltobackendopt and --per_file_ltobackendopt for passing
+    options to ThinLTO LTO backend compile actions only.
+
+Important changes:
+
+  - Fix how libraries to link is specified to archiver actions.
+  - Fix how libraries_to_link are expanded in the archiver command
+    line.
+  - stop using --no-locals in android coverage builds
+  - apple_binary can now generate dSYM outputs with the
+    --apple_generate_dsym=true flag.
+  - Fix FDO_STAMP_MACRO to only be set when fdoBuildStamp is not null.
+  - Improved clarity of warning message for unsupported NDK revisions.
+  - Add lint check for discouraging glob(["**/*.java"])
+  - unifly lint glob(["**/*.java"]) message
+  - Removed flags `--incompatible_checked_arithmetic`,
+    `--incompatible_dict_literal_has_no_duplicates`,
+    `--incompatible_disallow_keyword_only_args`, and `
+    --incompatible_comprehension_variables_do_not_leak`.
+  - Add "proto_source_root" flag to proto_library.
+  - Updated default android_cpu value to armeabi-v7a
+  - In skylark, print(target) now shows the provider keys of a
+    target, as debug information.
+  - The native http_archive rule is deprecated. Use the
+      Skylark version available via
+    load("@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive")
+      instead.
+  - flaky_test_attempts supports the regex@attempts syntax, like
+    runs_per_test.
+  - Fixed include paths for NDK r13+ llvm-libc++ headers to
+    `ndk/sources/cxx-stl/llvm-libc++/include` and
+    `ndk/sources/cxx-stl/llvm-libc++abi/include`
+  - --config flags now expand in place by default.
+  - aar_import now sets java.transitive_exports.
+  - repository_cache is no longer experimental and enabled by default.
+  - BAZEL_LINKOPTS is now consulted when autoconfiguring c++ toolchain
+  - The native git_repository rule is deprecated. Use the
+      Skylark version available via
+    load("@bazel_tools//tools/build_defs/repo:git.bzl",
+    "git_repository")
+      instead.
+  - Removed flag `--incompatible_load_argument_is_label`.
+  - CcToolchain: Introduced action_config for
+    "c++-link-transitive-dynamic-library"
+  - Use bazel dump --action_graph=/path/to/action.proto
+    --action_graph:targets://foo:bar,//foo:foo to filter for certain
+    targets in the action graph dump.
+  - Added Android NDK r16 support. Use --cxxopt='-std=c++11` compile
+    with the C++11 standard, and
+    `--android_crosstool_top=@androidndk//:toolchain-libcpp` to use
+    the `libc++` STL.
+  - Add a --build_event_publish_all_actions flag to allow all actions
+    to be published via the BEP.
+  - C++: Introduced --experimental_drop_fully_static_linking_mode
+  - Removed cc_inc_library, please use cc_library instead
+  - CppRules: cc_binary/cc_test now enable 'static_linking_mode' or
+    'dynamic_linking_mode'.
+
 ## Release 0.11.1 (2018-03-06)
 
 ```
@@ -2526,6 +2638,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
