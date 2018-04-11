@@ -123,6 +123,11 @@ public class BuildConfiguration {
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
 
+  /** Compute the default shell environment for actions from the command line options. */
+  public interface ActionEnvironmentProvider {
+    ActionEnvironment getActionEnvironment(BuildOptions options);
+  }
+
   /**
    * An interface for language-specific configurations.
    *
@@ -154,14 +159,6 @@ public class BuildConfiguration {
     @Nullable
     public String getOutputDirectoryName() {
       return null;
-    }
-
-    /**
-     * Add items to the action environment.
-     *
-     * @param builder the map to add environment variables to
-     */
-    public void setupActionEnvironment(Map<String, String> builder) {
     }
 
     /**
@@ -1219,27 +1216,6 @@ public class BuildConfiguration {
   }
 
   /**
-   * Compute the shell environment, which, at configuration level, is a pair consisting of the
-   * statically set environment variables with their values and the set of environment variables to
-   * be inherited from the client environment.
-   */
-  private ActionEnvironment setupActionEnvironment() {
-    // We make a copy first to remove duplicate entries; last one wins.
-    Map<String, String> actionEnv = new HashMap<>();
-    // TODO(ulfjack): Remove all env variables from configuration fragments.
-    for (Fragment fragment : fragments.values()) {
-      fragment.setupActionEnvironment(actionEnv);
-    }
-    // Shell environment variables specified via options take precedence over the
-    // ones inherited from the fragments. In the long run, these fragments will
-    // be replaced by appropriate default rc files anyway.
-    for (Map.Entry<String, String> entry : options.actionEnvironment) {
-      actionEnv.put(entry.getKey(), entry.getValue());
-    }
-    return ActionEnvironment.split(actionEnv);
-  }
-
-  /**
    * Compute the test environment, which, at configuration level, is a pair consisting of the
    * statically set environment variables with their values and the set of environment variables to
    * be inherited from the client environment.
@@ -1265,6 +1241,7 @@ public class BuildConfiguration {
       BuildOptions buildOptions,
       BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
       ImmutableSet<String> reservedActionMnemonics,
+      ActionEnvironment actionEnvironment,
       String repositoryName) {
     this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
@@ -1314,7 +1291,7 @@ public class BuildConfiguration {
         OutputDirectory.MIDDLEMAN.getRoot(
             RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
 
-    this.actionEnv = setupActionEnvironment();
+    this.actionEnv = actionEnvironment;
 
     this.testEnv = setupTestEnvironment();
 
@@ -1367,6 +1344,7 @@ public class BuildConfiguration {
             options,
             BuildOptions.diffForReconstruction(defaultBuildOptions, options),
             reservedActionMnemonics,
+            actionEnv,
             mainRepositoryName.strippedName());
     return newConfig;
   }

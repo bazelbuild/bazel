@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.SHELL_ACTION_ENV;
 import static com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.pathOrDefault;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
@@ -36,10 +36,8 @@ import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -172,15 +170,16 @@ public class BazelRuleClassProviderTest {
     }
 
     BuildOptions options = BuildOptions.of(
-        ImmutableList.of(StrictActionEnvOptions.class),
-        "--experimental_strict_action_env");
+        ImmutableList.of(
+            BuildConfiguration.Options.class,
+            ShellConfiguration.Options.class,
+            StrictActionEnvOptions.class),
+        "--experimental_strict_action_env",
+        "--action_env=FOO=bar");
 
-    ShellConfiguration configuration = new ShellConfiguration(
-        PathFragment.create("/bin/bash"),
-        SHELL_ACTION_ENV.fromOptions(options));
-    Map<String, String> env = new HashMap<>();
-    configuration.setupActionEnvironment(env);
-    assertThat(env).containsEntry("PATH", "/bin:/usr/bin");
+    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.getActionEnvironment(options);
+    assertThat(env.getFixedEnv()).containsEntry("PATH", "/bin:/usr/bin");
+    assertThat(env.getFixedEnv()).containsEntry("FOO", "bar");
   }
 
   @Test

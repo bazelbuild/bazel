@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.F
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -77,6 +78,8 @@ public class BuildConfigurationFunction implements SkyFunction {
     }
 
     BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
+    ActionEnvironment actionEnvironment =
+      ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(options);
 
     BuildConfiguration config =
         new BuildConfiguration(
@@ -85,6 +88,7 @@ public class BuildConfigurationFunction implements SkyFunction {
             options,
             key.getOptionsDiff(),
             ruleClassProvider.getReservedActionMnemonics(),
+            actionEnvironment,
             workspaceNameValue.getName());
     return new BuildConfigurationValue(config);
   }
