@@ -32,30 +32,34 @@ JDK9_JVM_OPTS = [
     # override the javac in the JDK.
     "--patch-module=java.compiler=$(location @bazel_tools//third_party/java/jdk/langtools:java_compiler_jar)",
     "--patch-module=jdk.compiler=$(location @bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar)",
+
+    # quiet warnings from com.google.protobuf.UnsafeUtil,
+    # see: https://github.com/google/protobuf/issues/3781
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
 ]
 
 DEFAULT_JAVACOPTS = [
-  "-XDskipDuplicateBridges=true",
-  "-g",
-  "-parameters",
+    "-XDskipDuplicateBridges=true",
+    "-g",
+    "-parameters",
 ]
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
-  "encoding": "UTF-8",
-  "forcibly_disable_header_compilation": 0,
-  "genclass": ["@bazel_tools//tools/jdk:genclass"],
-  "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
-  "ijar": ["@bazel_tools//tools/jdk:ijar"],
-  "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
-  "javac": ["@bazel_tools//third_party/java/jdk/langtools:javac_jar"],
-  "tools": [
-      "@bazel_tools//third_party/java/jdk/langtools:java_compiler_jar",
-      "@bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar",
-  ],
-  "javac_supports_workers": 1,
-  "jvm_opts": JDK8_JVM_OPTS,
-  "misc": DEFAULT_JAVACOPTS,
-  "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
+    "encoding": "UTF-8",
+    "forcibly_disable_header_compilation": 0,
+    "genclass": ["@bazel_tools//tools/jdk:genclass"],
+    "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
+    "ijar": ["@bazel_tools//tools/jdk:ijar"],
+    "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
+    "javac": ["@bazel_tools//third_party/java/jdk/langtools:javac_jar"],
+    "tools": [
+        "@bazel_tools//third_party/java/jdk/langtools:java_compiler_jar",
+        "@bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar",
+    ],
+    "javac_supports_workers": 1,
+    "jvm_opts": JDK8_JVM_OPTS,
+    "misc": DEFAULT_JAVACOPTS,
+    "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
 }
 
 def default_java_toolchain(name, **kwargs):
