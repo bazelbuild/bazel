@@ -134,6 +134,11 @@ public class BuildConfigurationValue implements SkyValue {
       return hashCode;
     }
 
+    @Override
+    public String toString() {
+      return optionsDiff.getChecksum();
+    }
+
     private static class Codec implements ObjectCodec<Key> {
       @Override
       public Class<Key> getEncodedClass() {
