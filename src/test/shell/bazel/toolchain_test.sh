@@ -596,12 +596,12 @@ EOF
 
 
 function test_register_toolchain_error_invalid_pattern() {
-  cat >>WORKSPACE <<EOF
+  cat >WORKSPACE <<EOF
 register_toolchains('//:bad1')
 register_toolchains('//:bad2')
 EOF
 
-  cat >>rules.bzl <<EOF
+  cat >rules.bzl <<EOF
 def _impl(ctx):
   toolchain = ctx.toolchains['//:dummy']
   return []
@@ -612,7 +612,7 @@ foo = rule(
 )
 EOF
 
-  cat >>BUILD <<EOF
+  cat >BUILD <<EOF
 load(":rules.bzl", "foo")
 toolchain_type(name = 'dummy')
 foo(name = "foo")
