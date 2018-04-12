@@ -13,10 +13,6 @@
 # limitations under the License.
 """Configure the shell toolchain on the local machine."""
 
-def _sh_toolchain_impl(ctx):
-  """sh_toolchain rule implementation."""
-  return [platform_common.ToolchainInfo(path = ctx.attr.path)]
-
 def _is_windows(repository_ctx):
   """Returns true if the host OS is Windows."""
   return repository_ctx.os.name.startswith("windows")
@@ -80,11 +76,6 @@ toolchain(
 )
 """.format(sh_path = sh_path, os_label = os_label))
 
-sh_toolchain = rule(
-    attrs = {"path": attr.string()},
-    implementation = _sh_toolchain_impl,
-)
-
 sh_config = repository_rule(
     environ = [
         "WINDIR",
@@ -94,7 +85,7 @@ sh_config = repository_rule(
     implementation = _sh_config_impl,
 )
 
-def sh_repositories():
+def sh_configure():
   """Detect the local shell interpreter and register its toolchain."""
   sh_config(name = "local_config_sh")
   native.register_toolchains("@local_config_sh//:local_sh_toolchain")
