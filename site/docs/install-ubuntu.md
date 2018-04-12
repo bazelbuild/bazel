@@ -25,8 +25,8 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-The installer contains the Bazel binary and the required JDK. Some additional
-libraries must also be installed for Bazel to work.
+The installer contains the Bazel binary<sup>1</sup>. Some additional libraries must 
+also be installed for Bazel to work.
 
 ### 1. Install required packages
 
@@ -41,13 +41,7 @@ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
 
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-Download the binary installer `bazel-<version>-installer-linux-x86_64.sh`. This
-installer contains the Bazel binary and the required JDK, and can be used even
-if JDK is already installed.
-
-> _Note that `bazel-<version>-without-jdk-installer-linux-x86_64.sh` also exists.
-> It is a version without embedded JDK 8. Only use this installer if you already
-> have JDK 8 installed._
+Download the binary installer `bazel-<version>-installer-linux-x86_64.sh`.
 
 ### 3. Run the installer
 
@@ -73,6 +67,10 @@ export PATH="$PATH:$HOME/bin"
 ```
 
 You can also add this command to your `~/.bashrc` file.
+
+_<sup>1</sup>Note that Bazel includes an embedded JDK 8, and can be used even if a JDK is already
+installed. However, if you already have a JDK 8 installed, you may wish to use the
+installer without the embedded JDK: `bazel-<version>-without-jdk-installer-linux-x86_64.sh`_
 
 ## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository
 
