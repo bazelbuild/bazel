@@ -12,8 +12,8 @@ Supported Ubuntu Linux platforms:
 
 Install Bazel on Ubuntu using one of the following methods:
 
-*   [Use our custom APT repository (recommended)](#install-on-ubuntu)
-*   [Use the binary installer](#install-with-installer-ubuntu)
+*   [Use the binary installer (recommended)](#install-with-installer-ubuntu)
+*   [Use our custom APT repository](#install-on-ubuntu)
 *   [Compile Bazel from source](install-compile-source.md)
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
@@ -21,7 +21,60 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 *   access the [bash completion script](install.md)
 *   install the [zsh completion script](install.md)
 
-## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository (recommended)
+## <a name="install-with-installer-ubuntu"></a>Installing using binary installer
+
+The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
+
+The installer contains the Bazel binary and the required JDK. Some additional
+libraries must also be installed for Bazel to work.
+
+### 1. Install required packages
+
+```bash
+sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
+```
+
+### 2. Download Bazel
+
+**Note:** In the installer file names listed in this document, replace
+`<version>` with the appropriate Bazel version number.
+
+Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
+
+Download the binary installer `bazel-<version>-installer-linux-x86_64.sh`. This
+installer contains the Bazel binary and the required JDK, and can be used even
+if JDK is already installed.
+
+> _Note that `bazel-<version>-without-jdk-installer-linux-x86_64.sh` also exists.
+> It is a version without embedded JDK 8. Only use this installer if you already
+> have JDK 8 installed._
+
+### 3. Run the installer
+
+Run the installer:
+
+```bash
+chmod +x bazel-<version>-installer-linux-x86_64.sh
+./bazel-<version>-installer-linux-x86_64.sh --user
+```
+
+The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
+sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help` command to see
+additional installation options.
+
+### 4. Set up your environment
+
+If you ran the Bazel installer with the `--user` flag as above, the Bazel
+executable is installed in your `$HOME/bin` directory. It's a good idea to add
+this directory to your default paths, as follows:
+
+```bash
+export PATH="$PATH:$HOME/bin"
+```
+
+You can also add this command to your `~/.bashrc` file.
+
+## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository
 
 ### 1. Install JDK 8
 
@@ -59,56 +112,3 @@ Once installed, you can upgrade to a newer version of Bazel with:
 ```bash
 sudo apt-get upgrade bazel
 ```
-
-## <a name="install-with-installer-ubuntu"></a>Installing using binary installer
-
-The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
-
-The installer contains the Bazel binary and the required JDK. Some additional
-libraries must also be installed for Bazel to work.
-
-### 1. Install required packages
-
-```bash
-sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
-```
-
-### 2. Download Bazel
-
-**Note:** In the installer file names listed in this document, replace
-`<version>` with the appropriate Bazel version number.
-
-Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
-
-Download the binary installer `bazel-<version>-installer-linux-x86_64.sh`. This
-installer contains the Bazel binary and the required JDK, and can be used even
-if JDK is already installed.
-
-Note that `bazel-<version>-without-jdk-installer-linux-x86_64.sh` also exists.
-It is a version without embedded JDK 8. Only use this installer if you already
-have JDK 8 installed.
-
-### 3. Run the installer
-
-Run the installer:
-
-```bash
-chmod +x bazel-<version>-installer-linux-x86_64.sh
-./bazel-<version>-installer-linux-x86_64.sh --user
-```
-
-The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
-sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help` command to see
-additional installation options.
-
-### 4. Set up your environment
-
-If you ran the Bazel installer with the `--user` flag as above, the Bazel
-executable is installed in your `$HOME/bin` directory. It's a good idea to add
-this directory to your default paths, as follows:
-
-```bash
-export PATH="$PATH:$HOME/bin"
-```
-
-You can also add this command to your `~/.bashrc` file.
