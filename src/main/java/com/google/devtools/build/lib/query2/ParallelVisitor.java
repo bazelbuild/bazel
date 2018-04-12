@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
@@ -153,8 +152,7 @@ public abstract class ParallelVisitor<T, V> {
 
   void visitAndWaitForCompletion(Iterable<SkyKey> keys)
       throws QueryException, InterruptedException {
-    Streams.stream(getUniqueValues(preprocessInitialVisit(keys))).forEachOrdered(
-        processingQueue::add);
+    getUniqueValues(preprocessInitialVisit(keys)).forEach(processingQueue::add);
     executor.visitAndWaitForCompletion();
   }
 

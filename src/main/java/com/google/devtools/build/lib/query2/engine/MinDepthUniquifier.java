@@ -23,15 +23,38 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
  */
 @ThreadSafe
 public interface MinDepthUniquifier<T> {
+
   /**
-   * Returns the subset of {@code newElements} that haven't been seen before at depths less than or
-   * equal to {@code depth}
+   * Returns whether {@code newElement} hasn't been seen before at depth less than or equal to
+   * {@code depth} by {@link #uniqueAtDepthLessThanOrEqualTo(T, int)} or
+   * {@link #uniqueAtDepthLessThanOrEqualTo(Iterable, int)}.
+   *
+   * <p>Please note the difference between this method and
+   * {@link #uniqueAtDepthLessThanOrEqualTo(T, int)}!
+   *
+   * <p>This method is inherently racy wrt {@link #uniqueAtDepthLessThanOrEqualTo(T, int)} and
+   * {@link #uniqueAtDepthLessThanOrEqualTo(Iterable, int)}. Only use it if you know what you are
+   * doing.
+   */
+  boolean uniqueAtDepthLessThanOrEqualToPure(T newElement, int depth);
+
+  /**
+   * Returns whether {@code newElement} hasn't been seen before at depth less than or equal to
+   * {@code depth} by {@link #uniqueAtDepthLessThanOrEqualTo(T, int)} or
+   * {@link #uniqueAtDepthLessThanOrEqualTo(Iterable, int)}.
    *
    * <p> There's a natural benign check-then-act race in all concurrent uses of this interface.
    * Imagine we have an element e, two depths d1 and d2 (with d2 < d1), and two threads T1 and T2.
    * T1 may think it's about to be the first one to process e at a depth less than or equal to d1.
    * But before T1 finishes processing e, T2 may think _it's_ about to be first one to process an
    * element at a depth less than or equal to than d2. T1's work is probably wasted.
+   */
+  boolean uniqueAtDepthLessThanOrEqualTo(T newElement, int depth);
+
+  /**
+   * Batch version of {@link #uniqueAtDepthLessThanOrEqualTo(Object, int)}.
+   *
+   * <p>The same benign check-then-act race applies here too.
    */
   ImmutableList<T> uniqueAtDepthLessThanOrEqualTo(Iterable<T> newElements, int depth);
 }

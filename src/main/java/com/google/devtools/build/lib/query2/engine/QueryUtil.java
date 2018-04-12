@@ -267,27 +267,41 @@ public final class QueryUtil {
     @Override
     public final ImmutableList<T> uniqueAtDepthLessThanOrEqualTo(
         Iterable<T> newElements, int depth) {
-      ImmutableList.Builder<T> result = ImmutableList.builder();
-      for (T element : newElements) {
-        AtomicInteger newDepth = new AtomicInteger(depth);
-        AtomicInteger previousDepth =
-            alreadySeenAtDepth.putIfAbsent(extractor.extractKey(element), newDepth);
-        if (previousDepth != null) {
-          if (depth < previousDepth.get()) {
-            synchronized (previousDepth) {
-              if (depth < previousDepth.get()) {
-                // We've seen the element before, but never at a depth this shallow.
-                previousDepth.set(depth);
-                result.add(element);
-              }
-            }
-          }
-        } else {
-          // We've never seen the element before.
-          result.add(element);
+      ImmutableList.Builder<T> resultBuilder = ImmutableList.builder();
+      for (T newElement : newElements) {
+        if (uniqueAtDepthLessThanOrEqualTo(newElement, depth)) {
+          resultBuilder.add(newElement);
         }
       }
-      return result.build();
+      return resultBuilder.build();
+    }
+
+    @Override
+    public boolean uniqueAtDepthLessThanOrEqualTo(T newElement, int depth) {
+      AtomicInteger newDepth = new AtomicInteger(depth);
+      AtomicInteger previousDepth =
+          alreadySeenAtDepth.putIfAbsent(extractor.extractKey(newElement), newDepth);
+      if (previousDepth == null) {
+        return true;
+      }
+      if (depth < previousDepth.get()) {
+        synchronized (previousDepth) {
+          if (depth < previousDepth.get()) {
+            // We've seen the element before, but never at a depth this shallow.
+            previousDepth.set(depth);
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    @Override
+    public boolean uniqueAtDepthLessThanOrEqualToPure(T newElement, int depth) {
+      AtomicInteger previousDepth = alreadySeenAtDepth.get(extractor.extractKey(newElement));
+      return previousDepth != null
+          ? depth < previousDepth.get()
+          : true;
     }
   }
 }
