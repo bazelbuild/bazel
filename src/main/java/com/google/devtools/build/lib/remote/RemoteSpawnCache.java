@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -197,6 +198,9 @@ final class RemoteSpawnCache implements SpawnCache {
 
         private void checkForConcurrentModifications() throws IOException {
           for (ActionInput input : inputMap.values()) {
+            if (input instanceof VirtualActionInput) {
+              continue;
+            }
             Metadata metadata = policy.getActionInputFileCache().getMetadata(input);
             if (metadata instanceof FileArtifactValue) {
               FileArtifactValue artifactValue = (FileArtifactValue) metadata;
