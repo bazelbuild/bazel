@@ -255,11 +255,9 @@ public final class CppLinkAction extends AbstractAction
     return linkOutput;
   }
 
-  /**
-   * Returns the path to the output artifact produced by the linker.
-   */
-  public Path getOutputFile() {
-    return linkOutput.getPath();
+  /** Returns the path to the output artifact produced by the linker. */
+  private Path getOutputFile(ActionExecutionContext actionExecutionContext) {
+    return actionExecutionContext.getInputPath(linkOutput);
   }
 
   @Override
@@ -302,7 +300,7 @@ public final class CppLinkAction extends AbstractAction
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     if (fake) {
-      executeFake(actionExecutionContext.getArtifactExpander());
+      executeFake(actionExecutionContext);
       return ActionResult.EMPTY;
     } else {
       try {
@@ -330,11 +328,14 @@ public final class CppLinkAction extends AbstractAction
 
   // Don't forget to update FAKE_LINK_GUID if you modify this method.
   @ThreadCompatible
-  private void executeFake(@Nullable ArtifactExpander expander) throws ActionExecutionException {
+  private void executeFake(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
     // Prefix all fake output files in the command line with $TEST_TMPDIR/.
     final String outputPrefix = "$TEST_TMPDIR/";
     List<String> escapedLinkArgv =
-        escapeLinkArgv(linkCommandLine.getRawLinkArgv(expander), outputPrefix);
+        escapeLinkArgv(
+            linkCommandLine.getRawLinkArgv(actionExecutionContext.getArtifactExpander()),
+            outputPrefix);
     // Write the commands needed to build the real target to the fake target
     // file.
     StringBuilder s = new StringBuilder();
@@ -355,23 +356,26 @@ public final class CppLinkAction extends AbstractAction
         if ((CppFileTypes.OBJECT_FILE.matches(objectFile.getFilename())
                 || CppFileTypes.PIC_OBJECT_FILE.matches(objectFile.getFilename()))
             && linkerInput.isFake()) {
-          s.append(FileSystemUtils.readContentAsLatin1(objectFile.getPath())); // (IOException)
+          s.append(
+              FileSystemUtils.readContentAsLatin1(
+                  actionExecutionContext.getInputPath(objectFile))); // (IOException)
         }
       }
+      Path outputFile = getOutputFile(actionExecutionContext);
 
-      s.append(getOutputFile().getBaseName()).append(": ");
+      s.append(outputFile.getBaseName()).append(": ");
       Joiner.on(' ').appendTo(s, escapedLinkArgv);
       s.append('\n');
-      if (getOutputFile().exists()) {
-        getOutputFile().setWritable(true); // (IOException)
+      if (outputFile.exists()) {
+        outputFile.setWritable(true); // (IOException)
       }
-      FileSystemUtils.writeContent(getOutputFile(), ISO_8859_1, s.toString());
-      getOutputFile().setExecutable(true); // (IOException)
+      FileSystemUtils.writeContent(outputFile, ISO_8859_1, s.toString());
+      outputFile.setExecutable(true); // (IOException)
       for (Artifact output : getOutputs()) {
         // Make ThinLTO link actions (that also have ThinLTO-specific outputs) kind of work; It does
         // not actually work because this makes cc_fake_binary see the indexing action and not the
         // actual linking action, but it's good enough for now.
-        FileSystemUtils.touchFile(output.getPath());
+        FileSystemUtils.touchFile(actionExecutionContext.getInputPath(output));
       }
     } catch (IOException e) {
       throw new ActionExecutionException("failed to create fake link command for rule '"
