@@ -332,14 +332,6 @@ public final class JavaConfiguration extends Fragment {
     globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
   }
 
-  @Override
-  public boolean compatibleWithStrategy(String strategyName) {
-    if (strategyName.equals("experimental_worker")) {
-      return explicitJavaTestDeps() && useExperimentalTestRunner();
-    }
-    return true;
-  }
-
   /**
    * Returns true iff Java compilation should use ijars.
    */

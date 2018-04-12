@@ -117,13 +117,6 @@ sh_test(
 )
 
 sh_test(
-    name = "persistent_test_runner_test",
-    size = "large",
-    srcs = ["persistent_test_runner_test.sh"],
-    data = [":test-deps"],
-)
-
-sh_test(
     name = "bazel_build_event_stream_test",
     size = "medium",
     srcs = ["bazel_build_event_stream_test.sh"],

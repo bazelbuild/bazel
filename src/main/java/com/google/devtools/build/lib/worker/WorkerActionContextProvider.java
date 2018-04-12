@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
@@ -49,9 +48,7 @@ final class WorkerActionContextProvider extends ActionContextProvider {
 
     WorkerSpawnStrategy workerSpawnStrategy =
         new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner);
-    TestActionContext workerTestStrategy =
-        new WorkerTestStrategy(env, env.getOptions(), workers, extraFlags);
-    this.strategies = ImmutableList.of(workerSpawnStrategy, workerTestStrategy);
+    this.strategies = ImmutableList.of(workerSpawnStrategy);
   }
 
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {

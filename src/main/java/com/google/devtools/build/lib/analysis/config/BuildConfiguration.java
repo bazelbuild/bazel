@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -29,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
@@ -168,14 +166,6 @@ public class BuildConfiguration {
      */
     public Map<String, Object> lateBoundOptionDefaults() {
       return ImmutableMap.of();
-    }
-
-    /**
-     * @return false if a Fragment understands that it won't be able to work with a given strategy,
-     *     or true otherwise.
-     */
-    public boolean compatibleWithStrategy(String strategyName) {
-      return true;
     }
 
     /**
@@ -1202,20 +1192,6 @@ public class BuildConfiguration {
       reporter.handle(Event.error(
           "The internal '--output directory name' option cannot be used on the command line"));
     }
-  }
-
-  /**
-   * @return false if any of the fragments don't work well with the supplied strategy.
-   */
-  public boolean compatibleWithStrategy(final String strategyName) {
-    return Iterables.all(
-        fragments.values(),
-        new Predicate<Fragment>() {
-          @Override
-          public boolean apply(@Nullable Fragment fragment) {
-            return fragment.compatibleWithStrategy(strategyName);
-          }
-        });
   }
 
   /**
