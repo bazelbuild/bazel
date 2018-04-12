@@ -71,11 +71,9 @@ final class SkylarkDocumentationCollector {
   public static Map<String, SkylarkModuleDoc> collectModules()
       throws ClassPathException {
     Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
-    Map<SkylarkModule, Class<?>> builtinModules = new HashMap<>();
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
       SkylarkModule annotation = candidateClass.getAnnotation(SkylarkModule.class);
       if (annotation != null) {
-        collectBuiltinModule(builtinModules, candidateClass);
         collectJavaObjects(annotation, candidateClass, modules);
       }
       collectBuiltinDoc(modules, candidateClass.getDeclaredFields());
@@ -144,14 +142,6 @@ final class SkylarkDocumentationCollector {
         SkylarkModuleDoc module = modules.get(skylarkModule.name());
         module.addMethod(new SkylarkBuiltinMethodDoc(module, skylarkSignature, field.getType()));
       }
-    }
-  }
-
-  private static void collectBuiltinModule(
-      Map<SkylarkModule, Class<?>> modules, Class<?> moduleClass) {
-    if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
-      SkylarkModule skylarkModule = moduleClass.getAnnotation(SkylarkModule.class);
-      modules.put(skylarkModule, moduleClass);
     }
   }
 }
