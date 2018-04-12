@@ -125,9 +125,10 @@ To build C++ targets, you need:
     *   Install the [Visual C++ Build
         Tools 2015 or later](http://landinghub.visualstudio.com/visual-cpp-build-tools).
 
-        Due to a [known issue](https://github.com/bazelbuild/bazel/issues/3949) with
-        Bazel's support for the Build Tools for Visual Studio 2017, we currently
-        recommend using the 2015 version instead.
+        If [alwayslink](be/c-cpp.html#cc_library.alwayslink) doesn't work with
+        VS 2017, that is due to a
+        [known issue](https://github.com/bazelbuild/bazel/issues/3949),
+        please upgrade your VS 2017 to the latest version.
 
 *   The `BAZEL_VS` or `BAZEL_VC` environment variable.
 
