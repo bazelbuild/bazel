@@ -173,21 +173,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowOldStyleArgsAdd;
 
   @Option(
-    name = "incompatible_disallow_toplevel_if_statement",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, 'if' statements are forbidden at the top-level "
-            + "(outside a function definition)"
-  )
-  public boolean incompatibleDisallowToplevelIfStatement;
-
-  @Option(
     name = "incompatible_new_actions_api",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -283,7 +268,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
-        .incompatibleDisallowToplevelIfStatement(incompatibleDisallowToplevelIfStatement)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)

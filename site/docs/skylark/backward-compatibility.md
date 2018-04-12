@@ -32,7 +32,6 @@ guarded behind flags in the current release:
 
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
-*   [Top level `if` statements](#top-level-if-statements)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
@@ -58,17 +57,6 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 *   Flag: `--incompatible_bzl_disallow_load_after_statement`
 *   Default: `false`
-
-
-### Top level `if` statements
-
-This change forbids `if` statements at the top level of `.bzl` files (they are
-already forbidden in `BUILD` files). This change ensures that every global
-value has a single declaration. This restriction is consistent with the idea
-that global values cannot be redefined.
-
-*   Flag: `--incompatible_disallow_toplevel_if_statement`
-*   Default: `true`
 
 
 ### Depset is no longer iterable

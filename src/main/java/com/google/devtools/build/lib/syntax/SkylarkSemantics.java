@@ -55,8 +55,6 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowSlashOperator();
 
-  public abstract boolean incompatibleDisallowToplevelIfStatement();
-
   public abstract boolean incompatibleNewActionsApi();
 
   public abstract boolean incompatiblePackageNameIsAFunction();
@@ -92,7 +90,6 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
           .incompatibleDisallowSlashOperator(false)
-          .incompatibleDisallowToplevelIfStatement(true)
           .incompatibleNewActionsApi(false)
           .incompatiblePackageNameIsAFunction(false)
           .incompatibleRemoveNativeGitRepository(false)
@@ -121,8 +118,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
     public abstract Builder incompatibleDisallowSlashOperator(boolean value);
-
-    public abstract Builder incompatibleDisallowToplevelIfStatement(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
