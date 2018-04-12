@@ -392,7 +392,6 @@ public final class ApplicationManifest {
     ResourceContainer merged =
         new AndroidResourceMergingActionBuilder(ruleContext)
             .setJavaPackage(resourceContainer.getJavaPackage())
-            .withPrimary(resourceContainer)
             .withDependencies(resourceDeps)
             .setMergedResourcesOut(mergedResources)
             .setManifestOut(manifestOut)
@@ -402,7 +401,7 @@ public final class ApplicationManifest {
                     .getConfiguration()
                     .getFragment(AndroidConfiguration.class)
                     .throwOnResourceConflict())
-            .build(ruleContext);
+            .build(ruleContext, resourceContainer);
 
     ResourceContainer processed =
         new AndroidResourceValidatorActionBuilder(ruleContext)
@@ -658,7 +657,6 @@ public final class ApplicationManifest {
     ResourceContainer merged =
         new AndroidResourceMergingActionBuilder(ruleContext)
             .setJavaPackage(resourceContainer.getJavaPackage())
-            .withPrimary(resourceContainer)
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
             .setUseCompiledMerge(skipParsingAction)
@@ -667,7 +665,7 @@ public final class ApplicationManifest {
             .setManifestOut(manifestOut)
             .setClassJarOut(rJavaClassJar)
             .setDataBindingInfoZip(dataBindingInfoZip)
-            .build(ruleContext);
+            .build(ruleContext, resourceContainer);
 
     ResourceContainer processed =
         new AndroidResourceValidatorActionBuilder(ruleContext)
