@@ -8,7 +8,7 @@ title: Compiling Bazel from Source
 You can build Bazel from source without using an existing Bazel binary by
 doing the following:
 
-1.  Ensure that JDK 8, Python, Bash, zip, and the usual C++ build toolchain
+### 1.  Ensure that JDK 8, Python, Bash, zip, and the usual C++ build toolchain
     are installed on your system.
     *   On systems based on Debian packages (Debian, Ubuntu): you can install
         OpenJDK 8 and Python by running the following command in a terminal:
@@ -19,7 +19,7 @@ doing the following:
     *   On Windows: you need additional software and the right OS version.
         See the [Windows page](windows.html).
 
-2.  Download and unpack Bazel's distribution archive.
+### 2.  Download and unpack Bazel's distribution archive.
 
     Download `bazel-<version>-dist.zip` from the [release
     page](https://github.com/bazelbuild/bazel/releases).
@@ -36,7 +36,7 @@ doing the following:
     versioned sources, so this step _cannot_ be short cut by checking out the
     source tree.
 
-3.  Build Bazel using `./compile.sh`.
+### 3.  Build Bazel using `./compile.sh`.
     *   On Unix-like systems (e.g. Ubuntu, macOS), do the following steps in a
         shell session:
         1.  `cd` into the directory where you unpacked the distribution archive
@@ -52,3 +52,18 @@ doing the following:
     and `output/bazel.exe` on Windows. This is a self-contained Bazel binary.
     You can copy it to a directory on the `PATH` (such as `/usr/local/bin` on
     Linux) or use it in-place.
+    
+### (on Windows): set the `JAVA_HOME` environment variable to the JDK's directory.
+
+    For example in the Windows Command Prompt (`cmd.exe`):
+
+    ```
+    set JAVA_HOME=C:\Program Files\Java\jdk1.8.0_112
+    ```
+
+    **Note**: do not use quotes (") around the path like you would on Unix.
+    Windows doesn't need them and they may confuse Bazel.
+
+    This step is not required if you downloaded a binary distribution of Bazel
+    or installed Bazel using Chocolatey. See [installing Bazel on
+    Windows](install-windows.html).
