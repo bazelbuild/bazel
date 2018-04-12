@@ -82,8 +82,8 @@ bazel version
 To update to a newer release of Bazel, download and install the desired version.
 
 _<sup>1</sup>Note that Bazel includes an embedded JDK 8, which can be used even if a JDK is already
-installed. However, if you already have a JDK 8 installed, you may wish to use the
-installer without the embedded JDK: `bazel-<version>-without-jdk-installer-darwin-x86_64.sh`_
+installed. `bazel-<version>-without-jdk-installer-darwin-x86_64.sh` is a version of the installer 
+without embedded JDK 8. Only use this installer if you already have JDK 8 installed._
 
 ## <a name="install-on-mac-os-x-homebrew"></a>Installing using Homebrew
 
