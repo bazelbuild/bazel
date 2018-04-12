@@ -14,9 +14,8 @@
 
 package com.google.devtools.build.lib.rules.fileset;
 
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.util.Fingerprint;
-
 import java.io.IOException;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -31,7 +30,10 @@ public interface SymlinkTraversal {
    * @throws IOException if a filesystem operation fails.
    * @throws InterruptedException if the traversal is interrupted.
    */
-  void addSymlinks(EventHandler eventHandler, FilesetLinks links, ThreadPoolExecutor filesetPool)
+  void addSymlinks(
+      ActionExecutionContext actionExecutionContext,
+      FilesetLinks links,
+      ThreadPoolExecutor filesetPool)
       throws IOException, InterruptedException;
 
   /**
