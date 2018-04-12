@@ -80,7 +80,7 @@ public class GenRuleAction extends SpawnAction {
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("GenRuleAction command line expansion cannot fail");
     }
-    checkOutputsForDirectories(reporter);
+    checkOutputsForDirectories(actionExecutionContext);
     return spawnResults;
   }
 }

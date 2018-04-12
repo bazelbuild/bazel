@@ -479,20 +479,23 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     return true;
   }
 
-  /**
-   * If the action might create directories as outputs this method must be called.
-   */
-  protected void checkOutputsForDirectories(EventHandler eventHandler) {
+  /** If the action might create directories as outputs this method must be called. */
+  protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
     for (Artifact output : getOutputs()) {
-      Path path = output.getPath();
+      Path path = actionExecutionContext.getInputPath(output);
       String ownerString = Label.print(getOwner().getLabel());
       if (path.isDirectory()) {
-        eventHandler.handle(
-            Event.warn(
-                getOwner().getLocation(),
-                "output '" + output.prettyPrint() + "' of " + ownerString
-                    + " is a directory; dependency checking of directories is unsound")
-                .withTag(ownerString));
+        actionExecutionContext
+            .getEventHandler()
+            .handle(
+                Event.warn(
+                        getOwner().getLocation(),
+                        "output '"
+                            + output.prettyPrint()
+                            + "' of "
+                            + ownerString
+                            + " is a directory; dependency checking of directories is unsound")
+                    .withTag(ownerString));
       }
     }
   }
