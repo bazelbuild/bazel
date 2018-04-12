@@ -66,7 +66,8 @@ class BinaryLauncherBase {
   //             it doesn't include the exectuable itself.
   //             The arguments are expected to be quoted if having spaces.
   ExitCode LaunchProcess(const std::string& executable,
-                         const std::vector<std::string>& arguments) const;
+                         const std::vector<std::string>& arguments,
+                         bool suppressOutput = false) const;
 
   // A launch function to be implemented for a specific language.
   virtual ExitCode Launch() = 0;
