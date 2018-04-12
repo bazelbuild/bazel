@@ -129,7 +129,7 @@ EOF
 
   bazel build --workspace_status_command=$TEST_TMPDIR/wscmissing.sh --stamp //:a &> $TEST_log \
     && fail "build succeeded"
-  expect_log "wscmissing.sh: No such file or directory\|wscmissing.sh: not found"
+  expect_log "Cannot run program.*/wscmissing.sh.* No such file or directory"
 }
 
 
