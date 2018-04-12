@@ -1,4 +1,4 @@
-exports_files(["bash_def.bzl"])
+exports_files(["shell_toolchain.bzl"])
 
 toolchain_type(
     name = "toolchain_type",
