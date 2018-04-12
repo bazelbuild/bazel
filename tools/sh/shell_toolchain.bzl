@@ -13,42 +13,42 @@
 # limitations under the License.
 """Configure the shell toolchain on the local machine."""
 
-def _shell_toolchain_impl(ctx):
-  """shell_toolchain rule implementation."""
+def _sh_toolchain_impl(ctx):
+  """sh_toolchain rule implementation."""
   return [platform_common.ToolchainInfo(path = ctx.attr.path)]
 
 def _is_windows(repository_ctx):
   """Returns true if the host OS is Windows."""
   return repository_ctx.os.name.startswith("windows")
 
-def _shell_config_impl(repository_ctx):
-  """shell_config rule implementation.
+def _sh_config_impl(repository_ctx):
+  """sh_config rule implementation.
 
   Detects the path of the shell interpreter on the local machine and
-  stores it in a shell_toolchain rule.
+  stores it in a sh_toolchain rule.
   """
-  shell_path = repository_ctx.os.environ.get("BAZEL_SH")
-  if not shell_path:
+  sh_path = repository_ctx.os.environ.get("BAZEL_SH")
+  if not sh_path:
     if _is_windows(repository_ctx):
-      shell_path = repository_ctx.which("bash.exe")
-      if shell_path:
+      sh_path = repository_ctx.which("bash.exe")
+      if sh_path:
         # When the Windows Subsystem for Linux is installed there's a
         # bash.exe under %WINDIR%\system32\bash.exe that launches Ubuntu
         # Bash which cannot run native Windows programs so it's not what
         # we want.
         windir = repository_ctx.os.environ.get("WINDIR")
-        if windir and shell_path.startswith(windir):
-          shell_path = None
+        if windir and sh_path.startswith(windir):
+          sh_path = None
     else:
-      shell_path = repository_ctx.which("bash")
-      if not shell_path:
-        shell_path = repository_ctx.which("sh")
+      sh_path = repository_ctx.which("bash")
+      if not sh_path:
+        sh_path = repository_ctx.which("sh")
 
-  if not shell_path:
-    shell_path = ""
+  if not sh_path:
+    sh_path = ""
 
-  if shell_path and _is_windows(repository_ctx):
-    shell_path = shell_path.replace("\\", "/")
+  if sh_path and _is_windows(repository_ctx):
+    sh_path = sh_path.replace("\\", "/")
 
   os_label = None
   if _is_windows(repository_ctx):
@@ -61,40 +61,40 @@ def _shell_config_impl(repository_ctx):
     fail("Unknown OS")
 
   repository_ctx.file("BUILD", """
-load("@bazel_tools//tools/shell:shell_toolchain.bzl", "shell_toolchain")
+load("@bazel_tools//tools/sh:sh_toolchain.bzl", "sh_toolchain")
 
-shell_toolchain(
-    name = "local_shell",
-    path = "{shell_path}",
+sh_toolchain(
+    name = "local_sh",
+    path = "{sh_path}",
     visibility = ["//visibility:public"],
 )
 
 toolchain(
-    name = "local_shell_toolchain",
+    name = "local_sh_toolchain",
     exec_compatible_with = [
         "@bazel_tools//platforms:x86_64",
         "{os_label}",
     ],
-    toolchain = ":local_shell",
-    toolchain_type = "@bazel_tools//tools/shell:toolchain_type",
+    toolchain = ":local_sh",
+    toolchain_type = "@bazel_tools//tools/sh:toolchain_type",
 )
-""".format(shell_path = shell_path, os_label = os_label))
+""".format(sh_path = sh_path, os_label = os_label))
 
-shell_toolchain = rule(
+sh_toolchain = rule(
     attrs = {"path": attr.string()},
-    implementation = _shell_toolchain_impl,
+    implementation = _sh_toolchain_impl,
 )
 
-shell_config = repository_rule(
+sh_config = repository_rule(
     environ = [
         "WINDIR",
         "PATH",
     ],
     local = True,
-    implementation = _shell_config_impl,
+    implementation = _sh_config_impl,
 )
 
-def shell_repositories():
+def sh_repositories():
   """Detect the local shell interpreter and register its toolchain."""
-  shell_config(name = "local_config_shell")
-  native.register_toolchains("@local_config_shell//:local_shell_toolchain")
+  sh_config(name = "local_config_sh")
+  native.register_toolchains("@local_config_sh//:local_sh_toolchain")

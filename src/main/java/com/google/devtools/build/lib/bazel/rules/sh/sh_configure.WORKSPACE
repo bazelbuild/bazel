@@ -1,2 +1,2 @@
-load("@bazel_tools//tools/shell:shell_toolchain.bzl", "shell_repositories")
-shell_repositories()
+load("@bazel_tools//tools/sh:sh_toolchain.bzl", "sh_repositories")
+sh_repositories()

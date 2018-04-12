@@ -16,7 +16,7 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "shell_toolchain.bzl",
+        "sh_toolchain.bzl",
     ],
     visibility = ["//tools:__pkg__"],
 )
