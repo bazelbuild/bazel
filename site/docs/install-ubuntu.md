@@ -68,7 +68,7 @@ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` file.
 
-_<sup>1</sup>Note that Bazel includes an embedded JDK 8, and can be used even if a JDK is already
+_<sup>1</sup>Note that Bazel includes an embedded JDK 8, which can be used even if a JDK is already
 installed. However, if you already have a JDK 8 installed, you may wish to use the
 installer without the embedded JDK: `bazel-<version>-without-jdk-installer-linux-x86_64.sh`_
 
