@@ -74,6 +74,8 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(FileProvider.class)))
 
         .advertiseProvider(ProtoLangToolchainProvider.class)
+        .removeAttribute("data")
+        .removeAttribute("deps")
         .build();
   }
 
