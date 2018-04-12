@@ -16,10 +16,6 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = [
-        "BUILD.tools",
-        "bash_def.bzl",
-        "//tools/bash/runfiles:embedded_tools",
-    ],
+    srcs = ["//tools/bash/runfiles:embedded_tools"],
     visibility = ["//tools:__pkg__"],
 )
