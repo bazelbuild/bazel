@@ -594,6 +594,36 @@ EOF
   expect_log "While resolving toolchains for target //demo:use: invalid registered toolchain '//demo:invalid': target does not provide the DeclaredToolchainInfo provider"
 }
 
+
+function test_register_toolchain_error_invalid_pattern() {
+  cat >WORKSPACE <<EOF
+register_toolchains('//:bad1')
+register_toolchains('//:bad2')
+EOF
+
+  cat >rules.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//:dummy']
+  return []
+
+foo = rule(
+  implementation = _impl,
+  toolchains = ['//:dummy'],
+)
+EOF
+
+  cat >BUILD <<EOF
+load(":rules.bzl", "foo")
+toolchain_type(name = 'dummy')
+foo(name = "foo")
+EOF
+
+  bazel build //:foo &> $TEST_log && fail "Build failure expected"
+  # It's uncertain which error will happen first, so handle either.
+  expect_log "While resolving toolchains for target //:foo: invalid registered toolchain '//:bad[12]': no such target"
+}
+
+
 function test_toolchain_error_invalid_target() {
   write_test_toolchain
   write_test_rule
@@ -654,5 +684,6 @@ EOF
   bazel build --host_platform=//platform:not_a_platform //demo:use &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //demo:use: Target //platform:not_a_platform was referenced as a platform, but does not provide PlatformInfo"
 }
+
 
 run_suite "toolchain tests"
