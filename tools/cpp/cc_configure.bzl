@@ -30,7 +30,7 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
     # skipping until we have proper tests for FreeBSD.
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "CROSSTOOL")
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static.freebsd"), "BUILD")
-  elif cpu_value == "x64_windows":
+  elif cpu_value == "x64_windows" or cpu_value == "x86_32_windows":
     # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
     # We might want to add that to Windows too(at least for msys toolchain).
     configure_windows_toolchain(repository_ctx)

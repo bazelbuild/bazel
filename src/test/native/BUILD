@@ -16,10 +16,19 @@ cc_test(
             "windows/util_test.cc",
             "windows/file_test.cc",
         ],
+        "//src/conditions:windows_x86_32": [
+            "windows/util_test.cc",
+            "windows/file_test.cc",
+        ],
         "//conditions:default": ["dummy_test.cc"],
     }),
     deps = select({
         "//src/conditions:windows": [
+            "//src/main/native/windows:lib-file",
+            "//src/test/cpp/util:windows_test_util",
+            "@com_google_googletest//:gtest_main",
+        ],
+        "//src/conditions:windows_x86_32": [
             "//src/main/native/windows:lib-file",
             "//src/test/cpp/util:windows_test_util",
             "@com_google_googletest//:gtest_main",

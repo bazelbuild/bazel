@@ -25,14 +25,17 @@ py_test(
     name = "def_parser_test",
     srcs = select({
         "//src/conditions:windows": ["def_parser_test.py"],
+        "//src/conditions:windows_x86_32": ["def_parser_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
     main = select({
         "//src/conditions:windows": "def_parser_test.py",
+        "//src/conditions:windows_x86_32": "def_parser_test.py",
         "//conditions:default": "empty_test.py",
     }),
     data = select({
         "//src/conditions:windows": [":def_parser"],
+        "//src/conditions:windows_x86_32": [":def_parser"],
         "//conditions:default": [],
     }),
     deps = ["//src/test/py/bazel:test_base"],

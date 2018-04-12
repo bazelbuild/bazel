@@ -33,6 +33,9 @@ cc_library(
         "//src/conditions:windows": [
             "blaze_util_windows.cc",
         ],
+        "//src/conditions:windows_x86_32": [
+            "blaze_util_windows.cc",
+        ],
         "//conditions:default": [
             "blaze_util_linux.cc",
             "blaze_util_posix.cc",
@@ -52,6 +55,7 @@ cc_library(
         "//src/conditions:freebsd": [
         ],
         "//src/conditions:windows": WIN_LINK_OPTS,
+        "//src/conditions:windows_x86_32": WIN_LINK_OPTS,
         "//conditions:default": [
             "-lrt",
         ],
@@ -62,6 +66,7 @@ cc_library(
         "//src/main/cpp/util:logging",
     ] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
+        "//src/conditions:windows_x86_32": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
     }),
 )
@@ -76,10 +81,12 @@ cc_binary(
         "main.cc",
     ] + select({
         "//src/conditions:windows": ["//src/main/native/windows:resources.o"],
+        "//src/conditions:windows_x86_32": ["//src/main/native/windows:resources.o"],
         "//conditions:default": [],
     }),
     copts = select({
         "//src/conditions:windows": ["/wd4018"],
+        "//src/conditions:windows_x86_32": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
     }),
     linkopts = select({
@@ -92,6 +99,8 @@ cc_binary(
             "-lm",
         ],
         "//src/conditions:windows": [
+        ],
+        "//src/conditions:windows_x86_32": [
         ],
         "//conditions:default": [
             "-lrt",

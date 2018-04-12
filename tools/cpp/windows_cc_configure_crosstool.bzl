@@ -1,3 +1,4 @@
+# pylint: disable=g-bad-file-header
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,13 +12,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Templating functions for C++ toolchain on Windows."""
 
+
+def _template_common_toolchains():
+  return """
 major_version: "local"
 minor_version: ""
 default_target_cpu: "same_as_host"
 
 default_toolchain {
-  cpu: "%{cpu}"
+  cpu: "%{default_cpu}"
   toolchain_identifier: "%{default_toolchain_name}"
 }
 
@@ -32,11 +37,6 @@ default_toolchain {
 }
 
 default_toolchain {
-  cpu: "x64_windows"
-  toolchain_identifier: "msvc_x64"
-}
-
-default_toolchain {
   cpu: "x64_windows_msvc"
   toolchain_identifier: "msvc_x64"
 }
@@ -48,7 +48,7 @@ default_toolchain {
 
 default_toolchain {
   cpu: "s390x"
-  toolchain_identifier: "%{toolchain_name}"
+  toolchain_identifier: "msys_x64"
 }
 
 default_toolchain {
@@ -127,20 +127,20 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "%{toolchain_name}"
-%{content}
+  toolchain_identifier: "msys_x64"
+%{msys_x64_content}
 
   compilation_mode_flags {
     mode: DBG
-%{dbg_content}
+%{msys_x64_dbg_content}
   }
   compilation_mode_flags {
     mode: OPT
-%{opt_content}
+%{msys_x64_opt_content}
   }
   linking_mode_flags { mode: DYNAMIC }
 
-%{coverage}
+%{msys_x64_coverage}
 
   feature {
     name: 'fdo_optimize'
@@ -173,36 +173,45 @@ toolchain {
 
   linking_mode_flags { mode: DYNAMIC }
 }
+"""
+
+
+def _template_msvc_toolchain(architecture):
+  return """
+default_toolchain {
+  cpu: "{architecture}"
+  toolchain_identifier: "%{toolchain_name_{architecture}}"
+}
 
 toolchain {
-  toolchain_identifier: "msvc_x64"
+  toolchain_identifier: "%{toolchain_name_{architecture}}"
   host_system_name: "local"
   target_system_name: "local"
 
   abi_version: "local"
   abi_libc_version: "local"
-  target_cpu: "x64_windows"
+  target_cpu: "{architecture}"
   compiler: "msvc-cl"
   target_libc: "msvcrt"
   default_python_version: "python2.7"
 
-%{cxx_builtin_include_directory}
+%{cxx_builtin_include_directory_{architecture}}
 
   tool_path {
     name: "ar"
-    path: "%{msvc_lib_path}"
+    path: "%{msvc_lib_path_{architecture}}"
   }
   tool_path {
     name: "ml"
-    path: "%{msvc_ml_path}"
+    path: "%{msvc_ml_path_{architecture}}"
   }
   tool_path {
     name: "cpp"
-    path: "%{msvc_cl_path}"
+    path: "%{msvc_cl_path_{architecture}}"
   }
   tool_path {
     name: "gcc"
-    path: "%{msvc_cl_path}"
+    path: "%{msvc_cl_path_{architecture}}"
   }
   tool_path {
     name: "gcov"
@@ -210,7 +219,7 @@ toolchain {
   }
   tool_path {
     name: "ld"
-    path: "%{msvc_link_path}"
+    path: "%{msvc_link_path_{architecture}}"
   }
   tool_path {
     name: "nm"
@@ -273,7 +282,7 @@ toolchain {
   # Don't warn about insecure functions (e.g. non _s functions).
   compiler_flag: "/wd4996"
 
-  linker_flag: "/MACHINE:X64"
+  linker_flag: "%{msvc_link_target_{architecture}}"
 
   feature {
     name: "no_legacy_features"
@@ -325,7 +334,7 @@ toolchain {
     config_name: 'assemble'
     action_name: 'assemble'
     tool {
-      tool_path: '%{msvc_ml_path}'
+      tool_path: '%{msvc_ml_path_{architecture}}'
     }
     flag_set {
       expand_if_all_available: 'output_object_file'
@@ -345,7 +354,7 @@ toolchain {
     config_name: 'c-compile'
     action_name: 'c-compile'
     tool {
-      tool_path: '%{msvc_cl_path}'
+      tool_path: '%{msvc_cl_path_{architecture}}'
     }
     flag_set {
       flag_group {
@@ -385,7 +394,7 @@ toolchain {
     config_name: 'c++-compile'
     action_name: 'c++-compile'
     tool {
-      tool_path: '%{msvc_cl_path}'
+      tool_path: '%{msvc_cl_path_{architecture}}'
     }
     flag_set {
       flag_group {
@@ -425,7 +434,7 @@ toolchain {
     config_name: 'c++-link-executable'
     action_name: 'c++-link-executable'
     tool {
-      tool_path: '%{msvc_link_path}'
+      tool_path: '%{msvc_link_path_{architecture}}'
     }
     implies: 'nologo'
     implies: 'linkstamps'
@@ -443,7 +452,7 @@ toolchain {
     config_name: 'c++-link-dynamic-library'
     action_name: 'c++-link-dynamic-library'
     tool {
-      tool_path: '%{msvc_link_path}'
+      tool_path: '%{msvc_link_path_{architecture}}'
     }
     implies: 'nologo'
     implies: 'shared_flag'
@@ -464,7 +473,7 @@ toolchain {
       config_name: 'c++-link-nodeps-dynamic-library'
       action_name: 'c++-link-nodeps-dynamic-library'
       tool {
-        tool_path: '%{msvc_link_path}'
+        tool_path: '%{msvc_link_path_{architecture}}'
       }
       implies: 'nologo'
       implies: 'shared_flag'
@@ -485,7 +494,7 @@ toolchain {
     config_name: 'c++-link-static-library'
     action_name: 'c++-link-static-library'
     tool {
-      tool_path: '%{msvc_lib_path}'
+      tool_path: '%{msvc_lib_path_{architecture}}'
     }
     implies: 'nologo'
     implies: 'archiver_flags'
@@ -531,23 +540,23 @@ toolchain {
       action: "c++-link-static-library"
       env_entry {
         key: "PATH"
-        value: "%{msvc_env_path}"
+        value: "%{msvc_env_path_{architecture}}"
       }
       env_entry {
         key: "INCLUDE"
-        value: "%{msvc_env_include}"
+        value: "%{msvc_env_include_{architecture}}"
       }
       env_entry {
         key: "LIB"
-        value: "%{msvc_env_lib}"
+        value: "%{msvc_env_lib_{architecture}}"
       }
       env_entry {
         key: "TMP"
-        value: "%{msvc_env_tmp}"
+        value: "%{msvc_env_tmp_{architecture}}"
       }
       env_entry {
         key: "TEMP"
-        value: "%{msvc_env_tmp}"
+        value: "%{msvc_env_tmp_{architecture}}"
       }
     }
   }
@@ -942,7 +951,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
-        flag: "%{dbg_mode_debug}"
+        flag: "%{dbg_mode_debug_{architecture}}"
         flag: "/INCREMENTAL:NO"
       }
     }
@@ -965,7 +974,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
-        flag: "%{fastbuild_mode_debug}"
+        flag: "%{fastbuild_mode_debug_{architecture}}"
         flag: "/INCREMENTAL:NO"
       }
     }
@@ -1069,6 +1078,14 @@ toolchain {
 
   linking_mode_flags { mode: DYNAMIC }
 
-%{compilation_mode_content}
+%{compilation_mode_content_{architecture}}
 
 }
+""".replace('{architecture}', architecture)
+
+
+def configure_windows_crosstool_template(repository_ctx, output, architectures):
+  content = _template_common_toolchains()
+  for architecture in architectures:
+    content += _template_msvc_toolchain(architecture)
+  repository_ctx.file(output, content, executable=False)

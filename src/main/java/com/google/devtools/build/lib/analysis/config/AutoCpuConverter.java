@@ -39,10 +39,11 @@ public class AutoCpuConverter implements Converter<String> {
           return "freebsd";
         case WINDOWS:
           switch (CPU.getCurrent()) {
+            case X86_32:
+              return "x86_32_windows";
             case X86_64:
               return "x64_windows";
             default:
-              // We only support x64 Windows for now.
               return "unknown";
           }
         case LINUX:
@@ -80,7 +81,9 @@ public class AutoCpuConverter implements Converter<String> {
     } else if (input.startsWith("freebsd")) {
       return Pair.of(CPU.getCurrent(), OS.FREEBSD);
     } else if (input.startsWith("x64_windows")) {
-      return Pair.of(CPU.getCurrent(), OS.WINDOWS);
+      return Pair.of(CPU.X86_64, OS.WINDOWS);
+    } else if (input.startsWith("x86_32_windows")) {
+      return Pair.of(CPU.X86_32, OS.WINDOWS);
     }
 
     // Handle the Linux cases.

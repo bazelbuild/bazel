@@ -15,6 +15,9 @@ cc_library(
         "//src:windows": [
             "mapped_file_windows.cc",
         ],
+        "//src:windows_x86_32": [
+            "mapped_file_windows.cc",
+        ],
         "//conditions:default": [
             "mapped_file_unix.cc",
         ],
@@ -33,6 +36,10 @@ cc_library(
             "//src/main/cpp/util:file",
             "//src/main/cpp/util:logging",
             "//src/main/cpp/util:strings",
+        ],
+        "//src:windows_x86_32": [
+            "//src/main/cpp/util:errors",
+            "//src/main/cpp/util:file",
         ],
         "//conditions:default": [
         ],

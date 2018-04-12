@@ -92,6 +92,7 @@ cc_toolchain_suite(
         "freebsd|compiler": ":cc-compiler-freebsd",
         "local|compiler": ":cc-compiler-local",
         "x64_windows|compiler": ":cc-compiler-x64_windows",
+        "x86_32_windows_msvc|compiler": ":cc-compiler-x86_32_windows_msvc",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
         "ppc|compiler": ":cc-compiler-ppc",
         "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
@@ -290,8 +291,8 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x64_windows_msvc",
-    all_files = ":every-file-x64_windows",
-    compiler_files = ":compile-x64_windows",
+    all_files = ":every-file-windows",
+    compiler_files = ":compile-windows",
     cpu = "x64_windows",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
@@ -314,6 +315,33 @@ toolchain(
         "@bazel_tools//platforms:windows",
     ],
     toolchain = ":cc-compiler-x64_windows_msvc",
+    toolchain_type = ":toolchain_type",
+)
+
+cc_toolchain(
+    name = "cc-compiler-x86_32_windows_msvc",
+    all_files = ":every-file-windows",
+    compiler_files = ":compile-windows",
+    cpu = "x86_32_windows",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+toolchain(
+    name = "cc-toolchain-x86_32_windows_msvc",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:windows",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_32",
+        "@bazel_tools//platforms:windows",
+    ],
+    toolchain = ":cc-compiler-x86_32_windows_msvc",
     toolchain_type = ":toolchain_type",
 )
 
@@ -344,14 +372,14 @@ toolchain(
 )
 
 filegroup(
-    name = "every-file-x64_windows",
+    name = "every-file-windows",
     srcs = [
-        ":compile-x64_windows",
+        ":compile-windows",
     ],
 )
 
 filegroup(
-    name = "compile-x64_windows",
+    name = "compile-windows",
     srcs = glob([
         "wrapper/bin/msvc_*",
         "wrapper/bin/pydir/msvc*",
