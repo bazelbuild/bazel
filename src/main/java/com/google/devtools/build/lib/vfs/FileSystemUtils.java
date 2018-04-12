@@ -409,26 +409,35 @@ public class FileSystemUtils {
   }
 
   /**
-   * Moves the file from location "from" to location "to", while overwriting a
-   * potentially existing "to". File's last modified time, executable and
-   * writable bits are also preserved.
+   * Moves the file from location "from" to location "to", while overwriting a potentially existing
+   * "to". If "from" is a regular file, its last modified time, executable and writable bits are
+   * also preserved. Symlinks are also supported but not directories or special files.
    *
-   * <p>If no error occurs, the method returns normally. If a parent directory does
-   * not exist, a FileNotFoundException is thrown. An IOException is thrown when
-   * other erroneous situations occur. (e.g. read errors)
+   * <p>If no error occurs, the method returns normally. If a parent directory does not exist, a
+   * FileNotFoundException is thrown. {@link IOException} is thrown when other erroneous situations
+   * occur. (e.g. read errors)
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void moveFile(Path from, Path to) throws IOException {
-    long mtime = from.getLastModifiedTime();
-    boolean writable = from.isWritable();
-    boolean executable = from.isExecutable();
-
     // We don't try-catch here for better performance.
     to.delete();
     try {
       from.renameTo(to);
     } catch (IOException e) {
-      asByteSource(from).copyTo(asByteSink(to));
+      // Fallback to a copy.
+      FileStatus stat = from.stat(Symlinks.NOFOLLOW);
+      if (stat.isFile()) {
+        asByteSource(from).copyTo(asByteSink(to));
+        to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
+        if (!from.isWritable()) {
+          to.setWritable(false); // Make file read-only if original was read-only.
+        }
+        to.setExecutable(from.isExecutable()); // Copy executable bit.
+      } else if (stat.isSymbolicLink()) {
+        to.createSymbolicLink(from.readSymbolicLink());
+      } else {
+        throw new IOException("Don't know how to copy " + from);
+      }
       if (!from.delete()) {
         if (!to.delete()) {
           throw new IOException("Unable to delete " + to);
@@ -436,11 +445,6 @@ public class FileSystemUtils {
         throw new IOException("Unable to delete " + from);
       }
     }
-    to.setLastModifiedTime(mtime); // Preserve mtime.
-    if (!writable) {
-      to.setWritable(false); // Make file read-only if original was read-only.
-    }
-    to.setExecutable(executable); // Copy executable bit.
   }
 
   /**
