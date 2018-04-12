@@ -177,7 +177,8 @@ bool BinaryLauncherBase::PrintLauncherCommandLine(
 }
 
 ExitCode BinaryLauncherBase::LaunchProcess(
-    const string& executable, const vector<string>& arguments) const {
+    const string& executable, const vector<string>& arguments,
+    bool suppressOutput) const {
   if (PrintLauncherCommandLine(executable, arguments)) {
     return 0;
   }
@@ -194,7 +195,9 @@ ExitCode BinaryLauncherBase::LaunchProcess(
       /* lpProcessAttributes */ NULL,
       /* lpThreadAttributes */ NULL,
       /* bInheritHandles */ FALSE,
-      /* dwCreationFlags */ 0,
+      /* dwCreationFlags */ suppressOutput
+          ? CREATE_NO_WINDOW  // no console window => no output
+          : 0,
       /* lpEnvironment */ NULL,
       /* lpCurrentDirectory */ NULL,
       /* lpStartupInfo */ &startupInfo,

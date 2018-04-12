@@ -185,20 +185,14 @@ string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
   jar_manifest_file.close();
 
   // Create the command for generating classpath jar.
-  // We pass the command to cmd.exe to use redirection for suppressing output.
   string manifest_jar_path = binary_base_path + rand_id + "-classpath.jar";
   string jar_bin = this->Rlocation(this->GetLaunchInfoByKey(JAR_BIN_PATH));
   vector<string> arguments;
-  arguments.push_back("/c");
+  arguments.push_back("cvfm");
+  arguments.push_back(manifest_jar_path);
+  arguments.push_back(jar_manifest_file_path);
 
-  ostringstream jar_command;
-  jar_command << jar_bin << " cvfm ";
-  jar_command << manifest_jar_path << " ";
-  jar_command << jar_manifest_file_path << " ";
-  jar_command << "> nul";
-  arguments.push_back(jar_command.str());
-
-  if (this->LaunchProcess("cmd.exe", arguments) != 0) {
+  if (this->LaunchProcess(jar_bin, arguments, /* suppressOutput */ true) != 0) {
     die("Couldn't create classpath jar: %s", manifest_jar_path.c_str());
   }
 
