@@ -13,7 +13,7 @@ _Check
 <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">Microsoft's
 Operating System Version table</a> to see if your OS is supported._
 
-## Software requirements
+### 1. Install prerequisites (if not already installed)
 
 *   Python 2.7 or later.
 
@@ -61,13 +61,13 @@ Operating System Version table</a> to see if your OS is supported._
 
     This may already be installed on your system.
 
-# Install Bazel on Windows using one of the following methods:
+### 2. Install Bazel on Windows using one of the following methods:
 
 *   [Download the binary (recommended)](#download-the-binary-recommended)
 *   [Install using Chocolatey](#install-using-chocolatey)
 *   [Compile Bazel from source](install-compile-source.html)
 
-## Download the binary (recommended)
+#### Download the binary (recommended)
 
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases)
 and download the Windows binary<sup>1</sup>: `bazel-<version>-installer-windows-x86_64.sh`.
@@ -82,7 +82,7 @@ software and some setup in your environment to run Bazel. For details, see the
 
 _<sup>1</sup>Note that Bazel includes an embedded JDK 8, which can be used even if a JDK is already installed. bazel-<version>-without-jdk-installer-windows-x86_64.sh is a version of the installer without embedded JDK 8. Only use this installer if you already have JDK 8 installed._
 
-## Install using Chocolatey
+#### Install using Chocolatey
 
 You can install the Bazel package using the [Chocolatey](https://chocolatey.org)
 package manager:
