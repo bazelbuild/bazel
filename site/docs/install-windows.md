@@ -8,15 +8,59 @@ title: Installing Bazel on Windows
 Supported Windows platforms:
 
 *   64 bit Windows 7 or higher, or equivalent Windows Server versions.
-
-Check
+* * Check
 <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">Microsoft's
 Operating System Version table</a> to see if your OS is supported.
 
-Before installing Bazel, make sure your system meets the system and software
-requirements. See the page about [using Bazel on Windows](windows.html).
+## Software requirements
 
-Install Bazel on Windows using one of the following methods:
+*   Python 2.7 or later.
+
+    Use the Windows-native Python version. Do not use Python that comes with the
+    MSYS2 shell or that you installed in MSYS using Pacman because it doesn't
+    work with Bazel.
+
+*   [MSYS2 shell](https://msys2.github.io/).
+
+    You also need to set the `BAZEL_SH` environment variable to point to
+    `bash.exe`. For example in the Windows Command Prompt (`cmd.exe`):
+
+    ```
+    set BAZEL_SH=C:\tools\msys64\usr\bin\bash.exe
+    ```
+
+    **Note**: do not use quotes (") around the path like you would on Unixes.
+    Windows doesn't need them and it may confuse Bazel.
+
+*   Several MSYS2 packages.
+
+    Run the following command in the MSYS2 shell to install them:
+
+    ```bash
+    pacman -Syuu git curl zip unzip
+    ```
+
+*   If you built Bazel from source: set the `JAVA_HOME` environment variable to
+    the JDK's directory.
+
+    For example in the Windows Command Prompt (`cmd.exe`):
+
+    ```
+    set JAVA_HOME=C:\Program Files\Java\jdk1.8.0_112
+    ```
+
+    **Note**: do not use quotes (") around the path like you would on Unix.
+    Windows doesn't need them and they may confuse Bazel.
+
+    This step is not required if you downloaded a binary distribution of Bazel
+    or installed Bazel using Chocolatey. See [installing Bazel on
+    Windows](install-windows.html).
+
+*   [Microsoft Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
+
+    This may already be installed on your system.
+
+# Install Bazel on Windows using one of the following methods:
 
 *   [Download the binary (recommended)](#download-the-binary-recommended)
 *   [Install using Chocolatey](#install-using-chocolatey)
@@ -25,7 +69,7 @@ Install Bazel on Windows using one of the following methods:
 ## Download the binary (recommended)
 
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases)
-and download the Windows binary.
+and download the Windows binary<sup>1</sup>: `bazel-<version>-installer-windows-x86_64.sh`.
 
 For convenience, move the binary to a directory that's on your `%PATH%`. This
 way you can run Bazel by typing `bazel` in any directory, without typing out the
@@ -34,6 +78,8 @@ full path. That said, you may put the binary anywhere on your filesystem.
 After you download the binary, you'll need additional
 software and some setup in your environment to run Bazel. For details, see the
 [Windows requirements](windows.html).
+
+_<sup>1</sup>Note that Bazel includes an embedded JDK 8, which can be used even if a JDK is already installed. bazel-<version>-without-jdk-installer-windows-x86_64.sh is a version of the installer without embedded JDK 8. Only use this installer if you already have JDK 8 installed._
 
 ## Install using Chocolatey
 
