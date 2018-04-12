@@ -106,6 +106,10 @@ import javax.annotation.Nullable;
           + "construct the action graph in a rule implementation function by passing it to "
           + "action-creating functions. See the "
           + "<a href='../rules.$DOC_EXT#files'>Rules page</a> for more information."
+          + ""
+          + "<p>When a <code>File</code> is passed to an <a href='Args.html'><code>Args</code></a> "
+          + "object without using a <code>map_each</code> function, it is converted to a string by "
+          + "taking the value of its <code>path</code> field."
 )
 @AutoCodec
 public class Artifact

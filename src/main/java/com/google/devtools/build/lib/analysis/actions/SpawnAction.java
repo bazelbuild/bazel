@@ -1384,6 +1384,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         } else if (value instanceof Artifact) {
           Artifact paramFile = (Artifact) value;
           String flagFormatString = (String) values[++i];
+          // TODO(bazel-team): Should probably use something that recognizes %% escapes. Possibly
+          // SkylarkPrinter#formatWithList, though that's kinda heavyweight for this usage.
           result.add(flagFormatString.replaceFirst("%s", paramFile.getExecPathString()));
         } else if (value instanceof CommandLine) {
           CommandLine commandLine = (CommandLine) value;

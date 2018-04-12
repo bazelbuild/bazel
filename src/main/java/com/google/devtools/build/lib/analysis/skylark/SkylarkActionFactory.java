@@ -856,29 +856,76 @@ public class SkylarkActionFactory implements SkylarkValue {
     name = "Args",
     category = SkylarkModuleCategory.BUILTIN,
     doc =
-        "Module providing methods to build memory-efficient command lines.<br><br>"
-            + "The command lines are memory-efficient because Blaze doesn't fully construct them"
-            + " until just before executing the action. "
-            + "See <a href=\"actions.html#run\"><code>ctx.actions.run()</code></a> or "
-            + "<a href=\"actions.html#run_shell\"><code>ctx.actions.run_shell()</code></a>.<br>"
-            + "Example:"
+        "An object that encapsulates, in a memory-efficient way, the data needed to build part or "
+            + "all of a command line."
+            + ""
+            + "<p>It often happens that an action requires a large command line containing values "
+            + "accumulated from transitive dependencies. For example, a linker command line might "
+            + "list every object file needed by all of the libraries being linked. It is best "
+            + "practice to store such transitive data in <a href='depset.html'><code>depset"
+            + "</code></a>s, so that they can be shared by multiple targets. However, if the rule "
+            + "author had to convert these depsets into lists of strings in order to construct an "
+            + "action command line, it would defeat this memory-sharing optimization."
+            + ""
+            + "<p>For this reason, the action-constructing functions accept <code>Args</code> "
+            + "objects in addition to strings. Each <code>Args</code> object represents a "
+            + "concatenation of strings and depsets, with optional transformations for "
+            + "manipulating the data. <code>Args</code> objects do not process the depsets they "
+            + "encapsulate until the execution phase, when it comes time to calculate the command "
+            + "line. This helps defer any expensive copying until after the analysis phase is "
+            + "complete. See the <a href='../performance.$DOC_EXT'>Optimizing Performance</a> page "
+            + "for more information."
+            + ""
+            + "<p><code>Args</code> are constructed by calling <a href='actions.html#args'><code>"
+            + "ctx.actions.args()</code></a>. They can be passed as the <code>arguments</code> "
+            + "parameter of <a href='actions.html#run'><code>ctx.actions.run()</code></a> or "
+            + "<a href='actions.html#run_shell'><code>ctx.actions.run_shell()</code></a>. Each "
+            + "mutation of an <code>Args</code> object appends values to the eventual command "
+            + "line."
+            + ""
+            + "<p>The <code>map_each</code> feature allows you to customize how items are "
+            + "transformed into strings. If you do not provide a <code>map_each</code> function, "
+            + "the standard conversion is as follows: "
+            + "<ul>"
+            + "<li>Values that are already strings are left as-is."
+            + "<li><a href='File.html'><code>File</code></a> objects are turned into their "
+            + "    <code>File.path</code> values."
+            + "<li>All other types are turned into strings in an <i>unspecified</i> manner. For "
+            + "    this reason, you should avoid passing values that are not of string or "
+            + "    <code>File</code> type to <code>add()</code>, and if you pass them to "
+            + "    <code>add_all()</code> or <code>add_joined()</code> then you should provide a "
+            + "    <code>map_each</code> function."
+            + "</ul>"
+            + ""
+            + "<p>When using string formatting (<code>format</code>, <code>format_each</code>, and "
+            + "<code>format_joined</code> params of the <code>add*()</code> methods), the format "
+            + "template is interpreted in the same way as <code>%</code>-substitution on strings, "
+            + "except that the template must have exactly one substitution placeholder and it must "
+            + "be <code>%s</code>. Literal percents may be escaped as <code>%%</code>. Formatting "
+            + "is applied after the value is converted to a string as per the above."
+            + ""
+            + "<p>If the size of the command line can grow longer than the maximum size allowed by "
+            + "the system, the arguments can be spilled over into parameter files. See "
+            + "<a href='#use_param_file'><code>use_param_file()</code></a> and "
+            + "<a href='#set_param_file_format'><code>set_param_file_format()</code></a>."
+            + ""
+            + "<p>Example: Suppose we wanted to generate the command line: "
+            + "<pre>\n"
+            + "--foo foo1.txt foo2.txt ... fooN.txt --bar bar1.txt,bar2.txt,...,barM.txt --baz\n"
+            + "</pre>"
+            + "We could use the following <code>Args</code> object: "
             + "<pre class=language-python>\n"
-            + "# foo_deps and bar_deps are each a large depset of artifacts\n"
+            + "# foo_deps and bar_deps are depsets containing\n"
+            + "# File objects for the foo and bar .txt files.\n"
             + "args = ctx.actions.args()\n"
-            + "args.add(\"--foo\")\n"
-            + "args.add_all(foo_deps)\n"
-            + "args.add(\"--bar\")\n"
-            + "args.add_joined(bar_deps, join_with=\",\")\n"
+            + "args.add_all(arg_name=\"--foo\", values=foo_deps)\n"
+            + "args.add_joined(arg_name=\"--bar\", values=bar_deps, join_with=\",\")\n"
+            + "args.add(\"--baz\")\n"
             + "ctx.actions.run(\n"
+            + "  ...\n"
             + "  arguments = [args],\n"
             + "  ...\n"
             + ")\n"
-            + "# Expands to [\n"
-            + "#   \"--foo\",\n"
-            + "#   ...artifacts from foo_deps,\n"
-            + "#   \"--bar\",\n"
-            + "#   ...artifacts from bar_deps joined with ',',\n"
-            + "# ]"
             + "</pre>"
   )
   @VisibleForTesting
@@ -892,14 +939,29 @@ public class SkylarkActionFactory implements SkylarkValue {
 
     @SkylarkCallable(
       name = "add",
-      doc = "Adds an argument to be dynamically expanded at evaluation time.",
+      doc =
+          "Appends an argument to this command line."
+              + ""
+              + "<p><b>Deprecation note:</b> The <code>before_each</code>, <code>join_with</code> "
+              + "and <code>map_fn</code> params are replaced by the <a href='#add_all'><code>"
+              + "add_all()</code></a> and <a href='#add_joined'><code>add_joined()</code></a> "
+              + "methods. These parameters will be removed, and are currently disallowed if the "
+              + "<a href='../backward-compatibility.$DOC_EXT#new-args-api'><code>"
+              + "--incompatible_disallow_old_style_args_add</code></a> flag is set. Likewise, "
+              + "<code>value</code> should now be a scalar value, not a list, tuple, or depset of "
+              + "items.",
       parameters = {
         @Param(
           name = "value",
           named = true,
           doc =
-              "The object to add to the argument list. "
-                  + "The object's string representation is added. "
+              "The object to append. It will be converted to a string using the standard "
+                  + "conversion mentioned above. Since there is no <code>map_each</code> parameter "
+                  + "for this function, <code>value</code> should be either a string or a <code>"
+                  + "File</code>."
+                  + ""
+                  + "<p><i>Deprecated behavior:</i> <code>value</code> may also be a list, tuple, "
+                  + "or depset of multiple items to append."
         ),
         @Param(
           name = "arg_name",
@@ -907,7 +969,9 @@ public class SkylarkActionFactory implements SkylarkValue {
           named = true,
           defaultValue = "None",
           noneable = true,
-          doc = "The argument name as a string to add before the value."
+          doc = "An optional string to append prior to appending <code>value</code>. This is "
+                  + "equivalent to calling <code>add()</code> twice; this parameter is provided "
+                  + "for readability and symmetry with the other <code>add*()</code> methods."
         ),
         @Param(
           name = "format",
@@ -917,9 +981,11 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "A format string used to format the object(s). "
-                  + "The format string is as per pattern % tuple. "
-                  + "Limitations: only %s and %% are supported."
+              "A format string pattern, to be applied to the stringified version of <code>value"
+                  + "</code>."
+                  + ""
+                  + "<p><i>Deprecated behavior:</i> If <code>value</code> is a list or depset, "
+                  + "formatting is applied to each item."
         ),
         @Param(
           name = "before_each",
@@ -929,10 +995,8 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "Each object in the list is prepended by this string. "
-                  + "Only supported for vector arguments. "
-                  + "Deprecated. Please use <a href=\"Args.html#add_all\">add_all</a>"
-                  + " or <a href=\"Args.html#add_joined\">add_joined</a> instead."
+              "<i>Deprecated:</i> Only supported when <code>value</code> is a list, tuple, or "
+                  + "depset. This string will be appended prior to appending each item."
         ),
         @Param(
           name = "join_with",
@@ -942,10 +1006,9 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "Each object in the list is joined with this string. "
-                  + "Only supported for vector arguments. "
-                  + "Deprecated. Please use <a href=\"Args.html#add_all\">add_all</a>"
-                  + " or <a href=\"Args.html#add_joined\">add_joined</a> instead."
+              "<i>Deprecated:</i> Only supported when <code>value</code> is a list, tuple, or "
+                  + "depset. All items will be joined together using this string to form a single "
+                  + "arg to append."
         ),
         @Param(
           name = "map_fn",
@@ -955,11 +1018,12 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "The passed objects are passed through a map function. "
-                  + "For vector args the function is given a list and is expected to "
-                  + "return a list of the same length as the input. "
-                  + "Deprecated. Please use <a href=\"Args.html#add_all\">add_all</a>"
-                  + " or <a href=\"Args.html#add_joined\">add_joined</a> instead."
+              "<i>Deprecated:</i> Only supported when <code>value</code> is a list, tuple, or "
+                  + "depset. This is a function that transforms the sequence of items into a list "
+                  + "of strings. The sequence of items is given as a positional argument -- the "
+                  + "function must not take any other parameters -- and the returned list's length "
+                  + "must equal the number of items. Use <code>map_each</code> of <code>add_all"
+                  + "</code> or <code>add_joined</code> instead."
         )
       },
       useLocation = true
@@ -1025,7 +1089,30 @@ public class SkylarkActionFactory implements SkylarkValue {
 
     @SkylarkCallable(
       name = "add_all",
-      doc = "Adds an vector argument to be dynamically expanded at evaluation time.",
+      doc =
+          "Appends multiple arguments to this command line. For depsets, the items are "
+              + "evaluated lazily during the execution phase."
+              + ""
+              + "<p>Most of the processing occurs over a list of arguments to be appended, as per "
+              + "the following steps:"
+              + "<ol>"
+              + "<li>If <code>map_each</code> is given, it is applied to each input item, and the "
+              + "    resulting lists of strings are concatenated to form the initial argument "
+              + "    list. Otherwise, the initial argument list is the result of applying the "
+              + "    standard conversion to each item."
+              + "<li>Each argument in the list is formatted with <code>format_each</code>, if "
+              + "    present."
+              + "<li>If <code>uniquify</code> is true, duplicate arguments are removed. The first "
+              + "    occurrence is the one that remains."
+              + "<li>If a <code>before_each</code> string is given, it is inserted as a new "
+              + "    argument before each existing argument in the list. This effectively doubles "
+              + "    the number of arguments to be appended by this point."
+              + "<li>Except in the case that the list is empty and <code>omit_if_empty</code> is "
+              + "    true (the default), <code>arg_name</code> and <code>terminate_with</code> are "
+              + "    inserted as the first and last arguments, respectively, if they are given."
+              + "</ol>"
+              + "Note that empty strings are valid arguments that are subject to all these "
+              + "processing steps.",
       parameters = {
         @Param(
           name = "values",
@@ -1034,7 +1121,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             @ParamType(type = SkylarkNestedSet.class),
           },
           named = true,
-          doc = "The sequence to add. Each element's string representation is added."
+          doc = "The list, tuple, or depset whose items will be appended."
         ),
         @Param(
           name = "arg_name",
@@ -1042,7 +1129,10 @@ public class SkylarkActionFactory implements SkylarkValue {
           named = true,
           defaultValue = "None",
           noneable = true,
-          doc = "The argument name as a string to add before the values."
+          doc = "An optional string to append before all other arguments. This string will not be "
+                  + "added if <code>omit_if_empty</code> is true (the default) and no other items "
+                  + "are appended (as happens if <code>values</code> is empty or all of its items "
+                  + "are filtered)."
         ),
         @Param(
           name = "map_each",
@@ -1052,10 +1142,28 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "Each object is passed through a map function "
-                  + "prior to formatting and joining. "
-                  + "The function is given a single element and is expected to return a string, "
-                  + "a list of strings, or None (in which case the return value is ignored)."
+              "A function that converts each item to zero or more strings, which may be further "
+                  + "processed before appending. If this param is not provided, the standard "
+                  + "conversion is used."
+                  + ""
+                  + "<p>The function takes in the item as a positional parameter and must have no "
+                  + "other parameters. The return value's type depends on how many arguments "
+                  + "are to be produced for the item:"
+                  + "<ul>"
+                  + "<li>In the common case when each item turns into one string, the function "
+                  + "    should return that string."
+                  + "<li>If the item is to be filtered out entirely, the function should return "
+                  + "    <code>None</code>."
+                  + "<li>If the item turns into multiple strings, the function returns a list of "
+                  + "    those strings."
+                  + "</ul>"
+                  + "Returning a single string or <code>None</code> has the same effect as "
+                  + "returning a list of length 1 or length 0 respectively. However, it is more "
+                  + "efficient and readable to avoid creating a list where it is not needed."
+                  + ""
+                  + "<p><i>Warning:</i> <a href='globals.html#print'><code>print()</code></a> "
+                  + "statements that are executed during the call to <code>map_each</code> will "
+                  + "not produce any visible output."
         ),
         @Param(
           name = "format_each",
@@ -1065,9 +1173,8 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "A format string used to format each object in the list. "
-                  + "The format string is as per pattern % tuple. "
-                  + "Limitations: only %s and %% are supported. "
+              "An optional format string pattern, applied to each string returned by the "
+                  + "<code>map_each</code> function."
         ),
         @Param(
           name = "before_each",
@@ -1077,8 +1184,8 @@ public class SkylarkActionFactory implements SkylarkValue {
           defaultValue = "None",
           noneable = true,
           doc =
-              "Each object in the list is prepended by this string. "
-                  + "This happens after any mapping and formatting."
+              "An optional string to append before each argument derived from <code>values</code> "
+                  + "is appended."
         ),
         @Param(
           name = "omit_if_empty",
@@ -1087,9 +1194,11 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "True",
           doc =
-              "Omits the arg_name and terminate_with (if passed) if the values end up empty, "
-                  + "either because empty values was passed, "
-                  + "or because map_each filtered out the values."
+              "If true, if there are no arguments derived from <code>values</code> to be appended, "
+                  + "then all further processing is suppressed and the command line will be "
+                  + "unchanged. If false, <code>arg_name</code> and <code>terminate_with</code>, "
+                  + "if provided, will still be appended regardless of whether or not there are "
+                  + "other arguments."
         ),
         @Param(
           name = "uniquify",
@@ -1098,8 +1207,10 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "False",
           doc =
-              "Omits non-unique values. Order is preserved. "
-                  + "This is usually not needed as depsets already omit duplicates."
+              "If true, duplicate arguments that are derived from <code>values</code> will be "
+                  + "omitted. Only the first occurrence of each argument will remain. Usually this "
+                  + "feature is not needed because depsets already omit duplicates, but it can be "
+                  + "useful if <code>map_each</code> emits the same string for multiple items."
         ),
         @Param(
           name = "terminate_with",
@@ -1108,7 +1219,10 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "None",
           noneable = true,
-          doc = "Adds a terminating argument last, after all other arguments have been added."
+          doc = "An optional string to append after all other arguments. This string will not be "
+                  + "added if <code>omit_if_empty</code> is true (the default) and no other items "
+                  + "are appended (as happens if <code>values</code> is empty or all of its items "
+                  + "are filtered)."
         ),
       },
       useLocation = true
@@ -1146,8 +1260,22 @@ public class SkylarkActionFactory implements SkylarkValue {
     @SkylarkCallable(
       name = "add_joined",
       doc =
-          "Adds a vector argument to be dynamically expanded at evaluation time "
-              + "and joined with a string.",
+          "Appends an argument to this command line by concatenating together multiple values "
+              + "using a separator. For depsets, the items are evaluated lazily during the "
+              + "execution phase."
+              + ""
+              + "<p>Processing is similar to <a href='#add_all'><code>add_all()</code></a>, but "
+              + "the list of arguments derived from <code>values</code> is combined into a single "
+              + "argument as if by <code>join_with.join(...)</code>, and then formatted using the "
+              + "given <code>format_joined</code> string template. Unlike <code>add_all()</code>, "
+              + "there is no <code>before_each</code> or <code>terminate_with</code> parameter "
+              + "since these are not generally useful when the items are combined into a single "
+              + "argument."
+              + ""
+              + "<p>If after filtering there are no strings to join into an argument, and if "
+              + "<code>omit_if_empty</code> is true (the default), no processing is done. "
+              + "Otherwise if there are no strings to join but <code>omit_if_empty</code> is "
+              + "false, the joined string will be an empty string.",
       parameters = {
         @Param(
           name = "values",
@@ -1156,7 +1284,7 @@ public class SkylarkActionFactory implements SkylarkValue {
             @ParamType(type = SkylarkNestedSet.class),
           },
           named = true,
-          doc = "The sequence to add. Each element's string representation is joined and added."
+          doc = "The list, tuple, or depset whose items will be joined."
         ),
         @Param(
           name = "arg_name",
@@ -1164,14 +1292,20 @@ public class SkylarkActionFactory implements SkylarkValue {
           named = true,
           defaultValue = "None",
           noneable = true,
-          doc = "The argument name as a string to add before the values."
+          doc = "An optional string to append before the joined argument. This string will not be "
+                  + "added if <code>omit_if_empty</code> is true (the default) and there are no "
+                  + "strings derived from <code>values</code> to join together (which can happen "
+                  + "if <code>values</code> is empty or all of its items are filtered)."
         ),
         @Param(
           name = "join_with",
           type = String.class,
           named = true,
           positional = false,
-          doc = "Each object in the supplied list is joined with this string. "
+          doc =
+              "A delimiter string used to join together the strings obtained from applying "
+                  + "<code>map_each</code> and <code>format_each</code>, in the same manner as "
+                  + "<a href='string.html#join'><code>string.join()</code></a>."
         ),
         @Param(
           name = "map_each",
@@ -1180,11 +1314,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "None",
           noneable = true,
-          doc =
-              "Each object is passed through a map function "
-                  + "prior to formatting and joining. "
-                  + "The function is given a single element and is expected to return a string, "
-                  + "a list of strings, or None (in which case the return value is ignored)."
+          doc = "Same as for <a href='#add_all.map_each'><code>add_all</code></a>."
         ),
         @Param(
           name = "format_each",
@@ -1193,11 +1323,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "None",
           noneable = true,
-          doc =
-              "A format string used to format each object in the list prior to joining. "
-                  + "The format string is as per pattern % tuple. "
-                  + "Limitations: only %s and %% are supported. "
-                  + "Only supported for vector arguments."
+          doc = "Same as for <a href='#add_all.format_each'><code>add_all</code></a>."
         ),
         @Param(
           name = "format_joined",
@@ -1206,10 +1332,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "None",
           noneable = true,
-          doc =
-              "A format string used to format the final joined string. "
-                  + "The format string is as per pattern % tuple. "
-                  + "Limitations: only %s and %% are supported."
+          doc = "An optional format string pattern applied to the joined string."
         ),
         @Param(
           name = "omit_if_empty",
@@ -1218,9 +1341,12 @@ public class SkylarkActionFactory implements SkylarkValue {
           positional = false,
           defaultValue = "True",
           doc =
-              "Omits the joined value when the passed objects are empty. "
-                  + "In case 'arg_name' was passed it is also omitted. "
-                  + "If false, the joined string is always added, even if it is the empty string."
+              "If true, if there are no strings to join together (either because <code>values"
+                  + "</code> is empty or all its items are filtered), then all further processing "
+                  + "is suppressed and the command line will be unchanged. If false, then even if "
+                  + "there are no strings to join together, two arguments will be appended: "
+                  + "<code>arg_name</code> followed by an empty string (which is the logical join "
+                  + "of zero strings)."
         ),
         @Param(
           name = "uniquify",
@@ -1228,9 +1354,7 @@ public class SkylarkActionFactory implements SkylarkValue {
           named = true,
           positional = false,
           defaultValue = "False",
-          doc =
-              "Omits non-unique values. Order is preserved. "
-                  + "This is usually not needed as depsets already omit duplicates."
+          doc = "Same as for <a href='#add_all.uniquify'><code>add_all</code></a>."
         )
       },
       useLocation = true

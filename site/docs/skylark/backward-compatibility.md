@@ -36,6 +36,7 @@ guarded behind flags in the current release:
 *   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
 *   [New actions API](#new-actions-api)
+*   [New args API](#new-args-api)
 *   [Glob tracking](#glob-tracking)
 
 
@@ -168,6 +169,21 @@ replacements are as follows.
 <!-- filler comment, needed by Markdown to separate the lists -->
 
 *   Flag: `--incompatible_new_actions_api`
+*   Default: `false`
+
+
+### New args API
+
+The [Args](lib/Args.html) object returned by `ctx.actions.args()` has dedicated
+methods for appending the contents of a list or depset to the command line.
+Previously these use cases were lumped into its [`add()`](lib/Args.html#add)
+method, resulting in a more cluttered API.
+
+With this flag, `add()` only works for scalar values, and its deprecated
+parameters are disabled. To add many arguments at once you must use `add_all()`
+or `add_joined()` instead.
+
+*   Flag: `--incompatible_disallow_old_style_args_add`
 *   Default: `false`
 
 
