@@ -20,8 +20,8 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-The installer contains the Bazel binary and the required JDK. Some additional
-libraries must also be installed for Bazel to work.
+The installer contains the Bazel binary.<sup>1</sup> Some additional libraries must also be 
+installed for Bazel to work.
 
 ### 1. Install Xcode command line tools
 
@@ -48,9 +48,7 @@ Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/release
 
 Download the binary installer `bazel-<version>-installer-darwin-x86_64.sh`.
 
-> _Note that Bazel includes an embedded JDK 8, and can be used even if a JDK is already
-> installed. However, if you already have a JDK 8 installed and would prefer to use that,
-> you can download the installer without the embedded JDK from `bazel-<version>-without-jdk-installer-darwin-x86_64.sh`_
+
 
 ### 3. Run the installer
 
@@ -81,8 +79,11 @@ You are all set. You can confirm Bazel is installed successfully by running
 ```bash
 bazel version
 ```
-
 To update to a newer release of Bazel, download and install the desired version.
+
+_<sup>1</sup>Note that Bazel includes an embedded JDK 8, and can be used even if a JDK is already
+installed. However, if you already have a JDK 8 installed, you may wish to use the
+installer without the embedded JDK: `bazel-<version>-without-jdk-installer-darwin-x86_64.sh`_
 
 ## <a name="install-on-mac-os-x-homebrew"></a>Installing using Homebrew
 
