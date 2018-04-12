@@ -69,7 +69,7 @@ to make your files easy to process, both by humans and tools.
     convention when calling macros and native rules, and the Python convention
     for other functions, e.g.
 
-```skylark
+```python
 def fct(name, srcs):
   filtered_srcs = my_filter(source=srcs)
   native.cc_library(
