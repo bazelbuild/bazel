@@ -197,7 +197,7 @@ public final class CleanCommand implements BlazeCommand {
     new CommandBuilder(tempPath.getParentDirectory())
         // TODO(laszlocsomor): implement the async directory tree deleter as a native, embedded
         // binary, and stop relying on the shell. See GitHub issue #4319.
-        .addArgs("/bin/sh", "-c", "'" + command + "'")
+        .addArgs("/bin/sh", "-c", command)
         .build()
         .execute();
   }
