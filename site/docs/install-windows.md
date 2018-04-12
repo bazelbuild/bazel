@@ -41,22 +41,6 @@ Operating System Version table</a> to see if your OS is supported._
     pacman -Syuu git curl zip unzip
     ```
 
-*   If you built Bazel from source: set the `JAVA_HOME` environment variable to
-    the JDK's directory.
-
-    For example in the Windows Command Prompt (`cmd.exe`):
-
-    ```
-    set JAVA_HOME=C:\Program Files\Java\jdk1.8.0_112
-    ```
-
-    **Note**: do not use quotes (") around the path like you would on Unix.
-    Windows doesn't need them and they may confuse Bazel.
-
-    This step is not required if you downloaded a binary distribution of Bazel
-    or installed Bazel using Chocolatey. See [installing Bazel on
-    Windows](install-windows.html).
-
 *   [Microsoft Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
 
     This may already be installed on your system.
