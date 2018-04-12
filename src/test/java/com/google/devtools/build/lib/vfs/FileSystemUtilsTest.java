@@ -370,6 +370,40 @@ public class FileSystemUtilsTest {
   }
 
   @Test
+  public void testMoveFileAcrossDevices() throws Exception {
+    class MultipleDeviceFS extends InMemoryFileSystem {
+      @Override
+      public void renameTo(Path source, Path target) throws IOException {
+        if (!source.startsWith(target.asFragment().subFragment(0, 1))) {
+          throw new IOException("EXDEV");
+        }
+        super.renameTo(source, target);
+      }
+    }
+    FileSystem fs = new MultipleDeviceFS();
+    Path dev1 = fs.getPath("/fs1");
+    dev1.createDirectory();
+    Path dev2 = fs.getPath("/fs2");
+    dev2.createDirectory();
+    Path source = dev1.getChild("source");
+    Path target = dev2.getChild("target");
+
+    FileSystemUtils.writeContent(source, UTF_8, "hello, world");
+    source.setLastModifiedTime(142);
+    FileSystemUtils.moveFile(source, target);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello, world");
+    assertThat(target.getLastModifiedTime()).isEqualTo(142);
+
+    source.createSymbolicLink(PathFragment.create("link-target"));
+    FileSystemUtils.moveFile(source, target);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isSymbolicLink()).isTrue();
+    assertThat(target.readSymbolicLink()).isEqualTo(PathFragment.create("link-target"));
+  }
+
+  @Test
   public void testReadContentWithLimit() throws IOException {
     createTestDirectoryTree();
     String str = "this is a test of readContentWithLimit method";
