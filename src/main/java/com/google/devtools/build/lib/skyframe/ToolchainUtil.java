@@ -397,21 +397,25 @@ public class ToolchainUtil {
     }
 
     // Then, resolve the patterns.
-    ImmutableList.Builder<Label> labels = new ImmutableList.Builder<>();
     Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
         env.getValuesOrThrow(patternKeys, TargetParsingException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
+    boolean valuesMissing = env.valuesMissing();
+    ImmutableList.Builder<Label> labels = valuesMissing ? null : new ImmutableList.Builder<>();
 
     for (TargetPatternValue.TargetPatternKey pattern : patternKeys) {
       TargetPatternValue value;
       try {
         value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
-        labels.addAll(value.getTargets().getTargets());
+        if (!valuesMissing && value != null) {
+          labels.addAll(value.getTargets().getTargets());
+        }
       } catch (TargetParsingException e) {
         throw new InvalidTargetPatternException(pattern.getPattern(), e);
       }
+    }
+
+    if (valuesMissing) {
+      return null;
     }
 
     return labels.build();
