@@ -536,3 +536,8 @@ API_LEVELS = [
 - Windows support
 - Improved external dependency management
 - Remote test caching and execution
+
+The Android rules are planned for a rewrite from their Java implementation to
+[Skylark](https://docs.bazel.build/versions/master/skylark/concepts.html).
+`android_instrumentation_test` will also undergo this rewrite, but effects
+of this change will be transparent to users of the rule.
