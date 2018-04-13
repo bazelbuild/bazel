@@ -54,11 +54,23 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "test_util",
+    testonly = 1,
+    srcs = ["test_util.cc"],
+    hdrs = ["test_util.h"],
+    deps = [
+        "//src/main/cpp:startup_options",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "startup_options_test",
     size = "small",
     srcs = ["startup_options_test.cc"],
     deps = [
+        ":test_util",
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:startup_options",
         "//src/main/cpp:workspace_layout",
