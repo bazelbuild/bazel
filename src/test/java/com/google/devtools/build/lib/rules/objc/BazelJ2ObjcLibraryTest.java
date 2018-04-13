@@ -917,6 +917,88 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   }
 
   @Test
+  public void testProtoToolchainForJ2ObjcFlag() throws Exception {
+    useConfiguration("--proto_toolchain_for_j2objc=//tools/j2objc:alt_j2objc_proto_toolchain");
+
+    scratch.file("tools/j2objc/proto_plugin_binary");
+    scratch.file("tools/j2objc/alt_proto_runtime.h");
+    scratch.file("tools/j2objc/alt_proto_runtime.m");
+    scratch.file("tools/j2objc/some_blacklisted_proto.proto");
+
+    scratch.overwriteFile(
+        "tools/j2objc/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "exports_files(['j2objc_deploy.jar'])",
+        "filegroup(",
+        "    name = 'j2objc_wrapper',",
+        "    srcs = ['j2objc_wrapper.py'],",
+        ")",
+        "filegroup(",
+        "    name = 'blacklisted_protos',",
+        "    srcs = ['some_blacklisted_proto.proto'],",
+        ")",
+        "filegroup(",
+        "    name = 'j2objc_header_map',",
+        "    srcs = ['j2objc_header_map.py'],",
+        ")",
+        "proto_lang_toolchain(",
+        "    name = 'alt_j2objc_proto_toolchain',",
+        "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
+        "    plugin = ':alt_proto_plugin',",
+        "    runtime = ':alt_proto_runtime',",
+        "    blacklisted_protos = [':blacklisted_protos'],",
+        ")",
+        j2ObjcCompatibleProtoLibrary(
+            "   name = 'blacklisted_proto_library',",
+            "   srcs = ['some_blacklisted_proto.proto'],"),
+        "objc_library(",
+        "    name = 'alt_proto_runtime',",
+        "    hdrs = ['alt_proto_runtime.h'],",
+        "    srcs = ['alt_proto_runtime.m'],",
+        ")",
+        "filegroup(",
+        "    name = 'alt_proto_plugin',",
+        "    srcs = ['proto_plugin_binary']",
+        ")");
+
+    scratch.file("java/com/google/dummy/test/proto/test.java");
+    scratch.file("java/com/google/dummy/test/proto/test.proto");
+    scratch.file(
+        "java/com/google/dummy/test/proto/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        j2ObjcCompatibleProtoLibrary(
+            "    name = 'test_proto',",
+            "    srcs = ['test.proto'],",
+            "    deps = ['//tools/j2objc:blacklisted_proto_library'],"),
+        "",
+        "java_library(",
+        "    name = 'test',",
+        "    srcs = ['test.java'],",
+        "    deps = [':test_proto'])",
+        "",
+        "j2objc_library(",
+        "    name = 'transpile',",
+        "    deps = ['test'])");
+
+    ConfiguredTarget j2objcLibraryTarget =
+        getConfiguredTarget("//java/com/google/dummy/test/proto:transpile");
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
+        .containsExactly(
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
+                + "third_party/java/j2objc/libjre_core_lib.a",
+            "tools/j2objc/libalt_proto_runtime.a",
+            "java/com/google/dummy/test/proto/libtest_j2objc.a",
+            "java/com/google/dummy/test/proto/libtest_proto_j2objc.a");
+    assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.HEADER)))
+        .containsExactly(
+            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "third_party/java/j2objc/jre_core.h",
+            "tools/j2objc/alt_proto_runtime.h",
+            "java/com/google/dummy/test/proto/test.j2objc.pb.h",
+            "java/com/google/dummy/test/proto/_j2objc/test/java/com/google/dummy/test/proto/test.h");
+  }
+
+  @Test
   public void testJ2ObjcDeadCodeRemovalActionWithOptFlag() throws Exception {
     useConfiguration("--j2objc_dead_code_removal");
     addSimpleJ2ObjcLibraryWithEntryClasses();
