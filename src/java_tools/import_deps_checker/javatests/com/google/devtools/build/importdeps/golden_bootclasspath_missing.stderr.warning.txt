@@ -27,6 +27,9 @@ Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client$EnumTest
     missing ancestor: java.lang.Enum
     resolution failure path: java.lang.Enum
+Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client$InnerClassWithSyntheticConstructorParam
+    missing ancestor: java.lang.Object
+    resolution failure path: java.lang.Object
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Library
     missing ancestor: java.lang.Object
     resolution failure path: java.lang.Object
@@ -106,5 +109,5 @@ Missing member 'name' in class com.google.devtools.build.importdeps.testdata.Cli
 Missing member 'ordinal' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=ordinal, descriptor=()I
 ===Total===
 missing=20
-incomplete=27
+incomplete=28
 missing_members=2

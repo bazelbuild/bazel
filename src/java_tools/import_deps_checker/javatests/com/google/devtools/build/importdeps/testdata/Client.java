@@ -95,4 +95,16 @@ public class Client<@TypeAnnotation T> extends Library
     B,
     C
   }
+
+  private class InnerClassWithSyntheticConstructorParam {
+    // This constructor has a synthetic parameter for the outer object (b/78024300).  If there are
+    // parameter annotations then ASM generates "java/lang/Synthetic" annotations on the synthetic
+    // parameters, but java/lang/Synthetic doesn't exist!
+    InnerClassWithSyntheticConstructorParam(@ParameterAnnotation(position = 2) int p) {}
+
+    @Override
+    public String toString() {
+      return String.valueOf(field);
+    }
+  }
 }

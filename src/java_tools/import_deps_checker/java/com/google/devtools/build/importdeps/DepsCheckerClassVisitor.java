@@ -288,6 +288,9 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
 
     @Override
     public AnnotationVisitor visitParameterAnnotation(int parameter, String desc, boolean visible) {
+      if ("Ljava/lang/Synthetic;".equals(desc)) {
+        return null; // ASM sometimes makes up this annotation, so we can ignore it (b/78024300)
+      }
       checkDescriptor(desc);
       return defaultAnnotationChecker;
     }

@@ -107,7 +107,10 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
 
   private ResultCollector getResultCollector(Path... classpath) throws IOException {
     ImmutableList<String> clientClasses =
-        ImmutableList.of(PACKAGE_NAME + "Client", PACKAGE_NAME + "Client$NestedAnnotation");
+        ImmutableList.of(
+            PACKAGE_NAME + "Client",
+            PACKAGE_NAME + "Client$NestedAnnotation",
+            PACKAGE_NAME + "Client$InnerClassWithSyntheticConstructorParam");
     ResultCollector resultCollector = new ResultCollector();
     try (ClassCache cache = new ClassCache(ImmutableList.copyOf(classpath), ImmutableList.of());
         ZipFile zipFile = new ZipFile(clientJar.toFile())) {
