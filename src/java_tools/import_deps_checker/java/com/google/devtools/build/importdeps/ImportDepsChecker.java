@@ -44,11 +44,8 @@ public final class ImportDepsChecker implements Closeable {
       throws IOException {
     this.classCache =
         new ClassCache(
-            ImmutableList.<Path>builder()
-                .addAll(bootclasspath)
-                .addAll(classpath)
-                .addAll(inputJars)
-                .build());
+            bootclasspath,
+            ImmutableList.<Path>builder().addAll(classpath).addAll(inputJars).build());
     this.resultCollector = new ResultCollector();
     this.inputJars = inputJars;
   }
