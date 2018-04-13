@@ -16,6 +16,7 @@ java_library(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:turbine",
     ],
 )

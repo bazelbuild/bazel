@@ -78,95 +78,15 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   public static Result compile(TurbineOptions turbineOptions) throws IOException {
-    try (JavacTurbine turbine =
-        new JavacTurbine(
-            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
-            turbineOptions)) {
+    return compile(
+        turbineOptions,
+        new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true));
+  }
+
+  public static Result compile(TurbineOptions turbineOptions, PrintWriter out) throws IOException {
+    try (JavacTurbine turbine = new JavacTurbine(out, turbineOptions)) {
       return turbine.compile();
     }
-  }
-
-  /** A header compilation result. */
-  public enum Result {
-    /** The compilation succeeded with the reduced classpath optimization. */
-    OK_WITH_REDUCED_CLASSPATH(true),
-
-    /** The compilation succeeded, but had to fall back to a transitive classpath. */
-    OK_WITH_FULL_CLASSPATH(true),
-
-    /** The compilation did not succeed. */
-    ERROR(false);
-
-    private final boolean ok;
-
-    private Result(boolean ok) {
-      this.ok = ok;
-    }
-
-    public boolean ok() {
-      return ok;
-    }
-
-    public int exitCode() {
-      return ok ? 0 : 1;
-    }
-  }
-
-  private static final int ZIPFILE_BUFFER_SIZE = 1024 * 16;
-
-
-  private final PrintWriter out;
-  private final TurbineOptions turbineOptions;
-  @VisibleForTesting Context context;
-
-  /** Cache of opened zip filesystems for srcjars. */
-  private final Map<Path, FileSystem> filesystems = new HashMap<>();
-
-  public JavacTurbine(PrintWriter out, TurbineOptions turbineOptions) {
-    this.out = out;
-    this.turbineOptions = turbineOptions;
-  }
-
-  /** Creates the compilation javacopts from {@link TurbineOptions}. */
-  @VisibleForTesting
-  static ImmutableList<String> processJavacopts(TurbineOptions turbineOptions) {
-    ImmutableList<String> javacopts =
-        JavacOptions.removeBazelSpecificFlags(
-            JavacOptions.normalizeOptionsWithNormalizers(
-                turbineOptions.javacOpts(), new JavacOptions.ReleaseOptionNormalizer()));
-
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    builder.addAll(javacopts);
-
-    // Disable compilation of implicit source files.
-    // This is insurance: the sourcepath is empty, so we don't expect implicit sources.
-    builder.add("-implicit:none");
-
-    // Disable debug info
-    builder.add("-g:none");
-
-    // Enable MethodParameters
-    builder.add("-parameters");
-
-    // Compile-time jars always use Java 8
-    if (javacopts.contains("--release")) {
-      // javac doesn't allow mixing -source and --release, so use --release if it's already present
-      // in javacopts.
-      builder.add("--release");
-      builder.add("8");
-    } else {
-      builder.add("-source");
-      builder.add("8");
-      builder.add("-target");
-      builder.add("8");
-    }
-
-    if (!turbineOptions.processors().isEmpty()) {
-      builder.add("-processor");
-      builder.add(Joiner.on(',').join(turbineOptions.processors()));
-    }
-
-    return builder.build();
   }
 
   Result compile() throws IOException {
@@ -253,6 +173,88 @@ public class JavacTurbine implements AutoCloseable {
       out.print(compileResult.output());
     }
     return result;
+  }
+
+  /** A header compilation result. */
+  public enum Result {
+    /** The compilation succeeded with the reduced classpath optimization. */
+    OK_WITH_REDUCED_CLASSPATH(true),
+
+    /** The compilation succeeded, but had to fall back to a transitive classpath. */
+    OK_WITH_FULL_CLASSPATH(true),
+
+    /** The compilation did not succeed. */
+    ERROR(false);
+
+    private final boolean ok;
+
+    private Result(boolean ok) {
+      this.ok = ok;
+    }
+
+    public boolean ok() {
+      return ok;
+    }
+
+    public int exitCode() {
+      return ok ? 0 : 1;
+    }
+  }
+
+  private static final int ZIPFILE_BUFFER_SIZE = 1024 * 16;
+
+  private final PrintWriter out;
+  private final TurbineOptions turbineOptions;
+  @VisibleForTesting Context context;
+
+  /** Cache of opened zip filesystems for srcjars. */
+  private final Map<Path, FileSystem> filesystems = new HashMap<>();
+
+  public JavacTurbine(PrintWriter out, TurbineOptions turbineOptions) {
+    this.out = out;
+    this.turbineOptions = turbineOptions;
+  }
+
+  /** Creates the compilation javacopts from {@link TurbineOptions}. */
+  @VisibleForTesting
+  static ImmutableList<String> processJavacopts(TurbineOptions turbineOptions) {
+    ImmutableList<String> javacopts =
+        JavacOptions.removeBazelSpecificFlags(
+            JavacOptions.normalizeOptionsWithNormalizers(
+                turbineOptions.javacOpts(), new JavacOptions.ReleaseOptionNormalizer()));
+
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    builder.addAll(javacopts);
+
+    // Disable compilation of implicit source files.
+    // This is insurance: the sourcepath is empty, so we don't expect implicit sources.
+    builder.add("-implicit:none");
+
+    // Disable debug info
+    builder.add("-g:none");
+
+    // Enable MethodParameters
+    builder.add("-parameters");
+
+    // Compile-time jars always use Java 8
+    if (javacopts.contains("--release")) {
+      // javac doesn't allow mixing -source and --release, so use --release if it's already present
+      // in javacopts.
+      builder.add("--release");
+      builder.add("8");
+    } else {
+      builder.add("-source");
+      builder.add("8");
+      builder.add("-target");
+      builder.add("8");
+    }
+
+    if (!turbineOptions.processors().isEmpty()) {
+      builder.add("-processor");
+      builder.add(Joiner.on(',').join(turbineOptions.processors()));
+    }
+
+    return builder.build();
   }
 
   private static DependencyModule buildDependencyModule(
