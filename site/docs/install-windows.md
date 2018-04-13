@@ -5,15 +5,16 @@ title: Installing Bazel on Windows
 
 # <a name="windows"></a>Installing Bazel on Windows
 
-Supported Windows platforms:
+Supported Windows platforms (64-bit editions only):
 
-*   64 bit Windows 7 or higher, or equivalent Windows Server versions.
+*   Windows 7 or newer
+*   Windows Server 2008 or newer
 
 _Check
 <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx">Microsoft's
 Operating System Version table</a> to see if your OS is supported._
 
-### 1. Install prerequisites (if not already installed)
+### Step 1: Install prerequisites (if not already installed)
 
 *   Python 2.7 or later.
 
@@ -45,7 +46,7 @@ Operating System Version table</a> to see if your OS is supported._
 
     This may already be installed on your system.
 
-### 2. Install Bazel on Windows using one of the following methods:
+### Step 2: Install Bazel on Windows using one of the following methods:
 
 *   [Download the binary (recommended)](#download-the-binary-recommended)
 *   [Install using Chocolatey](#install-using-chocolatey)
