@@ -46,7 +46,14 @@ public class AndroidResourcesTest extends ResourceTestBase {
       ImmutableList.of(DEFAULT_RESOURCE_ROOT);
 
   private static final ImmutableSet<String> TOOL_FILENAMES =
-      ImmutableSet.of("aapt2", "empty.sh", "android_blaze.jar", "android.jar");
+      ImmutableSet.of(
+          "static_aapt_tool",
+          "aapt.static",
+          "aapt",
+          "aapt2",
+          "empty.sh",
+          "android_blaze.jar",
+          "android.jar");
 
   @Before
   @Test
@@ -320,6 +327,70 @@ public class AndroidResourcesTest extends ResourceTestBase {
         /* outputs = */ ImmutableList.of(merged.getMergedResources()));
   }
 
+  @Test
+  public void testValidateAapt() throws Exception {
+    useConfiguration("--android_aapt=aapt");
+    RuleContext ruleContext = getRuleContext(/* useDataBinding = */ false);
+
+    MergedAndroidResources merged = makeMergedResources(ruleContext);
+    ValidatedAndroidResources validated = merged.validate(ruleContext);
+
+    // Inherited values should be equal
+    assertThat(merged).isEqualTo(new MergedAndroidResources(validated));
+
+    // aapt artifacts should be generated
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.of(validated.getMergedResources(), validated.getManifest()),
+        /* outputs = */ ImmutableList.of(
+            validated.getRTxt(), validated.getSourceJar(), validated.getApk()));
+
+    // aapt2 artifacts should not be generated
+    assertThat(validated.getCompiledSymbols()).isNull();
+    assertThat(validated.getAapt2RTxt()).isNull();
+    assertThat(validated.getAapt2SourceJar()).isNull();
+    assertThat(validated.getStaticLibrary()).isNull();
+  }
+
+  @Test
+  public void testValidateAapt2() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration("--android_sdk=//sdk:sdk", "--android_aapt=aapt2");
+    RuleContext ruleContext = getRuleContext(/* useDataBinding = */ false);
+
+    MergedAndroidResources merged = makeMergedResources(ruleContext);
+    ValidatedAndroidResources validated = merged.validate(ruleContext);
+
+    // Inherited values should be equal
+    assertThat(merged).isEqualTo(new MergedAndroidResources(validated));
+
+    // aapt artifacts should be generated
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.of(validated.getMergedResources(), validated.getManifest()),
+        /* outputs = */ ImmutableList.of(
+            validated.getRTxt(), validated.getSourceJar(), validated.getApk()));
+
+    // aapt2 artifacts should be recorded
+    assertThat(validated.getCompiledSymbols()).isNotNull();
+    assertThat(validated.getAapt2RTxt()).isNotNull();
+    assertThat(validated.getAapt2SourceJar()).isNotNull();
+    assertThat(validated.getStaticLibrary()).isNotNull();
+
+    // Compile the resources into compiled symbols files
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ validated.getResources(),
+        /* outputs = */ ImmutableList.of(validated.getCompiledSymbols()));
+
+    // Use the compiled symbols and manifest to build aapt2 packaging outputs
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.of(validated.getCompiledSymbols(), validated.getManifest()),
+        /* outputs = */ ImmutableList.of(
+            validated.getAapt2RTxt(), validated.getAapt2SourceJar(), validated.getStaticLibrary()));
+  }
+
   /**
    * Assets that the action used to generate the given outputs has the expected inputs and outputs.
    */
@@ -361,9 +432,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     AndroidResources raw =
         new AndroidResources(
             resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"));
-    StampedAndroidManifest manifest =
-        new AndroidManifest(getManifest(), "some.java.pkg", /* exported = */ true)
-            .stamp(ruleContext);
+    StampedAndroidManifest manifest = getManifest();
 
     ParsedAndroidResources parsed = raw.parse(ruleContext, manifest);
 
@@ -376,8 +445,18 @@ public class AndroidResourcesTest extends ResourceTestBase {
     return parsed;
   }
 
-  private Artifact getManifest() {
-    return getResource("some/path/AndroidManifest.xml");
+  private MergedAndroidResources makeMergedResources(RuleContext ruleContext)
+      throws RuleErrorException, InterruptedException {
+    ImmutableList<Artifact> resources = getResources("values-en/foo.xml", "drawable-hdpi/bar.png");
+    return new AndroidResources(
+            resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"))
+        .parse(ruleContext, getManifest())
+        .merge(ruleContext, /* neverlink = */ true);
+  }
+
+  private StampedAndroidManifest getManifest() {
+    return new StampedAndroidManifest(
+        getResource("some/path/AndroidManifest.xml"), "some.java.pkg", /* exported = */ true);
   }
 
   /** Gets a dummy rule context object by creating a dummy target. */

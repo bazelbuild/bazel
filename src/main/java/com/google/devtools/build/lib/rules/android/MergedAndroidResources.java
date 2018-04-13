@@ -123,6 +123,20 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     return manifest;
   }
 
+  public ResourceDependencies getResourceDependencies() {
+    return resourceDependencies;
+  }
+
+  /**
+   * Validates and packages this rule's resources.
+   *
+   * <p>See {@link ValidatedAndroidResources#validateFrom(RuleContext, MergedAndroidResources)}.
+   * This method is a convenience method for calling that one.
+   */
+  public ValidatedAndroidResources validate(RuleContext ruleContext) throws InterruptedException {
+    return ValidatedAndroidResources.validateFrom(ruleContext, this);
+  }
+
   @Override
   public boolean equals(Object object) {
     if (!super.equals(object)) {
