@@ -1,2 +1,5 @@
-# This package will host the Bash runfiles library.
-# See https://github.com/bazelbuild/bazel/issues/4460
+sh_library(
+    name = "runfiles",
+    srcs = ["runfiles.bash"],
+    visibility = ["//visibility:public"],
+)

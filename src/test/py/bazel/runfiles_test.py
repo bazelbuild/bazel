@@ -32,21 +32,24 @@ class RunfilesTest(test_base.TestBase):
                   "\n".join(stderr))
 
   def _AssertRunfilesLibraryInBazelToolsRepo(self, family, lang_name):
-    for s, t in [
-        ("WORKSPACE.mock", "WORKSPACE"),
-        ("foo/BUILD.mock", "foo/BUILD"),
-        ("foo/foo.py", "foo/foo.py"),
-        ("foo/Foo.java", "foo/Foo.java"),
-        ("foo/datadep/hello.txt", "foo/datadep/hello.txt"),
-        ("bar/BUILD.mock", "bar/BUILD"),
-        ("bar/bar.py", "bar/bar.py"),
-        ("bar/bar-py-data.txt", "bar/bar-py-data.txt"),
-        ("bar/Bar.java", "bar/Bar.java"),
-        ("bar/bar-java-data.txt", "bar/bar-java-data.txt"),
+    for s, t, exe in [
+        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("foo/BUILD.mock", "foo/BUILD", False),
+        ("foo/foo.py", "foo/foo.py", True),
+        ("foo/Foo.java", "foo/Foo.java", False),
+        ("foo/foo.sh", "foo/foo.sh", True),
+        ("foo/datadep/hello.txt", "foo/datadep/hello.txt", False),
+        ("bar/BUILD.mock", "bar/BUILD", False),
+        ("bar/bar.py", "bar/bar.py", True),
+        ("bar/bar-py-data.txt", "bar/bar-py-data.txt", False),
+        ("bar/Bar.java", "bar/Bar.java", False),
+        ("bar/bar-java-data.txt", "bar/bar-java-data.txt", False),
+        ("bar/bar.sh", "bar/bar.sh", True),
+        ("bar/bar-sh-data.txt", "bar/bar-sh-data.txt", False)
     ]:
       self.CopyFile(
           self.Rlocation(
-              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t)
+              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t, exe)
 
     exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -65,7 +68,7 @@ class RunfilesTest(test_base.TestBase):
     exit_code, stdout, stderr = self.RunProgram(
         [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
     self.AssertExitCode(exit_code, 0, stderr)
-    if len(stdout) != 6:
+    if len(stdout) != 8:
       self.fail("stdout: %s" % stdout)
 
     self.assertEqual(stdout[0], "Hello %s Foo!" % lang_name)
@@ -79,7 +82,8 @@ class RunfilesTest(test_base.TestBase):
     self.assertEqual(lines[0], "world")
 
     i = 2
-    for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java")]:
+    for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
+                 ("sh", "Bash", "bar.sh")]:
       self.assertEqual(stdout[i], "Hello %s Bar!" % lang[1])
       six.assertRegex(self, stdout[i + 1],
                       "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
@@ -99,28 +103,34 @@ class RunfilesTest(test_base.TestBase):
   def testJavaRunfilesLibraryInBazelToolsRepo(self):
     self._AssertRunfilesLibraryInBazelToolsRepo("java", "Java")
 
+  def testBashRunfilesLibraryInBazelToolsRepo(self):
+    self._AssertRunfilesLibraryInBazelToolsRepo("sh", "Bash")
+
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
-    for s, t in [
-        ("WORKSPACE.mock", "WORKSPACE"),
-        ("bar/BUILD.mock", "bar/BUILD"),
-        ("bar/bar.py", "bar/bar.py"),
-        ("bar/bar-py-data.txt", "bar/bar-py-data.txt"),
-        ("bar/Bar.java", "bar/Bar.java"),
-        ("bar/bar-java-data.txt", "bar/bar-java-data.txt"),
+    for s, t, exe in [
+        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("bar/BUILD.mock", "bar/BUILD", False),
+        ("bar/bar.py", "bar/bar.py", True),
+        ("bar/bar-py-data.txt", "bar/bar-py-data.txt", False),
+        ("bar/Bar.java", "bar/Bar.java", False),
+        ("bar/bar-java-data.txt", "bar/bar-java-data.txt", False),
+        ("bar/bar.sh", "bar/bar.sh", True),
+        ("bar/bar-sh-data.txt", "bar/bar-sh-data.txt", False),
     ]:
       self.CopyFile(
           self.Rlocation(
-              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t)
+              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t, exe)
 
     exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
     exit_code, _, stderr = self.RunBazel(
-        ["build", "//bar:bar-py", "//bar:bar-java"])
+        ["build", "//bar:bar-py", "//bar:bar-java", "//bar:bar-sh"])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java")]:
+    for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
+                 ("sh", "Bash", "bar.sh")]:
       if test_base.TestBase.IsWindows():
         bin_path = os.path.join(bazel_bin, "bar/bar-%s.exe" % lang[0])
       else:
@@ -151,25 +161,27 @@ class RunfilesTest(test_base.TestBase):
       self.assertEqual(lines[0], "data for " + lang[2])
 
   def testRunfilesLibrariesFindRunfilesWithRunfilesManifestEnvvar(self):
-    for s, t in [
-        ("WORKSPACE.mock", "WORKSPACE"),
-        ("bar/BUILD.mock", "bar/BUILD"),
+    for s, t, exe in [
+        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("bar/BUILD.mock", "bar/BUILD", False),
         # Note: do not test Python here, because py_binary always needs a
         # runfiles tree, even on Windows, because it needs __init__.py files in
         # every directory where there may be importable modules, so Bazel always
         # needs to create a runfiles tree for py_binary.
-        ("bar/Bar.java", "bar/Bar.java"),
-        ("bar/bar-java-data.txt", "bar/bar-java-data.txt"),
+        ("bar/Bar.java", "bar/Bar.java", False),
+        ("bar/bar-java-data.txt", "bar/bar-java-data.txt", False),
+        ("bar/bar.sh", "bar/bar.sh", True),
+        ("bar/bar-sh-data.txt", "bar/bar-sh-data.txt", False),
     ]:
       self.CopyFile(
           self.Rlocation(
-              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t)
+              "io_bazel/src/test/py/bazel/testdata/runfiles_test/" + s), t, exe)
 
     exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    for lang in [("java", "Java")]:  # TODO(laszlocsomor): add "cc" when ready.
+    for lang in [("java", "Java"), ("sh", "Bash")]:  # TODO(laszlocsomor): add "cc" when ready.
       exit_code, _, stderr = self.RunBazel([
           "build", "--experimental_enable_runfiles=no", "//bar:bar-" + lang[0]
       ])
