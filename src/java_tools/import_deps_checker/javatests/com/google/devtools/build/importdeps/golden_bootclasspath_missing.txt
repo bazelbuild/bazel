@@ -93,9 +93,15 @@ Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.
 Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
     missing ancestor: java.lang.Object
     resolution failure path: java.lang.Object
+Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface$One
+    missing ancestor: java.lang.Object
+    resolution failure path: java.lang.Object
+Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.LibraryInterface$Two
+    missing ancestor: java.lang.Object
+    resolution failure path: java.lang.Object
 Missing member 'name' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=name, descriptor=()Ljava/lang/String;
 Missing member 'ordinal' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=ordinal, descriptor=()I
 ===Total===
 missing=20
-incomplete=25
+incomplete=27
 missing_members=2

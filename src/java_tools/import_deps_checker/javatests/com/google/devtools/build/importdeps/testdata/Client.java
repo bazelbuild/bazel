@@ -29,17 +29,18 @@ import java.util.Objects;
 
 /** Client class that uses several libraries. */
 @ClassAnnotation(
-    friends = { Library.class, LibraryException.class },
-    nested = @SuppressWarnings({"unused", "unchecked"})
+  friends = {Library.class, LibraryException.class},
+  nested = @SuppressWarnings({"unused", "unchecked"})
 )
-public class Client<@TypeAnnotation T> extends Library implements LibraryInterface {
+public class Client<@TypeAnnotation T> extends Library
+    implements LibraryInterface, LibraryInterface.One, LibraryInterface.Two {
 
   @SuppressWarnings("unused")
   @FieldAnnotation
   private Library.Class1 field;
 
   @SuppressWarnings("unused")
-  @FieldAnnotation({ 1, 2, 3 })
+  @FieldAnnotation({1, 2, 3})
   private LibraryAnnotations annotations;
 
   public static final Class1 I = Class1.I;
@@ -78,6 +79,16 @@ public class Client<@TypeAnnotation T> extends Library implements LibraryInterfa
   @Target(ElementType.TYPE)
   @AnnotationAnnotation(AnnotationFlag.Y)
   public @interface NestedAnnotation {}
+
+  @Override
+  public void callOne() {
+    // Do nothing.
+  }
+
+  @Override
+  public void callTwo() {
+    // Do nothing.
+  }
 
   public enum EnumTest {
     A,

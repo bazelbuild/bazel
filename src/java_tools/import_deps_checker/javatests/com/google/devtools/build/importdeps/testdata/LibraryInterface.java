@@ -20,4 +20,18 @@ public interface LibraryInterface {
   interface Func<T> {
     T get();
   }
+
+  /**
+   * A nested interface for testing.
+   */
+  interface One {
+    void callOne();
+  }
+
+  /**
+   * A nested interface for testing.
+   */
+  interface Two {
+    void callTwo();
+  }
 }
