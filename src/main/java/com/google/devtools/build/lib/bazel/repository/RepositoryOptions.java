@@ -39,7 +39,6 @@ public class RepositoryOptions extends OptionsBase {
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
     converter = OptionsUtils.PathFragmentConverter.class,
     help =
         "Specifies the cache location of the downloaded values obtained "
