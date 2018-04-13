@@ -110,6 +110,15 @@ import javax.annotation.Nullable;
 public class RunCommand implements BlazeCommand  {
   public static class RunOptions extends OptionsBase {
     @Option(
+        name = "as_test",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "If set, the 'run' command will execute tests in an approximation of the official "
+            + "test environment. Otherwise, tests will be run as regular binaries.")
+    public boolean asTest;
+
+    @Option(
       name = "direct_run",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -436,7 +445,7 @@ public class RunCommand implements BlazeCommand  {
     runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
 
-    if (targetToRun.getProvider(TestProvider.class) != null) {
+    if (targetToRun.getProvider(TestProvider.class) != null && runOptions.asTest) {
       // This is a test. Provide it with a reasonable approximation of the actual test environment
       ImmutableList<Artifact> statusArtifacts = TestProvider.getTestStatusArtifacts(targetToRun);
       if (statusArtifacts.size() != 1) {
