@@ -100,8 +100,8 @@ public class AndroidResources {
   }
 
   /**
-   * Validates that there are no targets with resources in the srcs, as they
-   * should not be used with the Android data logic.
+   * Validates that there are no targets with resources in the srcs, as they should not be used with
+   * the Android data logic.
    */
   private static void validateNoAndroidResourcesInSources(RuleContext ruleContext)
       throws RuleErrorException {
@@ -128,8 +128,7 @@ public class AndroidResources {
     }
 
     ImmutableList<Artifact> resources =
-        getResources(
-            ruleContext.getPrerequisites(resourcesAttr, Mode.TARGET, FileProvider.class));
+        getResources(ruleContext.getPrerequisites(resourcesAttr, Mode.TARGET, FileProvider.class));
 
     return forResources(ruleContext, resources, resourcesAttr);
   }
@@ -385,15 +384,14 @@ public class AndroidResources {
             getResourceRoots(errorConsumer, filtered.get(), DEFAULT_RESOURCES_ATTR)));
   }
 
-  public ParsedAndroidResources parse(
-      RuleContext ruleContext,
-      StampedAndroidManifest manifest) throws InterruptedException, RuleErrorException {
+  public ParsedAndroidResources parse(RuleContext ruleContext, StampedAndroidManifest manifest)
+      throws InterruptedException, RuleErrorException {
     return ParsedAndroidResources.parseFrom(ruleContext, this, manifest);
   }
 
   @Override
   public boolean equals(Object object) {
-    if (!(object instanceof AndroidResources)) {
+    if (object == null || getClass() != object.getClass()) {
       return false;
     }
 

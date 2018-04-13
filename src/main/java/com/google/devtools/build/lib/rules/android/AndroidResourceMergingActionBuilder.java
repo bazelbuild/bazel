@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerTy
 import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Builder for creating $android_resource_merger action. The action merges resources and generates
@@ -67,7 +68,7 @@ public class AndroidResourceMergingActionBuilder {
   private Artifact mergedResourcesOut;
   private Artifact classJarOut;
   private Artifact manifestOut;
-  private Artifact dataBindingInfoZip;
+  private @Nullable Artifact dataBindingInfoZip;
 
   // Flags
   private String customJavaPackage;
@@ -113,7 +114,7 @@ public class AndroidResourceMergingActionBuilder {
    * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
    *
    * <p>If null, data binding processing is skipped (and data binding expressions aren't allowed in
-   *  layout resources).
+   * layout resources).
    */
   public AndroidResourceMergingActionBuilder setDataBindingInfoZip(Artifact zip) {
     this.dataBindingInfoZip = zip;
@@ -306,5 +307,17 @@ public class AndroidResourceMergingActionBuilder {
       result.setManifest(manifestOut);
     }
     return result.build();
+  }
+
+  public MergedAndroidResources build(RuleContext ruleContext, ParsedAndroidResources parsed) {
+    withPrimary(parsed).build(ruleContext);
+
+    return MergedAndroidResources.of(
+        parsed,
+        mergedResourcesOut,
+        classJarOut,
+        dataBindingInfoZip,
+        dependencies,
+        parsed.getStampedManifest().withProcessedManifest(manifestOut));
   }
 }

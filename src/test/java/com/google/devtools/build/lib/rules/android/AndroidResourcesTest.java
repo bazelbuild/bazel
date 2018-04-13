@@ -45,7 +45,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
   private static final ImmutableList<PathFragment> RESOURCES_ROOTS =
       ImmutableList.of(DEFAULT_RESOURCE_ROOT);
 
-  private static final ImmutableSet<String> TOOL_FILENAMES = ImmutableSet.of("aapt2", "empty.sh");
+  private static final ImmutableSet<String> TOOL_FILENAMES =
+      ImmutableSet.of("aapt2", "empty.sh", "android_blaze.jar", "android.jar");
 
   @Before
   @Test
@@ -249,6 +250,76 @@ public class AndroidResourcesTest extends ResourceTestBase {
             parsed.getCompiledSymbols(), DataBinding.getSuffixedInfoFile(ruleContext, "_unused")));
   }
 
+  @Test
+  public void testMergeDataBinding() throws Exception {
+    useConfiguration("--android_aapt=aapt");
+
+    RuleContext ruleContext = getRuleContext(/* useDataBinding = */ true);
+    ParsedAndroidResources parsed = assertParse(ruleContext);
+    MergedAndroidResources merged = parsed.merge(ruleContext, /* neverlink = */ false);
+
+    // Besides processed manifest, inherited values should be equal
+    assertThat(parsed).isEqualTo(new ParsedAndroidResources(merged, parsed.getStampedManifest()));
+
+    // There should be a new processed manifest
+    assertThat(merged.getManifest()).isNotEqualTo(parsed.getManifest());
+
+    assertThat(merged.getDataBindingInfoZip()).isNotNull();
+
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.<Artifact>builder()
+            .addAll(merged.getResources())
+            .add(merged.getSymbols())
+            .add(parsed.getManifest())
+            .build(),
+        /* outputs = */ ImmutableList.of(
+            merged.getMergedResources(),
+            merged.getClassJar(),
+            merged.getDataBindingInfoZip(),
+            merged.getManifest()));
+  }
+
+  @Test
+  public void testMergeCompiled() throws Exception {
+    mockAndroidSdkWithAapt2();
+    useConfiguration(
+        "--android_sdk=//sdk:sdk", "--android_aapt=aapt2", "--experimental_skip_parsing_action");
+
+    RuleContext ruleContext = getRuleContext(/* useDataBinding = */ false);
+    ParsedAndroidResources parsed = assertParse(ruleContext);
+    MergedAndroidResources merged = parsed.merge(ruleContext, /* neverlink = */ false);
+
+    // Besides processed manifest, inherited values should be equal
+    assertThat(parsed).isEqualTo(new ParsedAndroidResources(merged, parsed.getStampedManifest()));
+
+    // There should be a new processed manifest
+    assertThat(merged.getManifest()).isNotEqualTo(parsed.getManifest());
+
+    assertThat(merged.getDataBindingInfoZip()).isNull();
+    assertThat(merged.getCompiledSymbols()).isNotNull();
+
+    // We use the compiled symbols file to build the resource class jar
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.<Artifact>builder()
+            .addAll(merged.getResources())
+            .add(merged.getCompiledSymbols())
+            .add(parsed.getManifest())
+            .build(),
+        /* outputs = */ ImmutableList.of(merged.getClassJar(), merged.getManifest()));
+
+    // The old symbols file is still needed to build the merged resources zip
+    assertActionArtifacts(
+        ruleContext,
+        /* inputs = */ ImmutableList.<Artifact>builder()
+            .addAll(merged.getResources())
+            .add(merged.getSymbols())
+            .add(parsed.getManifest())
+            .build(),
+        /* outputs = */ ImmutableList.of(merged.getMergedResources()));
+  }
+
   /**
    * Assets that the action used to generate the given outputs has the expected inputs and outputs.
    */
@@ -297,7 +368,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     ParsedAndroidResources parsed = raw.parse(ruleContext, manifest);
 
     // Inherited values should be equal
-    assertThat(raw).isEqualTo(parsed);
+    assertThat(raw).isEqualTo(new AndroidResources(parsed));
 
     // Label should be set from RuleContext
     assertThat(parsed.getLabel()).isEqualTo(ruleContext.getLabel());

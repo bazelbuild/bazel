@@ -107,9 +107,23 @@ public class ParsedAndroidResources extends AndroidResources
     return label;
   }
 
+  public String getJavaPackage() {
+    return manifest.getPackage();
+  }
+
+  public StampedAndroidManifest getStampedManifest() {
+    return manifest;
+  }
+
+  /** Merges this target's resources with resources from dependencies. */
+  public MergedAndroidResources merge(RuleContext ruleContext, boolean neverlink)
+      throws InterruptedException {
+    return MergedAndroidResources.mergeFrom(ruleContext, this, neverlink);
+  }
+
   @Override
   public boolean equals(Object object) {
-    if (!(object instanceof ParsedAndroidResources) || !super.equals(object)) {
+    if (!super.equals(object)) {
       return false;
     }
 

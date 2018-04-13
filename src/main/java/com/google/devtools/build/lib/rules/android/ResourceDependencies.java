@@ -38,6 +38,10 @@ import javax.annotation.Nullable;
  * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a library is
  * included in both the transitive and direct dependencies, it will appear twice. This requires
  * consumers to manage duplicated resources gracefully.
+ *
+ *
+ * <p>TODO(b/76418178): Once resource processing is fully decoupled from asset and manifest
+ * processing, remove asset and manifest fields from this class.
  */
 @Immutable
 public final class ResourceDependencies {
