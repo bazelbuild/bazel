@@ -40,6 +40,7 @@ public abstract class JavaCompilationArgs {
   // B}, B depends on {C, D}, C depends on {junit3}, and D depends on {junit4},
   // the classpath of A will have junit3 before junit4.
 
+  @AutoCodec
   public static final JavaCompilationArgs EMPTY_ARGS =
       JavaCompilationArgs.create(
           NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER),
@@ -311,6 +312,12 @@ public abstract class JavaCompilationArgs {
      * Builds a {@link JavaCompilationArgs} object.
      */
     public JavaCompilationArgs build() {
+      if (runtimeJarsBuilder.isEmpty()
+          && compileTimeJarsBuilder.isEmpty()
+          && fullCompileTimeJarsBuilder.isEmpty()
+          && instrumentationMetadataBuilder.isEmpty()) {
+        return EMPTY_ARGS;
+      }
       return JavaCompilationArgs.create(
           runtimeJarsBuilder.build(),
           compileTimeJarsBuilder.build(),
