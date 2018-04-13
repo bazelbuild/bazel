@@ -17,8 +17,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Wraps parsed (and, if requested, compiled) android resources. */
@@ -119,6 +121,16 @@ public class ParsedAndroidResources extends AndroidResources
   public MergedAndroidResources merge(RuleContext ruleContext, boolean neverlink)
       throws InterruptedException {
     return MergedAndroidResources.mergeFrom(ruleContext, this, neverlink);
+  }
+
+  @Override
+  public Optional<? extends ParsedAndroidResources> maybeFilter(
+      RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter, boolean isDependency)
+      throws RuleErrorException {
+    return super.maybeFilter(errorConsumer, resourceFilter, isDependency)
+        .map(
+            resources ->
+                ParsedAndroidResources.of(resources, symbols, compiledSymbols, label, manifest));
   }
 
   @Override

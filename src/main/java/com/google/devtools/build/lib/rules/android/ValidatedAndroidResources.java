@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Wraps {@link AndroidResources} that have been validated, processed, and packaged. */
@@ -139,6 +142,29 @@ public class ValidatedAndroidResources extends MergedAndroidResources {
   @Nullable
   public Artifact getStaticLibrary() {
     return staticLibrary;
+  }
+
+  public ValidatedAndroidResources filter(
+      RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter, boolean isDependency)
+      throws RuleErrorException {
+    return maybeFilter(errorConsumer, resourceFilter, isDependency).orElse(this);
+  }
+
+  @Override
+  public Optional<ValidatedAndroidResources> maybeFilter(
+      RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter, boolean isDependency)
+      throws RuleErrorException {
+    return super.maybeFilter(errorConsumer, resourceFilter, isDependency)
+        .map(
+            merged ->
+                ValidatedAndroidResources.of(
+                    merged,
+                    rTxt,
+                    sourceJar,
+                    apk,
+                    aapt2RTxt,
+                    aapt2SourceJar,
+                    staticLibrary));
   }
 
   @Override

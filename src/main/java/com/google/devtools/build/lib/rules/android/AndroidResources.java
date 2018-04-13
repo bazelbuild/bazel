@@ -357,17 +357,19 @@ public class AndroidResources {
    */
   public AndroidResources filterLocalResources(
       RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter) throws RuleErrorException {
-    return maybeFilter(errorConsumer, resourceFilter, /* isDependency = */ false).orElse(this);
+    Optional<? extends AndroidResources> filtered =
+        maybeFilter(errorConsumer, resourceFilter, /* isDependency = */ false);
+    return filtered.isPresent() ? filtered.get() : this;
   }
 
   /**
    * Filters this object.
    *
-   * @return an optional wrapping a = new {@link AndroidResources} with resources filtered by the
+   * @return an optional wrapping a new {@link AndroidResources} with resources filtered by the
    *     passed {@link ResourceFilter}, or {@link Optional#empty()} if no resources should be
    *     filtered.
    */
-  public Optional<AndroidResources> maybeFilter(
+  public Optional<? extends AndroidResources> maybeFilter(
       RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter, boolean isDependency)
       throws RuleErrorException {
     Optional<ImmutableList<Artifact>> filtered =
@@ -384,9 +386,20 @@ public class AndroidResources {
             getResourceRoots(errorConsumer, filtered.get(), DEFAULT_RESOURCES_ATTR)));
   }
 
+  /** Parses these resources. */
   public ParsedAndroidResources parse(RuleContext ruleContext, StampedAndroidManifest manifest)
       throws InterruptedException, RuleErrorException {
     return ParsedAndroidResources.parseFrom(ruleContext, this, manifest);
+  }
+
+  /**
+   * Performs the complete resource processing pipeline - parsing, merging, and validation - on
+   * these resources.
+   */
+  public ValidatedAndroidResources process(
+      RuleContext ruleContext, StampedAndroidManifest manifest, boolean neverlink)
+      throws RuleErrorException, InterruptedException {
+    return parse(ruleContext, manifest).merge(ruleContext, neverlink).validate(ruleContext);
   }
 
   @Override

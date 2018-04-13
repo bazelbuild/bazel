@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Wraps merged Android resources. */
@@ -135,6 +138,22 @@ public class MergedAndroidResources extends ParsedAndroidResources {
    */
   public ValidatedAndroidResources validate(RuleContext ruleContext) throws InterruptedException {
     return ValidatedAndroidResources.validateFrom(ruleContext, this);
+  }
+
+  @Override
+  public Optional<? extends MergedAndroidResources> maybeFilter(
+      RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter, boolean isDependency)
+      throws RuleErrorException {
+    return super.maybeFilter(errorConsumer, resourceFilter, isDependency)
+        .map(
+            parsed ->
+                MergedAndroidResources.of(
+                    parsed,
+                    mergedResources,
+                    classJar,
+                    dataBindingInfoZip,
+                    resourceDependencies,
+                    manifest));
   }
 
   @Override

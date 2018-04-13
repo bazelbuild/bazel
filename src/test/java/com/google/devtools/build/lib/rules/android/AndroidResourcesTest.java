@@ -142,6 +142,41 @@ public class AndroidResourcesTest extends ResourceTestBase {
         /* isDependency = */ true);
   }
 
+  @Test
+  public void testFilterValidatedNoop() throws Exception {
+    ImmutableList<Artifact> resources = getResources("values-en/foo.xml", "values-es/bar.xml");
+    assertFilterValidated(resources, resources);
+  }
+
+  @Test
+  public void testFilterValidated() throws Exception {
+    Artifact keptResource = getResource("values-en/foo.xml");
+    assertFilterValidated(
+        ImmutableList.of(keptResource, getResource("drawable/bar.png")),
+        ImmutableList.of(keptResource));
+  }
+
+  private void assertFilterValidated(
+      ImmutableList<Artifact> unfilteredResources, ImmutableList<Artifact> filteredResources)
+      throws Exception {
+    RuleContext ruleContext = getRuleContext(/* useDataBinding = */ false);
+    ValidatedAndroidResources unfiltered =
+        new AndroidResources(unfilteredResources, getResourceRoots(unfilteredResources))
+            .process(ruleContext, getManifest(), /* neverlink = */ false);
+    Optional<? extends AndroidResources> maybeFiltered =
+        assertFilter(unfiltered, filteredResources, /* isDependency = */ true);
+
+    if (maybeFiltered.isPresent()) {
+      AndroidResources filtered = maybeFiltered.get();
+      assertThat(filtered instanceof ValidatedAndroidResources).isTrue();
+      ValidatedAndroidResources validated = (ValidatedAndroidResources) filtered;
+
+      // Validate fields related to validation are unchanged
+      assertThat(validated.getRTxt()).isEqualTo(unfiltered.getRTxt());
+      assertThat(validated.getAapt2RTxt()).isEqualTo(unfiltered.getAapt2RTxt());
+    }
+  }
+
   private void assertFilter(
       ImmutableList<Artifact> unfilteredResources, ImmutableList<Artifact> filteredResources)
       throws Exception {
@@ -153,19 +188,24 @@ public class AndroidResourcesTest extends ResourceTestBase {
       ImmutableList<Artifact> filteredResources,
       boolean isDependency)
       throws Exception {
-    ImmutableList<PathFragment> unfilteredResourcesRoots = getResourceRoots(unfilteredResources);
     AndroidResources unfiltered =
-        new AndroidResources(unfilteredResources, unfilteredResourcesRoots);
+        new AndroidResources(unfilteredResources, getResourceRoots(unfilteredResources));
+    assertFilter(unfiltered, filteredResources, isDependency);
+  }
+
+  private Optional<? extends AndroidResources> assertFilter(
+      AndroidResources unfiltered, ImmutableList<Artifact> filteredResources, boolean isDependency)
+      throws Exception {
 
     ImmutableList.Builder<Artifact> filteredDepsBuilder = ImmutableList.builder();
 
     ResourceFilter fakeFilter =
         ResourceFilter.of(ImmutableSet.copyOf(filteredResources), filteredDepsBuilder::add);
 
-    Optional<AndroidResources> filtered =
+    Optional<? extends AndroidResources> filtered =
         unfiltered.maybeFilter(errorConsumer, fakeFilter, isDependency);
 
-    if (filteredResources.equals(unfilteredResources)) {
+    if (filteredResources.equals(unfiltered.getResources())) {
       // We expect filtering to have been a no-op
       assertThat(filtered.isPresent()).isFalse();
     } else {
@@ -183,10 +223,12 @@ public class AndroidResourcesTest extends ResourceTestBase {
       assertThat(filteredDepsBuilder.build()).isEmpty();
     } else {
       // The filtered dependencies should be exactly the list of filtered resources
-      assertThat(unfilteredResources)
+      assertThat(unfiltered.getResources())
           .containsExactlyElementsIn(
               Iterables.concat(filteredDepsBuilder.build(), filteredResources));
     }
+
+    return filtered;
   }
 
   @Test
