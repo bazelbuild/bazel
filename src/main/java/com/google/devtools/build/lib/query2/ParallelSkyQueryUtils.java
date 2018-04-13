@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
@@ -142,7 +143,7 @@ public class ParallelSkyQueryUtils {
               () -> {
                 Callback<Target> visitorCallback =
                     ParallelVisitor.createParallelVisitorCallback(
-                        new TransitiveClosureVisitor.Factory(
+                        new TransitiveTraversalValueDTCVisitor.Factory(
                             env,
                             env.createSkyKeyUniquifier(),
                             processResultsBatchSize,
@@ -703,13 +704,15 @@ public class ParallelSkyQueryUtils {
     }
   }
 
-  /** Helper class that computes DTC in the form of {@link SkyKey} via BFS. */
-  // TODO(nharmata): This should only be for the TTV-land DTC (i.e. only follow TTV -> TTV edges).
-  private static class TransitiveClosureVisitor extends ParallelVisitor<SkyKey, SkyKey> {
+  /**
+   * Helper class that computes the TTV-only DTC of some given TTV keys, via BFS following all
+   * TTV->TTV dep edges.
+   */
+  private static class TransitiveTraversalValueDTCVisitor extends ParallelVisitor<SkyKey, SkyKey> {
     private final SkyQueryEnvironment env;
     private final Uniquifier<SkyKey> uniquifier;
 
-    private TransitiveClosureVisitor(
+    private TransitiveTraversalValueDTCVisitor(
         SkyQueryEnvironment env,
         Uniquifier<SkyKey> uniquifier,
         int processResultsBatchSize,
@@ -738,7 +741,7 @@ public class ParallelSkyQueryUtils {
 
       @Override
       public ParallelVisitor<SkyKey, SkyKey> create() {
-        return new TransitiveClosureVisitor(
+        return new TransitiveTraversalValueDTCVisitor(
             env, uniquifier, processResultsBatchSize, aggregateAllCallback);
       }
     }
@@ -751,15 +754,19 @@ public class ParallelSkyQueryUtils {
     }
 
     @Override
-    protected Visit getVisitResult(Iterable<SkyKey> values) throws InterruptedException {
-      Multimap<SkyKey, SkyKey> deps = env.getDirectDepsOfSkyKeys(values);
+    protected Visit getVisitResult(Iterable<SkyKey> ttvKeys) throws InterruptedException {
+      Multimap<SkyKey, SkyKey> deps = env.getDirectDepsOfSkyKeys(ttvKeys);
       return new Visit(
           /*keysToUseForResult=*/ deps.keySet(),
-          /*keysToVisit=*/ ImmutableSet.copyOf(deps.values()));
+          /*keysToVisit=*/ deps.values().stream()
+          .filter(SkyQueryEnvironment.IS_TTV)
+          .collect(ImmutableList.toImmutableList()));
     }
 
     @Override
     protected Iterable<SkyKey> preprocessInitialVisit(Iterable<SkyKey> keys) {
+      // ParallelVisitorCallback passes in TTV keys.
+      Preconditions.checkState(Iterables.all(keys, SkyQueryEnvironment.IS_TTV), keys);
       return keys;
     }
 
