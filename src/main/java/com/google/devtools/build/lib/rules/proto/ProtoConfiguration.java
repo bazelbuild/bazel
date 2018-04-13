@@ -143,29 +143,6 @@ public class ProtoConfiguration extends Fragment {
     )
     public List<String> ccProtoLibrarySourceSuffixes;
 
-    // TODO(b/64032754): Remove once there's no 'correctRollupTransitiveProtoRuntimes' in the global
-    //     blazerc.
-    @Option(
-      name = "correctRollupTransitiveProtoRuntimes",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "ignored"
-    )
-    public boolean correctRollupTransitiveProtoRuntimes;
-
-    // TODO(b/62710272): Remove once there's no 'jplNonStrictDepsLikePl' in the global blazerc.
-    @Option(
-      name = "jplNonStrictDepsLikePl",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "ignored"
-    )
-    public boolean jplNonStrictDepsLikePl;
-
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
