@@ -853,7 +853,6 @@ java_library(
         "rules/java/JavaRuntime.java",
         "rules/java/JavaRuntimeAlias.java",
         "rules/java/JavaRuntimeClasspathProvider.java",
-        "rules/java/JavaRuntimeJarProvider.java",
         "rules/java/JavaRuntimeRule.java",
         "rules/java/JavaRuntimeSuite.java",
         "rules/java/JavaRuntimeSuiteRule.java",

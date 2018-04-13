@@ -165,6 +165,8 @@ final class JavaInfoBuildHelper {
         createJavaSourceJarsProvider(
             outputSourceJars, concat(compileTimeDeps, runtimeDeps, exports)));
 
+    javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
+
     return javaInfoBuilder.build();
   }
 
@@ -356,6 +358,7 @@ final class JavaInfoBuildHelper {
                 JavaSourceJarsProvider.class,
                 JavaSourceJarsProvider.create(
                     NestedSetBuilder.emptySet(Order.STABLE_ORDER), sourceJars))
+            .setRuntimeJars(ImmutableList.copyOf(runtimeJars))
             .build();
     return javaInfo;
   }
@@ -463,6 +466,7 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
         .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
         .setNeverlink(neverlink)
+        .setRuntimeJars(ImmutableList.of(outputJar))
         .build();
   }
 

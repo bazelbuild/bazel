@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
@@ -181,6 +180,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
+            .setRuntimeJars(ImmutableList.of(mergedJar))
             .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
 
@@ -196,8 +196,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
-        .addProvider(
-            JavaRuntimeJarProvider.class, new JavaRuntimeJarProvider(ImmutableList.of(mergedJar)))
         .addNativeDeclaredProvider(javaInfoBuilder.build());
     if (depsCheckerResult != null) {
       // Add the deps check result so that we can unit test it.

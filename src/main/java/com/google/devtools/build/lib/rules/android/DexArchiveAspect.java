@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -126,7 +125,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   public AspectDefinition getDefinition(AspectParameters params) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
-            // We care about JavaRuntimeJarProvider, but rules don't advertise that provider.
             .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
@@ -222,9 +220,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   /**
-   * Runs Jars in {@link JavaRuntimeJarProvider} through desugaring action if flag is set and adds
-   * the result to {@code result}. Note that this cannot happen in a separate aspect because aspects
-   * don't see providers added by other aspects executed on the same target.
+   * Runs Jars in {@link JavaInfo#getDirectRuntimeJars()} through desugaring action if flag is set
+   * and adds the result to {@code result}. Note that this cannot happen in a separate aspect
+   * because aspects don't see providers added by other aspects executed on the same target.
    */
   private Function<Artifact, Artifact> desugarJarsIfRequested(
       ConfiguredTarget base, RuleContext ruleContext, ConfiguredAspect.Builder result) {
@@ -246,8 +244,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       return Functions.identity();
     }
 
-    JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
-    if (jarProvider != null) {
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+    if (javaInfo != null) {
       // These are all transitive hjars of dependencies and hjar of the jar itself
       NestedSet<Artifact> compileTimeClasspath =
           getJavaCompilationArgsProvider(base, ruleContext)
@@ -256,8 +254,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       ImmutableList<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
-      boolean basenameClash = checkBasenameClash(jarProvider.getRuntimeJars());
-      for (Artifact jar : jarProvider.getRuntimeJars()) {
+
+      boolean basenameClash = checkBasenameClash(javaInfo.getDirectRuntimeJars());
+      for (Artifact jar : javaInfo.getDirectRuntimeJars()) {
         Artifact desugared =
             createDesugarAction(
                 ruleContext, basenameClash, jar, bootclasspath, compileTimeClasspath);
@@ -281,9 +280,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         }
       }
     } else {
-      JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
-      if (jarProvider != null) {
-        return jarProvider.getRuntimeJars();
+      JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+      if (javaInfo != null) {
+        return javaInfo.getDirectRuntimeJars();
       }
     }
     return null;

@@ -297,6 +297,17 @@ public final class JavaInfo extends NativeInfo {
 
   private final TransitiveInfoProviderMap providers;
 
+  /*
+   * Contains the .jar files to be put on the runtime classpath by the configured target.
+   * <p>Unlike {@link JavaCompilationArgs#getRuntimeJars()}, it does not contain transitive runtime
+   * jars, only those produced by the configured target itself.
+   *
+   * <p>The reason why this field exists is that neverlink libraries do not contain the compiled jar
+   * in {@link JavaCompilationArgs#getRuntimeJars()} and those are sometimes needed, for example,
+   * for Proguarding (the compile time classpath is not enough because that contains only ijars)
+  */
+  private final ImmutableList<Artifact> directRuntimeJars;
+
   // Whether or not this library should be used only for compilation and not at runtime.
   private final boolean neverlink;
 
@@ -398,6 +409,10 @@ public final class JavaInfo extends NativeInfo {
     return javaInfo.getProvider(providerClass);
   }
 
+  public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
+    return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+  }
+
   public static <T extends TransitiveInfoProvider> T getProvider(
       Class<T> providerClass, TransitiveInfoProviderMap providerMap) {
     T provider = providerMap.getProvider(providerClass);
@@ -442,8 +457,13 @@ public final class JavaInfo extends NativeInfo {
 
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  JavaInfo(TransitiveInfoProviderMap providers, boolean neverlink, Location location) {
+  JavaInfo(
+      TransitiveInfoProviderMap providers,
+      ImmutableList<Artifact> directRuntimeJars,
+      boolean neverlink,
+      Location location) {
     super(PROVIDER, location);
+    this.directRuntimeJars = directRuntimeJars;
     this.providers = providers;
     this.neverlink = neverlink;
   }
@@ -556,6 +576,10 @@ public final class JavaInfo extends NativeInfo {
     return getProvider(JavaCompilationInfoProvider.class);
   }
 
+  public ImmutableList<Artifact> getDirectRuntimeJars() {
+    return directRuntimeJars;
+  }
+
   @SkylarkCallable(
     name = "transitive_deps",
     doc = "Returns the transitive set of Jars required to build the target.",
@@ -665,6 +689,7 @@ public final class JavaInfo extends NativeInfo {
    */
   public static class Builder {
     TransitiveInfoProviderMapBuilder providerMap;
+    private ImmutableList<Artifact> runtimeJars;
     private boolean neverlink;
     private Location location = Location.BUILTIN;
 
@@ -673,12 +698,18 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public static Builder create() {
-      return new Builder(new TransitiveInfoProviderMapBuilder());
+      return new Builder(new TransitiveInfoProviderMapBuilder())
+          .setRuntimeJars(ImmutableList.of());
     }
 
     public static Builder copyOf(JavaInfo javaInfo) {
       return new Builder(
           new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()));
+    }
+
+    public Builder setRuntimeJars(ImmutableList<Artifact> runtimeJars) {
+      this.runtimeJars = runtimeJars;
+      return this;
     }
 
     public Builder setNeverlink(boolean neverlink) {
@@ -699,7 +730,7 @@ public final class JavaInfo extends NativeInfo {
     }
 
     public JavaInfo build() {
-      return new JavaInfo(providerMap.build(), neverlink, location);
+      return new JavaInfo(providerMap.build(), runtimeJars, neverlink, location);
     }
   }
 }

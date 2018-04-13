@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,10 +71,9 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
                 AndroidCommon.collectTransitiveNeverlinkLibraries(
                     ruleContext,
                     deps,
-                    ctadBase
-                        .getConfiguredTarget()
-                        .getProvider(JavaRuntimeJarProvider.class)
-                        .getRuntimeJars())))
+                    JavaInfo.getJavaInfo(ctadBase
+                        .getConfiguredTarget())
+                        .getDirectRuntimeJars())))
         .build();
   }
 
