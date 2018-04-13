@@ -406,6 +406,39 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testSkylarkCanAccessJ2objcTranslationFlags() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def swift_binary_impl(ctx):",
+        "   j2objc_flags = ctx.fragments.j2objc.translation_flags",
+        "   return struct(",
+        "      j2objc_flags=j2objc_flags,",
+        "   )",
+        "swift_binary = rule(",
+        "    implementation = swift_binary_impl,",
+        "    fragments = ['j2objc'],",
+        ")");
+
+    scratch.file("examples/apple_skylark/a.m");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
+        "swift_binary(",
+        "   name='my_target',",
+        ")");
+
+    useConfiguration("--j2objc_translation_flags=-DTestJ2ObjcFlag");
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    @SuppressWarnings("unchecked")
+    List<String> flags = (List<String>) skylarkTarget.get("j2objc_flags");
+    assertThat(flags).contains("-DTestJ2ObjcFlag");
+    assertThat(flags).doesNotContain("-unspecifiedFlag");
+  }
+
+  @Test
   public void testSkylarkCanAccessApplePlatformNames() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(

@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.Collections;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -96,7 +96,7 @@ public class J2ObjcConfiguration extends Fragment {
     }
   }
 
-  private final List<String> translationFlags;
+  private final ImmutableList<String> translationFlags;
   private final boolean removeDeadCode;
   private final boolean experimentalJ2ObjcHeaderMap;
   @Nullable private final Label deadCodeReport;
@@ -115,7 +115,7 @@ public class J2ObjcConfiguration extends Fragment {
 
   @AutoCodec.Instantiator
   J2ObjcConfiguration(
-      List<String> translationFlags,
+      ImmutableList<String> translationFlags,
       boolean removeDeadCode,
       boolean experimentalJ2ObjcHeaderMap,
       Label deadCodeReport) {
@@ -132,7 +132,12 @@ public class J2ObjcConfiguration extends Fragment {
    * #J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS}. The set of disallowed flags can be found at
    * {@link #J2OBJC_BLACKLISTED_TRANSLATION_FLAGS}.
    */
-  public Iterable<String> getTranslationFlags() {
+  @SkylarkCallable(
+      name = "translation_flags",
+      structField = true,
+      doc = "The list of flags to be used when the j2objc compiler is invoked. "
+  )
+  public ImmutableList<String> getTranslationFlags() {
     return translationFlags;
   }
 
