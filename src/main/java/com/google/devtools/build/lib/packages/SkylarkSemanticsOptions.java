@@ -145,6 +145,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowDictPlus;
 
   @Option(
+    name = "incompatible_disallow_filetype",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help = "If set to true, function `FileType` is not available."
+  )
+  public boolean incompatibleDisallowFileType;
+
+  @Option(
     name = "incompatible_disallow_slash_operator",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -266,6 +279,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisableGlobTracking(incompatibleDisableGlobTracking)
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
+        .incompatibleDisallowFileType(incompatibleDisallowFileType)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)

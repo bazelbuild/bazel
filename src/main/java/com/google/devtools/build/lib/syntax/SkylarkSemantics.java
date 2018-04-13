@@ -51,6 +51,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowDictPlus();
 
+  public abstract boolean incompatibleDisallowFileType();
+
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
   public abstract boolean incompatibleDisallowSlashOperator();
@@ -88,6 +90,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisableGlobTracking(true)
           .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDictPlus(false)
+          .incompatibleDisallowFileType(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
           .incompatibleDisallowSlashOperator(false)
           .incompatibleNewActionsApi(false)
@@ -114,6 +117,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
+
+    public abstract Builder incompatibleDisallowFileType(boolean value);
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 

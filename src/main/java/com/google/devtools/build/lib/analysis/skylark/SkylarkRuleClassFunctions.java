@@ -1087,11 +1087,21 @@ public class SkylarkRuleClassFunctions {
         defaultValue = "[]",
         doc = "a list of the accepted file extensions."
       )
-    }
+    },
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction fileType =
       new BuiltinFunction("FileType") {
-        public SkylarkFileType invoke(SkylarkList types) throws EvalException {
+        public SkylarkFileType invoke(SkylarkList types, Location loc, Environment env)
+            throws EvalException {
+          if (env.getSemantics().incompatibleDisallowFileType()) {
+            throw new EvalException(
+                loc,
+                "FileType function is not available. You may use a list of strings instead. "
+                    + "You can temporarily reenable the function by passing the flag "
+                    + "--incompatible_disallow_filetype=false");
+          }
           return SkylarkFileType.of(types.getContents(String.class, "types"));
         }
       };

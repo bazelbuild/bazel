@@ -35,6 +35,7 @@ guarded behind flags in the current release:
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
+*   [FileType is deprecated](#filetype-is-deprecated)
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
 *   [Glob tracking](#glob-tracking)
@@ -149,6 +150,17 @@ x = 7 // 2  # x is 3
 ```
 
 *   Flag: `--incompatible_disallow_slash_operator`
+*   Default: `false`
+
+
+### FileType is deprecated
+
+The [FileType](lib/FileType.html) function is going away. The main use-case was
+as an argument to the [rule function](lib/globals.html#rule). It's no longer
+needed, you can simply pass a list of strings to restrict the file types the
+rule accepts.
+
+*   Flag: `--incompatible_disallow_filetype`
 *   Default: `false`
 
 ### New actions API
