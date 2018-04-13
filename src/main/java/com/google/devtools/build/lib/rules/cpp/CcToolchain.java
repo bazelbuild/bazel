@@ -319,38 +319,34 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT) {
       if (cppConfiguration.getFdoPath() != null) {
         fdoZip = cppConfiguration.getFdoPath();
-      } else if (cppConfiguration.getFdoProfileLabel() != null
-          || cppConfiguration.getFdoOptimizeLabel() != null) {
-        Artifact fdoArtifact;
-        if (cppConfiguration.getFdoProfileLabel() != null) {
-          fdoArtifact =
-              ruleContext
-                  .getPrerequisite(":fdo_profile", Mode.TARGET, FdoProfileProvider.PROVIDER)
-                  .getProfileArtifact();
-        } else {
-          fdoArtifact = ruleContext.getPrerequisiteArtifact(":fdo_optimize", Mode.TARGET);
-        }
-
-        String flagInUse =
-            cppConfiguration.getFdoProfileLabel() != null ? "--fdo_profile" : "--fdo_optimize";
-
+      } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
+        Artifact fdoArtifact = ruleContext.getPrerequisiteArtifact(":fdo_optimize", Mode.TARGET);
         if (!fdoArtifact.isSourceArtifact()) {
-          ruleContext.ruleError(
-              String.format("%s points to a target that is not an input file", flagInUse));
+          ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
           return null;
         }
-        if (flagInUse.equals("--fdo_optimize")) {
-          Label fdoLabel = ruleContext.getPrerequisite(":fdo_optimize", Mode.TARGET).getLabel();
-          if (!fdoLabel
-              .getPackageIdentifier()
-              .getPathUnderExecRoot()
-              .getRelative(fdoLabel.getName())
-              .equals(fdoArtifact.getExecPath())) {
-            ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
-            return null;
-          }
+        Label fdoLabel = ruleContext.getPrerequisite(":fdo_optimize", Mode.TARGET).getLabel();
+        if (!fdoLabel
+            .getPackageIdentifier()
+            .getPathUnderExecRoot()
+            .getRelative(fdoLabel.getName())
+            .equals(fdoArtifact.getExecPath())) {
+          ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
+          return null;
         }
         fdoZip = fdoArtifact.getPath().asFragment();
+      } else if (cppConfiguration.getFdoProfileLabel() != null) {
+        FdoProfileProvider fdoProvider =
+            ruleContext.getPrerequisite(":fdo_profile", Mode.TARGET, FdoProfileProvider.PROVIDER);
+        fdoZip =
+            fdoProvider.getFdoPath() != null
+                ? fdoProvider.getFdoPath()
+                : fdoProvider.getProfileArtifact().getPath().asFragment();
+        // Unlike --fdo_optimize, --fdo_profile should not allow .afdo profiles.
+        if (fdoZip != null && CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip.getPathString())) {
+          ruleContext.ruleError("Invalid extension for FDO profile file.");
+          return null;
+        }
       }
     }
 

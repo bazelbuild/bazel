@@ -1353,6 +1353,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.getFdoProfileLabel();
   }
 
+  public boolean isFdoAbsolutePathEnabled() {
+    return cppOptions.enableFdoProfileAbsolutePath;
+  }
+
   public boolean useLLVMCoverageMapFormat() {
     return cppOptions.useLLVMCoverageMapFormat;
   }
