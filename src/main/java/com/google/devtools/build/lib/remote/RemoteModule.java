@@ -130,8 +130,10 @@ public final class RemoteModule extends BlazeModule {
       boolean remoteOrLocalCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
       boolean grpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
 
+      LoggingInterceptor logger = null;
       if (!remoteOptions.experimentalRemoteGrpcLog.isEmpty()) {
         rpcLogFile = new AsynchronousFileOutputStream(remoteOptions.experimentalRemoteGrpcLog);
+        logger = new LoggingInterceptor(rpcLogFile);
       }
 
       RemoteRetrier retrier =
@@ -152,6 +154,9 @@ public final class RemoteModule extends BlazeModule {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = grpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
         Channel ch = GoogleAuthUtils.newChannel(target, authAndTlsOptions);
+        if (logger != null) {
+          ch = ClientInterceptors.intercept(ch, logger);
+        }
         cache =
             new GrpcRemoteCache(
                 ch,
@@ -166,8 +171,8 @@ public final class RemoteModule extends BlazeModule {
       final GrpcRemoteExecutor executor;
       if (remoteOptions.remoteExecutor != null) {
         Channel ch = GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions);
-        if (rpcLogFile != null) {
-          ch = ClientInterceptors.intercept(ch, new LoggingInterceptor(rpcLogFile));
+        if (logger != null) {
+          ch = ClientInterceptors.intercept(ch, logger);
         }
         executor =
             new GrpcRemoteExecutor(

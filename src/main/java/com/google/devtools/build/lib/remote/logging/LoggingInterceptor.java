@@ -17,8 +17,11 @@ package com.google.devtools.build.lib.remote.logging;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc;
+import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
+import com.google.watcher.v1.WatcherGrpc;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -50,6 +53,12 @@ public class LoggingInterceptor implements ClientInterceptor {
       MethodDescriptor<ReqT, RespT> method) {
     if (method == ExecutionGrpc.getExecuteMethod()) {
       return new ExecuteHandler();
+    } else if (method == WatcherGrpc.getWatchMethod()) {
+      return new WatchHandler();
+    } else if (method == ActionCacheGrpc.getGetActionResultMethod()) {
+      return new GetActionResultHandler();
+    } else if (method == ContentAddressableStorageGrpc.getFindMissingBlobsMethod()) {
+      return new FindMissingBlobsHandler();
     }
     return null;
   }
