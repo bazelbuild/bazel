@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -36,9 +37,6 @@ import java.util.logging.Logger;
  */
 class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   private static final Logger log = Logger.getLogger(SandboxfsSandboxedSpawn.class.getName());
-
-  /** An empty file to use when mappings don't specify their target. */
-  private static final PathFragment EMPTY_FILE = PathFragment.create("/dev/null");
 
   /** Sequence number to assign a unique subtree to each action within the mount point. */
   private static final AtomicInteger lastId = new AtomicInteger();
@@ -176,10 +174,22 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
         .setWritable(true)
         .build());
 
+    // Path to the empty file used as the target of mappings that don't provide one.  This is
+    // lazily created and initialized only when we need such a mapping.  It's safe to share the
+    // same empty file across all such mappings because this file is exposed as read-only.
+    //
+    // We cannot use /dev/null, as we used to do in the past, because exposing devices via a
+    // FUSE file system (which sandboxfs is) requires root privileges.
+    Path emptyFile = null;
+
     for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
       PathFragment target;
       if (entry.getValue() == null) {
-        target = EMPTY_FILE;
+        if (emptyFile == null) {
+          emptyFile = sandboxScratchDir.getRelative("empty");
+          FileSystemUtils.createEmptyFile(emptyFile);
+        }
+        target = emptyFile.asFragment();
       } else if (entry.getValue().isSymbolicLink()) {
         // If an input is a symlink, we don't necessarily have its target as an input as well.  To
         // ensure the target is reachable within the sandbox, we have two choices: we can either
